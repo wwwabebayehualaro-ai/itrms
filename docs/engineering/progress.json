@@ -44,11 +44,12 @@
         {
           "id": "0.2",
           "title": "Monorepo skeleton, CI, security scans",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.2-monorepo-skeleton",
           "commits": [
             "ce13bce",
-            "065097f"
+            "065097f",
+            "158f2c1 (squash on main)"
           ],
           "evidence": [
             "pnpm install --frozen-lockfile → ok, 20 workspace projects, lockfile passes pnpm minimumReleaseAge 14 days",
@@ -67,7 +68,7 @@
         {
           "id": "0.3",
           "title": "Dev stack (Docker Compose)",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
