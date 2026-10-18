@@ -13,6 +13,7 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "build": "turbo run build",
+    "test:int": "turbo run test:int",
     "boundaries": "depcruise apps platform modules packages --config .dependency-cruiser.cjs",
     "check:slices": "node tools/check-slices.mjs",
     "test:tools": "node --test \"tools/**/*.test.mjs\"",
@@ -20,9 +21,15 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "gen": "turbo gen",
-    "prepare": "lefthook install"
+    "prepare": "lefthook install",
+    "dev:infra": "node tools/dev-infra.mjs up",
+    "dev:infra:check": "node tools/dev-infra.mjs check",
+    "dev:infra:down": "node tools/dev-infra.mjs down",
+    "dev:infra:status": "node tools/dev-infra.mjs status",
+    "dev:infra:reset": "node tools/dev-infra.mjs reset"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "3.1146.0",
     "@itrms/config": "workspace:*",
     "@turbo/gen": "2.11.7",
     "@types/node": "24.19.1",

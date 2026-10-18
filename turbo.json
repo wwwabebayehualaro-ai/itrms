@@ -22,6 +22,11 @@
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/config/**"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**", "out/**"]
+    },
+    "test:int": {
+      "dependsOn": ["^transit"],
+      "cache": false,
+      "passThroughEnv": ["S3_*"]
     }
   }
 }

@@ -51,6 +51,15 @@ test('the check reports a slice whose exports drift', () => {
     assert.ok(problems.some((p) => p.includes('scripts.test')));
 });
 
+test('the check refuses a platform slice that is not in the platform order', () => {
+    const extra = renderSlice({ key: 'zz-unordered', layer: 'platform', summary: 'Not in PLATFORM_ORDER' });
+    try {
+        assert.ok(sliceProblems(extra).some((p) => p.includes('not in the platform order')));
+    } finally {
+        rmSync(extra, { recursive: true, force: true });
+    }
+});
+
 test('rendering refuses a name used by another package in the workspace', () => {
     assert.throws(
         () => renderSlice({ key: 'kernel', layer: 'work-process', summary: 'x' }),

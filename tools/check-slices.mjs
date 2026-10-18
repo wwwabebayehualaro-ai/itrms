@@ -13,7 +13,13 @@ const { PLATFORM_ORDER } = createRequire(import.meta.url)('./boundaries/layers.c
 /** Problems of one slice directory; empty when it follows the shape. */
 export function sliceProblems(dir) {
     const problems = [];
-    const key = dir.split(/[\\/]/).at(-1);
+    const parts = dir.split(/[\\/]/);
+    const key = parts.at(-1);
+    if (parts.at(-2) === 'platform' && !PLATFORM_ORDER.includes(key)) {
+        problems.push(
+            `platform/${key} is not in the platform order (tools/boundaries/layers.cjs): no layer rule covers it`
+        );
+    }
     const pkgFile = join(dir, 'package.json');
     if (!existsSync(pkgFile)) return ['package.json is missing'];
     const pkg = JSON.parse(readFileSync(pkgFile, 'utf8'));

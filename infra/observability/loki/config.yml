@@ -1,0 +1,37 @@
+# Development Loki: single binary, filesystem storage, 7-day retention.
+auth_enabled: false
+server:
+  http_listen_port: 3100
+common:
+  path_prefix: /loki
+  # Single binary in a container: the in-memory ring needs its own address, or the ingester never becomes ready.
+  instance_addr: 127.0.0.1
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+schema_config:
+  configs:
+    - from: 2026-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+limits_config:
+  retention_period: 168h
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  delete_request_store: filesystem
+# One instance only: join the ring at once instead of waiting for peers (otherwise /ready takes minutes).
+ingester:
+  lifecycler:
+    join_after: 0s
+    min_ready_duration: 1s
+    final_sleep: 0s

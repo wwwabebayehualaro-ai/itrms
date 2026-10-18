@@ -1,0 +1,286 @@
+# ITRMS development stack (phase-0 task 0.3). Start it with `pnpm dev:infra`, which creates .env with random secrets on
+# first run and seeds Keycloak and the S3 bucket. Every port binds to 127.0.0.1 only. Images are pinned by tag and
+# digest to releases at least two weeks old (tech-stack version rule); Renovate proposes updates. Host ports default to
+# an ITRMS range (15432, 18080, …) so they do not collide with other local stacks; each can be overridden in .env.
+#
+#   pnpm dev:infra                 core services: postgres, valkey (queues + sessions), keycloak, seaweedfs, mailpit
+#   pnpm dev:infra --observability + Alloy, Prometheus, Loki, Tempo, Grafana, GlitchTip (ADR-0023)
+name: itrms
+
+x-restart: &restart
+  restart: unless-stopped
+
+services:
+  postgres:
+    <<: *restart
+    image: postgres:16.15-alpine3.23@sha256:621a761097839bdb50207afd6b87a72f38e2d718dd46c3d744828d8917c4f1e0
+    environment:
+      POSTGRES_DB: itrms
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run pnpm dev:infra to create infra/compose/.env}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?}
+      GLITCHTIP_DB_PASSWORD: ${GLITCHTIP_DB_PASSWORD:?}
+      TZ: Africa/Addis_Ababa
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - 127.0.0.1:${PG_HOST_PORT:-15432}:5432
+    healthcheck:
+      # Over TCP (the entrypoint's temporary init server listens only on the socket) and only once the init script's
+      # last object, the glitchtip database, exists.
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -h 127.0.0.1 -U postgres -d itrms && psql -h 127.0.0.1 -U postgres -d itrms -tAc "select 1 from pg_database where datname = ''glitchtip''" | grep -q 1'
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  # Two Valkey instances (architecture §12): queues and BFF sessions, each with its own memory alert in production.
+  valkey-queues:
+    <<: *restart
+    image: valkey/valkey:8.1.10-alpine3.24@sha256:081c2f5cb575efc901aa80ff9cdbd1ec6a301682fd35e1ebb4b0990a4a4a8507
+    command: ['valkey-server', '--appendonly', 'yes', '--appendfsync', 'everysec', '--maxmemory-policy', 'noeviction']
+    volumes:
+      - valkey-queues-data:/data
+    ports:
+      - 127.0.0.1:${VALKEY_QUEUES_HOST_PORT:-16379}:6379
+    healthcheck:
+      test: ['CMD-SHELL', 'valkey-cli ping | grep -q PONG']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  valkey-sessions:
+    <<: *restart
+    image: valkey/valkey:8.1.10-alpine3.24@sha256:081c2f5cb575efc901aa80ff9cdbd1ec6a301682fd35e1ebb4b0990a4a4a8507
+    command: ['valkey-server', '--appendonly', 'yes', '--appendfsync', 'everysec', '--maxmemory-policy', 'noeviction']
+    volumes:
+      - valkey-sessions-data:/data
+    ports:
+      - 127.0.0.1:${VALKEY_SESSIONS_HOST_PORT:-16380}:6379
+    healthcheck:
+      test: ['CMD-SHELL', 'valkey-cli ping | grep -q PONG']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  keycloak:
+    <<: *restart
+    image: quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85
+    command: ['start-dev']
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?}
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?}
+      KC_HEALTH_ENABLED: 'true'
+      KC_HTTP_PORT: '8080'
+      KC_HOSTNAME: http://localhost:${KEYCLOAK_HOST_PORT:-18080}
+      TZ: Africa/Addis_Ababa
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - 127.0.0.1:${KEYCLOAK_HOST_PORT:-18080}:8080
+    healthcheck:
+      # The image has no curl: ask the management port with bash's /dev/tcp.
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/9000 &&
+          printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          grep -q '"UP"' <&3
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  # SeaweedFS (ADR-0020): master, volume, filer and the S3 gateway in one container for development. Its master,
+  # volume and filer listeners have no authentication, so it sits alone on the `storage` network: no other container
+  # can reach them, and only the S3 port is published (to the host). Production (task 0.26) adds SeaweedFS JWT security.
+  seaweedfs:
+    <<: *restart
+    networks: [storage]
+    image: chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        cat > /tmp/s3.json <<EOF
+        {"identities":[{"name":"itrms-dev","credentials":[{"accessKey":"$${S3_ACCESS_KEY}","secretKey":"$${S3_SECRET_KEY}"}],"actions":["Admin","Read","Write","List","Tagging"]}]}
+        EOF
+        exec weed server -dir=/data -master.volumeSizeLimitMB=1024 -volume.max=0 -s3 -s3.port=8333 -s3.config=/tmp/s3.json
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?}
+    volumes:
+      - seaweedfs-data:/data
+    ports:
+      - 127.0.0.1:${S3_HOST_PORT:-18333}:8333
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:8333/healthz']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+
+  mailpit:
+    <<: *restart
+    image: axllent/mailpit:v1.31.4@sha256:b68349e3a014b90c5610bfb26b2ae36f3892d7b8cf25ee140c6c71c98d2fcf48
+    environment:
+      TZ: Africa/Addis_Ababa
+    ports:
+      - 127.0.0.1:${SMTP_HOST_PORT:-11025}:1025
+      - 127.0.0.1:${MAILPIT_HOST_PORT:-18025}:8025
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # ---- observability profile (ADR-0023) ----
+  alloy:
+    profiles: [observability]
+    <<: *restart
+    image: grafana/alloy:v1.20.1@sha256:2aa2099af76c0098d4af7a4d6e48f86cb66dc1a000222ad927a1c67c6542d13f
+    command:
+      [
+        'run',
+        '--server.http.listen-addr=0.0.0.0:12345',
+        '--storage.path=/var/lib/alloy/data',
+        '/etc/alloy/config.alloy'
+      ]
+    volumes:
+      - ../observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+    ports:
+      - 127.0.0.1:${OTLP_GRPC_HOST_PORT:-14317}:4317
+      - 127.0.0.1:${OTLP_HTTP_HOST_PORT:-14318}:4318
+      - 127.0.0.1:${ALLOY_HOST_PORT:-12345}:12345
+    depends_on: [prometheus, loki, tempo]
+
+  prometheus:
+    profiles: [observability]
+    <<: *restart
+    image: prom/prometheus:v3.13.4@sha256:87861b8cf91579109319ebc300f3f1060e6da9c05d6ae8ad15a20c879e84e32e
+    command:
+      [
+        '--config.file=/etc/prometheus/prometheus.yml',
+        '--web.enable-remote-write-receiver',
+        '--storage.tsdb.retention.time=7d'
+      ]
+    volumes:
+      - ../observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - 127.0.0.1:${PROMETHEUS_HOST_PORT:-19090}:9090
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:9090/-/ready']
+      interval: 10s
+      timeout: 3s
+      retries: 20
+
+  loki:
+    profiles: [observability]
+    <<: *restart
+    image: grafana/loki:3.7.8@sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e51528f0193
+    command: ['-config.file=/etc/loki/config.yml']
+    volumes:
+      - ../observability/loki/config.yml:/etc/loki/config.yml:ro
+      - loki-data:/loki
+    ports:
+      - 127.0.0.1:${LOKI_HOST_PORT:-13100}:3100
+    # Loki and Tempo images are distroless (no shell, no HTTP client), Alloy and GlitchTip have no HTTP client:
+    # pnpm dev:infra checks their readiness endpoints from the host instead (tools/dev-infra.mjs, READINESS).
+
+  tempo:
+    profiles: [observability]
+    <<: *restart
+    image: grafana/tempo:3.1.0@sha256:3076b8dcdfb32fd6bc5ccef85e7b7313e6199b9cb84366257fc17ecb696db5fd
+    command: ['-config.file=/etc/tempo/config.yml']
+    volumes:
+      - ../observability/tempo/config.yml:/etc/tempo/config.yml:ro
+      - tempo-data:/var/tempo
+    ports:
+      - 127.0.0.1:${TEMPO_HOST_PORT:-13200}:3200
+
+  grafana:
+    profiles: [observability]
+    <<: *restart
+    image: grafana/grafana:12.4.12@sha256:83be3e511ede559bee80e2215bb1987cb1246075461cb961beb515b0341e7aea
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_ANALYTICS_CHECK_FOR_UPDATES: 'false'
+    volumes:
+      - ../observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - 127.0.0.1:${GRAFANA_HOST_PORT:-13001}:3000
+    depends_on: [prometheus, loki, tempo]
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:3000/api/health']
+      interval: 10s
+      timeout: 3s
+      retries: 30
+
+  glitchtip:
+    profiles: [observability]
+    <<: *restart
+    image: glitchtip/glitchtip:6.2.6@sha256:a3d8eb1b36c1e1603d55ab32711ea3dd8115874742a781a57391a62a16e0dff6
+    environment: &glitchtip-env
+      DATABASE_URL: postgres://glitchtip:${GLITCHTIP_DB_PASSWORD:?}@postgres:5432/glitchtip
+      REDIS_URL: redis://valkey-queues:6379/1
+      SECRET_KEY: ${GLITCHTIP_SECRET_KEY:?}
+      GLITCHTIP_DOMAIN: http://localhost:${GLITCHTIP_HOST_PORT:-18000}
+      DEFAULT_FROM_EMAIL: glitchtip@localhost
+      EMAIL_URL: smtp://mailpit:1025
+      ENABLE_USER_REGISTRATION: 'false'
+      PORT: '8000'
+    depends_on:
+      glitchtip-migrate:
+        condition: service_completed_successfully
+      valkey-queues:
+        condition: service_healthy
+    ports:
+      - 127.0.0.1:${GLITCHTIP_HOST_PORT:-18000}:8000
+
+  # One-shot: GlitchTip's database migrations, before its web and worker processes start.
+  glitchtip-migrate:
+    profiles: [observability]
+    image: glitchtip/glitchtip:6.2.6@sha256:a3d8eb1b36c1e1603d55ab32711ea3dd8115874742a781a57391a62a16e0dff6
+    command: ['./bin/run-migrate.sh']
+    environment: *glitchtip-env
+    restart: 'no'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  glitchtip-worker:
+    profiles: [observability]
+    <<: *restart
+    image: glitchtip/glitchtip:6.2.6@sha256:a3d8eb1b36c1e1603d55ab32711ea3dd8115874742a781a57391a62a16e0dff6
+    command: ['./bin/run-worker.sh']
+    environment: *glitchtip-env
+    depends_on:
+      glitchtip-migrate:
+        condition: service_completed_successfully
+
+networks:
+  default:
+  storage:
+
+volumes:
+  postgres-data:
+  valkey-queues-data:
+  valkey-sessions-data:
+  seaweedfs-data:
+  prometheus-data:
+  loki-data:
+  tempo-data:
+  grafana-data:

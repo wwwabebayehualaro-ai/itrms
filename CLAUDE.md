@@ -136,10 +136,11 @@ can't run it). Available now (task 0.2):
 - `pnpm i` · `pnpm turbo run lint typecheck test build` · `pnpm boundaries` (dependency-cruiser layer rules)
 - `pnpm check:slices` (slice shape) · `pnpm test:tools` (boundary fixtures, scaffold) · `pnpm format` / `format:check`
 - `pnpm gen module|feature|screen|effect` (turbo gen) · `pnpm licences:report`
+- `pnpm dev:infra [--observability]` · `dev:infra:status|down|reset --yes` (Compose dev stack, task 0.3; see
+  `infra/compose/README.md`) · `pnpm test:int` (integration tests against it)
 
 Added by later tasks (legacy commands until then: `docs/legacy/CLAUDE.digital-file-cabinet.md`):
-- `pnpm dev:infra` (Compose: postgres, valkey, keycloak, S3, mailpit) · `pnpm dev` (web :3000, api :4000)
-- `pnpm --filter @itrms/api test:int` (real Postgres) · `pnpm e2e`
+- `pnpm dev` (web :3000, api :4000) · `pnpm e2e`
 - `pnpm --filter @itrms/api db:generate` (drizzle-kit, review the SQL) · `db:migrate` · `pnpm demo:reset`
 - `pnpm i18n:check` · `pnpm licences:report` · `pnpm openapi` (regenerate `packages/api-client/openapi.json`)
 

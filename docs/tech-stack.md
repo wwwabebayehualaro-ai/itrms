@@ -55,6 +55,7 @@ registry or the project page on 2026-10-18.
 | T37 | API docs and contract tests | OpenAPI from nestjs-zod → **Scalar** UI (internal) and the typed client; contract drift check in CI | As in the legacy project, modernised |
 | T38 | URL state (list filters, sort, paging, tabs) | **nuqs** 2 (typed search parameters for the App Router) | Every list view becomes a shareable deep link without hand-written parsing; type-safe on server and client |
 | T39 | Pre-commit hooks | **lefthook** 2 (Prettier, ESLint, gitleaks on staged files) and **`turbo gen`** (`@turbo/gen`) generators for slices | lefthook is a fast single binary with parallel hooks; `turbo gen` is Turborepo's own Plop-based generator, so no extra scaffolding tool |
+| T40 | S3 client (dev seeding, contract tests; later the ObjectStore adapter, task 0.15) | **AWS SDK for JavaScript v3**: `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner` | The reference S3 client: presigned URLs, multipart, signed content length; modular, so only S3 is bundled |
 
 ## 2. The full stack at a glance
 

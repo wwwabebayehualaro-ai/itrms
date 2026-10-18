@@ -68,10 +68,24 @@
         {
           "id": "0.3",
           "title": "Dev stack (Docker Compose)",
-          "status": "ready",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.3-dev-stack",
+          "commits": [
+            "2f549cc",
+            "f2ed76e",
+            "0ca59ce",
+            "5823cc1",
+            "97e3a20"
+          ],
+          "evidence": [
+            "Windows/WSL2 from zero (volumes and .env deleted): pnpm dev:infra --observability → healthy and seeded in 104 s (16 services; host-side readiness for Loki, Tempo, Alloy, GlitchTip)",
+            "pnpm dev:infra:check → 10/10: S3 buckets, Keycloak users dev.admin/dev.officer/dev.cashier, storage isolation with control, OTLP log in Loki and trace in Tempo via Alloy, GlitchTip reads its database",
+            "pnpm test:int → S3 contract suite 17/17 against SeaweedFS 4.48 (POST policy size/type, presigned PUT/GET, signed type and size, expiry, tampering, credentials, anonymous, multipart incl. bounded part URLs and abort, copy, lifecycle, delete, list), every refusal with a positive control",
+            "S3_ENDPOINT passes through turbo: a dead endpoint fails the suite; .env drift guard refuses up; status writes no secrets; .env ACL = owner only",
+            "pnpm turbo run lint typecheck test → 57/57; pnpm test:tools → 44/44; pnpm boundaries → 0 violations; pnpm audit → 0 vulnerabilities; pre-commit hooks pass",
+            "task-verifier → ready with caveats; reviewer (Opus) → 12 findings, all fixed in 97e3a20 (3 parts recorded for 0.15/0.26)",
+            "NOT SHOWN: Linux — CI job infra exists but GitHub Actions is blocked by account billing (follow-up 11)"
+          ],
           "blockers": [],
           "notes": ""
         },
@@ -931,7 +945,28 @@
     {
       "foundIn": "0.2",
       "item": "ubuntu-latest moves to Ubuntu 26 from 2026-10-19 (GitHub notice in run 39124679969)",
-      "movedTo": "0.3: pin runs-on to ubuntu-24.04 (exact runner image, like every other pin)"
+      "movedTo": "0.3: pin runs-on to ubuntu-24.04 (exact runner image, like every other pin)",
+      "closedIn": "0.3: runs-on pinned to ubuntu-24.04 in every CI job (f2ed76e)"
+    },
+    {
+      "foundIn": "0.3",
+      "item": "AWS SDK v3 signs a default CRC checksum into presigned PUT URLs, so every browser upload fails with BadDigest; set requestChecksumCalculation/responseChecksumValidation to WHEN_REQUIRED (done in the contract suite)",
+      "movedTo": "0.15: the ObjectStore adapter uses the same client settings and the same contract suite"
+    },
+    {
+      "foundIn": "0.3",
+      "item": "Presigned PUT and part URLs bind content type and size only when they are signed headers (the SDK signs only host by default); POST policy enforces both (contract suite proves it)",
+      "movedTo": "0.15: sign content-type and content-length on every presigned PUT/part URL; POST policy for small files"
+    },
+    {
+      "foundIn": "0.3",
+      "item": "SeaweedFS stores lifecycle rules, but expiry after 24 h can't be proven in a test run",
+      "movedTo": "0.15: the purge job is the guarantee for incomplete and unconfirmed uploads; its test is in 0.15"
+    },
+    {
+      "foundIn": "0.3",
+      "item": "SeaweedFS master/volume/filer have no authentication (isolated on its own network in dev)",
+      "movedTo": "0.26: SeaweedFS security.toml JWT, internal network with only api/worker/nginx"
     }
   ]
 }

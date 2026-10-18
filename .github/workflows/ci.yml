@@ -19,7 +19,7 @@ concurrency:
 jobs:
   checks:
     name: lint · typecheck · test · build · boundaries
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7.0.1
@@ -44,9 +44,32 @@ jobs:
       - name: Known vulnerabilities in dependencies (pnpm audit)
         run: pnpm audit --audit-level high
 
+  infra:
+    name: dev stack + S3 contract suite (Linux)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        env:
+          LEFTHOOK: '0'
+      - name: Start the dev stack (all services healthy)
+        run: pnpm dev:infra --observability
+      - name: The stack works end to end (seeds, storage isolation, telemetry, GlitchTip database)
+        run: pnpm dev:infra:check
+      - name: Integration tests (S3 contract suite)
+        run: pnpm test:int
+      - name: Container logs on failure
+        if: failure()
+        run: docker compose -f infra/compose/docker-compose.yml --env-file infra/compose/.env --profile observability logs --tail 200
   gitleaks:
     name: secrets (gitleaks)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7.0.1
@@ -72,7 +95,7 @@ jobs:
 
   trivy:
     name: dependencies and config (Trivy)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7.0.1
@@ -97,7 +120,7 @@ jobs:
 
   semgrep:
     name: code (Semgrep)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     container:
       image: semgrep/semgrep:1.179.0@sha256:93963d9295a366f59e4850127b1550400ee7b388f04fe144e4a1f6325d96e01b
@@ -107,7 +130,7 @@ jobs:
 
   licences:
     name: licence report (not a gate)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7.0.1
