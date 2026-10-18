@@ -1,0 +1,22 @@
+id: leave-request
+version: 1.0.0
+type: form
+title: Leave request
+owner: platform-team              # reference form; hand over to HR when it goes live
+status: published
+classification: >-
+  Data capture with dates and conditional fields. Leave balances are not updated by the form; a balance ledger would be a coded
+  HR feature.
+
+ui:
+  form: Frontend/scripts/e2e/leave-request/leave-request.template.json
+  slug: leave-request
+backend:
+  module: form_submission
+security:
+  fill: submission:create
+  view: submission:read
+workflow:
+  publish_approval: forms.require_approval
+audit:
+  enabled: true

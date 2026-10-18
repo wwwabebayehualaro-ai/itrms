@@ -1,0 +1,39 @@
+# ITRMS: repository-wide ignores (apps keep their own .gitignore for tool specifics)
+
+# Environment files: never committed. Only *.example templates are tracked.
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+# Dependencies and build/test output
+node_modules/
+.next/
+.next-*/
+.turbo/
+dist/
+coverage/
+test-results/
+playwright-report/
+*.tsbuildinfo
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+uploads/
+
+# Local tool state
+.playwright-mcp/
+.serena/
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log
+.DS_Store
+Thumbs.db
+
+# Domain source material (government documents supplied for analysis). Kept locally, never in the product repository:
+# the product's source may be shared with customers, escrow agents and security evaluators.
+Documents/

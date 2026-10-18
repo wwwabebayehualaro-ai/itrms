@@ -1,0 +1,172 @@
+# Design system
+
+`packages/ui`: one design system for every module, every customer and every language. Decision:
+[ADR-0029](../decisions/0029-design-tokens-and-theming.md).
+
+## 1. Starting point (legacy, kept)
+* **Base:**
+  * shadcn/ui components (copied source) on Radix, Tailwind CSS 4, lucide icons, sonner toasts, Recharts through the shadcn
+    chart;
+  * 30 primitives plus composite controls (`Combobox`, `DatePicker`, `TagsInput`, `Pager`, `IconButton`, `StatusBadge`,
+    `DataGrid`, `FileViewer`) and the forms kit (`useZodForm`);
+  * one `NotifyProvider` (toasts + confirmation dialog).
+* **Tokens:** CSS custom properties in OKLCH (`--background`, `--primary`, `--success`, `--warning`, `--chart-1`, …), a
+  light and a dark theme, the `next-themes` toggle.
+* **Rules (lint-enforced):** features import UI only from the design system, never Radix or vendor libraries directly.
+* **Gaps for ITRMS:**
+  * Inter only (no Ethiopic font);
+  * English-only strings inside components;
+  * no Ethiopian date picker, money input or registry lookup;
+  * no page templates;
+  * no density or high-contrast mode;
+  * no tenant branding;
+  * no documentation site or visual regression tests;
+  * no print styles.
+
+## 2. Principles
+1. **Readable in Amharic first.** Every component is designed and tested with Ethiopic text, which is longer and taller
+   than English, and with Wolaytta in Latin script.
+2. **Built for data-entry staff:** keyboard-first, dense where it helps, forgiving with errors, fast on old PCs and slow
+   links.
+3. **Consistent across 10 work processes:** the same page templates, status colours and wording, so a cashier who learns
+   one screen knows them all.
+4. **Accessible by default:** WCAG 2.2 AA, checked automatically.
+5. **Themeable, not forkable:** customers brand it through tokens and settings and never edit components.
+
+## 3. Tokens (three tiers)
+
+| Tier | Example | Who changes it |
+|---|---|---|
+| **Primitive** (the palette) | `--blue-600: oklch(0.55 0.17 255)`, `--neutral-100`, radius and spacing scales | Design-system owners only |
+| **Semantic** (meaning) | `--background`, `--foreground`, `--primary`, `--muted`, `--border`, `--ring`, `--destructive`, `--success`, `--warning`, `--info`; status tokens (§6); `--chart-1…8` | Themes (light, dark, high contrast) and, within limits, tenant branding |
+| **Component** | `--sidebar-*`, `--table-row-height`, `--field-height`, `--page-gutter` | Density modes |
+
+* Tokens live in `packages/ui/src/tokens.css` as CSS variables, exposed to Tailwind 4 via `@theme inline` (as today) and
+  exported as a typed JS object for charts and PDFs.
+* The **same tokens drive the PDF templates** (`documents` module), so printed certificates match the screens.
+* Colours are defined in OKLCH. A contrast test in CI checks every foreground/background pair in every theme (≥ 4.5:1 for
+  text, ≥ 3:1 for UI parts).
+
+## 4. Themes and branding
+* **Themes:** light (default), dark, **high contrast** (for bright offices and low-vision users). The setting
+  `ui.theme` = system | light | dark | high-contrast is a user preference.
+* **Default product palette:** a calm government look. Primary is deep teal-blue; neutrals are slate; status colours are
+  fixed (§6). The Ethiopian flag colours are not used as UI colours, because they clash with the status colours. The national
+  emblem appears only in document headers where the bureau supplies it.
+* **Tenant branding** (settings at region, zone or unit level, [org-and-unit-types.md](org-and-unit-types.md) §4):
+  * logo (SVG or PNG), product name line ("ደቡብ ኢትዮጵያ ክልል ትራንስፖርትና መንገድ ልማት አስተዳደር ቢሮ");
+  * the primary hue, from a curated list of 8 hues, each pre-validated for contrast in all three themes. Arbitrary hex
+    values are not allowed;
+  * document header and footer, stamp image and signature lines (used in PDFs).
+* **Density:** `comfortable` (default) and `compact` (data-entry staff: 32 px rows, tighter forms). It is a user
+  preference that can be defaulted per region.
+
+## 5. Typography (Ethiopic-aware)
+* **Fonts (self-hosted, OFL):**
+  * **Noto Sans Ethiopic** for Ethiopic script;
+  * **Noto Sans** for Latin script (English, Wolaytta), replacing Inter, so both scripts share metrics and look like one
+    family;
+  * **Noto Sans Mono** for codes and numbers in tables (licence and plate numbers).
+
+  Variable fonts, subset per script, `font-display: swap`.
+* **Font stack:** `'Noto Sans Ethiopic', 'Noto Sans', system-ui, sans-serif`, with `unicode-range` so each script uses its
+  font automatically in mixed text (e.g. "ቦሎ No. WLT/000123").
+* **Ethiopic rules:**
+  * base size **16 px** (never below 14 px for Ethiopic text);
+  * line height **1.6** for body text and 1.3 for headings (Ethiopic glyphs are taller);
+  * **no uppercase transforms, no letter-spacing, no synthetic italics** (Ethiopic has no case, and italics damage it).
+    Emphasis is weight only;
+  * truncation always shows a tooltip with the full text;
+  * labels may wrap to two lines; components never assume the width of an English label.
+* **Numbers:** Latin digits by default (Ethiopic numerals optional in print only). Money is right-aligned in tables with
+  tabular figures, in the format `ብር 1,234.50`.
+
+## 6. Status vocabulary (shared by every module)
+One set of states and colours for cases, tasks, documents and payments. A module maps its own states onto these tones.
+Labels are translated.
+
+| Tone | Used for | Colour token |
+|---|---|---|
+| `neutral` | draft, not started | `--status-neutral` (slate) |
+| `info` | submitted, in review, waiting | `--status-info` (blue) |
+| `progress` | in progress, exam scheduled | `--status-progress` (indigo) |
+| `success` | approved, issued, paid, valid | `--status-success` (green) |
+| `warning` | returned, due soon, expiring | `--status-warning` (amber) |
+| `danger` | rejected, overdue, revoked, infected file | `--status-danger` (red) |
+| `muted` | cancelled, superseded, archived | `--status-muted` (grey) |
+
+Colour is never the only signal: every status shows its label and an icon.
+
+## 7. Page templates (every screen uses one)
+
+| Template | Used for | Parts |
+|---|---|---|
+| **List** | applications, registries, receipts | page header (title, primary action), filter bar (saved views, search, filters in the URL), DataGrid (server paging, column chooser, row actions, bulk actions, export), empty state |
+| **Record** | a person, vehicle, licence, organisation | header with key facts and status, tabs (overview, history, documents, related; modules add tabs), audit timeline |
+| **Case** | a service request | header (case number, service, unit, state, SLA clock), step indicator from the workflow, current task panel (the step form and its actions), answers by step, payments, documents, timeline and comments |
+| **Form** | intake and step forms | engine-rendered form, sticky action bar (save draft, submit), autosave indicator, field errors in the user's language, fee preview |
+| **Dashboard** | role homes, unit KPIs | widget grid (responsive), each widget with a link to its list |
+| **Settings** | admin | sections with inherited/overridden indicators ("from region", "set here", reset) |
+| **Print** | application copy, receipts, reports | A4, Ethiopic fonts, header from branding, QR, no interactive parts |
+
+## 8. Component inventory
+
+| Component | Status | Notes |
+|---|---|---|
+| Primitives (button, input, select, dialog, sheet, tabs, table, tooltip, …) | have | Re-tested with Ethiopic text |
+| `DataGrid` | **extend** | Column pinning and resizing, saved views, bulk selection and actions, export, keyboard row navigation, density |
+| `DatePicker` | **extend** | Ethiopian calendar mode (default), Gregorian toggle, typed entry `dd/mm/yyyy` in either calendar, min/max rules |
+| `MoneyInput` / `MoneyText` | **new** | Santim-safe (`bigint`), Birr formatting, never floats |
+| `RegistryLookup` (person, vehicle, licence, association, organisation) | **new** | Async search in both scripts, shows key facts, creates a new record inline when allowed |
+| `PersonName` | **new** | Ethiopic + Latin names, the order of given, father and grandfather names |
+| `UnitBadge`, `UnitSwitcher` | **new** | Shows the org unit with its kind and grade |
+| `StatusBadge` | **extend** | The tones of §6, with icons |
+| `StepIndicator`, `Timeline`, `SlaClock` | **new** | Case template |
+| `FileDropzone` + scan status | **new** | Resumable uploads (Uppy), pending-scan/clean/infected states, camera capture on phones |
+| `PageHeader`, `FilterBar`, `EmptyState`, `DescriptionList`, `KpiTile`, `WidgetCard` | **new** | Templates |
+| `CommandPalette` | **new** | cmdk (already a dependency) |
+| `EthiopicInput` (transliteration) | **new** | Phonetic Latin → Ethiopic typing in every text input and textarea (toggle with a key; a common SERA-style scheme). Many office PCs have no Amharic keyboard layout, so this is part of the base `Input`, not an add-on |
+| `QrCode`, `VerifyBadge` | **new** | Documents and verification |
+| `PrintLayout` | **new** | Shared by the browser print view and PDF templates |
+| `ConnectionStatus`, `SubmitQueue` | **new** | PWA states (ADR-0024) |
+| Charts (`ChartContainer`) | have | The existing data-visualisation rules (validated palette, a table view for every chart) |
+
+## 9. Interaction rules
+* **Keyboard:** every action has a keyboard path. Enter submits, Esc closes, Ctrl+S saves a draft, Ctrl+K opens the
+  palette, `?` lists shortcuts. Forms move field to field in reading order.
+* **Errors:**
+  * shown at the field, in the user's language, saying what to do ("ዕድሜ ቢያንስ 18 መሆን አለበት"), never as raw codes;
+  * the form keeps the user's input;
+  * server errors map to fields (as the legacy forms kit does).
+* **Confirmation** only for destructive or irreversible actions (reject, revoke, reverse receipt), with the consequence
+  written out.
+* **Feedback:**
+  * toasts for completed background actions;
+  * an inline banner for page-level problems;
+  * skeletons for loading;
+  * the optimistic UI only where an action can't fail on business rules.
+* **Empty states** say why the list is empty and what to do next.
+
+## 10. Accessibility
+* Target: **WCAG 2.2 AA**.
+* **axe-core** runs in every Playwright journey and in the component tests; violations fail CI.
+* Focus is always visible (`--ring`). Touch targets are ≥ 44 px in compact mode on phones. `prefers-reduced-motion` is
+  respected.
+* Forms: labels are always visible (never placeholder-only), errors are announced (`aria-live`), and required fields are
+  marked with text as well as a symbol.
+
+## 11. Responsive and print
+* Breakpoints: phone < 640, tablet < 1024, desktop ≥ 1024. Container queries are used in widgets and record panels, so
+  they adapt to their slot, not the window.
+* The office desktop (1366×768) is the main target. Field screens (inspection, verification) are designed for phones first.
+* `@media print` styles for every template. PDFs reuse `PrintLayout` with the same tokens.
+
+## 12. Documentation, testing and governance
+* **Storybook** (current major, pinned per the version rule) in `packages/ui`. It has a story per component in **Amharic,
+  English and Wolaytta**, light/dark/high-contrast, and comfortable/compact, plus the a11y addon and usage notes.
+* **Visual regression:** Playwright screenshot tests of the stories (a fixed font set, Linux CI) catch unintended visual
+  changes.
+* **Ownership:** a platform UI owner (CODEOWNERS). A new component starts as a proposal (problem, API, states,
+  a11y). Module teams never fork components; they extend through props and slots.
+* The **legacy rules carry over:** features import only from `@itrms/ui`, and importing Radix or vendor UI directly is a
+  lint error.

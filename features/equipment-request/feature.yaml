@@ -1,0 +1,24 @@
+id: equipment-request
+version: 1.0.0
+type: form
+title: Equipment request
+owner: platform-team              # reference form; hand over to operations when it goes live
+status: published
+classification: >-
+  Repeatable item rows with computed totals and urgency rules: configuration in the builder. Ordering and stock movements
+  would be coded procurement/inventory features.
+
+ui:
+  form: Frontend/scripts/e2e/equipment-request/equipment-request.template.json
+  report: Frontend/scripts/e2e/equipment-request/equipment-request-table.template.json   # hand-built table view
+  slug: equipment-request
+  category: Operations
+backend:
+  module: form_submission
+security:
+  fill: submission:create
+  view: submission:read
+workflow:
+  publish_approval: forms.require_approval
+audit:
+  enabled: true

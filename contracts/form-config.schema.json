@@ -1,0 +1,492 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2
+    },
+    "fields": {
+      "maxItems": 1000,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "AutoComplete",
+              "Calendar",
+              "Card",
+              "Checkbox",
+              "CheckboxGroup",
+              "Chips",
+              "ColorPicker",
+              "DataTable",
+              "Divider",
+              "Dropdown",
+              "Fieldset",
+              "FileUpload",
+              "FormArray",
+              "FormSection",
+              "InputMask",
+              "InputNumber",
+              "InputSwitch",
+              "InputText",
+              "InputTextarea",
+              "MultiSelect",
+              "Panel",
+              "Password",
+              "RadioButton",
+              "Rating",
+              "Slider"
+            ]
+          },
+          "category": {
+            "type": "string"
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "parentId": {
+            "type": [
+              "string",
+              "number",
+              "null"
+            ]
+          },
+          "props": {
+            "anyOf": [
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "data": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "defaultProps": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "dataSource": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "staticData": {}
+                        },
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "optionsBinding": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "dataSourceId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "dataSourceId"
+                        ],
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "rowsBinding": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "dataSourceId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "dataSourceId"
+                        ],
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "computed": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "expression": {
+                            "type": "string"
+                          },
+                          "readOnly": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "expression"
+                        ],
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": {}
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "behavior": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "validation": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "supported": {
+                            "type": "boolean"
+                          },
+                          "types": {
+                            "anyOf": [
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "rules": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "propertyNames": {
+                                  "type": "string"
+                                },
+                                "additionalProperties": {}
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "errorMessages": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "propertyNames": {
+                                  "type": "string"
+                                },
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "remote": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "dataSourceId": {
+                                    "type": "string"
+                                  },
+                                  "message": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "dataSourceId"
+                                ],
+                                "additionalProperties": {}
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "visibilityConditions": {
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/$defs/__schema0"
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "enabledConditions": {
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/$defs/__schema0"
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "actions": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {
+                          "type": "array",
+                          "items": {}
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": {}
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "layout": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "options": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "isContainer": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": {}
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": {}
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visibleToRoles": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "type"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "properties": {
+        "dataSources": {
+          "maxItems": 100,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+              },
+              "request": {
+                "type": "object",
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "GET",
+                      "POST",
+                      "PUT",
+                      "PATCH",
+                      "DELETE"
+                    ]
+                  },
+                  "url": {
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "method",
+                  "url"
+                ],
+                "additionalProperties": {}
+              }
+            },
+            "required": [
+              "id",
+              "request"
+            ],
+            "additionalProperties": {}
+          }
+        },
+        "submit": {
+          "type": "object",
+          "properties": {
+            "serverAction": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"
+            }
+          },
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "dataSources"
+      ],
+      "additionalProperties": {}
+    }
+  },
+  "required": [
+    "fields"
+  ],
+  "additionalProperties": {},
+  "title": "form_config",
+  "description": "A stored form: its fields (flat, linked by parentId) and its runtime (data sources, variables, submit).",
+  "$defs": {
+    "__schema0": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "default": "",
+          "type": "string"
+        },
+        "operator": {
+          "type": "string"
+        },
+        "value": {},
+        "logic": {
+          "type": "string",
+          "enum": [
+            "and",
+            "or",
+            "xor"
+          ]
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema0"
+          }
+        },
+        "clientOnly": {
+          "type": "boolean"
+        },
+        "serverOnly": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "operator"
+      ],
+      "additionalProperties": {}
+    }
+  }
+}

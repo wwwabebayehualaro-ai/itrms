@@ -1,0 +1,23 @@
+id: expense-report
+version: 1.0.0
+type: form
+title: Expense report
+owner: platform-team              # reference form; hand over to the finance team when it goes live
+status: published
+classification: >-
+  Captures an expense claim (rows of items with computed totals, receipts as attachments). The form moves no money: paying
+  a claim out would be a coded feature (numbered, approved, posted) that reads these requests.
+
+ui:
+  form: Frontend/scripts/e2e/expense-report/expense-report.template.json
+  slug: expense-report
+  category: Finance
+backend:
+  module: form_submission
+security:
+  fill: submission:create
+  view: submission:read
+workflow:
+  publish_approval: forms.require_approval
+audit:
+  enabled: true

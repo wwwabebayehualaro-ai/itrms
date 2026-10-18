@@ -1,0 +1,22 @@
+# Builder form (simple / standard data capture): copy to features/<id>/feature.yaml
+id: leave-request
+version: 1.0.0
+type: form
+title: Leave request
+owner: hr-team
+status: published                   # mirrors the template's publish state
+classification: >-
+  Data capture with field validation and conditional fields; no balances are moved by the form itself.
+
+ui:
+  form: path/to/leave-request.template.json   # exported template (form_config) kept in the repository
+  slug: leave-request                         # template slug in the builder
+backend:
+  module: form_submission                     # every builder form is served by the generic modules
+security:
+  fill: submission:create
+  view: submission:read
+workflow:
+  publish_approval: forms.require_approval    # tenant flag: publishing needs a second person
+audit:
+  enabled: true

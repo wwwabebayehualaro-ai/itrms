@@ -1,0 +1,5 @@
+# Optional: enable tracing by installing these and setting OTLP_ENDPOINT
+opentelemetry-sdk
+opentelemetry-exporter-otlp-proto-http
+opentelemetry-instrumentation-fastapi
+opentelemetry-instrumentation-sqlalchemy

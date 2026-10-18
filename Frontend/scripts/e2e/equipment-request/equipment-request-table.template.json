@@ -1,0 +1,366 @@
+{
+  "name": "Equipment Requests Table",
+  "slug": "equipment-request-table",
+  "category": "Views",
+  "is_active": true,
+  "form_config": {
+    "fields": [
+      {
+        "id": "requests",
+        "data": {
+          "rowsBinding": {
+            "dataSourceId": "submissions"
+          },
+          "defaultProps": {
+            "id": "requests",
+            "rows": 10,
+            "value": [],
+            "columns": [
+              {
+                "type": "datetime",
+                "field": "created_at",
+                "header": "Submitted"
+              },
+              {
+                "type": "text",
+                "field": "submission_data.employee",
+                "header": "Employee"
+              },
+              {
+                "type": "lookup",
+                "field": "submission_data.manager",
+                "header": "Manager",
+                "lookupSource": "directory"
+              },
+              {
+                "type": "tags",
+                "field": "submission_data.approvers",
+                "header": "Approvers",
+                "lookupSource": "directory"
+              },
+              {
+                "type": "tag",
+                "field": "submission_data.priority",
+                "header": "Priority",
+                "lookupSource": "form"
+              },
+              {
+                "type": "currency",
+                "field": "submission_data.budget",
+                "header": "Budget"
+              },
+              {
+                "type": "boolean",
+                "field": "submission_data.needsDelivery",
+                "header": "Delivery"
+              },
+              {
+                "type": "tags",
+                "field": "submission_data.needs",
+                "header": "Needs",
+                "lookupSource": "form"
+              },
+              {
+                "type": "count",
+                "field": "submission_data.items",
+                "header": "Items"
+              },
+              {
+                "type": "files",
+                "field": "submission_data.attachments",
+                "header": "Attachments"
+              },
+              {
+                "type": "currency",
+                "field": "submission_data.grandTotal",
+                "header": "Grand total"
+              },
+              {
+                "type": "tag",
+                "field": "status",
+                "header": "Status"
+              }
+            ],
+            "required": false,
+            "showEdit": true,
+            "showView": true,
+            "className": "w-full",
+            "paginator": true,
+            "scrollable": false,
+            "showDelete": true,
+            "showSearch": true,
+            "allowExport": true,
+            "scrollHeight": "400px"
+          }
+        },
+        "icon": "pi pi-table",
+        "type": "DataTable",
+        "label": "Equipment requests",
+        "props": {
+          "id": "requests",
+          "rows": 10,
+          "value": [],
+          "columns": [
+            {
+              "type": "datetime",
+              "field": "created_at",
+              "header": "Submitted"
+            },
+            {
+              "type": "text",
+              "field": "submission_data.employee",
+              "header": "Employee"
+            },
+            {
+              "type": "lookup",
+              "field": "submission_data.manager",
+              "header": "Manager",
+              "lookupSource": "directory"
+            },
+            {
+              "type": "tags",
+              "field": "submission_data.approvers",
+              "header": "Approvers",
+              "lookupSource": "directory"
+            },
+            {
+              "type": "tag",
+              "field": "submission_data.priority",
+              "header": "Priority",
+              "lookupSource": "form"
+            },
+            {
+              "type": "currency",
+              "field": "submission_data.budget",
+              "header": "Budget"
+            },
+            {
+              "type": "boolean",
+              "field": "submission_data.needsDelivery",
+              "header": "Delivery"
+            },
+            {
+              "type": "tags",
+              "field": "submission_data.needs",
+              "header": "Needs",
+              "lookupSource": "form"
+            },
+            {
+              "type": "count",
+              "field": "submission_data.items",
+              "header": "Items"
+            },
+            {
+              "type": "files",
+              "field": "submission_data.attachments",
+              "header": "Attachments"
+            },
+            {
+              "type": "currency",
+              "field": "submission_data.grandTotal",
+              "header": "Grand total"
+            },
+            {
+              "type": "tag",
+              "field": "status",
+              "header": "Status"
+            }
+          ],
+          "required": false,
+          "showEdit": true,
+          "showView": true,
+          "className": "w-full",
+          "paginator": true,
+          "scrollable": false,
+          "showDelete": true,
+          "showSearch": true,
+          "allowExport": true,
+          "scrollHeight": "400px"
+        },
+        "editor": {
+          "palette": {
+            "category": "Data",
+            "thumbnail": "/assets/thumbnails/datatable.png",
+            "accentColor": "#3f51b5"
+          },
+          "propMetadata": {
+            "rows": {
+              "editorType": "number"
+            },
+            "showEdit": {
+              "helpText": "Adds an Edit button to every row (the page that hosts the table handles it)",
+              "editorType": "boolean"
+            },
+            "showView": {
+              "helpText": "A View button on every row: opens the record as the form, read-only (the page that hosts the table handles it)",
+              "editorType": "boolean"
+            },
+            "paginator": {
+              "editorType": "boolean"
+            },
+            "scrollable": {
+              "editorType": "boolean"
+            },
+            "showDelete": {
+              "helpText": "Adds a Delete button to every row (the page that hosts the table handles it)",
+              "editorType": "boolean"
+            },
+            "showSearch": {
+              "helpText": "A search box above the table (looks in what people read: names, labels, formatted values)",
+              "editorType": "boolean"
+            },
+            "allowExport": {
+              "helpText": "An Export CSV button for the rows showing",
+              "editorType": "boolean"
+            },
+            "scrollHeight": {
+              "editorType": "text"
+            }
+          },
+          "canvasSettings": {
+            "resizable": true,
+            "snapToGrid": true,
+            "placeholderComponent": "DataTable"
+          },
+          "propertyGroups": [
+            {
+              "props": [
+                "paginator",
+                "rows",
+                "scrollable",
+                "scrollHeight",
+                "showSearch",
+                "allowExport",
+                "showView",
+                "showEdit",
+                "showDelete"
+              ],
+              "groupName": "Behavior"
+            }
+          ]
+        },
+        "layout": {
+          "options": {
+            "style": {},
+            "className": [
+              "w-full",
+              "field-default"
+            ],
+            "defaultSize": {
+              "width": "100%",
+              "height": "400px",
+              "responsive": {
+                "lg": {
+                  "height": "500px"
+                },
+                "sm": {
+                  "height": "300px"
+                }
+              }
+            },
+            "isContainer": false
+          }
+        },
+        "runtime": {
+          "ssr": {
+            "dataFetching": true,
+            "serverRender": true,
+            "hydrationStrategy": "eager"
+          },
+          "a11y": {
+            "ariaLabel": "Data table",
+            "instructions": "Use arrow keys to navigate rows and columns."
+          }
+        },
+        "version": "1.0",
+        "behavior": {
+          "hooks": {
+            "onInit": [
+              "initializeField"
+            ],
+            "onChange": []
+          }
+        },
+        "category": "Data",
+        "children": [],
+        "metadata": {
+          "tags": [
+            "table",
+            "grid",
+            "data",
+            "paginator",
+            "list",
+            "submissions",
+            "root-field",
+            "type-DataTable"
+          ],
+          "createdBy": "current-user",
+          "complexity": "advanced",
+          "description": "Table of records. Bind it to a data source (Runtime tab) and define its columns, e.g. to list the submissions of a form.",
+          "lastUpdated": "2026-10-06T11:37:15.836Z",
+          "documentationUrl": "https://primereact.org/datatable/"
+        }
+      }
+    ],
+    "runtime": {
+      "variables": [],
+      "dataSources": [
+        {
+          "id": "submissions",
+          "auth": "app",
+          "name": "Submissions",
+          "cache": {
+            "staleTimeMs": 30000
+          },
+          "request": {
+            "url": "/form/submissions",
+            "query": {
+              "sort": "-created_at",
+              "page_size": "100",
+              "template_id": "{{route.templateId}}"
+            },
+            "method": "GET"
+          },
+          "timeoutMs": 15000,
+          "responseMapping": {
+            "path": "items"
+          }
+        },
+        {
+          "id": "directory",
+          "auth": "app",
+          "name": "Company directory",
+          "cache": {
+            "staleTimeMs": 30000
+          },
+          "request": {
+            "url": "/auth/directory",
+            "method": "GET"
+          },
+          "timeoutMs": 15000,
+          "responseMapping": {
+            "options": {
+              "labelPath": "full_name",
+              "valuePath": "id"
+            }
+          }
+        },
+        {
+          "id": "form",
+          "auth": "app",
+          "name": "Form definition",
+          "cache": {
+            "staleTimeMs": 30000
+          },
+          "request": {
+            "url": "/template/forms/templates/{{route.templateId}}",
+            "method": "GET"
+          },
+          "timeoutMs": 15000,
+          "responseMapping": {}
+        }
+      ]
+    }
+  },
+  "file_relations": []
+}

@@ -1,0 +1,30 @@
+id: cash-transaction
+version: 1.0.0
+type: form
+title: Cash deposit / withdrawal
+owner: platform-team              # reference form + server action; hand over to the branch operations team when it goes live
+status: published
+classification: >-
+  A form with a coded server action (the hybrid path). The form captures the transaction: account lookup that fills the
+  holder's details, type, amount, depositor. It moves money only through its server action core_banking.cash_transaction,
+  which re-checks the account and balance, numbers the transaction and posts it in the request's transaction; above the
+  approval limit a supervisor approves first.
+
+ui:
+  form: Frontend/scripts/e2e/cash-transaction/cash-transaction.template.json
+  slug: cash-transaction
+  category: Teller
+backend:
+  module: form_submission
+  server_action: core_banking.cash_transaction   # Backend/app/modules/core_banking/services/cash_transaction.py
+  data_sources: [GET /core-banking/accounts/{number}]
+security:
+  fill: submission:create + bank_txn:create      # role teller
+  view: submission:read
+  approve: bank_txn:approve                      # role teller_supervisor
+workflow:
+  approval: bank_txn.post                        # above CORE_BANKING_APPROVAL_LIMIT
+  numbering: bank_txn                            # TXN-yyyy-nnnnnn
+  publish_approval: forms.require_approval
+audit:
+  enabled: true

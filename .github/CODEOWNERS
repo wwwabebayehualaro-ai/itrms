@@ -1,0 +1,23 @@
+# Code owners: reviews required on the platform and on cross-cutting contracts.
+# Replace the personal handle with team handles (e.g. @org/platform-team, @org/security) once the GitHub teams exist.
+
+# Backend platform (portable foundation) and its migrations
+/Backend/app/foundation/            @Abebayehu-Alaro
+/Backend/alembic/                   @Abebayehu-Alaro
+/Backend/app/main.py                @Abebayehu-Alaro
+
+# Frontend platform: design system, client, form engine; lint rules that guard the boundaries
+/Frontend/platform/                 @Abebayehu-Alaro
+/Frontend/eslint.config.mjs         @Abebayehu-Alaro
+/Frontend/app/globals.css           @Abebayehu-Alaro
+
+# Contracts and architecture
+/contracts/                         @Abebayehu-Alaro
+/features/_templates/               @Abebayehu-Alaro
+/features/README.md                 @Abebayehu-Alaro
+/Docs/architecture/                 @Abebayehu-Alaro
+/.github/                           @Abebayehu-Alaro
+
+# Feature modules: add one line per module with its owning team, e.g.
+# /Backend/app/modules/purchase_orders/          @org/procurement-team
+# /Frontend/app/(main)/(coded)/purchase-orders/  @org/procurement-team

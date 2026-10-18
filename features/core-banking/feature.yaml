@@ -1,0 +1,26 @@
+id: core-banking
+version: 0.1.0
+type: coded
+title: Core banking (simulated)
+owner: platform-team
+status: draft
+classification: >-
+  Accounts, balances and a ledger: money and server-trusted rules, so coded. The core is simulated in this database behind
+  CoreBankingGateway (services/gateway.py); a real core is connected by another gateway implementation. Its server action
+  posts the cash form (features/cash-transaction).
+
+ui:
+  route: /core-banking/accounts     # Frontend/app/(main)/(coded)/core-banking (read-only accounts list)
+backend:
+  module: core_banking              # Backend/app/modules/core_banking (ModuleSpec in module.py)
+  api: /core-banking
+security:
+  permissions: [account:read, account:create, bank_txn:create, bank_txn:read, bank_txn:approve]
+workflow:
+  approval: bank_txn.post
+  numbering: bank_txn
+  idempotent: [POST /form/submissions]
+flags:
+  module: module.core_banking
+audit:
+  enabled: true

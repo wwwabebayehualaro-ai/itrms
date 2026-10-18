@@ -1,0 +1,11 @@
+ITRMS — Integrated Transport and Road Management System
+Copyright © 2026 ABANEXUS SOFTWARE DEVELOPMENT PLC (ABA Nexus Technologies). All rights reserved.
+
+This product includes third-party open-source software, used under the terms of the respective licences (including the
+MIT, Apache-2.0, BSD, ISC, PostgreSQL, SIL Open Font and other licences). Those components remain the property of their
+authors and are not covered by the proprietary LICENSE of this repository.
+
+The complete list of third-party components, their versions and licences is generated for every release (the licence
+report and SBOM produced by CI from task 0.2 onwards) and shipped with the release bundle.
+
+Fonts: Noto Sans Ethiopic, Noto Sans and Noto Sans Mono are used under the SIL Open Font License 1.1.

@@ -1,0 +1,25 @@
+# Coded feature (complex / financial / integrated): copy to features/<id>/feature.yaml
+id: purchase-orders                 # stable business identifier (kebab-case)
+version: 0.1.0                      # semantic version of the feature's contract
+type: coded                         # coded | form
+title: Purchase orders
+owner: procurement-team             # accountable team (see .github/CODEOWNERS)
+status: draft                       # draft | approved | published | deprecated
+classification: >-                  # why coded (see features/README.md)
+  Creates commitments against budgets and is numbered and approved; amounts must be computed by the server.
+
+ui:
+  route: /purchase-orders           # Frontend/app/(main)/(coded)/purchase-orders
+backend:
+  module: purchase_orders           # Backend/app/modules/purchase_orders (ModuleSpec in module.py)
+  api: /procurement/purchase-orders
+security:
+  permissions: [purchase_order:create, purchase_order:read, purchase_order:approve]
+workflow:
+  approval: purchase_order.submit   # approval policy key (approval.register_policy), or none
+  numbering: purchase_order         # document number sequence (numbering.register), or none
+  idempotent: [POST /procurement/purchase-orders]
+flags:
+  module: module.purchase_orders    # created by the ModuleSpec; switch per tenant
+audit:
+  enabled: true                     # EntityBase models are audited automatically
