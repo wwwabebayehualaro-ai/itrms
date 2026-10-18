@@ -23,13 +23,14 @@
         {
           "id": "0.1",
           "title": "Baseline commit and repo hygiene",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.1-baseline",
           "commits": [
             "67c0d93 (tag legacy-dfc)",
             "9112b25",
             "1c712b2",
-            "ad48447"
+            "ad48447",
+            "0d8dbcd (squash on main)"
           ],
           "evidence": [
             "git status clean; 525 tracked files; 0 env or Documents files tracked",

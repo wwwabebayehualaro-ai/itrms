@@ -6,13 +6,13 @@
 
 Last updated: 2026-10-18. Planning: done (docs/reviews/2026-10-18-design-review.md (30 findings resolved); business questionnaire sent via the Wolaita channel).
 
-## Phase 0: Core and demo — 0/28 done (0%)
+## Phase 0: Core and demo — 1/28 done (4%)
 
 **Gate:** Demo validated by officials of at least two bureaus or zones (feedback in docs/discovery/)
 
 | Task | Title | Status | Branch / commits | Evidence | Notes / blockers |
 |---|---|---|---|---|---|
-| 0.1 | Baseline commit and repo hygiene | **in review** | `task/0.1-baseline`, 67c0d93 (tag legacy-dfc), 9112b25, 1c712b2, ad48447 | git status clean; 525 tracked files; 0 env or Documents files tracked; regex secret scan over 522 new files: 8 hits, all placeholders or test fixtures (none real); AUTH_SECRET unused in code (not carried over); demo password removed from docs; LICENSE, NOTICE, README added; tag legacy-dfc created | Not pushed (needs approval). gitleaks runs in CI from 0.2. |
+| 0.1 | Baseline commit and repo hygiene | **done** | `task/0.1-baseline`, 67c0d93 (tag legacy-dfc), 9112b25, 1c712b2, ad48447, 0d8dbcd (squash on main) | git status clean; 525 tracked files; 0 env or Documents files tracked; regex secret scan over 522 new files: 8 hits, all placeholders or test fixtures (none real); AUTH_SECRET unused in code (not carried over); demo password removed from docs; LICENSE, NOTICE, README added; tag legacy-dfc created | Not pushed (needs approval). gitleaks runs in CI from 0.2. |
 | 0.2 | Monorepo skeleton, CI, security scans | **ready** |  |  |  |
 | 0.3 | Dev stack (Docker Compose) | planned |  |  |  |
 | 0.4 | Move the web app and the design system | planned |  |  |  |
