@@ -1,0 +1,879 @@
+{
+  "project": "ITRMS",
+  "vendor": "ABA Nexus Technologies",
+  "updated": "2026-10-18",
+  "statuses": [
+    "planned",
+    "ready",
+    "in progress",
+    "in review",
+    "done",
+    "blocked"
+  ],
+  "planning": {
+    "status": "done",
+    "evidence": "docs/reviews/2026-10-18-design-review.md (30 findings resolved); business questionnaire sent via the Wolaita channel"
+  },
+  "phases": [
+    {
+      "id": "0",
+      "title": "Core and demo",
+      "gate": "Demo validated by officials of at least two bureaus or zones (feedback in docs/discovery/)",
+      "tasks": [
+        {
+          "id": "0.1",
+          "title": "Baseline commit and repo hygiene",
+          "status": "in review",
+          "branch": "task/0.1-baseline",
+          "commits": [
+            "67c0d93 (tag legacy-dfc)",
+            "9112b25",
+            "1c712b2",
+            "ad48447"
+          ],
+          "evidence": [
+            "git status clean; 525 tracked files; 0 env or Documents files tracked",
+            "regex secret scan over 522 new files: 8 hits, all placeholders or test fixtures (none real)",
+            "AUTH_SECRET unused in code (not carried over); demo password removed from docs",
+            "LICENSE, NOTICE, README added; tag legacy-dfc created"
+          ],
+          "blockers": [],
+          "notes": "Not pushed (needs approval). gitleaks runs in CI from 0.2."
+        },
+        {
+          "id": "0.2",
+          "title": "Monorepo skeleton, CI, security scans",
+          "status": "ready",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.3",
+          "title": "Dev stack (Docker Compose)",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.4",
+          "title": "Move the web app and the design system",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.4a",
+          "title": "Design-system documentation, visual tests and page templates",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.5",
+          "title": "Extract the form engine and shared schemas",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.6",
+          "title": "API skeleton",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.7",
+          "title": "Database foundation and audit log",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.8",
+          "title": "Org tree",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.9",
+          "title": "Row-level security and the isolation test matrix",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.10",
+          "title": "Keycloak, BFF sign-in, guards, group sync",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.11",
+          "title": "Numbering, idempotency, outbox, jobs",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.12",
+          "title": "Ethiopian calendar package",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.13",
+          "title": "i18n platform",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.14",
+          "title": "People and organisations register",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.15",
+          "title": "Files on object storage",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.16",
+          "title": "Forms API port with server-side validation",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.17",
+          "title": "Form engine for ITRMS, part 1",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.18",
+          "title": "Form engine for ITRMS, part 2",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.18a",
+          "title": "Form governance: contracts, stability, checks, tests",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.19",
+          "title": "Workflow engine, part 1: definitions, cases, transitions",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.20",
+          "title": "Workflow engine, part 2: SLA, inbox, case page, drafts, notifications",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.21",
+          "title": "Service catalogue and configuration inheritance",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.22",
+          "title": "Fees, payment orders, cashier, receipts",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.23",
+          "title": "Document templates, PDF worker, QR verification",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.24",
+          "title": "Driver-licence slice (competency module)",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.25",
+          "title": "Demo data and the demo journey",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.26",
+          "title": "Demo installation and Phase 0 hardening",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "1",
+      "title": "Licensing services",
+      "gate": "Entry: a signed pilot agreement. Gate: pilot at one zone office for 8 weeks, INSA evaluation passed",
+      "tasks": [
+        {
+          "id": "1.1",
+          "title": "Vehicle registry",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.2",
+          "title": "Registration and plates",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.3",
+          "title": "Bolo technical inspection",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.4",
+          "title": "Ownership transfer and zone transfer out/in",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.5",
+          "title": "Replacements",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.6",
+          "title": "Driver licence family",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.7",
+          "title": "Exams and training schools",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.8",
+          "title": "Licence print batches",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.9",
+          "title": "Freight competency",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.10",
+          "title": "Public transport, part 1",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.11",
+          "title": "Public transport, part 2",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.12",
+          "title": "Cashier operations",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.12a",
+          "title": "Controlled stationery",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.12b",
+          "title": "Appeals and correspondence",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.12c",
+          "title": "Training installation",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.13",
+          "title": "Paper-record migration tooling",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.13a",
+          "title": "Form platform, part 3",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.14",
+          "title": "National system adapters",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.15",
+          "title": "SMS gateway (real)",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.16",
+          "title": "Licensing reports and dashboards",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.16a",
+          "title": "Upload scanning",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.17",
+          "title": "Data protection",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.18",
+          "title": "Production operations",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.19",
+          "title": "Security and INSA evaluation pack",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.20",
+          "title": "Pilot preparation",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "title": "Roads and safety",
+      "gate": "Zone-wide use for one fiscal quarter, quarterly report accepted",
+      "tasks": [
+        {
+          "id": "2.1",
+          "title": "Roads parties and projects",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "2.2",
+          "title": "Unit rates and designs",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "2.3",
+          "title": "Contract administration",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "2.4",
+          "title": "Payment certificates",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "2.5",
+          "title": "Construction supervision and quality audits",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "2.6",
+          "title": "Rural access road works progress",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "2.7",
+          "title": "Community participation",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "2.8",
+          "title": "Logistics",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "2.9",
+          "title": "Road safety programmes",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "2.10",
+          "title": "Traffic inspections and fines",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "2.11",
+          "title": "Accident records",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "2.12",
+          "title": "Field capture on phones",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "2.13",
+          "title": "Roads and safety reports",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "2.14",
+          "title": "Zone-wide rollout",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "title": "Office and scale",
+      "gate": "Regional rollout: all zones live, payroll list accepted 3 months, second region contracted",
+      "tasks": [
+        {
+          "id": "3.1",
+          "title": "Staff register and positions",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "3.2",
+          "title": "Leave",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "3.3",
+          "title": "Benefits, retirement, HR reports",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "3.4",
+          "title": "Payroll configuration",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "3.5",
+          "title": "Monthly payroll list",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "3.6",
+          "title": "Annual budget and procurement plan",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "3.7",
+          "title": "Quarterly performance and capital project progress",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "3.8",
+          "title": "Online payments",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "3.9",
+          "title": "Fayda integration",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "3.10",
+          "title": "Onboarding tooling",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "3.11",
+          "title": "Further zones and languages",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "3.12",
+          "title": "Cross-region transfer API",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "3.13",
+          "title": "Scale and operations",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        }
+      ]
+    }
+  ],
+  "followUps": [
+    {
+      "foundIn": "0.1",
+      "item": "No .gitattributes: Windows CRLF conversion warnings",
+      "movedTo": "0.2 (* text=auto eol=lf)"
+    },
+    {
+      "foundIn": "0.1",
+      "item": "gitleaks not installed locally: regex scan used instead",
+      "movedTo": "0.2 (pre-commit hook + CI)"
+    },
+    {
+      "foundIn": "0.1",
+      "item": "Legacy e2e/demo scripts contain the local demo password literal",
+      "movedTo": "0.4 / 0.25 (env-based fixtures)"
+    },
+    {
+      "foundIn": "0.1",
+      "item": "First commit b3e108e on origin/main (private repo) still contains the government documents in history",
+      "movedTo": "product owner decision before sharing the repository"
+    }
+  ]
+}

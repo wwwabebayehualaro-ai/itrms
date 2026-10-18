@@ -29,7 +29,9 @@ Wolaita Zone):
   enterprise capabilities.
 - [`docs/phases/`](docs/phases/phase-0.md): the task list. **Work one task at a time, in order, and only when asked.**
 - [`docs/engineering/workflow.md`](docs/engineering/workflow.md): definition of ready and done, evidence, branches,
-  releases. Record every task's status and evidence in [`docs/engineering/progress.md`](docs/engineering/progress.md).
+  releases. Record every task's status and evidence with `node tools/progress/cli.mjs` (source:
+  `docs/engineering/progress.json`; `progress.md` is generated). Skills: `/task-start`, `/task-status`, `/task-review`,
+  `/phase-report`. Hooks, status line and dashboard: [`docs/engineering/dashboard.md`](docs/engineering/dashboard.md).
   Also: [NFRs](docs/engineering/nfr.md), [testing strategy](docs/engineering/testing-strategy.md),
   [API guidelines](docs/engineering/api-guidelines.md), [threat model](docs/engineering/threat-model.md).
 

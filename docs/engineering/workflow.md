@@ -97,3 +97,7 @@ Real personal data never leaves production. Bug reproduction uses generated data
   check their results before relying on them.
 * Report results faithfully: failing tests are reported with output; skipped steps are named.
 * Stop at "in review" and present the evidence; the product owner moves the task to done.
+* Change task status only through `node tools/progress/cli.mjs`. `progress.json` is the source of truth, and
+  `progress.md` is generated from it. Use the skills `/task-start`, `/task-status`, `/task-review` and `/phase-report`.
+  The hooks print the status at session start, guard destructive git commands, and remind the session to record progress.
+  See [dashboard.md](dashboard.md).
