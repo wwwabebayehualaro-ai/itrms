@@ -68,14 +68,15 @@
         {
           "id": "0.3",
           "title": "Dev stack (Docker Compose)",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.3-dev-stack",
           "commits": [
             "2f549cc",
             "f2ed76e",
             "0ca59ce",
             "5823cc1",
-            "97e3a20"
+            "97e3a20",
+            "a4ad494 (squash on main)"
           ],
           "evidence": [
             "Windows/WSL2 from zero (volumes and .env deleted): pnpm dev:infra --observability → healthy and seeded in 104 s (16 services; host-side readiness for Loki, Tempo, Alloy, GlitchTip)",
@@ -87,12 +88,12 @@
             "NOT SHOWN: Linux — CI job infra exists but GitHub Actions is blocked by account billing (follow-up 11)"
           ],
           "blockers": [],
-          "notes": ""
+          "notes": "Approved under the product owner's standing instruction of 2026-10-18 (\"don't ask me for confirmation, just go ahead\"), after the verifier and reviewer findings were fixed. Linux evidence still outstanding (CI billing, follow-up 11)."
         },
         {
           "id": "0.4",
           "title": "Move the web app and the design system",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
