@@ -1,0 +1,12 @@
+# Workspace layout: code-structure.md §2 (ADR-0032). The slice template is copied by the generator, never installed.
+packages:
+  - apps/*
+  - platform/*
+  - modules/*
+  - packages/*
+  - '!modules/_template'
+allowBuilds:
+  esbuild: true
+  lefthook: true
+# The tech-stack version rule (releases at least two weeks old) also for manual `pnpm add`, not only Renovate. Minutes.
+minimumReleaseAge: 20160

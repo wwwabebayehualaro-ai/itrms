@@ -10,10 +10,22 @@
 //   node tools/progress/cli.mjs set 0.1 done --approved       only after the product owner approved the task
 //   node tools/progress/cli.mjs note 0.2 "text"               add a note
 //   node tools/progress/cli.mjs followup 0.2 "item" "moved to"
+//   node tools/progress/cli.mjs followup-done 3 "0.4: env-based fixtures"   close follow-up number 3
 //   node tools/progress/cli.mjs render                        regenerate docs/engineering/progress.md
 //   node tools/progress/cli.mjs report                        phase report (Markdown) to stdout
 //   node tools/progress/cli.mjs export <dir>                  dashboard row files (tasks, phases, followups .json)
-import { load, save, findTask, setStatus, phaseStats, currentPhase, focusTask, gitBranch, bar, allTasks } from './lib.mjs';
+import {
+    load,
+    save,
+    findTask,
+    setStatus,
+    phaseStats,
+    currentPhase,
+    focusTask,
+    gitBranch,
+    bar,
+    allTasks
+} from './lib.mjs';
 import { render } from './render.mjs';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -42,13 +54,18 @@ function summary(data) {
         `  ready ${s.counts.ready} · in progress ${s.counts['in progress']} · in review ${s.counts['in review']} · blocked ${s.counts.blocked} · planned ${s.counts.planned}`,
         `  Gate: ${p.gate}`
     ];
-    if (f) lines.push(`Focus: ${f.id} ${f.title} [${f.status}]${f.branch ? ` on ${f.branch}` : ''}${f.blockers?.length ? ` · blockers: ${f.blockers.join('; ')}` : ''}`);
+    if (f)
+        lines.push(
+            `Focus: ${f.id} ${f.title} [${f.status}]${f.branch ? ` on ${f.branch}` : ''}${f.blockers?.length ? ` · blockers: ${f.blockers.join('; ')}` : ''}`
+        );
     const review = allTasks(data).filter((t) => t.status === 'in review');
     if (review.length) lines.push(`Waiting for the product owner's approval: ${review.map((t) => t.id).join(', ')}`);
     const next = allTasks(data).find((t) => t.status === 'ready');
     if (next && next.id !== f?.id) lines.push(`Next ready: ${next.id} ${next.title}`);
-    lines.push(`Open follow-ups: ${data.followUps.length} · branch: ${gitBranch() || '?'}`);
-    lines.push('Rules: one task at a time; definition of ready/done in docs/engineering/workflow.md; update progress with tools/progress/cli.mjs.');
+    lines.push(`Open follow-ups: ${data.followUps.filter((f) => !f.closedIn).length} · branch: ${gitBranch() || '?'}`);
+    lines.push(
+        'Rules: one task at a time; definition of ready/done in docs/engineering/workflow.md; update progress with tools/progress/cli.mjs.'
+    );
     return lines.join('\n');
 }
 
@@ -69,11 +86,14 @@ function report(data) {
         const active = p.tasks.filter((t) => t.status !== 'planned');
         if (active.length) {
             out.push('| Task | Title | Status | Branch / commits |', '|---|---|---|---|');
-            for (const t of active) out.push(`| ${t.id} | ${t.title} | ${t.status} | ${[t.branch, ...t.commits].filter(Boolean).join(', ')} |`);
+            for (const t of active)
+                out.push(
+                    `| ${t.id} | ${t.title} | ${t.status} | ${[t.branch, ...t.commits].filter(Boolean).join(', ')} |`
+                );
         } else out.push('_No task started._');
         out.push('');
     }
-    out.push(`Open follow-ups: ${data.followUps.length}`);
+    out.push(`Open follow-ups: ${data.followUps.filter((f) => !f.closedIn).length}`);
     return out.join('\n');
 }
 
@@ -82,16 +102,37 @@ function exportRows(data) {
     const phases = data.phases.map((p) => {
         const s = phaseStats(p);
         return {
-            phase: p.id, title: p.title, gate: p.gate, total: s.total, done: s.done, pct: s.pct,
-            in_review: s.counts['in review'], in_progress: s.counts['in progress'], blocked: s.counts.blocked,
-            ready: s.counts.ready, planned: s.counts.planned
+            phase: p.id,
+            title: p.title,
+            gate: p.gate,
+            total: s.total,
+            done: s.done,
+            pct: s.pct,
+            in_review: s.counts['in review'],
+            in_progress: s.counts['in progress'],
+            blocked: s.counts.blocked,
+            ready: s.counts.ready,
+            planned: s.counts.planned
         };
     });
     const tasks = allTasks(data).map((t) => ({
-        task: t.id, phase: t.phase, title: t.title, status: t.status, branch: t.branch ?? '',
-        commits: t.commits.join(', '), evidence: t.evidence.length, blockers: t.blockers.join('; '), notes: t.notes ?? ''
+        task: t.id,
+        phase: t.phase,
+        title: t.title,
+        status: t.status,
+        branch: t.branch ?? '',
+        commits: t.commits.join(', '),
+        evidence: t.evidence.length,
+        blockers: t.blockers.join('; '),
+        notes: t.notes ?? ''
     }));
-    const followups = data.followUps.map((f, i) => ({ n: i + 1, found_in: f.foundIn, item: f.item, moved_to: f.movedTo }));
+    const followups = data.followUps.map((f, i) => ({
+        n: i + 1,
+        found_in: f.foundIn,
+        item: f.item,
+        moved_to: f.movedTo,
+        closed_in: f.closedIn ?? ''
+    }));
     return { tasks, phases, followups };
 }
 
@@ -134,6 +175,15 @@ try {
             save(data);
             render();
             break;
+        case 'followup-done': {
+            const f = data.followUps[Number(args[0]) - 1];
+            if (!f || !args[1]) throw new Error('Usage: followup-done <number> "<task and how it was closed>"');
+            f.closedIn = args[1];
+            save(data);
+            render();
+            console.log(`follow-up ${args[0]} closed: ${args[1]}`);
+            break;
+        }
         case 'render':
             render();
             console.log('docs/engineering/progress.md regenerated');
@@ -144,12 +194,15 @@ try {
         case 'export': {
             const dir = args[0];
             if (!dir) throw new Error('Usage: export <dir>');
-            for (const [name, rows] of Object.entries(exportRows(data))) writeFileSync(join(dir, `${name}.json`), JSON.stringify(rows, null, 2) + '\n', 'utf8');
+            for (const [name, rows] of Object.entries(exportRows(data)))
+                writeFileSync(join(dir, `${name}.json`), JSON.stringify(rows, null, 2) + '\n', 'utf8');
             console.log(`tasks.json, phases.json, followups.json written to ${dir}`);
             break;
         }
         default:
-            console.error('Usage: node tools/progress/cli.mjs summary|line|show|set|note|followup|render|report|export (see the header of this file)');
+            console.error(
+                'Usage: node tools/progress/cli.mjs summary|line|show|set|note|followup|followup-done|render|report|export (see the header of this file)'
+            );
             process.exit(1);
     }
 } catch (e) {

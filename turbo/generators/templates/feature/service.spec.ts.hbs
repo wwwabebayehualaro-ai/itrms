@@ -1,0 +1,9 @@
+import { describe, expect, it } from 'vitest';
+
+import { {{pascalCase name}}Service } from './{{kebabCase name}}.service';
+
+describe('{{pascalCase name}}Service', () => {
+    it('constructs', () => {
+        expect(new {{pascalCase name}}Service()).toBeInstanceOf({{pascalCase name}}Service);
+    });
+});

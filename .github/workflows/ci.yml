@@ -1,0 +1,126 @@
+# Pull-request checks (docs/engineering/testing-strategy.md §3). Actions are pinned to exact releases at least two weeks
+# old (tech-stack version rule); Renovate pins them to
+# commit digests (renovate.json: helpers:pinGitHubActionDigests).
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Runs on main are never cancelled, so every commit on main gets a complete scan.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  checks:
+    name: lint · typecheck · test · build · boundaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0 # version from package.json "packageManager"
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        env:
+          LEFTHOOK: '0'
+      - name: Slice shape
+        run: pnpm check:slices
+      - name: Layer boundaries
+        run: pnpm boundaries
+      - name: Boundary fixtures and tool tests
+        run: pnpm test:tools
+      - name: Formatting
+        run: pnpm format:check
+      - name: Lint, typecheck, test, build
+        run: pnpm turbo run lint typecheck test build
+      - name: Known vulnerabilities in dependencies (pnpm audit)
+        run: pnpm audit --audit-level high
+
+  gitleaks:
+    name: secrets (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        # Values reach the shell as environment variables, never inlined into the script.
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          if [ "$EVENT" = "pull_request" ]; then
+            RANGE="$PR_BASE..$SHA"
+          elif [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            RANGE="$SHA"            # a new branch: everything reachable from the pushed commit
+          else
+            RANGE="$BEFORE..$SHA"   # every commit of the push, not only its tip
+          fi
+          IMAGE="zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f"
+          docker run --rm -v "$PWD:/repo" "$IMAGE" git /repo --redact --no-banner --log-opts="$RANGE"
+
+  trivy:
+    name: dependencies and config (Trivy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0 (commit pin: its tags were re-published on 2026-03-20)
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          # The legacy Digital File Cabinet code is retired in tasks 0.4–0.6 and is not scanned until then.
+          skip-dirs: Frontend,Backend,contracts,features,tools/boundaries/fixtures
+          list-all-pkgs: true
+          format: json
+          output: trivy.json
+      - name: Trivy findings and coverage
+        # Prints what Trivy found (the JSON output replaces its table). pnpm-lock.yaml has two YAML documents, so the
+        # job also fails if Trivy read only the first one and listed almost none of the workspace's dependencies.
+        if: always()
+        run: node tools/ci/trivy-summary.mjs trivy.json vitest eslint typescript
+
+  semgrep:
+    name: code (Semgrep)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: semgrep/semgrep:1.179.0@sha256:93963d9295a366f59e4850127b1550400ee7b388f04fe144e4a1f6325d96e01b
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - run: semgrep scan --config p/typescript --config p/nodejsscan --config p/secrets --error --metrics off
+
+  licences:
+    name: licence report (not a gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        env:
+          LEFTHOOK: '0'
+      - run: pnpm licences:report licences-report.md
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: licences-report
+          path: licences-report.md

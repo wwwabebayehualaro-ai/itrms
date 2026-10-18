@@ -1,0 +1,21 @@
+{
+  "name": "@itrms/testing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Test kit: factories, fixed clock, seeded ids, Testcontainers setup, Ethiopic and Wolaytta samples",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "imports": {
+    "#*": "./src/*.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@itrms/config": "workspace:*"
+  }
+}

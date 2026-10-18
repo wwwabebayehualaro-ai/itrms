@@ -15,7 +15,10 @@ process.stdin.on('end', () => {
         const active = allTasks(load()).filter((t) => t.status === 'in progress');
         if (!active.length) process.exit(0);
 
-        const status = execFileSync('git', ['status', '--porcelain'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString();
+        const status = execFileSync('git', ['status', '--porcelain'], {
+            cwd: ROOT,
+            stdio: ['ignore', 'pipe', 'ignore']
+        }).toString();
         const changed = status
             .split('\n')
             .filter(Boolean)

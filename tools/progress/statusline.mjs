@@ -8,7 +8,9 @@ try {
     const s = phaseStats(p);
     const f = focusTask(data);
     const branch = gitBranch();
-    process.stdout.write(`ITRMS · Phase ${p.id} ${s.done}/${s.total} ${bar(s.pct, 8)} ${s.pct}%${f ? ` · ${f.id} ${f.status}` : ''}${branch ? ` · ⎇ ${branch}` : ''}`);
+    process.stdout.write(
+        `ITRMS · Phase ${p.id} ${s.done}/${s.total} ${bar(s.pct, 8)} ${s.pct}%${f ? ` · ${f.id} ${f.status}` : ''}${branch ? ` · ⎇ ${branch}` : ''}`
+    );
 } catch {
     process.stdout.write('ITRMS · progress unavailable');
 }

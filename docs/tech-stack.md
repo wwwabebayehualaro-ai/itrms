@@ -38,9 +38,9 @@ registry or the project page on 2026-10-18.
 | T21 | TLS | The bureau's certificate, or **certbot** with Let's Encrypt where there is public DNS | Standard with Nginx (ADR-0008 fixes Nginx) |
 | T22 | Images and delivery | GHCR, images signed with **cosign**; offline sites get `docker save` tarballs + checksum + signature | Verifiable installs on poor links |
 | T23 | Secrets | **sops + age**: encrypted env files in a private ops repo, decrypted on deploy into Compose secrets | The standard for encrypted config in git |
-| T24 | Runtimes | **Node.js 24 LTS** (move to Node 26 LTS in Phase 1), **pnpm 10**, **TypeScript 5.9**, **Next.js 16 + React 19**, **NestJS 11 + Fastify 5**, **PostgreSQL 16** (fixed), **Valkey 8**, **Keycloak 26**, **BullMQ 5**, **Puppeteer** (Chrome for Testing pinned) | Current LTS lines; Node 24 is supported to April 2028 |
+| T24 | Runtimes | **Node.js 24 LTS** (move to Node 26 LTS in Phase 1), **pnpm 12** (native binary; build scripts allowed per package in `allowBuilds`), **TypeScript 6.0** (TypeScript 7, the native compiler, once typescript-eslint supports it; it supports `<6.1` today), **Vitest 5**, **Turborepo 2.11**, **Next.js 16 + React 19**, **NestJS 11 + Fastify 5**, **PostgreSQL 16** (fixed), **Valkey 8**, **Keycloak 26**, **BullMQ 5**, **Puppeteer** (Chrome for Testing pinned) | Current LTS lines; Node 24 is supported to April 2028 |
 | T25a | Building module packages | One `drizzle.config` listing every module's schema files → one migrations folder; the API **bundled** by Nest's webpack builder with `swc-loader` (workspace packages bundled in, decorator metadata on); `unplugin-swc` in Vitest (ADR-0032) | Correct ordering across schemas; `nest build -b swc` alone compiles only the app's source root, not workspace packages |
-| T25 | Boundary enforcement | **dependency-cruiser** in CI + package `exports`; **ESLint 9** (incl. the React Compiler rules) + Prettier | Readable boundary rules; keeps the existing lint setup |
+| T25 | Boundary enforcement | **dependency-cruiser** in CI + package `exports`; **ESLint 10** (flat config, per-file config lookup; incl. the React Compiler rules) + typescript-eslint (type-aware) + Prettier | Readable boundary rules; keeps the existing lint setup |
 | T26 | Rate limiting | **@fastify/rate-limit** with the Valkey store | Shared limits across api replicas |
 | T27 | Queue admin UI | **Bull Board** behind `jobs:admin` | Mature; no extra service |
 | T28 | Email | **nodemailer** (SMTP); **mailpit** in dev | Standard |
@@ -60,7 +60,7 @@ registry or the project page on 2026-10-18.
 
 | Layer | Tools |
 |---|---|
-| Monorepo and quality | pnpm 10, Turborepo (+ `turbo gen`), TypeScript 5.9, ESLint 9, Prettier, lefthook, dependency-cruiser, Renovate |
+| Monorepo and quality | pnpm 12, Turborepo 2.11 (+ `turbo gen`), TypeScript 6.0, ESLint 10, Prettier, lefthook, dependency-cruiser, Renovate |
 | Web | Next.js 16, React 19, next-intl, nuqs, TanStack Query/Table/Form, Zod 4, Tailwind 4, shadcn/ui + Radix, lucide, Recharts, react-pdf, Serwist, Dexie, Uppy, openapi-fetch, openid-client, `@sentry/nextjs` → GlitchTip |
 | API and worker | NestJS 11, Fastify 5, nestjs-zod, @nestjs/swagger + Scalar, Drizzle ORM + drizzle-kit, pg, jose, uuid, decimal.js, date-fns + @date-fns/tz, pino, OpenTelemetry SDK, @fastify/rate-limit, BullMQ 5, Bull Board, Puppeteer, LiquidJS, qrcode, ExcelJS, nodemailer, `@sentry/node` → GlitchTip |
 | Data | PostgreSQL 16 (ltree, pgcrypto, pg_trgm, btree_gist), Valkey 8, SeaweedFS |

@@ -1,0 +1,21 @@
+{
+  "name": "@itrms/schemas",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared primitives: Money, I18nText, ids, dates, problem+json, error codes, form and workflow definition contracts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "imports": {
+    "#*": "./src/*.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@itrms/config": "workspace:*"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "itrms",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ITRMS: Integrated Transport and Road Management System (ABANEXUS SOFTWARE DEVELOPMENT PLC)",
+  "packageManager": "pnpm@12.9.1",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "build": "turbo run build",
+    "boundaries": "depcruise apps platform modules packages --config .dependency-cruiser.cjs",
+    "check:slices": "node tools/check-slices.mjs",
+    "test:tools": "node --test \"tools/**/*.test.mjs\"",
+    "licences:report": "node tools/licences-report.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "gen": "turbo gen",
+    "prepare": "lefthook install"
+  },
+  "devDependencies": {
+    "@itrms/config": "workspace:*",
+    "@turbo/gen": "2.11.7",
+    "@types/node": "24.19.1",
+    "dependency-cruiser": "18.5.0",
+    "eslint": "10.12.0",
+    "lefthook": "2.1.16",
+    "prettier": "3.9.9",
+    "turbo": "2.11.7",
+    "typescript": "6.0.3",
+    "vitest": "5.0.3"
+  }
+}

@@ -1,0 +1,23 @@
+# Pre-commit checks on staged files (tech-stack T39). Hooks are never skipped (workflow.md §5); CI runs the same checks.
+pre-commit:
+  parallel: true
+  jobs:
+    - name: prettier
+      glob: '*.{ts,tsx,js,mjs,cjs,json,yml,yaml,css}'
+      exclude:
+        - 'Frontend/**'
+        - 'Backend/**'
+        - 'tools/boundaries/fixtures/**'
+        - 'pnpm-lock.yaml'
+      run: pnpm exec prettier --check {staged_files}
+
+    - name: eslint
+      glob: '{apps,platform,modules,packages}/**/*.{ts,tsx}'
+      exclude:
+        - 'modules/_template/**'
+      # ESLint 10 resolves the config from each file's directory, so every file uses its own package's rules.
+      run: pnpm exec eslint --max-warnings 0 {staged_files}
+
+    - name: gitleaks
+      # Scans the staged changes when gitleaks is installed; otherwise CI's gitleaks job is the gate.
+      run: node tools/hooks/gitleaks-staged.mjs

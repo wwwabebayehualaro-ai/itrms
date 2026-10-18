@@ -1,0 +1,16 @@
+{
+  "name": "@itrms/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "NestJS 11 on Fastify composition root: HTTP, workers, migrations (NestJS arrives in task 0.6)",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "devDependencies": {
+    "@itrms/config": "workspace:*"
+  }
+}

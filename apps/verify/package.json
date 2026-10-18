@@ -1,0 +1,16 @@
+{
+  "name": "@itrms/verify",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Public verification page and verifier PWA, a static Next.js export (task 0.23)",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "devDependencies": {
+    "@itrms/config": "workspace:*"
+  }
+}

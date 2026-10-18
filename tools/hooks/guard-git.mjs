@@ -40,14 +40,29 @@ function decide(cmd) {
     const c = ` ${argsOnly(cmd).replace(/\s+/g, ' ')} `;
     const deny = [
         [/\s--no-verify\b/, 'Hooks and checks are never skipped (--no-verify). Fix the failing check instead.'],
-        [/\sgit\s+(-c\s+\S+\s+)*push\b[^|;&]*\s(--force\b|-f\b|--force-with-lease\b|\+\S)/, 'Force-push rewrites shared history. Ask the product owner; it is never done by a session.'],
-        [/\sgit\s+(-c\s+\S+\s+)*reset\b[^|;&]*\s--hard\b/, 'git reset --hard discards work. Use git stash or a new commit; destructive resets need the product owner.'],
-        [/\sgit\s+(-c\s+\S+\s+)*clean\b[^|;&]*\s-[a-zA-Z]*f/, 'git clean -f deletes untracked files permanently. Ask the product owner first.'],
-        [/\s(git\s+filter-repo|git\s+filter-branch|git-filter-repo)\b/, 'Rewriting repository history is a product-owner decision (see the follow-up in progress.json).']
+        [
+            /\sgit\s+(-c\s+\S+\s+)*push\b[^|;&]*\s(--force\b|-f\b|--force-with-lease\b|\+\S)/,
+            'Force-push rewrites shared history. Ask the product owner; it is never done by a session.'
+        ],
+        [
+            /\sgit\s+(-c\s+\S+\s+)*reset\b[^|;&]*\s--hard\b/,
+            'git reset --hard discards work. Use git stash or a new commit; destructive resets need the product owner.'
+        ],
+        [
+            /\sgit\s+(-c\s+\S+\s+)*clean\b[^|;&]*\s-[a-zA-Z]*f/,
+            'git clean -f deletes untracked files permanently. Ask the product owner first.'
+        ],
+        [
+            /\s(git\s+filter-repo|git\s+filter-branch|git-filter-repo)\b/,
+            'Rewriting repository history is a product-owner decision (see the follow-up in progress.json).'
+        ]
     ];
     for (const [re, reason] of deny) if (re.test(c)) return { kind: 'deny', reason };
     if (/\sgit\s+(-c\s+\S+\s+)*push\b/.test(c)) {
-        return { kind: 'ask', reason: 'Pushing sends code to GitHub (outward-facing). The product owner approves every push.' };
+        return {
+            kind: 'ask',
+            reason: 'Pushing sends code to GitHub (outward-facing). The product owner approves every push.'
+        };
     }
     return null;
 }

@@ -106,11 +106,18 @@ Rules inside every slice:
 * `web/**` never imports `api/**`. Files under `web/screens` and `apps/web/src/bff` start with `import 'server-only'`.
 * Inside a package, imports use Node subpath imports (`#db/schema`, mapped in `package.json` `imports`), not long relative
   paths and not `tsconfig` `paths`.
-* **The system database pool** (`itrms_system`, BYPASSRLS) is exported only from `@itrms/kernel/db/system`.
-  dependency-cruiser allows that import only from `jobs/`, `handlers/` and the worker entry points. A request path can't
-  reach it (architecture §5).
+* **The system database pool** (`itrms_system`, BYPASSRLS) is exported only from `@itrms/kernel/db/system`. Three rules
+  keep request paths away from it (architecture §5):
+  * it may be imported only from `jobs/`, `handlers/`, a slice's `api/worker.ts` and the worker entry points;
+  * `jobs/` and `handlers/` are registered only by the slice's `api/worker.ts`, never by its HTTP side (`api/index.ts`);
+  * no import path at all, re-exports included, leads from `apps/api/src/main.ts`, a slice's `api/index.ts` or a kernel
+    subpath to the pool (a reachability rule).
+* Every `@itrms/*` and `#…` import must resolve. An unresolved one would be matched as a raw string and slip past the
+  path rules.
 
-dependency-cruiser checks all of this in CI (`pnpm boundaries`), and each rule has a failing fixture (task 0.2).
+dependency-cruiser checks all of this in CI (`pnpm boundaries`), and each rule has a failing fixture (task 0.2). The platform
+order and the registry list live in `tools/boundaries/layers.cjs`; `pnpm check:slices` refuses a platform slice outside the
+order. ESLint adds what imports can't show: no browser globals or JSX in `form-engine/src/core`, `contracts/` and `api/`.
 
 ## 4. A slice package
 
@@ -120,7 +127,7 @@ subsystem inside `api/` and `web/`.
 ```
 modules/competency/
 ├─ package.json            "name": "@itrms/competency"
-│                          exports: ./manifest ./contracts ./api ./web/server ./web/client ./messages/* ./seed
+│                          exports: ./manifest ./contracts ./api ./api/worker ./web/server ./web/client ./messages/* ./seed
 ├─ module.ts               the manifest (modularization.md §4): menu, widgets and slots are data here, not components
 ├─ README.md               what it owns, its public API, events, settings
 ├─ contracts/              isomorphic: what other slices and the web may depend on
@@ -131,7 +138,8 @@ modules/competency/
 │  ├─ errors.ts            error codes and i18n title keys
 │  └─ queries.ts           query and command interfaces + DI tokens (Symbols) offered to other slices
 ├─ api/                    server only (NestJS)
-│  ├─ index.ts             CompetencyModule and the providers bound to the tokens in contracts/queries.ts
+│  ├─ index.ts             CompetencyModule (HTTP side) and the providers bound to the tokens in contracts/queries.ts
+│  ├─ worker.ts            the worker side: registers jobs/ and handlers/; loaded only by the worker processes
 │  ├─ competency.module.ts
 │  ├─ licences/            one folder per feature (aggregate), not per technical layer
 │  │  ├─ licences.controller.ts
@@ -177,7 +185,7 @@ apps/api/
 ├─ instrumentation.ts      OpenTelemetry + Sentry SDK; loaded before anything else (--import)
 ├─ src/
 │  ├─ main.ts              HTTP process: NestFactory + FastifyAdapter, problem+json filter, OpenAPI at /api/docs (internal)
-│  ├─ worker.ts            BullMQ consumers: outbox relay, notifications, SLA, reports, imports (no Chrome)
+│  ├─ worker.ts            BullMQ consumers (each slice's ./api/worker): outbox relay, notifications, SLA, reports, imports
 │  ├─ worker-documents.ts  documents queue only; the one process that starts Chrome (architecture §10)
 │  ├─ migrate.ts           applies migrations; run by the Compose `migrate` service before the app starts
 │  ├─ app.module.ts        KernelModule.forRoot(config) + the installed slices + port bindings (fake or real adapter)
@@ -357,7 +365,7 @@ Rules:
 | `module-sdk` | `defineModule` and the manifest's Zod schema, slot types (menu, widgets, record tabs, search providers, quick actions); isomorphic | runtime code, effect signatures (those are in `@itrms/kernel/effects`) |
 | `api-client` | `openapi.json` (generated), types from openapi-typescript, the openapi-fetch client with idempotency, problem+json and trace-id middleware | hand-written endpoint wrappers |
 | `testing` | data factories, a fixed clock (Africa/Addis_Ababa), seeded ids, Testcontainers setup (PostgreSQL 16, Valkey, SeaweedFS, Keycloak), Ethiopic and Wolaytta text samples | the isolation matrix (in `@itrms/kernel/testing`), fixtures copied from real people |
-| `config` | `tsconfig` bases (`base`, `node`, `next`, `library`), ESLint 9 flat config, Prettier, Vitest presets (incl. `unplugin-swc`) | anything that runs in the product |
+| `config` | `tsconfig` bases (`base`, `node`, `next`, `library`), ESLint 10 flat config, Prettier, Vitest presets (incl. `unplugin-swc`) | anything that runs in the product |
 
 Every package still runs its own `typecheck`, `lint` and `test`, and Turborepo caches them per package.
 
@@ -399,11 +407,14 @@ the same idea: one `core` validates in the browser and the API.
   A new slice is correct by construction: manifest, README, messages in every language, CODEOWNERS entry. A CI check keeps
   every slice's `package.json` uniform (the same `exports` and scripts).
 * **Icon map** generated from the manifests (navigation-and-menus.md §7), so only used lucide icons are bundled.
-* **Formatting and linting:** Prettier + ESLint 9 (React Compiler rules, `import/no-cycle` inside packages), run in
+* **Formatting and linting:** Prettier + ESLint 10 (React Compiler rules, `import/no-cycle` inside packages), run in
   pre-commit by **lefthook** together with gitleaks on staged files (tech-stack T39).
 * **CODEOWNERS:** one line per folder (`/platform/kernel/` → platform owner, `/modules/competency/` → its team,
   `/packages/ui/` → UI owner, `/apps/api/drizzle/` and `**/api/sql/` → database reviewer).
 * `.gitattributes` (`* text=auto eol=lf`), `.nvmrc`, `packageManager` in `package.json`, and Renovate (grouped, weekly).
+* **The two-week rule is enforced twice:** Renovate's `minimumReleaseAge` for updates, and pnpm's `minimumReleaseAge`
+  (`pnpm-workspace.yaml`) for every resolution, transitive dependencies included. A lockfile entry that is too new fails
+  `pnpm install`.
 
 ## 11. File naming
 

@@ -1,0 +1,21 @@
+{
+  "name": "@itrms/module-sdk",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "defineModule, the manifest schema and slot types (isomorphic)",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "imports": {
+    "#*": "./src/*.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@itrms/config": "workspace:*"
+  }
+}

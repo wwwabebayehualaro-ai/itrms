@@ -1,0 +1,16 @@
+{
+  "name": "@itrms/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Next.js 16 staff application and BFF composition root (Next.js arrives in task 0.4)",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "devDependencies": {
+    "@itrms/config": "workspace:*"
+  }
+}

@@ -131,9 +131,15 @@ Boundaries (dependency-cruiser, CI):
 - Code checks **services and capabilities** of the active unit, never unit names or unit-type keys (ADR-0026).
 
 ## Commands
-Available after task 0.2 (until then the legacy commands are in `docs/legacy/CLAUDE.digital-file-cabinet.md`):
-- `pnpm i` · `pnpm dev:infra` (Compose: postgres, valkey, keycloak, S3, mailpit) · `pnpm dev` (web :3000, api :4000)
-- `pnpm turbo run lint typecheck test build` · `pnpm --filter @itrms/api test:int` (real Postgres) · `pnpm e2e`
+Toolchain: Node 24 LTS (`.nvmrc`), **pnpm 12** (`packageManager`; install with `npm i -g pnpm@12.9.1`, older corepack
+can't run it). Available now (task 0.2):
+- `pnpm i` · `pnpm turbo run lint typecheck test build` · `pnpm boundaries` (dependency-cruiser layer rules)
+- `pnpm check:slices` (slice shape) · `pnpm test:tools` (boundary fixtures, scaffold) · `pnpm format` / `format:check`
+- `pnpm gen module|feature|screen|effect` (turbo gen) · `pnpm licences:report`
+
+Added by later tasks (legacy commands until then: `docs/legacy/CLAUDE.digital-file-cabinet.md`):
+- `pnpm dev:infra` (Compose: postgres, valkey, keycloak, S3, mailpit) · `pnpm dev` (web :3000, api :4000)
+- `pnpm --filter @itrms/api test:int` (real Postgres) · `pnpm e2e`
 - `pnpm --filter @itrms/api db:generate` (drizzle-kit, review the SQL) · `db:migrate` · `pnpm demo:reset`
 - `pnpm i18n:check` · `pnpm licences:report` · `pnpm openapi` (regenerate `packages/api-client/openapi.json`)
 

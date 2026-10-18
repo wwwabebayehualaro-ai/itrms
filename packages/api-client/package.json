@@ -1,0 +1,21 @@
+{
+  "name": "@itrms/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "openapi.json, generated types and the typed fetch client",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "imports": {
+    "#*": "./src/*.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@itrms/config": "workspace:*"
+  }
+}

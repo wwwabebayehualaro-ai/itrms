@@ -53,7 +53,7 @@ the task must add. The [definition of done](../../CLAUDE.md#definition-of-done) 
       (empty skeletons with their `exports`);
     - `modules/_template` (manifest, contracts, api, web, messages, seed, test) and the `turbo gen` generators (`module`,
       `feature`, `screen`, `effect`); a CI check that every slice's `package.json` has the same `exports` and scripts;
-    - shared tsconfig, ESLint 9 and Prettier, lefthook (Prettier, ESLint, gitleaks on staged files), `.gitattributes`
+    - shared tsconfig, ESLint 10 and Prettier, lefthook (Prettier, ESLint, gitleaks on staged files), `.gitattributes`
       (`* text=auto eol=lf`), `.nvmrc` and `packageManager`, CODEOWNERS.
   - dependency-cruiser rules for the layers ([code-structure.md](../platform/code-structure.md) §3): `packages` →
     `platform` in its fixed order (kernel → integrations → forms → fees → documents → workflow → services → reports) →
@@ -61,7 +61,7 @@ the task must add. The [definition of done](../../CLAUDE.md#definition-of-done) 
     `web` never imports `api`; `@itrms/kernel/db/system` only from worker code; `apps/verify` limited to its allow-list.
   - Add the GitHub Actions PR workflow: lint, typecheck, test, build, dependency-cruiser boundaries, gitleaks, Trivy,
     Semgrep, and a licence report artefact (not a gate, ADR-0025). Renovate config.
-  - Pin the toolchain from [tech-stack.md](../tech-stack.md) (Node 24 LTS, pnpm 10, TypeScript 5.9).
+  - Pin the toolchain from [tech-stack.md](../tech-stack.md) (Node 24 LTS, pnpm 12, TypeScript 6.0, ESLint 10, Vitest 5; updated in task 0.2 to the current releases at least two weeks old).
 - **Done when:** `pnpm i && pnpm turbo run lint typecheck test build` passes on an empty skeleton, and CI is green on a PR.
   A deliberate boundary violation fails dependency-cruiser: `packages/schemas` importing `packages/ui`, or one
   work-process module importing another.

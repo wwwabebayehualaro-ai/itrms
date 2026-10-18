@@ -1,0 +1,21 @@
+{
+  "name": "@itrms/ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Design system: tokens, themes, primitives, components, page templates and Ethiopian controls",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "imports": {
+    "#*": "./src/*.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@itrms/config": "workspace:*"
+  }
+}

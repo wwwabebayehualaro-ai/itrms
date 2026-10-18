@@ -17,6 +17,16 @@ Planning complete; implementation starts with Phase 0 (see [docs/engineering/pro
 The repository still contains the legacy *Digital File Cabinet* code (`Frontend/`, `Backend/`), tagged `legacy-dfc`, which
 Phase 0 restructures into the ITRMS monorepo.
 
+## Developer setup
+Requires Node.js 24 LTS (`.nvmrc`) and pnpm 12 (`npm i -g pnpm@12.9.1`). Docker runs through WSL2 on Windows.
+
+```
+pnpm install                                   # also installs the git hooks (lefthook)
+pnpm turbo run lint typecheck test build       # what CI runs, plus:
+pnpm boundaries && pnpm check:slices && pnpm test:tools
+pnpm gen module                                # new slice package (code-structure.md §10)
+```
+
 ## Where to start
 * [CLAUDE.md](CLAUDE.md): product, stack, design rules, conventions, definition of done.
 * [docs/README.md](docs/README.md): all documentation in reading order (architecture, decisions, platform design, phases,

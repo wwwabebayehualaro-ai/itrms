@@ -1,0 +1,50 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommits", "helpers:pinGitHubActionDigests", "group:monorepos"],
+  "timezone": "Africa/Addis_Ababa",
+  "schedule": ["before 6am on monday"],
+  "minimumReleaseAge": "14 days",
+  "rangeStrategy": "pin",
+  "labels": ["dependencies"],
+  "ignorePaths": ["Frontend/**", "Backend/**", "tools/boundaries/fixtures/**"],
+  "packageRules": [
+    {
+      "description": "Lint, format, type and test tooling move together",
+      "groupName": "dev tooling",
+      "matchPackageNames": [
+        "eslint",
+        "@eslint/js",
+        "typescript-eslint",
+        "globals",
+        "prettier",
+        "typescript",
+        "vitest",
+        "dependency-cruiser",
+        "lefthook",
+        "turbo",
+        "@turbo/gen"
+      ]
+    },
+    {
+      "description": "Node.js and pnpm follow the LTS line and the pinned packageManager (tech-stack T24)",
+      "groupName": "toolchain",
+      "matchPackageNames": ["node", "pnpm", "@types/node"]
+    },
+    {
+      "description": "CI actions and scanner images",
+      "groupName": "ci",
+      "matchManagers": ["github-actions", "custom.regex"]
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Scanner images pinned by tag and digest in the CI workflow",
+      "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "(?<depName>zricethezav/gitleaks|semgrep/semgrep):(?<currentValue>v?\\d+\\.\\d+\\.\\d+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?"
+      ],
+      "datasourceTemplate": "docker"
+    }
+  ]
+}

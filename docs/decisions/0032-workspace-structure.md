@@ -38,6 +38,8 @@ The package name `@itrms/forms` was also claimed twice: by the form engine and b
 5. **The folders are the layers:** `packages/` → `platform/` → `modules/` (registries, then work processes).
    dependency-cruiser enforces the rules in [code-structure.md](../platform/code-structure.md) §3.
 6. **The system database pool** is exported only from `@itrms/kernel/db/system` and may be imported only by worker code.
+   Each slice has a separate `./api/worker` entry that registers its jobs and handlers, so a reachability rule can
+   prove that no import path leads from the HTTP process to the pool (added in task 0.2 after its review).
    Each process validates its own configuration, and the HTTP process refuses to start with system credentials. Effects
    run as `itrms_app`; work outside the actor's scope goes through an audited `SECURITY DEFINER` command.
 7. **The form engine is renamed `packages/form-engine`** (`@itrms/form-engine`). `@itrms/forms` is the forms platform

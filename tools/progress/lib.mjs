@@ -45,8 +45,14 @@ export function setStatus(data, id, status, { approved = false } = {}) {
     if (!STATUSES.includes(status)) throw new Error(`Unknown status "${status}" (use: ${STATUSES.join(', ')})`);
     const t = findTask(data, id);
     if (t.status === status) return t;
-    if (!NEXT[t.status].includes(status)) throw new Error(`Task ${id}: "${t.status}" → "${status}" is not allowed (allowed: ${NEXT[t.status].join(', ') || 'none'})`);
-    if (status === 'done' && !approved) throw new Error(`Task ${id}: only the product owner moves a task to done (pass --approved after their approval)`);
+    if (!NEXT[t.status].includes(status))
+        throw new Error(
+            `Task ${id}: "${t.status}" → "${status}" is not allowed (allowed: ${NEXT[t.status].join(', ') || 'none'})`
+        );
+    if (status === 'done' && !approved)
+        throw new Error(
+            `Task ${id}: only the product owner moves a task to done (pass --approved after their approval)`
+        );
     if (status === 'in progress') {
         const busy = allTasks(data).filter((x) => x.id !== id && x.status === 'in progress');
         if (busy.length) throw new Error(`Task ${busy[0].id} is already in progress (one task at a time, CLAUDE.md)`);
@@ -79,7 +85,12 @@ export function focusTask(data) {
 
 export function gitBranch() {
     try {
-        return execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+        return execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+            cwd: ROOT,
+            stdio: ['ignore', 'pipe', 'ignore']
+        })
+            .toString()
+            .trim();
     } catch {
         return '';
     }

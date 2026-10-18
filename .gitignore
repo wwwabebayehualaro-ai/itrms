@@ -36,10 +36,18 @@ Thumbs.db
 
 # Domain source material (government documents supplied for analysis). Kept locally, never in the product repository:
 # the product's source may be shared with customers, escrow agents and security evaluators.
-Documents/
+/Documents/
 
 # Claude Code personal overrides
 .claude/settings.local.json
 
 # Office lock files
 .~lock.*#
+
+# Workspace build output
+.turbo/
+dist/
+coverage/
+
+# Generated reports
+licences-report.md

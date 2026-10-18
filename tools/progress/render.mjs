@@ -3,7 +3,10 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, load, phaseStats } from './lib.mjs';
 
-const esc = (s) => String(s ?? '').replaceAll('|', '\\|').replaceAll('\n', ' ');
+const esc = (s) =>
+    String(s ?? '')
+        .replaceAll('|', '\\|')
+        .replaceAll('\n', ' ');
 
 export function render() {
     const data = load();
@@ -20,17 +23,26 @@ export function render() {
     for (const p of data.phases) {
         const s = phaseStats(p);
         out.push(`## Phase ${p.id}: ${p.title} — ${s.done}/${s.total} done (${s.pct}%)`, '', `**Gate:** ${p.gate}`, '');
-        out.push('| Task | Title | Status | Branch / commits | Evidence | Notes / blockers |', '|---|---|---|---|---|---|');
+        out.push(
+            '| Task | Title | Status | Branch / commits | Evidence | Notes / blockers |',
+            '|---|---|---|---|---|---|'
+        );
         for (const t of p.tasks) {
             const status = t.status === 'planned' ? 'planned' : `**${t.status}**`;
             const refs = [t.branch && `\`${t.branch}\``, ...t.commits].filter(Boolean).join(', ');
             const notes = [t.notes, ...(t.blockers ?? []).map((b) => `BLOCKED: ${b}`)].filter(Boolean).join(' ');
-            out.push(`| ${t.id} | ${esc(t.title)} | ${status} | ${esc(refs)} | ${esc(t.evidence.join('; '))} | ${esc(notes)} |`);
+            out.push(
+                `| ${t.id} | ${esc(t.title)} | ${status} | ${esc(refs)} | ${esc(t.evidence.join('; '))} | ${esc(notes)} |`
+            );
         }
         out.push('');
     }
-    out.push('## Follow-ups', '', '| Found in | Item | Moved to |', '|---|---|---|');
-    for (const f of data.followUps) out.push(`| ${esc(f.foundIn)} | ${esc(f.item)} | ${esc(f.movedTo)} |`);
+    out.push('## Follow-ups', '', '| # | Found in | Item | Moved to | Closed |', '|---|---|---|---|---|');
+    data.followUps.forEach((f, i) =>
+        out.push(
+            `| ${i + 1} | ${esc(f.foundIn)} | ${esc(f.item)} | ${esc(f.movedTo)} | ${f.closedIn ? `✔ ${esc(f.closedIn)}` : 'open'} |`
+        )
+    );
     out.push('');
     writeFileSync(join(ROOT, 'docs', 'engineering', 'progress.md'), out.join('\n'), 'utf8');
 }

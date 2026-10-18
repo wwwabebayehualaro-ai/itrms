@@ -28,6 +28,7 @@ node tools/progress/cli.mjs show <id>
 node tools/progress/cli.mjs set <id> "<status>" [--branch b] [--commit sha] [--evidence "cmd → result"] [--blocker "why"] [--clear-blockers] [--approved]
 node tools/progress/cli.mjs note <id> "text"
 node tools/progress/cli.mjs followup <id> "item" "moved to"
+node tools/progress/cli.mjs followup-done <number> "<task>: how it was closed"
 node tools/progress/cli.mjs export <dir>        # tasks.json, phases.json, followups.json for the dashboard
 ```
 

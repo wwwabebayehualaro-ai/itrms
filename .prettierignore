@@ -1,0 +1,15 @@
+# Legacy Digital File Cabinet code: moved or retired in tasks 0.4-0.6, formatted then.
+/Frontend/
+/Backend/
+/contracts/
+/features/
+# Never formatted
+/Documents/
+docs/
+*.md
+pnpm-lock.yaml
+.turbo/
+dist/
+coverage/
+tools/boundaries/fixtures/
+*.hbs

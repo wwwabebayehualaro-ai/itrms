@@ -1,0 +1,24 @@
+{
+  "name": "@itrms/form-engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Form engine: core (UI-free, also runs in the API), renderer, designer, viewer",
+  "exports": {
+    "./core": "./src/core/index.ts",
+    "./renderer": "./src/renderer/index.ts",
+    "./designer": "./src/designer/index.ts",
+    "./viewer": "./src/viewer/index.ts"
+  },
+  "imports": {
+    "#*": "./src/*.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@itrms/config": "workspace:*"
+  }
+}

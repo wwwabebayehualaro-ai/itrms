@@ -1,0 +1,27 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "stream",
+  "agentGuidance": false,
+  "tasks": {
+    "transit": {
+      "dependsOn": ["^transit"]
+    },
+    "lint": {
+      "dependsOn": ["^transit"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/config/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^transit"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/config/**"]
+    },
+    "test": {
+      "dependsOn": ["^transit"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/config/**"]
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/config/**"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**", "out/**"]
+    }
+  }
+}
