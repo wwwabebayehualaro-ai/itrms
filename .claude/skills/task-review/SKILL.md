@@ -38,9 +38,12 @@ Rules: `docs/engineering/workflow.md` §3–§5. **Never move a task to `done` w
 
 ## B. When the product owner approves (`/task-review approve <id>`)
 Only after an explicit approval in the conversation:
-1. Run `node tools/progress/cli.mjs set <id> done --approved`.
-2. Commit the progress files on the task branch.
-3. Merge the branch into `main` with a merge commit: `git checkout main && git merge --no-ff task/<…>`.
-4. Mark the next task `ready` if its definition of ready holds.
-5. Refresh the dashboard.
-6. **Do not push**: pushing needs its own approval, and the guard hook asks for it.
+1. Squash-merge the branch into `main` (workflow.md §5: linear history), with a conventional message naming the task:
+   `git checkout main && git merge --squash task/<…> && git commit`. Branch commit SHAs recorded earlier become
+   unreachable after the squash; the squash commit is the one that counts.
+2. Record it: `node tools/progress/cli.mjs set <id> done --approved --commit <squash-sha>`. Mark the next task `ready`
+   if its definition of ready holds.
+3. Commit the progress files on `main` as a separate commit, `docs(progress): task <id> done`. Don't amend the squash
+   commit: amending changes its SHA, and the recorded SHA would point at a commit that no longer exists.
+4. Refresh the dashboard.
+5. **Do not push**: pushing needs its own approval, and the guard hook asks for it.

@@ -36,5 +36,6 @@ one, write a new ADR that supersedes it. Format: context, decision, consequences
 | [0029](0029-design-tokens-and-theming.md) | Design tokens, themes, branding within limits, Ethiopic-first typography | accepted (2026-10-18) |
 | [0030](0030-hybrid-delivery-builder-and-code.md) | Hybrid delivery: builder for capture and configuration, code for money, registries and complex work | accepted (2026-10-18) |
 | [0031](0031-design-review-hardening.md) | Hardening from the 2026-10-18 design review: RLS without bypass, per-unit role assignments, PII encryption, payment verification, wait states, exposure, backups | accepted (2026-10-18) |
+| [0032](0032-workspace-structure.md) | Workspace structure: kernel and platform services as slice packages, thin apps, `apps/verify`, slice-owned messages (amends 0001, 0002, 0027) | accepted (2026-10-18) |
 
 All tool choices and the answers to the technical open questions: [`../tech-stack.md`](../tech-stack.md).

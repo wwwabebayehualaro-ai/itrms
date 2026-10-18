@@ -3,6 +3,8 @@
 * Status: accepted (2026-10-18). It makes explicit what ADR-0017 and ADR-0019 imply, and carries over the legacy project's
   ADR 0001 (hybrid feature delivery) in ITRMS terms.
 
+> Path note: `packages/forms` below is now `packages/form-engine` ([ADR-0032](0032-workspace-structure.md)).
+
 ## Context
 ITRMS has 54 services. They differ by region, and they change when directives change. Some move money, change registries or
 need planning screens. Building everything in the form builder cannot express money, gapless numbers, eligibility law or

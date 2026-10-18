@@ -12,7 +12,7 @@ ITRMS (KEEP / PORT / DROP), and what the form builder lacks for ITRMS. The targe
   banking and demo parts are product-specific.
 - **The most valuable asset is the frontend:** `platform/ui` (design system) and `platform/form-engine` (25 field types,
   repeating rows, safe formulas, data sources, lookups, versioned publishing, a server-driven data viewer). It is TypeScript
-  and moves almost unchanged into `packages/ui` and `packages/forms`.
+  and moves almost unchanged into `packages/ui` and `packages/form-engine`.
 - **The backend is Python and is retired.** Its *designs* are good and are ported to NestJS: tenant guard + RLS, audit in
   the same transaction, gapless counters, idempotency keys, problem+json, "effects are code" approvals, the allow-listed JSON
   query compiler behind the data viewer.
@@ -178,29 +178,29 @@ design. DROP = not carried over (it stays in git history after task 0.1).
 | Part | Path today | Verdict | Target / reason |
 |---|---|---|---|
 | Design system primitives, composite controls, forms kit, notify/query providers, `DataGrid`, charts, `FileViewer` | `Frontend/platform/ui` | **KEEP** | `packages/ui`. Replace the react-pdf-viewer parts with `pdfjs-dist` |
-| Form engine core (model, conditions, validation, contract) | `platform/form-engine/core` | **KEEP** | `packages/forms/core`, which also runs **on the server** for validation. The stored-form Zod schema moves to `packages/schemas` |
-| Renderer + field kit, designer (builder), data viewer, Runtime (bindings, formulas, data sources) | `platform/form-engine/{renderer,designer,viewer,Runtime}` | **KEEP** | `packages/forms`. HTTP calls go through an injected client, not the app's client |
-| Form engine TanStack Query hooks | `platform/form-engine/api` | **KEEP** (adapt) | `packages/forms/api`, typed from the new OpenAPI contract |
-| HTTP client, query keys, format, download, logger | `platform/lib` | **KEEP** (adapt) | `apps/web/lib`. Auth is redone for Keycloak; `format.ts` becomes locale- and Ethiopian-calendar-aware |
+| Form engine core (model, conditions, validation, contract) | `platform/form-engine/core` | **KEEP** | `packages/form-engine/core`, which also runs **on the server** for validation. The stored-form Zod schema moves to `packages/schemas` |
+| Renderer + field kit, designer (builder), data viewer, Runtime (bindings, formulas, data sources) | `platform/form-engine/{renderer,designer,viewer,Runtime}` | **KEEP** | `packages/form-engine`. HTTP calls go through an injected client, not the app's client |
+| Form engine TanStack Query hooks | `platform/form-engine/api` | **KEEP** (adapt) | `platform/forms/web/queries`, typed from the new OpenAPI contract (`packages/api-client`) |
+| HTTP client, query keys, format, download, logger | `platform/lib` | **KEEP** (adapt) | `packages/api-client` (HTTP) and `@itrms/kernel/runtime` (format, download, logger). Auth is redone for Keycloak; `format.ts` becomes locale- and Ethiopian-calendar-aware |
 | Auth store, session, refresh, sign-in page | `platform/lib/auth`, `app/(full-page)/auth` | **DROP** | Keycloak login (OIDC code flow + PKCE); the sign-in screen is a Keycloak theme |
 | App shell, sidebar, dashboard, status screens | `Frontend/layout`, `app/(main)` | **KEEP** (adapt) | `apps/web`: menu from the service catalogue and permissions; org-unit switcher |
-| Forms routes (builder, gallery, data viewer, record page, requests lists) | `app/(main)/(forms)` | **KEEP** (adapt) | `apps/web/app/(admin)/forms` and the case screens |
+| Forms routes (builder, gallery, data viewer, record page, requests lists) | `app/(main)/(forms)` | **KEEP** (adapt) | `platform/forms/web` (builder, data viewer) and `platform/workflow/web` (case screens) |
 | Platform screens (approval inbox, feature flags, sequences) | `platform/ui/screens` | **KEEP** (adapt) | The inbox becomes the workflow task inbox |
 | Core banking screens, code-UI playground (Monaco), demo pages | `app/(main)/(coded)/core-banking`, `dynamic-template/code-UI` | **DROP** | Bank-specific; the playground loads PrimeReact from a CDN |
 | Frontend tests and engine checks | `Frontend/tests`, `scripts/check*.mts` | **KEEP** | Move with their packages; the e2e specs are rewritten for ITRMS flows |
 | Demo/e2e seed scripts (bank, expense, equipment, leave) | `Frontend/scripts/e2e/*` | **DROP** | Replaced by Amharic ITRMS seed data |
 | FastAPI app, CLI, settings | `Backend/app/main.py`, `cli.py`, `foundation/config.py` | **DROP** (design ported) | `apps/api` (NestJS + Fastify) |
-| Tenancy guard + RLS, audit, errors, idempotency, numbering, observability | `Backend/app/foundation/*` | **PORT** | `apps/api/src/platform/*`; tenancy extended to the org tree |
+| Tenancy guard + RLS, audit, errors, idempotency, numbering, observability | `Backend/app/foundation/*` | **PORT** | `platform/kernel`; tenancy extended to the org tree |
 | Approvals (maker-checker) | `foundation/approval` | **PORT** | Folded into the workflow engine |
 | Module registry + feature flags | `foundation/registry` | **PORT** (slim) | NestJS modules; per-unit feature flags |
 | Own JWT auth, users, tenants, refresh tokens, people directory | `foundation/auth`, `security/` | **DROP** (directory **PORT**) | Keycloak; a directory endpoint over synced users |
-| Template + version + publish endpoints, form-config check | `modules/form_builder` | **PORT** | `apps/api/src/forms` (definitions, versions, publish) |
-| Submissions, query compiler, saved views, export, history, field-level access, server actions | `modules/form_submission`, `foundation/db/json_query.py` | **PORT** | `apps/api/src/forms`; server actions become workflow/service effects |
-| Files (upload, type/signature checks, local storage) | `modules/files`, `foundation/storage.py` | **PORT** | `apps/api/src/files` on S3-compatible storage (presigned URLs) |
+| Template + version + publish endpoints, form-config check | `modules/form_builder` | **PORT** | `platform/forms` (definitions, versions, publish) |
+| Submissions, query compiler, saved views, export, history, field-level access, server actions | `modules/form_submission`, `foundation/db/json_query.py` | **PORT** | `platform/forms`; server actions become workflow/service effects |
+| Files (upload, type/signature checks, local storage) | `modules/files`, `foundation/storage.py` | **PORT** | `@itrms/kernel/files` on S3-compatible storage (presigned URLs) |
 | Core banking module | `modules/core_banking` | **DROP** | Bank-specific. Its gateway pattern is the model for integration adapters |
 | Alembic migrations, SQLAlchemy models | `Backend/alembic`, `models/` | **DROP** | New Drizzle schema; there is no production data to migrate |
 | pytest suite | `Backend/tests` | **DROP** (as a checklist to **PORT**) | Behaviours re-created as Vitest integration tests |
-| OpenAPI contract + drift check | `contracts/openapi.json` | **KEEP** (concept) | Generated from NestJS (`@nestjs/swagger`) into `packages/schemas`; most types are shared directly via Zod |
+| OpenAPI contract + drift check | `contracts/openapi.json` | **KEEP** (concept) | Generated from NestJS (`@nestjs/swagger`) into `packages/api-client`; most types are shared directly via Zod |
 | `form-config.schema.json` | `contracts/` | **DROP** | Not needed: the API imports the engine's Zod schema directly |
 | Feature registry (`features/*.yaml`) | `features/` | **DROP** | Replaced by the **service catalogue** (54 services as configuration, in the database) |
 | CODEOWNERS | `.github/` | **KEEP** (rewrite paths) | |
@@ -214,12 +214,12 @@ design. DROP = not carried over (it stays in git history after task 0.1).
 | # | Capability | Today | Needed for ITRMS | Task |
 |---|---|---|---|---|
 | G1 | **Versioned definitions, each submission records its version** | ✅ Content-hashed immutable versions; submissions store `template_version_id`; publish approval | Keep it. Also link the service version (form + workflow + fee + document) to each case | 0.16, 0.21 |
-| G2 | **Server-side validation via shared Zod schemas** | ❌ Browser only (legacy #1) | `packages/forms/core` validation runs in the API on submit and on each workflow step. One code path, so there is no parity problem. Hidden-field pruning on the server too | 0.16 |
+| G2 | **Server-side validation via shared Zod schemas** | ❌ Browser only (legacy #1) | `packages/form-engine/core` validation runs in the API on submit and on each workflow step. One code path, so there is no parity problem. Hidden-field pruning on the server too | 0.16 |
 | G3 | **Conditional fields** | ✅ Visibility/enable conditions (and/or/xor/not), hidden containers hide children | Add `requiredWhen` and cross-field `validWhen` (legacy #5), e.g. "medical certificate required for grade ≥ 3" | 0.17 |
 | G4 | **Repeating sections** | ✅ `FormArray` with per-row rules, formulas, min/max rows | Keep. Add a print layout for rows (tables in PDFs) | 0.17 |
 | G5 | **File uploads** | ⚠️ Local disk, type/size/signature checks, no scanning | S3-compatible storage with presigned uploads, per-form limits, document type tags (medical certificate, photo, libre copy) | 0.15, 0.18 |
 | G6 | **Lookup fields** (pick an existing vehicle, driver, association) | ⚠️ `behavior.validation.remote` + GET data sources can verify a number; no searchable record picker; `{{data.*}}` holds lookups | A `RegistryLookup` field type: searchable picker over a registry (vehicle by plate/chassis, person by name/Fayda, licence, association), stores the **typed record id** (not a copy). The picked record's facts are shown read-only; server-side existence and scope check | 0.18 |
-| G7 | **Computed fee fields** | ⚠️ Formulas exist (client-side, `{{= … }}`), no server trust | A `Fee` field showing the **server-computed** fee from the service's fee rule (preview while filling, authoritative on submit). The formula evaluator moves to `packages/forms` and runs on both sides | 0.18, 0.22 |
+| G7 | **Computed fee fields** | ⚠️ Formulas exist (client-side, `{{= … }}`), no server trust | A `Fee` field showing the **server-computed** fee from the service's fee rule (preview while filling, authoritative on submit). The formula evaluator moves to `packages/form-engine` and runs on both sides | 0.18, 0.22 |
 | G8 | **Translatable labels** (Amharic, English, Afaan Oromo, Tigrinya, …) | ❌ One string per label; `en-US` formatting (legacy #11) | `I18nText = Record<lang, string>` for label/help/placeholder/options/messages; the default language is the fallback; builder translation table with "missing" hints; per-tenant language list; Ethiopic-script-safe fonts | 0.13, 0.17 |
 | G9 | **Ethiopian-calendar date field** | ❌ Gregorian `Calendar` (react-day-picker) | `EthDate` field + `DatePicker` Ethiopian mode: entry and display in the Ethiopian calendar, stored as a Gregorian ISO date; min/max rules in either calendar; fiscal-year helpers | 0.12, 0.17 |
 | G10 | **Read-only and print rendering** | ⚠️ Read-only renderer exists (record page); no print or PDF (legacy #10) | A `print` mode of the renderer (no controls, page breaks, Ethiopic fonts, Ethiopian dates) used by the PDF worker for application copies; issued certificates use document templates (ADR-0006) | 0.17, 0.23 |

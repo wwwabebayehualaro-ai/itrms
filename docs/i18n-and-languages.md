@@ -19,7 +19,8 @@ script**, copied from Amharic ([CLDR v48 delta](https://www.unicode.org/cldr/cha
 [cldr-users](https://corp.unicode.org/pipermail/cldr-users/2016-January/000432.html)) [N]. ITRMS uses the Latin orthography
 taught in schools, so it **does not rely on `Intl`/ICU data for Wolaytta**. Rules:
 - UI strings, month names, weekday names and labels for Wolaytta come from **our own catalogues**
-  (`apps/web/messages/wal-Latn.json`, `packages/ethiopian-calendar/src/locales/wal-Latn.ts`).
+  (`wal-Latn.json` in each slice's `messages/` and in `apps/web/messages`, and
+  `packages/ethiopian-calendar/src/locales/wal-Latn.ts`).
 - Numbers and money use the `en` patterns (`1,234.50`). The digits are Latin.
 - `Intl.Collator` sorts Wolaytta with the `en` rules. Search folds the apostrophe variants (see §4).
 - If a later region wants Wolaytta in Ethiopic script, add `wal-Ethi` as a separate catalogue. The mechanism supports it.
@@ -27,8 +28,8 @@ taught in schools, so it **does not rely on `Intl`/ICU data for Wolaytta**. Rule
 ## 2. What gets translated, and where it lives
 | Text | Storage | Who translates | Missing translation |
 |---|---|---|---|
-| UI strings (buttons, menus, messages, errors) | `apps/web/messages/{am,en,wal-Latn}.json` (next-intl), keys `<area>.<screen>.<key>` | developers write `en` + `am`; a Wolaytta translator does `wal-Latn` | **CI fails** for `am` and `en`. For `wal-Latn`, CI reports and the UI falls back to `am` (Wolaytta keys are filled in batches) |
-| API error titles | the same catalogues (`errors.<code>`) | as above | as above |
+| UI strings (buttons, menus, messages, errors) | `<slice>/messages/{am,en,wal-Latn}.json` per slice + `apps/web/messages` for the shell (next-intl, merged at build; code-structure.md §9), keys `<owner>.<area>.<key>` | developers write `en` + `am`; a Wolaytta translator does `wal-Latn` from one merged export per language | **CI fails** for `am` and `en`. For `wal-Latn`, CI reports and the UI falls back to `am` (Wolaytta keys are filled in batches) |
+| API error titles | the same catalogues (`<owner>.errors.<code>`, e.g. `kernel.errors.forbidden`) | as above | as above |
 | Data names set by the bureau (services, units, roles, document types, licence categories, options) | `I18nText` JSONB `{"am": "…", "en": "…", "wal-Latn": "…"}` | bureau or zone admins in the admin screens | fallback chain; admin screens show "missing" badges |
 | Form labels, help, options, messages | `I18nText` in the form definition | form authors in the builder's translation table (task 0.17) | fallback; the publish check warns, it does not block |
 | Document templates (certificates, receipts) | per-template string tables per language | bureau | printing a language with missing strings is refused |

@@ -2,6 +2,8 @@
 
 * Status: accepted (2026-10-17, fixed by the product owner)
 
+> **Amended by [ADR-0032](0032-workspace-structure.md)** (2026-10-18): the workspace folders and package names.
+
 ## Context
 The copied project has two independent apps (Next.js + FastAPI) and no shared build. The form engine's validation must run
 in both the browser and the API, and the DTOs should have one source of truth. npm 10's resolver also crashed on this

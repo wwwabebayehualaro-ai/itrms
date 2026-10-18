@@ -101,29 +101,33 @@ in `docs/legacy/CLAUDE.digital-file-cabinet.md`.
 
 ## Repository layout (target)
 ```
-apps/web                    screens, BFF route handlers, messages/<lang>.json
-apps/api                    composition root; src/platform/* = kernel (config, errors, context, iam, org, db, audit,
-                            numbering, idempotency, outbox, jobs, files, i18n, notifications, search) + platform services
-                            (forms, workflow, fees, documents, reports, integrations/*)
-modules/<key>               vertical-slice module packages (ADR-0027): module.ts manifest, contracts/, api/, web/, seed/, test/
+apps/web                    composition root: shell, generated route files, BFF route handlers, shell messages
+apps/api                    composition root: main, worker, worker-documents, migrate; the single migration history
+apps/verify                 public verification page + verifier PWA (static export, no session)
+platform/<key>              slice packages (ADR-0032), in this dependency order: kernel (config, errors, context, db, iam,
+                            org, settings, audit, numbering, idempotency, outbox, jobs, effects, files, i18n, notifications,
+                            search, ports, web runtime) → integrations → forms → fees → documents → workflow → services → reports
+modules/<key>               slice packages (ADR-0027): module.ts manifest, contracts/, api/, web/, messages/, seed/, test/
                             registries: parties, vehicles, drivers, associations, road-assets
                             work processes: competency, public-transport, freight, road-safety, road-quality,
                             design-contracts, community, logistics, hr, planning
-packages/schemas            Zod schemas + types shared by web and api (DTOs, Money, I18nText, form contract, errors)
-packages/forms              form engine: core (UI-free; also runs in the API), renderer, designer, viewer
+packages/schemas            shared primitives: Money, I18nText, ids, dates, problem+json, error codes, form contract
+packages/form-engine        form engine: core (UI-free; also runs in the API), renderer, designer, viewer
 packages/ui                 design system (shadcn/ui + Radix + Tailwind 4), incl. the Ethiopian DatePicker
 packages/ethiopian-calendar conversion, formatting, fiscal year
+packages/module-sdk, api-client, testing, config   manifest types · OpenAPI + typed client · test kit · lint/ts presets
 infra/compose, infra/backup Compose files, nginx, keycloak realm/theme, backup and restore scripts
 docs/                       architecture, audit, ethiopia-context, phases, decisions, legacy
 Documents/                  domain source material (service list, scanned forms); never edit, never publish
 ```
-Boundaries (lint-enforced):
+What goes where, file naming and the full rules: [`docs/platform/code-structure.md`](docs/platform/code-structure.md).
+Boundaries (dependency-cruiser, CI):
 - `schemas` and `ethiopian-calendar` import nothing internal.
-- `forms/core` has no React or DOM.
-- `apps/api` never imports `ui` or the UI parts of `forms`.
-- Layers point downward only: kernel → platform services → registries → work-process modules. Work-process modules never
-  import each other (use events or a registry). Imports go only through a module's package exports (`contracts`, `api`,
-  `web`).
+- `form-engine/core` has no React or DOM.
+- `apps/api` and every `api/` entry never import `ui` or the UI parts of `form-engine`; `web/` never imports `api/`.
+- Layers are folders and point downward only: `packages` → `platform` (kernel, then services) → registries →
+  work-process modules. Work-process modules never import each other (use events or a registry). Imports go only through
+  a slice's package exports (`contracts`, `api`, `web`, `seed`, `manifest`).
 - Code checks **services and capabilities** of the active unit, never unit names or unit-type keys (ADR-0026).
 
 ## Commands
@@ -131,7 +135,7 @@ Available after task 0.2 (until then the legacy commands are in `docs/legacy/CLA
 - `pnpm i` · `pnpm dev:infra` (Compose: postgres, valkey, keycloak, S3, mailpit) · `pnpm dev` (web :3000, api :4000)
 - `pnpm turbo run lint typecheck test build` · `pnpm --filter @itrms/api test:int` (real Postgres) · `pnpm e2e`
 - `pnpm --filter @itrms/api db:generate` (drizzle-kit, review the SQL) · `db:migrate` · `pnpm demo:reset`
-- `pnpm i18n:check` · `pnpm licences:report` · `pnpm openapi` (regenerate `packages/schemas/openapi.json`)
+- `pnpm i18n:check` · `pnpm licences:report` · `pnpm openapi` (regenerate `packages/api-client/openapi.json`)
 
 Windows: run Docker via WSL2. Prefer pnpm over npm (npm 10's resolver crashed on this codebase).
 
@@ -164,8 +168,8 @@ Windows: run Docker via WSL2. Prefer pnpm over npm (npm 10's resolver crashed on
 - **Payroll:** ITRMS prepares, approves and sends the **office payroll list** to Finance. Finance pays and does its own
   accounting (ADR-0016). Salary scales, tax and pension rates are versioned configuration.
 - **Work never done in an HTTP request:** PDFs, SMS, reports, imports and external calls go through the outbox → BullMQ.
-- **Validation:** Zod schemas from `packages/schemas` at every boundary. Form submissions are validated on the server with
-  `packages/forms/core`; the browser check is a convenience.
+- **Validation:** Zod schemas from the slices' `contracts` (primitives from `packages/schemas`) at every boundary. Form submissions are validated on the server with
+  `packages/form-engine/core`; the browser check is a convenience.
 
 ## Coding conventions
 - TypeScript `strict`. No `any` (use `unknown` + Zod). No non-null assertions in API code.
@@ -179,7 +183,8 @@ Windows: run Docker via WSL2. Prefer pnpm over npm (npm 10's resolver crashed on
 - Every POST is idempotent (`Idempotency-Key`). State changes on cases only through workflow transitions.
 - Frontend: UI only from `packages/ui`; server state only through TanStack Query; HTTP only through the BFF client; forms
   are hand-written (`useZodForm`) or engine-rendered. Never handle tokens in the browser.
-- i18n keys look like `<area>.<screen>.<key>` and must exist in every enabled language. Amharic text lives only in catalogues,
+- i18n keys look like `<owner>.<area>.<key>` (owner = the slice key, `shell` or `common`; e.g. `competency.nav.applications`),
+  live in the owning slice's `messages/`, and must exist in every enabled language. Amharic text lives only in catalogues,
   seeds and fixtures.
 - Comments explain *why*, sparingly. Match the surrounding code.
 - Seed and demo data are generated. **Never use real people's data** from `Documents/` or anywhere else.

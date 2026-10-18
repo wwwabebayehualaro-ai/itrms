@@ -4,7 +4,7 @@ The product owner delegated all technical choices on 2026-10-18 and asked for **
 used normally**. Licences are recorded but do not decide (ADR-0025). This document answers every **technical** open question
 in the other docs. Business questions (fees, receipts, translators, who decides what) stay open in [README.md](README.md).
 
-The fixed stack decisions (ADRs 0001–0009, 0011–0019) stand. Detail changes are recorded in ADRs 0020–0031 (0021 amends 0004;
+The fixed stack decisions (ADRs 0001–0009, 0011–0019) stand. Detail changes are recorded in ADRs 0020–0032 (0021 amends 0004; 0032 amends 0001, 0002 and 0027;
 0027 refines 0002; 0031 amends several after the design review).
 
 **Version rule:** every dependency is pinned to an exact release that is at least two weeks old when it is added. Upgrades go
@@ -39,7 +39,7 @@ registry or the project page on 2026-10-18.
 | T22 | Images and delivery | GHCR, images signed with **cosign**; offline sites get `docker save` tarballs + checksum + signature | Verifiable installs on poor links |
 | T23 | Secrets | **sops + age**: encrypted env files in a private ops repo, decrypted on deploy into Compose secrets | The standard for encrypted config in git |
 | T24 | Runtimes | **Node.js 24 LTS** (move to Node 26 LTS in Phase 1), **pnpm 10**, **TypeScript 5.9**, **Next.js 16 + React 19**, **NestJS 11 + Fastify 5**, **PostgreSQL 16** (fixed), **Valkey 8**, **Keycloak 26**, **BullMQ 5**, **Puppeteer** (Chrome for Testing pinned) | Current LTS lines; Node 24 is supported to April 2028 |
-| T25a | Building module packages | One `drizzle.config` listing every module's schema files → one migrations folder; the API built with `nest build -b swc` (decorator metadata for workspace packages consumed as TS source) | Correct ordering across schemas; fast builds |
+| T25a | Building module packages | One `drizzle.config` listing every module's schema files → one migrations folder; the API **bundled** by Nest's webpack builder with `swc-loader` (workspace packages bundled in, decorator metadata on); `unplugin-swc` in Vitest (ADR-0032) | Correct ordering across schemas; `nest build -b swc` alone compiles only the app's source root, not workspace packages |
 | T25 | Boundary enforcement | **dependency-cruiser** in CI + package `exports`; **ESLint 9** (incl. the React Compiler rules) + Prettier | Readable boundary rules; keeps the existing lint setup |
 | T26 | Rate limiting | **@fastify/rate-limit** with the Valkey store | Shared limits across api replicas |
 | T27 | Queue admin UI | **Bull Board** behind `jobs:admin` | Mature; no extra service |
@@ -47,19 +47,21 @@ registry or the project page on 2026-10-18.
 | T29 | E2E sign-in with TOTP | **otplib** | Unattended Playwright journeys |
 | T30 | DB in tests | **Testcontainers** (PostgreSQL 16 + ltree, Valkey, SeaweedFS, Keycloak) | Identical locally and in CI |
 | T31 | Security scanning | **gitleaks** (secrets), **Trivy** (images and dependencies, SBOM), **Semgrep** CE (code), a **licence report** (not a gate) | Covers what the INSA evaluation asks for |
-| T32 | Fee formulas | The engine's safe parser in `packages/forms/core`, with a **BigInt santim mode** and explicit rounding | One evaluator in browser and API; no floats |
+| T32 | Fee formulas | The engine's safe parser in `packages/form-engine/core`, with a **BigInt santim mode** and explicit rounding | One evaluator in browser and API; no floats |
 | T33 | SMS (technical part) | One `SmsGateway` interface: HTTP adapter, GSM-7/UCS-2 segmentation (Ethiopic needs UCS-2, 70 characters per part), delivery receipts, a fake for dev. **The vendor is chosen by the bureau's contract** | The interface is fixed now |
 | T34 | Fayda (Phase 3, technical part) | OIDC against the NIDP's eSignet with openid-client | Same library as the BFF |
 | T35 | Online payments (Phase 3, technical part) | A `PaymentProvider` interface supporting several providers at once (MoF Directive 1069/2025), HMAC-verified webhooks, idempotent settlement, a daily reconciliation job. **Providers chosen by contract** | Interface now; vendors later |
 | T36 | Workflow timers and long-running steps | Our own JSON workflow engine on **BullMQ** delayed jobs + a sweep (architecture §8). **Temporal** was considered and rejected for now | Temporal is the most capable durable-execution engine but adds a cluster and a programming model to run per region. The engine's needs (SLA timers, escalation) fit BullMQ. Revisit if workflows grow long-running integrations |
 | T37 | API docs and contract tests | OpenAPI from nestjs-zod → **Scalar** UI (internal) and the typed client; contract drift check in CI | As in the legacy project, modernised |
+| T38 | URL state (list filters, sort, paging, tabs) | **nuqs** 2 (typed search parameters for the App Router) | Every list view becomes a shareable deep link without hand-written parsing; type-safe on server and client |
+| T39 | Pre-commit hooks | **lefthook** 2 (Prettier, ESLint, gitleaks on staged files) and **`turbo gen`** (`@turbo/gen`) generators for slices | lefthook is a fast single binary with parallel hooks; `turbo gen` is Turborepo's own Plop-based generator, so no extra scaffolding tool |
 
 ## 2. The full stack at a glance
 
 | Layer | Tools |
 |---|---|
-| Monorepo and quality | pnpm 10, Turborepo, TypeScript 5.9, ESLint 9, Prettier, dependency-cruiser, Renovate |
-| Web | Next.js 16, React 19, next-intl, TanStack Query/Table/Form, Zod 4, Tailwind 4, shadcn/ui + Radix, lucide, Recharts, react-pdf, Serwist, Dexie, Uppy, openapi-fetch, openid-client, `@sentry/nextjs` → GlitchTip |
+| Monorepo and quality | pnpm 10, Turborepo (+ `turbo gen`), TypeScript 5.9, ESLint 9, Prettier, lefthook, dependency-cruiser, Renovate |
+| Web | Next.js 16, React 19, next-intl, nuqs, TanStack Query/Table/Form, Zod 4, Tailwind 4, shadcn/ui + Radix, lucide, Recharts, react-pdf, Serwist, Dexie, Uppy, openapi-fetch, openid-client, `@sentry/nextjs` → GlitchTip |
 | API and worker | NestJS 11, Fastify 5, nestjs-zod, @nestjs/swagger + Scalar, Drizzle ORM + drizzle-kit, pg, jose, uuid, decimal.js, date-fns + @date-fns/tz, pino, OpenTelemetry SDK, @fastify/rate-limit, BullMQ 5, Bull Board, Puppeteer, LiquidJS, qrcode, ExcelJS, nodemailer, `@sentry/node` → GlitchTip |
 | Data | PostgreSQL 16 (ltree, pgcrypto, pg_trgm, btree_gist), Valkey 8, SeaweedFS |
 | Identity | Keycloak 26 (TOTP, passkeys) |

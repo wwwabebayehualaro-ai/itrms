@@ -31,12 +31,12 @@ Decision: [ADR-0028](../decisions/0028-menu-and-workspace-model.md).
 // declared in a module manifest (modularization.md §4)
 menu: [
   { key: 'competency.applications', group: 'work-process:1', order: 10,
-    label: 'nav.competency.applications',           // i18n key, translated in every enabled language
+    label: 'competency.nav.applications',           // i18n key, translated in every enabled language
     icon: 'id-card', route: '/competency/applications',
     requires: { permission: 'licence:read', services: ['DVC-03', 'DVC-04'], capabilities: [] },
     badge: 'competency.openTasks',                  // a count provider (server-side, cached 60 s)
-    quickActions: [{ key: 'competency.newLicence', label: 'action.newLicence', route: '/cases/new?service=DVC-03', permission: 'case:create' }] },
-  { key: 'competency.printBatches', group: 'work-process:1', order: 40, label: 'nav.competency.printBatches',
+    quickActions: [{ key: 'competency.newLicence', label: 'competency.action.newLicence', route: '/cases/new?service=DVC-03', permission: 'case:create' }] },
+  { key: 'competency.printBatches', group: 'work-process:1', order: 40, label: 'competency.nav.printBatches',
     icon: 'printer', route: '/competency/print-batches', requires: { permission: 'licence:print', capabilities: ['prints_documents'] } },
 ]
 ```

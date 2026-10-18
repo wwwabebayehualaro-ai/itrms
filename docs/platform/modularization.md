@@ -42,14 +42,16 @@ modules/competency/
   api/                      NestJS module: controllers, services, repositories, effects, event handlers, Drizzle tables
   web/                      screens, components, hooks, menu items, dashboard widgets, record views
   seed/                     service definitions (forms, workflows, fee rules, templates), unit-type defaults, demo data
-  test/                     unit, integration (Postgres) and e2e specs of this module
-  package.json              exports: ./contracts, ./api, ./web, ./manifest
+  messages/                 am.json, en.json, wal-Latn.json (keys prefixed with the module key)
+  test/                     integration (Postgres) and e2e specs; unit specs sit next to the code
+  package.json              exports: ./manifest, ./contracts, ./api, ./web/server, ./web/client, ./messages/*, ./seed
 ```
 
 * `apps/api` and `apps/web` are **composition roots**: they import the enabled modules' `api` / `web` entry points and
   register them. Next.js route files in `apps/web/app/(workspace)/<module>/…` are one-line re-exports of the module's
   screens.
-* Kernel and platform services stay in `apps/api/src/platform` and `packages/*` (shared across modules).
+* The kernel and the platform services are slice packages of the same shape in `platform/*` (ADR-0032), so a module's
+  `api` imports `@itrms/kernel/db` and never the app. The inside of every slice: [code-structure.md](code-structure.md).
 * Package `exports` make internals unreachable. dependency-cruiser enforces the layer rules. CODEOWNERS assigns each
   module to a team.
 
@@ -130,9 +132,10 @@ Customers may buy only parts of the system (e.g. licensing first, roads later).
 * Each module owns its tables in its own **PostgreSQL schema** (`competency.*`, `vehicles.*`, `platform.*`, …). Ownership is
   therefore visible in the database and in backups. RLS policies work the same in every schema.
 * There is one migration history for the installation: one `drizzle.config` lists every module's schema files and writes
-  to one migrations folder, in dependency order, and each migration is reviewed. The API is built with `nest build -b swc`, so
-  module packages consumed as TypeScript source keep their decorator metadata.
-* Foreign keys across modules are allowed only **towards** lower layers (process → registry → kernel).
+  to one migrations folder, in dependency order, and each migration is reviewed. The API is bundled by Nest's webpack
+  builder with `swc-loader`, so packages consumed as TypeScript source keep their decorator metadata (code-structure.md §5.5).
+* Foreign keys across modules are allowed only **towards** lower layers (process → registry → platform → kernel, and down
+  the platform order of code-structure.md §3). A reference up the order is a plain id.
 
 ## 8. Adding a module: definition of done
 1. A package under `modules/<key>` with the manifest, contracts, api, web, seed and tests.

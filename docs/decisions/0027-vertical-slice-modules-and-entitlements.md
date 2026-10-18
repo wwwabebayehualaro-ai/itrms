@@ -4,6 +4,8 @@
   layout in CLAUDE.md (`apps/api/src/modules/*` becomes `modules/*`).
 
 > **Amended by [ADR-0031](0031-design-review-hardening.md)** (2026-10-18), item 16.
+> **Amended by [ADR-0032](0032-workspace-structure.md)** (2026-10-18): the kernel and platform services are slice packages
+> in `platform/*`; the apps are thin composition roots.
 
 ## Context
 Work processes share master data: vehicles are used by competency, freight, public transport and road safety. Customers

@@ -16,7 +16,7 @@ flowchart LR
         N[Nginx<br/>TLS, static, limits]
         W[apps/web<br/>Next.js App Router<br/>BFF: session cookie]
         A[apps/api<br/>NestJS on Fastify<br/>HTTP process]
-        K[Worker<br/>same apps/api code<br/>BullMQ consumers + Puppeteer]
+        K[Workers<br/>same apps/api image<br/>worker: BullMQ consumers<br/>worker-documents: Puppeteer]
         KC[Keycloak<br/>realm per installation]
         PG[(PostgreSQL 16<br/>app DB + Keycloak DB)]
         V[(Valkey<br/>queues)]
@@ -41,12 +41,12 @@ flowchart LR
     BK --> S
 ```
 
-- **apps/web**: Next.js App Router with the design system (`packages/ui`) and the form engine (`packages/forms`). It acts as a
+- **apps/web**: Next.js App Router with the design system (`packages/ui`) and the form engine (`packages/form-engine`). It acts as a
   backend-for-frontend. The OIDC code flow with PKCE runs on the server, the browser holds only an opaque session cookie while
   tokens live encrypted in a Valkey session store (ADR-0021), and
   `/api/*` calls are forwarded to the API with the bearer token. No token ever reaches browser JavaScript.
 - **apps/api**: one NestJS application (Fastify adapter), started in two modes. `main.ts` serves HTTP. `worker.ts` runs
-  BullMQ consumers (notifications, PDFs, reports, SLA timers, outbox relay, imports) and owns Puppeteer. CPU-heavy or slow
+  BullMQ consumers (notifications, reports, SLA timers, outbox relay, imports). `worker-documents.ts` consumes only the documents queue and is the one process that starts Chrome (§10). CPU-heavy or slow
   work never runs inside an HTTP request.
 - **One modular monolith, one module per work process** (§3). Modules talk through exported services and domain events,
   never through each other's tables.
@@ -58,28 +58,39 @@ flowchart LR
 
 ```
 apps/
-  web/                    Next.js (App Router): screens, BFF route handlers, i18n messages
-  api/                    NestJS composition root: src/platform/* (kernel + platform services), src/main.ts, src/worker.ts
+  web/                    Next.js (App Router) composition root: shell, generated route files, BFF route handlers
+  api/                    NestJS composition root: main, worker, worker-documents, migrate; the migration history
+  verify/                 public verification page + verifier PWA (static export)
+platform/
+  <key>/                  slice packages: kernel, services, forms, workflow, fees, documents, reports, integrations
 modules/
-  <key>/                  vertical-slice module packages (manifest, contracts, api, web, seed, test); see platform/modularization.md
+  <key>/                  slice packages: registries and work processes (manifest, contracts, api, web, messages, seed, test)
 packages/
-  schemas/                Zod schemas + types shared by web and api: DTOs, I18nText, Money, ids, error codes, form definition contract
-  forms/                  form engine: core (model, conditions, validation, formulas: UI-free, runs in the API too), renderer, designer, viewer
+  schemas/                shared primitives: I18nText, Money, ids, dates, problem+json, error codes, form definition contract
+  form-engine/            core (model, conditions, validation, formulas: UI-free, runs in the API too), renderer, designer, viewer
   ui/                     design system: shadcn/ui on Radix + Tailwind 4, composite controls, Ethiopian DatePicker
-  ethiopian-calendar/     pure TS: Gregorian ↔ Ethiopian, formatting (am/en/om/ti), fiscal year, Ethiopian clock
-  config/                 shared tsconfig, eslint, vitest presets (internal)
+  ethiopian-calendar/     pure TS: Gregorian ↔ Ethiopian, formatting (am/en/om/ti/wal-Latn), fiscal year, Ethiopian clock
+  module-sdk/             defineModule, manifest schema, slot types
+  api-client/             openapi.json, generated types, typed fetch client
+  testing/                factories, fixed clock, Testcontainers, isolation-matrix generator
+  config/                 shared tsconfig, eslint, prettier, vitest presets
 infra/
   compose/                docker-compose.yml (dev), compose.prod.yml, nginx/, keycloak/ (realm export, theme)
   backup/                 backup and restore scripts, restore-drill runbook
 docs/                     this documentation (architecture, audit, phases, decisions)
 ```
 
-Dependency rules (ESLint `import/no-restricted-paths` + package `exports`):
-- `packages/ethiopian-calendar` and `packages/schemas` depend on nothing internal. `packages/forms/core` depends only on
-  them and Zod. `packages/ui` depends on `ethiopian-calendar` and `schemas`. `packages/forms` (UI parts) depends on `ui`.
-- `apps/api` may import `schemas`, `forms/core` and `ethiopian-calendar`, **never** `ui` or `forms` UI entry points.
-- Layers: kernel → platform services → registries → work-process modules. Only downward imports, through package
-  exports. Sideways needs between work-process modules use events or a registry (`docs/platform/modularization.md`).
+The inside of every app, slice and package, file naming, and "where does this go" are in
+[platform/code-structure.md](platform/code-structure.md) (ADR-0032).
+
+Dependency rules (dependency-cruiser + package `exports`):
+- `packages/ethiopian-calendar` and `packages/schemas` depend on nothing internal. `packages/form-engine/core` depends only on
+  them and Zod. `packages/ui` depends on `ethiopian-calendar` and `schemas`. The UI parts of `packages/form-engine` depend on `ui`.
+- `apps/api` and every slice's `api/` may import `schemas`, `form-engine/core` and `ethiopian-calendar`, **never** `ui` or the
+  `form-engine` UI entry points.
+- Layers are folders: `packages` → `platform` (kernel, then services) → registries → work-process modules. Only downward
+  imports, through package exports. Sideways needs between work-process modules use events or a registry
+  (`docs/platform/modularization.md`).
 
 ## 3. Backend modules
 
@@ -99,12 +110,15 @@ Work-process modules (`modules/<key>`):
 | `hr` | 9. HR management | staff, positions (Form 15), leave, benefits, retirement, reports; **the office's monthly payroll list** prepared, approved and sent to Finance (Finance pays and does its accounting; ADR-0016) |
 | `planning` | 10. Development plan & budget | annual budget, procurement plan, quarterly reports, capital project progress |
 
-Platform modules (`apps/api/src/platform/…`): `config`, `errors`, `context` (AsyncLocalStorage request context), `iam`
-(JWT verification, guards, **role assignments per unit**), `org` (org tree, levels), `db` (Drizzle, scoped transactions, RLS helpers), `audit`,
-`numbering`, `idempotency`, `outbox`, `jobs`, `files`, `forms` (definitions,
-versions, submissions, query compiler, saved views), `services` (catalogue, versions, overrides), `workflow`, `fees`
-(fee rules, payment orders, payments, receipts), `documents` (templates, PDF, verification), `notifications`, `i18n`
-(tenant language settings, catalogue overrides), `integrations/*` (adapters), `reports`.
+Kernel (`platform/kernel`, one subpath export each): `config`, `errors`, `context` (AsyncLocalStorage request context),
+`iam` (JWT verification, guards, **role assignments per unit**), `org` (org tree, levels), `db` (Drizzle, scoped
+transactions, RLS helpers), `audit`, `numbering`, `idempotency`, `outbox`, `jobs`, `files`, `notifications`, `i18n`
+(tenant language settings, catalogue overrides), `search`.
+
+Platform services (`platform/<key>`, one slice package each): `services` (catalogue, versions, overrides), `forms`
+(definitions, versions, submissions, query compiler, saved views), `workflow`, `fees` (fee rules, payment orders,
+payments, receipts), `documents` (templates, PDF, verification), `reports`, `integrations` (one port + fake + adapter per
+external system).
 
 ## 4. Request lifecycle
 
@@ -116,7 +130,7 @@ versions, submissions, query compiler, saved views), `services` (catalogue, vers
    assignment in.
 3. `PermissionGuard`: `@Require('licence:issue')` metadata on each handler. A route without it is refused at startup
    (a test enumerates routes).
-4. Validation pipe: the Zod schema from `packages/schemas` (no class-validator).
+4. Validation pipe: the Zod schema from the slice's `contracts` (primitives from `packages/schemas`; no class-validator).
 5. Service method runs inside `db.scoped(ctx, tx => …)`. This opens a transaction and sets the RLS settings with
    `set_config(..., true)` (§5). Every query in the request goes through `tx`.
 6. Writes go through repository helpers that write the **audit row in the same transaction** and append **outbox events**
@@ -188,8 +202,9 @@ CREATE POLICY t_scope ON workflow.cases TO itrms_app USING (
   with GiST). The policy therefore needs no join.
 - **Registries are regional, transactions are local.** A vehicle row exists once per region. Its `handling_unit_id` says
   which office currently handles it. A transfer between zones is two linked cases, *transfer-out* (handled by the source)
-  and *transfer-in* (handled by the destination). Completing the transfer-in changes `handling_unit_id` (through the system
-  role, in the effect's transaction). The record is never copied.
+  and *transfer-in* (handled by the destination). Completing the transfer-in changes `handling_unit_id` through an audited `SECURITY DEFINER`
+  registry command that checks the completed transfer-out case and the actor's scope, in the effect's transaction (the
+  system role never runs in a request; code-structure.md §3). The record is never copied.
 - History across units: the registry page shows a record's full timeline through one search function that returns only
   non-sensitive columns (service, date, handling unit, outcome) for the region. Full case details stay scope-limited.
   This is the proposed default, to be confirmed (business question B8).
@@ -319,7 +334,7 @@ Definition (Zod schema in `packages/schemas`, stored versioned):
 
 - **Runtime:** `POST /cases/:id/transitions { action, answers?, comment? }` checks, in one transaction: the actor holds the
   step's role in the task's unit; separation of duties (the maker cannot approve); the guard; the step form (server-side
-  validation with `packages/forms/core`). It then runs the **effects** (registered code, in the same transaction), writes
+  validation with `packages/form-engine/core`). It then runs the **effects** (registered code, in the same transaction), writes
   `case_events`, closes and opens `case_tasks`, writes audit rows and outbox events. A failing effect rolls everything back.
 - **State kinds:** `start`, `task` (a human with a role acts), **`wait`** (the case waits for an event: a national-platform
   answer, a payment webhook, a scan result, a timeout), `end`. Event-driven transitions are performed by audited **system
@@ -343,7 +358,7 @@ Definition (Zod schema in `packages/schemas`, stored versioned):
 
 ## 9. Fees, payments, receipts
 
-- **Fee rules** are versioned JSON evaluated on the server with the shared formula evaluator (`packages/forms/core`, integer
+- **Fee rules** are versioned JSON evaluated on the server with the shared formula evaluator (`packages/form-engine/core`, integer
   santim arithmetic, explicit rounding). Components are a base fee by category or grade, a late penalty per started month, a
   replacement fee, and so on. Inputs are case facts (vehicle category, licence grade, months since expiry). The form's `Fee`
   field shows a preview, and the server's figure is authoritative.
@@ -387,10 +402,10 @@ Definition (Zod schema in `packages/schemas`, stored versioned):
 
 ## 11. Forms in ITRMS
 
-- The engine (`packages/forms`) keeps the existing design: a flat field list with `parentId`, the kit of 25 types, conditions,
+- The engine (`packages/form-engine`) keeps the existing design: a flat field list with `parentId`, the kit of 25 types, conditions,
   `FormArray`, safe formulas, data sources, versioned publishing. ITRMS adds `I18nText` labels, `EthDate`, `RegistryLookup`,
   `Fee`, `requiredWhen`/`validWhen`, and a print mode (audit §11).
-- **The same validation runs in the browser and in the API** (`validateForm` from `packages/forms/core`). The API prunes the
+- **The same validation runs in the browser and in the API** (`validateForm` from `packages/form-engine/core`). The API prunes the
   values of hidden fields, checks `RegistryLookup` ids exist in the user's region, and stores the answers with the form
   version.
 - Forms capture. Code acts. A form never carries code. Effects that touch registries or money are module code named by the
@@ -422,7 +437,8 @@ service), `reports` (heavy exports and quarterly reports), `sla`, `imports` (pap
 
 - Per-tenant language list (default `am`, `en`; the first tenant adds Wolaytta as `wal-Latn`, see
   [`i18n-and-languages.md`](i18n-and-languages.md); `om`, `ti` and others per region). UI strings use
-  `next-intl` message catalogues in `apps/web/messages/<lang>.json`, keys required in every enabled language (CI check). Data
+  `next-intl` message catalogues owned by each slice (`<slice>/messages/<lang>.json`; shell strings in `apps/web/messages`),
+  merged at build, keys required in `am` and `en` (CI check; optional languages reported). Data
   names use `I18nText`, falling back to the tenant's default language.
 - Dates are stored Gregorian (`date`, `timestamptz` UTC). They are displayed and entered in the **Ethiopian calendar** by
   default (Gregorian toggle per user), and printed Ethiopian with the Gregorian date in brackets where the bureau requires.
@@ -476,7 +492,7 @@ Object storage through the S3 API (SeaweedFS, ADR-0020).
 
 ## 16. Integration adapters
 
-Each external system is one interface in `apps/api/src/platform/integrations/<system>` with a **fake** (default in dev and
+Each external system is one interface in `platform/integrations/<system>` with a **fake** (default in dev and
 tests) and real implementations chosen per installation. Calls run only in workers (via the outbox), with timeouts, retries,
 audit, and no secrets in logs.
 - **Egress control (SSRF):**

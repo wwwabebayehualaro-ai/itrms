@@ -24,7 +24,7 @@ which field types it provides. Which services use it, and how far, is decided in
 
 | # | Guarantee | How |
 |---|---|---|
-| G1 | **The server enforces every rule the browser shows** | one validation engine (`packages/forms/core`) runs in the browser and the API; parity case file in CI |
+| G1 | **The server enforces every rule the browser shows** | one validation engine (`packages/form-engine/core`) runs in the browser and the API; parity case file in CI |
 | G2 | **A published form never changes** | immutable versions; open cases keep their version; new cases take the published one |
 | G3 | **Stored answers stay readable forever** | `schemaVersion` + upgrade functions; the round-trip test over every stored version in CI; unknown field types are shown, not dropped |
 | G4 | **A form edit can't break the code behind it** | **form ↔ effect contracts** (§3): contract fields are locked; publishing fails if a contract is unmet |

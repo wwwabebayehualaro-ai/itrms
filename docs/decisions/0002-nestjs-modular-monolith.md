@@ -2,6 +2,9 @@
 
 * Status: accepted (2026-10-17, fixed)
 
+> **Amended by [ADR-0032](0032-workspace-structure.md)** (2026-10-18): platform modules are packages in `platform/*`, not
+> `src/platform/*`.
+
 ## Context
 The FastAPI backend is well structured, but the form engine is TypeScript. Closing the biggest gap, server-side validation
 of submissions, means either porting the engine to Python or running TypeScript on the server. Ten work processes need clear

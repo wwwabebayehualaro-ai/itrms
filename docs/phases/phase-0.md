@@ -48,14 +48,17 @@ the task must add. The [definition of done](../../CLAUDE.md#definition-of-done) 
 ### 0.2 Monorepo skeleton, CI, security scans
 - **Do:**
   - Set up pnpm workspaces + Turborepo:
-    - `apps/web`, `apps/api`;
-    - `packages/{schemas,forms,ui,ethiopian-calendar,config}`;
-    - `modules/*` (vertical-slice module packages, ADR-0027; empty placeholder `modules/_template` with manifest,
-      contracts, api, web, seed and test);
-    - shared tsconfig, ESLint 9 and Prettier, `.nvmrc` and `packageManager`.
-  - dependency-cruiser rules for the layers: kernel → platform services → registries → work-process modules, with no
-    sideways imports between work-process modules
-    ([modularization.md](../platform/modularization.md)).
+    - the layout of [code-structure.md](../platform/code-structure.md) (ADR-0032): `apps/{web,api,verify}`,
+      `platform/*`, `modules/*`, `packages/{schemas,form-engine,ui,ethiopian-calendar,module-sdk,api-client,testing,config}`
+      (empty skeletons with their `exports`);
+    - `modules/_template` (manifest, contracts, api, web, messages, seed, test) and the `turbo gen` generators (`module`,
+      `feature`, `screen`, `effect`); a CI check that every slice's `package.json` has the same `exports` and scripts;
+    - shared tsconfig, ESLint 9 and Prettier, lefthook (Prettier, ESLint, gitleaks on staged files), `.gitattributes`
+      (`* text=auto eol=lf`), `.nvmrc` and `packageManager`, CODEOWNERS.
+  - dependency-cruiser rules for the layers ([code-structure.md](../platform/code-structure.md) §3): `packages` →
+    `platform` in its fixed order (kernel → integrations → forms → fees → documents → workflow → services → reports) →
+    registries → work-process modules, with no sideways imports between work-process modules; isomorphic `contracts`;
+    `web` never imports `api`; `@itrms/kernel/db/system` only from worker code; `apps/verify` limited to its allow-list.
   - Add the GitHub Actions PR workflow: lint, typecheck, test, build, dependency-cruiser boundaries, gitleaks, Trivy,
     Semgrep, and a licence report artefact (not a gate, ADR-0025). Renovate config.
   - Pin the toolchain from [tech-stack.md](../tech-stack.md) (Node 24 LTS, pnpm 10, TypeScript 5.9).
@@ -110,27 +113,31 @@ the task must add. The [definition of done](../../CLAUDE.md#definition-of-done) 
 
 ### 0.5 Extract the form engine and shared schemas
 - **Do:**
-  - Move `platform/form-engine` to `packages/forms` with entry points `core` (UI-free), `renderer`, `designer`, `viewer`.
+  - Move `platform/form-engine` to `packages/form-engine` with entry points `core` (UI-free), `renderer`, `designer`,
+    `viewer` (ADR-0032).
   - Replace the hard import of the app's HTTP client with an injected `FormsClient`.
   - Move the stored-form Zod schema and the shared DTO types to `packages/schemas`.
   - Move `check:engine`, `check:runtime` and the designer round-trip check along with it.
-- **Done when:** `packages/forms/core` has no React or DOM imports (lint rule); every engine check passes; and the web app
+- **Done when:** `packages/form-engine/core` has no React or DOM imports (lint rule); every engine check passes; and the web app
   renders, builds and fills a form exactly as before (engine e2e specs against the legacy backend, for the last time).
 - **Tests:** existing engine unit tests; a new test that `core` imports cleanly in a Node environment without a DOM.
 
 ### 0.6 API skeleton
-- **Do:** `apps/api` with NestJS + Fastify:
-  - typed config (Zod) that fails at startup;
+- **Do:** `platform/kernel` (the first kernel subsystems) and `apps/api` as the composition root with NestJS + Fastify
+  (code-structure.md §5):
+  - typed config (Zod), **one variant per process**, that fails at startup; `main` refuses system-pool credentials;
+  - the API bundled with Nest's webpack builder + `swc-loader` (workspace packages bundled in), and `unplugin-swc` in
+    the Vitest preset;
   - the `AppError` hierarchy + problem+json filter;
   - the request context (AsyncLocalStorage: request id, user, unit);
   - pino JSON logs with secret masking, `/healthz`, `/readyz`, `/metrics`;
   - the Zod validation pipe, OpenAPI generated from the Zod schemas;
-  - a `worker.ts` entry point;
+  - `worker.ts` and `migrate.ts` entry points (`worker-documents.ts` comes in 0.23);
   - the **module manifest loader** (`defineModule`, ADR-0027). It registers enabled modules' NestJS modules and validates
     every manifest at startup: dependencies present, unique permission and role keys, effects exist, events have schemas.
     A broken manifest stops the start, with a clear message.
 - **Done when:** the API starts in both modes; an unknown route answers 404 problem+json; OpenAPI is written to
-  `packages/schemas/openapi.json` and the web types are generated from it (drift check in CI).
+  `packages/api-client/openapi.json` and the web types are generated from it (drift check in CI).
 - **Tests:** error-filter tests (validation → 422 with `errors[]`, unknown error → 500 without internals), a config
   failure test, a health test.
 
@@ -178,7 +185,8 @@ the task must add. The [definition of done](../../CLAUDE.md#definition-of-done) 
   - DB roles `itrms_owner`, `itrms_app`, `itrms_system` (BYPASSRLS, worker pool only), `itrms_backup`. **No bypass
     setting.**
   - The `org_path` denormalisation trigger for transaction tables.
-  - `systemContext()`: a separate pool as `itrms_system`, available only in the worker. Every use is logged.
+  - `systemContext()`: a separate pool as `itrms_system`, exported only from `@itrms/kernel/db/system` and importable
+    only by worker code (dependency-cruiser). Every use is logged.
   - A test harness that runs a function as a user of a given unit.
 - **Done when:**
   - the matrix passes for every table class: own unit, child, parent, sibling, other zone, other region, and no context;
@@ -258,7 +266,8 @@ the task must add. The [definition of done](../../CLAUDE.md#definition-of-done) 
   - **`EthiopicInput`**: phonetic Latin → Ethiopic typing built into the base `Input`/`Textarea` (a key toggles it), so staff
     can type Amharic on PCs without an Amharic keyboard layout.
   - Tenant language settings (API + admin screen), with an API error `title` resolved per language.
-  - The CI check that every key exists in every enabled catalogue.
+  - Slice-owned catalogues (`<slice>/messages/*.json`) merged at build with the shell's; the CI check walks every
+    catalogue (`am` and `en` required, optional languages reported).
   - Locale-aware `format.ts` (numbers, money in Birr, dates via the Ethiopian calendar with a Gregorian toggle).
   - Fonts: Noto Sans Ethiopic + Noto Sans, self-hosted.
 - **Done when:** the app shell, sign-in theme and errors show in Amharic and English, and Wolaytta loads with fallback; a
@@ -299,10 +308,10 @@ the task must add. The [definition of done](../../CLAUDE.md#definition-of-done) 
 - **Tests:** API integration with the S3 container; authorization tests; the purge job test.
 
 ### 0.16 Forms API port with server-side validation
-- **Do:** port `form_builder` and `form_submission` to `apps/api/src/platform/forms`:
+- **Do:** port `form_builder` and `form_submission` to `platform/forms`:
   - definitions, content-hashed immutable versions, publish (+ approval);
   - submissions pinned to a version;
-  - **server-side validation with `packages/forms/core`** (prune hidden values, 422 `errors[{field,message}]` with row
+  - **server-side validation with `packages/form-engine/core`** (prune hidden values, 422 `errors[{field,message}]` with row
     paths);
   - the JSONB query compiler port (filters, search, sort, group, aggregate, allow-listed);
   - saved views, CSV/Excel export (audited), history.
@@ -311,7 +320,7 @@ the task must add. The [definition of done](../../CLAUDE.md#definition-of-done) 
   submission violating a rule via direct API call gets a 422; a query over 10⁶ generated cases (filtered by service and an indexed filterable field) answers in under 300 ms on the
   reference server, with EXPLAIN under RLS attached; fields marked filterable get their indexes on publish; each query
   has a `statement_timeout`.
-- **Tests:** the shared validation case file (`packages/forms/test/cases.json`) run by the API tests; query-compiler tests
+- **Tests:** the shared validation case file (`packages/form-engine/test/cases.json`) run by the API tests; query-compiler tests
   ported from `test_submission_query.py`; the e2e suite.
 
 ### 0.17 Form engine for ITRMS, part 1
@@ -374,7 +383,8 @@ the task must add. The [definition of done](../../CLAUDE.md#definition-of-done) 
   - `cases` (class T), `case_tasks`, `case_events`.
   - `POST /cases/:id/transitions`, running everything in one transaction: role/unit check, guard, step-form validation,
     effects, events, audit, outbox.
-  - An effect registry for modules.
+  - An effect registry for modules (`@itrms/kernel/effects`). Cases are started by `services` with a frozen
+    configuration; the engine in `workflow` never reads the service catalogue (code-structure.md §3).
   - Case status changes only through transitions.
 - **Done when:**
   - a test workflow runs end to end;
@@ -436,9 +446,10 @@ the task must add. The [definition of done](../../CLAUDE.md#definition-of-done) 
   - `document_templates` (LiquidJS, versioned, data schema, unit header inheritance) and `issued_documents`.
   - A separate **`worker-documents`** service: Puppeteer with JavaScript disabled, no network, a `default-src 'none'` CSP,
     bundled fonts, a page pool and a memory limit → S3. LiquidJS with `outputEscape: 'escape'`.
-  - QR codes with an **Ed25519-signed compact payload**, verifiable offline. A small **verifier PWA** carries the region's
+  - QR codes with an **Ed25519-signed compact payload**, verifiable offline. A small **verifier PWA** (`apps/verify`, a static export, ADR-0032) carries the region's
     public key. The public page `verify.<domain>/<token>` shows revocation and superseded status (rate-limited, minimal
-    data).
+    data). Nginx on `verify.<domain>` proxies only `GET /v1/public/verifications/{token}` and denies everything else;
+    hash-based CSP.
   - Templates: application copy (print mode), receipt, driver-licence certificate/card layout, exam result sheet.
 - **Done when:** PDFs render Ethiopic text and Ethiopian dates correctly; the QR resolves to valid/revoked/superseded; a
   reprint returns the stored PDF; the API process never launches Chrome; applicant text containing `<script>` renders as
