@@ -6,7 +6,7 @@
   "minimumReleaseAge": "14 days",
   "rangeStrategy": "pin",
   "labels": ["dependencies"],
-  "ignorePaths": ["Frontend/**", "Backend/**", "tools/boundaries/fixtures/**"],
+  "ignorePaths": ["Backend/**", "tools/boundaries/fixtures/**"],
   "packageRules": [
     {
       "description": "Lint, format, type and test tooling move together",
@@ -29,6 +29,11 @@
       "description": "Node.js and pnpm follow the LTS line and the pinned packageManager (tech-stack T24)",
       "groupName": "toolchain",
       "matchPackageNames": ["node", "pnpm", "@types/node"]
+    },
+    {
+      "description": "pdfjs-dist must match the version react-pdf is built against (its worker is bundled from pdfjs-dist)",
+      "groupName": "pdf viewer",
+      "matchPackageNames": ["react-pdf", "pdfjs-dist"]
     },
     {
       "description": "CI actions and scanner images",

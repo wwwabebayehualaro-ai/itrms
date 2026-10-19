@@ -1,0 +1,196 @@
+/*
+ * Design system styles: Tailwind CSS 4 (with Preflight) + shadcn/ui tokens. Every screen is built from @platform/ui;
+ * PrimeReact, PrimeFlex and the Sass layout were removed in UI migration stage D (Docs/architecture/ui-migration.md).
+ */
+@import 'tailwindcss';
+@import 'tw-animate-css';
+/* The design system lives in its own package: Tailwind must scan it for class names too. */
+@source '../../../packages/ui/src';
+
+@font-face {
+    font-family: 'Inter var';
+    font-weight: 100 900;
+    font-display: swap;
+    font-style: normal;
+    src: url('/fonts/InterVariable.woff2') format('woff2');
+}
+@font-face {
+    font-family: 'Inter var';
+    font-weight: 100 900;
+    font-display: swap;
+    font-style: italic;
+    src: url('/fonts/InterVariable-Italic.woff2') format('woff2');
+}
+
+@theme {
+    --font-sans: 'Inter var', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+}
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-success: var(--success);
+    --color-warning: var(--warning);
+    --color-chart-1: var(--chart-1);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+}
+
+/* Neutral shadcn palette with an indigo primary. */
+:root {
+    --radius: 0.5rem;
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.21 0.034 264.665);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.21 0.034 264.665);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.21 0.034 264.665);
+    --primary: oklch(0.585 0.233 277.117);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.967 0.003 264.542);
+    --secondary-foreground: oklch(0.21 0.034 264.665);
+    --muted: oklch(0.967 0.003 264.542);
+    --muted-foreground: oklch(0.551 0.027 264.364);
+    --accent: oklch(0.962 0.018 272.314);
+    --accent-foreground: oklch(0.398 0.195 277.366);
+    --destructive: oklch(0.577 0.245 27.325);
+    --success: oklch(0.627 0.17 149.214);
+    --warning: oklch(0.769 0.188 70.08);
+    --border: oklch(0.928 0.006 264.531);
+    --input: oklch(0.872 0.01 258.338);
+    --ring: oklch(0.673 0.182 276.935);
+    /* data series (validated categorical slot 1, blue; marks only, text keeps the text tokens) */
+    --chart-1: #2a78d6;
+    --sidebar: hsl(0 0% 98%);
+    --sidebar-foreground: hsl(240 5.3% 26.1%);
+    --sidebar-primary: var(--primary);
+    --sidebar-primary-foreground: var(--primary-foreground);
+    --sidebar-accent: hsl(240 4.8% 95.9%);
+    --sidebar-accent-foreground: hsl(240 5.9% 10%);
+    --sidebar-border: hsl(220 13% 91%);
+    --sidebar-ring: var(--ring);
+}
+
+.dark {
+    --background: oklch(0.21 0.034 264.665);
+    --foreground: oklch(0.985 0.002 247.839);
+    --card: oklch(0.278 0.033 256.848);
+    --card-foreground: oklch(0.985 0.002 247.839);
+    --popover: oklch(0.278 0.033 256.848);
+    --popover-foreground: oklch(0.985 0.002 247.839);
+    --primary: oklch(0.673 0.182 276.935);
+    --primary-foreground: oklch(0.21 0.034 264.665);
+    --secondary: oklch(0.373 0.034 259.733);
+    --secondary-foreground: oklch(0.985 0.002 247.839);
+    --muted: oklch(0.373 0.034 259.733);
+    --muted-foreground: oklch(0.707 0.022 261.325);
+    --accent: oklch(0.359 0.144 278.697);
+    --accent-foreground: oklch(0.93 0.034 272.788);
+    --destructive: oklch(0.704 0.191 22.216);
+    --success: oklch(0.723 0.219 149.579);
+    --warning: oklch(0.828 0.189 84.429);
+    --border: oklch(1 0 0 / 12%);
+    --input: oklch(1 0 0 / 18%);
+    --ring: oklch(0.585 0.233 277.117);
+    --chart-1: #3987e5;
+    --sidebar: hsl(240 5.9% 10%);
+    --sidebar-foreground: hsl(240 4.8% 95.9%);
+    --sidebar-primary: var(--primary);
+    --sidebar-primary-foreground: var(--primary-foreground);
+    --sidebar-accent: hsl(240 3.7% 15.9%);
+    --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
+    --sidebar-border: hsl(240 3.7% 15.9%);
+    --sidebar-ring: var(--ring);
+}
+
+@layer base {
+    * {
+        border-color: var(--border);
+        outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
+    }
+    body {
+        background-color: var(--background);
+        color: var(--foreground);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+}
+
+/*
+ * Recharts default strokes inside design-system charts (the shadcn chart sets these with attribute-selector utilities, which
+ * Tailwind prints unquoted and Turbopack's CSS parser rejects; written here instead).
+ */
+[data-slot='chart'] .recharts-cartesian-grid line[stroke='#ccc'] {
+    stroke: color-mix(in oklab, var(--border) 50%, transparent);
+}
+[data-slot='chart'] .recharts-polar-grid [stroke='#ccc'],
+[data-slot='chart'] .recharts-reference-line [stroke='#ccc'] {
+    stroke: var(--border);
+}
+[data-slot='chart'] .recharts-dot[stroke='#fff'],
+[data-slot='chart'] .recharts-sector[stroke='#fff'] {
+    stroke: transparent;
+}
+
+/*
+ * Form engine layout, shared by the builder canvas and the rendered form (.fe-flow). A field's Width (props.span, 1-12 of
+ * 12 columns) puts fields side by side; the default is full width.
+ */
+.fe-flow {
+    --fe-gap: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--fe-gap);
+    align-items: flex-start;
+}
+.fe-flow > .field-renderer {
+    width: 100%;
+}
+/* narrow screens: everything stacks */
+@media (max-width: 767px) {
+    .fe-flow > [data-span] {
+        width: 100% !important;
+    }
+}
+/* a field of a repeated row without a Width of its own sits beside the others: 4 per line on wide screens, 2 on medium, 1 on phones */
+.fe-flow > .field-renderer.fe-row-cell {
+    width: calc(50% - 0.5rem);
+}
+@media (min-width: 992px) {
+    .fe-flow > .field-renderer.fe-row-cell {
+        width: calc(25% - 0.75rem);
+    }
+}
+@media (max-width: 575px) {
+    .fe-flow > .field-renderer.fe-row-cell {
+        width: 100%;
+    }
+}

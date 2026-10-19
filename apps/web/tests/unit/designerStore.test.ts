@@ -1,0 +1,146 @@
+import { describe, expect, it, vi } from 'vitest';
+import '@/form-engine/renderer/fields/registerAll';
+import { readDocument } from '@/form-engine/core';
+import { ROOT, fromStored, toStored } from '@/form-engine/designer/document';
+import { createDesignerStore } from '@/form-engine/designer/store';
+
+const f = (id: string, type: string, extra: Record<string, any> = {}) => ({
+    id,
+    type,
+    label: id,
+    props: {},
+    data: { defaultProps: {} },
+    layout: { options: { isContainer: ['Panel', 'FormArray'].includes(type) } },
+    ...extra
+});
+
+const stored = [
+    f('title', 'InputText'),
+    f('box', 'Panel'),
+    f('amount', 'InputNumber', { parentId: 'box' }),
+    f('lines', 'FormArray', { parentId: 'box' }),
+    f('qty', 'InputNumber', { parentId: 'lines' }),
+    f('note', 'InputTextarea')
+];
+
+describe('designer document', () => {
+    it('reads the stored flat list as a tree and writes it back unchanged', () => {
+        const { doc, problems } = fromStored({ fields: stored, runtime: { dataSources: [] } });
+        expect(problems).toEqual([]);
+        expect(doc.children[ROOT]).toEqual(['title', 'box', 'note']);
+        expect(doc.children.box).toEqual(['amount', 'lines']);
+        const out = toStored(doc);
+        expect(out.schemaVersion).toBe(2);
+        expect(out.fields).toEqual(stored);
+        // the engine sees the same form
+        expect(readDocument(out).fields.map((x) => [x.id, x.parentId])).toEqual(
+            readDocument(stored).fields.map((x) => [x.id, x.parentId])
+        );
+    });
+
+    it('keeps what it cannot place and says so', () => {
+        const { doc, problems } = fromStored([
+            f('a', 'InputText', { parentId: 'gone' }),
+            f('a', 'InputText'),
+            { nope: 1 },
+            f('p', 'Panel', { parentId: 'q' }),
+            f('q', 'Panel', { parentId: 'p' })
+        ]);
+        expect(problems).toHaveLength(4);
+        expect(doc.children[ROOT]).toEqual(expect.arrayContaining(['a']));
+        expect(Object.keys(doc.byId).sort()).toEqual(['a', 'p', 'q']);
+    });
+});
+
+describe('designer store', () => {
+    const load = () => {
+        const store = createDesignerStore();
+        store.getState().actions.load(fromStored(stored).doc, { name: 'T', slug: 't', form_config: {} });
+        return store;
+    };
+
+    it('adds from the palette next to the selection, with a readable unique key', () => {
+        const store = load();
+        const a = store.getState().actions;
+        a.select('amount');
+        const id = a.add('InputText', 'Text');
+        expect(id).toBe('text');
+        expect(store.getState().doc.children.box).toEqual(['amount', 'text', 'lines']);
+        expect(store.getState().selected).toBe('text');
+        a.select('lines');
+        expect(a.add('InputText', 'Text')).toBe('text2');
+        expect(store.getState().doc.children.lines).toEqual(['qty', 'text2']);
+        expect(store.getState().doc.byId.text2.parentId).toBe('lines');
+    });
+
+    it('moves, refuses a container into itself, nudges, duplicates and removes with the inside', () => {
+        const store = load();
+        const a = store.getState().actions;
+        expect(a.move('box', 'lines', 0)).toBe(false);
+        expect(a.move('note', 'box', 0)).toBe(true);
+        expect(store.getState().doc.children.box).toEqual(['note', 'amount', 'lines']);
+        a.nudge('note', 1);
+        expect(store.getState().doc.children.box).toEqual(['amount', 'note', 'lines']);
+        const copy = a.duplicate('lines');
+        expect(copy).toBe('linesCopy');
+        expect(store.getState().doc.children.linesCopy).toEqual(['qtyCopy']);
+        a.remove('box');
+        const { doc } = store.getState();
+        expect(doc.children[ROOT]).toEqual(['title']);
+        expect(Object.keys(doc.byId)).toEqual(['title']);
+    });
+
+    it('undoes and redoes; typing in one setting is one step; back at the saved state nothing is unsaved', () => {
+        vi.useFakeTimers();
+        const store = load();
+        const a = store.getState().actions;
+        const dirty = () => store.getState().doc !== store.getState().saved;
+        for (const ch of ['T', 'Ti', 'Tit']) a.update('title', (x) => void (x.label = ch), 'label:title');
+        expect(store.getState().past).toHaveLength(1);
+        vi.advanceTimersByTime(2000);
+        a.update('title', (x) => void (x.label = 'Title!'), 'label:title');
+        expect(store.getState().past).toHaveLength(2);
+        expect(dirty()).toBe(true);
+        a.undo();
+        expect(store.getState().doc.byId.title.label).toBe('Tit');
+        a.undo();
+        expect(store.getState().doc.byId.title.label).toBe('title');
+        expect(dirty()).toBe(false);
+        a.redo();
+        expect(store.getState().doc.byId.title.label).toBe('Tit');
+        // an unchanged field keeps its object (its part of the canvas does not re-render)
+        expect(store.getState().doc.byId.amount).toBe(store.getState().saved.byId.amount);
+        vi.useRealTimers();
+    });
+
+    it('lets the key of a new field follow its label, never the key of a saved one', () => {
+        const store = load();
+        const a = store.getState().actions;
+        const id = a.add('InputText', 'Text')!;
+        for (const label of ['F', 'Fu', 'Full name']) a.relabel(store.getState().selected!, label);
+        expect(store.getState().selected).toBe('fullName');
+        expect(store.getState().doc.byId.fullName.label).toBe('Full name');
+        expect(store.getState().doc.byId[id]).toBeUndefined();
+        a.undo(); // the whole typing was one step
+        expect(store.getState().doc.byId.text?.label).toBe('Text');
+        a.relabel('title', 'Trip title'); // saved with the form: its key stays
+        expect(store.getState().doc.byId.title.label).toBe('Trip title');
+        a.select('note');
+        a.relabel('note', 'Notes');
+        expect(store.getState().doc.byId.note.label).toBe('Notes');
+    });
+
+    it('renames a key everywhere it is used', () => {
+        const store = load();
+        const a = store.getState().actions;
+        a.update(
+            'note',
+            (x) => void (x.behavior = { visibilityConditions: [{ field: 'amount', operator: 'gt', value: 5 }] } as any)
+        );
+        a.rename('amount', 'total');
+        const { doc, selected } = store.getState();
+        expect(doc.children.box).toEqual(['total', 'lines']);
+        expect(doc.byId.note.behavior?.visibilityConditions?.[0].field).toBe('total');
+        expect(selected).toBe('total');
+    });
+});

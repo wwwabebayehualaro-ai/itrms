@@ -8,5 +8,16 @@ packages:
 allowBuilds:
   esbuild: true
   lefthook: true
+  unrs-resolver: true
 # The tech-stack version rule (releases at least two weeks old) also for manual `pnpm add`, not only Renovate. Minutes.
 minimumReleaseAge: 20160
+# seroval (via @tanstack/react-query-devtools, dev only) below 1.6.3 has GHSA-p6vx-979v-rg4c (critical) and
+# GHSA-jp82-f5mq-hwhp: pinned to a fixed release at least two weeks old. Remove once the devtools depend on it.
+overrides:
+  seroval: 1.6.8
+  seroval-plugins: 1.6.8
+auditConfig:
+  ignoreGhsas:
+    # braces (via eslint-config-next → micromatch, lint time only): no fixed release yet. It expands the repository's own
+    # glob patterns, never user input. Tracked as a follow-up of task 0.4; remove when a fix ships.
+    - GHSA-vfj7-8cjw-p6xm

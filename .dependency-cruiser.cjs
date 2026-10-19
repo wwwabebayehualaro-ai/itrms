@@ -218,6 +218,8 @@ module.exports = {
                 '^(apps|platform|modules|packages)/[^/]+/(eslint|vitest)\\.config\\.(js|ts)$'
             ]
         },
+        // The web app's @/* alias (Next.js convention) is resolved through its tsconfig.
+        tsConfig: { fileName: require('node:path').join(__dirname, 'tsconfig.depcruise.json') },
         tsPreCompilationDeps: true,
         combinedDependencies: true,
         enhancedResolveOptions: {

@@ -1,0 +1,11 @@
+{
+  "//": "Only for dependency-cruiser: resolves the web app's @/* alias (apps/web/tsconfig.json) from the repository root.",
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "allowJs": true,
+    "noEmit": true,
+    "paths": { "@/*": ["./apps/web/src/*"] }
+  },
+  "include": ["apps/web/src/**/*.ts", "apps/web/src/**/*.tsx"]
+}

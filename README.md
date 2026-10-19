@@ -13,9 +13,9 @@ configurable platform, in Amharic, English and regional languages, with the Ethi
 > Proprietary and confidential. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 ## Status
-Planning complete; implementation starts with Phase 0 (see [docs/engineering/progress.md](docs/engineering/progress.md)).
-The repository still contains the legacy *Digital File Cabinet* code (`Frontend/`, `Backend/`), tagged `legacy-dfc`, which
-Phase 0 restructures into the ITRMS monorepo.
+Phase 0 in progress (see [docs/engineering/progress.md](docs/engineering/progress.md)). The web app and design system now
+live in `apps/web` and `packages/ui`; the legacy *Digital File Cabinet* backend (`Backend/`, tagged `legacy-dfc`) is
+replaced in tasks 0.5–0.6.
 
 ## Developer setup
 Requires Node.js 24 LTS (`.nvmrc`) and pnpm 12 (`npm i -g pnpm@12.9.1`). Docker runs through WSL2 on Windows.

@@ -1,18 +1,23 @@
 // Shared ESLint flat config for every workspace package (code-structure.md §10).
 // Type-aware rules use the TypeScript project service, so each package's tsconfig.json drives them.
 import js from '@eslint/js';
+import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 /**
- * @param {{ dir: string, node?: boolean }} options  dir: the package directory (`import.meta.dirname`), so type-aware
- *   linting finds the right tsconfig.json when ESLint runs from the repository root (lefthook) or from the package (turbo).
+ * @param {{ dir: string, node?: boolean, react?: boolean }} options
+ *   dir: the package directory (`import.meta.dirname`), so type-aware linting finds the right tsconfig.json when ESLint runs
+ *   from the repository root (lefthook) or from the package (turbo). react: the React hooks and React Compiler rules.
  */
 export default function config(options) {
     return tseslint.config(
         { ignores: ['dist/**', 'coverage/**', '.turbo/**', 'node_modules/**'] },
         js.configs.recommended,
         ...tseslint.configs.recommendedTypeChecked,
+        ...(options.react ? [reactHooks.configs.flat['recommended-latest']] : []),
+        // 'incompatible-library' reports libraries the React Compiler skips (TanStack Table), not mistakes in our code.
+        ...(options.react ? [{ rules: { 'react-hooks/incompatible-library': 'off' } }] : []),
         {
             languageOptions: {
                 parserOptions: { projectService: true, tsconfigRootDir: options.dir },

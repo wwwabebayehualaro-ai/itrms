@@ -108,7 +108,7 @@ jobs:
           ignore-unfixed: true
           exit-code: '1'
           # The legacy Digital File Cabinet code is retired in tasks 0.4–0.6 and is not scanned until then.
-          skip-dirs: Frontend,Backend,contracts,features,tools/boundaries/fixtures
+          skip-dirs: Backend,contracts,features,tools/boundaries/fixtures
           list-all-pkgs: true
           format: json
           output: trivy.json

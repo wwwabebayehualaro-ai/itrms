@@ -48,9 +48,10 @@ Amharic (default), English and Wolaytta (`wal-Latn`). See [`docs/tenant-wolaita.
 [`docs/i18n-and-languages.md`](docs/i18n-and-languages.md) and [`docs/demo-plan.md`](docs/demo-plan.md). **Source order:**
 `Documents/` first, then the national context, then a stated assumption that is asked about ([`docs/README.md`](docs/README.md)).
 
-**Current state (2026-10-18):** planning only. The repo still holds the copied *Digital File Cabinet* (`Frontend/` Next.js,
-`Backend/` FastAPI, `contracts/`, `features/`). Phase 0 turns it into the monorepo below (tasks 0.1–0.5). Its old guidance is
-in `docs/legacy/CLAUDE.digital-file-cabinet.md`.
+**Current state (2026-10-19):** Phase 0 in progress (`node tools/progress/cli.mjs summary`). The monorepo skeleton (0.2) and
+the dev stack (0.3) are done; task 0.4 moved the legacy web app to `apps/web` and its design system to `packages/ui`. The
+legacy `Backend/` (FastAPI), `contracts/` and `features/` remain until 0.5–0.6. Its old guidance is in
+`docs/legacy/CLAUDE.digital-file-cabinet.md`.
 
 ## Glossary (Amharic ↔ English)
 

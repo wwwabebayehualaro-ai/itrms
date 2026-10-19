@@ -105,7 +105,8 @@ Rules inside every slice:
   DI tokens there are plain `Symbol`s.
 * `web/**` never imports `api/**`. Files under `web/screens` and `apps/web/src/bff` start with `import 'server-only'`.
 * Inside a package, imports use Node subpath imports (`#db/schema`, mapped in `package.json` `imports`), not long relative
-  paths and not `tsconfig` `paths`.
+  paths and not `tsconfig` `paths`. The exception is `apps/web`, which keeps the Next.js convention `@/*` → `src/*`
+  (supported by Next.js, Vitest and TypeScript alike).
 * **The system database pool** (`itrms_system`, BYPASSRLS) is exported only from `@itrms/kernel/db/system`. Three rules
   keep request paths away from it (architecture §5):
   * it may be imported only from `jobs/`, `handlers/`, a slice's `api/worker.ts` and the worker entry points;

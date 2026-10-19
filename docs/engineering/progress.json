@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-10-18",
+  "updated": "2026-10-19",
   "statuses": [
     "planned",
     "ready",
@@ -93,12 +93,26 @@
         {
           "id": "0.4",
           "title": "Move the web app and the design system",
-          "status": "ready",
+          "status": "in review",
+          "branch": "task/0.4-move-web",
+          "commits": [
+            "7cd5191"
+          ],
+          "evidence": [
+            "turbo lint typecheck test build 60/60 (next build 15 routes); web unit 56/56 incl. client 18/18 (form-encoded, multipart, abort fallback, pre-send errors, params); ui 6/6; tools 44/44; check:engine + check:runtime pass; boundaries 481 modules 0 violations; format clean; pnpm audit clean (1 documented braces exception); task-verifier: ready with caveats; reviewer: no high, 2 medium fixed in 7cd5191; Linux CI not shown (GitHub billing, follow-up 11)"
+          ],
+          "blockers": [],
+          "notes": "Split on 2026-10-19: tokens/themes/fonts/StatusBadge/contrast test moved to new task 0.4b (before 0.4a). Layout: routes in apps/web/app; shell, lib, form-engine (until 0.5), providers (AuthGate, QueryProvider), screens (approvals, flags, sequences), form-templates, types in apps/web/src; design system in packages/ui with no data fetching (FormErrorsProvider-style ServerErrorsProvider decouples formKit from the API; saveBlob moved in). axios replaced by a fetch core (src/lib/api/http.ts) with one authorisation path (token, Idempotency-Key per POST kept on retry, single refresh, sign-in redirect), XMLHttpRequest only for upload progress, and the typed openapi-fetch client on the same path. @react-pdf-viewer replaced by react-pdf 11 with the pdf.js worker bundled (it was fetched from unpkg.com at runtime). Bank routes, core-banking API, cash-transaction e2e and the Monaco playground removed. Majors kept for the move (TanStack Table 8, Immer 10, Pino 9); web keeps ESLint 9 for eslint-config-next. Approved under the owner's standing instruction (2026-10-19: 'don't aks me for confirmation -- just go a head') after the reviewer's medium findings were fixed in 7cd5191; deferred lows are follow-ups (i18n labels → 0.13)."
+        },
+        {
+          "id": "0.4b",
+          "title": "Design tokens, themes and Ethiopic typography",
+          "status": "planned",
           "branch": null,
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Split from 0.4 on 2026-10-19 (scope too large for one session)."
         },
         {
           "id": "0.4a",
@@ -968,6 +982,51 @@
       "foundIn": "0.3",
       "item": "SeaweedFS master/volume/filer have no authentication (isolated on its own network in dev)",
       "movedTo": "0.26: SeaweedFS security.toml JWT, internal network with only api/worker/nginx"
+    },
+    {
+      "foundIn": "0.4",
+      "item": "apps/web lints with eslint-config-next only (no type-aware rules) and keeps its legacy tsconfig strictness (not the workspace base: no noUncheckedIndexedAccess/verbatimModuleSyntax)",
+      "movedTo": "0.5/0.10: adopt the shared presets as the legacy lib, form engine and auth code are replaced"
+    },
+    {
+      "foundIn": "0.4",
+      "item": "apps/web pins ESLint 9 because eslint-config-next 16.3's plugins (react, jsx-a11y, import) support only ESLint <= 9",
+      "movedTo": "Renovate: move to ESLint 10 when they support it"
+    },
+    {
+      "foundIn": "0.4",
+      "item": "openapi-typescript 7.13 declares a TypeScript ^5 peer (works with 6.0; generator only)",
+      "movedTo": "0.6: regenerate packages/api-client types; revisit when openapi-typescript supports TS 6"
+    },
+    {
+      "foundIn": "0.4",
+      "item": "Legacy e2e specs and seed scripts in apps/web/tests/e2e and scripts/e2e still target the FastAPI backend (and contain the demo password literal, follow-up 3)",
+      "movedTo": "0.5 runs them for the last time; 0.25 replaces them"
+    },
+    {
+      "foundIn": "0.4",
+      "item": "form-engine core imports Runtime types (bindings, TemplateRuntimeConfig); only the import cycle was broken in 0.4 (core/conditionTypes.ts)",
+      "movedTo": "0.5: core owns the stored shape and imports nothing from Runtime"
+    },
+    {
+      "foundIn": "0.4",
+      "item": "Audit exception GHSA-vfj7-8cjw-p6xm (braces via eslint-config-next, lint time only, no fixed release); seroval pinned to 1.6.8 by a pnpm override (devtools path)",
+      "movedTo": "Renovate / next dependency task: drop the override and the exception when fixed releases reach the tree"
+    },
+    {
+      "foundIn": "0.4",
+      "item": "apps/web/src/lib/api/schema.d.ts is generated from the legacy contracts/openapi.json and still lists its /core-banking/* paths",
+      "movedTo": "0.6: the new API's contract (packages/api-client) replaces it"
+    },
+    {
+      "foundIn": "0.4",
+      "item": "Hard-coded English labels in PdfViewer and LazyFileViewer (packages/ui/src/files): move to message catalogues",
+      "movedTo": "0.13"
+    },
+    {
+      "foundIn": "0.4",
+      "item": "Login screen copy and branding still say Digital File Cabinet and are English-only",
+      "movedTo": "0.13"
     }
   ]
 }

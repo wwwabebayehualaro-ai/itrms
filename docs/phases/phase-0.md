@@ -84,16 +84,24 @@ the task must add. The [definition of done](../../CLAUDE.md#definition-of-done) 
   - Replace `@react-pdf-viewer/*` (paid licence, stale) with **react-pdf** in `packages/ui` (`PdfViewer`); keep `next/image`.
   - Replace axios with **openapi-fetch** behind the existing client interface (tech-stack T10).
   - Remove the bank-specific routes and the code-UI playground (audit §10).
+  - Keep the existing unit tests passing.
+- **Done when:** `apps/web` builds; `packages/ui` has its own tests; there are no imports of the removed packages.
+- **Tests:** the moved Vitest suites (formKit, notify, client and others) pass from their new places.
+- **Split (2026-10-19):** the design tokens and themes moved to 0.4b, because the move alone fills a session (267 files,
+  about 23,000 lines).
+
+### 0.4b Design tokens, themes and Ethiopic typography
+- **Do:**
   - Design tokens in three tiers and themes (ADR-0029, [design-system.md](../platform/design-system.md)):
     - light, dark and **high contrast** themes; **comfortable/compact** density;
     - **Noto Sans Ethiopic + Noto Sans + Noto Sans Mono** replace Inter, self-hosted;
     - the Ethiopic typography rules;
     - the 7-tone status vocabulary in `StatusBadge`;
     - a contrast test over every theme.
-  - Keep the existing unit tests passing.
-- **Done when:** `apps/web` builds; `packages/ui` has its own tests; there are no imports of the removed packages.
-- **Tests:** the moved Vitest suites (formKit, notify, client and others) pass from their new places; the token contrast test
-  passes in all three themes.
+- **Done when:** every component reads only semantic tokens; the three themes and both densities switch at runtime; the
+  fonts load from the app itself, never from a CDN; `StatusBadge` shows the 7 tones with text and icon, not colour alone.
+- **Tests:** the token contrast test passes in all three themes (WCAG AA for text, 3:1 for UI parts); Ethiopic line-height
+  and label-wrap checks; the moved suites still pass.
 
 ### 0.4a Design-system documentation, visual tests and page templates
 - **Do:**
@@ -505,7 +513,7 @@ the task must add. The [definition of done](../../CLAUDE.md#definition-of-done) 
 - **Tests:** the restore drill script with checks; the smoke load test thresholds in CI (nightly).
 
 ## Phase acceptance criteria
-1. All 28 tasks done (0.1–0.26, 0.4a and 0.18a), CI green on `main` (lint, typecheck, unit, integration on Postgres, isolation matrix, i18n keys,
+1. All 29 tasks done (0.1–0.26, 0.4a, 0.4b and 0.18a), CI green on `main` (lint, typecheck, unit, integration on Postgres, isolation matrix, i18n keys,
    security scans, e2e).
 2. The demo journey runs in Amharic and English (Wolaytta with fallback) across Boditi, the zone and Damot Gale. A user of one office
    sees none of the other office's cases,

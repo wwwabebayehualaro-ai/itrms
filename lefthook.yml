@@ -5,7 +5,6 @@ pre-commit:
     - name: prettier
       glob: '*.{ts,tsx,js,mjs,cjs,json,yml,yaml,css}'
       exclude:
-        - 'Frontend/**'
         - 'Backend/**'
         - 'tools/boundaries/fixtures/**'
         - 'pnpm-lock.yaml'
@@ -15,7 +14,14 @@ pre-commit:
       glob: '{apps,platform,modules,packages}/**/*.{ts,tsx}'
       exclude:
         - 'modules/_template/**'
+        - 'apps/web/**'
       # ESLint 10 resolves the config from each file's directory, so every file uses its own package's rules.
+      run: pnpm exec eslint --max-warnings 0 {staged_files}
+
+    - name: eslint (web)
+      # The web app keeps ESLint 9 until eslint-config-next's plugins support ESLint 10, so it lints from its own folder.
+      root: 'apps/web/'
+      glob: '*.{ts,tsx,js,jsx,mjs,mts}'
       run: pnpm exec eslint --max-warnings 0 {staged_files}
 
     - name: gitleaks
