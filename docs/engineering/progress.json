@@ -108,11 +108,12 @@
         {
           "id": "0.4b",
           "title": "Design tokens, themes and Ethiopic typography",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.4b-tokens-themes",
           "commits": [
             "af97b15",
-            "0f0374b"
+            "0f0374b",
+            "6ce4999"
           ],
           "evidence": [
             "ci:local 0f0374b on Linux (Docker 29.6.2), complete: checks pass (turbo lint/typecheck/test/build 60/60; ui 44 passed + 2 high-contrast-only skips: contrast in 3 themes incl. AAA in high contrast, tokens.css up to date, static rules, StatusBadge 7 tones, runtime theme/density switching; web 63/63), infra pass (dev stack + S3 contract 17/17), gitleaks pass, trivy pass (0 HIGH/CRITICAL, 470 packages), semgrep pass (0). next build bundles 18 Noto woff2 from /_next/static/media, no remote font URL. Task verifier: ready with caveats (label-wrap check is static; browser checks are follow-up to 0.4a; Ethiopic rules need <html lang> from 0.13). Reviewer: 0 high; 3 medium and the cheap lows fixed in 0f0374b."
@@ -123,7 +124,7 @@
         {
           "id": "0.4a",
           "title": "Design-system documentation, visual tests and page templates",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
