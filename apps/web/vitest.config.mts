@@ -13,6 +13,9 @@ export default defineConfig({
         env: { TZ: 'Africa/Addis_Ababa' },
         include: ['tests/unit/**/*.test.{ts,tsx}'],
         setupFiles: ['tests/unit/setup.ts'],
-        restoreMocks: true
+        restoreMocks: true,
+        // These are user-event journeys through whole screens (designer, approval inbox, data viewer). The 5 s default
+        // fails them on a loaded CI machine, where every package builds and tests in parallel (7 s seen on local Linux CI).
+        testTimeout: 20_000
     }
 });

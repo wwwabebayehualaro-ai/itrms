@@ -1,6 +1,6 @@
 # ADR 0004: Keycloak for identity, 2FA and org-unit groups
 
-* Status: accepted (2026-10-17, fixed)
+* Status: accepted (2026-10-17, fixed) · amended by [ADR-0021](0021-bff-sessions-in-valkey.md) and [ADR-0033](0033-security-baseline.md) (WebAuthn mandatory for administrators)
 
 ## Context
 Government staff need strong authentication and user administration delegated per zone and woreda, and ITRMS should not

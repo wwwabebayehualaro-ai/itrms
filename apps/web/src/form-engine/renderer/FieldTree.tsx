@@ -58,6 +58,9 @@ export function widthOf(
 ): { style?: CSSProperties; span?: number; className?: string } {
     const span = validSpan(field.props.span);
     if (span) return { span, style: { width: spanWidth(span) } };
+    // Semgrep reports from the line that reads the input, so the suppression sits here: the two patterns below are fixed
+    // and have no nested quantifiers (linear time).
+    // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos
     const cls = String(field.props.className ?? '');
     const col = /(?:^|\s)col-(\d{1,2})(?:\s|$)/.exec(cls);
     const frac = /(?:^|\s)w-(\d)\/(\d)(?:\s|$)/.exec(cls);

@@ -195,6 +195,7 @@ export function createDesignerStore(doc: DesignDoc = EMPTY_DOC, template: IFormT
                 let selectedId = id;
                 const base = keyFromLabel(f.label ?? '');
                 const follows =
+                    // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- a fixed digits-only pattern (linear time)
                     !saved.byId[id] && (id === base || (id.startsWith(base) && /^\d+$/.test(id.slice(base.length))));
                 if (follows && label.trim()) {
                     const taken = new Set(Object.keys(doc.byId).filter((k) => k !== id));

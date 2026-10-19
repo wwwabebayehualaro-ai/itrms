@@ -1,6 +1,6 @@
 # ADR 0024: Online-first PWA for weak connections; no offline case sync
 
-* Status: accepted (2026-10-18); revisit after the Phase 1 pilot with measured connectivity.
+* Status: accepted (2026-10-18); revisit after the Phase 1 pilot with measured connectivity. Amended by [ADR-0033](0033-security-baseline.md): Sensitive fields stay out of local storage (security standard SEC-WB-3).
 
 > **Amended by [ADR-0031](0031-design-review-hardening.md)** (2026-10-18), item 8.
 

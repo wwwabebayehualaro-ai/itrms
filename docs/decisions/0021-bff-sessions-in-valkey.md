@@ -1,6 +1,6 @@
 # ADR 0021: BFF sessions stored server-side in Valkey
 
-* Status: accepted (2026-10-18). It **amends ADR-0004**: there, tokens were to be kept in an encrypted httpOnly cookie.
+* Status: accepted (2026-10-18). Amended by [ADR-0033](0033-security-baseline.md): an `Origin` check joins the CSRF defence. It **amends ADR-0004**: there, tokens were to be kept in an encrypted httpOnly cookie.
 
 ## Context
 Keycloak access, refresh and ID tokens carry role and group-path claims. Together, encrypted, they exceed the 4 KB browser

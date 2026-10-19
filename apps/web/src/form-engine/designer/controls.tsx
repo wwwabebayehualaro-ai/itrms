@@ -16,6 +16,7 @@ import {
     ToggleGroup,
     ToggleGroupItem
 } from '@itrms/ui';
+import { explainPattern } from '../core/safePattern';
 import type { VisibilityCondition } from '../core/storedTypes';
 import type { ColumnType, TableColumn } from '../Runtime/types';
 
@@ -280,6 +281,28 @@ function ConditionValue({
                 className="w-32"
             />
         );
+    if (c.operator === 'regex') {
+        // An unusable pattern never matches, which would silently hide or disable the field: say so here.
+        const pattern = typeof c.value === 'string' ? c.value : '';
+        const problem = pattern && !pattern.includes('{{') ? explainPattern(pattern) : null;
+        return (
+            <div className="flex min-w-40 flex-1 flex-col gap-1">
+                <Input
+                    value={pattern}
+                    onChange={(e) => onChange(e.target.value)}
+                    aria-label="Pattern"
+                    aria-invalid={!!problem}
+                    placeholder="^[A-Z]{3}"
+                    className="font-mono"
+                />
+                {problem && (
+                    <p role="alert" className="text-xs text-destructive">
+                        {problem} The condition never holds.
+                    </p>
+                )}
+            </div>
+        );
+    }
     return (
         <Input
             value={showTyped(c.value)}

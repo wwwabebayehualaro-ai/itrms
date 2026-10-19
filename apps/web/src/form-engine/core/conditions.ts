@@ -6,6 +6,7 @@
  */
 import type { VisibilityCondition } from './storedTypes';
 import { getByPath, resolveBindings } from '../Runtime/expression';
+import { compilePattern } from './safePattern';
 
 export type Scope = Record<string, unknown>;
 
@@ -48,11 +49,8 @@ function test(c: VisibilityCondition, values: Record<string, unknown>, scope: Sc
         case 'notEmpty':
             return !isEmpty(actual);
         case 'regex':
-            try {
-                return String(expected).length <= 200 && new RegExp(String(expected)).test(String(actual));
-            } catch {
-                return false;
-            }
+            // RE2 (linear time): the pattern comes from the template and the value from the user (SEC-IN-2).
+            return compilePattern(String(expected))?.(String(actual)) ?? false;
         case 'in':
             return Array.isArray(expected) ? (expected as unknown[]).includes(actual) : false;
         case 'notIn':

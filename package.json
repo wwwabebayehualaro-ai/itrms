@@ -26,7 +26,8 @@
     "dev:infra:check": "node tools/dev-infra.mjs check",
     "dev:infra:down": "node tools/dev-infra.mjs down",
     "dev:infra:status": "node tools/dev-infra.mjs status",
-    "dev:infra:reset": "node tools/dev-infra.mjs reset"
+    "dev:infra:reset": "node tools/dev-infra.mjs reset",
+    "ci:local": "node tools/ci-local.mjs"
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "3.1146.0",

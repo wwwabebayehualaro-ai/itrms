@@ -566,7 +566,8 @@ status, penalty points), ITRMS stores that system's reference and a read copy, n
 
 ## 18. Security summary
 
-Target: **OWASP ASVS 4 Level 2** for the whole application, Level 3 for authentication, sessions, the money path and audit.
+The rules are in the [security standard](platform/security.md) (ADR-0033). Target: **OWASP ASVS 5.0 Level 2** for the whole
+application, Level 3 for authentication, sessions, authorization, cryptography, the money path and audit.
 An INSA security evaluation before the first production deployment (pilot gate): threat model, SBOM, scan reports, external
 pentest with findings closed.
 

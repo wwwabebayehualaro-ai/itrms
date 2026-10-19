@@ -9,6 +9,7 @@ export const KEY_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
 
 /** Returns an error message, or null when `key` can be used for `fieldId`. */
 export function validateFieldKey(key: string, fieldId: string, fields: FormField[]): string | null {
+    // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- KEY_PATTERN is a fixed, anchored pattern without nested quantifiers (linear time)
     if (!KEY_PATTERN.test(key)) return 'Start with a letter; use letters, digits and _ only (max 64)';
     if (fields.some((f) => f.id === key && f.id !== fieldId)) return 'Another field already uses this key';
     return null;

@@ -37,5 +37,7 @@ one, write a new ADR that supersedes it. Format: context, decision, consequences
 | [0030](0030-hybrid-delivery-builder-and-code.md) | Hybrid delivery: builder for capture and configuration, code for money, registries and complex work | accepted (2026-10-18) |
 | [0031](0031-design-review-hardening.md) | Hardening from the 2026-10-18 design review: RLS without bypass, per-unit role assignments, PII encryption, payment verification, wait states, exposure, backups | accepted (2026-10-18) |
 | [0032](0032-workspace-structure.md) | Workspace structure: kernel and platform services as slice packages, thin apps, `apps/verify`, slice-owned messages (amends 0001, 0002, 0027) | accepted (2026-10-18) |
+| [0033](0033-security-baseline.md) | Security baseline: ASVS 5.0 (L3 for auth, sessions, authorization, crypto, money, audit), INSA CMCSRS alignment, one security standard with rule ids | accepted (2026-10-19) |
+| [0034](0034-local-linux-ci.md) | Local Linux CI (`pnpm ci:local`) is the CI record while GitHub-hosted runners are unavailable (amends 0009) | accepted (2026-10-19) |
 
 All tool choices and the answers to the technical open questions: [`../tech-stack.md`](../tech-stack.md).

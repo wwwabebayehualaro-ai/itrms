@@ -50,6 +50,7 @@ import {
     type ConditionSubject,
     type OptionRow
 } from './controls';
+import { explainPattern } from '../core/safePattern';
 import { ROOT, getPath, setPath } from './document';
 import { SettingsForm } from './SettingsForm';
 import { useDesigner, useDesignerActions } from './store';
@@ -430,6 +431,7 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
     const { apply } = useFieldEdit(stored.id);
     const rules = design?.rules ?? [];
     const rule = (name: string) => getPath(stored, `behavior.validation.rules.${name}`);
+    const patternProblem = rule('pattern') ? explainPattern(String(rule('pattern'))) : null;
     // a rule only counts when the field is validated: turning one on turns validation on
     const setRule = (path: string, value: unknown) =>
         apply((f) => {
@@ -533,11 +535,16 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                     <Row
                         id="insp-pattern"
                         label="Regular expression"
-                        help="The whole value must match, e.g. ^[A-Z]{3}-\d{4}$"
+                        help={
+                            patternProblem
+                                ? `${patternProblem} The rule is ignored until it is fixed.`
+                                : 'The whole value must match, e.g. ^[A-Z]{3}-\\d{4}$ (Ethiopic: [\\u1200-\\u137F])'
+                        }
                     >
                         <Input
                             id="insp-pattern"
                             value={String(rule('pattern') ?? '')}
+                            aria-invalid={!!patternProblem}
                             className="font-mono text-xs"
                             onChange={(e) => setRule('behavior.validation.rules.pattern', e.target.value || undefined)}
                         />

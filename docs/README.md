@@ -18,7 +18,7 @@ context. Where neither says anything, state an assumption and ask.
 | 7 | [demo-plan.md](demo-plan.md) | The Phase 0 driver-licence demo in Wolaita: units, people, journey, data |
 | 8 | [architecture.md](architecture.md) | The system design |
 | 8a | [tech-stack.md](tech-stack.md) | **Every tool and version**, and the answers to all technical open questions |
-| 8b | [platform/](platform/README.md) | **One pattern for every office** (unit types, settings), modularization, menus and shell, design system, enterprise capabilities |
+| 8b | [platform/](platform/README.md) | **One pattern for every office** (unit types, settings), modularization, menus and shell, design system, **security standard**, enterprise capabilities |
 | 9 | [decisions/](decisions/README.md) | Fixed decisions (ADRs) |
 | 9a | [reviews/](reviews/2026-10-18-design-review.md) | Independent design review and how each finding was resolved |
 | 9c | [go-to-market.md](go-to-market.md) | **Self-built product for all of Ethiopia:** market, positioning against national systems, discovery plan, selling to government, risks, changed gates |

@@ -72,7 +72,8 @@ export function prepareRequest(ds: DataSourceDefinition, ctx: RuntimeContext, bo
 
     let url = resolveString(request.url, c);
     Object.entries(request.pathParams ?? {}).forEach(([name, tpl]) => {
-        url = url.replace(new RegExp(`\\{${name}\\}`, 'g'), encodeURIComponent(String(resolveString(tpl, c) ?? '')));
+        // A plain replace-all: a parameter name is configuration, never a pattern.
+        url = url.split(`{${name}}`).join(encodeURIComponent(String(resolveString(tpl, c) ?? '')));
     });
     url = String(url);
     assertSafeUrl(url);

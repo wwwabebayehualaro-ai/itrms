@@ -87,10 +87,18 @@ export interface HttpClient {
     authFetch(request: Request): Promise<Response>;
 }
 
-const defaultKey = () =>
-    typeof crypto !== 'undefined' && 'randomUUID' in crypto
-        ? crypto.randomUUID()
-        : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+/**
+ * A random UUID v4. `randomUUID` exists only in secure contexts (HTTPS, localhost); `getRandomValues` exists everywhere,
+ * so a page served over plain HTTP still gets an unguessable, collision-free key (never Math.random: SEC-CR-5).
+ */
+function defaultKey(): string {
+    if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+    const b = Array.from(crypto.getRandomValues(new Uint8Array(16)));
+    b[6] = ((b[6] ?? 0) & 0x0f) | 0x40;
+    b[8] = ((b[8] ?? 0) & 0x3f) | 0x80;
+    const h = b.map((x) => x.toString(16).padStart(2, '0')).join('');
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
 
 /** baseUrl + url the way the old client joined them (one slash between). Absolute URLs pass through. */
 export function joinUrl(baseUrl: string | undefined, url: string, params?: object): string {

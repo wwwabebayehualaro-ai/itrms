@@ -50,6 +50,15 @@
         "(?<depName>zricethezav/gitleaks|semgrep/semgrep):(?<currentValue>v?\\d+\\.\\d+\\.\\d+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?"
       ],
       "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "description": "The Trivy image pinned by tag and digest in the local Linux CI (ADR-0034)",
+      "managerFilePatterns": ["/^tools/ci-local\\.mjs$/"],
+      "matchStrings": [
+        "(?<depName>aquasec/trivy):(?<currentValue>\\d+\\.\\d+\\.\\d+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker"
     }
   ]
 }

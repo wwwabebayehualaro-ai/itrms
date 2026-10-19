@@ -16,7 +16,7 @@ that proves it. Contract values (availability, RPO/RTO) are proposals to agree w
 | Web | Largest Contentful Paint on a 3G-class link | ≤ 3 s for the shell; ≤ 4 s for a case page | real-user web vitals per office | Phase 1 |
 | Capacity | Regional load | ~10⁶ cases/year, a few hundred concurrent staff, on 8 vCPU / 48 GB / SSD | k6 at 3× expected load | 0.26, 3.13 |
 | Resilience | Network drops at offices | no lost draft, no duplicate command | PWA queue + idempotency tests | 0.11, 0.20 |
-| Security | Application verification level | OWASP ASVS 4 L2 (L3 for auth, sessions, money, audit) | checklist + pentest | Phase 1 (INSA) |
+| Security | Application verification level | OWASP ASVS 5.0 L2 (L3 for auth, sessions, authorization, crypto, money, audit; ADR-0033) | checklist + pentest | Phase 1 (INSA) |
 | Security | Tenant isolation | 100 % of tenant tables in the isolation matrix | CI matrix | 0.9 onwards |
 | Security | Vulnerabilities | no open high/critical findings at release | Trivy, Semgrep, pentest | every release |
 | Privacy | PDP 1321/2024 duties | sensitive fields encrypted, masked, reveals audited; breach runbook; DPIA per service | tests + documents | 0.14, Phase 1 |

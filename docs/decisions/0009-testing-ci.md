@@ -1,6 +1,6 @@
 # ADR 0009: Vitest, Playwright and GitHub Actions
 
-* Status: accepted (2026-10-17, fixed)
+* Status: accepted (2026-10-17, fixed) · amended by [ADR-0034](0034-local-linux-ci.md) (local Linux CI record)
 
 ## Context
 The copied project has Vitest and Playwright suites but **no CI**. ITRMS handles money, identity and tenant isolation, so

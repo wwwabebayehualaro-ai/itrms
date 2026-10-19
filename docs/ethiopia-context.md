@@ -131,13 +131,21 @@ Gazette and any later amendment ⚠️.
   requires registration of controllers and processors with the authority (reported as the Ethiopian Communication
   Authority), security measures, records, impact assessments, a data protection officer, and **breach notification within 72
   hours**. It reportedly also requires **storing locally collected personal data on servers in Ethiopia**. ([Digital Policy Alert](https://digitalpolicyalert.org/event/24905-adopted-personal-data-protection-proclamation-proclamation-no-13212024-including-cybersecurity-regulation), [Mehrteab Leul](https://mehrteableul.com/legal-update-on-the-ethiopian-personal-data-protection-proclamation-no-1321-2024/), [text](https://www.metaappz.com/References/ethiopian_laws/federal/pr_1321_2024/en/txt))
-- A **Critical Infrastructure Cybersecurity Proclamation** was tabled in Parliament in 2026, with periodic INSA audits for
-  critical institutions. Ethio-CERT states that new government software and digital infrastructure undergo **INSA security
-  evaluation before deployment**. ([The Reporter](https://www.thereporterethiopia.com/50524/), [Kana TV](https://kanatelevision.com/news/ethiopia-s-new-cybersecurity-law-what-banks-hospitals-and-power-companies-now-have-to-do/), [Ethio-CERT](https://www.ethiocert.gov.et/news/africas-cybersecurity-threat-and-ethiopias-new-security-proclamation))
+- The **Critical Infrastructure Cybersecurity Proclamation No. 1426/2026** is in force (Federal Negarit Gazette No. 41,
+  July 2026). Its twelve critical-infrastructure sectors include **Transport** and **Government Services**. Owners that
+  INSA designates must, among 18 duties, implement INSA's mandatory frameworks, hold and renew INSA cyber-audit and
+  inspection certificates, obtain **INSA security clearance before integrating new or upgraded ICT systems** (Art. 7(12)),
+  secure their supply chain (Art. 7(11)) and report incidents to the national CERT **within 48 hours** (Art. 7(14)). ([text](https://www.insa.gov.et/pdf/critical-infrastructure-cybersecurity-proclamation-no-14262026-1786083598), [The Reporter](https://www.thereporterethiopia.com/50524/), [Ethio-CERT](https://www.ethiocert.gov.et/news/africas-cybersecurity-threat-and-ethiopias-new-security-proclamation))
+- **How INSA audits:** against its **Critical Mass Cyber Security Requirement Standard (CMCSRS) v2.0** for organisations,
+  and Common Criteria for products. Documents are reviewed first, then compliance and substantive tests; findings are
+  major or minor nonconformities or observations, and the result is a 0–100 maturity score (76–90 "mature"). CMCSRS 6.14(f)
+  expects INSA to evaluate a system's requirements and design before it is procured or developed. Web applications are
+  submitted to INSA's Cyber Security Audit Division with its *Web Applications Audit Request* form (OF/AEAD/001). ([Audit and Evaluation Guideline](https://www.insa.gov.et/pdf/cyber-security-audit-and-evaluation), [CMCSRS](https://www.insa.gov.et/pdf/critical-mass-cyber-security-requirement-satandard), [request form](https://cyberaudit.insa.gov.et/guidelines/Web_Application_Security_Testing_Requirements_Document_4_5.pdf))
 - **Design consequences:**
   - On-premise installation per region fits localisation.
   - **Off-site backups must go to a second site inside Ethiopia** (another bureau server, a zone server, or an Ethiopian
     data centre such as Ethio telecom's or Wingu Africa's), never a foreign cloud (ADR-0012 updated).
+  - The rules are written down in the [security standard](platform/security.md) (ADR-0033), mapped to CMCSRS.
   - An **INSA security evaluation** becomes part of the Phase 1 pilot gate. Prepare for it from Phase 0: threat model,
     dependency licence/vulnerability list, pentest findings closed, audit log.
   - Add the PDP duties to the product: breach-notification runbook, records of processing, DPIA template per service, DPO

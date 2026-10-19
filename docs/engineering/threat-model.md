@@ -1,7 +1,8 @@
 # Threat model (initial, STRIDE)
 
 The baseline for the INSA security evaluation. Each phase updates it, and each threat maps to its controls and the test or
-task that proves them. Assets, in order of importance:
+task that proves them. The controls are specified as rules in the [security standard](../platform/security.md).
+Assets, in order of importance:
 1. citizens' personal data (Fayda FIN, phone, medical data);
 2. money (fees, receipts, payroll list);
 3. the integrity of issued documents and registries;

@@ -13,3 +13,4 @@ coverage/
 tools/boundaries/fixtures/
 *.hbs
 next-env.d.ts
+.ci-local/

@@ -60,6 +60,21 @@ describe('HTTP client: idempotency', () => {
         expect(await t.seen[1].json()).toEqual({ a: 1 }); // the body is sent again in full
     });
 
+    it('makes a random UUID v4 key even where crypto.randomUUID is missing (plain-HTTP pages)', async () => {
+        const original = Object.getOwnPropertyDescriptor(crypto, 'randomUUID');
+        Object.defineProperty(crypto, 'randomUUID', { value: undefined, configurable: true });
+        try {
+            const t = transport();
+            await make(t).http.post('x', {});
+            await make(t).http.post('x', {});
+            expect(key(t.seen[0])).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+            expect(key(t.seen[1])).not.toBe(key(t.seen[0]));
+        } finally {
+            if (original) Object.defineProperty(crypto, 'randomUUID', original);
+            else delete (crypto as { randomUUID?: unknown }).randomUUID;
+        }
+    });
+
     it('respects a key the caller chose', async () => {
         const t = transport();
         const { http } = make(t);

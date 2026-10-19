@@ -8,6 +8,7 @@
 import { z } from 'zod';
 import type { Scope } from './conditions';
 import { isFormArray, type EngineField } from './model';
+import { compilePattern } from './safePattern';
 import { isEnabledIn, isListField, isVisibleIn, scopeFields } from './values';
 
 export type FieldErrors = Record<string, string>;
@@ -132,12 +133,9 @@ export function fieldSchema(f: EngineField): z.ZodType<unknown> {
 
     if (STRING_TYPES.has(f.type)) {
         const email = r.typeEmail || (f.type === 'InputText' && f.props.type === 'email');
-        let pattern: RegExp | undefined;
-        try {
-            pattern = r.pattern ? new RegExp(r.pattern) : undefined;
-        } catch {
-            pattern = undefined; // an invalid expression is ignored rather than blocking every submission
-        }
+        // RE2 (linear time), because this also runs on the server (SEC-IN-2, SEC-IN-4). An invalid or unsupported
+        // expression is ignored rather than blocking every submission; the designer flags it.
+        const pattern = r.pattern ? (compilePattern(r.pattern) ?? undefined) : undefined;
         return z.unknown().superRefine((v, ctx) => {
             if (isBlank(v)) return void (r.required && ctx.addIssue({ code: 'custom', message: requiredMsg }));
             if (typeof v !== 'string' && typeof v !== 'number')
@@ -164,7 +162,7 @@ export function fieldSchema(f: EngineField): z.ZodType<unknown> {
                 return void add(`Must be at least ${r.minLength} characters`);
             if (r.maxLength !== undefined && r.maxLength > 0 && s.length > r.maxLength)
                 return void add(`Cannot be longer than ${r.maxLength} characters`);
-            if (pattern && !pattern.test(s)) add(r.patternMessage || 'Please check the format');
+            if (pattern && !pattern(s)) add(r.patternMessage || 'Please check the format');
         });
     }
 
