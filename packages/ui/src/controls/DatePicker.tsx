@@ -101,7 +101,7 @@ export function DatePicker({
                             type="time"
                             aria-label="Time"
                             value={time}
-                            className="h-8 w-28"
+                            className="h-(--field-height-sm) w-28"
                             onChange={(e) => {
                                 const [h, m] = e.target.value.split(':').map(Number);
                                 const d = new Date(date ?? new Date());

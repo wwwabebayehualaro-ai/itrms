@@ -1,8 +1,7 @@
 'use client';
 import { useEffect } from 'react';
-import { ThemeProvider } from 'next-themes';
 import './globals.css';
-import { NotifyProvider, ServerErrorsProvider, TooltipProvider } from '@itrms/ui';
+import { AppearanceProvider, NotifyProvider, ServerErrorsProvider, TooltipProvider } from '@itrms/ui';
 import { serverFormErrors } from '@/lib/forms/serverErrors';
 import { QueryProvider } from '@/providers/query/QueryProvider';
 
@@ -20,24 +19,17 @@ export default function RootLayout({ children }: RootLayoutProps) {
     return (
         <html lang="en" suppressHydrationWarning>
             <body>
-                <NotifyProvider>
-                    <QueryProvider>
-                        <TooltipProvider>
-                            {/* hand-written forms map the API's problem+json errors onto their fields */}
-                            <ServerErrorsProvider map={serverFormErrors}>
-                                {/* light / dark: the `dark` class on <html> (design system tokens in globals.css) */}
-                                <ThemeProvider
-                                    attribute="class"
-                                    defaultTheme="light"
-                                    enableSystem
-                                    disableTransitionOnChange
-                                >
-                                    {children}
-                                </ThemeProvider>
-                            </ServerErrorsProvider>
-                        </TooltipProvider>
-                    </QueryProvider>
-                </NotifyProvider>
+                {/* Outermost: theme class and data-density on <html> (ADR-0029), and the toaster in NotifyProvider reads the theme. */}
+                <AppearanceProvider>
+                    <NotifyProvider>
+                        <QueryProvider>
+                            <TooltipProvider>
+                                {/* hand-written forms map the API's problem+json errors onto their fields */}
+                                <ServerErrorsProvider map={serverFormErrors}>{children}</ServerErrorsProvider>
+                            </TooltipProvider>
+                        </QueryProvider>
+                    </NotifyProvider>
+                </AppearanceProvider>
             </body>
         </html>
     );

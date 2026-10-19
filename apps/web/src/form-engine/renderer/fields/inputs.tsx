@@ -459,7 +459,7 @@ function RatingField({ field, id, value, onChange, onBlur, disabled, describedBy
                     <Star
                         className={cn(
                             'size-5',
-                            n <= current ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground'
+                            n <= current ? 'fill-status-warning text-status-warning' : 'text-muted-foreground'
                         )}
                     />
                 </button>
@@ -502,7 +502,7 @@ function ColorField({ field, id, value, onChange, onBlur, disabled, describedBy 
             id={id}
             name={field.id}
             type="color"
-            className="h-9 w-16 p-1"
+            className="h-(--field-height) w-16 p-1"
             value={`#${str(value).replace(/^#/, '') || '000000'}`}
             onChange={(e) => onChange(e.target.value.replace(/^#/, ''))}
             onBlur={onBlur}

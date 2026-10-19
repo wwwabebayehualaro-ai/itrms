@@ -46,7 +46,7 @@ export function TagsInput({
     return (
         <div
             className={cn(
-                'flex min-h-9 w-full flex-wrap items-center gap-1 rounded-md border border-input px-2 py-1 shadow-xs focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50',
+                'flex min-h-(--field-height) w-full flex-wrap items-center gap-1 rounded-md border border-input px-2 py-1 shadow-xs focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring',
                 invalid && 'border-destructive',
                 disabled && 'opacity-50',
                 className

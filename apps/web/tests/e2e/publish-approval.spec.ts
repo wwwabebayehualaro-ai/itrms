@@ -26,7 +26,7 @@ test('an editor publishes, an admin approves, then the form takes requests', asy
         await makerPage.goto('/dynamic-template/saved-templates');
         await makerPage.getByRole('button', { name: `Publish ${name}` }).click();
         await expect(makerPage.getByText('Sent for approval').first()).toBeVisible();
-        await expect(makerPage.locator('[data-template-status="pending_approval"]').first()).toBeVisible();
+        await expect(makerPage.locator('[data-status="pending_approval"]').first()).toBeVisible();
 
         // not published yet: no new requests
         await makerPage.goto(`/submitted-forms/template/${created.id}`);

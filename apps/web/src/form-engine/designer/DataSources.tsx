@@ -584,7 +584,7 @@ export function DataSources() {
                             <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setSelected(i)}>
                                 <span className="block truncate text-sm font-medium">{s.name || s.id}</span>
                                 <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                                    <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                                    <Badge variant="outline" className="h-4 px-1 text-xs">
                                         {s.request.method}
                                     </Badge>
                                     <span className="truncate font-mono">{s.request.url}</span>

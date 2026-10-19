@@ -266,7 +266,7 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
                 onClick={() => setAttachment(t)}
                 aria-label={hasFile ? `Open the file attached to ${t.name}` : undefined}
                 className={cn(
-                    'flex shrink-0 items-center justify-center bg-gradient-to-b from-primary/10 to-primary/5 text-primary/60 enabled:hover:text-primary',
+                    'flex shrink-0 items-center justify-center bg-gradient-to-b from-primary/10 to-primary/5 text-muted-foreground enabled:hover:text-primary',
                     size === 'lg' ? 'h-32 w-full' : 'size-11 rounded-md'
                 )}
             >

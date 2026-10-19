@@ -1,0 +1,78 @@
+/*
+ * The design system's stylesheet (@itrms/ui/styles.css), imported by each app right after Tailwind. Tokens are generated
+ * (tokens.css); the rules here are the ones tokens cannot express (design-system.md §5).
+ */
+
+/*
+ * Self-hosted variable fonts (OFL), bundled by the app and served from its own origin, never a CDN. Each file is split by
+ * unicode-range, so a page downloads only the scripts it shows. Noto Sans has no italic here on purpose: emphasis is weight.
+ */
+@import '@fontsource-variable/noto-sans/wght.css';
+@import '@fontsource-variable/noto-sans-ethiopic/wght.css';
+@import '@fontsource-variable/noto-sans-mono/wght.css';
+
+@import './tokens.css';
+
+@custom-variant dark (&:is(.dark *));
+@custom-variant high-contrast (&:is(.high-contrast *));
+
+@layer base {
+    html {
+        /* Ethiopic has no italic and synthetic slanting damages it; Latin follows the same rule so the scripts match. */
+        font-synthesis-style: none;
+    }
+    * {
+        border-color: var(--border);
+        /* Full strength: a focus outline must keep 3:1 against what it sits on (the contrast test checks --ring). */
+        outline-color: var(--ring);
+    }
+    body {
+        font-family: var(--font-sans);
+        background-color: var(--background);
+        color: var(--foreground);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        line-height: 1.3;
+    }
+    :root:lang(am) body,
+    :root:lang(ti) body,
+    :root:lang(gez) body {
+        line-height: 1.6;
+    }
+}
+
+/* Unlayered, so it beats the outline-none / outline-hidden utilities the primitives carry. */
+.high-contrast :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+}
+
+/*
+ * Ethiopic text has no case, and spacing or slanting it breaks the glyphs. Any element in an Ethiopic-script language drops
+ * these, whatever utility a screen applied (an English label in an English UI keeps them).
+ */
+:lang(am),
+:lang(ti),
+:lang(gez) {
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    font-style: normal !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

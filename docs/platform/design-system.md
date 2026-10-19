@@ -13,7 +13,7 @@
 * **Tokens:** CSS custom properties in OKLCH (`--background`, `--primary`, `--success`, `--warning`, `--chart-1`, …), a
   light and a dark theme, the `next-themes` toggle.
 * **Rules (lint-enforced):** features import UI only from the design system, never Radix or vendor libraries directly.
-* **Gaps for ITRMS:**
+* **Gaps for ITRMS** (task 0.4b closed the font, density, high-contrast and status-tone gaps):
   * Inter only (no Ethiopic font);
   * English-only strings inside components;
   * no Ethiopian date picker, money input or registry lookup;
@@ -41,15 +41,24 @@
 | **Semantic** (meaning) | `--background`, `--foreground`, `--primary`, `--muted`, `--border`, `--ring`, `--destructive`, `--success`, `--warning`, `--info`; status tokens (§6); `--chart-1…8` | Themes (light, dark, high contrast) and, within limits, tenant branding |
 | **Component** | `--sidebar-*`, `--table-row-height`, `--field-height`, `--page-gutter` | Density modes |
 
-* Tokens live in `packages/ui/src/tokens.css` as CSS variables, exposed to Tailwind 4 via `@theme inline` (as today) and
-  exported as a typed JS object for charts and PDFs.
+* Tokens are written once, in TypeScript (`packages/ui/src/tokens/tokens.ts`). `pnpm --filter @itrms/ui tokens` generates
+  `packages/ui/src/styles/tokens.css` from them (CSS variables, exposed to Tailwind 4 via `@theme inline`), and a test fails
+  while that file is stale. Charts and documentation read the same values from `@itrms/ui/tokens`.
+* The palette is generated: each hue (slate, grey, brand, blue, indigo, green, amber, red) gets steps 50–950 at fixed
+  OKLCH lightness, with chroma clamped to the sRGB gamut, so every screen shows the colour the contrast test measured.
+* Tailwind's default palette is switched off (`--color-*: initial`): `bg-red-500` produces no CSS, and a test rejects
+  palette utilities and literal colours in components.
+* Apps import the stylesheet once, after Tailwind: `@import '@itrms/ui/styles.css';` (fonts, tokens, variants, base rules).
 * The **same tokens drive the PDF templates** (`documents` module), so printed certificates match the screens.
 * Colours are defined in OKLCH. A contrast test in CI checks every foreground/background pair in every theme (≥ 4.5:1 for
-  text, ≥ 3:1 for UI parts).
+  text, ≥ 3:1 for UI parts: form-field outlines, focus rings, status icons and chart marks). The high-contrast theme reaches
+  7:1 (AAA) on every text pair. The checked pairs are `CONTRAST_PAIRS` in `tokens.ts`.
 
 ## 4. Themes and branding
 * **Themes:** light (default), dark, **high contrast** (for bright offices and low-vision users). The setting
-  `ui.theme` = system | light | dark | high-contrast is a user preference.
+  `ui.theme` = system | light | dark | high-contrast is a user preference. `AppearanceProvider` puts the theme class
+  (`.dark`, `.high-contrast`) and `data-density` on `<html>`, and `AppearanceMenu` switches both at runtime. Until user
+  settings exist (task 0.21) both are remembered per browser.
 * **Default product palette:** a calm government look. Primary is deep teal-blue; neutrals are slate; status colours are
   fixed (§6). The Ethiopian flag colours are not used as UI colours, because they clash with the status colours. The national
   emblem appears only in document headers where the bureau supplies it.
@@ -59,7 +68,8 @@
     values are not allowed;
   * document header and footer, stamp image and signature lines (used in PDFs).
 * **Density:** `comfortable` (default) and `compact` (data-entry staff: 32 px rows, tighter forms). It is a user
-  preference that can be defaulted per region.
+  preference that can be defaulted per region. Controls read the component tokens (`--field-height`,
+  `--table-row-height`, …). On touch screens (`pointer: coarse`) they stay at least 44 px tall in either density.
 
 ## 5. Typography (Ethiopic-aware)
 * **Fonts (self-hosted, OFL):**
@@ -68,10 +78,12 @@
     family;
   * **Noto Sans Mono** for codes and numbers in tables (licence and plate numbers).
 
-  Variable fonts, subset per script, `font-display: swap`.
-* **Font stack:** `'Noto Sans Ethiopic', 'Noto Sans', system-ui, sans-serif`, with `unicode-range` so each script uses its
-  font automatically in mixed text (e.g. "ቦሎ No. WLT/000123").
-* **Ethiopic rules:**
+  Variable fonts from the `@fontsource-variable` packages, bundled by the app and served from its own origin (never a CDN),
+  split per script with `unicode-range`, `font-display: swap`. There are no italic files: emphasis is weight.
+* **Font stack:** `'Noto Sans Variable', 'Noto Sans Ethiopic Variable', system-ui, sans-serif`. Noto Sans has no Ethiopic
+  glyphs, so in mixed text (e.g. "ቦሎ No. WLT/000123") Latin uses Noto Sans and Ethiopic falls through to Noto Sans
+  Ethiopic. A page downloads a script's file only when it shows that script.
+* **Ethiopic rules** (keyed on the language: `:lang(am)`, `:lang(ti)`, `:lang(gez)`):
   * base size **16 px** (never below 14 px for Ethiopic text);
   * line height **1.6** for body text and 1.3 for headings (Ethiopic glyphs are taller);
   * **no uppercase transforms, no letter-spacing, no synthetic italics** (Ethiopic has no case, and italics damage it).
@@ -95,7 +107,10 @@ Labels are translated.
 | `danger` | rejected, overdue, revoked, infected file | `--status-danger` (red) |
 | `muted` | cancelled, superseded, archived | `--status-muted` (grey) |
 
-Colour is never the only signal: every status shows its label and an icon.
+Colour is never the only signal: every status shows its label and an icon (`StatusBadge`: dashed circle, clock, dot,
+check, triangle, octagon, minus). Each tone has three tokens: a solid colour for the icon, border and calendar edge
+(3:1), a soft fill, and a text colour on that fill (4.5:1). They are `--status-<tone>`, `--status-<tone>-bg` and
+`--status-<tone>-fg`.
 
 ## 7. Page templates (every screen uses one)
 

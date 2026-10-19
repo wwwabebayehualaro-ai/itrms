@@ -1,13 +1,14 @@
 'use client';
 
-import { Badge, cn } from '@itrms/ui';
+import { StatusBadge, type Tone } from '@itrms/ui';
 import { IFormTemplate } from '@/types/template_builder/form';
 
-const LOOK = {
-    published: { label: 'Published', className: 'bg-success/15 border-success/40 text-foreground' },
-    pending_approval: { label: 'Waiting for approval', className: 'bg-warning/15 border-warning/40 text-foreground' },
-    draft: { label: 'Draft', className: 'text-muted-foreground' }
-} as const;
+// The shared status vocabulary (design-system.md §6).
+const LOOK: Record<'published' | 'pending_approval' | 'draft', { label: string; tone: Tone }> = {
+    published: { label: 'Published', tone: 'success' },
+    pending_approval: { label: 'Waiting for approval', tone: 'info' },
+    draft: { label: 'Draft', tone: 'neutral' }
+};
 
 /** Publish state of a template. A draft that was published before reads "Unpublished changes" (people fill in the older version). */
 export function TemplateStatusTag({
@@ -18,11 +19,14 @@ export function TemplateStatusTag({
     className?: string;
 }) {
     const status = template.status ?? 'published';
+    const unpublished = status === 'draft' && !!template.published_version_id;
     const look = LOOK[status];
-    const label = status === 'draft' && template.published_version_id ? 'Unpublished changes' : look.label;
     return (
-        <Badge variant="outline" data-template-status={status} className={cn(look.className, className)}>
-            {label}
-        </Badge>
+        <StatusBadge
+            value={status}
+            label={unpublished ? 'Unpublished changes' : look.label}
+            tone={unpublished ? 'warning' : look.tone}
+            className={className}
+        />
     );
 }

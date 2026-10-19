@@ -108,12 +108,17 @@
         {
           "id": "0.4b",
           "title": "Design tokens, themes and Ethiopic typography",
-          "status": "ready",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.4b-tokens-themes",
+          "commits": [
+            "af97b15",
+            "0f0374b"
+          ],
+          "evidence": [
+            "ci:local 0f0374b on Linux (Docker 29.6.2), complete: checks pass (turbo lint/typecheck/test/build 60/60; ui 44 passed + 2 high-contrast-only skips: contrast in 3 themes incl. AAA in high contrast, tokens.css up to date, static rules, StatusBadge 7 tones, runtime theme/density switching; web 63/63), infra pass (dev stack + S3 contract 17/17), gitleaks pass, trivy pass (0 HIGH/CRITICAL, 470 packages), semgrep pass (0). next build bundles 18 Noto woff2 from /_next/static/media, no remote font URL. Task verifier: ready with caveats (label-wrap check is static; browser checks are follow-up to 0.4a; Ethiopic rules need <html lang> from 0.13). Reviewer: 0 high; 3 medium and the cheap lows fixed in 0f0374b."
+          ],
           "blockers": [],
-          "notes": "Split from 0.4 on 2026-10-19 (scope too large for one session)."
+          "notes": "Split from 0.4 on 2026-10-19 (scope too large for one session). Tokens are TypeScript (src/tokens/tokens.ts) generated to tokens.css via vitest toMatchFileSnapshot; Tailwind's default palette is switched off (--color-*: initial). Font stack puts Noto Sans first so Latin uses it and Ethiopic glyphs fall through to Noto Sans Ethiopic (design-system.md updated). High contrast meets AAA (7:1) on every text pair. f82f459 checked 2026-10-19 (local Windows only; no CI, follow-up 11): ui vitest 42 passed + 2 conditional skips; web vitest 56/56; turbo lint/typecheck/test/build 60/60; boundaries 493 modules 0 violations; build serves 18 Noto woff2 from /_next/static/media, no remote font URL. Task verifier: ready with caveats (label-wrap check is static; browser checks in 0.4a). Reviewer: no high; 3 medium to fix before review (focus ring at 50% opacity = 2.1:1 and high-contrast outline lost to outline-none; Toaster outside AppearanceProvider; sidebar group label text at 70% opacity = 4.1:1) plus 7 low. Approved under the owner's standing instruction (2026-10-19: 'don't aks me for confirmation -- just go a head') after the reviewer's findings were fixed and the complete local Linux CI record passed (0f0374b)."
         },
         {
           "id": "0.4a",
@@ -1046,6 +1051,31 @@
       "foundIn": "0.4b",
       "item": "History rewrite (follow-up 4) would also remove the old demo password and the legacy test fixtures listed in .gitleaksignore",
       "movedTo": "product owner decision"
+    },
+    {
+      "foundIn": "0.4b",
+      "item": "AppearanceMenu labels and the shell's theme/density words are English defaults: pass catalogue messages; set <html lang> from the active locale (the Ethiopic typography rules key on :lang(am))",
+      "movedTo": "0.13"
+    },
+    {
+      "foundIn": "0.4b",
+      "item": "Theme and density are remembered per browser; read and save them as the ui.theme / ui.density user preferences (region defaults)",
+      "movedTo": "0.21"
+    },
+    {
+      "foundIn": "0.4b",
+      "item": "PDF templates need the tokens, but api code may not import packages/ui: move src/tokens to a UI-free package (or allow @itrms/ui/tokens in the boundary rules) and reuse the self-hosted Noto fonts in the PDF worker",
+      "movedTo": "0.23"
+    },
+    {
+      "foundIn": "0.4b",
+      "item": "Tenant branding: the 8 pre-validated primary hues (swap the brand ramp), each checked by the contrast test in all three themes",
+      "movedTo": "0.25"
+    },
+    {
+      "foundIn": "0.4b",
+      "item": "Browser checks of Ethiopic layout (two-line labels, line boxes, 14 px floor) and axe in all themes and densities",
+      "movedTo": "0.4a"
     }
   ]
 }

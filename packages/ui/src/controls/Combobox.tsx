@@ -123,7 +123,7 @@ export function Combobox<V = unknown>(props: ComboboxProps<V>) {
                         aria-describedby={props['aria-describedby']}
                         disabled={disabled}
                         className={cn(
-                            'h-auto min-h-9 w-full justify-between font-normal whitespace-normal',
+                            'h-auto min-h-(--field-height) w-full justify-between font-normal whitespace-normal',
                             canClear && 'pr-14'
                         )}
                     >

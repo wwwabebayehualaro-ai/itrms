@@ -2,12 +2,12 @@
 
 /**
  * The application frame on the design system: a collapsible sidebar (icons only when collapsed on a desktop, a sheet on phones —
- * Ctrl/Cmd+B toggles it), a top bar with the menu toggle, the light/dark switch and the signed-in person's menu, and the footer.
+ * Ctrl/Cmd+B toggles it), a top bar with the menu toggle, the appearance menu (theme and density) and the signed-in person's menu, and the footer.
  */
 import Link from 'next/link';
-import { LogOut, Moon, Sun, UserRound } from 'lucide-react';
-import { useTheme } from 'next-themes';
+import { LogOut, UserRound } from 'lucide-react';
 import {
+    AppearanceMenu,
     Button,
     DropdownMenu,
     DropdownMenuContent,
@@ -39,16 +39,6 @@ function Logo({ className }: { className?: string }) {
             <img src="/layout/images/logo-dark.svg" alt="" className={`dark:hidden ${className ?? ''}`} />
             <img src="/layout/images/logo-white.svg" alt="" className={`hidden dark:block ${className ?? ''}`} />
         </>
-    );
-}
-
-function ThemeToggle() {
-    const { resolvedTheme, setTheme } = useTheme();
-    const dark = resolvedTheme === 'dark';
-    return (
-        <IconButton label={dark ? 'Light mode' : 'Dark mode'} onClick={() => setTheme(dark ? 'light' : 'dark')}>
-            {dark ? <Sun /> : <Moon />}
-        </IconButton>
     );
 }
 
@@ -121,7 +111,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-5" />
                     <span className="truncate text-sm font-medium md:hidden">Digital File Cabinet</span>
                     <div className="ml-auto flex items-center gap-1">
-                        <ThemeToggle />
+                        <AppearanceMenu />
                         <UserMenu />
                     </div>
                 </header>

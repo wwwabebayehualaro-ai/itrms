@@ -9,7 +9,13 @@ export { KeyValueEditor } from './form/KeyValueEditor';
 export { JsonEditor } from './form/JsonEditor';
 export { FileViewer } from './files/LazyFileViewer';
 
-// ---- design-system primitives: shadcn/ui on Radix, styled with Tailwind (tokens in apps/web/app/globals.css until task 0.4b).
+// ---- appearance: themes (light, dark, high contrast) and densities; the stylesheet is @itrms/ui/styles.css, tokens as data are @itrms/ui/tokens
+export { AppearanceProvider, useAppearance } from './theme/AppearanceProvider';
+export type { Appearance, AppearanceProviderProps, ThemePreference } from './theme/AppearanceProvider';
+export { AppearanceMenu } from './theme/AppearanceMenu';
+export type { AppearanceLabels } from './theme/AppearanceMenu';
+
+// ---- design-system primitives: shadcn/ui on Radix, styled with Tailwind and the semantic tokens (src/styles/tokens.css).
 // Features use these instead of primereact/*, @radix-ui/* or PrimeFlex classes (ESLint enforces it in the coded and platform paths).
 export * from './primitives/alert';
 export * from './primitives/alert-dialog';

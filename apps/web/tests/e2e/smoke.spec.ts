@@ -30,7 +30,7 @@ test('every main screen renders without errors', async ({ page, request }) => {
         expect(page.locator('[data-requests-list] [data-request-link]').first()).toBeVisible()
     );
     await visit('/dynamic-template/saved-templates', 'templates', () =>
-        expect(page.locator('[data-template-status]').first()).toBeVisible()
+        expect(page.locator('[data-status]').first()).toBeVisible()
     );
     await visit('/dynamic-template/builder', 'builder', () => expect(page.locator('[data-designer]')).toBeVisible());
     await visit(`/submitted-forms/template/${form!.id}`, 'requests', () =>

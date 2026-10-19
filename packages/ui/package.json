@@ -5,7 +5,9 @@
   "type": "module",
   "description": "Design system: tokens, themes, primitives, components, page templates and Ethiopian controls",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./styles.css": "./src/styles/index.css",
+    "./tokens": "./src/tokens/index.ts"
   },
   "imports": {
     "#*": "./src/*"
@@ -13,9 +15,13 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "tokens": "vitest run src/tokens/css.spec.ts -u"
   },
   "dependencies": {
+    "@fontsource-variable/noto-sans": "5.3.0",
+    "@fontsource-variable/noto-sans-ethiopic": "5.3.0",
+    "@fontsource-variable/noto-sans-mono": "5.3.0",
     "@tanstack/react-form": "1.33.5",
     "@tanstack/react-table": "8.21.3",
     "class-variance-authority": "0.7.1",

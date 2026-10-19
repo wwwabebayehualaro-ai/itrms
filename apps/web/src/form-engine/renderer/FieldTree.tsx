@@ -240,10 +240,7 @@ function ValueField({
                 </FieldDescription>
             )}
             {verified && (
-                <FieldDescription
-                    className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400"
-                    data-remote="verified"
-                >
+                <FieldDescription className="flex items-center gap-1.5 text-success" data-remote="verified">
                     <CircleCheck className="size-3.5" aria-hidden="true" /> Verified
                 </FieldDescription>
             )}

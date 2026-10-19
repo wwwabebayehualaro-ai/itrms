@@ -26,11 +26,13 @@ const SHOWN_PER_DAY = 3;
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 /** The left edge of an event says its status (the text says it too, in the tooltip). */
 const EDGE: Record<Tone, string> = {
-    neutral: 'border-l-muted-foreground/40',
-    info: 'border-l-primary',
-    success: 'border-l-success',
-    warning: 'border-l-warning',
-    danger: 'border-l-destructive'
+    neutral: 'border-l-status-neutral',
+    info: 'border-l-status-info',
+    progress: 'border-l-status-progress',
+    success: 'border-l-status-success',
+    warning: 'border-l-status-warning',
+    danger: 'border-l-status-danger',
+    muted: 'border-l-status-muted'
 };
 
 const ymd = (d: Date) =>

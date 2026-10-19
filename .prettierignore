@@ -13,4 +13,6 @@ coverage/
 tools/boundaries/fixtures/
 *.hbs
 next-env.d.ts
+# Generated (pnpm --filter @itrms/ui tokens); a test compares it byte for byte
+packages/ui/src/styles/tokens.css
 .ci-local/
