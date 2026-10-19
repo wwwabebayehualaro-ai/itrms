@@ -63,7 +63,7 @@
             "NOT SHOWN: CI green on a PR — needs the product owner's approval to push"
           ],
           "blockers": [],
-          "notes": "Toolchain pinned to current releases at least two weeks old (2026-10-04 cutoff): pnpm 12.9.1, Turborepo 2.11.7, TypeScript 6.0.3 (typescript-eslint 8.71 supports <6.1, so not TS 7 yet), ESLint 10.12, Vitest 5.0.3, dependency-cruiser 18.5, lefthook 2.1.16; tech-stack T24/T25 updated. pnpm 12 blocks dependency build scripts: esbuild and lefthook allowed in pnpm-workspace.yaml allowBuilds. turbo agentGuidance disabled (it writes AGENTS.md when an agent runs it). Trivy action pinned to a commit SHA because its tags were re-published on 2026-03-20. Closes 0.1 follow-ups: .gitattributes (* text=auto eol=lf) and gitleaks (lefthook pre-commit when installed + CI job). Verifier (task-verifier): ready with caveats; CI-on-PR unverifiable until pushed. Its gap fixed: contracts-are-isomorphic is now an allow-list (schemas, own contracts, other slices' public contracts) with a new bad-ui fixture; tool tests 28/28. Reviewer (Opus) report pending. Reviewer (Opus) found 12 issues; all fixed except the registry dependsOn check (follow-up, 0.6): system pool unreachable from HTTP entries (reachability rule + ./api/worker entry + worker-only jobs/handlers), unresolved @itrms/# imports fail, tighter tool/ui package rules, ignore files anchored, renovate.json valid with digest capture, gitleaks scans the whole push range, main runs never cancelled, scanner images digest-pinned, Trivy coverage check + pnpm audit, turbo transit for cache correctness, ESLint no-DOM in core/contracts/api, scaffold escaping and duplicate-name check, pnpm minimumReleaseAge 14 days (re-resolved 24 transitive entries that were too new). Pushed main (b3e108e..e110d22) on the owner's go-ahead. First CI run 39124679969: no job started; GitHub annotation: recent account payments failed or the spending limit needs raising (Billing & plans). CI-green evidence still outstanding."
+          "notes": "Toolchain pinned to current releases at least two weeks old (2026-10-04 cutoff): pnpm 12.9.1, Turborepo 2.11.7, TypeScript 6.0.3 (typescript-eslint 8.71 supports <6.1, so not TS 7 yet), ESLint 10.12, Vitest 5.0.3, dependency-cruiser 18.5, lefthook 2.1.16; tech-stack T24/T25 updated. pnpm 12 blocks dependency build scripts: esbuild and lefthook allowed in pnpm-workspace.yaml allowBuilds. turbo agentGuidance disabled (it writes AGENTS.md when an agent runs it). Trivy action pinned to a commit SHA because its tags were re-published on 2026-03-20. Closes 0.1 follow-ups: .gitattributes (* text=auto eol=lf) and gitleaks (lefthook pre-commit when installed + CI job). Verifier (task-verifier): ready with caveats; CI-on-PR unverifiable until pushed. Its gap fixed: contracts-are-isomorphic is now an allow-list (schemas, own contracts, other slices' public contracts) with a new bad-ui fixture; tool tests 28/28. Reviewer (Opus) report pending. Reviewer (Opus) found 12 issues; all fixed except the registry dependsOn check (follow-up, 0.6): system pool unreachable from HTTP entries (reachability rule + ./api/worker entry + worker-only jobs/handlers), unresolved @itrms/# imports fail, tighter tool/ui package rules, ignore files anchored, renovate.json valid with digest capture, gitleaks scans the whole push range, main runs never cancelled, scanner images digest-pinned, Trivy coverage check + pnpm audit, turbo transit for cache correctness, ESLint no-DOM in core/contracts/api, scaffold escaping and duplicate-name check, pnpm minimumReleaseAge 14 days (re-resolved 24 transitive entries that were too new). Pushed main (b3e108e..e110d22) on the owner's go-ahead. First CI run 39124679969: no job started; GitHub annotation: recent account payments failed or the spending limit needs raising (Billing & plans). CI-green evidence still outstanding. Linux CI evidence (ADR-0034), recorded 2026-10-19 for main at d7e79e1, which contains this task: ci:local d7e79e1 on Linux (Docker 29.6.2): checks pass (turbo 60/60, web 63/63, ui 6/6), infra pass (dev stack + S3 contract suite 17/17), gitleaks pass (full history: 13 commits, .gitleaksignore of 23 verified findings), trivy pass (0 HIGH/CRITICAL, 467 packages), semgrep pass (0 findings). Earlier boundaries module counts (481-495) included Next.js build output; 0 violations stands."
         },
         {
           "id": "0.3",
@@ -88,7 +88,7 @@
             "NOT SHOWN: Linux — CI job infra exists but GitHub Actions is blocked by account billing (follow-up 11)"
           ],
           "blockers": [],
-          "notes": "Approved under the product owner's standing instruction of 2026-10-18 (\"don't ask me for confirmation, just go ahead\"), after the verifier and reviewer findings were fixed. Linux evidence still outstanding (CI billing, follow-up 11)."
+          "notes": "Approved under the product owner's standing instruction of 2026-10-18 (\"don't ask me for confirmation, just go ahead\"), after the verifier and reviewer findings were fixed. Linux evidence still outstanding (CI billing, follow-up 11). Linux CI evidence (ADR-0034), recorded 2026-10-19 for main at d7e79e1, which contains this task: ci:local d7e79e1 on Linux (Docker 29.6.2): checks pass (turbo 60/60, web 63/63, ui 6/6), infra pass (dev stack + S3 contract suite 17/17), gitleaks pass (full history: 13 commits, .gitleaksignore of 23 verified findings), trivy pass (0 HIGH/CRITICAL, 467 packages), semgrep pass (0 findings). Earlier boundaries module counts (481-495) included Next.js build output; 0 violations stands."
         },
         {
           "id": "0.4",
@@ -103,7 +103,7 @@
             "turbo lint typecheck test build 60/60 (next build 15 routes); web unit 56/56 incl. client 18/18 (form-encoded, multipart, abort fallback, pre-send errors, params); ui 6/6; tools 44/44; check:engine + check:runtime pass; boundaries 481 modules 0 violations; format clean; pnpm audit clean (1 documented braces exception); task-verifier: ready with caveats; reviewer: no high, 2 medium fixed in 7cd5191; Linux CI not shown (GitHub billing, follow-up 11)"
           ],
           "blockers": [],
-          "notes": "Split on 2026-10-19: tokens/themes/fonts/StatusBadge/contrast test moved to new task 0.4b (before 0.4a). Layout: routes in apps/web/app; shell, lib, form-engine (until 0.5), providers (AuthGate, QueryProvider), screens (approvals, flags, sequences), form-templates, types in apps/web/src; design system in packages/ui with no data fetching (FormErrorsProvider-style ServerErrorsProvider decouples formKit from the API; saveBlob moved in). axios replaced by a fetch core (src/lib/api/http.ts) with one authorisation path (token, Idempotency-Key per POST kept on retry, single refresh, sign-in redirect), XMLHttpRequest only for upload progress, and the typed openapi-fetch client on the same path. @react-pdf-viewer replaced by react-pdf 11 with the pdf.js worker bundled (it was fetched from unpkg.com at runtime). Bank routes, core-banking API, cash-transaction e2e and the Monaco playground removed. Majors kept for the move (TanStack Table 8, Immer 10, Pino 9); web keeps ESLint 9 for eslint-config-next. Approved under the owner's standing instruction (2026-10-19: 'don't aks me for confirmation -- just go a head') after the reviewer's medium findings were fixed in 7cd5191; deferred lows are follow-ups (i18n labels → 0.13)."
+          "notes": "Split on 2026-10-19: tokens/themes/fonts/StatusBadge/contrast test moved to new task 0.4b (before 0.4a). Layout: routes in apps/web/app; shell, lib, form-engine (until 0.5), providers (AuthGate, QueryProvider), screens (approvals, flags, sequences), form-templates, types in apps/web/src; design system in packages/ui with no data fetching (FormErrorsProvider-style ServerErrorsProvider decouples formKit from the API; saveBlob moved in). axios replaced by a fetch core (src/lib/api/http.ts) with one authorisation path (token, Idempotency-Key per POST kept on retry, single refresh, sign-in redirect), XMLHttpRequest only for upload progress, and the typed openapi-fetch client on the same path. @react-pdf-viewer replaced by react-pdf 11 with the pdf.js worker bundled (it was fetched from unpkg.com at runtime). Bank routes, core-banking API, cash-transaction e2e and the Monaco playground removed. Majors kept for the move (TanStack Table 8, Immer 10, Pino 9); web keeps ESLint 9 for eslint-config-next. Approved under the owner's standing instruction (2026-10-19: 'don't aks me for confirmation -- just go a head') after the reviewer's medium findings were fixed in 7cd5191; deferred lows are follow-ups (i18n labels → 0.13). Linux CI evidence (ADR-0034), recorded 2026-10-19 for main at d7e79e1, which contains this task: ci:local d7e79e1 on Linux (Docker 29.6.2): checks pass (turbo 60/60, web 63/63, ui 6/6), infra pass (dev stack + S3 contract suite 17/17), gitleaks pass (full history: 13 commits, .gitleaksignore of 23 verified findings), trivy pass (0 HIGH/CRITICAL, 467 packages), semgrep pass (0 findings). Earlier boundaries module counts (481-495) included Next.js build output; 0 violations stands."
         },
         {
           "id": "0.4b",
@@ -915,7 +915,8 @@
     {
       "foundIn": "0.1",
       "item": "Legacy e2e/demo scripts contain the local demo password literal",
-      "movedTo": "0.4 / 0.25 (env-based fixtures)"
+      "movedTo": "0.4 / 0.25 (env-based fixtures)",
+      "closedIn": "d7e79e1: E2E_PASSWORD required, no password in the tree; history entries in .gitleaksignore (history rewrite is follow-up 4)"
     },
     {
       "foundIn": "0.1",
@@ -951,12 +952,14 @@
     {
       "foundIn": "0.2",
       "item": "Trivy's reading of the two-document pnpm-lock.yaml could not be confirmed locally (Docker not running); CI now fails if Trivy lists fewer than vitest/eslint/typescript",
-      "movedTo": "first CI run after the push: check the 'Trivy findings and coverage' step"
+      "movedTo": "first CI run after the push: check the 'Trivy findings and coverage' step",
+      "closedIn": "local Linux CI: Trivy 0.75.0 listed 467 packages incl. vitest, eslint, typescript"
     },
     {
       "foundIn": "0.2",
       "item": "GitHub Actions jobs are not starting: account billing / spending limit (run 39124679969)",
-      "movedTo": "product owner: fix Billing & plans on github.com, then re-run the ci workflow and check the Trivy coverage step"
+      "movedTo": "product owner: fix Billing & plans on github.com, then re-run the ci workflow and check the Trivy coverage step",
+      "closedIn": "ADR-0034: pnpm ci:local is the CI record while hosted runners are unavailable (owner can't pay for Actions)"
     },
     {
       "foundIn": "0.2",
@@ -1028,6 +1031,21 @@
       "foundIn": "0.4",
       "item": "Login screen copy and branding still say Digital File Cabinet and are English-only",
       "movedTo": "0.13"
+    },
+    {
+      "foundIn": "0.4b",
+      "item": "Verify the Trivy 0.75.0 image signature with cosign (no signature found on Docker Hub or GHCR, GHCR unreachable for cosign v3); until then the digest is pinned from the immutable signed release",
+      "movedTo": "0.26"
+    },
+    {
+      "foundIn": "0.4b",
+      "item": "Contact INSA's Cyber Security Audit Division: design-stage review (CMCSRS 6.14(f)) and the Web Applications Audit Request form OF/AEAD/001",
+      "movedTo": "product owner"
+    },
+    {
+      "foundIn": "0.4b",
+      "item": "History rewrite (follow-up 4) would also remove the old demo password and the legacy test fixtures listed in .gitleaksignore",
+      "movedTo": "product owner decision"
     }
   ]
 }
