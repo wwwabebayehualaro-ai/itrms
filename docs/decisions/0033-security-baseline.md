@@ -42,12 +42,14 @@
   CONFIDENTIAL or higher stays out of ITRMS unless INSA approves the cryptography.
 * **Release evidence:** a CycloneDX SBOM and a cryptographic inventory (CBOM), signed images with SLSA provenance, a ZAP
   baseline scan, and a yearly external penetration test.
-* **INSA early:** the requirements and design are offered to INSA for review before the pilot is procured, as CMCSRS 6.14(f)
-  expects. The evaluation pack (task 1.19) is built from documents that exist from Phase 0.
+* **INSA after development** (product owner, 2026-10-19): the product goes through INSA's audit once it is built, before
+  the pilot (task 1.19), as is the usual process. The evaluation pack is built from documents that exist from Phase 0, so
+  the requirements and design are ready to show at any time if INSA or a bureau asks for an earlier look (CMCSRS 6.14(f)
+  foresees one).
 
 ## Consequences
 * `docs/architecture.md` §18 and `docs/engineering/nfr.md` say ASVS 5.0; the threat model refers to the rule ids.
 * New lint rules, tests and checks land with the tasks listed in the standard's §21 (0.6, 0.7, 0.9, 0.10, 0.14, 0.26).
-* The product owner contacts INSA's Cyber Security Audit Division about the design-stage review and the *Web
-  Applications Audit Request* requirements (form OF/AEAD/001).
+* Task 1.19 submits the pack to INSA's Cyber Security Audit Division with its *Web Applications Audit Request*
+  requirements (form OF/AEAD/001), after development and before the pilot.
 * Each installation gets an incident runbook, an access-review report and a DPIA per service; task 1.19 assembles them.

@@ -382,6 +382,10 @@ The bureau must make sure its supplier meets CMCSRS (6.39(a)). ABANEXUS therefor
   five working days; the full form could not be read from outside Ethiopia, so the procedure is to be confirmed with
   the Division.
 
+**When:** ITRMS goes through INSA's audit **after development, before the pilot** (task 1.19; product owner,
+2026-10-19). The design documents are kept current, so an earlier look at the requirements and design (CMCSRS 6.14(f))
+is possible whenever INSA or a bureau asks.
+
 **The evaluation pack** (assembled in task 1.19; most items exist from Phase 0):
 
 | Item | Source |
@@ -400,7 +404,7 @@ The bureau must make sure its supplier meets CMCSRS (6.39(a)). ABANEXUS therefor
 | 5.7 Technology capability (network, configuration, accounts, malware, updates) | §4, §14, SEC-DV-2, ClamAV (ADR-0022) |
 | 6.10 Asset management, 6.17 Classification and access control | §3, §6, SBOM |
 | 6.11 Risk assessment | threat model; DPIAs |
-| 6.14 Security engineering, 6.38 Procurement, development and maintenance | §16, this document, early INSA design review |
+| 6.14 Security engineering, 6.38 Procurement, development and maintenance | §16, this document, the INSA audit after development (task 1.19) |
 | 6.18 Cryptography management | §11, CBOM |
 | 6.19 Business continuity, 6.28 Backup, recovery and destruction | §15, SEC-IF-7, ADR-0012 |
 | 6.25 Monitoring and vulnerability management | §12, §16, SEC-DV-2 |
