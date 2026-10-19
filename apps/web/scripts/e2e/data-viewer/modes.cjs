@@ -2,7 +2,11 @@
 const path = require('path');
 const L = require('../expense-report/lib.cjs');
 const API = (process.env.E2E_API || 'http://localhost:8765').replace(/\/$/, '');
-const PW = process.env.E2E_PASSWORD || 'Sm0ke-Test-Passw0rd';
+const PW =
+    process.env.E2E_PASSWORD ??
+    (() => {
+        throw new Error('Set E2E_PASSWORD to the local demo password (never stored in the repository).');
+    })();
 const WEB = process.env.E2E_WEB || 'http://localhost:3000';
 const OUT = path.resolve(process.env.E2E_OUT || path.join(__dirname, 'out'));
 require('fs').mkdirSync(OUT, { recursive: true });

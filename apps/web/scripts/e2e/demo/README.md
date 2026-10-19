@@ -13,7 +13,7 @@ node check-demo.cjs                 # optional: PASS/FAIL + screenshots (needs P
 Demo requests are marked `form_metadata.submitted_via = "demo-seed"`; nothing else is ever deleted. All requests get the time of seeding
 (the server sets it), so the "Submitted" column shows one time.
 
-Logins (password `Sm0ke-Test-Passw0rd`): `admin@acme-corp.org` (builder, delete) and `priya.nair@acme-corp.org` (submitter).
+Logins (the password you seeded, also passed as `E2E_PASSWORD`): `admin@acme-corp.org` (builder, delete) and `priya.nair@acme-corp.org` (submitter).
 
 ## Click path
 1. **Manage Templates**: the forms (Equipment Request, Expense Report, Leave Request). Open one in the builder: palette, canvas, settings panel (Field, Settings, Options, Rules, Logic), Data sources, Preview, undo/redo.

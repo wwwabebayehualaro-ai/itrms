@@ -1,0 +1,33 @@
+# Verified gitleaks findings in history (2026-10-19, full-history scan of main). Each line is one finding's fingerprint.
+# Anything not listed here still fails the scan. Add an entry only with a reason in a comment above it.
+
+# False positive: tools/dev-infra.mjs passes env.S3_SECRET_KEY to the S3 client; there is no value in the code.
+a4ad4943a12f97184f1a8784285af20558803afd:tools/dev-infra.mjs:generic-api-key:215
+
+# Legacy FastAPI test fixtures (a test JWT secret and a test password), test-only values; Backend/ is retired in tasks 0.5-0.6.
+0d8dbcdf2792bc03c65e15266cdf6def9b1e28f7:Backend/tests/conftest.py:generic-api-key:30
+0d8dbcdf2792bc03c65e15266cdf6def9b1e28f7:Backend/tests/test_numbering.py:generic-api-key:56
+0d8dbcdf2792bc03c65e15266cdf6def9b1e28f7:Backend/tests/test_platform_core.py:generic-api-key:121
+
+# The legacy app's local demo password, once a default in the e2e and demo scripts. Removed from the tree on 2026-10-19
+# (E2E_PASSWORD is now required); it stays in history (rewriting history is the product owner's decision, follow-up 4).
+# It protected only local demo tenants, never a real installation.
+0d8dbcdf2792bc03c65e15266cdf6def9b1e28f7:Frontend/scripts/e2e/cash-transaction/seed.cjs:generic-api-key:8
+0d8dbcdf2792bc03c65e15266cdf6def9b1e28f7:Frontend/scripts/e2e/data-viewer/modes.cjs:generic-api-key:5
+0d8dbcdf2792bc03c65e15266cdf6def9b1e28f7:Frontend/scripts/e2e/data-viewer/record.cjs:generic-api-key:5
+0d8dbcdf2792bc03c65e15266cdf6def9b1e28f7:Frontend/scripts/e2e/data-viewer/run.cjs:generic-api-key:6
+0d8dbcdf2792bc03c65e15266cdf6def9b1e28f7:Frontend/scripts/e2e/data-viewer/views.cjs:generic-api-key:5
+0d8dbcdf2792bc03c65e15266cdf6def9b1e28f7:Frontend/scripts/e2e/demo/seed-demo.cjs:generic-api-key:10
+0d8dbcdf2792bc03c65e15266cdf6def9b1e28f7:Frontend/scripts/e2e/expense-report/import-template.cjs:generic-api-key:6
+0d8dbcdf2792bc03c65e15266cdf6def9b1e28f7:Frontend/scripts/e2e/expense-report/lib.cjs:generic-api-key:11
+0d8dbcdf2792bc03c65e15266cdf6def9b1e28f7:Frontend/scripts/e2e/expense-report/README.md:generic-api-key:42
+0d8dbcdf2792bc03c65e15266cdf6def9b1e28f7:Frontend/scripts/e2e/expense-report/README.md:generic-api-key:45
+0d8dbcdf2792bc03c65e15266cdf6def9b1e28f7:Frontend/scripts/e2e/expense-report/seed.cjs:generic-api-key:4
+a5cd56ad76fbba08d8e65b3e9bd15646fa0e3eaa:apps/web/scripts/e2e/data-viewer/modes.cjs:generic-api-key:5
+a5cd56ad76fbba08d8e65b3e9bd15646fa0e3eaa:apps/web/scripts/e2e/data-viewer/record.cjs:generic-api-key:5
+a5cd56ad76fbba08d8e65b3e9bd15646fa0e3eaa:apps/web/scripts/e2e/data-viewer/run.cjs:generic-api-key:6
+a5cd56ad76fbba08d8e65b3e9bd15646fa0e3eaa:apps/web/scripts/e2e/data-viewer/views.cjs:generic-api-key:5
+a5cd56ad76fbba08d8e65b3e9bd15646fa0e3eaa:apps/web/scripts/e2e/demo/seed-demo.cjs:generic-api-key:10
+a5cd56ad76fbba08d8e65b3e9bd15646fa0e3eaa:apps/web/scripts/e2e/expense-report/import-template.cjs:generic-api-key:6
+a5cd56ad76fbba08d8e65b3e9bd15646fa0e3eaa:apps/web/scripts/e2e/expense-report/lib.cjs:generic-api-key:13
+a5cd56ad76fbba08d8e65b3e9bd15646fa0e3eaa:apps/web/scripts/e2e/expense-report/seed.cjs:generic-api-key:4

@@ -1,7 +1,7 @@
 // Maker-checker on the forms path: with approvals required, an editor's publish waits for an admin's approval; meanwhile the form
 // cannot take requests. Runs on the demo data (Maria Santos is an editor, the admin approves).
 import { expect, test } from '@playwright/test';
-import { ADMIN, apiAs, login } from './support';
+import { ADMIN, PASSWORD, apiAs, login } from './support';
 
 const EDITOR = process.env.E2E_EDITOR || 'maria.santos@acme-corp.org';
 
@@ -64,7 +64,7 @@ test('an editor publishes, an admin approves, then the form takes requests', asy
             `${process.env.E2E_API || 'http://localhost:8000'}/template/forms/templates/${created.id}`,
             {
                 headers: {
-                    Authorization: `Bearer ${(await (await request.post(`${process.env.E2E_API || 'http://localhost:8000'}/auth/login`, { data: { email: ADMIN, password: process.env.E2E_PASSWORD || 'Sm0ke-Test-Passw0rd' } })).json()).access_token}`
+                    Authorization: `Bearer ${(await (await request.post(`${process.env.E2E_API || 'http://localhost:8000'}/auth/login`, { data: { email: ADMIN, password: PASSWORD } })).json()).access_token}`
                 }
             }
         );

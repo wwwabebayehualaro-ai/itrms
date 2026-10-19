@@ -10,7 +10,14 @@ async function open(headless = true) {
     page.on('pageerror', (e) => console.log('PAGEERROR', e.message.slice(0, 200)));
     return { browser, page };
 }
-async function login(page, email = 'admin@acme-corp.org', pw = process.env.E2E_PASSWORD || 'Sm0ke-Test-Passw0rd') {
+async function login(
+    page,
+    email = 'admin@acme-corp.org',
+    pw = process.env.E2E_PASSWORD ??
+        (() => {
+            throw new Error('Set E2E_PASSWORD to the local demo password (never stored in the repository).');
+        })()
+) {
     await page.goto(WEB + '/auth/login', { waitUntil: 'networkidle', timeout: 120000 });
     // type like a user and wait for the button to enable: a value set before React has hydrated is not seen by the form
     await page.locator('#email1').pressSequentially(email, { delay: 5 });

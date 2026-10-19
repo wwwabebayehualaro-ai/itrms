@@ -20,7 +20,13 @@ const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-/;
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify({
                     email: 'admin@acme-corp.org',
-                    password: process.env.E2E_PASSWORD || 'Sm0ke-Test-Passw0rd'
+                    password:
+                        process.env.E2E_PASSWORD ??
+                        (() => {
+                            throw new Error(
+                                'Set E2E_PASSWORD to the local demo password (never stored in the repository).'
+                            );
+                        })()
                 })
             })
         ).json()

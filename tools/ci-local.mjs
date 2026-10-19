@@ -227,9 +227,13 @@ const JOBS = {
         return steps;
     },
 
-    async gitleaks({ sha, log, images, fullHistory }) {
+    async gitleaks({ sha, log, images, out, fullHistory }) {
         const unpushed = Number(git('rev-list', '--count', `origin/main..${sha}`));
         const range = gitleaksRange(sha, unpushed, fullHistory);
+        // The container sees only .git, so the commit's own .gitleaksignore (verified findings) is mounted beside it.
+        const ignore = join(out, 'gitleaksignore');
+        const ignoreText = spawnSync('git', ['show', `${sha}:.gitleaksignore`], { cwd: ROOT, encoding: 'utf8' });
+        writeFileSync(ignore, ignoreText.status === 0 ? ignoreText.stdout : '');
         const scan = await run(
             log,
             `gitleaks (${range})`,
@@ -238,6 +242,7 @@ const JOBS = {
                 'run',
                 '--rm',
                 ...bind(gitCommonDir(), '/repo/.git'),
+                ...bind(ignore, '/repo/.gitleaksignore'),
                 '-e',
                 'GIT_CONFIG_COUNT=1',
                 '-e',

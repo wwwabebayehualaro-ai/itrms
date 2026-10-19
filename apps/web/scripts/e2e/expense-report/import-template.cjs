@@ -3,7 +3,11 @@
 const fs = require('fs');
 const path = require('path');
 const API = (process.env.E2E_API || 'http://localhost:8765').replace(/\/$/, '');
-const PW = process.env.E2E_PASSWORD || 'Sm0ke-Test-Passw0rd';
+const PW =
+    process.env.E2E_PASSWORD ??
+    (() => {
+        throw new Error('Set E2E_PASSWORD to the local demo password (never stored in the repository).');
+    })();
 const args = process.argv.slice(2);
 const opt = (k) => {
     const i = args.indexOf('--' + k);

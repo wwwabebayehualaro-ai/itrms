@@ -1,6 +1,10 @@
 import { expect, type Page } from '@playwright/test';
 
-export const PASSWORD = process.env.E2E_PASSWORD || 'Sm0ke-Test-Passw0rd';
+export const PASSWORD =
+    process.env.E2E_PASSWORD ??
+    (() => {
+        throw new Error('Set E2E_PASSWORD to the local demo password (never stored in the repository).');
+    })();
 export const ADMIN = process.env.E2E_ADMIN || 'admin@acme-corp.org';
 export const SUBMITTER = process.env.E2E_SUBMITTER || 'priya.nair@acme-corp.org';
 

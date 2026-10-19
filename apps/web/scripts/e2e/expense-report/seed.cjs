@@ -1,7 +1,11 @@
 // Creates the colleagues the render check expects (idempotent). Needs the tenant admin:
 //   python -m app.cli create-tenant --name Acme --slug acme --admin-email admin@acme-corp.org   (ADMIN_PASSWORD = E2E_PASSWORD)
 const API = (process.env.E2E_API || 'http://localhost:8765').replace(/\/$/, '');
-const PW = process.env.E2E_PASSWORD || 'Sm0ke-Test-Passw0rd';
+const PW =
+    process.env.E2E_PASSWORD ??
+    (() => {
+        throw new Error('Set E2E_PASSWORD to the local demo password (never stored in the repository).');
+    })();
 const USERS = [
     ['maria.santos@acme-corp.org', 'Maria Santos', ['editor']],
     ['david.chen@acme-corp.org', 'David Chen', ['editor']],

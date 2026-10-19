@@ -26,7 +26,7 @@ A richer example with ~15 field kinds, API-driven options, conditional fields an
 2. **Test it**: copy `tests/e2e/multi-row.spec.ts` and change the labels and the stored values it checks.
 
 ## Local test users and registering the form
-Dev/test only. All accounts live in tenant `acme` and share the password `Sm0ke-Test-Passw0rd` (the `E2E_PASSWORD` default).
+Dev/test only. All accounts live in tenant `acme` and share one local password, which you choose when seeding and pass as `E2E_PASSWORD` (there is no default).
 
 | Email | Role | Can |
 |---|---|---|
@@ -39,10 +39,10 @@ Dev/test only. All accounts live in tenant `acme` and share the password `Sm0ke-
 Set up from scratch (from `Backend/`, with `app/.env` configured, then from this folder):
 ```bash
 alembic upgrade head
-ADMIN_PASSWORD='Sm0ke-Test-Passw0rd' python -m app.cli create-tenant --name Acme --slug acme --admin-email admin@acme-corp.org
+ADMIN_PASSWORD='<choose a local password>' python -m app.cli create-tenant --name Acme --slug acme --admin-email admin@acme-corp.org
 uvicorn app.main:app --port 8765          # keep running
 
-export E2E_API=http://localhost:8765 E2E_PASSWORD='Sm0ke-Test-Passw0rd'
+export E2E_API=http://localhost:8765 E2E_PASSWORD='<the password you seeded>'
 node seed.cjs                             # the four non-admin users (re-runnable: "exists")
 node import-template.cjs                  # registers "Expense Report" in the admin's tenant (re-run: 409 slug_taken)
 ```
