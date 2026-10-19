@@ -93,10 +93,11 @@
         {
           "id": "0.4",
           "title": "Move the web app and the design system",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.4-move-web",
           "commits": [
-            "7cd5191"
+            "7cd5191",
+            "a5cd56a"
           ],
           "evidence": [
             "turbo lint typecheck test build 60/60 (next build 15 routes); web unit 56/56 incl. client 18/18 (form-encoded, multipart, abort fallback, pre-send errors, params); ui 6/6; tools 44/44; check:engine + check:runtime pass; boundaries 481 modules 0 violations; format clean; pnpm audit clean (1 documented braces exception); task-verifier: ready with caveats; reviewer: no high, 2 medium fixed in 7cd5191; Linux CI not shown (GitHub billing, follow-up 11)"
@@ -107,7 +108,7 @@
         {
           "id": "0.4b",
           "title": "Design tokens, themes and Ethiopic typography",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
