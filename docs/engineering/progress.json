@@ -124,10 +124,11 @@
         {
           "id": "0.4a",
           "title": "Design-system documentation and visual tests",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.4a-storybook-visual-tests",
           "commits": [
-            "bf8779f"
+            "bf8779f",
+            "ca429df"
           ],
           "evidence": [
             "pnpm ci:local on bf8779f (Linux, Docker 29.6.2) → checks, stories, infra, gitleaks, trivy, semgrep all pass (.ci-local/bf8779f3e2c4/report.md)",
