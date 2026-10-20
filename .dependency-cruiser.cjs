@@ -213,7 +213,7 @@ module.exports = {
         // Per-package tool config files import the shared presets; they are not product code. Anchored to package roots.
         exclude: {
             path: [
-                '(^|/)(node_modules|dist|\\.turbo|\\.next|coverage)/',
+                '(^|/)(node_modules|dist|\\.turbo|\\.next|coverage|storybook-static|test-results|playwright-report)/',
                 '^modules/_template/',
                 '^(apps|platform|modules|packages)/[^/]+/(eslint|vitest)\\.config\\.(js|ts)$'
             ]

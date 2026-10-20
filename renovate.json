@@ -39,6 +39,11 @@
       "description": "CI actions and scanner images",
       "groupName": "ci",
       "matchManagers": ["github-actions", "custom.regex"]
+    },
+    {
+      "description": "The Playwright image and packages must have the same version (its browsers are built for it); after this rule so it wins over the ci group",
+      "groupName": "playwright",
+      "matchPackageNames": ["playwright", "@playwright/test", "mcr.microsoft.com/playwright"]
     }
   ],
   "customManagers": [
@@ -50,6 +55,17 @@
         "(?<depName>zricethezav/gitleaks|semgrep/semgrep):(?<currentValue>v?\\d+\\.\\d+\\.\\d+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?"
       ],
       "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "description": "The Playwright image of the stories job, pinned by tag and digest (moves with @playwright/test)",
+      "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "(?<depName>mcr\\.microsoft\\.com/playwright):v(?<currentValue>\\d+\\.\\d+\\.\\d+)-noble@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker",
+      "autoReplaceStringTemplate": "{{depName}}:v{{newValue}}-noble@{{newDigest}}"
     },
     {
       "customType": "regex",

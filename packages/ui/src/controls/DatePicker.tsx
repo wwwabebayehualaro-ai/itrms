@@ -80,7 +80,8 @@ export function DatePicker({
                     <CalendarIcon className="opacity-60" />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
+            {/* the popover is a role=dialog and needs a name of its own */}
+            <PopoverContent className="w-auto p-0" align="start" aria-label={aria['aria-label'] ?? placeholder}>
                 <Calendar
                     mode="single"
                     selected={date ?? undefined}

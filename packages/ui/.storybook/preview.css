@@ -1,0 +1,6 @@
+/* The stories' stylesheet: Tailwind 4 and the design system's stylesheet, as an app imports them (apps/web/app/globals.css). */
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@source '../src';
+
+@import '../src/styles/index.css';

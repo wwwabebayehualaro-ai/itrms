@@ -45,12 +45,12 @@ function Calendar({
                 ),
                 button_previous: cn(
                     buttonVariants({ variant: buttonVariant }),
-                    'size-(--cell-size) p-0 select-none aria-disabled:opacity-50',
+                    'size-(--cell-size) min-h-0 p-0 select-none aria-disabled:opacity-50',
                     defaultClassNames.button_previous
                 ),
                 button_next: cn(
                     buttonVariants({ variant: buttonVariant }),
-                    'size-(--cell-size) p-0 select-none aria-disabled:opacity-50',
+                    'size-(--cell-size) min-h-0 p-0 select-none aria-disabled:opacity-50',
                     defaultClassNames.button_next
                 ),
                 month_caption: cn(

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { contrast, inSrgbGamut, parseOklch } from './color';
+import { contrast, inSrgbGamut, luminance, parseOklch } from './color';
 import { CONTRAST_PAIRS, palette, THEMES, themes, tokenColor, type SemanticToken } from './tokens';
 
 describe('colour maths', () => {
@@ -27,6 +27,18 @@ describe('palette', () => {
                 .map(([s]) => `${hue}.${s}`)
         );
         expect(outside).toEqual([]);
+    });
+});
+
+describe('tinted control backgrounds (dark theme)', () => {
+    // Outline buttons and select/combobox triggers draw --input at an opacity over the page in the dark theme, and
+    // brighter on hover (dark:bg-input/30, dark:hover:bg-input/35). Their placeholder text is muted-foreground: it must
+    // keep 4.5:1 on the hover tint too. At 50 % it fell to 3.6:1 (found by axe in a Linux run).
+    it.each([0.3, 0.35])('muted text keeps 4.5:1 on --input at %s over the background', (alpha) => {
+        const tint = { ...tokenColor('dark', 'input'), alpha };
+        const background = luminance(tint, tokenColor('dark', 'background'));
+        const text = luminance(tokenColor('dark', 'muted-foreground'));
+        expect((Math.max(text, background) + 0.05) / (Math.min(text, background) + 0.05)).toBeGreaterThanOrEqual(4.5);
     });
 });
 

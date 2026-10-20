@@ -12,7 +12,17 @@ import tseslint from 'typescript-eslint';
  */
 export default function config(options) {
     return tseslint.config(
-        { ignores: ['dist/**', 'coverage/**', '.turbo/**', 'node_modules/**'] },
+        {
+            ignores: [
+                'dist/**',
+                'coverage/**',
+                '.turbo/**',
+                'node_modules/**',
+                'storybook-static/**',
+                'test-results/**',
+                'playwright-report/**'
+            ]
+        },
         js.configs.recommended,
         ...tseslint.configs.recommendedTypeChecked,
         ...(options.react ? [reactHooks.configs.flat['recommended-latest']] : []),

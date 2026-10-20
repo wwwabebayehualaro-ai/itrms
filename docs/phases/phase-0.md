@@ -103,21 +103,32 @@ the task must add. The [definition of done](../../CLAUDE.md#definition-of-done) 
 - **Tests:** the token contrast test passes in all three themes (WCAG AA for text, 3:1 for UI parts); Ethiopic line-height
   and label-wrap checks; the moved suites still pass.
 
-### 0.4a Design-system documentation, visual tests and page templates
+### 0.4a Design-system documentation and visual tests
 - **Do:**
   - Storybook in `packages/ui`: every component, with toolbar switches for am / en / wal-Latn, light/dark/high contrast and
     comfortable/compact, plus the a11y addon.
   - Playwright visual regression over the stories in **am and en, light theme, comfortable density** (a fixed font set in
     CI); the other combinations are checked by axe and contrast tests, not screenshots.
+  - Browser checks of the Ethiopic rules from 0.4b: labels wrap to two lines, line boxes, the 14 px floor.
+- **Done when:**
+  - Storybook builds in CI with no axe violations, in every theme and density;
+  - the visual baselines are committed.
+- **Tests:** axe on every story in every theme and density; visual snapshots; the Ethiopic layout checks in a browser.
+- **Split (2026-10-19):** the page templates, the new controls and the `DataGrid` extensions moved to 0.4c. Storybook
+  with stories for about 45 components, axe and Linux visual baselines fill a session on their own.
+
+### 0.4c Page templates, money and person controls, DataGrid extensions
+- **Do:**
   - Page-template components: `PageHeader`, `FilterBar`, `EmptyState`, `DescriptionList`, `KpiTile`, `WidgetCard`, plus
     the list, record, form, dashboard, settings and print layouts. The case template comes in 0.20.
   - New controls: `MoneyInput`/`MoneyText` (bigint santim), `PersonName`, `UnitBadge`.
   - Extend `DataGrid` with column pinning and resizing, keyboard row navigation and bulk selection.
+  - Stories, axe checks and visual baselines for all of them (the 0.4a setup).
 - **Done when:**
-  - Storybook builds in CI with no axe violations;
-  - the visual baselines are committed;
-  - a list page and a record page are built only from templates.
-- **Tests:** axe on every story; visual snapshots; `MoneyInput` never produces floats (property test).
+  - a list page and a record page are built only from templates;
+  - the new components have stories with no axe violations and committed baselines.
+- **Tests:** `MoneyInput` never produces floats (property test); keyboard row navigation and bulk selection in a
+  browser; axe and visual snapshots of the new stories.
 
 ### 0.5 Extract the form engine and shared schemas
 - **Do:**
@@ -513,7 +524,7 @@ the task must add. The [definition of done](../../CLAUDE.md#definition-of-done) 
 - **Tests:** the restore drill script with checks; the smoke load test thresholds in CI (nightly).
 
 ## Phase acceptance criteria
-1. All 29 tasks done (0.1–0.26, 0.4a, 0.4b and 0.18a), CI green on `main` (lint, typecheck, unit, integration on Postgres, isolation matrix, i18n keys,
+1. All 30 tasks done (0.1–0.26, 0.4a, 0.4b, 0.4c and 0.18a), CI green on `main` (lint, typecheck, unit, integration on Postgres, isolation matrix, i18n keys,
    security scans, e2e).
 2. The demo journey runs in Amharic and English (Wolaytta with fallback) across Boditi, the zone and Damot Gale. A user of one office
    sees none of the other office's cases,

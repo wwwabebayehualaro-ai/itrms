@@ -4,6 +4,8 @@ import { CircleCheckIcon, InfoIcon, Loader2Icon, OctagonXIcon, TriangleAlertIcon
 import { useTheme } from 'next-themes';
 import { Toaster as Sonner, type ToasterProps } from 'sonner';
 
+import { fonts } from '../tokens/tokens';
+
 const Toaster = ({ ...props }: ToasterProps) => {
     // Sonner knows light and dark only; high contrast is a light theme.
     const { resolvedTheme } = useTheme();
@@ -21,10 +23,26 @@ const Toaster = ({ ...props }: ToasterProps) => {
             }}
             style={
                 {
+                    // Rich colours come from the status tokens (text on the soft fill is 4.5:1), not from Sonner's own palette.
+                    '--success-bg': 'var(--status-success-bg)',
+                    '--success-text': 'var(--status-success-fg)',
+                    '--success-border': 'var(--status-success)',
+                    '--info-bg': 'var(--status-info-bg)',
+                    '--info-text': 'var(--status-info-fg)',
+                    '--info-border': 'var(--status-info)',
+                    '--warning-bg': 'var(--status-warning-bg)',
+                    '--warning-text': 'var(--status-warning-fg)',
+                    '--warning-border': 'var(--status-warning)',
+                    '--error-bg': 'var(--status-danger-bg)',
+                    '--error-text': 'var(--status-danger-fg)',
+                    '--error-border': 'var(--status-danger)',
                     '--normal-bg': 'var(--popover)',
                     '--normal-text': 'var(--popover-foreground)',
                     '--normal-border': 'var(--border)',
-                    '--border-radius': 'var(--radius)'
+                    '--border-radius': 'var(--radius)',
+                    // Sonner's own (unlayered) stylesheet sets a system font stack, which no utility can override; the
+                    // toasts must use the self-hosted Noto fonts like the rest of the app (Ethiopic included).
+                    fontFamily: fonts.sans
                 } as React.CSSProperties
             }
             {...props}

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { ServerErrorsProvider, useZodForm, ZodForm, type ServerErrorMapper } from '../index';
+import { messagesOf } from './formKit';
 
 const schema = z.object({ key: z.string().min(3, 'At least 3 characters'), description: z.string() });
 
@@ -45,6 +46,16 @@ describe('useZodForm', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Save' }));
         expect(await screen.findByText('At least 3 characters')).toBeInTheDocument();
         expect(onSubmit).not.toHaveBeenCalled();
+    });
+
+    it('shows a message once when the blur and the submit check both fail (found in a visual baseline)', async () => {
+        render(<Probe onSubmit={vi.fn()} />);
+        await userEvent.type(screen.getByLabelText('Key'), 'ab');
+        await userEvent.tab(); // blur: the first validation run
+        await userEvent.click(screen.getByRole('button', { name: 'Save' })); // submit: the second
+        const error = await screen.findByText(/At least 3 characters/);
+        expect(error.textContent?.match(/At least 3 characters/g)).toHaveLength(1);
+        expect(messagesOf(['x', { message: 'x' }, 'y'])).toEqual(['x', 'y']);
     });
 
     it('submits parsed values', async () => {

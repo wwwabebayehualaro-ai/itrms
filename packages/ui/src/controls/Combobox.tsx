@@ -141,7 +141,12 @@ export function Combobox<V = unknown>(props: ComboboxProps<V>) {
                         {loading ? <Spinner /> : <ChevronsUpDown className="opacity-50" />}
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-(--radix-popover-trigger-width) min-w-56 p-0" align="start">
+                {/* the popover is a role=dialog and needs a name of its own */}
+                <PopoverContent
+                    className="w-(--radix-popover-trigger-width) min-w-56 p-0"
+                    align="start"
+                    aria-label={props['aria-label'] ?? shownPlaceholder}
+                >
                     <Command>
                         {showSearch && <CommandInput placeholder="Search…" />}
                         <CommandList>

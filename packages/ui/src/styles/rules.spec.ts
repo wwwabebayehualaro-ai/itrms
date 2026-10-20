@@ -61,7 +61,9 @@ describe('Ethiopic typography', () => {
     const tokens = readFileSync(join(SRC, 'styles/tokens.css'), 'utf8');
 
     it('components never uppercase, letter-space or italicise text', () => {
-        expect(matches(/(?<=["'`\s])(?:uppercase|italic|tracking-[\w[\]().-]+)(?=["'`\s])/g)).toEqual([]);
+        // The typography story applies them on purpose, to prove the Ethiopic override cancels them in a browser.
+        const found = matches(/(?<=["'`\s])(?:uppercase|italic|tracking-[\w[\]().-]+)(?=["'`\s])/g);
+        expect(found.filter((m) => !m.startsWith('stories/EthiopicTypography.stories.tsx:'))).toEqual([]);
     });
 
     it('an Ethiopic-script language drops casing, spacing and slanting whatever a screen applies', () => {

@@ -52,13 +52,17 @@ export function ServerErrorsProvider({ map, children }: { map: ServerErrorMapper
     return <ServerErrorsContext.Provider value={map}>{children}</ServerErrorsContext.Provider>;
 }
 
-/** Messages of a field's current errors (Zod issues or plain strings). */
-function messagesOf(errors: unknown[]): string[] {
-    return errors
+/**
+ * Messages of a field's current errors (Zod issues or plain strings), each once: the schema runs on blur and on submit,
+ * and the form keeps both runs' errors, so the same message would otherwise show twice.
+ */
+export function messagesOf(errors: unknown[]): string[] {
+    const messages = errors
         .map((e) =>
             typeof e === 'string' ? e : e && typeof e === 'object' && 'message' in e ? String(e.message) : null
         )
         .filter((m): m is string => !!m);
+    return [...new Set(messages)];
 }
 
 /** Editing a field clears the server's verdict on it (it was about the value that was sent). */

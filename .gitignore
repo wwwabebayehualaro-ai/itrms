@@ -57,3 +57,8 @@ next-env.d.ts
 
 # Local Linux CI runs (tools/ci-local.mjs, ADR-0034)
 /.ci-local/
+
+# Storybook builds and Playwright output (task 0.4a)
+storybook-static/
+test-results/
+playwright-report/

@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-10-19",
+  "updated": "2026-10-20",
   "statuses": [
     "planned",
     "ready",
@@ -123,13 +123,33 @@
         },
         {
           "id": "0.4a",
-          "title": "Design-system documentation, visual tests and page templates",
-          "status": "ready",
+          "title": "Design-system documentation and visual tests",
+          "status": "in review",
+          "branch": "task/0.4a-storybook-visual-tests",
+          "commits": [
+            "bf8779f"
+          ],
+          "evidence": [
+            "pnpm ci:local on bf8779f (Linux, Docker 29.6.2) → checks, stories, infra, gitleaks, trivy, semgrep all pass (.ci-local/bf8779f3e2c4/report.md)",
+            "Storybook builds in CI with no axe violations in every theme and density → stories job: 7 modes (am × light/dark/high-contrast × comfortable/compact + en/light/comfortable) × 166 stories = 1162 passed (a11y test: 'error')",
+            "Visual baselines committed → 332 PNGs in packages/ui/visual/__screenshots__/{am,en} (5ceb8ff, pinned Playwright v1.63.0 image); stories job compares them: 332 passed",
+            "Ethiopic layout checks in a browser → Foundations/Ethiopic typography play functions (two-line label wrap, line boxes, 14 px floor), part of the 1162",
+            "checks job → turbo 60/60; tests: web 63, ui 51 + 2 skipped (AAA contrast runIf high-contrast), module-sdk 5, tools 56; boundaries: 0 violations (399 modules)",
+            "infra → test:int 17 passed; gitleaks 16 commits, no leaks; trivy 0 HIGH/CRITICAL; semgrep 0 findings",
+            "task-verifier: all Done when / Tests / Do items met; reviewer (f4b0387..56dfe37): 0 high, 1 medium fixed in dd63779 (storyFinished status), 1 low docs fixed, 1 low → follow-up to 0.26"
+          ],
+          "blockers": [],
+          "notes": "Split on 2026-10-19: page templates, new controls and DataGrid extensions moved to 0.4c (scope too large for one session). Storybook 10 (react-vite) with stories for all 49 component files plus a ControlHeights story (50 files, 166 stories). Every story runs as a Vitest browser test (headless Chromium) with axe as a gate in 7 modes: am x 3 themes x 2 densities + en/light/comfortable = 1162 tests, all pass. The Ethiopic layout checks deferred from 0.4b run as play functions (Foundations/Ethiopic typography). Found and fixed: Popover content (role=dialog) had no accessible name; PopoverTitle now names it. Vite must pre-bundle @tanstack/react-form, @tanstack/react-table and zod (.storybook/deps.ts), or mid-run re-optimisation reloads every browser. 2026-10-20: reviewer fixes committed in f4b0387 (control heights with a ControlHeights story, render-phase wait, maxDiffPixels 25, non-modal DropdownMenu by default, stricter plays, serve.mjs path check, ci:local pipefail, Node SHASUMS check, --update-visual on HEAD only). node .storybook/run-stories.mjs -> 7 modes x 166 stories = 1162 pass on Windows. ci:local --jobs stories --update-visual on f4b0387 hung in am/dark/compact (browser lost its Vitest connection); run-stories.mjs now gives each mode 10 minutes (normally under 1), kills a mode that hangs and runs it once more, printing the retry; failing tests are never retried. Baselines are regenerated after that commit. 2026-10-20: the Linux visual run on fedb19e timed out on every story: Storybook 10 settles on the 'finished' phase ('completed' lasts a moment). Fixed in 6a4c1e1 (wait for finished, then assert no error display). ci:local --jobs stories --update-visual on 6a4c1e1: 7 modes x 166 = 1162 pass, 332 screenshots written (42 changed or new: ControlHeights story, control heights, toasts and portals now captured after their animation)."
+        },
+        {
+          "id": "0.4c",
+          "title": "Page templates, money and person controls, DataGrid extensions",
+          "status": "planned",
           "branch": null,
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Split from 0.4a on 2026-10-19."
         },
         {
           "id": "0.5",
@@ -1080,6 +1100,21 @@
       "foundIn": "0.4b",
       "item": "Browser checks of Ethiopic layout (two-line labels, line boxes, 14 px floor) and axe in all themes and densities",
       "movedTo": "0.4a"
+    },
+    {
+      "foundIn": "0.4a",
+      "item": "DatePicker shows Gregorian dates and English month/day names in Amharic (seen in the visual baselines): the Ethiopian calendar mode and localized labels",
+      "movedTo": "0.17 (DatePicker Ethiopian mode), 0.13 (labels)"
+    },
+    {
+      "foundIn": "0.4a",
+      "item": "PdfViewer has no story: it needs a sample PDF and the pdf.js worker in Storybook; add one when its labels move to the catalogues (follow-up 24)",
+      "movedTo": "0.13"
+    },
+    {
+      "foundIn": "0.4a",
+      "item": "run-stories.mjs: killing a hung mode SIGKILLs Vitest only; its Chromium (own process group on Linux, children on Windows) may outlive it and share the CPU with the retry. Kill the whole group (async spawn, detached, process.kill(-pid); taskkill /T on Windows). Reviewer, low.",
+      "movedTo": "0.26"
     }
   ]
 }

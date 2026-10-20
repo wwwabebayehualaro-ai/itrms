@@ -10,8 +10,10 @@ import {
     gitleaksVerdict,
     isPnpmVersion,
     jobRuns,
+    jobsFor,
     pinnedImages,
     renderReport,
+    STORIES_STEPS,
     summarise,
     TRIVY_IMAGE
 } from './ci-local.mjs';
@@ -22,10 +24,37 @@ test('the local checks job runs exactly the commands of ci.yml checks job', () =
     assert.deepEqual(CHECK_STEPS, jobRuns(yml, 'checks'));
 });
 
-test('scanner images come from ci.yml, pinned by digest', () => {
+test('scanner and browser images come from ci.yml, pinned by digest', () => {
     const images = pinnedImages(yml);
-    for (const ref of [images.gitleaks, images.semgrep, TRIVY_IMAGE])
-        assert.match(ref, /:[\w.-]+@sha256:[a-f0-9]{64}$/);
+    for (const ref of [images.gitleaks, images.semgrep, images.playwright, TRIVY_IMAGE])
+        assert.match(ref ?? '', /:[\w.-]+@sha256:[a-f0-9]{64}$/);
+});
+
+test('a pinned image is found by its exact name only', () => {
+    const digest = 'a'.repeat(64);
+    const lookalike = `      image: mcrXmicrosoftXcom/playwright:v1.63.0-noble@sha256:${digest}\n`;
+    assert.equal(
+        pinnedImages(yml.replace(/image: mcr\.microsoft\.com\/playwright:\S+\n/, lookalike)).playwright,
+        undefined
+    );
+    assert.throws(() => pinnedImages(`IMAGE="xzricethezav/gitleaks:v8@sha256:${digest}"`), /no longer pins/);
+});
+
+test('the local stories job runs exactly the commands of ci.yml stories job', () => {
+    assert.deepEqual(STORIES_STEPS, jobRuns(yml, 'stories'));
+});
+
+test("a commit's record needs the stories job only once its ci.yml has one", () => {
+    assert.ok(jobsFor(yml).includes('stories'));
+    const before = yml.replace(/\n {2}stories:\n[\s\S]*?(?=\n {2}\w+:\n)/, '\n');
+    assert.ok(!jobsFor(before).includes('stories'));
+    assert.deepEqual(jobsFor(before), ['checks', 'infra', 'gitleaks', 'trivy', 'semgrep']);
+});
+
+test('the Playwright image matches the @playwright/test version the ui package pins', () => {
+    const pkg = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'packages', 'ui', 'package.json'), 'utf8'));
+    const version = pkg.devDependencies['@playwright/test'];
+    assert.match(pinnedImages(yml).playwright ?? '', new RegExp(`playwright:v${version.replaceAll('.', '\\.')}-`));
 });
 
 test('Trivy is never one of the compromised March 2026 builds', () => {

@@ -177,10 +177,25 @@ check, triangle, octagon, minus). Each tone has three tokens: a solid colour for
 * `@media print` styles for every template. PDFs reuse `PrintLayout` with the same tokens.
 
 ## 12. Documentation, testing and governance
-* **Storybook** (current major, pinned per the version rule) in `packages/ui`. It has a story per component in **Amharic,
-  English and Wolaytta**, light/dark/high-contrast, and comfortable/compact, plus the a11y addon and usage notes.
-* **Visual regression:** Playwright screenshot tests of the stories (a fixed font set, Linux CI) catch unintended visual
-  changes.
+* **Storybook** 10 in `packages/ui` (`pnpm --filter @itrms/ui storybook`). Every component has a story next to it
+  (`<name>.stories.tsx`). Toolbar switches set the language (**am, en, wal-Latn**), the theme and the density on `<html>`,
+  exactly as the app does. Story text comes from `src/stories/fixtures.ts` (generated sample data, both languages; Wolaytta
+  falls back to English until its catalogue exists).
+* **Every story is a test** (`test:stories`): Storybook's Vitest addon renders it in headless Chromium, runs its `play`
+  checks, and fails it on any **axe** violation. It runs in Amharic in all three themes and both densities, and in
+  English in the default look. The Ethiopic layout rules of §5 are such checks (`Foundations/Ethiopic typography`).
+  The modes run one after another. A mode that gives no result within 10 minutes (normally under one) is killed and run
+  once more, and the retry is printed: a browser that loses its Vitest connection never reaches the test timeout.
+  A mode that ends with failing tests is never retried. A hung mode is run again whole, so a failure printed before the
+  hang shows only in the log of the first run; check the log of a retried mode.
+* **Visual regression** (`test:visual`): one Playwright screenshot per story in **Amharic and English, light,
+  comfortable**, taken from the built Storybook in the pinned Linux Playwright image, with the bundled Noto fonts. The
+  picture is taken once Storybook reports the story finished without an error (rendered, `play` passed, no uncaught
+  error) and the fonts are loaded; animations are off, and at most 25 pixels may differ (anti-aliasing), so a changed glyph or a moved control fails. The
+  baselines live in `packages/ui/visual/__screenshots__/`. To change them on purpose: commit the change, run
+  `pnpm ci:local --jobs stories --update-visual` (HEAD only; it replaces the whole folder, so a removed story leaves no
+  stale picture), review the new images, commit them. A story tagged `no-visual` (for content a screenshot can't pin) is
+  still checked by axe. `PdfViewer` has no story yet (it needs a sample PDF and the pdf.js worker; follow-up for 0.13).
 * **Ownership:** a platform UI owner (CODEOWNERS). A new component starts as a proposal (problem, API, states,
   a11y). Module teams never fork components; they extend through props and slots.
 * The **legacy rules carry over:** features import only from `@itrms/ui`, and importing Radix or vendor UI directly is a

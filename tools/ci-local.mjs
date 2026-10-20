@@ -18,7 +18,7 @@
 // some jobs, or one with a skipped job, writes report-partial.* and never replaces the complete record. Exit 1 if a gate
 // that ran failed.
 import { spawn, spawnSync } from 'node:child_process';
-import { createWriteStream, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, createWriteStream, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -57,12 +57,19 @@ export const CHECKS_LIMITS = ['--cpuset-cpus', '0-3', '--memory', '6g', '--memor
 
 /** Pinned images that ci.yml itself names (one source of truth for their versions). */
 export function pinnedImages(yml) {
-    const find = (name) => {
-        const m = new RegExp(`(${name.replace('/', '\\/')}:[\\w.-]+@sha256:[a-f0-9]{64})`).exec(yml);
-        if (!m) throw new Error(`ci.yml no longer pins ${name}`);
-        return m[1];
+    // one fixed pattern and a plain prefix match: an image name in a RegExp would need escaping (its dots match anything)
+    const refs = yml.match(/[\w./-]+:[\w.-]+@sha256:[a-f0-9]{64}/g) ?? [];
+    const find = (name, required = true) => {
+        const ref = refs.find((r) => r.startsWith(`${name}:`));
+        if (!ref && required) throw new Error(`ci.yml no longer pins ${name}`);
+        return ref;
     };
-    return { gitleaks: find('zricethezav/gitleaks'), semgrep: find('semgrep/semgrep') };
+    return {
+        gitleaks: find('zricethezav/gitleaks'),
+        semgrep: find('semgrep/semgrep'),
+        // the stories job's container (from task 0.4a; older commits have none)
+        playwright: find('mcr.microsoft.com/playwright', false)
+    };
 }
 
 /** The `run:` commands of one job in ci.yml, in order (the workflow is plain enough for a line scan). */
@@ -90,7 +97,18 @@ export const CHECK_STEPS = [
     'pnpm audit --audit-level high'
 ];
 
-export const ALL_JOBS = ['checks', 'infra', 'gitleaks', 'trivy', 'semgrep'];
+/** The stories job (task 0.4a): every story with axe in every theme and density, then the visual baselines. */
+export const STORIES_STEPS = [
+    'pnpm install --frozen-lockfile',
+    'pnpm --filter @itrms/ui build-storybook',
+    'pnpm --filter @itrms/ui test:stories',
+    'pnpm --filter @itrms/ui test:visual'
+];
+
+export const ALL_JOBS = ['checks', 'stories', 'infra', 'gitleaks', 'trivy', 'semgrep'];
+
+/** The jobs a complete record of this commit needs: the stories job only once the commit's ci.yml has one. */
+export const jobsFor = (yml) => ALL_JOBS.filter((j) => j !== 'stories' || yml.split(/\r?\n/).includes('  stories:'));
 
 const git = (...args) => {
     const r = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8' });
@@ -151,15 +169,15 @@ export function gitleaksRange(sha, unpushed, fullHistory) {
     return fullHistory || unpushed === 0 ? `-m ${sha}` : `-m origin/main..${sha}`;
 }
 
+/** x.y.z with digits only: values that end up in a container's bash script. */
+export function isVersion(v) {
+    const parts = v.split('.');
+    return parts.length === 3 && parts.every((p) => p.length > 0 && [...p].every((c) => c >= '0' && c <= '9'));
+}
+
 export function isPnpmVersion(spec) {
     const [name, version, ...rest] = spec.split('@');
-    const parts = (version ?? '').split('.');
-    return (
-        name === 'pnpm' &&
-        rest.length === 0 &&
-        parts.length === 3 &&
-        parts.every((p) => p.length > 0 && [...p].every((c) => c >= '0' && c <= '9'))
-    );
+    return name === 'pnpm' && rest.length === 0 && isVersion(version ?? '');
 }
 
 /** The clean source of the commit on disk (no node_modules), for the scanners. */
@@ -214,6 +232,70 @@ const JOBS = {
                 ]
             )
         ];
+    },
+
+    /**
+     * In the pinned Playwright image (Chromium and its system libraries, the fonts come from the repository), with the
+     * commit's Node version. With --update-visual it writes new baselines and copies them into the working tree.
+     */
+    async stories({ sha, log, images, inputs, out, updateVisual }) {
+        if (!images.playwright)
+            return [{ label: 'skipped: ci.yml pins no Playwright image', code: 0, seconds: 0, skipped: true }];
+        const visual = updateVisual
+            ? // no "--": pnpm would pass it on, and Playwright would read the flag as a test filter
+              // the old baselines go first, so a renamed or removed story leaves no stale picture behind
+              'rm -rf packages/ui/visual/__screenshots__ && pnpm --filter @itrms/ui test:visual --update-snapshots=all && rm -rf /out/screenshots && cp -r packages/ui/visual/__screenshots__ /out/screenshots'
+            : STORIES_STEPS.at(-1);
+        const steps = [...STORIES_STEPS.slice(0, -1), visual];
+        const script = [
+            'set -eo pipefail',
+            // the image's Node may differ from .nvmrc: use the commit's version, as setup-node does on GitHub, checked
+            // against the release's SHASUMS256.txt before it is unpacked
+            `want=v${inputs.node}`,
+            'if [ "$(node --version)" != "$want" ]; then',
+            '  tarball="node-$want-linux-x64.tar.gz"', // .gz: no xz in the image
+            '  curl -fsSL -o "/tmp/$tarball" "https://nodejs.org/dist/$want/$tarball"',
+            '  curl -fsSL "https://nodejs.org/dist/$want/SHASUMS256.txt" | grep "  $tarball\\$" | (cd /tmp && sha256sum -c -)',
+            '  tar -xzf "/tmp/$tarball" -C /opt',
+            '  export PATH="/opt/node-$want-linux-x64/bin:$PATH"',
+            'fi',
+            "git config --global safe.directory '*'",
+            'git clone -q /repo.git /work && cd /work',
+            `git checkout -q --detach ${sha}`,
+            `npm install -g --silent ${inputs.pnpm}`,
+            'pnpm config set store-dir /pnpm-store',
+            ...steps.map((s) => `echo "::step::${s}" && ${s}`)
+        ].join('\n');
+        const result = await run(
+            log,
+            `docker run ${images.playwright} (clone ${sha.slice(0, 12)}, ${steps.length} steps)`,
+            'docker',
+            [
+                'run',
+                '--rm',
+                '--ipc=host', // Chromium needs more shared memory than Docker's default
+                ...CHECKS_LIMITS,
+                ...bind(gitCommonDir(), '/repo.git'),
+                ...bind(out, '/out', false),
+                '--mount',
+                `type=volume,source=${PNPM_STORE_VOLUME},target=/pnpm-store`,
+                '-e',
+                'LEFTHOOK=0',
+                '-e',
+                'CI=true',
+                images.playwright,
+                'bash',
+                '-c',
+                script
+            ]
+        );
+        if (updateVisual && result.code === 0) {
+            const target = join(ROOT, 'packages', 'ui', 'visual', '__screenshots__');
+            rmSync(target, { recursive: true, force: true });
+            cpSync(join(out, 'screenshots'), target, { recursive: true });
+            log.write(`\nbaselines copied to ${target}\n`);
+        }
+        return [result];
     },
 
     async infra({ log, isHeadClean }) {
@@ -317,14 +399,15 @@ const JOBS = {
 };
 
 function parseArgs(argv) {
-    const opts = { ref: 'HEAD', jobs: [...ALL_JOBS], fullHistory: false };
+    const opts = { ref: 'HEAD', jobs: null, fullHistory: false, updateVisual: false };
     for (let i = 0; i < argv.length; i++) {
         if (argv[i] === '--ref') opts.ref = argv[++i];
         else if (argv[i] === '--jobs') opts.jobs = argv[++i].split(',');
         else if (argv[i] === '--full-history') opts.fullHistory = true;
+        else if (argv[i] === '--update-visual') opts.updateVisual = true;
         else throw new Error(`unknown option ${argv[i]}`);
     }
-    const unknown = opts.jobs.filter((j) => !ALL_JOBS.includes(j));
+    const unknown = (opts.jobs ?? []).filter((j) => !ALL_JOBS.includes(j));
     if (unknown.length) throw new Error(`unknown job(s) ${unknown.join(', ')}; jobs: ${ALL_JOBS.join(', ')}`);
     return opts;
 }
@@ -333,9 +416,9 @@ function parseArgs(argv) {
  * The verdict of a run. Complete only when every job ran and none was skipped; a partial run can pass its gates but is
  * never the commit's CI record (ADR-0034).
  */
-export function summarise(jobs) {
+export function summarise(jobs, expected = ALL_JOBS) {
     const ran = new Set(jobs.filter((j) => !j.skipped).map((j) => j.name));
-    const missing = ALL_JOBS.filter((j) => !ran.has(j));
+    const missing = expected.filter((j) => !ran.has(j));
     const passed = jobs.every((j) => j.skipped || j.ok);
     return { complete: missing.length === 0, missing, passed, ok: missing.length === 0 && passed };
 }
@@ -381,8 +464,26 @@ async function main() {
         throw new Error(
             `the commit's ci.yml checks job differs from this tool's steps (${missingSteps.join('; ')}); use the tool from that commit`
         );
+    const expected = jobsFor(yml);
+    const jobs = opts.jobs ?? expected;
+    if (jobs.includes('stories') && !expected.includes('stories'))
+        throw new Error("the commit's ci.yml has no stories job");
+    if (expected.includes('stories')) {
+        const missingStories = STORIES_STEPS.filter((s) => !jobRuns(yml, 'stories').includes(s));
+        if (missingStories.length)
+            throw new Error(
+                `the commit's ci.yml stories job differs from this tool's steps (${missingStories.join('; ')})`
+            );
+    }
+    if (opts.updateVisual && !jobs.includes('stories')) throw new Error('--update-visual needs the stories job');
+    // the new baselines are copied into this working tree: they must be the pictures of the commit checked out here
+    if (opts.updateVisual && sha !== git('rev-parse', 'HEAD'))
+        throw new Error('--update-visual works on HEAD only (the baselines are copied into the working tree)');
+    const node = atCommit('.nvmrc').trim();
+    if (!isVersion(node)) throw new Error(`unexpected .nvmrc ${node}`);
     const inputs = {
-        nodeImage: `node:${atCommit('.nvmrc').trim()}-bookworm`,
+        node,
+        nodeImage: `node:${node}-bookworm`,
         pnpm: JSON.parse(atCommit('package.json')).packageManager.replace(/\+.*$/, '')
     };
     // It ends up in a bash script: only pnpm@<digits>.<digits>.<digits> is accepted.
@@ -399,7 +500,7 @@ async function main() {
     const out = join(ROOT, '.ci-local', sha.slice(0, 12));
     const src = join(out, 'src');
     mkdirSync(join(out, 'logs'), { recursive: true });
-    if (opts.jobs.some((j) => j === 'trivy' || j === 'semgrep')) exportTree(sha, src);
+    if (jobs.some((j) => j === 'trivy' || j === 'semgrep')) exportTree(sha, src);
 
     const started = new Date();
     const report = {
@@ -411,7 +512,7 @@ async function main() {
         images: { node: inputs.nodeImage, ...images, trivy: TRIVY_IMAGE },
         jobs: []
     };
-    for (const name of opts.jobs) {
+    for (const name of jobs) {
         const log = createWriteStream(join(out, 'logs', `${name}.log`));
         process.stdout.write(`${name} … `);
         const steps = await JOBS[name]({
@@ -422,7 +523,8 @@ async function main() {
             src,
             out,
             isHeadClean,
-            fullHistory: opts.fullHistory
+            fullHistory: opts.fullHistory,
+            updateVisual: opts.updateVisual
         });
         await new Promise((r) => log.end(r));
         const skipped = steps.every((s) => s.skipped);
@@ -430,11 +532,18 @@ async function main() {
         report.jobs.push({ name, ok, skipped, steps: steps.map(({ output: _output, ...step }) => step) });
         console.log(skipped ? 'skipped' : ok ? 'ok' : `FAILED (see .ci-local/${sha.slice(0, 12)}/logs/${name}.log)`);
     }
-    const node = docker('image', 'inspect', '--format', '{{index .RepoDigests 0}}', report.images.node);
-    if (node.status === 0) report.images.node = node.stdout.trim();
+    const nodeDigest = docker('image', 'inspect', '--format', '{{index .RepoDigests 0}}', report.images.node);
+    if (nodeDigest.status === 0) report.images.node = nodeDigest.stdout.trim();
 
     const finished = new Date();
-    const verdict = summarise(report.jobs);
+    const verdict = summarise(report.jobs, expected);
+    // A run that rewrote the baselines compared nothing: it is never a CI record.
+    if (opts.updateVisual)
+        Object.assign(verdict, {
+            complete: false,
+            ok: false,
+            missing: [...verdict.missing, 'visual comparison (baselines updated)']
+        });
     Object.assign(report, { finished: finished.toISOString(), seconds: (finished - started) / 1000, ...verdict });
     report.evidence =
         `ci:local ${sha.slice(0, 7)} on Linux (Docker ${version})${verdict.complete ? '' : ` PARTIAL (not run: ${verdict.missing.join(', ')})`}: ` +

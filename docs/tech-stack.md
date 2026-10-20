@@ -60,6 +60,8 @@ registry or the project page on 2026-10-18.
 | T42 | Theme switching | **next-themes** 0.4 inside `AppearanceProvider` (light, dark, high contrast, system), plus the design system's own density store | Sets the theme class before the first paint (no flash), follows the system setting, syncs tabs; the density uses the same pre-paint approach |
 | T43 | CI while GitHub-hosted runners are unavailable | **`pnpm ci:local`** (`tools/ci-local.mjs`, ADR-0034): the `ci.yml` jobs in Docker's Linux engine; Trivy pinned by digest (0.75.0) | The same commands and scanner images as `ci.yml`, from a clean copy of the commit, with a written record; no paid runners and no second pipeline to maintain |
 | T44 | Patterns written by form authors (validation, conditions) | **re2js** 2.8 (pure-JavaScript port of Google's RE2) in the form-engine core | Linear-time matching, so an author's pattern can't freeze the browser or the API (ReDoS, SEC-IN-2); no native addon, runs in both; rejects look-around and back-references, which the designer reports |
+| T45 | Design-system documentation and component tests | **Storybook** 10 (`@storybook/react-vite`, addons docs, a11y, vitest; Tailwind 4 through `@tailwindcss/vite`) in `packages/ui`; stories run as **Vitest browser tests** (`@vitest/browser-playwright`, headless Chromium) with axe as a gate | One story is the documentation, the accessibility check (in every theme and density) and the screenshot; the Vitest addon runs stories in a real browser without a running Storybook server |
+| T46 | Visual regression | **Playwright** 1.63 `toHaveScreenshot` over the built Storybook, in the pinned `mcr.microsoft.com/playwright:v1.63.0-noble` image (the `stories` CI job; `pnpm ci:local --jobs stories --update-visual` makes the baselines) | Screenshots stored in the repository, compared in one Linux image with the bundled Noto fonts, so they mean the same everywhere; no hosted screenshot service |
 
 ## 2. The full stack at a glance
 
@@ -71,7 +73,7 @@ registry or the project page on 2026-10-18.
 | Data | PostgreSQL 16 (ltree, pgcrypto, pg_trgm, btree_gist), Valkey 8, SeaweedFS |
 | Identity | Keycloak 26 (TOTP, passkeys) |
 | Edge and operations | Nginx, certbot, Docker Engine + Compose, cosign, sops + age, pgBackRest, restic + rest-server, Grafana Alloy, Prometheus, Loki, Tempo, Grafana, GlitchTip, ClamAV (Phase 1) |
-| Tests and CI | Vitest, Playwright + axe-core, Testcontainers, fast-check, otplib, k6, gitleaks, Trivy, Semgrep, GitHub Actions |
+| Tests and CI | Vitest (unit and browser mode), Storybook 10, Playwright + axe-core, Testcontainers, fast-check, otplib, k6, gitleaks, Trivy, Semgrep, GitHub Actions |
 
 ## 3. Considered and not chosen
 | Tool | Why not |
