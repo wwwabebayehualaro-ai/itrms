@@ -145,7 +145,7 @@
         {
           "id": "0.4c",
           "title": "Page templates, money and person controls, DataGrid extensions",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.4c-templates-money-datagrid",
           "commits": [
             "0fc8c05",
@@ -153,7 +153,8 @@
             "8331ff7",
             "50df666",
             "b36a3a4",
-            "ebab00f"
+            "ebab00f",
+            "ba813bd"
           ],
           "evidence": [
             "ci:local ebab00f on Linux (Docker 29.6.2), complete, 704 s: checks pass (turbo lint/typecheck/test/build 60/60; ui 64 passed + 2 high-contrast-only skips incl. 13 money tests with 3 fast-check properties and the MoneyInput render-loop, decimal-comma and paste regressions; web 63/63; pnpm audit clean after vite 8.3.3 for GHSA-587h-7wmj-h5pm), stories pass (234 stories x 7 modes = 1638 with axe and play functions; visual comparison 468/468 against the Linux baselines in 50df666, am + en), infra pass (dev stack + S3 contract 17/17), gitleaks pass (9 commits, no leaks), trivy pass (0 HIGH/CRITICAL, 484 packages), semgrep pass (225 rules, 749 files, 0 findings). Report .ci-local/ebab00f23b36/report.md.",
@@ -166,7 +167,7 @@
         {
           "id": "0.5",
           "title": "Extract the form engine and shared schemas",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
