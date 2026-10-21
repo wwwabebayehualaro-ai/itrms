@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-10-20",
+  "updated": "2026-10-21",
   "statuses": [
     "planned",
     "ready",
@@ -145,12 +145,23 @@
         {
           "id": "0.4c",
           "title": "Page templates, money and person controls, DataGrid extensions",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.4c-templates-money-datagrid",
+          "commits": [
+            "0fc8c05",
+            "a6eb622",
+            "8331ff7",
+            "50df666",
+            "b36a3a4",
+            "ebab00f"
+          ],
+          "evidence": [
+            "ci:local ebab00f on Linux (Docker 29.6.2), complete, 704 s: checks pass (turbo lint/typecheck/test/build 60/60; ui 64 passed + 2 high-contrast-only skips incl. 13 money tests with 3 fast-check properties and the MoneyInput render-loop, decimal-comma and paste regressions; web 63/63; pnpm audit clean after vite 8.3.3 for GHSA-587h-7wmj-h5pm), stories pass (234 stories x 7 modes = 1638 with axe and play functions; visual comparison 468/468 against the Linux baselines in 50df666, am + en), infra pass (dev stack + S3 contract 17/17), gitleaks pass (9 commits, no leaks), trivy pass (0 HIGH/CRITICAL, 484 packages), semgrep pass (225 rules, 749 files, 0 findings). Report .ci-local/ebab00f23b36/report.md.",
+            "Done when: list and record pages built only from templates (packages/ui/src/templates/Pages.stories.tsx: ListPage, ListPageNoResults, RecordPage from PageHeader, FilterBar, EmptyState, DescriptionList, KpiTile, WidgetCard and the list/record/form/dashboard/settings/print layouts); new components (templates, Controls/MoneyInput, PersonName, UnitBadge, Data/DataGrid features: KeyboardRows, BulkSelection, PinnedColumns, ResizableColumns) pass axe in all 7 modes with committed Linux baselines (50df666). Tests: MoneyInput never produces floats (fast-check properties in money.spec.tsx); keyboard row navigation and bulk selection in a browser (DataGrid features play functions).",
+            "Task verifier: ready with caveats (progress record was stale; ci:local pending, now complete). Reviewer (main...a6eb622): 1 high, 5 medium, 4 low; all fixed in 8331ff7 except one low moved to 0.13 (MoneyInput announces a refused keystroke)."
+          ],
           "blockers": [],
-          "notes": "Split from 0.4a on 2026-10-19."
+          "notes": "Split from 0.4a on 2026-10-19. 2026-10-20: components, DataGrid extensions, money tests, Templates/Pages and Data/DataGrid features stories committed in 0fc8c05. ui unit tests 59 passed + 2 skipped (8 new money tests incl. 3 fast-check properties). New stories pass in am/light/comfortable (12/12). Fixed while testing: the selection column was rebuilt each render, remounting the checkbox (focus lost); now a module-level definition reading labels from table meta. Stories for the other new components are being written (uncommitted); then all 7 modes, review and Linux baselines. 2026-10-20: reviewer (main...a6eb622): 1 high, 5 medium, 4 low. Fixed (uncommitted, story run pending): MoneyInput render loop on a value the parser refuses (negative, 10^17+); separators only between groups of three (12,50 no longer reads as 1,250; grouping in progress reads null + aria-invalid); paste drops a currency word; getRowId required with selection (union props); focus back to the row when the bulk bar unmounts; dark theme prints with light tokens (@media print in tokens.css); defaultColumn min 40/max 1000; a resize drag ending on the header no longer sorts; always-mounted live region for the selected count; meta.label names a resize handle. ui unit 64 passed + 2 skipped; ui and web typecheck and lint clean. 2026-10-21: ci:local on b36a3a4 failed only pnpm audit (vite 8.3.2, GHSA-587h-7wmj-h5pm, new advisory, dev server only); fixed with vite 8.3.3 (ebab00f, two-week rule). Two earlier full runs were stopped by Claude Code for low memory on the 16 GB workstation; WSL capped (memory 6 GB, 8 CPUs) and the run on ebab00f completed. Approved under the owner's standing instruction (2026-10-20: 'go a head and finish each and every thing - don't ask me to approve')."
         },
         {
           "id": "0.5",
@@ -1115,6 +1126,26 @@
     {
       "foundIn": "0.4a",
       "item": "run-stories.mjs: killing a hung mode SIGKILLs Vitest only; its Chromium (own process group on Linux, children on Windows) may outlive it and share the CPU with the retry. Kill the whole group (async spawn, detached, process.kill(-pid); taskkill /T on Windows). Reviewer, low.",
+      "movedTo": "0.26"
+    },
+    {
+      "foundIn": "0.4c",
+      "item": "Money parse/format helpers (packages/ui/src/money/money.ts) move to packages/schemas with the Money type; MoneyInput takes Money",
+      "movedTo": "0.5"
+    },
+    {
+      "foundIn": "0.4c",
+      "item": "DataGrid column chooser (show/hide/reorder columns, kept per user) alongside saved views and export",
+      "movedTo": "0.16"
+    },
+    {
+      "foundIn": "0.4c",
+      "item": "MoneyInput announces a refused keystroke or paste (aria-describedby message; needs a catalogue key)",
+      "movedTo": "0.13"
+    },
+    {
+      "foundIn": "0.4c",
+      "item": "ci:local: cap Vitest maxWorkers (stories) and turbo --concurrency (checks) so a full run fits a 16 GB workstation; three runs were stopped for low memory on 2026-10-20/21",
       "movedTo": "0.26"
     }
   ]

@@ -2,6 +2,7 @@
 // fetching and no business logic (code-structure.md §7): providers and screens live in the app.
 export { NotifyProvider, useNotify, useToastRef } from './notify/NotifyProvider';
 export { DataGrid } from './data/DataGrid';
+export type { DataGridLabels } from './data/DataGrid';
 export { confirmAction } from './feedback/confirmAction';
 export { InlineStatus } from './feedback/InlineStatus';
 export { LabeledField } from './form/LabeledField';
@@ -61,6 +62,51 @@ export { Pager } from './controls/Pager';
 export { IconButton } from './controls/IconButton';
 export { StatusBadge, toneOf } from './controls/StatusBadge';
 export type { Tone } from './controls/StatusBadge';
+export { PersonName, formatPersonName } from './controls/PersonName';
+export type { PersonNameForm, PersonNameParts, PersonNameProps } from './controls/PersonName';
+export { UnitBadge } from './controls/UnitBadge';
+export type { UnitBadgeProps } from './controls/UnitBadge';
+
+// ---- money: santim as bigint, typed and shown as Birr (ADR-0014); never a JS number
+export { MoneyInput, MoneyText } from './money/MoneyInput';
+export type { MoneyInputProps, MoneyTextProps } from './money/MoneyInput';
+export { formatBirr, parseBirr, MAX_BIRR_DIGITS } from './money/money';
+export type { ParsedBirr } from './money/money';
+
+// ---- page templates (design-system.md §7): every screen is built from one of these layouts and its parts
+export { PageHeader } from './templates/PageHeader';
+export type { PageHeaderProps } from './templates/PageHeader';
+export { FilterBar } from './templates/FilterBar';
+export type { ActiveFilter, FilterBarLabels, FilterBarProps } from './templates/FilterBar';
+export { EmptyState } from './templates/EmptyState';
+export type { EmptyStateProps } from './templates/EmptyState';
+export { DescriptionList } from './templates/DescriptionList';
+export type { DescriptionItem, DescriptionListProps } from './templates/DescriptionList';
+export { KpiTile } from './templates/KpiTile';
+export type { KpiDelta, KpiTileProps } from './templates/KpiTile';
+export { WidgetCard } from './templates/WidgetCard';
+export type { WidgetCardProps } from './templates/WidgetCard';
+export {
+    DashboardLayout,
+    FormLayout,
+    ListLayout,
+    RecordLayout,
+    SettingRow,
+    SettingsLayout,
+    SettingsSection
+} from './templates/layouts';
+export type {
+    DashboardLayoutProps,
+    FormLayoutProps,
+    ListLayoutProps,
+    RecordLayoutProps,
+    RecordTab,
+    SettingRowProps,
+    SettingsLayoutProps,
+    SettingsSectionProps
+} from './templates/layouts';
+export { PrintLayout } from './templates/PrintLayout';
+export type { PrintLayoutProps } from './templates/PrintLayout';
 
 // ---- hand-written forms: TanStack Form + Zod on the primitives (builder-made forms use the form engine instead)
 export { useZodForm, useAppForm, withForm, ZodForm, ServerErrorsProvider } from './forms/formKit';

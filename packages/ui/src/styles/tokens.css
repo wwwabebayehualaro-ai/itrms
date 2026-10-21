@@ -290,6 +290,75 @@
     --chart-8: oklch(0.5 0.14 45);
 }
 
+/* Paper is white: a page printed from the dark theme prints with the light tokens (backgrounds are not printed). */
+@media print {
+    .dark {
+        --background: oklch(1 0 0);
+        --foreground: var(--slate-950);
+        --card: oklch(1 0 0);
+        --card-foreground: var(--slate-950);
+        --popover: oklch(1 0 0);
+        --popover-foreground: var(--slate-950);
+        --primary: var(--brand-700);
+        --primary-foreground: oklch(1 0 0);
+        --secondary: var(--slate-100);
+        --secondary-foreground: var(--slate-900);
+        --muted: var(--slate-100);
+        --muted-foreground: var(--slate-600);
+        --accent: var(--brand-50);
+        --accent-foreground: var(--brand-800);
+        --destructive: var(--red-600);
+        --destructive-foreground: oklch(1 0 0);
+        --success: var(--green-700);
+        --success-foreground: oklch(1 0 0);
+        --warning: var(--amber-400);
+        --warning-foreground: var(--amber-950);
+        --info: var(--blue-600);
+        --info-foreground: oklch(1 0 0);
+        --border: var(--slate-200);
+        --input: var(--slate-500);
+        --ring: var(--brand-600);
+        --overlay: oklch(0.21 0.02 257 / 50%);
+        --sidebar: var(--slate-50);
+        --sidebar-foreground: var(--slate-800);
+        --sidebar-primary: var(--brand-700);
+        --sidebar-primary-foreground: oklch(1 0 0);
+        --sidebar-accent: var(--slate-200);
+        --sidebar-accent-foreground: var(--slate-950);
+        --sidebar-border: var(--slate-200);
+        --sidebar-ring: var(--brand-600);
+        --status-neutral: var(--slate-600);
+        --status-neutral-bg: var(--slate-100);
+        --status-neutral-fg: var(--slate-800);
+        --status-info: var(--blue-600);
+        --status-info-bg: var(--blue-50);
+        --status-info-fg: var(--blue-800);
+        --status-progress: var(--indigo-600);
+        --status-progress-bg: var(--indigo-50);
+        --status-progress-fg: var(--indigo-800);
+        --status-success: var(--green-600);
+        --status-success-bg: var(--green-50);
+        --status-success-fg: var(--green-800);
+        --status-warning: var(--amber-600);
+        --status-warning-bg: var(--amber-50);
+        --status-warning-fg: var(--amber-800);
+        --status-danger: var(--red-600);
+        --status-danger-bg: var(--red-50);
+        --status-danger-fg: var(--red-800);
+        --status-muted: var(--grey-600);
+        --status-muted-bg: var(--grey-100);
+        --status-muted-fg: var(--grey-700);
+        --chart-1: oklch(0.57 0.15 255);
+        --chart-2: oklch(0.57 0.126 160);
+        --chart-3: oklch(0.57 0.121 70);
+        --chart-4: oklch(0.57 0.15 25);
+        --chart-5: oklch(0.57 0.15 300);
+        --chart-6: oklch(0.57 0.095 195);
+        --chart-7: oklch(0.57 0.15 350);
+        --chart-8: oklch(0.57 0.15 45);
+    }
+}
+
 /* Component tier, per density; touch screens keep 44 px targets. */
 :root, [data-density='comfortable'] {
     --field-height: 2.5rem;

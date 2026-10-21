@@ -124,25 +124,30 @@ check, triangle, octagon, minus). Each tone has three tokens: a solid colour for
 | **Settings** | admin | sections with inherited/overridden indicators ("from region", "set here", reset) |
 | **Print** | application copy, receipts, reports | A4, Ethiopic fonts, header from branding, QR, no interactive parts |
 
+The layouts and their parts are in `packages/ui/src/templates` (task 0.4c; the case layout comes with the workflow in 0.20).
+They place what a page passes in and hold no data fetching. Their own words (search, clear filters, select all) are a
+`labels` prop with English defaults until the message catalogues exist (0.13). Panels size themselves by their container
+(`@container`), not the window, so the same record panel works in a page and in a side sheet.
+
 ## 8. Component inventory
 
 | Component | Status | Notes |
 |---|---|---|
 | Primitives (button, input, select, dialog, sheet, tabs, table, tooltip, …) | have | Re-tested with Ethiopic text |
-| `DataGrid` | **extend** | Column pinning and resizing, saved views, bulk selection and actions, export, keyboard row navigation, density |
+| `DataGrid` | **extended** (0.4c) | Done: column pinning and resizing (drag or arrow keys), bulk selection by row id across pages with a bulk-action bar (`getRowId` is required with selection; the count is announced in a live region), keyboard row navigation (one tab stop; arrows, Home, End; Enter opens, Space selects). Density follows the global density. Saved views and audited export come with the data viewer (0.16), the column chooser too |
 | `DatePicker` | **extend** | Ethiopian calendar mode (default), Gregorian toggle, typed entry `dd/mm/yyyy` in either calendar, min/max rules |
-| `MoneyInput` / `MoneyText` | **new** | Santim-safe (`bigint`), Birr formatting, never floats |
+| `MoneyInput` / `MoneyText` | **have** (0.4c) | Santim as `bigint`; typed Birr is read digit by digit (`parseBirr`), a third decimal is refused, never rounded; a separator counts only between groups of three digits, so a decimal comma ("12,50") is never read as 1,250; a paste drops a currency word; shown as "1,250.50" (`formatBirr`). Property-tested: no float ever comes out. The helpers move to `packages/schemas` with the `Money` type (0.5) |
 | `RegistryLookup` (person, vehicle, licence, association, organisation) | **new** | Async search in both scripts, shows key facts, creates a new record inline when allowed |
-| `PersonName` | **new** | Ethiopic + Latin names, the order of given, father and grandfather names |
-| `UnitBadge`, `UnitSwitcher` | **new** | Shows the org unit with its kind and grade |
+| `PersonName` | **have** (0.4c) | Ethiopic + Latin spellings, each tagged with its language; given, father and grandfather names (no surname); full or short form |
+| `UnitBadge`, `UnitSwitcher` | `UnitBadge` **have** (0.4c), `UnitSwitcher` **new** | Shows the org unit with its kind and grade, as words the caller passes (ADR-0026: no unit-type keys in UI code) |
 | `StatusBadge` | **extend** | The tones of §6, with icons |
 | `StepIndicator`, `Timeline`, `SlaClock` | **new** | Case template |
 | `FileDropzone` + scan status | **new** | Resumable uploads (Uppy), pending-scan/clean/infected states, camera capture on phones |
-| `PageHeader`, `FilterBar`, `EmptyState`, `DescriptionList`, `KpiTile`, `WidgetCard` | **new** | Templates |
+| `PageHeader`, `FilterBar`, `EmptyState`, `DescriptionList`, `KpiTile`, `WidgetCard` | **have** (0.4c) | Template parts; with `ListLayout`, `RecordLayout`, `FormLayout`, `DashboardLayout`, `SettingsLayout` (+ `SettingsSection`, `SettingRow`). `Templates/Pages` shows a list and a record page built only from them |
 | `CommandPalette` | **new** | cmdk (already a dependency) |
 | `EthiopicInput` (transliteration) | **new** | Phonetic Latin → Ethiopic typing in every text input and textarea (toggle with a key; a common SERA-style scheme). Many office PCs have no Amharic keyboard layout, so this is part of the base `Input`, not an add-on |
 | `QrCode`, `VerifyBadge` | **new** | Documents and verification |
-| `PrintLayout` | **new** | Shared by the browser print view and PDF templates |
+| `PrintLayout` | **have** (0.4c) | A4 page with letterhead, QR slot and footer; shared by the browser print view and PDF templates (0.23) |
 | `ConnectionStatus`, `SubmitQueue` | **new** | PWA states (ADR-0024) |
 | Charts (`ChartContainer`) | have | The existing data-visualisation rules (validated palette, a table view for every chart) |
 
@@ -174,7 +179,8 @@ check, triangle, octagon, minus). Each tone has three tokens: a solid colour for
 * Breakpoints: phone < 640, tablet < 1024, desktop ≥ 1024. Container queries are used in widgets and record panels, so
   they adapt to their slot, not the window.
 * The office desktop (1366×768) is the main target. Field screens (inspection, verification) are designed for phones first.
-* `@media print` styles for every template. PDFs reuse `PrintLayout` with the same tokens.
+* `@media print` styles for every template. Paper is white: printed from the dark theme, a page uses the light tokens
+  (generated in `tokens.css`). PDFs reuse `PrintLayout` with the same tokens.
 
 ## 12. Documentation, testing and governance
 * **Storybook** 10 in `packages/ui` (`pnpm --filter @itrms/ui storybook`). Every component has a story next to it

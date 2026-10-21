@@ -41,6 +41,9 @@ export function renderTokensCss(): string {
             block(SELECTORS[name as keyof typeof SELECTORS], semantic(tokens))
         ),
         '',
+        '/* Paper is white: a page printed from the dark theme prints with the light tokens (backgrounds are not printed). */',
+        block('@media print', [block(SELECTORS.dark, semantic(themes.light), '').replaceAll('\n', '\n    ')]),
+        '',
         '/* Component tier, per density; touch screens keep 44 px targets. */',
         block(":root, [data-density='comfortable']", component(densities.comfortable)),
         block("[data-density='compact']", component(densities.compact)),
