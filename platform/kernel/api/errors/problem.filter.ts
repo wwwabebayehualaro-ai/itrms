@@ -1,0 +1,113 @@
+/**
+ * Every failed request answers RFC 9457 `application/problem+json` (api-guidelines.md §4): `type`, `title` (in the person's
+ * language), `status`, `code`, `detail`, `errors[{ path, code, message }]` and `traceId` (the request id, which people quote
+ * to support). AppErrors say what they are; request validation is 422 `validation_failed` with one entry per bad value;
+ * framework errors keep their status but not their wording; anything else is 500 `internal_error` and only the log has the
+ * cause.
+ */
+import { Catch, HttpException, Inject, type ArgumentsHost, type ExceptionFilter } from '@nestjs/common';
+import type { FastifyReply, FastifyRequest } from 'fastify';
+import { ZodValidationException } from 'nestjs-zod';
+import { ZodError } from 'zod';
+
+import am from '../../messages/am.json';
+import en from '../../messages/en.json';
+import { currentContext, languageFrom, requestIdFrom, type Language } from '../context';
+import { LOGGER } from '../observability/tokens';
+import type { Logger } from '../observability/logger';
+import { AppError, RateLimitedError, type FieldError } from './app-error';
+
+export interface Problem {
+    type: string;
+    title: string;
+    status: number;
+    code: string;
+    detail?: string;
+    errors?: FieldError[];
+    traceId?: string;
+}
+
+const CATALOGUES: Partial<Record<Language, Record<string, string>>> = { am, en };
+
+/** The title in the person's language; English when a language lacks it (optional languages fall back). */
+const titleOf = (code: string, language: Language) => {
+    const key = `kernel.errors.${code}`;
+    return CATALOGUES[language]?.[key] ?? en[key as keyof typeof en] ?? key;
+};
+
+/** Statuses the framework raises itself (unknown route, body too large, malformed JSON) and the code each one reports. */
+const STATUS_CODES: Record<number, string> = {
+    400: 'invalid_request',
+    401: 'unauthenticated',
+    403: 'forbidden',
+    404: 'not_found',
+    405: 'method_not_allowed',
+    413: 'payload_too_large',
+    415: 'unsupported_media_type',
+    422: 'validation_failed',
+    429: 'rate_limited',
+    503: 'unavailable'
+};
+
+const fieldErrors = (error: ZodError): FieldError[] =>
+    error.issues.map((issue) => ({ path: issue.path.join('.'), code: issue.code, message: issue.message }));
+
+/**
+ * Fastify's own errors (bad JSON, body too large) keep their 4xx status; nothing else about them is shown. Any other error
+ * with a statusCode (an HTTP client's "upstream answered 401") is a failure of ours: a logged 500, never passed on.
+ */
+const clientStatusOf = (error: unknown): number | undefined => {
+    const e = error as { name?: unknown; code?: unknown; statusCode?: unknown } | null;
+    const fastify = e?.name === 'FastifyError' || (typeof e?.code === 'string' && e.code.startsWith('FST_'));
+    const status = e?.statusCode;
+    return fastify && typeof status === 'number' && status >= 400 && status < 500 ? status : undefined;
+};
+
+/** The problem body for anything thrown while serving a request. */
+export function problemOf(error: unknown, language: Language, traceId?: string): Problem {
+    const make = (status: number, code: string, extra: Partial<Problem> = {}): Problem => ({
+        type: `urn:itrms:problem:${code}`,
+        title: titleOf(code, language),
+        status,
+        code,
+        ...extra,
+        ...(traceId ? { traceId } : {})
+    });
+    if (error instanceof AppError)
+        return make(error.status, error.code, {
+            ...(error.detail ? { detail: error.detail } : {}),
+            ...(error.errors?.length ? { errors: error.errors } : {})
+        });
+    if (error instanceof ZodValidationException) {
+        const cause = error.getZodError();
+        return make(422, 'validation_failed', cause instanceof ZodError ? { errors: fieldErrors(cause) } : {});
+    }
+    const status = error instanceof HttpException ? error.getStatus() : clientStatusOf(error);
+    if (status !== undefined && status < 500) return make(status, STATUS_CODES[status] ?? 'invalid_request');
+    if (status === 503) return make(503, 'unavailable');
+    return make(500, 'internal_error');
+}
+
+@Catch()
+export class ProblemFilter implements ExceptionFilter {
+    constructor(@Inject(LOGGER) private readonly logger: Logger) {}
+
+    catch(error: unknown, host: ArgumentsHost) {
+        const http = host.switchToHttp();
+        const request = http.getRequest<FastifyRequest>();
+        const reply = http.getResponse<FastifyReply>();
+        const context = currentContext();
+        const problem = problemOf(
+            error,
+            context?.language ?? languageFrom(request.headers['accept-language']),
+            context?.requestId ?? requestIdFrom(request.id)
+        );
+        if (problem.status >= 500) this.logger.error({ err: error, status: problem.status }, 'request failed');
+        else this.logger.debug({ code: problem.code, status: problem.status }, 'request refused');
+        if (error instanceof RateLimitedError) void reply.header('retry-after', String(error.retryAfter));
+        void reply
+            .status(problem.status)
+            .header('content-type', 'application/problem+json; charset=utf-8')
+            .send(problem);
+    }
+}

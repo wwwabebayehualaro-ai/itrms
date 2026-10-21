@@ -186,12 +186,21 @@
         {
           "id": "0.6",
           "title": "API skeleton",
-          "status": "ready",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.6-api-skeleton",
+          "commits": [
+            "2e1c2a9",
+            "3f595aa",
+            "773169a"
+          ],
+          "evidence": [
+            "ci:local 773169a on Linux (Docker 29.6.2), complete: checks pass (turbo lint/typecheck/test/build --concurrency=3 60/60; @itrms/kernel 27/27, @itrms/api 3/3, form-engine 38/38, schemas 4/4, ui 64+2 skips, web 28/28; nest build of main/worker/migrate bundles; pnpm audit clean after the fastify 5.12.5 / glob 13.0.6 / picomatch 4.0.7 overrides), stories pass (1638 + visual 468/468), infra pass (dev stack + S3 contract 17/17), gitleaks pass (5 commits), trivy pass (0 HIGH/CRITICAL, 600 packages), semgrep pass (225 rules, 784 files, 0). Report .ci-local/773169a7e198/report.md.",
+            "Done when: the API starts in both modes: apps/api/src/app.spec.ts (HTTP on a real port: /healthz 200 with x-request-id; worker context without an HTTP adapter); built bundles run by hand: dist/main.cjs answers /healthz 200 and /nope 404 application/problem+json with traceId, /readyz, /metrics by route template; dist/worker.cjs logs 'worker ready' and stays up; dist/migrate.cjs exits 0; main with DATABASE_SYSTEM_URL or PORT=eighty exits 1 naming the variable without its value. Unknown route → 404 problem+json and a body failing its Zod schema → 422 validation_failed with errors[{path,code,message}] (platform/kernel/api/errors/problem.filter.spec.ts).",
+            "Tests: error filter (422 with errors[]; unexpected error → 500 internal_error without internals, cause logged masked; 409/429/400/413; another system's 401 → 500; request id only from trusted proxies), config failure (config.spec: every problem named, http refuses the system pool/signing key/migration owner, PG* refused everywhere, TRUSTED_PROXIES only addresses/CIDRs), health (health.spec: /healthz, /readyz 503 on a failing or hanging check, /metrics), logs (logger.spec: redaction at any depth/case, connection-string masking incl. error properties, non-Error values).",
+            "Task verifier: ready with caveats (ci:local, tech-stack listing, progress record: all addressed; T48 added). Reviewer (main...2e1c2a9): 0 critical/high, 4 medium + 2 low, all fixed in 3f595aa (trusted proxy list instead of trust-all; request id only from trusted proxies; full-depth log scrubbing; non-Error thrown values; mask regex; only FastifyError keeps a 4xx). CI memory: turbo --concurrency=3 in ci.yml (the default 10 ran the 6 GB container out of memory)."
+          ],
           "blockers": [],
-          "notes": "Split on 2026-10-21: the module manifest loader and the OpenAPI pipeline moved to 0.6a (scope too large for one session)."
+          "notes": "Split on 2026-10-21: the module manifest loader and the OpenAPI pipeline moved to 0.6a (scope too large for one session). 2026-10-21: 2e1c2a9 API skeleton (kernel config/errors/context/observability, apps/api main/worker/migrate bundled by Nest webpack + swc). Local: kernel 21/21, api 3/3, turbo 60/60, boundaries 0, test:tools 56/56; bundles started by hand (main 404 problem+json with traceId, worker ready, migrate exit 0, http refuses DATABASE_SYSTEM_URL). ci:local on 2e1c2a9 did not complete: the checks container ran out of memory (ui typecheck exit 137 after 30 min; turbo's default concurrency 10 in a 4-core 6 GB container) and Claude Code stopped the run for low host memory. Fix pending commit: --concurrency=3 in ci.yml and tools/ci-local.mjs; tech-stack T48 lists the API stack (verifier caveat). Verifier: ready with caveats (ci:local, tech-stack, progress record). Reviewer still running. 2026-10-21: reviewer (main...2e1c2a9): 0 critical/high, 4 medium + 2 low, all fixed in 3f595aa (TRUSTED_PROXIES list instead of trust-all; X-Request-Id only from trusted proxies; full-depth log scrubbing incl. error properties and case-insensitive secret keys; non-Error thrown values logged; connection-string mask for '/' and '@' without corrupting JSON; only FastifyError keeps a 4xx; PG* refused). Kernel 27/27, api 3/3. ci.yml and ci-local run turbo with --concurrency=3. Waiting for the owner's go to rerun ci:local (the last run was stopped for low host memory). Approved under the owner's standing instruction (2026-10-20: 'after merging it, just continue the next tasks don't ask my confirmation for anything') after the reviewer's findings were fixed and the complete local Linux CI record passed (773169a)."
         },
         {
           "id": "0.6a",

@@ -1,1 +1,21 @@
-{}
+{
+  "kernel.errors.invalid_request": "The request is not valid.",
+  "kernel.errors.invalid_query": "The filter or paging of the request is not valid.",
+  "kernel.errors.unauthenticated": "Please sign in.",
+  "kernel.errors.forbidden": "You are not allowed to do this.",
+  "kernel.errors.not_found": "Not found.",
+  "kernel.errors.feature_disabled": "This service is not available here.",
+  "kernel.errors.method_not_allowed": "This action is not available here.",
+  "kernel.errors.stale_version": "Someone else changed this record. Reload it and try again.",
+  "kernel.errors.idempotency_in_progress": "The same request is still being processed.",
+  "kernel.errors.invalid_transition": "This step is not possible in the current state.",
+  "kernel.errors.duplicate_reference": "This reference is already in use.",
+  "kernel.errors.payload_too_large": "The request is too large.",
+  "kernel.errors.unsupported_media_type": "This kind of content is not accepted.",
+  "kernel.errors.validation_failed": "Some values are not valid.",
+  "kernel.errors.idempotency_mismatch": "The request was sent again with different content.",
+  "kernel.errors.not_eligible": "The conditions for this are not met.",
+  "kernel.errors.rate_limited": "Too many requests. Please try again later.",
+  "kernel.errors.internal_error": "Something went wrong. Quote the reference to support.",
+  "kernel.errors.unavailable": "The service is temporarily unavailable. Please try again later."
+}

@@ -3,14 +3,37 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "NestJS 11 on Fastify composition root: HTTP, workers, migrations (NestJS arrives in task 0.6)",
+  "description": "NestJS 11 on Fastify composition root: the HTTP, worker and migrate processes",
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --passWithNoTests",
-    "build": "tsc -p tsconfig.build.json"
+    "test": "vitest run",
+    "build": "nest build",
+    "start": "node --enable-source-maps dist/main.cjs",
+    "start:worker": "node --enable-source-maps dist/worker.cjs",
+    "migrate": "node --enable-source-maps dist/migrate.cjs"
   },
   "devDependencies": {
-    "@itrms/config": "workspace:*"
+    "@itrms/config": "workspace:*",
+    "@nestjs/cli": "11.0.9",
+    "@nestjs/testing": "11.2.7",
+    "@swc/core": "1.16.13",
+    "@types/node": "24.19.1",
+    "swc-loader": "0.2.7"
+  },
+  "dependencies": {
+    "@itrms/kernel": "workspace:*",
+    "@nestjs/common": "11.2.7",
+    "@nestjs/core": "11.2.7",
+    "@nestjs/platform-fastify": "11.2.7",
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/exporter-prometheus": "0.223.0",
+    "@opentelemetry/sdk-metrics": "2.12.0",
+    "fastify": "5.12.5",
+    "nestjs-zod": "5.5.0",
+    "pino": "9.14.0",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "zod": "4.6.5"
   }
 }

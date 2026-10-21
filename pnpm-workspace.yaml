@@ -6,6 +6,8 @@ packages:
   - packages/*
   - '!modules/_template'
 allowBuilds:
+  # @swc/core: its install script checks the native binary (the API bundle and the Vitest preset compile with swc)
+  '@swc/core': true
   esbuild: true
   lefthook: true
   unrs-resolver: true
@@ -16,6 +18,12 @@ minimumReleaseAge: 20160
 overrides:
   seroval: 1.6.8
   seroval-plugins: 1.6.8
+  # fastify below 5.12.2 has four high advisories (validation, header and auth bypasses); @nestjs/platform-fastify 11.2.7
+  # pins 5.11.3. Remove when a NestJS 11 release depends on a fixed version.
+  fastify@5: 5.12.5
+  # @nestjs/cli (the API build, dev only) pins glob 11.0 (CLI command injection) and picomatch 4.0.3 (ReDoS)
+  '@nestjs/cli>glob': 13.0.6
+  picomatch@4: 4.0.7
 auditConfig:
   ignoreGhsas:
     # braces (via eslint-config-next → micromatch, lint time only): no fixed release yet. It expands the repository's own

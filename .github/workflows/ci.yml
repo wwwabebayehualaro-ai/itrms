@@ -40,7 +40,9 @@ jobs:
       - name: Formatting
         run: pnpm format:check
       - name: Lint, typecheck, test, build
-        run: pnpm turbo run lint typecheck test build
+        # at most 3 tasks at once: type-aware ESLint, tsc and the Nest/Vite builds take 1-2 GB each, and the default (10)
+        # runs a 4-core, 7-16 GB runner (and the local CI container, 6 GB) out of memory
+        run: pnpm turbo run lint typecheck test build --concurrency=3
       - name: Known vulnerabilities in dependencies (pnpm audit)
         run: pnpm audit --audit-level high
 

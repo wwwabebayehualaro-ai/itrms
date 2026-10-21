@@ -1,5 +1,9 @@
 {
   "extends": "@itrms/config/tsconfig/node.json",
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  },
   "include": ["src/**/*.ts", "*.ts"],
   "exclude": ["node_modules", "dist"]
 }

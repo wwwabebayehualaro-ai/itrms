@@ -93,7 +93,7 @@ export const CHECK_STEPS = [
     'pnpm boundaries',
     'pnpm test:tools',
     'pnpm format:check',
-    'pnpm turbo run lint typecheck test build',
+    'pnpm turbo run lint typecheck test build --concurrency=3',
     'pnpm audit --audit-level high'
 ];
 

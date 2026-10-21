@@ -252,8 +252,12 @@ Slices depend on ports, never on adapters. `app.module.ts` binds the implementat
 Internal packages are TypeScript source. Their `exports` point at `.ts` files, and they have no build step of their own.
 * The API is **bundled** by Nest's webpack builder with `swc-loader` (decorator metadata on). The `@itrms/*` packages are
   bundled in; npm packages stay external. Node never loads a `.ts` file at runtime.
+  One bundle per process (`dist/main.cjs`, `worker.cjs`, `migrate.cjs`). The externals load from `apps/api/node_modules`,
+  so `apps/api` declares every npm dependency of the workspace packages it bundles (pnpm installs them only for the package
+  that names them); `apps/api/src/externals.spec.ts` fails when one is missing.
 * Next.js compiles the packages it uses through `transpilePackages`.
-* Vitest uses `unplugin-swc` in the shared preset, so NestJS dependency injection works in tests as it does in the bundle.
+* NestJS code tests with the `@itrms/config/vitest/nest` preset (the shared preset plus `unplugin-swc`), so dependency
+  injection works in tests as it does in the bundle.
 
 This replaces `nest build -b swc` in tech-stack T25a. That builder compiles only the app's own source root, so it can't
 compile workspace packages.

@@ -1,1 +1,21 @@
-{}
+{
+  "kernel.errors.invalid_request": "ጥያቄው ትክክል አይደለም።",
+  "kernel.errors.invalid_query": "የጥያቄው ማጣሪያ ወይም ገጽ አሰጣጥ ትክክል አይደለም።",
+  "kernel.errors.unauthenticated": "እባክዎ ይግቡ።",
+  "kernel.errors.forbidden": "ይህን ለማድረግ ፈቃድ የለዎትም።",
+  "kernel.errors.not_found": "አልተገኘም።",
+  "kernel.errors.feature_disabled": "ይህ አገልግሎት እዚህ አይገኝም።",
+  "kernel.errors.method_not_allowed": "ይህ ተግባር እዚህ አይገኝም።",
+  "kernel.errors.stale_version": "ሌላ ሰው ይህን መዝገብ ቀይሮታል። መዝገቡን እንደገና ከፍተው ይሞክሩ።",
+  "kernel.errors.idempotency_in_progress": "ያው ጥያቄ አሁንም በሂደት ላይ ነው።",
+  "kernel.errors.invalid_transition": "ይህ እርምጃ አሁን ባለበት ሁኔታ አይቻልም።",
+  "kernel.errors.duplicate_reference": "ይህ መለያ ቁጥር ቀድሞ ጥቅም ላይ ውሏል።",
+  "kernel.errors.payload_too_large": "ጥያቄው በጣም ትልቅ ነው።",
+  "kernel.errors.unsupported_media_type": "ይህ ዓይነት ይዘት ተቀባይነት የለውም።",
+  "kernel.errors.validation_failed": "አንዳንድ እሴቶች ትክክል አይደሉም።",
+  "kernel.errors.idempotency_mismatch": "ጥያቄው በተለየ ይዘት እንደገና ተልኳል።",
+  "kernel.errors.not_eligible": "ለዚህ የሚያስፈልጉት መስፈርቶች አልተሟሉም።",
+  "kernel.errors.rate_limited": "በጣም ብዙ ጥያቄዎች ተልከዋል። እባክዎ ቆይተው እንደገና ይሞክሩ።",
+  "kernel.errors.internal_error": "ችግር ተፈጥሯል። ለድጋፍ ሰጪው የማጣቀሻ ቁጥሩን ይንገሩ።",
+  "kernel.errors.unavailable": "አገልግሎቱ ለጊዜው አይገኝም። እባክዎ ቆይተው እንደገና ይሞክሩ።"
+}
