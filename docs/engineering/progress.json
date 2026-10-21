@@ -206,11 +206,12 @@
         {
           "id": "0.6a",
           "title": "Module manifest loader and OpenAPI pipeline",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.6a-manifests-openapi",
           "commits": [
             "d8e52cf",
-            "04bebc2"
+            "04bebc2",
+            "851bd7f"
           ],
           "evidence": [
             "ci:local 04bebc2 on Linux (Docker 29.6.2), complete: checks pass (turbo --concurrency=3 60/60; module-sdk 9, kernel 35, api 7 incl. openapi.spec drift, api-client 1 schema.spec drift, schemas 5, form-engine 38, ui 64+2, web 28; check:slices with layer/dependsOn vs layers.cjs; test:tools; audit clean), stories pass (1638 + visual 468/468), infra pass (dev stack + S3 17/17), gitleaks pass (2 commits), trivy pass (0 HIGH/CRITICAL, 605 packages), semgrep pass (225 rules, 798 files, 0). Report .ci-local/04bebc23d5f0/report.md. ci:local d8e52cf also passed all 6 jobs.",
@@ -223,7 +224,7 @@
         {
           "id": "0.7",
           "title": "Database foundation and audit log",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
