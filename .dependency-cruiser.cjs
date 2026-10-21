@@ -162,6 +162,14 @@ module.exports = {
             to: { path: '^(platform|modules)/[^/]+/api/|(^|/)node_modules/@nestjs/|^@nestjs/' }
         },
         {
+            name: 'bff-only-in-server-routes',
+            comment:
+                'The BFF (sessions, tokens, the realm client) is server-only: route handlers under app/auth and app/api import it, never a page, a layout or browser code (ADR-0021).',
+            severity: 'error',
+            from: { path: '^apps/web/', pathNot: '^apps/web/(app/(auth|api)/|src/bff/|tests/)' },
+            to: { path: '^apps/web/src/bff/' }
+        },
+        {
             name: 'api-never-imports-ui',
             comment: 'API code never imports the design system, form-engine UI entries or any web entry.',
             severity: 'error',

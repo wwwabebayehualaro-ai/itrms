@@ -21,6 +21,11 @@ export interface Principal {
     /** The roles they hold in that unit. */
     roles: readonly string[];
     permissions: ReadonlySet<string>;
+    /**
+     * How many seconds ago the person last entered their factors: Keycloak's `iat - auth_time` plus the token's age. A
+     * refreshed token keeps the sign-in's `auth_time`, so this grows until they sign in again.
+     */
+    authAge?: number;
 }
 
 export interface RequestContext {

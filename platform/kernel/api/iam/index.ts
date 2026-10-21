@@ -20,4 +20,5 @@ export { permissionsOf, rolePermissions, type RolePermissions } from './roles';
 // granting and revoking are the IamController's alone (they hold the delegation rules); seeds use @itrms/kernel/seed
 export { assignmentsOf, type Grant, type RoleAssignment, type User } from './assignments';
 export { IamController } from './iam.controller';
+export { syncIdentity, type IdentityAdmin, type IdentityMember, type IdentityUnit } from './identity-admin';
 export * from './iam.table';

@@ -51,6 +51,8 @@ export default defineConfig([
     },
     {
         files: featureCode,
+        // the BFF's route handlers call Keycloak and the API from the server: they are the client's other end
+        ignores: ['app/api/**', 'app/auth/**/route.ts'],
         rules: {
             'no-restricted-imports': [
                 'error',

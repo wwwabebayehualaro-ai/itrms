@@ -40,7 +40,7 @@ let pg: TestPostgres;
 let owner: Client;
 let installer: Database;
 let http: NestFastifyApplication;
-let sign: (claims: JWTPayload, options?: { key?: 'other'; expiresIn?: string }) => Promise<string>;
+let sign: (claims: JWTPayload, options?: { key?: 'other'; expiresIn?: string; issuedAt?: number }) => Promise<string>;
 
 async function unitAt(code: string): Promise<OrgUnit> {
     return installer.scoped({}, async (tx) => {
@@ -71,7 +71,7 @@ beforeAll(async () => {
     sign = (claims, options = {}) =>
         new SignJWT(claims)
             .setProtectedHeader({ alg: 'RS256', kid: 'realm-key' })
-            .setIssuedAt()
+            .setIssuedAt(options.issuedAt)
             .setExpirationTime(options.expiresIn ?? '5m')
             .sign(options.key === 'other' ? other.privateKey : realm.privateKey);
 
@@ -107,7 +107,9 @@ afterAll(async () => {
 
 /** A Keycloak access token issued to the BFF. */
 const access = { iss: ISSUER, aud: AUDIENCE, typ: 'Bearer', azp: 'itrms-web' };
-const token = (sub: string) => sign({ sub, ...access });
+/** `authAge`: how long before the token was issued the person entered their factors. */
+const token = (sub: string, authAge = 0) =>
+    sign({ sub, ...access, auth_time: Math.floor(Date.now() / 1000) - authAge });
 async function call(
     method: 'GET' | 'POST',
     url: string,
@@ -288,6 +290,34 @@ describe('granting and revoking', () => {
         const ok = await grant('road_safety.officer');
         expect(ok.statusCode).toBe(201);
         expect((await grant('road_safety.officer')).statusCode).toBe(409);
+    });
+
+    it('needs a second factor entered in the last 5 minutes (step-up, RFC 9470)', async () => {
+        const damotGale = await unitAt('WOL-DAMOT-GALE');
+        const { rows } = await owner.query<{ id: string }>(
+            "SELECT id FROM kernel.users WHERE username = 'demo.damot.head'"
+        );
+        const body = { userId: rows[0]?.id, unitId: damotGale.id, roleKey: 'viewer', reason: 'reads the dashboards' };
+        const since = await mark();
+        const now = Math.floor(Date.now() / 1000);
+        const stale = [
+            await token(SUB.zoneAdmin, 301),
+            await sign({ sub: SUB.zoneAdmin, ...access }),
+            // fresh when issued, but the token itself is 4 minutes old: 7 minutes since the factors
+            await sign({ sub: SUB.zoneAdmin, ...access, auth_time: now - 420 }, { issuedAt: now - 240 })
+        ];
+        for (const old of stale) {
+            const res = await call('POST', '/api/v1/role-assignments', { token: old }, body);
+            expect(res.statusCode).toBe(401);
+            expect(res.json()).toMatchObject({ code: 'step_up_required' });
+            expect(res.headers['www-authenticate']).toBe(
+                'Bearer error="insufficient_user_authentication", max_age=300'
+            );
+        }
+        // asking for a fresh sign-in is not a denial
+        expect(await deniedEvents(since)).toEqual([]);
+        const fresh = await call('POST', '/api/v1/role-assignments', { token: await token(SUB.zoneAdmin, 299) }, body);
+        expect(fresh.statusCode).toBe(201);
     });
 
     it('takes a revoked assignment away on the next request', async () => {

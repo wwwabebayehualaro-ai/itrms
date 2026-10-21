@@ -261,6 +261,12 @@ Split on 2026-10-21 (scope too large for one session): the BFF sign-in moved to 
 - **Done when:** a user signs in with 2FA and acts in their unit only; tokens never reach browser JavaScript (checked in
   e2e); sign-out ends the Keycloak session.
 - **Tests:** an e2e sign-in with TOTP; the session store; the proxy adds the bearer token and never forwards cookies.
+- **Done (2026-10-21):** `apps/web/src/bff` + route handlers under `app/auth` and `app/api`, `proxy.ts` (CSP and
+  headers); the realm's flow is password + TOTP (required) + a registered passkey. A passkey *instead of* TOTP needs
+  Keycloak to set up an alternative it has not got yet, which it does not do: a follow-up. Sign-out ends the Keycloak
+  session server to server (an end-session redirect would carry the ID token in its URL). Step-up (`recentAuth`) on role
+  grants. Group sync runs from `seed identity` until the outbox (0.11). Nginx exposure rules in `infra/compose/nginx`
+  (mounted by the production profile, 0.26). The legacy engine e2e journeys are parked in `tests/e2e/legacy`.
 
 ### 0.10b Application shell
 - **Do** (ADR-0028, [navigation-and-menus.md](../platform/navigation-and-menus.md)):

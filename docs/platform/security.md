@@ -423,8 +423,10 @@ is possible whenever INSA or a bureau asks.
 | SEC-IN-2 (author patterns on RE2, bounded) | `safePattern.test.ts`; Semgrep's ReDoS rule for fixed patterns | now |
 | SEC-AC-5, SEC-AC-7 (roles from `role_assignments` only; grants within the unit type's catalogue) | `apps/api/test/integration/iam.int.spec.ts`: roles in the token ignored, per-unit roles, revocation at the next request, catalogue and `bureau_admin` checks | 0.10 |
 | SEC-LG-1 (denials on record) | `iam.int.spec.ts`: a missing permission and a unit without a role write `access.denied`; refusals before a unit is known go through `kernel.record_context_free_event` | 0.10 |
-| SEC-WB-1 (headers, CSP) | e2e header test | 0.10a |
-| SEC-SE-1…6 (sessions, CSRF) | BFF e2e tests | 0.10a |
+| SEC-WB-1 (headers, CSP) | `apps/web/proxy.ts` (nonce CSP with 'strict-dynamic', HSTS, frame-ancestors); asserted in `apps/web/tests/e2e/sign-in.spec.ts` (headers, nonced scripts, no CSP violation) and `tests/unit/bff.test.ts`; Nginx rules in `infra/compose/nginx` checked by `tools/exposure/nginx.test.mjs` | 0.10a |
+| SEC-SE-1…4, SEC-SE-6 (sessions, CSRF) | `apps/web/tests/e2e/sign-in.spec.ts`: HttpOnly `__Host-itrms_sid`, no token in the browser (every response watched), rotation on unit switch, CSRF token and Origin, sign-out and back-channel logout end the Keycloak and BFF sessions; `tests/unit/bff.test.ts`: sealed records, idle and absolute timeouts, indexes | 0.10a |
+| SEC-SE-5 (step-up) | `@Require(…, { recentAuth })` and `StepUpRequiredError` (RFC 9470); role grants and revocations need a factor in the last 5 minutes (`iam.int.spec.ts`) | 0.10a |
+| SEC-ID-1, SEC-ID-3 (second factor, breached passwords) | the realm's `itrms browser` flow (TOTP required) and `passwordBlacklist`; the e2e signs in with TOTP twice | 0.10a |
 | SEC-LG-1 (audit in the same transaction) | the audit test of every write path | 0.7 |
 | SEC-SC-1, SEC-SC-2 (secrets) | gitleaks; log-redaction test | 0.2; 0.6 |
 | SEC-DV-1 (dependencies) | pnpm settings, Renovate, `pnpm audit` | 0.2 |

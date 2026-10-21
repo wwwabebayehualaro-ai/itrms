@@ -86,5 +86,6 @@ describe('access (SEC-AC-1)', () => {
 
     it('accepts only resource:action permissions', () => {
         expect(() => Require('org_unit:read')).toThrow(/not a resource:action/);
+        expect(() => Require('thing:read', { recentAuth: 0 })).toThrow(/recentAuth/);
     });
 });

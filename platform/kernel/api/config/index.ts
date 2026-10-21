@@ -18,6 +18,8 @@ const RESTRICTED: Record<string, readonly ProcessKind[]> = {
     DATABASE_MIGRATE_URL: ['migrate'],
     // only worker-documents (task 0.23)
     DOCUMENT_SIGNING_KEY: [],
+    // the identity-admin service account: the worker's sync (outbox, task 0.11) and the seed, never the HTTP process
+    KEYCLOAK_ADMIN_CLIENT_SECRET: ['worker', 'migrate'],
     // libpq's own variables would hand every pool the same role behind the DATABASE_* URLs' backs: use the URLs
     ...Object.fromEntries(
         ['PGHOST', 'PGPORT', 'PGUSER', 'PGPASSWORD', 'PGDATABASE', 'PGSERVICE', 'PGPASSFILE'].map((k) => [k, []])
@@ -41,6 +43,14 @@ const common = {
 };
 
 const postgresUrl = z.url({ protocol: /^postgres(ql)?$/ });
+
+/** Keycloak's administration, for mirroring org units as groups (`@itrms/kernel/iam` IdentityAdmin); unset: no sync. */
+const identityAdmin = {
+    KEYCLOAK_URL: z.url({ protocol: /^https?$/ }).optional(),
+    KEYCLOAK_REALM: z.string().min(1).default('itrms'),
+    KEYCLOAK_ADMIN_CLIENT_ID: z.string().min(1).default('itrms-identity-admin'),
+    KEYCLOAK_ADMIN_CLIENT_SECRET: z.string().min(16, 'must be at least 16 characters').optional()
+};
 
 /**
  * The key masked audit columns are HMAC'd with (personal data proves a change without being stored). Without one they are
@@ -110,12 +120,14 @@ const schemas = {
         DATABASE_URL: postgresUrl,
         AUDIT_HMAC_KEY: auditKey,
         /** The system pool (role itrms_system, BYPASSRLS): outbox relay and sweeps (task 0.11). */
-        DATABASE_SYSTEM_URL: postgresUrl.optional()
+        DATABASE_SYSTEM_URL: postgresUrl.optional(),
+        ...identityAdmin
     }),
     migrate: z.object({
         ...common,
         /** The migration owner: role itrms_owner. */
-        DATABASE_MIGRATE_URL: postgresUrl
+        DATABASE_MIGRATE_URL: postgresUrl,
+        ...identityAdmin
     })
 };
 

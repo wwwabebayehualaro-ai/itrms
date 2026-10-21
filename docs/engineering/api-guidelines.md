@@ -32,6 +32,7 @@ snake_case, documented per module), `detail`, `errors[{ path, code, message }]`,
 |---|---|---|
 | 400 | `invalid_query` | unknown filter, bad paging |
 | 401 | `unauthenticated` | no or expired session |
+| 401 | `step_up_required` | the action needs a second factor entered recently (SEC-SE-5); `WWW-Authenticate: Bearer error="insufficient_user_authentication", max_age=…` (RFC 9470) |
 | 403 | `forbidden` | permission or unit scope (no detail about the record) |
 | 404 | `not_found` / `feature_disabled` | missing, outside scope, or module not available here |
 | 409 | `stale_version`, `idempotency_in_progress`, `invalid_transition`, `duplicate_reference` | conflicts |

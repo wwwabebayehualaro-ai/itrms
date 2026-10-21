@@ -28,6 +28,9 @@ class GrantDto extends createZodDto(
     })
 ) {}
 
+/** Granting and revoking roles need a second factor entered in the last 5 minutes (SEC-SE-5). */
+const STEP_UP = 300;
+
 function versionFrom(header: string | undefined): number {
     const match = /^\s*(?:W\/)?"?(\d{1,9})"?\s*$/.exec(header ?? '');
     if (!match)
@@ -77,7 +80,7 @@ export class IamController {
     }
 
     @Post('role-assignments')
-    @Require('role-assignment:grant')
+    @Require('role-assignment:grant', { recentAuth: STEP_UP })
     grant(@Body() body: GrantDto) {
         const ctx = requestDbContext();
         return this.db.scoped(ctx, async (tx) => {
@@ -92,7 +95,7 @@ export class IamController {
     }
 
     @Post('role-assignments/:id/revocations')
-    @Require('role-assignment:revoke')
+    @Require('role-assignment:revoke', { recentAuth: STEP_UP })
     revoke(@Param('id', ParseUUIDPipe) id: string, @Headers('if-match') ifMatch: string) {
         return this.db.scoped(requestDbContext(), (tx) => revokeRole(tx, currentPrincipal(), id, versionFrom(ifMatch)));
     }

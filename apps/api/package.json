@@ -15,6 +15,9 @@
     "migrate": "node --enable-source-maps dist/migrate.cjs",
     "seed:org": "node --enable-source-maps dist/seed.cjs org",
     "seed:users": "node --enable-source-maps dist/seed.cjs users",
+    "dev:start": "node --env-file=.env.http.local --enable-source-maps dist/main.cjs",
+    "dev:migrate": "node --env-file=.env.migrate.local --enable-source-maps dist/migrate.cjs",
+    "dev:seed": "node --env-file=.env.migrate.local --enable-source-maps dist/seed.cjs",
     "openapi": "nest build && node dist/openapi.cjs",
     "db:generate": "drizzle-kit generate"
   },

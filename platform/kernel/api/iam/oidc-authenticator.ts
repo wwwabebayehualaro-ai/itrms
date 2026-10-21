@@ -60,6 +60,7 @@ export class OidcAuthenticator implements Authenticator {
         if (!token) return undefined;
 
         let sub: string | undefined;
+        let authAge: number | undefined;
         try {
             const { payload } = await jwtVerify(token, this.keys, {
                 issuer: this.options.issuer,
@@ -73,6 +74,11 @@ export class OidcAuthenticator implements Authenticator {
             if (payload.typ !== 'Bearer' || typeof payload.azp !== 'string' || !clients.includes(payload.azp))
                 return undefined;
             sub = payload.sub;
+            // the factors' age when the token was issued (both from Keycloak's clock), plus the token's own age now; a
+            // host clock behind Keycloak's counts the token as new rather than ever making the factors younger
+            const authTime = payload.auth_time;
+            if (typeof authTime === 'number' && typeof payload.iat === 'number' && authTime <= payload.iat)
+                authAge = payload.iat - authTime + Math.max(0, Math.floor(Date.now() / 1000) - payload.iat);
         } catch {
             // expired, forged, another realm or another audience: not signed in
             return undefined;
@@ -100,7 +106,8 @@ export class OidcAuthenticator implements Authenticator {
             regionId: row.region_id,
             scopePath: row.scope_path,
             roles: row.roles,
-            permissions: permissionsOf(this.roles, row.roles)
+            permissions: permissionsOf(this.roles, row.roles),
+            authAge
         };
     }
 }

@@ -1,0 +1,7 @@
+{
+  "shell.errors.unauthenticated": "እባክዎ ይግቡ።",
+  "shell.errors.forbidden": "ይህን ለማድረግ ፈቃድ የለዎትም።",
+  "shell.errors.not_found": "አልተገኘም።",
+  "shell.errors.invalid_request": "ጥያቄው ትክክል አይደለም።",
+  "shell.errors.unavailable": "አገልግሎቱ ለጊዜው አይገኝም። እባክዎ ቆይተው እንደገና ይሞክሩ።"
+}

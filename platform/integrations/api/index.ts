@@ -1,2 +1,2 @@
-// Public entry of @itrms/integrations (code-structure.md §4). Empty until the slice gets its first feature.
-export {};
+// Public entry of @itrms/integrations (code-structure.md §4): adapters of kernel ports.
+export { KeycloakIdentityAdmin, type KeycloakAdminOptions } from './keycloak-identity-admin';

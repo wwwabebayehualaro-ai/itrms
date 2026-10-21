@@ -1,30 +1,17 @@
 import createClient from 'openapi-fetch';
 import { describe, expect, it, vi } from 'vitest';
 
-import { ApiError, createHttpClient, isApiError, joinUrl, type TokenSession } from '@/lib/api/http';
+import { ApiError, createHttpClient, isApiError, joinUrl, stepUpMaxAge, type BrowserSession } from '@/lib/api/http';
 
-/** A session like the real one: refresh() stores and returns a new access token. */
-function fakeSession(hasRefresh = true): TokenSession & { cleared: number } {
-    let token: string | null = 'old-token';
-    return {
-        cleared: 0,
-        getAccessToken: () => token,
-        hasRefreshToken: () => hasRefresh,
-        refresh: () => Promise.resolve((token = 'new-token')),
-        clear() {
-            this.cleared++;
-            token = null;
-        }
-    };
-}
+/** The BFF session as the page sees it: only the CSRF token. */
+const fakeSession = (csrf: string | null = 'csrf-1'): BrowserSession => ({ csrfToken: () => csrf });
 
-/** Fake transport: records each request; the first answers 401 when `expireFirst` is set. */
-function transport(opts: { expireFirst?: boolean; respond?: () => Response } = {}) {
+/** Fake transport: records each request. */
+function transport(opts: { respond?: () => Response } = {}) {
     const seen: Request[] = [];
     const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const req = new Request(input, init);
         seen.push(req);
-        if (opts.expireFirst && seen.length === 1) return new Response(null, { status: 401 });
         return opts.respond?.() ?? Response.json({ ok: true });
     });
     return { seen, fetch: fetch as unknown as typeof globalThis.fetch };
@@ -32,7 +19,6 @@ function transport(opts: { expireFirst?: boolean; respond?: () => Response } = {
 
 const make = (t: ReturnType<typeof transport>, session = fakeSession(), onUnauthenticated = vi.fn()) => ({
     http: createHttpClient({ baseUrl: 'http://api.test/v1/', session, fetch: t.fetch, onUnauthenticated }),
-    session,
     onUnauthenticated
 });
 const key = (r: Request) => r.headers.get('idempotency-key');
@@ -47,17 +33,6 @@ describe('HTTP client: idempotency', () => {
         expect(key(t.seen[0])).toBeTruthy();
         expect(key(t.seen[1])).not.toBe(key(t.seen[0]));
         expect(key(t.seen[2])).toBeNull();
-    });
-
-    it('keeps the key when it retries after refreshing an expired token', async () => {
-        const t = transport({ expireFirst: true });
-        const { http } = make(t);
-        await http.post('x', { a: 1 });
-        expect(t.seen).toHaveLength(2);
-        expect(key(t.seen[1])).toBe(key(t.seen[0]));
-        expect(t.seen[0].headers.get('authorization')).toBe('Bearer old-token');
-        expect(t.seen[1].headers.get('authorization')).toBe('Bearer new-token');
-        expect(await t.seen[1].json()).toEqual({ a: 1 }); // the body is sent again in full
     });
 
     it('makes a random UUID v4 key even where crypto.randomUUID is missing (plain-HTTP pages)', async () => {
@@ -83,32 +58,42 @@ describe('HTTP client: idempotency', () => {
     });
 });
 
-describe('HTTP client: authorisation', () => {
-    it('sends no token, never refreshes and never redirects for skipAuth calls', async () => {
+describe('HTTP client: the BFF session (ADR-0021)', () => {
+    it('never sends a token, and sends the CSRF token only on state-changing calls', async () => {
+        const t = transport();
+        const { http } = make(t);
+        await http.get('x');
+        await http.post('x', {});
+        await http.put('x', {});
+        await http.delete('x');
+        expect(t.seen.map((r) => r.headers.get('authorization'))).toEqual([null, null, null, null]);
+        expect(t.seen.map((r) => r.headers.get('x-csrf-token'))).toEqual([null, 'csrf-1', 'csrf-1', 'csrf-1']);
+    });
+
+    it('never redirects for skipAuth calls', async () => {
         const t = transport({ respond: () => new Response(null, { status: 401 }) });
-        const { http, session, onUnauthenticated } = make(t);
+        const { http, onUnauthenticated } = make(t);
         await expect(http.get('public', { skipAuth: true })).rejects.toMatchObject({ response: { status: 401 } });
-        expect(t.seen).toHaveLength(1);
-        expect(t.seen[0].headers.get('authorization')).toBeNull();
-        expect(session.cleared).toBe(0);
         expect(onUnauthenticated).not.toHaveBeenCalled();
     });
 
-    it('clears the session and asks for sign-in when the call is still unauthorised after the refresh', async () => {
+    it('asks for sign-in once on 401, without retrying', async () => {
         const t = transport({ respond: () => new Response(null, { status: 401 }) });
-        const { http, session, onUnauthenticated } = make(t);
-        await expect(http.get('x')).rejects.toBeInstanceOf(ApiError);
-        expect(t.seen).toHaveLength(2); // the original and one retry, never more
-        expect(session.cleared).toBe(1);
-        expect(onUnauthenticated).toHaveBeenCalledOnce();
-    });
-
-    it('asks for sign-in at once when there is no refresh token', async () => {
-        const t = transport({ respond: () => new Response(null, { status: 401 }) });
-        const { http, onUnauthenticated } = make(t, fakeSession(false));
+        const { http, onUnauthenticated } = make(t);
         await expect(http.get('x')).rejects.toBeInstanceOf(ApiError);
         expect(t.seen).toHaveLength(1);
-        expect(onUnauthenticated).toHaveBeenCalledOnce();
+        expect(onUnauthenticated).toHaveBeenCalledExactlyOnceWith(undefined);
+    });
+
+    it('asks for a fresh second factor when the API says so (RFC 9470)', async () => {
+        const challenge = 'Bearer error="insufficient_user_authentication", max_age=300';
+        const t = transport({
+            respond: () => new Response(null, { status: 401, headers: { 'WWW-Authenticate': challenge } })
+        });
+        const { http, onUnauthenticated } = make(t);
+        await expect(http.post('x', {})).rejects.toBeInstanceOf(ApiError);
+        expect(onUnauthenticated).toHaveBeenCalledExactlyOnceWith(300);
+        expect(stepUpMaxAge('Bearer error="invalid_token"')).toBeUndefined();
     });
 });
 
@@ -163,7 +148,7 @@ describe('HTTP client: requests and responses', () => {
             new Promise((_resolve, reject) =>
                 init?.signal?.addEventListener('abort', () => reject(init.signal?.reason))
             );
-        const http = createHttpClient({ session: fakeSession(), fetch: never });
+        const http = createHttpClient({ fetch: never });
         const { any, timeout } = AbortSignal;
         Object.assign(AbortSignal, { any: undefined, timeout: undefined });
         try {
@@ -181,7 +166,7 @@ describe('HTTP client: requests and responses', () => {
 
     it('does not open an upload whose signal is already aborted', async () => {
         const xhr = vi.fn(() => new XMLHttpRequest());
-        const http = createHttpClient({ session: fakeSession(), xhr });
+        const http = createHttpClient({ xhr });
         const controller = new AbortController();
         controller.abort();
         await expect(
@@ -226,13 +211,10 @@ describe('HTTP client: requests and responses', () => {
             new Promise((_resolve, reject) =>
                 init?.signal?.addEventListener('abort', () => reject(init.signal?.reason))
             );
-        const slow = createHttpClient({ session: fakeSession(), fetch: never });
+        const slow = createHttpClient({ fetch: never });
         await expect(slow.get('x', { timeout: 20 })).rejects.toMatchObject({ code: 'ECONNABORTED' });
 
-        const dead = createHttpClient({
-            session: fakeSession(),
-            fetch: () => Promise.reject(new TypeError('fetch failed'))
-        });
+        const dead = createHttpClient({ fetch: () => Promise.reject(new TypeError('fetch failed')) });
         await expect(dead.get('x')).rejects.toMatchObject({ code: 'ERR_NETWORK' });
     });
 
@@ -241,7 +223,7 @@ describe('HTTP client: requests and responses', () => {
             new Promise((_resolve, reject) =>
                 init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))
             );
-        const http = createHttpClient({ session: fakeSession(), fetch: never });
+        const http = createHttpClient({ fetch: never });
         const controller = new AbortController();
         const pending = http.get('x', { signal: controller.signal });
         controller.abort();
@@ -250,8 +232,8 @@ describe('HTTP client: requests and responses', () => {
 });
 
 describe('typed client (openapi-fetch) on the same path', () => {
-    it('adds the token and an Idempotency-Key, and refreshes on 401', async () => {
-        const t = transport({ expireFirst: true });
+    it('adds the CSRF token and an Idempotency-Key', async () => {
+        const t = transport();
         const { http } = make(t);
         const api = createClient<Record<string, never>>({
             baseUrl: 'http://api.test/v1',
@@ -265,8 +247,9 @@ describe('typed client (openapi-fetch) on the same path', () => {
             }
         );
         expect(res.response.status).toBe(200);
-        expect(t.seen).toHaveLength(2);
-        expect(t.seen[1].headers.get('authorization')).toBe('Bearer new-token');
-        expect(key(t.seen[1])).toBe(key(t.seen[0]));
+        expect(t.seen).toHaveLength(1);
+        expect(t.seen[0].headers.get('x-csrf-token')).toBe('csrf-1');
+        expect(key(t.seen[0])).toBeTruthy();
+        expect(await t.seen[0].json()).toEqual({ a: 1 });
     });
 });

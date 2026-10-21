@@ -1,0 +1,128 @@
+# ITRMS public exposure (architecture §12, security.md SEC-WB-1, SEC-ID-4; task 0.10a). The production Compose profile
+# (task 0.26) mounts this file as an nginx template: ${ITRMS_DOMAIN} is the installation's domain, the certificates come
+# from the bureau's CA or ACME. Two public hostnames:
+#   app.${ITRMS_DOMAIN}     the staff app (Next.js BFF) and Keycloak's sign-in pages under /auth/realms/itrms
+#   verify.${ITRMS_DOMAIN}  the public verification page (static), nothing else
+# Keycloak's admin console is never routed here: it runs on Keycloak's internal admin hostname (KC_HOSTNAME_ADMIN),
+# reached over the management network or a VPN only; /auth/admin and the master realm answer 404 publicly.
+
+limit_req_zone $binary_remote_addr zone=itrms_signin:10m rate=10r/m;
+limit_req_zone $binary_remote_addr zone=itrms_verify:10m rate=60r/m;
+limit_req_status 429;
+
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    '' close;
+}
+
+# any other Host (an IP address, a forged name): the connection is closed, so no app ever sees a Host it did not expect
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    ssl_reject_handshake on;
+    server_name _;
+    return 444;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name app.${ITRMS_DOMAIN} verify.${ITRMS_DOMAIN};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name app.${ITRMS_DOMAIN};
+
+    ssl_certificate /etc/nginx/tls/app.fullchain.pem;
+    ssl_certificate_key /etc/nginx/tls/app.key.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    server_tokens off;
+    client_max_body_size 25m;
+
+    # every response; the app adds its nonce-based Content-Security-Policy itself
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header X-Frame-Options "DENY" always;
+
+    # Keycloak's administration and its master realm are not public
+    location ^~ /auth/admin { return 404; }
+    location ^~ /auth/realms/master { return 404; }
+    # the realm's own account console: accounts are managed by the bureau (SEC-ID-5); 2FA set-up runs in the sign-in flow
+    location ^~ /auth/realms/itrms/account { return 404; }
+
+    # Keycloak's interactive sign-in (the form, the TOTP step), rate-limited per client address (SEC-ID-4). Only these:
+    # the BFF's token refreshes and the API's key fetches come from one container address for every user, and a limit
+    # on them would sign everyone out at once.
+    location ^~ /auth/realms/itrms/protocol/openid-connect/auth {
+        limit_req zone=itrms_signin burst=20 nodelay;
+        proxy_pass http://keycloak:8080;
+        include /etc/nginx/itrms-proxy.conf;
+    }
+    location ^~ /auth/realms/itrms/login-actions/ {
+        limit_req zone=itrms_signin burst=20 nodelay;
+        proxy_pass http://keycloak:8080;
+        include /etc/nginx/itrms-proxy.conf;
+    }
+    # the rest of the realm (token, keys, discovery, logout); Keycloak's brute-force detection still guards accounts
+    location ^~ /auth/realms/itrms/ {
+        proxy_pass http://keycloak:8080;
+        include /etc/nginx/itrms-proxy.conf;
+    }
+    location ^~ /auth/resources/ {
+        proxy_pass http://keycloak:8080;
+        include /etc/nginx/itrms-proxy.conf;
+    }
+
+    # the BFF's sign-in start: rate-limited like Keycloak's form
+    location = /auth/sign-in {
+        limit_req zone=itrms_signin burst=20 nodelay;
+        proxy_pass http://web:3000;
+        include /etc/nginx/itrms-proxy.conf;
+    }
+    # back-channel logout comes from Keycloak on the internal network, never from outside
+    location = /auth/backchannel-logout { return 404; }
+
+    # everything else is the staff app and its BFF (sign-in callback and sign-out under /auth, the API proxy under /api)
+    location / {
+        proxy_pass http://web:3000;
+        include /etc/nginx/itrms-proxy.conf;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name verify.${ITRMS_DOMAIN};
+
+    ssl_certificate /etc/nginx/tls/verify.fullchain.pem;
+    ssl_certificate_key /etc/nginx/tls/verify.key.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    server_tokens off;
+
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header X-Frame-Options "DENY" always;
+    # the static verify app (apps/verify): hash-based CSP written at its build (task 0.23)
+    add_header Content-Security-Policy "default-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'" always;
+
+    # nothing of the staff app, Keycloak or the API answers on this hostname
+    location ^~ /auth/ { return 404; }
+    location ^~ /api/ { return 404; }
+
+    location / {
+        limit_except GET HEAD { deny all; }
+        limit_req zone=itrms_verify burst=30 nodelay;
+        root /srv/verify;
+        try_files $uri $uri.html /index.html;
+    }
+}

@@ -45,7 +45,7 @@ function Logo({ className }: { className?: string }) {
 function UserMenu() {
     const user = useAuthStore((s) => s.user);
     const logout = useAuthStore((s) => s.logout);
-    const name = user?.full_name || user?.email || 'Account';
+    const name = user?.full_name || user?.username || 'Account';
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -64,14 +64,14 @@ function UserMenu() {
             <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel className="flex flex-col">
                     <span className="truncate">{user?.full_name || 'Signed in'}</span>
-                    <span className="truncate text-xs font-normal text-muted-foreground">{user?.email}</span>
+                    <span className="truncate text-xs font-normal text-muted-foreground">{user?.username}</span>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem disabled>
                     <UserRound />
                     {(user?.roles ?? []).join(', ') || 'No role'}
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => void logout()}>
+                <DropdownMenuItem onSelect={() => logout()}>
                     <LogOut />
                     Sign out
                 </DropdownMenuItem>

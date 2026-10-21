@@ -16,7 +16,7 @@ import { currentContext, languageFrom, requestIdFrom, type Language } from '../c
 import type { Database } from '../db/database';
 import { DATABASE, LOGGER } from '../observability/tokens';
 import type { Logger } from '../observability/logger';
-import { AppError, ForbiddenError, RateLimitedError, type FieldError } from './app-error';
+import { AppError, ForbiddenError, RateLimitedError, StepUpRequiredError, type FieldError } from './app-error';
 
 export interface Problem {
     type: string;
@@ -168,6 +168,12 @@ export class ProblemFilter implements ExceptionFilter {
         if (problem.status === 403)
             await this.recordDenial(error, `${request.method} ${request.routeOptions.url ?? request.url}`);
         if (error instanceof RateLimitedError) void reply.header('retry-after', String(error.retryAfter));
+        // RFC 9470: the client signs the person in again, no longer ago than max_age
+        if (error instanceof StepUpRequiredError)
+            void reply.header(
+                'www-authenticate',
+                `Bearer error="insufficient_user_authentication", max_age=${error.maxAge}`
+            );
         void reply
             .status(problem.status)
             .header('content-type', 'application/problem+json; charset=utf-8')

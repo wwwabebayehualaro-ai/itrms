@@ -2,6 +2,7 @@
   "kernel.errors.invalid_request": "The request is not valid.",
   "kernel.errors.invalid_query": "The filter or paging of the request is not valid.",
   "kernel.errors.unauthenticated": "Please sign in.",
+  "kernel.errors.step_up_required": "Confirm it is you: sign in again with your second factor.",
   "kernel.errors.forbidden": "You are not allowed to do this.",
   "kernel.errors.not_found": "Not found.",
   "kernel.errors.feature_disabled": "This service is not available here.",

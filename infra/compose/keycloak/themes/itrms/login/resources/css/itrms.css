@@ -1,0 +1,43 @@
+/* Noto Sans Ethiopic (SIL OFL 1.1, fonts/OFL.txt), served by Keycloak itself. */
+@font-face {
+    font-family: 'Noto Sans Ethiopic';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../fonts/noto-sans-ethiopic-ethiopic-400-normal.woff2') format('woff2');
+    unicode-range: U+0030-0039, U+1200-1399, U+2D80-2DDE, U+AB01-AB2E, U+1E7E0-1E7FF;
+}
+@font-face {
+    font-family: 'Noto Sans Ethiopic';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('../fonts/noto-sans-ethiopic-ethiopic-600-normal.woff2') format('woff2');
+    unicode-range: U+0030-0039, U+1200-1399, U+2D80-2DDE, U+AB01-AB2E, U+1E7E0-1E7FF;
+}
+@font-face {
+    font-family: 'Noto Sans Ethiopic';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../fonts/noto-sans-ethiopic-latin-400-normal.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122;
+}
+@font-face {
+    font-family: 'Noto Sans Ethiopic';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('../fonts/noto-sans-ethiopic-latin-600-normal.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122;
+}
+
+:root {
+    --pf-v5-global--FontFamily--text: 'Noto Sans Ethiopic', system-ui, sans-serif;
+    --pf-v5-global--FontFamily--heading: 'Noto Sans Ethiopic', system-ui, sans-serif;
+}
+body,
+input,
+button {
+    font-family: 'Noto Sans Ethiopic', system-ui, sans-serif;
+}

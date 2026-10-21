@@ -1,6 +1,8 @@
 /**
- * The app's HTTP core (replaces axios, tech-stack T10). One authorisation path for every call: the bearer token, an
- * Idempotency-Key on every POST, one transparent refresh and retry on 401 (with the same key), then the sign-in redirect.
+ * The app's HTTP core (replaces axios, tech-stack T10). The browser talks only to the BFF on its own origin (ADR-0021): the
+ * session is an HttpOnly cookie the browser sends by itself, and this code never sees a token. One path for every call:
+ * the CSRF token on every state-changing call (SEC-SE-6), an Idempotency-Key on every POST, and on 401 the sign-in
+ * redirect (with `max_age` when the API asks for a recent second factor, RFC 9470).
  *
  * Two senders share it: `fetch` for everything, and XMLHttpRequest only when a caller wants upload progress (fetch cannot
  * report it). The typed openapi-fetch client (`client.ts`) goes through the same path.
@@ -20,7 +22,7 @@ export interface RequestOptions {
     responseType?: ResponseType;
     /** Milliseconds; the call fails with code ECONNABORTED. */
     timeout?: number;
-    /** Send anonymously: no token, no refresh, no sign-in redirect (public data sources, sign-in itself). */
+    /** Never redirect to sign-in on 401 (public data sources). */
     skipAuth?: boolean;
     onUploadProgress?: (progress: { loaded: number; total?: number }) => void;
 }
@@ -59,18 +61,19 @@ export const isApiError = (error: unknown): error is ApiError =>
     error instanceof ApiError ||
     (!!error && typeof error === 'object' && (error as { isApiError?: unknown }).isApiError === true);
 
-export interface TokenSession {
-    getAccessToken(): string | null;
-    hasRefreshToken(): boolean;
-    refresh(): Promise<string | null>;
-    clear(): void;
+export interface BrowserSession {
+    /** The BFF's CSRF token (a readable cookie, double-submitted in a header); null before sign-in. */
+    csrfToken(): string | null;
 }
 
 export interface HttpDeps {
     baseUrl?: string;
-    session: TokenSession;
-    /** Called once a call is still unauthorised after the refresh (the browser goes to sign-in). */
-    onUnauthenticated?: () => void;
+    session?: BrowserSession;
+    /**
+     * A call answered 401: the session is gone, or (with `maxAge`) the action needs a second factor entered in the last
+     * `maxAge` seconds. The browser goes to sign-in.
+     */
+    onUnauthenticated?: (maxAge?: number) => void;
     fetch?: typeof fetch;
     xhr?: () => XMLHttpRequest;
     newKey?: () => string;
@@ -201,55 +204,60 @@ async function readBody(res: Response, responseType: ResponseType): Promise<unkn
     return text;
 }
 
-export function createHttpClient(deps: HttpDeps): HttpClient {
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+/** `max_age` of an RFC 9470 step-up challenge (`Bearer error="insufficient_user_authentication", max_age=300`). */
+export function stepUpMaxAge(challenge: string | null | undefined): number | undefined {
+    if (!challenge?.includes('insufficient_user_authentication')) return undefined;
+    const match = /max_age=(\d{1,6})/.exec(challenge);
+    return match ? Number(match[1]) : undefined;
+}
+
+export function createHttpClient(deps: HttpDeps = {}): HttpClient {
     const doFetch = deps.fetch ?? ((input, init) => fetch(input, init));
     const newKey = deps.newKey ?? defaultKey;
 
-    /** Runs `send` with the current token; on 401 refreshes once and sends again; still 401 → sign-in. */
+    /** Runs `send`; a 401 sends the browser to sign-in (the BFF has already refreshed what it could). */
     async function authorized<R extends { status: number }>(
         skipAuth: boolean,
-        send: (token: string | null) => Promise<R>
+        send: () => Promise<R>,
+        challenge: (result: R) => string | null
     ) {
-        const first = await send(skipAuth ? null : deps.session.getAccessToken());
-        if (first.status !== 401 || skipAuth) return first;
-        if (deps.session.hasRefreshToken()) {
-            const token = await deps.session.refresh();
-            if (token) {
-                const second = await send(token);
-                if (second.status !== 401) return second;
-            }
-        }
-        deps.session.clear();
-        deps.onUnauthenticated?.();
-        return first;
+        const result = await send();
+        if (result.status === 401 && !skipAuth) deps.onUnauthenticated?.(stepUpMaxAge(challenge(result)));
+        return result;
+    }
+
+    /** The CSRF header for a state-changing call. */
+    function csrfHeaders(method: string, headers: Headers) {
+        const token = SAFE_METHODS.has(method) ? null : (deps.session?.csrfToken() ?? null);
+        if (token) headers.set('x-csrf-token', token);
+        return headers;
     }
 
     /**
-     * URL, headers (without the token) and body, built once before anything is sent: a bad parameter, header or body
-     * throws here as itself instead of being reported as a network error, and every attempt sends the same bytes.
+     * URL, headers and body, built once before anything is sent: a bad parameter, header or body throws here as itself
+     * instead of being reported as a network error.
      */
-    function prepare(config: RequestConfig, key: string | null) {
+    function prepare(config: RequestConfig, method: string, key: string | null) {
         const url = joinUrl(deps.baseUrl, config.url, config.params);
         const headers = new Headers(config.headers);
         if (!headers.has('accept')) headers.set('accept', 'application/json');
         if (key && !headers.has('idempotency-key')) headers.set('idempotency-key', key);
         const body = encodeBody(config.data, headers);
-        const withToken = (token: string | null) => {
-            const h = new Headers(headers);
-            if (token) h.set('authorization', `Bearer ${token}`);
-            return h;
-        };
-        return { url, body, withToken };
+        return { url, body, headers: csrfHeaders(method, headers) };
     }
 
     async function viaFetch(config: RequestConfig, method: string, key: string | null): Promise<HttpResponse> {
-        const { url, body, withToken } = prepare(config, key);
+        const { url, body, headers } = prepare(config, method, key);
         const { signal, timedOut, done } = requestSignal(config.signal, config.timeout);
         let response: HttpResponse;
         let ok: boolean;
         try {
-            const res = await authorized(!!config.skipAuth, (token) =>
-                doFetch(url, { method, headers: withToken(token), body, signal })
+            const res = await authorized(
+                !!config.skipAuth,
+                () => doFetch(url, { method, headers, body, signal }),
+                (r) => r.headers.get('www-authenticate')
             );
             ok = res.ok;
             response = {
@@ -277,11 +285,11 @@ export function createHttpClient(deps: HttpDeps): HttpClient {
     /** XMLHttpRequest, only for upload progress. Same authorisation path and the same result shape. */
     async function viaXhr(config: RequestConfig, method: string, key: string | null): Promise<HttpResponse> {
         const makeXhr = deps.xhr ?? (() => new XMLHttpRequest());
-        const { url, body, withToken } = prepare(config, key);
+        const { url, body, headers: prepared } = prepare(config, method, key);
         const signal = config.signal;
         const result = await authorized(
             !!config.skipAuth,
-            (token) =>
+            () =>
                 new Promise<{ status: number; xhr: XMLHttpRequest }>((resolve, reject) => {
                     if (signal?.aborted) return reject(abortError());
                     const xhr = makeXhr();
@@ -294,7 +302,7 @@ export function createHttpClient(deps: HttpDeps): HttpClient {
                         fn();
                     };
                     xhr.open(method, url);
-                    withToken(token).forEach((v, k) => xhr.setRequestHeader(k, v));
+                    prepared.forEach((v, k) => xhr.setRequestHeader(k, v));
                     xhr.responseType = config.responseType === 'blob' ? 'blob' : 'text';
                     if (config.timeout) xhr.timeout = config.timeout;
                     xhr.upload.onprogress = (e) =>
@@ -307,7 +315,8 @@ export function createHttpClient(deps: HttpDeps): HttpClient {
                     xhr.ontimeout = settle(() => reject(new ApiError('The request timed out', 'ECONNABORTED', config)));
                     signal?.addEventListener('abort', onAbort, { once: true });
                     xhr.send(body ?? null);
-                })
+                }),
+            (r) => r.xhr.getResponseHeader('www-authenticate')
         );
         const { xhr, status } = result;
         const headers = Object.fromEntries(
@@ -342,7 +351,6 @@ export function createHttpClient(deps: HttpDeps): HttpClient {
 
     function request<T>(config: RequestConfig): Promise<HttpResponse<T>> {
         const method = (config.method ?? 'GET').toUpperCase();
-        // One key per call, decided before the first attempt, so the retry after a refresh sends the same key.
         const key = method === 'POST' ? newKey() : null;
         const send = config.onUploadProgress ? viaXhr : viaFetch;
         return send(config, method, key) as Promise<HttpResponse<T>>;
@@ -357,13 +365,13 @@ export function createHttpClient(deps: HttpDeps): HttpClient {
         patch: (url, data, options) => request({ ...options, url, data, method: 'PATCH' }),
         authFetch(req) {
             const key = req.method === 'POST' ? newKey() : null;
-            return authorized(false, (token) => {
-                const attempt = req.clone();
-                const headers = new Headers(attempt.headers);
-                if (token) headers.set('authorization', `Bearer ${token}`);
-                if (key && !headers.has('idempotency-key')) headers.set('idempotency-key', key);
-                return doFetch(new Request(attempt, { headers }));
-            });
+            const headers = csrfHeaders(req.method.toUpperCase(), new Headers(req.headers));
+            if (key && !headers.has('idempotency-key')) headers.set('idempotency-key', key);
+            return authorized(
+                false,
+                () => doFetch(new Request(req, { headers })),
+                (r) => r.headers.get('www-authenticate')
+            );
         }
     };
 }

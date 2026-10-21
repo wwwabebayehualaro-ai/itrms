@@ -33,6 +33,7 @@ const EXPECTED = {
     'packages/form-engine/src/core/bad-react.ts': 'form-engine-core-is-ui-free',
     'platform/forms/api/bad-app.ts': 'no-importing-apps',
     'apps/web/src/bad-other-app.ts': 'no-app-to-app',
+    'apps/web/src/bad-bff.ts': 'bff-only-in-server-routes',
     'packages/testing/src/bad-cycle-a.ts': 'no-circular',
     'packages/module-sdk/src/bad-imports-ui.ts': 'tool-packages-import-schemas-only',
     'apps/api/src/bad-internal.ts': 'apps-use-public-entries',

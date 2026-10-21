@@ -9,6 +9,7 @@
  * every route that needs a caller answers 401, so nothing is open by accident.
  */
 import {
+    applyDecorators,
     Inject,
     Injectable,
     Optional,
@@ -24,18 +25,32 @@ import type { FastifyRequest } from 'fastify';
 
 import { currentContext, type Principal } from '../context';
 import type { DbContext } from '../db/types';
-import { ForbiddenError, UnauthenticatedError } from '../errors';
+import { ForbiddenError, StepUpRequiredError, UnauthenticatedError } from '../errors';
 
 const REQUIRE = 'itrms:require';
 const PUBLIC = 'itrms:public';
 const SIGNED_IN = 'itrms:signed-in';
+const RECENT_AUTH = 'itrms:recent-auth';
 
 export type { Principal };
 
+export interface RequireOptions {
+    /**
+     * Step-up (security.md SEC-SE-5): the second factor must have been entered at most this many seconds before the
+     * token was issued. 300 for granting roles, revealing data and security settings; 1800 for a clerk's money and
+     * issuing batches.
+     */
+    recentAuth?: number;
+}
+
 /** The permission a handler (or every handler of a controller) needs: `resource:action` (`org-unit:move`). */
-export function Require(permission: string): MethodDecorator & ClassDecorator {
+export function Require(permission: string, options: RequireOptions = {}): MethodDecorator & ClassDecorator {
     if (!PERMISSION.test(permission)) throw new Error(`@Require('${permission}'): not a resource:action permission`);
-    return SetMetadata(REQUIRE, permission);
+    const { recentAuth } = options;
+    if (recentAuth === undefined) return SetMetadata(REQUIRE, permission);
+    if (!Number.isInteger(recentAuth) || recentAuth <= 0)
+        throw new Error(`@Require('${permission}'): recentAuth must be a positive number of seconds`);
+    return applyDecorators(SetMetadata(REQUIRE, permission), SetMetadata(RECENT_AUTH, recentAuth));
 }
 
 /** A handler for any signed-in caller acting for a unit (their own workspace, their preferences). */
@@ -77,6 +92,9 @@ export class AccessGuard implements CanActivate {
         // the problem filter writes the refusal to the audit log
         if (permission && !principal.permissions.has(permission))
             throw new ForbiddenError({ audit: { reason: 'missing_permission', permission } });
+        const recentAuth = this.reflector.getAllAndOverride<number | undefined>(RECENT_AUTH, targets);
+        if (recentAuth !== undefined && !(principal.authAge !== undefined && principal.authAge <= recentAuth))
+            throw new StepUpRequiredError(recentAuth);
         return true;
     }
 }

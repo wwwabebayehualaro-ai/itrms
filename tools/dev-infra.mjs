@@ -11,12 +11,13 @@
 // idempotent. Only `up` ever writes secrets.
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { appendFileSync, chmodSync, existsSync, readFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { CreateBucketCommand, HeadBucketCommand, S3Client } from '@aws-sdk/client-s3';
+import { parse as parseYaml } from 'yaml';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const COMPOSE = join(ROOT, 'infra', 'compose', 'docker-compose.yml');
@@ -29,6 +30,10 @@ export const SECRET_KEYS = [
     'KEYCLOAK_ADMIN_PASSWORD',
     // the itrms-web client's secret (the BFF, task 0.10a)
     'KEYCLOAK_WEB_CLIENT_SECRET',
+    // the itrms-identity-admin service account (org units → groups, task 0.10a)
+    'KEYCLOAK_IDENTITY_ADMIN_SECRET',
+    // the BFF's AES-256-GCM session key (32 bytes, hex)
+    'BFF_SESSION_KEY',
     'S3_ACCESS_KEY',
     'S3_SECRET_KEY',
     'GLITCHTIP_DB_PASSWORD',
@@ -112,7 +117,7 @@ export function ensureEnv(file = ENV_FILE) {
     const missing = SECRET_KEYS.filter((k) => !env[k]);
     if (missing.length) {
         const lines = missing.map((k) => {
-            env[k] = randomBytes(k === 'S3_ACCESS_KEY' ? 10 : 24).toString('hex');
+            env[k] = randomBytes(k === 'S3_ACCESS_KEY' ? 10 : k === 'BFF_SESSION_KEY' ? 32 : 24).toString('hex');
             return `${k}=${env[k]}`;
         });
         const header = existed
@@ -266,53 +271,213 @@ async function keycloakToken(env) {
 }
 
 /**
- * The ITRMS realm from infra/compose/keycloak/realm-itrms.json (settings, password and brute-force policy, the itrms-web and
- * itrms-api clients), brought up to date on every start, TOTP required of every new user, and generated dev users.
+ * The authentication flows of the realm file (a top-level flow, its sub-flows and their executions), created in an
+ * existing realm: a realm update does not import flows. A flow that exists is left as it is.
+ */
+async function ensureFlows(env, token, flows) {
+    const base = '/admin/realms/itrms/authentication';
+    const byAlias = new Map(flows.map((f) => [f.alias, f]));
+    // what a flow should look like: each execution's level, authenticator (or sub-flow) and requirement
+    const wanted = (flow, level = 0) =>
+        [...flow.authenticationExecutions]
+            .sort((a, b) => a.priority - b.priority)
+            .flatMap((e) => {
+                const sub = e.authenticatorFlow ? byAlias.get(e.flowAlias) : undefined;
+                const row = `${level}:${sub ? sub.alias : e.authenticator}:${e.requirement}`;
+                return sub ? [row, ...wanted(sub, level + 1)] : [row];
+            });
+    const existing = new Map(
+        (await (await keycloak(env, `${base}/flows`, { token })).json()).map((f) => [f.alias, f.id])
+    );
+    for (const flow of flows.filter((f) => f.topLevel && existing.has(f.alias))) {
+        const path = `${base}/flows/${encodeURIComponent(flow.alias)}/executions`;
+        const actual = (await (await keycloak(env, path, { token })).json()).map(
+            (e) => `${e.level}:${e.authenticationFlow ? e.displayName : e.providerId}:${e.requirement}`
+        );
+        if (actual.join('|') === wanted(flow).join('|')) continue;
+        // changed in the realm file: unbind it, delete it with its sub-flows, and build it again below
+        await keycloak(env, '/admin/realms/itrms', { token, method: 'PUT', body: { browserFlow: 'browser' } });
+        await keycloak(env, `${base}/flows/${existing.get(flow.alias)}`, { token, method: 'DELETE' });
+        existing.delete(flow.alias);
+        console.log(`  flow "${flow.alias}" changed: replaced`);
+    }
+    for (const flow of flows.filter((f) => f.topLevel && !existing.has(f.alias))) {
+        await keycloak(env, `${base}/flows`, {
+            token,
+            method: 'POST',
+            body: {
+                alias: flow.alias,
+                description: flow.description,
+                providerId: 'basic-flow',
+                topLevel: true,
+                builtIn: false
+            }
+        });
+        const fill = async (parent) => {
+            const path = `${base}/flows/${encodeURIComponent(parent.alias)}/executions`;
+            for (const e of [...parent.authenticationExecutions].sort((a, b) => a.priority - b.priority)) {
+                const sub = e.authenticatorFlow ? byAlias.get(e.flowAlias) : undefined;
+                await keycloak(env, sub ? `${path}/flow` : `${path}/execution`, {
+                    token,
+                    method: 'POST',
+                    body: sub
+                        ? {
+                              alias: sub.alias,
+                              description: sub.description,
+                              provider: 'registration-page-form',
+                              type: 'basic-flow'
+                          }
+                        : { provider: e.authenticator }
+                });
+                // the new execution is the last one of this flow's own level
+                const listed = await (await keycloak(env, path, { token })).json();
+                const level = Math.min(...listed.map((x) => x.level));
+                const added = listed.filter((x) => x.level === level).at(-1);
+                await keycloak(env, path, { token, method: 'PUT', body: { ...added, requirement: e.requirement } });
+                if (sub) await fill(sub);
+            }
+        };
+        await fill(flow);
+        console.log(`  flow "${flow.alias}" created`);
+    }
+}
+
+/** The generated demo users of the API's seed (apps/api/seed/users/*.demo.yaml), with the same account ids. */
+function demoUsers() {
+    const dir = join(ROOT, 'apps', 'api', 'seed', 'users');
+    return readdirSync(dir)
+        .filter((f) => f.endsWith('.demo.yaml'))
+        .flatMap((f) => parseYaml(readFileSync(join(dir, f), 'utf8')).users);
+}
+
+/**
+ * The ITRMS realm from infra/compose/keycloak/realm-itrms.json (settings, password and brute-force policy, the sign-in
+ * flow with a required second factor, the clients), brought up to date on every start; the dev users and the demo users
+ * of the API's seed (same ids as their ITRMS users), each asked to set up TOTP at the first sign-in.
  */
 async function seedKeycloak(env) {
     const token = await keycloakToken(env);
     const realm = JSON.parse(readFileSync(join(ROOT, 'infra', 'compose', 'keycloak', 'realm-itrms.json'), 'utf8'));
-    const clients = realm.clients.map((c) =>
-        c.clientId === 'itrms-web' ? { ...c, secret: env.KEYCLOAK_WEB_CLIENT_SECRET } : c
-    );
-    const settings = { ...realm, clients: undefined, displayName: 'ITRMS (development)' };
+    const secrets = {
+        'itrms-web': env.KEYCLOAK_WEB_CLIENT_SECRET,
+        'itrms-identity-admin': env.KEYCLOAK_IDENTITY_ADMIN_SECRET
+    };
+    const clients = realm.clients.map((c) => (secrets[c.clientId] ? { ...c, secret: secrets[c.clientId] } : c));
+    const { authenticationFlows, requiredActions, browserFlow, ...rest } = realm;
+    const settings = { ...rest, clients: undefined, displayName: 'ITRMS (development)' };
     if ((await keycloak(env, '/admin/realms/itrms', { token })).status === 404) {
-        await keycloak(env, '/admin/realms', { token, method: 'POST', body: { ...settings, clients } });
+        await keycloak(env, '/admin/realms', { token, method: 'POST', body: { ...realm, ...settings, clients } });
         console.log('  realm itrms created');
     } else {
         await keycloak(env, '/admin/realms/itrms', { token, method: 'PUT', body: settings });
+        await ensureFlows(env, token, authenticationFlows);
+        await keycloak(env, '/admin/realms/itrms', { token, method: 'PUT', body: { browserFlow } });
+        for (const action of requiredActions) {
+            const path = `/admin/realms/itrms/authentication/required-actions/${action.alias}`;
+            if ((await keycloak(env, path, { token })).status === 404)
+                await keycloak(env, '/admin/realms/itrms/authentication/register-required-action', {
+                    token,
+                    method: 'POST',
+                    body: { providerId: action.providerId, name: action.name }
+                });
+            await keycloak(env, path, { token, method: 'PUT', body: action });
+        }
         await keycloak(env, '/admin/realms/itrms/partialImport', {
             token,
             method: 'POST',
             body: { ifResourceExists: 'OVERWRITE', clients }
         });
     }
-    await keycloak(env, '/admin/realms/itrms/authentication/required-actions/CONFIGURE_TOTP', {
+    await grantIdentityAdmin(env, token);
+
+    const credentials = [{ type: 'password', value: env.DEV_USER_PASSWORD, temporary: false }];
+    const users = [
+        ...DEV_USERS.map((u) => ({ ...u, email: `${u.username}@example.test` })),
+        ...demoUsers().map((u) => ({
+            id: u.keycloakSub,
+            username: u.username,
+            // Keycloak's name check refuses brackets: "Zone Head (demo)" becomes Zone Head / Demo
+            firstName: u.displayName.replace(/\s*\(demo\)\s*$/, ''),
+            lastName: 'Demo',
+            email: `${u.username}@example.test`
+        }))
+    ].map((u) => ({ ...u, enabled: true, emailVerified: true, credentials, requiredActions: ['CONFIGURE_TOTP'] }));
+    // SKIP: a developer's TOTP set-up survives the next start
+    const res = await keycloak(env, '/admin/realms/itrms/partialImport', {
         token,
-        method: 'PUT',
-        body: {
-            alias: 'CONFIGURE_TOTP',
-            name: 'Configure OTP',
-            providerId: 'CONFIGURE_TOTP',
-            enabled: true,
-            defaultAction: true,
-            priority: 10
-        }
+        method: 'POST',
+        body: { ifResourceExists: 'SKIP', users }
     });
-    for (const u of DEV_USERS) {
-        const res = await keycloak(env, '/admin/realms/itrms/users', {
-            token,
-            method: 'POST',
-            body: {
-                ...u,
-                enabled: true,
-                email: `${u.username}@example.test`,
-                emailVerified: true,
-                credentials: [{ type: 'password', value: env.DEV_USER_PASSWORD, temporary: false }]
-            }
-        });
-        if (res.status === 201) console.log(`  user ${u.username} created`);
+    const added = (await res.json()).added ?? 0;
+    if (added) console.log(`  ${added} user(s) created`);
+}
+
+/**
+ * The identity-admin service account manages the realm's users and groups. `manage-users` also lets it reset any
+ * account's credentials, so its secret is as sensitive as the admin password (narrowing it: a follow-up).
+ */
+async function grantIdentityAdmin(env, token) {
+    const clientId = async (name) =>
+        (await (await keycloak(env, `/admin/realms/itrms/clients?clientId=${name}`, { token })).json())[0]?.id;
+    const admin = await clientId('itrms-identity-admin');
+    const management = await clientId('realm-management');
+    const account = await (
+        await keycloak(env, `/admin/realms/itrms/clients/${admin}/service-account-user`, { token })
+    ).json();
+    const roles = [];
+    for (const name of ['manage-users', 'view-users', 'query-users', 'query-groups'])
+        roles.push(
+            await (await keycloak(env, `/admin/realms/itrms/clients/${management}/roles/${name}`, { token })).json()
+        );
+    await keycloak(env, `/admin/realms/itrms/users/${account.id}/role-mappings/clients/${management}`, {
+        token,
+        method: 'POST',
+        body: roles
+    });
+}
+
+/**
+ * The local settings the API and the BFF read in development, derived from infra/compose/.env (git-ignored, owner-only
+ * like it): apps/api/.env.http.local and .env.migrate.local (`node --env-file`), apps/web/.env.local (Next.js).
+ */
+function writeAppEnv(env) {
+    const p = ports(env);
+    const issuer = `http://localhost:${p.KEYCLOAK_HOST_PORT}/realms/itrms`;
+    const pg = (role) =>
+        `postgres://itrms_${role}:${env[`ITRMS_${role.toUpperCase()}_PASSWORD`]}@127.0.0.1:${p.PG_HOST_PORT}/itrms`;
+    const files = {
+        [join(ROOT, 'apps', 'api', '.env.http.local')]: {
+            NODE_ENV: 'development',
+            DATABASE_URL: pg('app'),
+            PORT: '4000',
+            OIDC_ISSUER: issuer
+        },
+        [join(ROOT, 'apps', 'api', '.env.migrate.local')]: {
+            NODE_ENV: 'development',
+            DATABASE_MIGRATE_URL: pg('owner'),
+            KEYCLOAK_URL: `http://localhost:${p.KEYCLOAK_HOST_PORT}`,
+            KEYCLOAK_ADMIN_CLIENT_SECRET: env.KEYCLOAK_IDENTITY_ADMIN_SECRET
+        },
+        [join(ROOT, 'apps', 'web', '.env.local')]: {
+            APP_ORIGIN: 'http://localhost:3000',
+            API_URL: 'http://127.0.0.1:4000',
+            OIDC_ISSUER: issuer,
+            OIDC_CLIENT_ID: 'itrms-web',
+            OIDC_CLIENT_SECRET: env.KEYCLOAK_WEB_CLIENT_SECRET,
+            SESSION_VALKEY_URL: `redis://127.0.0.1:${p.VALKEY_SESSIONS_HOST_PORT}/0`,
+            SESSION_KEYS: `dev:${Buffer.from(env.BFF_SESSION_KEY, 'hex').toString('base64')}`
+        }
+    };
+    for (const [file, values] of Object.entries(files)) {
+        const lines = Object.entries(values).map(([k, v]) => `${k}=${v}`);
+        writeFileSync(
+            file,
+            `# Written by pnpm dev:infra from infra/compose/.env. Never commit.\n${lines.join('\n')}\n`,
+            'utf8'
+        );
+        restrictToOwner(file);
     }
+    console.log('  app settings: apps/api/.env.http.local, apps/api/.env.migrate.local, apps/web/.env.local');
 }
 
 async function up(observability) {
@@ -333,6 +498,7 @@ async function up(observability) {
     seedDatabaseRoles(env);
     await seedBuckets(env);
     await seedKeycloak(env);
+    writeAppEnv(env);
     console.log(`
 Development stack is healthy.
   PostgreSQL   127.0.0.1:${p.PG_HOST_PORT}  database itrms (users postgres, itrms_owner, itrms_app, itrms_system)

@@ -1,39 +1,17 @@
-'use client';
-import { useEffect } from 'react';
+import { headers } from 'next/headers';
 import './globals.css';
-import { AppearanceProvider, NotifyProvider, ServerErrorsProvider, TooltipProvider } from '@itrms/ui';
-import { serverFormErrors } from '@/lib/forms/serverErrors';
-import { FormsHost } from '@/providers/forms/FormsHost';
-import { QueryProvider } from '@/providers/query/QueryProvider';
+import { Providers } from './providers';
 
-interface RootLayoutProps {
-    children: React.ReactNode;
-}
-
-export default function RootLayout({ children }: RootLayoutProps) {
-    // Remove extension-added attributes after hydration
-    useEffect(() => {
-        document.body.removeAttribute('data-new-gr-c-s-check-loaded');
-        document.body.removeAttribute('data-gr-ext-installed');
-    }, []);
-
+/**
+ * Every page renders per request: Next puts the request's CSP nonce (set by proxy.ts) on its own scripts only then, and a
+ * page prerendered at build time would carry none and be blocked by the policy (security.md SEC-WB-1).
+ */
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+    const nonce = (await headers()).get('x-nonce') ?? undefined;
     return (
         <html lang="en" suppressHydrationWarning>
             <body>
-                {/* Outermost: theme class and data-density on <html> (ADR-0029), and the toaster in NotifyProvider reads the theme. */}
-                <AppearanceProvider>
-                    <NotifyProvider>
-                        <QueryProvider>
-                            <TooltipProvider>
-                                {/* hand-written forms map the API's problem+json errors onto their fields */}
-                                <ServerErrorsProvider map={serverFormErrors}>
-                                    {/* the form engine reaches the API only through the app (its client, its session) */}
-                                    <FormsHost>{children}</FormsHost>
-                                </ServerErrorsProvider>
-                            </TooltipProvider>
-                        </QueryProvider>
-                    </NotifyProvider>
-                </AppearanceProvider>
+                <Providers nonce={nonce}>{children}</Providers>
             </body>
         </html>
     );

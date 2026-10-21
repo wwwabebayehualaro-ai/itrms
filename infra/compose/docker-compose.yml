@@ -82,6 +82,13 @@ services:
       KC_HTTP_PORT: '8080'
       KC_HOSTNAME: http://localhost:${KEYCLOAK_HOST_PORT:-18080}
       TZ: Africa/Addis_Ababa
+    volumes:
+      # the ITRMS sign-in theme (Amharic and English, Noto Sans Ethiopic) and the breached-password list (SEC-ID-3)
+      - ./keycloak/themes/itrms:/opt/keycloak/themes/itrms:ro
+      - ./keycloak/password-blacklists:/opt/keycloak/data/password-blacklists:ro
+    # back-channel logout reaches the BFF running on the host (`pnpm dev`, :3000)
+    extra_hosts:
+      - host.docker.internal:host-gateway
     depends_on:
       postgres:
         condition: service_healthy

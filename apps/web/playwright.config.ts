@@ -1,17 +1,18 @@
-// Browser end-to-end tests: `npm run e2e`. Needs the backend running (E2E_API, default http://localhost:8000) with the demo data
-// (scripts/e2e/demo/README.md). Starts its own Next dev server on :3100 with a separate dist dir so it never disturbs a developer's
-// server on :3000; set E2E_WEB to test an already running app instead.
+// Browser end-to-end tests: `pnpm e2e`. Needs the development stack (`pnpm dev:infra`: Keycloak, Valkey, PostgreSQL) and
+// the API built, migrated and seeded (tests/e2e/README.md). Starts the API (:4000) and the web app (:3000, the origin the
+// realm's itrms-web client redirects to) unless they already run; set E2E_WEB to test an app running elsewhere.
 import { defineConfig, devices } from '@playwright/test';
 
-const WEB = process.env.E2E_WEB || 'http://localhost:3100';
-const API = process.env.E2E_API || 'http://localhost:8000';
+const WEB = process.env.E2E_WEB || 'http://localhost:3000';
 
 export default defineConfig({
     testDir: 'tests/e2e',
+    // the legacy engine journeys ran against the old backend's password sign-in (tests/e2e/legacy/README.md)
+    testIgnore: ['legacy/**'],
     timeout: 120_000,
     // a cold dev server compiles each page on first visit
     expect: { timeout: 60_000 },
-    // one worker: specs share the backend's state (flags, demo data) and log in as the same users
+    // one worker: the journeys sign the same demo accounts in and out
     fullyParallel: false,
     workers: 1,
     retries: process.env.CI ? 1 : 0,
@@ -20,11 +21,18 @@ export default defineConfig({
     projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
     webServer: process.env.E2E_WEB
         ? undefined
-        : {
-              command: 'npx next dev -p 3100',
-              url: WEB,
-              timeout: 240_000,
-              reuseExistingServer: true,
-              env: { NEXT_DIST_DIR: '.next-e2e', NEXT_PUBLIC_BACKEND_API: API }
-          }
+        : [
+              {
+                  command: 'pnpm --filter @itrms/api dev:start',
+                  url: 'http://127.0.0.1:4000/healthz',
+                  timeout: 120_000,
+                  reuseExistingServer: true
+              },
+              {
+                  command: 'npx next dev -p 3000',
+                  url: `${WEB}/auth/error`,
+                  timeout: 240_000,
+                  reuseExistingServer: true
+              }
+          ]
 });

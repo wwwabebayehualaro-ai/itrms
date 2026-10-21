@@ -2,6 +2,7 @@
   "realm": "itrms",
   "enabled": true,
   "displayName": "ITRMS",
+  "loginTheme": "itrms",
   "internationalizationEnabled": true,
   "supportedLocales": ["am", "en"],
   "defaultLocale": "am",
@@ -11,7 +12,7 @@
   "loginWithEmailAllowed": false,
   "duplicateEmailsAllowed": false,
   "sslRequired": "external",
-  "passwordPolicy": "length(12) and notUsername and notEmail and passwordHistory(5) and maxLength(128)",
+  "passwordPolicy": "length(12) and maxLength(128) and notUsername and notEmail and passwordHistory(5) and passwordBlacklist(itrms-breached.txt)",
   "bruteForceProtected": true,
   "permanentLockout": false,
   "failureFactor": 5,
@@ -25,11 +26,132 @@
   "otpPolicyDigits": 6,
   "otpPolicyPeriod": 30,
   "otpPolicyLookAheadWindow": 1,
+  "otpPolicyCodeReusable": false,
+  "webAuthnPolicyRpEntityName": "ITRMS",
+  "webAuthnPolicyUserVerificationRequirement": "preferred",
+  "webAuthnPolicyAttestationConveyancePreference": "none",
   "accessTokenLifespan": 300,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 36000,
   "revokeRefreshToken": true,
   "refreshTokenMaxReuse": 0,
+  "browserFlow": "itrms browser",
+  "authenticationFlows": [
+    {
+      "alias": "itrms browser",
+      "description": "Single sign-on cookie, or a password and then the second factor (security.md SEC-ID-1)",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-cookie",
+          "requirement": "ALTERNATIVE",
+          "priority": 10,
+          "authenticatorFlow": false,
+          "userSetupAllowed": false
+        },
+        {
+          "flowAlias": "itrms browser forms",
+          "requirement": "ALTERNATIVE",
+          "priority": 20,
+          "authenticatorFlow": true,
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "itrms browser forms",
+      "description": "Password, then a TOTP code (always; set up at the first sign-in), then a passkey once one is registered",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-username-password-form",
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "authenticatorFlow": false,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticator": "auth-otp-form",
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "authenticatorFlow": false,
+          "userSetupAllowed": false
+        },
+        {
+          "flowAlias": "itrms passkey",
+          "requirement": "CONDITIONAL",
+          "priority": 30,
+          "authenticatorFlow": true,
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "itrms passkey",
+      "description": "A registered passkey or security key is asked for too",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "conditional-user-configured",
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "authenticatorFlow": false,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticator": "webauthn-authenticator",
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "authenticatorFlow": false,
+          "userSetupAllowed": false
+        }
+      ]
+    }
+  ],
+  "requiredActions": [
+    {
+      "alias": "CONFIGURE_TOTP",
+      "name": "Configure OTP",
+      "providerId": "CONFIGURE_TOTP",
+      "enabled": true,
+      "defaultAction": true,
+      "priority": 10,
+      "config": {}
+    },
+    {
+      "alias": "webauthn-register",
+      "name": "Webauthn Register",
+      "providerId": "webauthn-register",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 20,
+      "config": {}
+    },
+    {
+      "alias": "UPDATE_PASSWORD",
+      "name": "Update Password",
+      "providerId": "UPDATE_PASSWORD",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 30,
+      "config": {}
+    },
+    {
+      "alias": "delete_credential",
+      "name": "Delete Credential",
+      "providerId": "delete_credential",
+      "enabled": false,
+      "defaultAction": false,
+      "priority": 100,
+      "config": {}
+    }
+  ],
   "clients": [
     {
       "clientId": "itrms-web",
@@ -75,6 +197,17 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false
+    },
+    {
+      "clientId": "itrms-identity-admin",
+      "name": "ITRMS identity administration (org-unit groups, accounts)",
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true
     }
   ]
 }

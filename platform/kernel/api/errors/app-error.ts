@@ -52,6 +52,20 @@ export class UnauthenticatedError extends AppError {
 }
 
 /**
+ * 401: the action needs a second factor entered more recently than `maxAge` seconds ago (security.md SEC-SE-5). The BFF
+ * sends the person through sign-in again with `max_age`, then retries.
+ */
+export class StepUpRequiredError extends AppError {
+    readonly status = 401;
+    constructor(
+        readonly maxAge: number,
+        options?: AppErrorOptions
+    ) {
+        super('step_up_required', options);
+    }
+}
+
+/**
  * 403: permission or unit scope. Never says anything about the record. `audit` is what the denial's audit row records
  * (the reason, the permission, the unit asked for); the person sees none of it.
  */

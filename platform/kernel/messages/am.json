@@ -2,6 +2,7 @@
   "kernel.errors.invalid_request": "ጥያቄው ትክክል አይደለም።",
   "kernel.errors.invalid_query": "የጥያቄው ማጣሪያ ወይም ገጽ አሰጣጥ ትክክል አይደለም።",
   "kernel.errors.unauthenticated": "እባክዎ ይግቡ።",
+  "kernel.errors.step_up_required": "ማንነትዎን ያረጋግጡ፦ በሁለተኛው ማረጋገጫዎ እንደገና ይግቡ።",
   "kernel.errors.forbidden": "ይህን ለማድረግ ፈቃድ የለዎትም።",
   "kernel.errors.not_found": "አልተገኘም።",
   "kernel.errors.feature_disabled": "ይህ አገልግሎት እዚህ አይገኝም።",

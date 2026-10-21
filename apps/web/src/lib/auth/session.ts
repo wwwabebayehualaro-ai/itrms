@@ -1,102 +1,51 @@
 /**
- * Token session shared by the HTTP client and the auth store.
- *
- * Access tokens live in memory only. The refresh token is kept in sessionStorage (tab-scoped, cleared on close);
- * moving it to an httpOnly cookie set by the backend is the stronger option once the deployment allows it.
+ * The browser's side of the BFF session (ADR-0021, security.md §5). The session itself is the HttpOnly `__Host-itrms_sid`
+ * cookie, which no script can read: this module knows only the CSRF token (a readable cookie, sent back in a header or a
+ * form field) and how to leave for sign-in and sign-out. No token ever reaches it.
  */
-import { createHttpClient } from '../api/http';
+import { CSRF_COOKIE, CSRF_FIELD } from './cookies';
 
-const REFRESH_KEY = 'dfc.refresh';
-
-export interface TokenPair {
-    access_token: string;
-    refresh_token: string;
-    token_type: string;
-    expires_in: number;
+function readCookie(name: string): string | null {
+    if (typeof document === 'undefined') return null;
+    for (const part of document.cookie.split(';')) {
+        const [key, ...value] = part.trim().split('=');
+        if (key === name) return decodeURIComponent(value.join('='));
+    }
+    return null;
 }
 
-type Listener = (authenticated: boolean) => void;
-
-let accessToken: string | null = null;
-let inflight: Promise<string | null> | null = null;
-const listeners = new Set<Listener>();
-
-// A bare, anonymous client (no token session) so refreshing can never recurse into itself.
-const anonymous = {
-    getAccessToken: () => null,
-    hasRefreshToken: () => false,
-    refresh: () => Promise.resolve(null),
-    clear: () => undefined
-};
-const bare = createHttpClient({ baseUrl: process.env.NEXT_PUBLIC_BACKEND_API, session: anonymous });
-
-const readRefresh = () => {
-    try {
-        return typeof window === 'undefined' ? null : window.sessionStorage.getItem(REFRESH_KEY);
-    } catch {
-        return null;
-    }
-};
-const writeRefresh = (token: string | null) => {
-    try {
-        if (token) window.sessionStorage.setItem(REFRESH_KEY, token);
-        else window.sessionStorage.removeItem(REFRESH_KEY);
-    } catch {
-        /* storage unavailable: session lasts until reload */
-    }
-};
+/** The path to come back to: this page, unless it is a sign-in page itself. */
+function here(): string {
+    const { pathname, search } = window.location;
+    return pathname.startsWith('/auth/') ? '/' : pathname + search;
+}
 
 export const session = {
-    getAccessToken: () => accessToken,
-    hasRefreshToken: () => !!readRefresh(),
+    csrfToken: () => readCookie(CSRF_COOKIE),
 
-    set(pair: TokenPair) {
-        accessToken = pair.access_token;
-        writeRefresh(pair.refresh_token);
-        listeners.forEach((l) => l(true));
+    /** Off to Keycloak through the BFF; `maxAge` asks for factors entered no longer ago than that (step-up). */
+    signIn(maxAge?: number) {
+        const query = new URLSearchParams({ return_to: here() });
+        if (maxAge !== undefined) query.set('max_age', String(maxAge));
+        // a full navigation, not the router: /auth/sign-in is a BFF route handler that redirects to Keycloak
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        window.location.assign(`/auth/sign-in?${query.toString()}`);
     },
 
-    clear() {
-        accessToken = null;
-        writeRefresh(null);
-        listeners.forEach((l) => l(false));
-    },
-
-    subscribe(listener: Listener) {
-        listeners.add(listener);
-        return () => listeners.delete(listener);
-    },
-
-    /** Exchange the refresh token for a new pair. Concurrent callers share one request (refresh tokens are single-use). */
-    refresh(): Promise<string | null> {
-        const token = readRefresh();
-        if (!token) return Promise.resolve(null);
-        if (!inflight) {
-            inflight = bare
-                .post<TokenPair>('auth/refresh', { refresh_token: token }, { skipAuth: true })
-                .then((res) => {
-                    session.set(res.data);
-                    return res.data.access_token;
-                })
-                .catch(() => {
-                    session.clear();
-                    return null;
-                })
-                .finally(() => {
-                    inflight = null;
-                });
-        }
-        return inflight;
-    },
-
-    async login(email: string, password: string) {
-        const res = await bare.post<TokenPair>('auth/login', { email, password }, { skipAuth: true });
-        session.set(res.data);
-    },
-
-    async logout() {
-        const token = readRefresh();
-        session.clear();
-        if (token) await bare.post('auth/logout', { refresh_token: token }, { skipAuth: true }).catch(() => undefined);
+    /**
+     * A real form post (the CSRF token in a field): the BFF ends its session and the Keycloak session, and the browser
+     * follows the redirects back to sign-in.
+     */
+    signOut() {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/auth/sign-out';
+        const csrf = document.createElement('input');
+        csrf.type = 'hidden';
+        csrf.name = CSRF_FIELD;
+        csrf.value = session.csrfToken() ?? '';
+        form.append(csrf);
+        document.body.append(form);
+        form.submit();
     }
 };

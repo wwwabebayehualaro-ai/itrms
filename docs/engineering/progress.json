@@ -306,10 +306,20 @@
         {
           "id": "0.10a",
           "title": "BFF sign-in and exposure",
-          "status": "ready",
+          "status": "in review",
           "branch": null,
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "966b5e8"
+          ],
+          "evidence": [
+            "pnpm turbo run lint typecheck test (web, kernel, integrations, api) → 12/12 tasks; web unit 6 files incl. bff.test.ts (sealing, store timeouts/indexes/no resurrection, CSRF, proxy allow-lists, logout tokens, CSP)",
+            "apps/api pnpm test:int → 87/87 (step-up: stale auth_time, missing auth_time and an aged token answer 401 step_up_required with WWW-Authenticate; no denial audited)",
+            "apps/web playwright sign-in.spec.ts against Keycloak 26.7/Valkey/PostgreSQL 16 → 2/2: password + new TOTP, HttpOnly __Host-itrms_sid, no JWT in any response/storage, CSP nonce + HSTS, unit switch with CSRF + rotation, 403 elsewhere, sign-out ends Keycloak session, TOTP again at next sign-in, back-channel logout → 401",
+            "pnpm test:tools → 69/69 (boundary bff-only-in-server-routes; nginx exposure rules); pnpm boundaries → 0 violations; format:check clean",
+            "dev:infra applied the realm (flow, required actions, theme, password blacklist, 20 demo users with seed ids); re-run idempotent; seed identity → 26 units, 20 members",
+            "reviewer agent: 1 high, 3 medium, 9 low; all fixed except Trusted Types reporting (follow-up to 0.26)",
+            "CI: local evidence only (GitHub account suspended; ci:local not run for memory), merged at the product owner's request for speed"
+          ],
           "blockers": [],
           "notes": ""
         },
@@ -1369,7 +1379,8 @@
     {
       "foundIn": "0.10",
       "item": "Org-unit → Keycloak group sync behind IdentityAdmin; demo users in the realm with the seed's keycloakSub ids (seed/users/wolaita.demo.yaml)",
-      "movedTo": "0.10a"
+      "movedTo": "0.10a",
+      "closedIn": "0.10a: IdentityAdmin port (kernel) + KeycloakIdentityAdmin (integrations), seed identity synced 26 units/20 members; demo users imported with the seed's keycloakSub ids"
     },
     {
       "foundIn": "0.10",
@@ -1379,7 +1390,8 @@
     {
       "foundIn": "0.10",
       "item": "The realm file (infra/compose/keycloak/realm-itrms.json) and its dev-infra application were not run against Keycloak in 0.10 (dev stack not started for memory); exercise them with the BFF sign-in e2e",
-      "movedTo": "0.10a"
+      "movedTo": "0.10a",
+      "closedIn": "0.10a: realm applied to Keycloak 26.7 by dev:infra (flows rebuilt when changed, idempotent re-run), exercised by the sign-in e2e"
     },
     {
       "foundIn": "0.10",
@@ -1389,7 +1401,8 @@
     {
       "foundIn": "0.10",
       "item": "Second factor end to end: a browser flow with OTP REQUIRED (not conditional) and no self-removal of the OTP credential (SEC-ID-1); the API checks acr/amr and auth_time, with a 5-minute step-up on role grants and revocations (SEC-SE-5); a breached-password list (SEC-ID-3)",
-      "movedTo": "0.10a"
+      "movedTo": "0.10a",
+      "closedIn": "0.10a: OTP REQUIRED in the browser flow, delete_credential disabled, passwordBlacklist(itrms-breached.txt), step-up recentAuth=300 on grants/revocations (RFC 9470); acr/amr checks moved on"
     },
     {
       "foundIn": "0.10",
@@ -1400,6 +1413,36 @@
       "foundIn": "0.10",
       "item": "kernel.resolve_principal/principal_units take p_sub from app code: bind it to a verified, transaction-local value with set_context; rate-limit access.denied rows from realm accounts without an ITRMS user",
       "movedTo": "0.26"
+    },
+    {
+      "foundIn": "0.10a",
+      "item": "A passkey instead of TOTP: Keycloak never sets up an uncreated ALTERNATIVE factor, so the flow is password + TOTP (required) + a registered passkey; revisit with Keycloak's passkeys feature; administrators' mandatory phishing-resistant factor and acr/amr checks (SEC-ID-2)",
+      "movedTo": "0.26"
+    },
+    {
+      "foundIn": "0.10a",
+      "item": "Group sync and account provisioning through the outbox (IdentityAdmin from a worker handler) instead of the seed command",
+      "movedTo": "0.11"
+    },
+    {
+      "foundIn": "0.10a",
+      "item": "Production wiring: BFF and API reach Keycloak on the internal network (KC_HOSTNAME_BACKCHANNEL_DYNAMIC), the BFF's address in the API's TRUSTED_PROXIES, nginx -t on the exposure template, Keycloak admin on KC_HOSTNAME_ADMIN only",
+      "movedTo": "0.26"
+    },
+    {
+      "foundIn": "0.10a",
+      "item": "Trusted Types and CSP violation reports: a report-to endpoint feeding GlitchTip, so SEC-WB-2 can move to enforcement on evidence",
+      "movedTo": "0.26"
+    },
+    {
+      "foundIn": "0.10a",
+      "item": "Narrow the itrms-identity-admin service account with Keycloak fine-grained admin permissions (manage-users can reset any credential)",
+      "movedTo": "0.26"
+    },
+    {
+      "foundIn": "0.10a",
+      "item": "Port the legacy engine e2e journeys (tests/e2e/legacy) to the BFF sign-in",
+      "movedTo": "0.16"
     }
   ]
 }
