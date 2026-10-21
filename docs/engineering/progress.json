@@ -263,10 +263,11 @@
         {
           "id": "0.9",
           "title": "Row-level security and the isolation test matrix",
-          "status": "in review",
+          "status": "done",
           "branch": null,
           "commits": [
-            "2528441"
+            "2528441",
+            "d9f7ce5"
           ],
           "evidence": [
             "pnpm --filter @itrms/api test:int → 78/78 on PostgreSQL 16; isolation.int.spec 50: transaction, config, registry × own, child, parent, sibling, other zone, other region for read, insert, update, delete; moves out of scope and forged regions refused; party rows by party only",
@@ -284,7 +285,7 @@
         {
           "id": "0.10",
           "title": "Keycloak, BFF sign-in, guards, group sync",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
