@@ -26,7 +26,18 @@ const RESTRICTED: Record<string, readonly ProcessKind[]> = {
 
 const common = {
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-    LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info')
+    LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+    /** Installed modules switched off in this installation (comma-separated keys); the kernel cannot be. */
+    MODULES_DISABLED: z
+        .string()
+        .default('')
+        .transform((v) =>
+            v
+                .split(',')
+                .map((k) => k.trim())
+                .filter(Boolean)
+        )
+        .pipe(z.array(z.string().regex(/^[a-z][a-z0-9-]*$/, 'expected module keys')))
 };
 
 const postgresUrl = z.url({ protocol: /^postgres(ql)?$/ });

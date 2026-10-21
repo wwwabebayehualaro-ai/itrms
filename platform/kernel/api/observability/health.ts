@@ -4,6 +4,7 @@
  * theirs in tasks 0.7 and 0.10). Plus `/metrics`. None of them needs a session; Nginx keeps them off the public site.
  */
 import { Controller, Get, Injectable, Res } from '@nestjs/common';
+import { ApiExcludeController } from '@nestjs/swagger';
 import type { FastifyReply } from 'fastify';
 
 import { Metrics } from './metrics';
@@ -42,6 +43,8 @@ export class ReadinessRegistry {
     }
 }
 
+// infrastructure endpoints, not part of the API contract (openapi.json)
+@ApiExcludeController()
 @Controller()
 export class HealthController {
     constructor(

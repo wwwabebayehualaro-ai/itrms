@@ -19,3 +19,6 @@ packages/ui/src/styles/tokens.css
 storybook-static/
 test-results/
 playwright-report/
+# Generated, compared byte for byte by their drift tests (pnpm openapi writes them)
+packages/api-client/openapi.json
+packages/api-client/src/schema.d.ts

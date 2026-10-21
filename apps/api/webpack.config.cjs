@@ -25,7 +25,13 @@ function externals({ request }, callback) {
 
 module.exports = (defaults) => ({
     ...defaults,
-    entry: { main: './src/main.ts', worker: './src/worker.ts', migrate: './src/migrate.ts' },
+    // openapi: writes the contract (pnpm openapi); not part of the image's processes
+    entry: {
+        main: './src/main.ts',
+        worker: './src/worker.ts',
+        migrate: './src/migrate.ts',
+        openapi: './src/openapi-cli.ts'
+    },
     output: { path: path.join(__dirname, 'dist'), filename: '[name].cjs', clean: true },
     devtool: 'source-map',
     externals: [externals],

@@ -1,10 +1,12 @@
 import { Writable } from 'node:stream';
 
-import { createHttpApp, createLogger, createWorkerContext, Metrics } from '@itrms/kernel/api';
+import { createHttpApp, createLogger, createWorkerContext, ManifestError, Metrics } from '@itrms/kernel/api';
 import { loadConfig } from '@itrms/kernel/config';
+import { defineModule } from '@itrms/module-sdk';
 import { describe, expect, it } from 'vitest';
 
 import { AppModule } from './app.module';
+import { SLICES } from './slices';
 
 const quiet = new Writable({ write: (_chunk, _encoding, callback) => callback() });
 
@@ -38,5 +40,32 @@ describe('the API', () => {
         } finally {
             await context.close();
         }
+    });
+});
+
+describe('the installed modules', () => {
+    it('pass the manifest checks', () => {
+        const config = loadConfig('worker', {});
+        expect(() => AppModule.forRoot(config, createLogger(config, quiet))).not.toThrow();
+    });
+
+    it('stop the start on a broken manifest, naming the module and the problem', () => {
+        const config = loadConfig('http', {});
+        const logger = createLogger(config, quiet);
+        const broken = defineModule({
+            key: 'competency',
+            layer: 'work-process',
+            version: '1.0.0',
+            title: { am: 'ብቃት', en: 'Competency' },
+            workProcess: 1,
+            dependsOn: ['kernel', 'drivers'],
+            effects: ['competency.issueLicence']
+        });
+        expect(() => AppModule.forRoot(config, logger, [...SLICES, { manifest: broken }])).toThrow(
+            /The installed modules cannot start:\n- competency: depends on "drivers", which is not installed\n- competency: effect "competency.issueLicence" is declared but not implemented/
+        );
+        expect(() => AppModule.forRoot(loadConfig('http', { MODULES_DISABLED: 'kernel' }), logger)).toThrow(
+            ManifestError
+        );
     });
 });

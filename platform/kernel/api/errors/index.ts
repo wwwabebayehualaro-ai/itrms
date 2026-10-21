@@ -5,3 +5,4 @@
  */
 export * from './app-error';
 export { ProblemFilter, problemOf, type Problem } from './problem.filter';
+export { problemSchema } from './problem.schema';

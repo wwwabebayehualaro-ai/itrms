@@ -4,5 +4,6 @@ export default defineModule({
     key: '__key__',
     layer: '__layer__',
     version: '0.0.0',
-    dependsOn: [__deps__]
+    dependsOn: [__deps__],
+    __identity__
 });

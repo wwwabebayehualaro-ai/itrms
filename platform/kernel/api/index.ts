@@ -8,3 +8,4 @@ export { createLogger, maskSecrets, PinoNestLogger, REDACTED_PATHS, type Logger 
 export { Metrics } from './observability/metrics';
 export { HealthController, ReadinessRegistry, type ReadinessCheck } from './observability/health';
 export { KERNEL_CONFIG, LOGGER } from './observability/tokens';
+export { loadSlices, ManifestError, type LoadedSlices } from './modules/loader';

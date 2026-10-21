@@ -8,6 +8,8 @@ packages:
 allowBuilds:
   # @swc/core: its install script checks the native binary (the API bundle and the Vitest preset compile with swc)
   '@swc/core': true
+  # @scarf/scarf (via @nestjs/swagger > swagger-ui-dist): an install-time analytics ping; never run
+  '@scarf/scarf': false
   esbuild: true
   lefthook: true
   unrs-resolver: true

@@ -8,7 +8,7 @@ Layer: kernel. Shape, public entries and rules: [code-structure.md](../../docs/p
 |---|---|
 | `./manifest` | the module manifest (`module.ts`) |
 | `./contracts` | Zod DTOs, events, permission keys, error codes, query interfaces (isomorphic) |
-| `./api` | `KernelModule`, `createHttpApp` / `createWorkerContext`, logger, metrics, health (server only) |
+| `./api` | `KernelModule`, `createHttpApp` / `createWorkerContext`, `loadSlices` (the manifest checks at startup), logger, metrics, health (server only) |
 | `./config` | the per-process config schemas and `loadConfig` (fails at startup; `http` refuses the system pool) |
 | `./errors` | the `AppError` hierarchy and the problem+json filter |
 | `./context` | the request context (AsyncLocalStorage: request id, language, user, unit) |

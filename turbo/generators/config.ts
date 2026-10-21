@@ -37,7 +37,19 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
         prompts: [
             { type: 'input', name: 'key', message: 'Slice key (kebab-case):', validate: kebab },
             { type: 'list', name: 'layer', message: 'Layer:', choices: LAYERS },
-            { type: 'input', name: 'summary', message: 'One-line summary:' },
+            { type: 'input', name: 'summary', message: 'One-line summary (also the English title):' },
+            {
+                type: 'input',
+                name: 'titleAm',
+                message: 'Amharic title:',
+                when: (a: { layer: string }) => a.layer !== 'platform'
+            },
+            {
+                type: 'input',
+                name: 'workProcess',
+                message: 'Work process (1-10):',
+                when: (a: { layer: string }) => a.layer === 'work-process'
+            },
             {
                 type: 'input',
                 name: 'deps',
@@ -47,7 +59,14 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
         ],
         actions: [
             (answers) => {
-                const a = answers as { key: string; layer: string; summary: string; deps: string };
+                const a = answers as {
+                    key: string;
+                    layer: string;
+                    summary: string;
+                    deps: string;
+                    titleAm?: string;
+                    workProcess?: string;
+                };
                 // The scaffold runs as its own process: turbo gen compiles this file to CommonJS, the script is an ES module.
                 return execFileSync(
                     process.execPath,
@@ -59,7 +78,9 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
                         '--summary',
                         a.summary,
                         '--deps',
-                        a.deps
+                        a.deps,
+                        ...(a.titleAm ? ['--title-am', a.titleAm] : []),
+                        ...(a.workProcess ? ['--work-process', a.workProcess] : [])
                     ],
                     { cwd: root, encoding: 'utf8' }
                 ).trim();

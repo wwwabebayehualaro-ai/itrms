@@ -8,6 +8,11 @@ with swc (`webpack.config.cjs`).
 | HTTP | `src/main.ts` | `dist/main.cjs` | the API: problem+json errors, Zod validation, `/healthz`, `/readyz`, `/metrics` |
 | worker | `src/worker.ts` | `dist/worker.cjs` | the same modules without HTTP; BullMQ consumers from task 0.10 |
 | migrate | `src/migrate.ts` | `dist/migrate.cjs` | applies the migrations (task 0.7) |
+| (tool) | `src/openapi-cli.ts` | `dist/openapi.cjs` | writes `packages/api-client/openapi.json` (`pnpm openapi`) |
+
+The installed slices are listed in `src/slices.ts`. At startup `loadSlices` checks their manifests against each other
+(dependencies, permissions, roles, effects, event schemas) and stops with a message naming each module and problem.
+`MODULES_DISABLED` switches installed modules off.
 
 Each process reads only its own configuration (`@itrms/kernel/config`) and stops at startup when it is wrong. The HTTP
 process refuses `DATABASE_SYSTEM_URL`, `DATABASE_MIGRATE_URL` and `DOCUMENT_SIGNING_KEY`; every process refuses libpq's

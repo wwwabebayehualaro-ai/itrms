@@ -206,12 +206,19 @@
         {
           "id": "0.6a",
           "title": "Module manifest loader and OpenAPI pipeline",
-          "status": "ready",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.6a-manifests-openapi",
+          "commits": [
+            "d8e52cf",
+            "04bebc2"
+          ],
+          "evidence": [
+            "ci:local 04bebc2 on Linux (Docker 29.6.2), complete: checks pass (turbo --concurrency=3 60/60; module-sdk 9, kernel 35, api 7 incl. openapi.spec drift, api-client 1 schema.spec drift, schemas 5, form-engine 38, ui 64+2, web 28; check:slices with layer/dependsOn vs layers.cjs; test:tools; audit clean), stories pass (1638 + visual 468/468), infra pass (dev stack + S3 17/17), gitleaks pass (2 commits), trivy pass (0 HIGH/CRITICAL, 605 packages), semgrep pass (225 rules, 798 files, 0). Report .ci-local/04bebc23d5f0/report.md. ci:local d8e52cf also passed all 6 jobs.",
+            "Done when: a broken manifest stops the start with a message naming the module and the problem (kernel loader.spec: one case per rule — dependency missing/disabled/up the layers/work-process↔work-process/cycle, core switched off, resource defined twice, role granting an undefined permission, effect declared/implemented mismatch, event without schema, emitted twice, consumed but not emitted, product switch-off not breaking others; apps/api app.spec: AppModule.forRoot throws 'The installed modules cannot start: - competency: depends on \"drivers\", which is not installed - competency: effect ... declared but not implemented'; MODULES_DISABLED=kernel → ManifestError). OpenAPI written to packages/api-client/openapi.json by pnpm openapi (3.1, Problem component, infrastructure endpoints excluded); types generated from it (src/schema.d.ts, openapi-typescript) with createApiClient (openapi-fetch); drift checks in CI: apps/api openapi.spec and api-client schema.spec (turbo test inputs include the contract).",
+            "Task verifier: ready (all Done when/Tests met, counts reproduced). Reviewer (main...d8e52cf): 2 high, 4 medium, 4 low; fixed in 04bebc2 except 2 lows moved (effects from the effect registry → 0.19; import-time manifest errors bypassing fail() → 0.26)."
+          ],
           "blockers": [],
-          "notes": "Split from 0.6 on 2026-10-21."
+          "notes": "Split from 0.6 on 2026-10-21. 2026-10-21: d8e52cf. module-sdk manifest schema (Zod) + per-manifest checks; kernel loadSlices (cross-manifest checks, one ManifestError naming every module/problem; MODULES_DISABLED); apps/api installs the 8 platform slices through it. OpenAPI 3.1 from nestjs-zod + @nestjs/swagger with the Problem component; pnpm openapi writes packages/api-client/openapi.json and src/schema.d.ts (openapi-typescript); createApiClient (openapi-fetch); drift tests apps/api openapi.spec and api-client schema.spec. Local: module-sdk 7, kernel 34, api 7, api-client 1; turbo 60/60; boundaries 0; audit no high. ci:local, reviewer and verifier running. 2026-10-21: verifier: ready (all Done when/Tests met). ci:local d8e52cf: all 6 jobs pass. Reviewer (main...d8e52cf): 2 high + 4 medium + 4 low; fixed in 04bebc2: documented key formats (underscores, snake_case capabilities, kernel's plain cross-cutting roles and installation-wide settings), checks across installed modules (product switch-off does not break others), one emitter per event, core cannot be disabled, manifests re-checked in the loader, check-slices ties layer/dependsOn to layers.cjs, scaffold writes title/workProcess, I18nText takes any installation language. Two lows moved: effects from the effect registry (0.19); import-time manifest errors bypass fail() (0.26). Local: module-sdk 9, schemas 5, kernel 35, api 7, tools 58. ci:local on 04bebc2 running. Approved under the owner's standing instruction (2026-10-20: 'after merging it, just continue the next tasks don't ask my confirmation for anything') after the reviewer's findings were fixed and the complete local Linux CI record passed (04bebc2)."
         },
         {
           "id": "0.7",
@@ -1183,6 +1190,16 @@
       "foundIn": "0.5",
       "item": "Type the form engine's renderer, designer, viewer and api (stored templates as unknown + Zod) and remove the scoped any/no-unsafe lint override in packages/form-engine/eslint.config.js",
       "movedTo": "0.17"
+    },
+    {
+      "foundIn": "0.6a",
+      "item": "Manifest loader: build InstalledSlice.effects from the effect registry (@Effect handlers) instead of a hand-written list, and check the effects named by seeded service versions exist",
+      "movedTo": "0.19"
+    },
+    {
+      "foundIn": "0.6a",
+      "item": "A manifest that fails its own checks throws at import (defineModule), before the entry's fail(): the process exits 1 with the message but as an uncaught error, not the pino fatal line; load slices inside main() if this matters for log collection",
+      "movedTo": "0.26"
     }
   ]
 }

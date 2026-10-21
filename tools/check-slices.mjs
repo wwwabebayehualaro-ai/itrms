@@ -8,7 +8,26 @@ import { fileURLToPath } from 'node:url';
 
 import { LANGUAGES, ROOT, SLICE_EXPORTS, SLICE_SCRIPTS } from './scaffold/slice.mjs';
 
-const { PLATFORM_ORDER } = createRequire(import.meta.url)('./boundaries/layers.cjs');
+const { PLATFORM_ORDER, REGISTRIES } = createRequire(import.meta.url)('./boundaries/layers.cjs');
+
+/** The layer a slice belongs to by where it lives: its manifest must declare the same one. */
+export function expectedLayer(group, key) {
+    if (key === 'kernel') return 'kernel';
+    if (group === 'platform') return 'platform';
+    return REGISTRIES.includes(key) ? 'registry' : 'work-process';
+}
+
+/**
+ * Problems of a manifest's dependsOn against the layer order. The startup loader checks layers as the manifests declare
+ * them; this ties them to layers.cjs: a platform slice depends only on the slices before it, a registry not on a work
+ * process, a work process not on another work process.
+ */
+function dependencyProblems(key, layer, deps) {
+    const rank = (k) => (PLATFORM_ORDER.includes(k) ? PLATFORM_ORDER.indexOf(k) : REGISTRIES.includes(k) ? 100 : 200);
+    return deps
+        .filter((d) => (layer === 'registry' || layer === 'work-process' ? rank(d) >= 200 : rank(d) >= rank(key)))
+        .map((d) => `dependsOn "${d}" goes against the layer order (tools/boundaries/layers.cjs)`);
+}
 
 /** Problems of one slice directory; empty when it follows the shape. */
 export function sliceProblems(dir) {
@@ -43,7 +62,18 @@ export function sliceProblems(dir) {
     if (!existsSync(join(dir, 'README.md'))) problems.push('README.md is missing');
     const manifest = existsSync(join(dir, 'module.ts')) ? readFileSync(join(dir, 'module.ts'), 'utf8') : '';
     if (!manifest.includes(`key: '${key}'`)) problems.push(`module.ts must declare key: '${key}'`);
-    if (/__(key|layer|summary|deps)__/.test(JSON.stringify(pkg) + manifest))
+    const layer = expectedLayer(parts.at(-2), key);
+    if (manifest && !manifest.includes(`layer: '${layer}'`))
+        problems.push(`module.ts must declare layer: '${layer}' (where the slice lives)`);
+    const deps = /dependsOn: \[([^\]]*)\]/.exec(manifest)?.[1] ?? '';
+    problems.push(
+        ...dependencyProblems(
+            key,
+            layer,
+            [...deps.matchAll(/'([a-z0-9-]+)'/g)].map((m) => m[1])
+        )
+    );
+    if (/__(key|layer|summary|deps|identity)__/.test(JSON.stringify(pkg) + manifest))
         problems.push('template placeholders left');
     return problems;
 }

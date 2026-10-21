@@ -17,5 +17,9 @@
   },
   "devDependencies": {
     "@itrms/config": "workspace:*"
+  },
+  "dependencies": {
+    "@itrms/schemas": "workspace:*",
+    "zod": "4.6.5"
   }
 }

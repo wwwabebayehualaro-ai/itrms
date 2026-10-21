@@ -13,7 +13,9 @@ const dir = renderSlice({
     key: KEY,
     layer: 'work-process',
     summary: 'Scaffold test slice "quoted" C:\\path',
-    deps: ['kernel', 'drivers']
+    deps: ['kernel', 'drivers'],
+    titleAm: "የሙከራ ክፍል 'ቅንጭብ'",
+    workProcess: '4'
 });
 after(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -26,6 +28,11 @@ test('placeholders are filled in every file', () => {
     assert.match(manifest, /key: 'zz-scaffold-test'/);
     assert.match(manifest, /layer: 'work-process'/);
     assert.match(manifest, /dependsOn: \['kernel', 'drivers'\]/);
+    // what @itrms/module-sdk requires of a work process: a title (Amharic, the summary as English) and its number
+    assert.ok(
+        manifest.includes(String.raw`title: { am: 'የሙከራ ክፍል \'ቅንጭብ\'', en: 'Scaffold test slice "quoted" C:\\path' }`)
+    );
+    assert.match(manifest, /workProcess: 4\n/);
     const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
     // A backslash and quotes must survive: escaped in package.json, written as typed in the README.
     assert.equal(pkg.description, 'Scaffold test slice "quoted" C:\\path');
@@ -34,6 +41,14 @@ test('placeholders are filled in every file', () => {
 
 test('rendering refuses to overwrite an existing slice', () => {
     assert.throws(() => renderSlice({ key: KEY, layer: 'work-process', summary: 'again' }), /already exists/);
+});
+
+test('rendering asks a registry or work process for its title, and a work process for its number', () => {
+    assert.throws(() => renderSlice({ key: 'zz-c', layer: 'registry', summary: 'x' }), /Amharic title/);
+    assert.throws(
+        () => renderSlice({ key: 'zz-d', layer: 'work-process', summary: 'x', titleAm: 'ሀ', workProcess: '11' }),
+        /work process, 1 to 10/
+    );
 });
 
 test('rendering refuses a key that is not kebab-case', () => {
@@ -73,4 +88,20 @@ test('rendering refuses invalid dependsOn entries and multi-line summaries', () 
         /dependsOn/
     );
     assert.throws(() => renderSlice({ key: 'zz-b', layer: 'registry', summary: 'line one\nline two' }), /one line/);
+});
+
+test('the check ties the manifest layer and dependsOn to where the slice lives', () => {
+    const file = join(dir, 'module.ts');
+    const original = readFileSync(file, 'utf8');
+    try {
+        writeFileSync(file, original.replace("layer: 'work-process'", "layer: 'registry'"));
+        assert.ok(sliceProblems(dir).some((p) => p.includes("must declare layer: 'work-process'")));
+        writeFileSync(
+            file,
+            original.replace("dependsOn: ['kernel', 'drivers']", "dependsOn: ['kernel', 'competency']")
+        );
+        assert.ok(sliceProblems(dir).some((p) => p.includes('dependsOn "competency" goes against the layer order')));
+    } finally {
+        writeFileSync(file, original);
+    }
 });

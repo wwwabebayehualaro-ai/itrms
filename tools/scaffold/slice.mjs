@@ -3,6 +3,7 @@
 // Used by `turbo gen module` and to create the platform slices, so every slice starts from the same files.
 //
 //   node tools/scaffold/slice.mjs <key> --layer <kernel|platform|registry|work-process> --summary "..." [--deps a,b]
+//        [--title-am "..."] (registry, work-process) [--work-process 1-10] (work-process)
 import { cpSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -49,8 +50,35 @@ export function workspaceNames(root = ROOT) {
     );
 }
 
+/** A one-line text as a single-quoted TypeScript string. */
+const quoted = (text) => `'${text.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+
+/**
+ * The manifest lines a layer requires beyond key, layer, version and dependsOn (@itrms/module-sdk): registries and work
+ * processes have a title (Amharic, and the summary as English), work processes their work-process number.
+ */
+function identityLines({ layer, summary, titleAm, workProcess }) {
+    if (layer !== 'registry' && layer !== 'work-process') return [];
+    if (!titleAm?.trim() || /[\r\n]/.test(titleAm))
+        throw new Error(`A ${layer} slice needs a one-line Amharic title (--title-am)`);
+    const lines = [`title: { am: ${quoted(titleAm.trim())}, en: ${quoted(summary.trim())} }`];
+    if (layer === 'work-process') {
+        const n = Number(workProcess);
+        if (!Number.isInteger(n) || n < 1 || n > 10)
+            throw new Error('A work-process slice names its work process, 1 to 10 (--work-process)');
+        lines.push(`workProcess: ${n}`);
+    }
+    return lines;
+}
+
+/** The template's `__identity__` line (a shorthand property, so the template stays valid TypeScript) as those lines. */
+const fillIdentity = (text, lines) =>
+    text.replace(/,\n( *)__identity__\n/, (_, indent) =>
+        lines.length ? `,\n${lines.map((l) => indent + l).join(',\n')}\n` : '\n'
+    );
+
 /** Copies the template and fills its placeholders. Refuses to overwrite or duplicate an existing package. */
-export function renderSlice({ key, layer, summary, deps = [] }) {
+export function renderSlice({ key, layer, summary, deps = [], titleAm, workProcess }) {
     if (!KEY.test(key)) throw new Error(`Slice key "${key}" must be kebab-case`);
     if (!LAYERS.includes(layer)) throw new Error(`Layer must be one of ${LAYERS.join(', ')}`);
     if (!summary?.trim())
@@ -61,6 +89,7 @@ export function renderSlice({ key, layer, summary, deps = [] }) {
     const target = sliceDir(key, layer);
     if (existsSync(target)) throw new Error(`${relative(ROOT, target)} already exists`);
     if (workspaceNames().includes(key)) throw new Error(`@itrms/${key} already exists elsewhere in the workspace`);
+    const identity = identityLines({ layer, summary, titleAm, workProcess });
 
     cpSync(TEMPLATE, target, { recursive: true });
     const values = {
@@ -69,7 +98,7 @@ export function renderSlice({ key, layer, summary, deps = [] }) {
         __deps__: deps.map((d) => `'${d}'`).join(', ')
     };
     for (const file of walk(target)) {
-        const text = readFileSync(file, 'utf8');
+        const text = fillIdentity(readFileSync(file, 'utf8'), identity);
         // Inside JSON the summary is escaped; everywhere else (README) it is written as typed.
         const summaryText = file.endsWith('.json') ? JSON.stringify(summary).slice(1, -1) : summary;
         const out = text.replace(/__key__|__layer__|__summary__|__deps__/g, (m) =>
@@ -88,7 +117,14 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     };
     try {
         const deps = (opt('deps') ?? '').split(',').filter(Boolean);
-        const dir = renderSlice({ key, layer: opt('layer'), summary: opt('summary'), deps });
+        const dir = renderSlice({
+            key,
+            layer: opt('layer'),
+            summary: opt('summary'),
+            deps,
+            titleAm: opt('title-am'),
+            workProcess: opt('work-process')
+        });
         console.log(`Created ${relative(ROOT, dir)}. Next: pnpm install, then register it in the composition roots.`);
     } catch (e) {
         console.error(`scaffold: ${e.message}`);

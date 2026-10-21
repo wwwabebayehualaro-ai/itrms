@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "openapi.json, generated types and the typed fetch client",
+  "description": "The API contract (openapi.json, written by pnpm openapi), its generated types and the typed fetch client",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -13,9 +13,15 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "generate": "node generate.mjs"
   },
   "devDependencies": {
-    "@itrms/config": "workspace:*"
+    "@itrms/config": "workspace:*",
+    "openapi-typescript": "7.13.0",
+    "typescript": "6.0.3"
+  },
+  "dependencies": {
+    "openapi-fetch": "0.17.0"
   }
 }

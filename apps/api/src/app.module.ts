@@ -1,16 +1,18 @@
 /**
- * The application: the kernel plus the installed slices (code-structure.md §5.1). The module manifest loader (task 0.6a)
- * registers the slices listed in slices.ts.
+ * The application: the kernel plus the enabled slices (code-structure.md §5.1). The manifest loader checks every installed
+ * manifest first; a broken one stops the start with a message naming the module and the problem.
  */
 import { Module, type DynamicModule } from '@nestjs/common';
-import { KernelModule, type Logger } from '@itrms/kernel/api';
+import { KernelModule, loadSlices, type Logger } from '@itrms/kernel/api';
 import type { KernelConfig } from '@itrms/kernel/config';
 
-import { SLICES } from './slices';
+import { SLICES, type ApiSlice } from './slices';
 
 @Module({})
 export class AppModule {
-    static forRoot(config: KernelConfig, logger: Logger): DynamicModule {
-        return { module: AppModule, imports: [KernelModule.forRoot(config, logger), ...SLICES] };
+    static forRoot(config: KernelConfig, logger: Logger, slices: readonly ApiSlice[] = SLICES): DynamicModule {
+        const { manifests, modules } = loadSlices(slices, { disabled: config.MODULES_DISABLED });
+        logger.info({ modules: manifests.map((m) => m.key) }, 'modules loaded');
+        return { module: AppModule, imports: [KernelModule.forRoot(config, logger), ...modules] };
     }
 }
