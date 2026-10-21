@@ -1,6 +1,6 @@
 'use client';
 
-import { TemplateBuilder } from '@/form-engine/builder';
+import { TemplateBuilder } from '@itrms/form-engine/designer';
 
 export default function BuilderPage() {
     return <TemplateBuilder />;

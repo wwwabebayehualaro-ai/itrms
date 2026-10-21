@@ -211,9 +211,11 @@ module.exports = {
     options: {
         doNotFollow: { path: 'node_modules' },
         // Per-package tool config files import the shared presets; they are not product code. Anchored to package roots.
+        // node_modules is not excluded, only not followed: an npm package stays in the graph as a leaf, so a rule such as
+        // form-engine-core-is-ui-free can see an import of react (excluded, the import vanished and the rule never fired).
         exclude: {
             path: [
-                '(^|/)(node_modules|dist|\\.turbo|\\.next|coverage|storybook-static|test-results|playwright-report)/',
+                '(^|/)(dist|\\.turbo|\\.next|coverage|storybook-static|test-results|playwright-report)/',
                 '^modules/_template/',
                 '^(apps|platform|modules|packages)/[^/]+/(eslint|vitest)\\.config\\.(js|ts)$'
             ]

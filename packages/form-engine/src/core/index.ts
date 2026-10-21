@@ -1,2 +1,23 @@
-// Public entry of @itrms/form-engine. Filled by its phase-0 task.
-export {};
+/**
+ * Form engine core: the document model, rules, values and validation, with no UI. Renderers (the runtime form, the builder
+ * canvas) and the backend contract build on this; it also runs in the API, so it imports no React and no DOM (lint and dependency-cruiser enforce it).
+ */
+export { SCHEMA_VERSION, storedFieldSchema, formDocumentSchema } from '@itrms/schemas';
+export type { StoredField } from '@itrms/schemas';
+export { readDocument, toEngineField, childrenOf, isFormArray, rowScopedIds } from './model';
+export type { EngineDocument, EngineField, FieldOption, FieldRules } from './model';
+export { evaluateAll, conditionReferences } from './conditions';
+export type { Scope } from './conditions';
+export {
+    initialValues,
+    initialValueOf,
+    emptyRow,
+    pruneHidden,
+    scopeFields,
+    holdsValue,
+    isListField,
+    isVisibleIn,
+    isEnabledIn
+} from './values';
+export { validateForm, fieldSchema, parseDate, REMOTE_PENDING } from './validate';
+export type { FieldErrors } from './validate';

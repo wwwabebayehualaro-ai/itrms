@@ -167,12 +167,20 @@
         {
           "id": "0.5",
           "title": "Extract the form engine and shared schemas",
-          "status": "ready",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.5-form-engine",
+          "commits": [
+            "e482908",
+            "02a1668"
+          ],
+          "evidence": [
+            "ci:local 02a1668 on Linux (Docker 29.6.2), complete: checks pass (turbo lint/typecheck/test/build 60/60; @itrms/form-engine 9 files 38 tests incl. src/core/node.spec.ts in Node without a DOM, then check:engine ok (26 designable types), check:runtime ok (incl. Idempotency-Key dropped from data-source headers), form:schema --check current; @itrms/schemas 4/4; web 28/28 = 63 before minus 35 moved), stories pass (1638 + visual 468/468), infra pass (dev stack + S3 contract 17/17), gitleaks pass (2 commits), trivy pass (0 HIGH/CRITICAL, 484 packages), semgrep pass (225 rules, 758 files, 0). Report .ci-local/02a1668be095/report.md.",
+            "Done when: core has no React or DOM imports: dependency-cruiser form-engine-core-is-ui-free (fixed: node_modules was excluded, so a react import was invisible; a probe importing react in src/core is now reported, real repo 0 violations, test:tools 56/56) and ESLint in src/core (no DOM globals, no JSX, no react/next/@itrms/ui imports; the same probe fails lint). Every engine check passes (check:engine, check:runtime, form:schema --check, run by the package test); check:roundtrip needs a fixtures export of real forms and was not run (none in the repo).",
+            "Done when: the web app renders, builds and fills a form as before: Playwright 9/9 against the legacy FastAPI backend (uvicorn :8000, a separate local database seeded with expense-report/seed.cjs and demo/seed-demo.cjs, dropped afterwards) on 02a1668: builder, fill-form, multi-row, forms-path, publish-approval, feature-flags x2, smoke x2; next build in the CI checks job. builder.spec failed before the Tailwind @source fix and passed on main (checked in a main worktree).",
+            "Task verifier: ready with caveats (progress record, ci:local, round-trip check, tech-stack listing of the builder libraries: all addressed). Reviewer (main...e482908): 0 critical/high, 4 low, all fixed in 02a1668 (data sources may not set Idempotency-Key; FormTemplate DTO takes object-or-list form_config/file_relations and nullable updated_at with storedFieldsOf/fileRelationsOf; contract file in the engine's turbo test inputs; follow-up for the scoped any override)."
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "2026-10-21: e482908. Engine in packages/form-engine (core/renderer/designer/viewer + host/); the app passes a FormsHost (client, useUser, useLocation, templatesHref, isReported, logError) via FormsHostProvider (apps/web/src/providers/forms/FormsHost.tsx). Stored-form types, Zod schemas, form_config contract, forms DTOs and problem+json readers in packages/schemas (no any). core strict (no any/DOM; Node-only node.spec.ts); renderer/designer/viewer keep a scoped lint override for any until 0.17-0.18. Found and fixed: dependency-cruiser excluded node_modules, so form-engine-core-is-ui-free never saw a react import (the fixture passed only because react is unresolvable in the fixture tree); ESLint now also bans React/Next/@itrms/ui imports in src/core. Tailwind in apps/web did not scan the engine after the move (builder drop zone lost its classes: builder.spec failed, passed on main); @source added. Legacy e2e run on a separate local database itrms_legacy_e2e with a generated password (the demo password is not in the repo). Approved under the owner's standing instruction (2026-10-20: 'after merging it, just continue the next tasks don't ask my confirmation for anything') after the reviewer's findings were fixed and the complete local Linux CI record passed (02a1668)."
         },
         {
           "id": "0.6",
@@ -1147,7 +1155,13 @@
     {
       "foundIn": "0.4c",
       "item": "ci:local: cap Vitest maxWorkers (stories) and turbo --concurrency (checks) so a full run fits a 16 GB workstation; three runs were stopped for low memory on 2026-10-20/21",
-      "movedTo": "0.26"
+      "movedTo": "0.26",
+      "closedIn": "not needed: ci:local already runs its containers on 4 CPUs with a 6 GB cap (CHECKS_LIMITS); the stops came from WSL growing unbounded, fixed on the workstation with .wslconfig (memory 6 GB, 8 CPUs, dropcache); the next full run passed (ebab00f)"
+    },
+    {
+      "foundIn": "0.5",
+      "item": "Type the form engine's renderer, designer, viewer and api (stored templates as unknown + Zod) and remove the scoped any/no-unsafe lint override in packages/form-engine/eslint.config.js",
+      "movedTo": "0.17"
     }
   ]
 }

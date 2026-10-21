@@ -18,7 +18,7 @@ import {
     useNotify,
     useZodForm
 } from '@itrms/ui';
-import { useTemplateMutations } from '@/form-engine';
+import { useTemplateMutations } from '@itrms/form-engine/renderer';
 import { useFileUpload, useFilePreview } from '@/lib/api/useFileUpload';
 import type { IFormTemplate } from '@/types/template_builder/form';
 

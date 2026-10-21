@@ -1,3 +1,4 @@
+import { problemFieldErrors } from '@itrms/schemas';
 import { isApiError } from '../api/http';
 import { getApiErrorMessage } from '../api/errors';
 
@@ -10,21 +11,11 @@ export interface ServerFormErrors {
 
 /**
  * Split an API failure into per-field messages and a form message. The backend answers validation failures with
- * problem+json `errors: [{ field: "a.b", message }]` (see Backend/app/foundation/errors.py); fields the form does not know
- * (`known`) are folded into the form message so nothing is silently dropped.
+ * problem+json `errors: [{ field: "a.b", message }]`; fields the form does not know (`known`) are folded into the form
+ * message so nothing is silently dropped.
  */
 export function serverFormErrors(err: unknown, known?: Iterable<string>): ServerFormErrors {
-    const knownSet = known ? new Set(known) : null;
-    const fields: Record<string, string> = {};
-    const rest: string[] = [];
-    const body: any = isApiError(err) ? err.response?.data : undefined;
-    if (Array.isArray(body?.errors) && body.errors.length) {
-        for (const e of body.errors as { field?: string; message?: string }[]) {
-            const message = e.message || 'Invalid value';
-            if (e.field && (!knownSet || knownSet.has(e.field)) && !fields[e.field]) fields[e.field] = message;
-            else rest.push(e.field ? `${e.field}: ${message}` : message);
-        }
-        return { fields, form: rest.length ? rest.join('; ') : undefined };
-    }
-    return { fields, form: getApiErrorMessage(err) };
+    const split = isApiError(err) ? problemFieldErrors(err.response?.data, known) : undefined;
+    if (split) return { fields: split.fields, form: split.rest.length ? split.rest.join('; ') : undefined };
+    return { fields: {}, form: getApiErrorMessage(err) };
 }

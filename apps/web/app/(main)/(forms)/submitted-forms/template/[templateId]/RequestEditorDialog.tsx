@@ -1,7 +1,7 @@
 'use client';
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@itrms/ui';
-import { PublishedFormRenderer, useSubmissionMutations } from '@/form-engine';
+import { PublishedFormRenderer, useSubmissionMutations } from '@itrms/form-engine/renderer';
 
 type Template = Parameters<typeof PublishedFormRenderer>[0]['template'];
 

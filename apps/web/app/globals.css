@@ -4,8 +4,9 @@
  */
 @import 'tailwindcss';
 @import 'tw-animate-css';
-/* The design system lives in its own package: Tailwind must scan it for class names too. */
+/* The design system and the form engine live in their own packages: Tailwind must scan them for class names too. */
 @source '../../../packages/ui/src';
+@source '../../../packages/form-engine/src';
 
 /* Fonts, tokens, themes, densities and the Ethiopic typography rules (ADR-0029). */
 @import '@itrms/ui/styles.css';

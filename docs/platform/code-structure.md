@@ -361,7 +361,7 @@ Rules:
 |---|---|---|
 | `schemas` | Money (bigint santim), I18nText, UUIDv7 ids, business dates, problem+json and the common error codes, paging/filter/sort schemas, the form-definition and workflow-definition contracts | any module's DTOs (they live in the module's `contracts`) |
 | `ethiopian-calendar` | pure functions and locale data (am, en, om, ti, wal-Latn), fiscal year, Ethiopian clock | React components (the DatePicker is in `ui`) |
-| `form-engine` | `core`: model, conditions, validation, formulas (BigInt santim mode); `renderer`, `designer`, `viewer`; `test/cases.json` (the shared validation cases) | HTTP calls (an injected `FormsClient`) |
+| `form-engine` | `core`: model, conditions, validation, formulas (BigInt santim mode); `renderer`, `designer`, `viewer`; `test/cases.json` (the shared validation cases) | HTTP calls (the app injects a `FormsHost`: its `FormsClient`, the signed-in person, the location) |
 | `ui` | `tokens.css`, themes, primitives (shadcn/ui copies on Radix), components, page templates, Ethiopian controls (DatePicker, EthiopicInput, MoneyInput), `PdfViewer`, stories | business logic, data fetching, user-visible strings (labels come in as props or keys) |
 | `module-sdk` | `defineModule` and the manifest's Zod schema, slot types (menu, widgets, record tabs, search providers, quick actions); isomorphic | runtime code, effect signatures (those are in `@itrms/kernel/effects`) |
 | `api-client` | `openapi.json` (generated), types from openapi-typescript, the openapi-fetch client with idempotency, problem+json and trace-id middleware | hand-written endpoint wrappers |

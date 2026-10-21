@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import './globals.css';
 import { AppearanceProvider, NotifyProvider, ServerErrorsProvider, TooltipProvider } from '@itrms/ui';
 import { serverFormErrors } from '@/lib/forms/serverErrors';
+import { FormsHost } from '@/providers/forms/FormsHost';
 import { QueryProvider } from '@/providers/query/QueryProvider';
 
 interface RootLayoutProps {
@@ -25,7 +26,10 @@ export default function RootLayout({ children }: RootLayoutProps) {
                         <QueryProvider>
                             <TooltipProvider>
                                 {/* hand-written forms map the API's problem+json errors onto their fields */}
-                                <ServerErrorsProvider map={serverFormErrors}>{children}</ServerErrorsProvider>
+                                <ServerErrorsProvider map={serverFormErrors}>
+                                    {/* the form engine reaches the API only through the app (its client, its session) */}
+                                    <FormsHost>{children}</FormsHost>
+                                </ServerErrorsProvider>
                             </TooltipProvider>
                         </QueryProvider>
                     </NotifyProvider>

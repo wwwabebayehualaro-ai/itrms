@@ -60,9 +60,9 @@ import {
     isViewTemplate,
     useTemplateList,
     useTemplateMutations
-} from '@/form-engine';
-import type { FormField } from '@/form-engine';
-import { useBuilderActions } from '@/form-engine/builder';
+} from '@itrms/form-engine/renderer';
+import { fileRelationsOf, storedFieldsOf } from '@itrms/schemas';
+import { useBuilderActions } from '@itrms/form-engine/designer';
 import { useCan } from '@/lib/auth/authHooks';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { formatDate } from '@/lib/format';
@@ -81,8 +81,9 @@ type Sort = 'newest' | 'oldest' | 'name-asc' | 'name-desc';
 type Status = 'all' | 'active' | 'inactive';
 
 const fileIcon = (t: IFormTemplate) => {
-    const type = (t.file_relations?.[0] as { content_type?: string } | undefined)?.content_type;
-    if (!t.file_relations?.length) return File;
+    const files = fileRelationsOf(t.file_relations);
+    const type = (files[0] as { content_type?: string } | undefined)?.content_type;
+    if (!files.length) return File;
     if (type?.startsWith('image/')) return FileImage;
     if (type?.startsWith('video/')) return FileVideo;
     return FileText;
@@ -140,9 +141,7 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
 
     /** The builder (and previews) work on the form put in the builder store. */
     const putInBuilder = (t: IFormTemplate) => {
-        builder.setFields(
-            (t.form_config?.fields ?? (Array.isArray(t.form_config) ? t.form_config : [])) as FormField[]
-        );
+        builder.setFields(storedFieldsOf(t.form_config));
         builder.setRuntime(getRuntimeConfig(t.form_config) ?? EMPTY_RUNTIME);
         builder.setTemplate(t);
     };
@@ -258,7 +257,7 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
 
     const thumb = (t: IFormTemplate, size: 'lg' | 'sm') => {
         const Icon = fileIcon(t);
-        const hasFile = !!t.file_relations?.[0];
+        const hasFile = !!fileRelationsOf(t.file_relations)[0];
         return (
             <button
                 type="button"
@@ -534,7 +533,7 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
                         <FormRenderer
                             bare
                             silent
-                            fields={(open.template.form_config?.fields ?? []) as FormField[]}
+                            fields={storedFieldsOf(open.template.form_config)}
                             template={open.template}
                             // a preview never calls the form's submit API
                             runtime={{

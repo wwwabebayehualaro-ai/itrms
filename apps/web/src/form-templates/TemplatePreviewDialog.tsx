@@ -2,7 +2,7 @@
 
 import { FileQuestion } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, FileViewer, Spinner } from '@itrms/ui';
-import { useAttachmentPreview } from '@/form-engine';
+import { useAttachmentPreview } from '@itrms/form-engine/renderer';
 import type { IFormTemplate } from '@/types/template_builder/form';
 
 /** The file attached to a form (thumbnail, PDF), fetched only while the dialog is open and cached per file id. */

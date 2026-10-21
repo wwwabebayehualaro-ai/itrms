@@ -23,7 +23,7 @@ import {
     SidebarMenuSubItem,
     useSidebar
 } from '@itrms/ui';
-import { useVisibleTemplates } from '@/form-engine';
+import { useVisibleTemplates } from '@itrms/form-engine/renderer';
 import { useModules, type NavItem } from '@/lib/modules';
 import { navIcon } from './navIcons';
 

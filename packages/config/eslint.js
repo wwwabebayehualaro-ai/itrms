@@ -52,6 +52,26 @@ export default function config(options) {
                 'no-restricted-syntax': [
                     'error',
                     { selector: 'JSXElement, JSXFragment', message: 'No JSX here: this code also runs on the server.' }
+                ],
+                'no-restricted-imports': [
+                    'error',
+                    {
+                        patterns: [
+                            {
+                                group: [
+                                    'react',
+                                    'react/*',
+                                    'react-dom',
+                                    'react-dom/*',
+                                    'next',
+                                    'next/*',
+                                    '@itrms/ui',
+                                    '@itrms/ui/*'
+                                ],
+                                message: 'This code also runs on the server: no React, Next.js or design system.'
+                            }
+                        ]
+                    }
                 ]
             }
         },

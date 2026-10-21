@@ -55,13 +55,7 @@ export default defineConfig([
             'no-restricted-imports': [
                 'error',
                 {
-                    paths: [{ name: 'axios', message: "axios was replaced: use the client from '@/lib/api/client'." }],
-                    patterns: [
-                        {
-                            group: ['@/form-engine/*', '!@/form-engine/builder'],
-                            message: "Import the form engine only from '@/form-engine' or '@/form-engine/builder'."
-                        }
-                    ]
+                    paths: [{ name: 'axios', message: "axios was replaced: use the client from '@/lib/api/client'." }]
                 }
             ],
             'no-restricted-globals': [
@@ -87,7 +81,7 @@ export default defineConfig([
                     ],
                     patterns: [
                         {
-                            group: ['@/form-engine', '@/form-engine/*'],
+                            group: ['@itrms/form-engine', '@itrms/form-engine/*'],
                             message: 'src/lib is a lower layer: it must not import the form engine.'
                         }
                     ]

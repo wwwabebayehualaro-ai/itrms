@@ -1,5 +1,9 @@
 {
   "extends": "@itrms/config/tsconfig/library.json",
-  "include": ["**/*.ts", "**/*.tsx"],
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "types": ["node", "@testing-library/jest-dom/vitest"]
+  },
+  "include": ["**/*.ts", "**/*.tsx", "**/*.mts", "../ui/src/styles.d.ts"],
   "exclude": ["node_modules", "dist"]
 }

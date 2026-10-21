@@ -13,7 +13,8 @@ import {
     User,
     type LucideIcon
 } from 'lucide-react';
-import { StatusTag, useSubmissionList, useVisibleTemplates } from '@/form-engine';
+import { useSubmissionList, useVisibleTemplates } from '@itrms/form-engine/renderer';
+import { StatusTag } from '@itrms/form-engine/viewer';
 import { Button, Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle, Skeleton } from '@itrms/ui';
 import { useApprovals } from '@/lib/approval';
 import { useCan } from '@/lib/auth/authHooks';

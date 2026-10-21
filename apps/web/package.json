@@ -12,13 +12,12 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "e2e": "playwright test",
-    "check:engine": "tsx scripts/checkFormEngineExtensions.mts",
-    "check:runtime": "tsx scripts/checkRuntimeEngine.mts",
-    "form:schema": "tsx scripts/exportFormSchema.mts",
     "api:types": "openapi-typescript ../../contracts/openapi.json -o src/lib/api/schema.d.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",
+    "@itrms/form-engine": "workspace:*",
+    "@itrms/schemas": "workspace:*",
     "@itrms/ui": "workspace:*",
     "@tanstack/react-form": "1.33.5",
     "@tanstack/react-query": "5.104.1",

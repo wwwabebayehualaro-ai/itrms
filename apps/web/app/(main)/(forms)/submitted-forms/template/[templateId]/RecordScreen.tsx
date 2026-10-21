@@ -6,18 +6,21 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, FileText, History, Info, Pencil, Send, Trash2 } from 'lucide-react';
 import {
     FormRenderer,
+    useSubmissionMutations,
+    useSubmissionQuery,
+    useTemplateQuery
+} from '@itrms/form-engine/renderer';
+import { storedFieldsOf } from '@itrms/schemas';
+import {
     STATUSES,
     StatusTag,
     titleOf,
     useLabeler,
     useRecordForm,
     useRecordHistory,
-    useSubmissionMutations,
-    useSubmissionQuery,
-    useTemplateQuery,
     useViewSchema,
     type HistoryEntry
-} from '@/form-engine';
+} from '@itrms/form-engine/viewer';
 import {
     Alert,
     AlertDescription,
@@ -72,8 +75,7 @@ export function RecordScreen({ templateId, submissionId }: { templateId: string;
     const title = schema ? titleOf(row, schema, labeler) : `Request ${String(submission.id).slice(0, 8)}`;
     const fields =
         (Array.isArray(record?.form_config) ? record?.form_config : record?.form_config?.fields) ??
-        template?.form_config?.fields ??
-        [];
+        (template ? storedFieldsOf(template.form_config) : []);
     const renderTemplate =
         template && record
             ? {

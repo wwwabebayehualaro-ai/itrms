@@ -4,16 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ChartColumn, Pencil, Plus, Trash2 } from 'lucide-react';
 import {
-    DataViewer,
     FormRenderer,
     ROW_ACTION_EVENT,
     useSubmissionMutations,
     useTemplateList,
     useTemplateQuery,
-    type RowActionDetail,
-    type ViewMode,
-    type ViewRow
-} from '@/form-engine';
+    type RowActionDetail
+} from '@itrms/form-engine/renderer';
+import { storedFieldsOf } from '@itrms/schemas';
+import { DataViewer, type ViewMode, type ViewRow } from '@itrms/form-engine/viewer';
 import { Button, IconButton, InlineStatus, confirmAction, useNotify } from '@itrms/ui';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { useCan } from '@/lib/auth/authHooks';
@@ -53,7 +52,7 @@ export default function TemplateSubmissionsPage() {
                           component: () => (
                               <FormRenderer
                                   view
-                                  fields={reportTemplate.form_config?.fields || []}
+                                  fields={storedFieldsOf(reportTemplate.form_config)}
                                   template={reportTemplate}
                               />
                           )

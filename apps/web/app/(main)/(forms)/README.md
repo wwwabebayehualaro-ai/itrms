@@ -8,6 +8,6 @@ builder (and, once approvals are on, a published version).
 * `submitted-forms/` - data viewer (table, cards, board, calendar, pivot, dashboard), request pages, history
 * `(actors)/maker/` - form initiator
 
-Use only `@platform/form-engine`, `@platform/form-engine/builder`, `@platform/ui` and `@platform/lib`. Business logic that
+Use only `@itrms/form-engine/renderer`, `/designer` and `/viewer`, `@itrms/ui` and `@/lib`. Business logic that
 needs code (multi-step orchestration, money, external systems) does not belong in a form: build it as a coded feature in
 `../(coded)`.

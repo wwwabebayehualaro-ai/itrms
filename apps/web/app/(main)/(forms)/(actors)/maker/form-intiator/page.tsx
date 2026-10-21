@@ -1,7 +1,7 @@
 'use client';
 
 import TemplatesManager from '@/form-templates/TemplatesManager';
-import { useSubmissionMutations } from '@/form-engine';
+import { useSubmissionMutations } from '@itrms/form-engine/renderer';
 import { getDeviceInfo } from '@/lib/clientInfo';
 
 /** Templates Pool: people pick a form and fill in a request; the request is stored with the device it came from. */
