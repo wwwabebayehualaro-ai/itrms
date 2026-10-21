@@ -150,15 +150,24 @@ the task must add. The [definition of done](../../CLAUDE.md#definition-of-done) 
   - the `AppError` hierarchy + problem+json filter;
   - the request context (AsyncLocalStorage: request id, user, unit);
   - pino JSON logs with secret masking, `/healthz`, `/readyz`, `/metrics`;
-  - the Zod validation pipe, OpenAPI generated from the Zod schemas;
-  - `worker.ts` and `migrate.ts` entry points (`worker-documents.ts` comes in 0.23);
-  - the **module manifest loader** (`defineModule`, ADR-0027). It registers enabled modules' NestJS modules and validates
-    every manifest at startup: dependencies present, unique permission and role keys, effects exist, events have schemas.
-    A broken manifest stops the start, with a clear message.
-- **Done when:** the API starts in both modes; an unknown route answers 404 problem+json; OpenAPI is written to
-  `packages/api-client/openapi.json` and the web types are generated from it (drift check in CI).
+  - the Zod validation pipe;
+  - `worker.ts` and `migrate.ts` entry points (`worker-documents.ts` comes in 0.23).
+- **Done when:** the API starts in both modes; an unknown route answers 404 problem+json; a request body that fails its
+  Zod schema answers 422 with `errors[]`.
 - **Tests:** error-filter tests (validation → 422 with `errors[]`, unknown error → 500 without internals), a config
   failure test, a health test.
+- **Split (2026-10-21):** the module manifest loader and the OpenAPI pipeline moved to 0.6a: the process skeleton alone
+  fills a session.
+
+### 0.6a Module manifest loader and OpenAPI pipeline
+- **Do:**
+  - the **module manifest loader** (`defineModule`, ADR-0027). It registers enabled modules' NestJS modules and validates
+    every manifest at startup: dependencies present, unique permission and role keys, effects exist, events have schemas.
+    A broken manifest stops the start, with a clear message;
+  - OpenAPI generated from the Zod schemas.
+- **Done when:** a broken manifest stops the start with a message naming the module and the problem; OpenAPI is written to
+  `packages/api-client/openapi.json` and the web types are generated from it (drift check in CI).
+- **Tests:** manifest validation (each rule has a failing case); the OpenAPI drift check.
 
 ### 0.7 Database foundation and audit log
 - **Do:**

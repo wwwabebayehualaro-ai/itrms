@@ -191,7 +191,17 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Split on 2026-10-21: the module manifest loader and the OpenAPI pipeline moved to 0.6a (scope too large for one session)."
+        },
+        {
+          "id": "0.6a",
+          "title": "Module manifest loader and OpenAPI pipeline",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Split from 0.6 on 2026-10-21."
         },
         {
           "id": "0.7",
