@@ -306,10 +306,11 @@
         {
           "id": "0.10a",
           "title": "BFF sign-in and exposure",
-          "status": "in review",
+          "status": "done",
           "branch": null,
           "commits": [
-            "966b5e8"
+            "966b5e8",
+            "6cb2766"
           ],
           "evidence": [
             "pnpm turbo run lint typecheck test (web, kernel, integrations, api) → 12/12 tasks; web unit 6 files incl. bff.test.ts (sealing, store timeouts/indexes/no resurrection, CSRF, proxy allow-lists, logout tokens, CSP)",
@@ -326,7 +327,7 @@
         {
           "id": "0.10b",
           "title": "Application shell",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
