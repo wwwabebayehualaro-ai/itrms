@@ -241,10 +241,11 @@
         {
           "id": "0.8",
           "title": "Org tree",
-          "status": "in review",
+          "status": "done",
           "branch": null,
           "commits": [
-            "399c957"
+            "399c957",
+            "eb33123"
           ],
           "evidence": [
             "pnpm --filter @itrms/api test:int → 28/28 on PostgreSQL 16 (org.int.spec 18): Wolaita seed (1 region, zone, 16 woredas, 8 towns; 4 levels, 5 types; idempotent), depth 3 / 2 / city>sub-city>kebele, level names from the region's definitions (Woreda vs District)",
@@ -262,7 +263,7 @@
         {
           "id": "0.9",
           "title": "Row-level security and the isolation test matrix",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
