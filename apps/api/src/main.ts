@@ -2,6 +2,7 @@
 import 'reflect-metadata';
 
 import { createHttpApp } from '@itrms/kernel/api';
+import { createDatabase } from '@itrms/kernel/db';
 
 import { AppModule } from './app.module';
 import { fail, start } from './start';
@@ -9,7 +10,12 @@ import { fail, start } from './start';
 async function main() {
     const { config, logger } = start('http');
     try {
-        const app = await createHttpApp(AppModule.forRoot(config, logger), config, logger);
+        const database = createDatabase(config.DATABASE_URL, {
+            applicationName: 'itrms-api',
+            auditKey: config.AUDIT_HMAC_KEY,
+            onError: (err) => logger.warn({ err }, 'an idle database connection failed')
+        });
+        const app = await createHttpApp(AppModule.forRoot(config, logger, { database }), config, logger);
         await app.listen({ port: config.PORT, host: config.HOST });
     } catch (error) {
         fail(logger, error);

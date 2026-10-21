@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1792584084274,
+      "tag": "0000_kernel_audit_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792584095272,
+      "tag": "0001_kernel_audit_log_append_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792585852997,
+      "tag": "0002_kernel_migration_history_owner_only",
+      "breakpoints": true
+    }
+  ]
+}

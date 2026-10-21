@@ -36,7 +36,8 @@ function sorted(value: unknown): unknown {
 
 export async function buildOpenApiDocument(): Promise<OpenAPIObject> {
     // the HTTP process's modules, without listening and without logs: the document is all we want from it
-    const config = loadConfig('http', {});
+    // no database: the document comes from the modules, and nothing here runs a query
+    const config = loadConfig('http', { DATABASE_URL: 'postgres://itrms_app@localhost:5432/itrms' });
     const logger = createLogger({ ...config, LOG_LEVEL: 'silent' }, new Writable({ write: (_c, _e, cb) => cb() }));
     const app = await createHttpApp(AppModule.forRoot(config, logger), config, logger);
     await app.init();

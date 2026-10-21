@@ -71,7 +71,12 @@ export async function testApp(env: Record<string, string> = { TRUSTED_PROXIES: '
             callback();
         }
     });
-    const config = loadConfig('http', { LOG_LEVEL: 'debug', BODY_LIMIT: '2048', ...env });
+    const config = loadConfig('http', {
+        LOG_LEVEL: 'debug',
+        BODY_LIMIT: '2048',
+        DATABASE_URL: 'postgres://itrms_app@localhost:5432/itrms',
+        ...env
+    });
     const logger = createLogger(config, sink);
     const root: DynamicModule = { module: TestModule, imports: [KernelModule.forRoot(config, logger)] };
     const app = await createHttpApp(root, config, logger);

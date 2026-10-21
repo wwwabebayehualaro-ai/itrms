@@ -10,6 +10,7 @@ Layer: kernel. Shape, public entries and rules: [code-structure.md](../../docs/p
 | `./contracts` | Zod DTOs, events, permission keys, error codes, query interfaces (isomorphic) |
 | `./api` | `KernelModule`, `createHttpApp` / `createWorkerContext`, `loadSlices` (the manifest checks at startup), logger, metrics, health (server only) |
 | `./config` | the per-process config schemas and `loadConfig` (fails at startup; `http` refuses the system pool) |
+| `./db` | `createDatabase` and `scoped(ctx, tx => …)`, the base columns, `audited()` / `notAudited()`, the audited write helpers (insert, update, delete with `row_version`; `recordEvent`), the `audit_log` table, `ROLES_SQL` |
 | `./errors` | the `AppError` hierarchy and the problem+json filter |
 | `./context` | the request context (AsyncLocalStorage: request id, language, user, unit) |
 | `./web/server`, `./web/client` | screens and route map; embeddable client components |

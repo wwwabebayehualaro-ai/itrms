@@ -1,0 +1,50 @@
+-- The ITRMS database roles (ADR-0003, ADR-0031; architecture.md §5), created or brought up to date by a superuser before
+-- the migrations run: by `pnpm dev:infra` on the dev stack, by the integration tests on their container, by the
+-- installation script in production. Idempotent: run it again any time; every attribute is stated, so a role changed by
+-- hand is put back. psql only (\gexec).
+--
+-- The caller sets the passwords as psql variables first, on stdin, never on a command line:
+--   \set owner_password '…'  \set app_password '…'  \set system_password '…'  \set backup_password '…'
+--
+--   itrms_owner   owns the schemas and tables and runs the migrations (not a superuser; RLS does not bind it, and FORCE
+--                 RLS is not set);
+--   itrms_app     the API: subject to every RLS policy; gets privileges table by table in the migrations;
+--   itrms_system  BYPASSRLS, only the worker's system pool (outbox relay, sweeps); every use is logged;
+--   itrms_backup  pgBackRest: replication only (a physical backup reads no table through SQL).
+
+CREATE EXTENSION IF NOT EXISTS ltree;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
+SELECT format('CREATE ROLE %I LOGIN', r)
+FROM unnest(ARRAY['itrms_owner', 'itrms_app', 'itrms_system', 'itrms_backup']) AS r
+WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = r) \gexec
+
+SELECT format('ALTER ROLE itrms_owner LOGIN NOSUPERUSER NOCREATEROLE NOCREATEDB NOREPLICATION NOBYPASSRLS INHERIT PASSWORD %L', :'owner_password') \gexec
+SELECT format('ALTER ROLE itrms_app LOGIN NOSUPERUSER NOCREATEROLE NOCREATEDB NOREPLICATION NOBYPASSRLS INHERIT PASSWORD %L', :'app_password') \gexec
+SELECT format('ALTER ROLE itrms_system LOGIN NOSUPERUSER NOCREATEROLE NOCREATEDB NOREPLICATION BYPASSRLS INHERIT PASSWORD %L', :'system_password') \gexec
+SELECT format('ALTER ROLE itrms_backup LOGIN NOSUPERUSER NOCREATEROLE NOCREATEDB REPLICATION NOBYPASSRLS INHERIT PASSWORD %L', :'backup_password') \gexec
+
+-- no ITRMS role is a member of another role (itrms_app in itrms_owner, or pg_read_all_data, would undo the limits above)
+SELECT format('REVOKE %I FROM %I', g.rolname, m.rolname)
+FROM pg_auth_members a
+JOIN pg_roles g ON g.oid = a.roleid
+JOIN pg_roles m ON m.oid = a.member
+WHERE m.rolname IN ('itrms_owner', 'itrms_app', 'itrms_system', 'itrms_backup') \gexec
+
+-- only the ITRMS roles reach the database (not PUBLIC: the cluster also hosts keycloak and glitchtip); the owner creates
+-- the schemas, the others connect
+SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', current_database()) \gexec
+SELECT format('GRANT CONNECT, CREATE ON DATABASE %I TO itrms_owner', current_database()) \gexec
+SELECT format('GRANT CONNECT ON DATABASE %I TO itrms_app, itrms_system, itrms_backup', current_database()) \gexec
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+
+-- what the owner creates, the system role may read and write (it is not subject to RLS; the audit log's trigger still
+-- refuses UPDATE and DELETE, and the migrations revoke what it must not touch, such as the migration history)
+ALTER DEFAULT PRIVILEGES FOR ROLE itrms_owner GRANT USAGE ON SCHEMAS TO itrms_system;
+ALTER DEFAULT PRIVILEGES FOR ROLE itrms_owner GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO itrms_system;
+ALTER DEFAULT PRIVILEGES FOR ROLE itrms_owner GRANT USAGE, SELECT ON SEQUENCES TO itrms_system;
+-- earlier bootstraps gave the backup role read access to business data: take it back
+ALTER DEFAULT PRIVILEGES FOR ROLE itrms_owner REVOKE USAGE ON SCHEMAS FROM itrms_backup;
+ALTER DEFAULT PRIVILEGES FOR ROLE itrms_owner REVOKE SELECT ON TABLES FROM itrms_backup;

@@ -23,6 +23,10 @@
     "./vitest/nest": {
       "types": "./vitest-nest.d.ts",
       "default": "./vitest-nest.js"
+    },
+    "./vitest/nest-int": {
+      "types": "./vitest-nest-int.d.ts",
+      "default": "./vitest-nest-int.js"
     }
   },
   "scripts": {

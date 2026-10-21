@@ -32,7 +32,12 @@ export const SECRET_KEYS = [
     'GLITCHTIP_DB_PASSWORD',
     'GLITCHTIP_SECRET_KEY',
     'GRAFANA_ADMIN_PASSWORD',
-    'DEV_USER_PASSWORD'
+    'DEV_USER_PASSWORD',
+    // the ITRMS database roles (platform/kernel/api/db/sql/roles.psql)
+    'ITRMS_OWNER_PASSWORD',
+    'ITRMS_APP_PASSWORD',
+    'ITRMS_SYSTEM_PASSWORD',
+    'ITRMS_BACKUP_PASSWORD'
 ];
 /** Secrets are written into SQL (as psql variables) and into SeaweedFS's JSON config: letters and digits only. */
 const SECRET_VALUE = /^[A-Za-z0-9]+$/;
@@ -307,11 +312,12 @@ async function up(observability) {
     compose(['up', '-d', '--wait', '--wait-timeout', '300'], { observability });
     if (observability) await waitReady(env);
     console.log('Seeding:');
+    seedDatabaseRoles(env);
     await seedBuckets(env);
     await seedKeycloak(env);
     console.log(`
 Development stack is healthy.
-  PostgreSQL   127.0.0.1:${p.PG_HOST_PORT}  database itrms (user postgres)
+  PostgreSQL   127.0.0.1:${p.PG_HOST_PORT}  database itrms (users postgres, itrms_owner, itrms_app, itrms_system)
   Valkey       127.0.0.1:${p.VALKEY_QUEUES_HOST_PORT} (queues) · 127.0.0.1:${p.VALKEY_SESSIONS_HOST_PORT} (sessions)
   Keycloak     http://localhost:${p.KEYCLOAK_HOST_PORT}  realm itrms · users ${DEV_USERS.map((u) => u.username).join(', ')}
   S3           http://127.0.0.1:${p.S3_HOST_PORT}  buckets ${BUCKETS.join(', ')}
@@ -322,6 +328,40 @@ Development stack is healthy.
           : ''
   }
 Passwords and keys are in infra/compose/.env. Check it end to end: pnpm dev:infra:check`);
+}
+
+/**
+ * Creates or updates the ITRMS database roles with the kernel's bootstrap (roles.psql), as the postgres superuser. It runs
+ * on every `up`, so a stack whose volume predates the roles gets them too. The passwords go in on stdin, as psql
+ * variables, never on a command line.
+ */
+function seedDatabaseRoles(env) {
+    const roles = ['owner', 'app', 'system', 'backup'];
+    const variables = roles.map((r) => `\\set ${r}_password '${env[`ITRMS_${r.toUpperCase()}_PASSWORD`]}'\n`).join('');
+    const bootstrap = readFileSync(join(ROOT, 'platform', 'kernel', 'api', 'db', 'sql', 'roles.psql'), 'utf8');
+    execFileSync(
+        'docker',
+        [
+            'compose',
+            '-f',
+            COMPOSE,
+            '--env-file',
+            ENV_FILE,
+            'exec',
+            '-T',
+            'postgres',
+            'psql',
+            '-q',
+            '-v',
+            'ON_ERROR_STOP=1',
+            '-U',
+            'postgres',
+            '-d',
+            'itrms'
+        ],
+        { input: variables + bootstrap, stdio: ['pipe', 'ignore', 'inherit'] }
+    );
+    console.log(`  PostgreSQL roles: ${roles.map((r) => `itrms_${r}`).join(', ')}`);
 }
 
 /** Runs `bash -c script` in a stack container; true when it exits 0. */

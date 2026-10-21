@@ -1,22 +1,53 @@
 /**
- * KernelModule.forRoot(config, logger): what every process gets from the kernel. The HTTP process also gets the
- * problem+json filter, the Zod validation pipe and the health endpoints; the worker and migrate processes run without
- * HTTP and only use the config, the logger and the metrics.
+ * KernelModule.forRoot(config, logger, { database }): what every process gets from the kernel. The HTTP process also gets
+ * the problem+json filter, the Zod validation pipe and the health endpoints; the worker and migrate processes run without
+ * HTTP. The process's entry creates the database and hands it over (tests and the OpenAPI writer run without one); the
+ * kernel provides it to the slices (DATABASE), checks it for readiness and closes it at shutdown.
  */
-import { Module, type DynamicModule, type Provider } from '@nestjs/common';
+import {
+    Inject,
+    Injectable,
+    Module,
+    type DynamicModule,
+    type OnApplicationShutdown,
+    type OnModuleInit,
+    type Provider
+} from '@nestjs/common';
 import { APP_FILTER, APP_PIPE } from '@nestjs/core';
 import { ZodValidationPipe } from 'nestjs-zod';
 
 import type { KernelConfig } from './config';
+import type { Database } from './db/database';
 import { ProblemFilter } from './errors/problem.filter';
 import { HealthController, ReadinessRegistry } from './observability/health';
 import type { Logger } from './observability/logger';
 import { Metrics } from './observability/metrics';
-import { KERNEL_CONFIG, LOGGER } from './observability/tokens';
+import { DATABASE, KERNEL_CONFIG, LOGGER } from './observability/tokens';
+
+/** Registers the database's readiness check and closes its pool when the process stops. */
+@Injectable()
+class DatabaseLifecycle implements OnModuleInit, OnApplicationShutdown {
+    constructor(
+        @Inject(DATABASE) private readonly database: Database,
+        private readonly readiness: ReadinessRegistry
+    ) {}
+
+    onModuleInit() {
+        this.readiness.register('database', () => this.database.ping());
+    }
+
+    async onApplicationShutdown() {
+        await this.database.close();
+    }
+}
+
+export interface KernelOptions {
+    database?: Database;
+}
 
 @Module({})
 export class KernelModule {
-    static forRoot(config: KernelConfig, logger: Logger): DynamicModule {
+    static forRoot(config: KernelConfig, logger: Logger, options: KernelOptions = {}): DynamicModule {
         const http: Provider[] =
             config.process === 'http'
                 ? [
@@ -24,6 +55,9 @@ export class KernelModule {
                       { provide: APP_PIPE, useClass: ZodValidationPipe }
                   ]
                 : [];
+        const database: Provider[] = options.database
+            ? [{ provide: DATABASE, useValue: options.database }, DatabaseLifecycle]
+            : [];
         return {
             module: KernelModule,
             global: true,
@@ -33,9 +67,10 @@ export class KernelModule {
                 { provide: LOGGER, useValue: logger },
                 Metrics,
                 ReadinessRegistry,
+                ...database,
                 ...http
             ],
-            exports: [KERNEL_CONFIG, LOGGER, Metrics, ReadinessRegistry]
+            exports: [KERNEL_CONFIG, LOGGER, Metrics, ReadinessRegistry, ...(options.database ? [DATABASE] : [])]
         };
     }
 }

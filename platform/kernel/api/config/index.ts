@@ -42,6 +42,12 @@ const common = {
 
 const postgresUrl = z.url({ protocol: /^postgres(ql)?$/ });
 
+/**
+ * The key masked audit columns are HMAC'd with (personal data proves a change without being stored). Without one they are
+ * written as "[masked]"; the installation sets one before the first table with masked columns (task 0.14).
+ */
+const auditKey = z.string().min(32, 'must be at least 32 characters').optional();
+
 /** "10.0.0.5", "10.0.0.0/8", "::1", "fd00::/8". */
 function isAddressOrRange(value: string): boolean {
     const [address = '', bits, extra] = value.split('/');
@@ -55,6 +61,9 @@ function isAddressOrRange(value: string): boolean {
 const schemas = {
     http: z.object({
         ...common,
+        /** The API's pool: role itrms_app, subject to RLS. */
+        DATABASE_URL: postgresUrl,
+        AUDIT_HMAC_KEY: auditKey,
         PORT: z.coerce.number().int().min(1).max(65535).default(4000),
         HOST: z.string().min(1).default('127.0.0.1'),
         /**
@@ -76,11 +85,16 @@ const schemas = {
     }),
     worker: z.object({
         ...common,
+        /** The worker's request-like work: role itrms_app. */
+        DATABASE_URL: postgresUrl,
+        AUDIT_HMAC_KEY: auditKey,
+        /** The system pool (role itrms_system, BYPASSRLS): outbox relay and sweeps (task 0.11). */
         DATABASE_SYSTEM_URL: postgresUrl.optional()
     }),
     migrate: z.object({
         ...common,
-        DATABASE_MIGRATE_URL: postgresUrl.optional()
+        /** The migration owner: role itrms_owner. */
+        DATABASE_MIGRATE_URL: postgresUrl
     })
 };
 

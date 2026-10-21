@@ -1,6 +1,6 @@
 #!/bin/sh
-# Runs once, when the postgres volume is created. The ITRMS roles (itrms_owner, itrms_app, itrms_system, itrms_backup)
-# and their grants come with the database foundation (tasks 0.7 and 0.9); this only prepares the databases.
+# Runs once, when the postgres volume is created: the databases and extensions. The ITRMS roles are not made here:
+# `pnpm dev:infra` applies platform/kernel/api/db/sql/roles.psql on every start, so older volumes get them too.
 # Passwords reach SQL as psql variables (:'var' quotes them), never pasted into the SQL text.
 set -eu
 

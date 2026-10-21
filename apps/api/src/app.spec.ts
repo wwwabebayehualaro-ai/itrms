@@ -8,11 +8,14 @@ import { describe, expect, it } from 'vitest';
 import { AppModule } from './app.module';
 import { SLICES } from './slices';
 
+/** No database is reached in these tests: the pool connects only when a query runs. */
+const DB = { DATABASE_URL: 'postgres://itrms_app@localhost:5432/itrms' };
+
 const quiet = new Writable({ write: (_chunk, _encoding, callback) => callback() });
 
 describe('the API', () => {
     it('starts as the HTTP process, answers health and an unknown route as problem+json', async () => {
-        const config = loadConfig('http', {});
+        const config = loadConfig('http', DB);
         const logger = createLogger(config, quiet);
         const app = await createHttpApp(AppModule.forRoot(config, logger), config, logger);
         await app.listen({ port: 0, host: '127.0.0.1' });
@@ -31,7 +34,7 @@ describe('the API', () => {
     });
 
     it('starts as the worker, with the same modules and no HTTP server', async () => {
-        const config = loadConfig('worker', {});
+        const config = loadConfig('worker', DB);
         const logger = createLogger(config, quiet);
         const context = await createWorkerContext(AppModule.forRoot(config, logger), logger);
         try {
@@ -45,12 +48,12 @@ describe('the API', () => {
 
 describe('the installed modules', () => {
     it('pass the manifest checks', () => {
-        const config = loadConfig('worker', {});
+        const config = loadConfig('worker', DB);
         expect(() => AppModule.forRoot(config, createLogger(config, quiet))).not.toThrow();
     });
 
     it('stop the start on a broken manifest, naming the module and the problem', () => {
-        const config = loadConfig('http', {});
+        const config = loadConfig('http', DB);
         const logger = createLogger(config, quiet);
         const broken = defineModule({
             key: 'competency',
@@ -61,10 +64,10 @@ describe('the installed modules', () => {
             dependsOn: ['kernel', 'drivers'],
             effects: ['competency.issueLicence']
         });
-        expect(() => AppModule.forRoot(config, logger, [...SLICES, { manifest: broken }])).toThrow(
+        expect(() => AppModule.forRoot(config, logger, { slices: [...SLICES, { manifest: broken }] })).toThrow(
             /The installed modules cannot start:\n- competency: depends on "drivers", which is not installed\n- competency: effect "competency.issueLicence" is declared but not implemented/
         );
-        expect(() => AppModule.forRoot(loadConfig('http', { MODULES_DISABLED: 'kernel' }), logger)).toThrow(
+        expect(() => AppModule.forRoot(loadConfig('http', { ...DB, MODULES_DISABLED: 'kernel' }), logger)).toThrow(
             ManifestError
         );
     });

@@ -14,7 +14,7 @@ pnpm test:int                    # integration tests against the stack (S3 contr
 
 | Service | Address (127.0.0.1 only; port variable in `.env`) | Notes |
 |---|---|---|
-| PostgreSQL 16 | `15432` (`PG_HOST_PORT`) | database `itrms` with ltree, pgcrypto, pg_trgm, btree_gist; also `keycloak` and `glitchtip` databases. ITRMS roles come in tasks 0.7 and 0.9 |
+| PostgreSQL 16 | `15432` (`PG_HOST_PORT`) | database `itrms` with ltree, pgcrypto, pg_trgm, btree_gist; also `keycloak` and `glitchtip` databases; the ITRMS roles (`itrms_owner`, `itrms_app`, `itrms_system`, `itrms_backup`) are created or updated on every `dev:infra` from `platform/kernel/api/db/sql/roles.psql`, passwords in `.env` |
 | Valkey 8 (queues) | `16379` (`VALKEY_QUEUES_HOST_PORT`) | BullMQ; append-only, `noeviction` |
 | Valkey 8 (sessions) | `16380` (`VALKEY_SESSIONS_HOST_PORT`) | BFF sessions (ADR-0021) |
 | Keycloak 26 | <http://localhost:18080> (`KEYCLOAK_HOST_PORT`) | realm `itrms` with dev users `dev.admin`, `dev.officer`, `dev.cashier`; clients and 2FA in task 0.10 |

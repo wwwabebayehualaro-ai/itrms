@@ -2,22 +2,26 @@ import { describe, expect, it } from 'vitest';
 
 import { ConfigError, loadConfig } from './index';
 
+/** The app pool every HTTP and worker process needs. */
+const DB = { DATABASE_URL: 'postgres://itrms_app@db:5432/itrms' };
 const SYSTEM_URL = 'postgres://itrms_system:s3cret-value@db:5432/itrms';
 
 describe('loadConfig', () => {
     it('gives each process its defaults', () => {
-        expect(loadConfig('http', {})).toMatchObject({
+        expect(loadConfig('http', DB)).toMatchObject({
             process: 'http',
             PORT: 4000,
             HOST: '127.0.0.1',
             TRUSTED_PROXIES: [],
             LOG_LEVEL: 'info'
         });
-        expect(loadConfig('worker', { DATABASE_SYSTEM_URL: SYSTEM_URL })).toMatchObject({
+        expect(loadConfig('worker', { ...DB, DATABASE_SYSTEM_URL: SYSTEM_URL })).toMatchObject({
             process: 'worker',
             DATABASE_SYSTEM_URL: SYSTEM_URL
         });
-        expect(loadConfig('http', { PORT: '8080', TRUSTED_PROXIES: '10.0.0.5, 172.16.0.0/12,::1' })).toMatchObject({
+        expect(
+            loadConfig('http', { ...DB, PORT: '8080', TRUSTED_PROXIES: '10.0.0.5, 172.16.0.0/12,::1' })
+        ).toMatchObject({
             PORT: 8080,
             TRUSTED_PROXIES: ['10.0.0.5', '172.16.0.0/12', '::1']
         });
@@ -26,7 +30,7 @@ describe('loadConfig', () => {
     it('fails at startup and names every problem', () => {
         let error: unknown;
         try {
-            loadConfig('http', { PORT: 'eighty', LOG_LEVEL: 'loud' });
+            loadConfig('http', { ...DB, PORT: 'eighty', LOG_LEVEL: 'loud' });
         } catch (e) {
             error = e;
         }
@@ -54,6 +58,15 @@ describe('loadConfig', () => {
     it('refuses libpq’s own variables in every process', () => {
         for (const kind of ['http', 'worker', 'migrate'] as const)
             expect(() => loadConfig(kind, { PGPASSWORD: 'x' })).toThrow(/PGPASSWORD: must not be set/);
+    });
+
+    it('asks each process for its own pool', () => {
+        expect(() => loadConfig('http', {})).toThrow(/DATABASE_URL/);
+        expect(() => loadConfig('worker', {})).toThrow(/DATABASE_URL/);
+        expect(() => loadConfig('migrate', {})).toThrow(/DATABASE_MIGRATE_URL/);
+        expect(loadConfig('migrate', { DATABASE_MIGRATE_URL: 'postgres://itrms_owner@db/itrms' }).process).toBe(
+            'migrate'
+        );
     });
 
     it('refuses a database address that is not PostgreSQL, without echoing it', () => {

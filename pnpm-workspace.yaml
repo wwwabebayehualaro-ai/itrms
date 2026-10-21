@@ -10,6 +10,10 @@ allowBuilds:
   '@swc/core': true
   # @scarf/scarf (via @nestjs/swagger > swagger-ui-dist): an install-time analytics ping; never run
   '@scarf/scarf': false
+  # Testcontainers' Docker client (dev only): optional native speed-ups with pure-JavaScript fallbacks; never run
+  cpu-features: false
+  protobufjs: false
+  ssh2: false
   esbuild: true
   lefthook: true
   unrs-resolver: true

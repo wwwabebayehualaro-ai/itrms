@@ -7,5 +7,6 @@ export { createHttpApp, createWorkerContext } from './bootstrap';
 export { createLogger, maskSecrets, PinoNestLogger, REDACTED_PATHS, type Logger } from './observability/logger';
 export { Metrics } from './observability/metrics';
 export { HealthController, ReadinessRegistry, type ReadinessCheck } from './observability/health';
-export { KERNEL_CONFIG, LOGGER } from './observability/tokens';
+export { DATABASE, KERNEL_CONFIG, LOGGER } from './observability/tokens';
+export type { KernelOptions } from './kernel.module';
 export { loadSlices, ManifestError, type LoadedSlices } from './modules/loader';
