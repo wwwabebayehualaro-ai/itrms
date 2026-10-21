@@ -27,6 +27,8 @@ export const SECRET_KEYS = [
     'POSTGRES_PASSWORD',
     'KEYCLOAK_DB_PASSWORD',
     'KEYCLOAK_ADMIN_PASSWORD',
+    // the itrms-web client's secret (the BFF, task 0.10a)
+    'KEYCLOAK_WEB_CLIENT_SECRET',
     'S3_ACCESS_KEY',
     'S3_SECRET_KEY',
     'GLITCHTIP_DB_PASSWORD',
@@ -263,24 +265,40 @@ async function keycloakToken(env) {
     return (await res.json()).access_token;
 }
 
-/** The ITRMS realm and generated dev users. Clients, roles and 2FA come with task 0.10. */
+/**
+ * The ITRMS realm from infra/compose/keycloak/realm-itrms.json (settings, password and brute-force policy, the itrms-web and
+ * itrms-api clients), brought up to date on every start, TOTP required of every new user, and generated dev users.
+ */
 async function seedKeycloak(env) {
     const token = await keycloakToken(env);
+    const realm = JSON.parse(readFileSync(join(ROOT, 'infra', 'compose', 'keycloak', 'realm-itrms.json'), 'utf8'));
+    const clients = realm.clients.map((c) =>
+        c.clientId === 'itrms-web' ? { ...c, secret: env.KEYCLOAK_WEB_CLIENT_SECRET } : c
+    );
+    const settings = { ...realm, clients: undefined, displayName: 'ITRMS (development)' };
     if ((await keycloak(env, '/admin/realms/itrms', { token })).status === 404) {
-        await keycloak(env, '/admin/realms', {
+        await keycloak(env, '/admin/realms', { token, method: 'POST', body: { ...settings, clients } });
+        console.log('  realm itrms created');
+    } else {
+        await keycloak(env, '/admin/realms/itrms', { token, method: 'PUT', body: settings });
+        await keycloak(env, '/admin/realms/itrms/partialImport', {
             token,
             method: 'POST',
-            body: {
-                realm: 'itrms',
-                enabled: true,
-                displayName: 'ITRMS (development)',
-                defaultLocale: 'am',
-                internationalizationEnabled: true,
-                supportedLocales: ['am', 'en']
-            }
+            body: { ifResourceExists: 'OVERWRITE', clients }
         });
-        console.log('  realm itrms created');
     }
+    await keycloak(env, '/admin/realms/itrms/authentication/required-actions/CONFIGURE_TOTP', {
+        token,
+        method: 'PUT',
+        body: {
+            alias: 'CONFIGURE_TOTP',
+            name: 'Configure OTP',
+            providerId: 'CONFIGURE_TOTP',
+            enabled: true,
+            defaultAction: true,
+            priority: 10
+        }
+    });
     for (const u of DEV_USERS) {
         const res = await keycloak(env, '/admin/realms/itrms/users', {
             token,

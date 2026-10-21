@@ -11,7 +11,6 @@ import { fileURLToPath } from 'node:url';
 
 import { createDatabase, declaredRlsTables, type Database, type Tx } from '@itrms/kernel/db';
 import { createSystemDatabase } from '@itrms/kernel/db/system';
-// importing the org slice also registers its tables' RLS declarations, which the last test checks
 import { findUnitByCode, importOrg, moveUnit, orgUnits, parseOrgYaml, type OrgUnit } from '@itrms/kernel/org';
 import {
     asUnit,
@@ -27,6 +26,11 @@ import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { startPostgres, type TestPostgres } from './support/postgres';
+
+// every slice's table files: loading them registers their withRls() declarations, which the last tests check
+import.meta.glob(['../../../../platform/*/api/**/*.table.ts', '../../../../modules/*/api/**/*.table.ts'], {
+    eager: true
+});
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ORG_FILES = [
@@ -380,7 +384,11 @@ describe('every tenant table', () => {
             WHERE p.prosecdef AND n.nspname NOT IN ('pg_catalog', 'information_schema')
               AND has_function_privilege('itrms_app', p.oid, 'EXECUTE')
             ORDER BY 1`);
-        expect(rows.map((r) => r.name)).toEqual(['kernel.record_context_free_event(text,jsonb,uuid,text,text)']);
+        expect(rows.map((r) => r.name)).toEqual([
+            'kernel.principal_units(text)',
+            'kernel.record_context_free_event(text,jsonb,uuid,text,text)',
+            'kernel.resolve_principal(text,uuid)'
+        ]);
     });
 });
 

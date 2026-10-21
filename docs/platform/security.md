@@ -421,8 +421,10 @@ is possible whenever INSA or a bureau asks.
 | SEC-IN-1, SEC-AP-5 (Zod in and out) | controller base + contract tests | 0.6 |
 | SEC-IN-3, SEC-IN-5, SEC-CR-5 (no raw SQL, no unlisted `dangerouslySetInnerHTML`, no `Math.random` for security) | ESLint rules in `packages/config` (Semgrep already reports `Math.random` and unsafe regexes) | 0.6 |
 | SEC-IN-2 (author patterns on RE2, bounded) | `safePattern.test.ts`; Semgrep's ReDoS rule for fixed patterns | now |
-| SEC-WB-1 (headers, CSP) | e2e header test | 0.10 |
-| SEC-SE-1…6 (sessions, CSRF) | BFF e2e tests | 0.10 |
+| SEC-AC-5, SEC-AC-7 (roles from `role_assignments` only; grants within the unit type's catalogue) | `apps/api/test/integration/iam.int.spec.ts`: roles in the token ignored, per-unit roles, revocation at the next request, catalogue and `bureau_admin` checks | 0.10 |
+| SEC-LG-1 (denials on record) | `iam.int.spec.ts`: a missing permission and a unit without a role write `access.denied`; refusals before a unit is known go through `kernel.record_context_free_event` | 0.10 |
+| SEC-WB-1 (headers, CSP) | e2e header test | 0.10a |
+| SEC-SE-1…6 (sessions, CSRF) | BFF e2e tests | 0.10a |
 | SEC-LG-1 (audit in the same transaction) | the audit test of every write path | 0.7 |
 | SEC-SC-1, SEC-SC-2 (secrets) | gitleaks; log-redaction test | 0.2; 0.6 |
 | SEC-DV-1 (dependencies) | pnpm settings, Renovate, `pnpm audit` | 0.2 |

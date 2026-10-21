@@ -18,6 +18,8 @@ export interface Principal {
     regionId: string;
     /** The active unit's ltree path: the person's scope is its subtree. */
     scopePath: string;
+    /** The roles they hold in that unit. */
+    roles: readonly string[];
     permissions: ReadonlySet<string>;
 }
 

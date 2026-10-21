@@ -5,6 +5,7 @@
  */
 import { Module, type DynamicModule } from '@nestjs/common';
 import { KernelModule, loadSlices, type Logger } from '@itrms/kernel/api';
+import { rolePermissions } from '@itrms/kernel/iam';
 import type { KernelConfig } from '@itrms/kernel/config';
 import type { Database } from '@itrms/kernel/db';
 
@@ -24,6 +25,16 @@ export class AppModule {
     ): DynamicModule {
         const { manifests, modules } = loadSlices(slices, { disabled: config.MODULES_DISABLED });
         logger.info({ modules: manifests.map((m) => m.key) }, 'modules loaded');
-        return { module: AppModule, imports: [KernelModule.forRoot(config, logger, { database }), ...modules] };
+        const identity =
+            config.process === 'http' && config.OIDC_ISSUER
+                ? { issuer: config.OIDC_ISSUER, audience: config.OIDC_AUDIENCE, jwksUrl: config.OIDC_JWKS_URL }
+                : undefined;
+        return {
+            module: AppModule,
+            imports: [
+                KernelModule.forRoot(config, logger, { database, identity, roles: rolePermissions(manifests) }),
+                ...modules
+            ]
+        };
     }
 }

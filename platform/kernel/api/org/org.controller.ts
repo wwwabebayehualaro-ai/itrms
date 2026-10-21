@@ -56,55 +56,55 @@ export class OrgController {
     constructor(private readonly org: OrgAdminService) {}
 
     @Get(':id')
-    @Require('org_unit:read')
+    @Require('org-unit:read')
     get(@Param('id', ParseUUIDPipe) id: string) {
         return this.org.get(id);
     }
 
     @Get(':id/subtree')
-    @Require('org_unit:read')
+    @Require('org-unit:read')
     subtree(@Param('id', ParseUUIDPipe) id: string) {
         return this.org.subtree(id);
     }
 
     @Post()
-    @Require('org_unit:create')
+    @Require('org-unit:create')
     create(@Body() body: CreateUnitDto) {
         return this.org.create(body);
     }
 
     @Patch(':id')
-    @Require('org_unit:update')
+    @Require('org-unit:update')
     rename(@Param('id', ParseUUIDPipe) id: string, @Headers('if-match') ifMatch: string, @Body() body: RenameUnitDto) {
         return this.org.rename(id, versionFrom(ifMatch), body.name);
     }
 
     @Post(':id/moves')
-    @Require('org_unit:move')
+    @Require('org-unit:move')
     move(@Param('id', ParseUUIDPipe) id: string, @Headers('if-match') ifMatch: string, @Body() body: MoveUnitDto) {
         return this.org.move(id, versionFrom(ifMatch), body.parentId);
     }
 
     @Post(':id/deactivations')
-    @Require('org_unit:deactivate')
+    @Require('org-unit:deactivate')
     deactivate(@Param('id', ParseUUIDPipe) id: string, @Headers('if-match') ifMatch: string) {
         return this.org.deactivate(id, versionFrom(ifMatch));
     }
 
     @Get(':id/services')
-    @Require('org_unit:read')
+    @Require('org-unit:read')
     services(@Param('id', ParseUUIDPipe) id: string) {
         return this.org.services(id);
     }
 
     @Put(':id/services/:code')
-    @Require('service_config:update')
+    @Require('service-config:update')
     setService(@Param('id', ParseUUIDPipe) id: string, @Param('code') code: string, @Body() body: ServiceOverrideDto) {
         return this.org.setService(id, serviceFrom(code), body.enabled, body.reason);
     }
 
     @Delete(':id/services/:code')
-    @Require('service_config:update')
+    @Require('service-config:update')
     resetService(@Param('id', ParseUUIDPipe) id: string, @Param('code') code: string) {
         return this.org.resetService(id, serviceFrom(code));
     }

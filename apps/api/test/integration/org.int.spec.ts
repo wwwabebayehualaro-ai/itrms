@@ -80,7 +80,7 @@ afterAll(async () => {
 describe('the Wolaita seed', () => {
     it('creates the region, the zone, its 16 woredas and 8 towns, with levels and unit types; again changes nothing', async () => {
         const first = await asInstaller((tx) => importOrg(tx, yamlOf(SEED)));
-        expect(first.created).toEqual({ levels: 4, unitTypes: 5, units: 26 });
+        expect(first.created).toEqual({ levels: 4, unitTypes: 6, units: 26 });
 
         const zone = await unit('SER', 'WOL');
         const below = await asInstaller((tx) => subtree(tx, zone.path));
@@ -310,12 +310,12 @@ describe('the admin API', () => {
     let principal: Principal | undefined;
     const authenticator: Authenticator = { authenticate: () => Promise.resolve(principal) };
     const all = new Set([
-        'org_unit:read',
-        'org_unit:create',
-        'org_unit:update',
-        'org_unit:move',
-        'org_unit:deactivate',
-        'service_config:update'
+        'org-unit:read',
+        'org-unit:create',
+        'org-unit:update',
+        'org-unit:move',
+        'org-unit:deactivate',
+        'service-config:update'
     ]);
 
     beforeAll(async () => {
@@ -345,6 +345,7 @@ describe('the admin API', () => {
             unitId: u.id,
             regionId: u.regionId,
             scopePath: u.path,
+            roles: ['unit_admin'],
             permissions
         };
     };
@@ -355,7 +356,7 @@ describe('the admin API', () => {
         const boditi = await unit('SER', 'WOL-BODITI');
         principal = undefined;
         expect((await call('GET', `/api/v1/org-units/${boditi.id}`)).statusCode).toBe(401);
-        await actAt('SER', 'WOL', new Set(['org_unit:read']));
+        await actAt('SER', 'WOL', new Set(['org-unit:read']));
         expect(
             (await call('POST', `/api/v1/org-units/${boditi.id}/deactivations`, undefined, { 'if-match': '1' }))
                 .statusCode

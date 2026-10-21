@@ -1,15 +1,23 @@
 /**
- * @itrms/kernel/iam: who may call what (security.md §6). `@Require` / `@Public` on every handler, the default-deny guard and
- * the caller's principal. Keycloak sign-in and `role_assignments` arrive in task 0.10 as an Authenticator.
+ * @itrms/kernel/iam: who may call what (security.md §6, ADR-0031). `@Require` / `@SignedIn` / `@Public` on every handler,
+ * the default-deny guard, the Keycloak authenticator, the role registry from the manifests, users and role assignments.
  */
 export {
     AccessGuard,
     AUTHENTICATOR,
+    currentPrincipal,
     Public,
     Require,
     requestDbContext,
     RouteInventory,
+    SignedIn,
     unmarkedRoutes,
     type Authenticator,
     type Principal
 } from './access';
+export { OidcAuthenticator, type OidcOptions } from './oidc-authenticator';
+export { permissionsOf, rolePermissions, type RolePermissions } from './roles';
+// granting and revoking are the IamController's alone (they hold the delegation rules); seeds use @itrms/kernel/seed
+export { assignmentsOf, type Grant, type RoleAssignment, type User } from './assignments';
+export { IamController } from './iam.controller';
+export * from './iam.table';

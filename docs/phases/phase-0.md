@@ -224,38 +224,54 @@ the task must add. The [definition of done](../../CLAUDE.md#definition-of-done) 
   - the matrix runs in CI against Postgres 16.
 - **Tests:** generated per-table isolation tests (adding a tenant table without policies fails the suite).
 
-### 0.10 Keycloak, BFF sign-in, guards, group sync
+### 0.10 Identity and permissions in the API
+Split on 2026-10-21 (scope too large for one session): the BFF sign-in moved to 0.10a, the application shell to 0.10b.
 - **Do:**
-  - Realm export in `infra/compose/keycloak` (TOTP required, password policy, Amharic/English theme with Noto Sans
-    Ethiopic).
-  - Next.js BFF with **openid-client**: OIDC code flow + PKCE, an opaque `__Host-` session cookie, sessions encrypted in
-    Valkey (ADR-0021), `/api/*` proxy with a bearer token, sign-out and back-channel logout.
-  - Passkeys/WebAuthn offered next to the required TOTP.
-  - API: `AuthGuard` (JWKS via `jose`), `@Require('res:action')`, `@Public`, unit-scope check from `X-Org-Unit`.
-  - **`role_assignments`** (user × unit × role, valid from/to, granted by, reason) as the only source of authorization.
-    Permissions are resolved for the active unit and cached, and the cache is invalidated on change. Keycloak tokens are used
-    for identity only (ADR-0031).
-  - Exposure: the `app.` and `verify.` hostnames; the Keycloak admin interface internal only; `/auth/admin` and
-    `/auth/realms/master` blocked; brute-force detection on; a nonce-based CSP, HSTS and `frame-ancestors 'none'`.
-  - Permission and role registry with the roles and matrix of [roles-and-permissions.md](../roles-and-permissions.md)
-    (`bureau_admin`, `unit_admin`, `unit_head`, `records_officer`, `cashier`, `finance_officer`, `auditor`, `viewer`, and
-    `<process>.officer|lead` + extras; Phase 0 needs the `competency.*` ones).
-  - Org-unit → Keycloak group sync through the outbox (added in 0.11; until then a direct call behind an interface).
-  - **Application shell** (ADR-0028, [navigation-and-menus.md](../platform/navigation-and-menus.md)):
-    - the `GET /me/workspace` endpoint returns the effective menu, services, capabilities, settings and units of the user
-      and active unit, filtered by entitlement, enablement, the unit's services, permissions and capabilities;
-    - the sidebar grouped by work process, a **unit switcher**, the **command palette** (menu + actions; record search
-      comes in 0.14), favourites and recents, and the user menu with preferences (theme, density, language, calendar);
-    - icons collected from the manifests at build time.
+  - Realm export in `infra/compose/keycloak` (TOTP required, password policy, brute-force detection, the `itrms-web`
+    client with PKCE and an `itrms-api` audience), imported by the dev stack.
+  - API: an `Authenticator` that verifies Keycloak access tokens (JWKS via `jose`: issuer, audience, expiry) and takes
+    the active unit from `X-Org-Unit`; `@Require(res:action)`, `@Public`, `@SignedIn`.
+  - **`users`** and **`role_assignments`** (user × unit × role, valid from/to, granted by, reason) as the only source of
+    authorization (ADR-0031); the caller and their roles in the active unit are resolved by one reviewed SECURITY DEFINER
+    function, on every request, so a revoked assignment takes effect on the next request.
+  - Permission and role registry from the module manifests, with the kernel's roles of
+    [roles-and-permissions.md](../roles-and-permissions.md) (`bureau_admin`, `unit_admin`, `unit_head`,
+    `records_officer`, `cashier`, `finance_officer`, `auditor`, `viewer`); granting checks the unit type's role catalogue.
+  - Denials (guards and row-level security) are audited.
+  - `GET /api/v1/me/workspace`: the user, the active unit (services, capabilities), the units they can act for, their roles
+    and permissions there.
 - **Done when:**
-  - a user signs in with 2FA and acts in their unit only;
   - a route without `@Require` fails the startup test;
-  - tokens never reach browser JavaScript (checked in e2e);
-  - a Damot Gale user's menu shows no licensing items and a Boditi competency officer's does;
-  - switching units changes the menu and the data scope;
   - a user who is cashier at Boditi and records officer at the zone gets exactly those permissions in each unit;
-  - revoking an assignment takes effect on the next request.
-- **Tests:** guard unit tests; an e2e sign-in with TOTP; a route-enumeration test; the cross-unit 403/404 test.
+  - revoking an assignment takes effect on the next request;
+  - acting for a unit the user holds no role in is refused, and a unit outside the active scope answers 404;
+  - every denial is in the audit log.
+- **Tests:** guard unit tests; the authenticator against a local JWKS (expired, wrong issuer, wrong audience, unknown unit);
+  the cross-unit 403/404 test.
+
+### 0.10a BFF sign-in and exposure
+- **Do:**
+  - Next.js BFF with **openid-client**: OIDC code flow + PKCE, an opaque `__Host-` session cookie, sessions encrypted in
+    Valkey (ADR-0021), `/api/*` proxy with a bearer token and `X-Org-Unit`, sign-out and back-channel logout.
+  - Passkeys/WebAuthn offered next to the required TOTP; the Amharic/English Keycloak theme with Noto Sans Ethiopic.
+  - Exposure: the `app.` and `verify.` hostnames; the Keycloak admin interface internal only; `/auth/admin` and
+    `/auth/realms/master` blocked; a nonce-based CSP, HSTS and `frame-ancestors 'none'`.
+  - Org-unit → Keycloak group sync behind the `IdentityAdmin` interface (through the outbox from 0.11); demo users created
+    in Keycloak with their assignments.
+- **Done when:** a user signs in with 2FA and acts in their unit only; tokens never reach browser JavaScript (checked in
+  e2e); sign-out ends the Keycloak session.
+- **Tests:** an e2e sign-in with TOTP; the session store; the proxy adds the bearer token and never forwards cookies.
+
+### 0.10b Application shell
+- **Do** (ADR-0028, [navigation-and-menus.md](../platform/navigation-and-menus.md)):
+  - `/me/workspace` adds the effective menu and settings, filtered by entitlement, enablement, the unit's services,
+    permissions and capabilities;
+  - the sidebar grouped by work process, a **unit switcher**, the **command palette** (menu + actions; record search comes
+    in 0.14), favourites and recents, and the user menu with preferences (theme, density, language, calendar);
+  - icons collected from the manifests at build time.
+- **Done when:** a Damot Gale user's menu shows no licensing items and a Boditi competency officer's does; switching units
+  changes the menu and the data scope.
+- **Tests:** menu filtering per unit and role; e2e unit switching.
 
 ### 0.11 Numbering, idempotency, outbox, jobs
 - **Do:**

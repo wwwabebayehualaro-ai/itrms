@@ -59,30 +59,51 @@ function isAddressOrRange(value: string): boolean {
 }
 
 const schemas = {
-    http: z.object({
-        ...common,
-        /** The API's pool: role itrms_app, subject to RLS. */
-        DATABASE_URL: postgresUrl,
-        AUDIT_HMAC_KEY: auditKey,
-        PORT: z.coerce.number().int().min(1).max(65535).default(4000),
-        HOST: z.string().min(1).default('127.0.0.1'),
-        /**
-         * The proxies (Nginx) whose X-Forwarded-For and X-Request-Id are believed: comma-separated addresses or CIDR ranges.
-         * Empty: none, the peer address is the client. Never "trust all": a client could then choose its own address.
-         */
-        TRUSTED_PROXIES: z
-            .string()
-            .default('')
-            .transform((v) =>
-                v
-                    .split(',')
-                    .map((p) => p.trim())
-                    .filter(Boolean)
-            )
-            .pipe(z.array(z.string().refine(isAddressOrRange, 'expected IP addresses or CIDR ranges'))),
-        /** Request bodies above this many bytes are refused (413). */
-        BODY_LIMIT: z.coerce.number().int().min(1024).default(1_048_576)
-    }),
+    http: z
+        .object({
+            ...common,
+            /** The API's pool: role itrms_app, subject to RLS. */
+            DATABASE_URL: postgresUrl,
+            AUDIT_HMAC_KEY: auditKey,
+            PORT: z.coerce.number().int().min(1).max(65535).default(4000),
+            HOST: z.string().min(1).default('127.0.0.1'),
+            /**
+             * The proxies (Nginx) whose X-Forwarded-For and X-Request-Id are believed: comma-separated addresses or CIDR ranges.
+             * Empty: none, the peer address is the client. Never "trust all": a client could then choose its own address.
+             */
+            TRUSTED_PROXIES: z
+                .string()
+                .default('')
+                .transform((v) =>
+                    v
+                        .split(',')
+                        .map((p) => p.trim())
+                        .filter(Boolean)
+                )
+                .pipe(z.array(z.string().refine(isAddressOrRange, 'expected IP addresses or CIDR ranges'))),
+            /** Request bodies above this many bytes are refused (413). */
+            BODY_LIMIT: z.coerce.number().int().min(1024).default(1_048_576),
+            /**
+             * The Keycloak realm whose access tokens the API accepts (`…/realms/itrms`). Without it nobody can sign in, which
+             * only development and tests may run with.
+             */
+            OIDC_ISSUER: z.url({ protocol: /^https?$/ }).optional(),
+            /** The audience the API's tokens carry. */
+            OIDC_AUDIENCE: z.string().min(1).default('itrms-api'),
+            /** The realm's keys when the API reaches Keycloak by another address than the issuer (the Compose network). */
+            OIDC_JWKS_URL: z.url({ protocol: /^https?$/ }).optional()
+        })
+        .refine((c) => c.NODE_ENV !== 'production' || c.OIDC_ISSUER !== undefined, {
+            path: ['OIDC_ISSUER'],
+            message: 'is required in production'
+        })
+        // the realm's keys decide every signature: never fetched over plain HTTP in production
+        .refine(
+            (c) =>
+                c.NODE_ENV !== 'production' ||
+                [c.OIDC_ISSUER, c.OIDC_JWKS_URL].every((u) => u === undefined || u.startsWith('https://')),
+            { path: ['OIDC_JWKS_URL'], message: 'must be https in production' }
+        ),
     worker: z.object({
         ...common,
         /** The worker's request-like work: role itrms_app. */

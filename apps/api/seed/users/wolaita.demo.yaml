@@ -1,0 +1,155 @@
+# Demo users of the reference design (roles-and-permissions.md §4): generated, role-descriptive names, never real people.
+# `keycloakSub` is the Keycloak account id; the realm's demo users get the same ids (task 0.10a). Applied after the org seed
+# by `pnpm --filter @itrms/api seed:users seed/users/wolaita.demo.yaml`; running it again changes nothing.
+region: SER
+
+users:
+  # South Ethiopia bureau
+  - {
+      username: demo.bureau.admin,
+      displayName: Bureau Admin (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000001,
+      home: SER,
+      roles: [{ unit: SER, role: bureau_admin }]
+    }
+
+  # Wolaita Zone department
+  - {
+      username: demo.zone.head,
+      displayName: Zone Head (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000101,
+      home: WOL,
+      roles: [{ unit: WOL, role: unit_head }]
+    }
+  - {
+      username: demo.zone.admin,
+      displayName: Zone Admin (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000102,
+      home: WOL,
+      roles: [{ unit: WOL, role: unit_admin }]
+    }
+  - {
+      username: demo.zone.lead,
+      displayName: Zone Competency Lead (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000103,
+      home: WOL,
+      roles: [{ unit: WOL, role: competency.lead }]
+    }
+  - {
+      username: demo.zone.officer1,
+      displayName: Zone Competency Officer 1 (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000104,
+      home: WOL,
+      roles: [{ unit: WOL, role: competency.officer }]
+    }
+  - {
+      username: demo.zone.officer2,
+      displayName: Zone Competency Officer 2 (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000105,
+      home: WOL,
+      roles: [{ unit: WOL, role: competency.officer }]
+    }
+  - {
+      username: demo.zone.examiner,
+      displayName: Zone Examiner (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000106,
+      home: WOL,
+      roles: [{ unit: WOL, role: competency.examiner }]
+    }
+  - {
+      username: demo.zone.cashier,
+      displayName: Zone Cashier (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000107,
+      home: WOL,
+      roles: [{ unit: WOL, role: cashier }]
+    }
+  - {
+      username: demo.zone.finance,
+      displayName: Zone Finance Officer (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000108,
+      home: WOL,
+      roles: [{ unit: WOL, role: finance_officer }]
+    }
+  - {
+      username: demo.zone.auditor,
+      displayName: Zone Auditor (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000109,
+      home: WOL,
+      roles: [{ unit: WOL, role: auditor }]
+    }
+
+  # Damot Gale woreda (ምድብ 1): no competency roles, the office has no such positions
+  - {
+      username: demo.damot.head,
+      displayName: Damot Gale Head (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000201,
+      home: WOL-DAMOT-GALE,
+      roles: [{ unit: WOL-DAMOT-GALE, role: unit_head }]
+    }
+  - {
+      username: demo.damot.records,
+      displayName: Damot Gale Records Officer (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000202,
+      home: WOL-DAMOT-GALE,
+      roles: [{ unit: WOL-DAMOT-GALE, role: records_officer }]
+    }
+  - {
+      username: demo.damot.safety,
+      displayName: Damot Gale Road Safety Officer (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000203,
+      home: WOL-DAMOT-GALE,
+      roles: [{ unit: WOL-DAMOT-GALE, role: road_safety.officer }]
+    }
+  - {
+      username: demo.damot.transport,
+      displayName: Damot Gale Public Transport Officer (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000204,
+      home: WOL-DAMOT-GALE,
+      roles: [{ unit: WOL-DAMOT-GALE, role: public_transport.officer }]
+    }
+
+  # Boditi town (ፈርጅ 1)
+  - {
+      username: demo.boditi.head,
+      displayName: Boditi Head (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000301,
+      home: WOL-BODITI,
+      roles: [{ unit: WOL-BODITI, role: unit_head }]
+    }
+  - {
+      username: demo.boditi.records,
+      displayName: Boditi Records Officer (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000302,
+      home: WOL-BODITI,
+      roles: [{ unit: WOL-BODITI, role: records_officer }]
+    }
+  - {
+      username: demo.boditi.cashier,
+      displayName: Boditi Revenue Collector (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000303,
+      home: WOL-BODITI,
+      roles: [{ unit: WOL-BODITI, role: cashier }]
+    }
+  - {
+      username: demo.boditi.lead,
+      displayName: Boditi Competency Team Leader (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000304,
+      home: WOL-BODITI,
+      roles: [{ unit: WOL-BODITI, role: competency.lead }]
+    }
+  - {
+      username: demo.boditi.officer,
+      displayName: Boditi Licensing Expert (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000305,
+      home: WOL-BODITI,
+      roles: [{ unit: WOL-BODITI, role: competency.officer }, { unit: WOL-BODITI, role: competency.examiner }]
+    }
+
+  # one person in two units: revenue collector at Boditi, records officer at the zone (roles-and-permissions.md §3)
+  - {
+      username: demo.dual,
+      displayName: Boditi Cashier and Zone Records (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000401,
+      home: WOL-BODITI,
+      roles: [{ unit: WOL-BODITI, role: cashier }, { unit: WOL, role: records_officer }]
+    }

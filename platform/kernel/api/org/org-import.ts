@@ -13,7 +13,7 @@ import ExcelJS from 'exceljs';
 import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 
-import { insertAudited } from '../db/audit';
+import { insertAudited, updateAudited } from '../db/audit';
 import type { Tx } from '../db/types';
 import { ValidationError, type FieldError } from '../errors';
 import { createRegion, createUnit, findUnitByCode, SERVICE_CODE } from './org-tree';
@@ -54,6 +54,8 @@ export const orgImportSchema = z.strictObject({
         code: CODE,
         /** needed only when the region is new */
         name: i18nTextSchema.optional(),
+        /** the bureau's own unit type (its role catalogue), one of the file's types; set once, when the region has none */
+        type: KEY.optional(),
         toConfirm: z.array(z.string()).default([])
     }),
     levels: z.array(z.strictObject({ key: KEY, rank: z.number().int().min(1), name: i18nTextSchema })).default([]),
@@ -67,6 +69,8 @@ export const orgImportSchema = z.strictObject({
                 capabilities: z.array(KEY).default([]),
                 services: serviceList.default([]),
                 roles: z.array(ROLE).default([]),
+                /** roles of the catalogue only a bureau admin may grant (`unit_admin`) */
+                nonDelegableRoles: z.array(ROLE).default([]),
                 departments: z
                     .array(z.strictObject({ key: KEY, process: KEY.optional(), name: i18nTextSchema }))
                     .default([])
@@ -326,9 +330,27 @@ export async function importOrg(tx: Tx, doc: OrgImport): Promise<OrgImportResult
         for (const serviceCode of input.services)
             await insertAudited(tx, unitTypeServices, { regionId, unitTypeId: type.id, serviceCode, enabled: true });
         for (const roleKey of input.roles)
-            await insertAudited(tx, unitTypeRoles, { regionId, unitTypeId: type.id, roleKey });
+            await insertAudited(tx, unitTypeRoles, {
+                regionId,
+                unitTypeId: type.id,
+                roleKey,
+                delegable: !input.nonDelegableRoles.includes(roleKey)
+            });
         types.set(type.key, type);
         created.unitTypes++;
+    }
+
+    if (doc.region.type && !region.unitTypeId) {
+        const type = types.get(doc.region.type);
+        if (!type || type.levelKey !== region.levelKey)
+            refuse([
+                {
+                    path: 'region.type',
+                    code: 'unknown_unit_type',
+                    message: `"${doc.region.type}" is not a unit type of the region's level`
+                }
+            ]);
+        region = await updateAudited(tx, orgUnits, region.id, region.rowVersion, { unitTypeId: type.id });
     }
 
     // parents may come later in the file: place what can be placed until nothing more can

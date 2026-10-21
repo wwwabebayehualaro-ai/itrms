@@ -9,6 +9,7 @@
 
 region:
   code: SER
+  type: regional_bureau
   name: { am: የደቡብ ኢትዮጵያ ክልል, en: South Ethiopia Regional State, wal-Latn: South Ethiopia Regional State }
   toConfirm: [name.wal-Latn]
 
@@ -49,7 +50,16 @@ x-teams:
     &community { key: community, process: community, name: { am: የህዝብ ተሳትፎና ባለድርሻ አካላት, en: Community participation } }
 
 unitTypes:
+  # the bureau configures services and administers the region; it decides no cases [A: roles-and-permissions.md §1]
+  - key: regional_bureau
+    nonDelegableRoles: [bureau_admin, unit_admin]
+    level: region
+    name: { am: የክልል ትራንስፖርትና መንገድ ልማት ቢሮ, en: Regional transport and road development bureau }
+    capabilities: [prints_documents]
+    roles: [bureau_admin, unit_admin, unit_head, auditor, viewer]
+
   - key: zone_department
+    nonDelegableRoles: [unit_admin]
     level: zone
     name: { am: የዞን ትራንስፖርትና መንገድ ልማት መምሪያ, en: Zone transport and road development department }
     capabilities: [collects_cash, prints_documents, has_examiners]
@@ -105,6 +115,7 @@ unitTypes:
       ]
 
   - key: town_unit_f1
+    nonDelegableRoles: [unit_admin]
     level: town
     name: { am: የፈርጅ 1 ከተማ ትራንስፖርትና ሎጂስቲክስ አገልግሎት ዩኒት, en: Grade 1 town transport and logistics service unit }
     categories: [f1]
@@ -133,6 +144,7 @@ unitTypes:
     departments: [*road_safety, *competency, *freight, *public_transport]
 
   - key: woreda_office_m1
+    nonDelegableRoles: [unit_admin]
     level: woreda
     name: { am: የምድብ 1 ወረዳ ትራንስፖርትና መንገድ ልማት ጽ/ቤት, en: Category 1 woreda transport and road development office }
     categories: [m1]
@@ -172,6 +184,7 @@ unitTypes:
 
   # provisional [A]: only the cover pages were scanned
   - key: town_unit_f3
+    nonDelegableRoles: [unit_admin]
     level: town
     name: { am: የፈርጅ 3 ከተማ ትራንስፖርትና ሎጂስቲክስ ዩኒት, en: Grade 3 town transport and logistics unit }
     categories: [f3]
@@ -194,6 +207,7 @@ unitTypes:
     departments: [*road_safety, *public_transport]
 
   - key: town_unit_f4
+    nonDelegableRoles: [unit_admin]
     level: town
     name: { am: የፈርጅ 4 ከተማ ትራንስፖርትና ሎጂስቲክስ ዩኒት, en: Grade 4 town transport and logistics unit }
     categories: [f4]

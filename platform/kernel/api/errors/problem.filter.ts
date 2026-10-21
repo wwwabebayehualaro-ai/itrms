@@ -5,7 +5,7 @@
  * framework errors keep their status but not their wording; anything else is 500 `internal_error` and only the log has the
  * cause.
  */
-import { Catch, HttpException, Inject, type ArgumentsHost, type ExceptionFilter } from '@nestjs/common';
+import { Catch, HttpException, Inject, Optional, type ArgumentsHost, type ExceptionFilter } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { ZodValidationException } from 'nestjs-zod';
 import { ZodError } from 'zod';
@@ -13,9 +13,10 @@ import { ZodError } from 'zod';
 import am from '../../messages/am.json';
 import en from '../../messages/en.json';
 import { currentContext, languageFrom, requestIdFrom, type Language } from '../context';
-import { LOGGER } from '../observability/tokens';
+import type { Database } from '../db/database';
+import { DATABASE, LOGGER } from '../observability/tokens';
 import type { Logger } from '../observability/logger';
-import { AppError, RateLimitedError, type FieldError } from './app-error';
+import { AppError, ForbiddenError, RateLimitedError, type FieldError } from './app-error';
 
 export interface Problem {
     type: string;
@@ -113,9 +114,41 @@ export function problemOf(error: unknown, language: Language, traceId?: string):
 
 @Catch()
 export class ProblemFilter implements ExceptionFilter {
-    constructor(@Inject(LOGGER) private readonly logger: Logger) {}
+    constructor(
+        @Inject(LOGGER) private readonly logger: Logger,
+        @Optional() @Inject(DATABASE) private readonly database?: Database
+    ) {}
 
-    catch(error: unknown, host: ArgumentsHost) {
+    /**
+     * Every refusal is on record (roles-and-permissions.md §3.5): who (or which account, when no role was found), the unit,
+     * the route and the reason, in a transaction of its own so it stays when the request fails. A refusal that cannot be
+     * recorded still stands; that it could not be is logged as an incident.
+     */
+    private async recordDenial(error: unknown, route: string) {
+        if (!this.database) return;
+        const request = currentContext();
+        const principal = request?.principal;
+        const reason = databaseRefusalOf(error) ? 'row_level_security' : 'forbidden';
+        const data = { route, reason, ...(error instanceof ForbiddenError ? error.audit : {}) };
+        try {
+            await this.database.recordSensitiveEvent(
+                {
+                    requestId: request?.requestId,
+                    ...(principal && {
+                        userId: principal.userId,
+                        unitId: principal.unitId,
+                        regionId: principal.regionId,
+                        scopePath: principal.scopePath
+                    })
+                },
+                { type: 'access.denied', data }
+            );
+        } catch (failure) {
+            this.logger.error({ err: failure, ...data }, 'a denial could not be written to the audit log');
+        }
+    }
+
+    async catch(error: unknown, host: ArgumentsHost) {
         const http = host.switchToHttp();
         const request = http.getRequest<FastifyRequest>();
         const reply = http.getResponse<FastifyReply>();
@@ -132,6 +165,8 @@ export class ProblemFilter implements ExceptionFilter {
                 'row-level security refused a write the guards let through'
             );
         else this.logger.debug({ code: problem.code, status: problem.status }, 'request refused');
+        if (problem.status === 403)
+            await this.recordDenial(error, `${request.method} ${request.routeOptions.url ?? request.url}`);
         if (error instanceof RateLimitedError) void reply.header('retry-after', String(error.retryAfter));
         void reply
             .status(problem.status)

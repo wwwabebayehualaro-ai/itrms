@@ -64,6 +64,27 @@
       "when": 1792601016539,
       "tag": "0008_kernel_unit_type_same_region",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792601681568,
+      "tag": "0009_kernel_users_role_assignments",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792601712761,
+      "tag": "0010_kernel_identity_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792603340366,
+      "tag": "0011_kernel_unit_type_roles_delegable",
+      "breakpoints": true
     }
   ]
 }

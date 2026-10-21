@@ -63,6 +63,9 @@ Separation of duties is enforced **per case step**, not by forbidding role combi
 `R` read · `C` create · `U` update · `D` decide (workflow step) · `A` administer · `—` none. The scope is always the holder's
 unit subtree. Registries are read region-wide (ADR-0013).
 
+In code a permission is `resource:action` with the resource in kebab-case, as the module manifests declare it
+(`org-unit:read`, `role-assignment:grant`); the kernel's roles and permissions are in `platform/kernel/module.ts`.
+
 | Resource | bureau_admin | unit_admin | unit_head | records_officer | cashier | finance_officer | competency.officer | competency.lead | competency.examiner | auditor |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `org_unit` | A | R (own subtree), U (names) | R | R | R | R | R | R | R | R |

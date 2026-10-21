@@ -51,11 +51,16 @@ export class UnauthenticatedError extends AppError {
     }
 }
 
-/** 403: permission or unit scope. Never says anything about the record. */
+/**
+ * 403: permission or unit scope. Never says anything about the record. `audit` is what the denial's audit row records
+ * (the reason, the permission, the unit asked for); the person sees none of it.
+ */
 export class ForbiddenError extends AppError {
     readonly status = 403;
-    constructor(options?: AppErrorOptions) {
+    readonly audit?: Readonly<Record<string, string>>;
+    constructor(options?: AppErrorOptions & { audit?: Record<string, string> }) {
         super('forbidden', options);
+        this.audit = options?.audit;
     }
 }
 

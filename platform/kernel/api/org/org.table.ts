@@ -118,7 +118,9 @@ export const unitTypeRoles = audited(
             /** the scope of the row for RLS: set by trigger from the unit (or the region) it belongs to */
             orgPath: ltree('org_path').notNull().default(''),
             unitTypeId: uuid('unit_type_id').notNull(),
-            roleKey: text('role_key').notNull()
+            roleKey: text('role_key').notNull(),
+            /** whether a unit administrator may grant it; one that is not, only a bureau admin grants (SEC-AC-7) */
+            delegable: boolean('delegable').notNull().default(true)
         },
         (t) => [
             uniqueIndex('unit_type_roles_uq').on(t.unitTypeId, t.roleKey),

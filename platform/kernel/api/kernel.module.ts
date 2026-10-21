@@ -20,6 +20,9 @@ import type { KernelConfig } from './config';
 import type { Database } from './db/database';
 import { ProblemFilter } from './errors/problem.filter';
 import { AccessGuard, AUTHENTICATOR, RouteInventory, type Authenticator } from './iam/access';
+import { IamController } from './iam/iam.controller';
+import { OidcAuthenticator, type OidcOptions } from './iam/oidc-authenticator';
+import type { RolePermissions } from './iam/roles';
 import { OrgAdminService } from './org/org-admin.service';
 import { OrgController } from './org/org.controller';
 import { HealthController, ReadinessRegistry } from './observability/health';
@@ -46,8 +49,12 @@ class DatabaseLifecycle implements OnModuleInit, OnApplicationShutdown {
 
 export interface KernelOptions {
     database?: Database;
-    /** Who is calling (task 0.10). Without one every `@Require` route answers 401. */
+    /** Who is calling. Without one (and without `identity`) every route that needs a caller answers 401. */
     authenticator?: Authenticator;
+    /** The Keycloak realm whose tokens the HTTP process accepts; with a database it gives the OidcAuthenticator. */
+    identity?: OidcOptions;
+    /** What each role grants, from the installed manifests. */
+    roles?: RolePermissions;
 }
 
 /** The OpenAPI writer and unit tests run without a database: a route that reaches it fails loudly. */
@@ -58,6 +65,15 @@ const NO_DATABASE: Database = {
     ping: unavailable,
     close: () => Promise.resolve()
 };
+
+function authenticatorOf(options: KernelOptions): Provider[] {
+    const authenticator =
+        options.authenticator ??
+        (options.identity && options.database
+            ? new OidcAuthenticator(options.database, options.roles ?? new Map(), options.identity)
+            : undefined);
+    return authenticator ? [{ provide: AUTHENTICATOR, useValue: authenticator }] : [];
+}
 
 @Module({})
 export class KernelModule {
@@ -70,7 +86,7 @@ export class KernelModule {
                       { provide: APP_GUARD, useClass: AccessGuard },
                       RouteInventory,
                       OrgAdminService,
-                      ...(options.authenticator ? [{ provide: AUTHENTICATOR, useValue: options.authenticator }] : [])
+                      ...authenticatorOf(options)
                   ]
                 : [];
         const database: Provider[] = options.database
@@ -80,7 +96,7 @@ export class KernelModule {
             module: KernelModule,
             global: true,
             imports: config.process === 'http' ? [DiscoveryModule] : [],
-            controllers: config.process === 'http' ? [HealthController, OrgController] : [],
+            controllers: config.process === 'http' ? [HealthController, OrgController, IamController] : [],
             providers: [
                 { provide: KERNEL_CONFIG, useValue: config },
                 { provide: LOGGER, useValue: logger },

@@ -48,6 +48,7 @@ const principal = (permissions: string[]): Principal => ({
     unitId: '0199f0a0-0000-7000-8000-000000000002',
     regionId: '0199f0a0-0000-7000-8000-000000000003',
     scopePath: 'u1.u2',
+    roles: ['tester'],
     permissions: new Set(permissions)
 });
 
@@ -84,6 +85,6 @@ describe('access (SEC-AC-1)', () => {
     });
 
     it('accepts only resource:action permissions', () => {
-        expect(() => Require('everything')).toThrow(/not a resource:action/);
+        expect(() => Require('org_unit:read')).toThrow(/not a resource:action/);
     });
 });

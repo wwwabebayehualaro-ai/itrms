@@ -191,6 +191,14 @@ module.exports = {
             to: { path: SYSTEM_POOL, reachable: true }
         },
         {
+            name: 'seed-entries-only-in-seed-code',
+            comment:
+                'A slice seed entry acts as the installer (it grants as the bureau): only seed commands and tests import it.',
+            severity: 'error',
+            from: { pathNot: '\.spec\.ts$|/test/|^apps/api/src/seed\.ts$|^(platform|modules)/[^/]+/seed/' },
+            to: { path: '^(platform|modules)/[^/]+/seed/' }
+        },
+        {
             name: 'testing-only-in-tests',
             comment:
                 '@itrms/kernel/testing (contexts for any unit, the matrix expectations) is for tests, never for running code.',
