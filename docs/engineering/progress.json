@@ -167,11 +167,12 @@
         {
           "id": "0.5",
           "title": "Extract the form engine and shared schemas",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.5-form-engine",
           "commits": [
             "e482908",
-            "02a1668"
+            "02a1668",
+            "6a82fa9"
           ],
           "evidence": [
             "ci:local 02a1668 on Linux (Docker 29.6.2), complete: checks pass (turbo lint/typecheck/test/build 60/60; @itrms/form-engine 9 files 38 tests incl. src/core/node.spec.ts in Node without a DOM, then check:engine ok (26 designable types), check:runtime ok (incl. Idempotency-Key dropped from data-source headers), form:schema --check current; @itrms/schemas 4/4; web 28/28 = 63 before minus 35 moved), stories pass (1638 + visual 468/468), infra pass (dev stack + S3 contract 17/17), gitleaks pass (2 commits), trivy pass (0 HIGH/CRITICAL, 484 packages), semgrep pass (225 rules, 758 files, 0). Report .ci-local/02a1668be095/report.md.",
@@ -185,7 +186,7 @@
         {
           "id": "0.6",
           "title": "API skeleton",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
