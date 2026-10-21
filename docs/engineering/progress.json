@@ -285,10 +285,11 @@
         {
           "id": "0.10",
           "title": "Identity and permissions in the API",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.10-auth",
           "commits": [
-            "72daf2f"
+            "72daf2f",
+            "f82243f"
           ],
           "evidence": [
             "pnpm --filter @itrms/api test:int → 86/86 on PostgreSQL 16; iam.int.spec 8: tokens (no token, other issuer, other audience, other key, expired, ID token, other client → 401); roles in the token ignored",
@@ -305,7 +306,7 @@
         {
           "id": "0.10a",
           "title": "BFF sign-in and exposure",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
