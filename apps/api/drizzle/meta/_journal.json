@@ -22,6 +22,20 @@
       "when": 1792585852997,
       "tag": "0002_kernel_migration_history_owner_only",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792597333881,
+      "tag": "0003_kernel_org_tree",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792597346629,
+      "tag": "0004_kernel_org_tree_triggers",
+      "breakpoints": true
     }
   ]
 }

@@ -98,4 +98,29 @@ level definitions and unit types.
   its ancestors.
 * An API `GET /me/workspace` returns the active unit's effective services, capabilities, menu and settings in one call
   (cached, invalidated on change). See [navigation-and-menus.md](navigation-and-menus.md).
+* Tasks: 0.8 (org tree, unit types, the Wolaita seed), 0.21 (service enablement + settings hierarchy).## 6. Implementation notes
+* Code: `@itrms/kernel/org` (`platform/kernel/api/org/`). Tables in the `kernel` schema (migrations 0003 and 0004):
+  `org_level_definitions` (key, rank, name), `org_units`, `org_departments`, `unit_types` (level, allowed categories,
+  **capabilities** and the **default teams** as columns), `unit_type_services`, `unit_type_roles`,
+  `unit_service_overrides` (enabled + reason). `settings_values` comes with task 0.21. All are audited; RLS class C
+  arrives with task 0.9.
+* **Paths:** one ltree label per unit (`u` + the id's hex), so a rename never touches a path. Triggers set the path
+  from the parent, rewrite the whole subtree when `parent_id` changes, and refuse a direct path write, a change of region
+  and a move under itself. A GiST index serves subtree queries (`path <@ …`).
+* **Levels:** a unit's level must be one of its region's and rank below its parent's level (a special woreda, rank 3,
+  can sit directly under the region, rank 1). Categories are short keys: `m<n>` for a woreda category (ምድብ n), `f<n>` for
+  a town grade (ፈርጅ n); a unit type lists the ones it allows.
+* **Effective services** = the unit type's defaults ⊕ the unit's overrides (`effectiveServices(tx, unitId)`).
+* **Admin API** `/api/v1/org-units`: `GET /{id}`, `GET /{id}/subtree`, `POST` (create), `PATCH /{id}` (rename),
+  `POST /{id}/moves`, `POST /{id}/deactivations`, `GET|PUT|DELETE /{id}/services/{code}`. Writes send the row version in
+  `If-Match`. A unit outside the caller's subtree is 404; moving or deactivating needs a unit strictly below the
+  caller's own.
+* **Import** (one document shape): YAML (the seeds; top-level `x-` keys hold anchors), CSV (units of an existing region:
+  `code, parent, kind, level, type, category, name_am, name_en, name_<tag>…, to_confirm`), Excel (a `units` sheet like the
+  CSV, optional `levels` and `unit_types` sheets). Idempotent by code and key, one transaction per file, errors name the
+  row (`units.3.parent`). `pnpm --filter @itrms/api seed:org <file> [--region <code>]` runs it as the owner.
+* Seeds: `apps/api/seed/org/south-ethiopia.wolaita.yaml`. Test-only fixtures (`apps/api/test/fixtures/org/`): Test Zone B
+  and a region without zones (a city with sub-cities and a kebele).
+* An API `GET /me/workspace` returns the active unit's effective services, capabilities, menu and settings in one call
+  (cached, invalidated on change; task 0.10). See [navigation-and-menus.md](navigation-and-menus.md).
 * Tasks: 0.8 (org tree, unit types, the Wolaita seed), 0.21 (service enablement + settings hierarchy).

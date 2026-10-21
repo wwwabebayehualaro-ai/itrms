@@ -241,10 +241,21 @@
         {
           "id": "0.8",
           "title": "Org tree",
-          "status": "ready",
+          "status": "in review",
           "branch": null,
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "399c957"
+          ],
+          "evidence": [
+            "pnpm --filter @itrms/api test:int → 28/28 on PostgreSQL 16 (org.int.spec 18): Wolaita seed (1 region, zone, 16 woredas, 8 towns; 4 levels, 5 types; idempotent), depth 3 / 2 / city>sub-city>kebele, level names from the region's definitions (Woreda vs District)",
+            "subtree query → Index Scan using org_units_path_gist (EXPLAIN printed in the test log); moving TRX-CITY-S1 under City B rewrites its kebele's path; move audited (update + org.unit_moved event); cycle, direct path write, region change, region kind, inactive parent, deactivating with active children refused by the triggers",
+            "effective services: Boditi has DVC-03, Damot Gale does not; an override enables it for Damot Gale only (Humbo unchanged), clearing restores; a unit cannot override its own services (403)",
+            "import: Test Zone B from YAML creates 2 types + 3 units with parents later in the file; CSV (quoted Amharic, wal-Latn) and Excel add units; a file with an unknown parent is refused whole with units.1.parent",
+            "admin API /api/v1/org-units: 401 without a caller, 403 without the permission, 404 outside the scope, If-Match required (400) and stale version 409, rename/deactivate/override audited with the actor; RouteInventory refuses an unmarked handler (platform/kernel/api/iam/access.spec.ts)",
+            "pnpm turbo run lint typecheck test build --concurrency=3 → 60/60; pnpm boundaries → no violations; prettier → clean; openapi.json + api-client types regenerated",
+            "reviewer agent: no high; 2 medium (tree-write race, self-override) and 4 low fixed in 399c957, the rest recorded as follow-ups (0.9, 0.10, 0.11, 0.21)",
+            "CI: GitHub unavailable (account suspended 2026-10-21) and pnpm ci:local killed for low memory; merged on local evidence at the product owner's request for speed"
+          ],
           "blockers": [],
           "notes": ""
         },
@@ -1223,6 +1234,56 @@
       "foundIn": "0.7",
       "item": "audit_log RLS (class T: people see the audit of their scope) with the isolation matrix",
       "movedTo": "0.9"
+    },
+    {
+      "foundIn": "0.8",
+      "item": "RLS class C on the org tables (org_units, org_level_definitions, unit_types, unit_type_services, unit_type_roles, unit_service_overrides, org_departments) with the isolation matrix; a SECURITY DEFINER lookup of the caller's active unit for the authenticator",
+      "movedTo": "0.9"
+    },
+    {
+      "foundIn": "0.8",
+      "item": "Authenticator from Keycloak + role_assignments (principal: user, active unit, region, scope path, permissions); org-unit → Keycloak group sync; unit admins may grant only roles of their unit type's catalogue (unit_type_roles, SEC-AC-7)",
+      "movedTo": "0.10"
+    },
+    {
+      "foundIn": "0.8",
+      "item": "Idempotency-Key on the org POSTs (create, moves, deactivations); org import over HTTP as an outbox job (upload CSV/Excel, report per row)",
+      "movedTo": "0.11"
+    },
+    {
+      "foundIn": "0.8",
+      "item": "Moving a unit must also rewrite org_path on its class-T rows (a job, audited; ADR-0011); today only org_units paths move",
+      "movedTo": "0.9"
+    },
+    {
+      "foundIn": "0.8",
+      "item": "Run the org seed in pnpm demo:reset and the installation script (seed:org after migrate)",
+      "movedTo": "0.25"
+    },
+    {
+      "foundIn": "0.8",
+      "item": "Zone to confirm in the org admin screen: official Amharic spellings, Wolaytta names, the categories/grades and unit types of the other woredas and towns, whether Wolaita Sodo reports to the zone or the region (to_confirm on each unit)",
+      "movedTo": "product owner / zone"
+    },
+    {
+      "foundIn": "0.8",
+      "item": "Service overrides: If-Match on PUT/DELETE /org-units/{id}/services/{code}; codes checked against service_definitions; which units may override which services (allowed-overrides policy per service version)",
+      "movedTo": "0.21"
+    },
+    {
+      "foundIn": "0.8",
+      "item": "RLS INSERT policy on org_units must refuse a new root (a region is created only by installation); per-unit audit of descendants' path rewrites if history-by-date needs it",
+      "movedTo": "0.9"
+    },
+    {
+      "foundIn": "0.8",
+      "item": "Org import: report rows that already exist with a different parent/type/category instead of skipping silently; name parent cycles inside the file; bound .xlsx size and zip expansion before ExcelJS loads an upload",
+      "movedTo": "0.11"
+    },
+    {
+      "foundIn": "0.8",
+      "item": "GET /org-units/{id}/subtree runs two lookups per unit (describeUnit); batch levels and types before regions with kebeles use it",
+      "movedTo": "0.10"
     }
   ]
 }

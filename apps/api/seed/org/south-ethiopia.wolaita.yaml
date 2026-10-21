@@ -1,0 +1,443 @@
+# The org tree of the reference design (tenant-wolaita.md §2, org-and-unit-types.md §3): South Ethiopia Region → Wolaita
+# Zone → its 16 woredas and the town administrations known so far, as siblings under the zone. Data, not code: another
+# zone is another file (`pnpm --filter @itrms/api seed:org <file>`). Running it again changes nothing.
+#
+# Sources: [D] the zone's documents (Form 15 cover pages: Damot Gale ምድብ 1, Boditi ፈርጅ 1, Gesuba ፈርጅ 3, Bitena ፈርጅ 4),
+# [N] the zone's website (English spellings). `toConfirm` lists what the zone confirms in the org admin screen: the
+# official Amharic spellings, the Wolaytta names, the categories and grades, and the provisional unit types.
+# Categories: m<n> = woreda category (ምድብ n), f<n> = town grade (ፈርጅ n).
+
+region:
+  code: SER
+  name: { am: የደቡብ ኢትዮጵያ ክልል, en: South Ethiopia Regional State, wal-Latn: South Ethiopia Regional State }
+  toConfirm: [name.wal-Latn]
+
+levels:
+  - { key: region, rank: 1, name: { am: ክልል, en: Region } }
+  - { key: zone, rank: 2, name: { am: ዞን, en: Zone } }
+  - { key: woreda, rank: 3, name: { am: ወረዳ, en: Woreda } }
+  - { key: town, rank: 3, name: { am: ከተማ አስተዳደር, en: Town administration } }
+
+# The teams of a unit (Form 15), one per work process; `x-` keys are YAML anchors only, not imported
+x-teams:
+  support: &support { key: support, name: { am: ኃላፊና ድጋፍ ሰጪ, en: Head and support } }
+  road_safety:
+    &road_safety { key: road_safety, process: road_safety, name: { am: የመንገድ ትራፊክ ደህንነት, en: Road traffic safety } }
+  public_transport:
+    &public_transport {
+      key: public_transport,
+      process: public_transport,
+      name: { am: የህዝብ ትራንስፖርት, en: Public transport }
+    }
+  competency:
+    &competency {
+      key: competency,
+      process: competency,
+      name: { am: የአሽከርካሪና ተሽከርካሪ ብቃት ማረጋገጫ, en: Driver and vehicle competency }
+    }
+  freight: &freight { key: freight, process: freight, name: { am: የጭነት ትራንስፖርት, en: Freight transport } }
+  road_quality:
+    &road_quality { key: road_quality, process: road_quality, name: { am: የመንገድ ጥራት ቁጥጥር, en: Road quality control } }
+  design_contracts:
+    &design_contracts {
+      key: design_contracts,
+      process: design_contracts,
+      name: { am: የዲዛይንና ኮንትራት አስተዳደር, en: Design and contract management }
+    }
+  logistics: &logistics { key: logistics, process: logistics, name: { am: የሎጂስቲክስ አቅርቦት, en: Logistics supply } }
+  community:
+    &community { key: community, process: community, name: { am: የህዝብ ተሳትፎና ባለድርሻ አካላት, en: Community participation } }
+
+unitTypes:
+  - key: zone_department
+    level: zone
+    name: { am: የዞን ትራንስፖርትና መንገድ ልማት መምሪያ, en: Zone transport and road development department }
+    capabilities: [collects_cash, prints_documents, has_examiners]
+    services:
+      [PT-01..06, RS-01..07, DVC-01..11, FR-01..03, RQ-01..02, DC-01..07, CP-01..05, LG-01..03, HR-01..06, PB-01..04]
+    roles:
+      [
+        unit_admin,
+        unit_head,
+        records_officer,
+        cashier,
+        finance_officer,
+        auditor,
+        viewer,
+        competency.officer,
+        competency.lead,
+        competency.examiner,
+        competency.inspector,
+        public_transport.officer,
+        public_transport.lead,
+        freight.officer,
+        freight.lead,
+        road_safety.officer,
+        road_safety.lead,
+        road_quality.officer,
+        road_quality.lead,
+        design_contracts.officer,
+        design_contracts.lead,
+        design_contracts.contract_admin,
+        community.officer,
+        community.lead,
+        logistics.officer,
+        logistics.lead,
+        logistics.machinery_operator,
+        hr.officer,
+        hr.lead,
+        hr.payroll_officer,
+        hr.payroll_approver,
+        planning.officer,
+        planning.lead
+      ]
+    departments:
+      [
+        *support,
+        *road_safety,
+        *public_transport,
+        *competency,
+        *freight,
+        *road_quality,
+        *design_contracts,
+        *logistics,
+        *community
+      ]
+
+  - key: town_unit_f1
+    level: town
+    name: { am: የፈርጅ 1 ከተማ ትራንስፖርትና ሎጂስቲክስ አገልግሎት ዩኒት, en: Grade 1 town transport and logistics service unit }
+    categories: [f1]
+    capabilities: [collects_cash, runs_terminal, prints_documents, has_examiners]
+    services: [RS-01..07, DVC-01..11, FR-01..03, PT-01..06]
+    roles:
+      [
+        unit_admin,
+        unit_head,
+        records_officer,
+        cashier,
+        finance_officer,
+        auditor,
+        viewer,
+        competency.officer,
+        competency.lead,
+        competency.examiner,
+        competency.inspector,
+        freight.officer,
+        freight.lead,
+        public_transport.officer,
+        public_transport.lead,
+        road_safety.officer,
+        road_safety.lead
+      ]
+    departments: [*road_safety, *competency, *freight, *public_transport]
+
+  - key: woreda_office_m1
+    level: woreda
+    name: { am: የምድብ 1 ወረዳ ትራንስፖርትና መንገድ ልማት ጽ/ቤት, en: Category 1 woreda transport and road development office }
+    categories: [m1]
+    capabilities: []
+    services: [RS-01..07, PT-04, PT-06, RQ-01..02, DC-01..07, LG-01..03, CP-01..05, HR-01..06, PB-02]
+    roles:
+      [
+        unit_admin,
+        unit_head,
+        records_officer,
+        cashier,
+        finance_officer,
+        auditor,
+        viewer,
+        road_safety.officer,
+        road_safety.lead,
+        public_transport.officer,
+        public_transport.lead,
+        road_quality.officer,
+        road_quality.lead,
+        design_contracts.officer,
+        design_contracts.lead,
+        design_contracts.contract_admin,
+        logistics.officer,
+        logistics.lead,
+        logistics.machinery_operator,
+        community.officer,
+        community.lead,
+        hr.officer,
+        hr.lead,
+        hr.payroll_officer,
+        hr.payroll_approver,
+        planning.officer,
+        planning.lead
+      ]
+    departments: [*support, *road_safety, *public_transport, *road_quality, *design_contracts, *logistics, *community]
+
+  # provisional [A]: only the cover pages were scanned
+  - key: town_unit_f3
+    level: town
+    name: { am: የፈርጅ 3 ከተማ ትራንስፖርትና ሎጂስቲክስ ዩኒት, en: Grade 3 town transport and logistics unit }
+    categories: [f3]
+    capabilities: [collects_cash]
+    services: [RS-01..07, PT-01..06]
+    roles:
+      [
+        unit_admin,
+        unit_head,
+        records_officer,
+        cashier,
+        finance_officer,
+        auditor,
+        viewer,
+        road_safety.officer,
+        road_safety.lead,
+        public_transport.officer,
+        public_transport.lead
+      ]
+    departments: [*road_safety, *public_transport]
+
+  - key: town_unit_f4
+    level: town
+    name: { am: የፈርጅ 4 ከተማ ትራንስፖርትና ሎጂስቲክስ ዩኒት, en: Grade 4 town transport and logistics unit }
+    categories: [f4]
+    capabilities: [collects_cash]
+    services: [RS-01..07, PT-01..06]
+    roles:
+      [
+        unit_admin,
+        unit_head,
+        records_officer,
+        cashier,
+        finance_officer,
+        auditor,
+        viewer,
+        road_safety.officer,
+        road_safety.lead,
+        public_transport.officer,
+        public_transport.lead
+      ]
+    departments: [*road_safety, *public_transport]
+
+units:
+  - code: WOL
+    kind: zone
+    level: zone
+    type: zone_department
+    name: { am: ወላይታ ዞን, en: Wolaita Zone, wal-Latn: Wolaytta Zoonaa }
+    toConfirm: [name.wal-Latn]
+
+  # the 16 woredas [N]; the unit type of all but Damot Gale is provisional, their categories unknown
+  - {
+      code: WOL-ABALA-ABAYA,
+      parent: WOL,
+      kind: woreda,
+      level: woreda,
+      type: woreda_office_m1,
+      name: { am: አባላ አባያ, en: Abala Abaya, wal-Latn: Abala Abaya },
+      toConfirm: [name.am, name.wal-Latn, category, unit_type]
+    }
+  - {
+      code: WOL-BAYRA-KOYSHA,
+      parent: WOL,
+      kind: woreda,
+      level: woreda,
+      type: woreda_office_m1,
+      name: { am: ባይራ ኮይሻ, en: Bayra Koysha, wal-Latn: Bayra Koysha },
+      toConfirm: [name.am, name.wal-Latn, category, unit_type]
+    }
+  - {
+      code: WOL-BOLOSO-BOMBE,
+      parent: WOL,
+      kind: woreda,
+      level: woreda,
+      type: woreda_office_m1,
+      name: { am: ቦሎሶ ቦምቤ, en: Boloso Bombe, wal-Latn: Boloso Bombe },
+      toConfirm: [name.am, name.wal-Latn, category, unit_type]
+    }
+  - {
+      code: WOL-BOLOSO-SORE,
+      parent: WOL,
+      kind: woreda,
+      level: woreda,
+      type: woreda_office_m1,
+      name: { am: ቦሎሶ ሶሬ, en: Boloso Sore, wal-Latn: Boloso Sore },
+      toConfirm: [name.am, name.wal-Latn, category, unit_type]
+    }
+  - {
+      code: WOL-DAMOT-GALE,
+      parent: WOL,
+      kind: woreda,
+      level: woreda,
+      type: woreda_office_m1,
+      category: m1,
+      name: { am: ዳሞት ጋሌ, en: Damot Gale, wal-Latn: Damot Gale },
+      toConfirm: [name.wal-Latn]
+    }
+  - {
+      code: WOL-DAMOT-PULASA,
+      parent: WOL,
+      kind: woreda,
+      level: woreda,
+      type: woreda_office_m1,
+      name: { am: ዳሞት ፑላሳ, en: Damot Pulasa, wal-Latn: Damot Pulasa },
+      toConfirm: [name.am, name.wal-Latn, category, unit_type]
+    }
+  - {
+      code: WOL-DAMOT-SORE,
+      parent: WOL,
+      kind: woreda,
+      level: woreda,
+      type: woreda_office_m1,
+      name: { am: ዳሞት ሶሬ, en: Damot Sore, wal-Latn: Damot Sore },
+      toConfirm: [name.am, name.wal-Latn, category, unit_type]
+    }
+  - {
+      code: WOL-DAMOT-WEYDE,
+      parent: WOL,
+      kind: woreda,
+      level: woreda,
+      type: woreda_office_m1,
+      name: { am: ዳሞት ወይዴ, en: Damot Weyde, wal-Latn: Damot Weyde },
+      toConfirm: [name.am, name.wal-Latn, category, unit_type]
+    }
+  - {
+      code: WOL-DIGUNA-FANGO,
+      parent: WOL,
+      kind: woreda,
+      level: woreda,
+      type: woreda_office_m1,
+      name: { am: ዲጉና ፋንጎ, en: Diguna Fango, wal-Latn: Diguna Fango },
+      toConfirm: [name.am, name.wal-Latn, category, unit_type]
+    }
+  - {
+      code: WOL-HOBICHA,
+      parent: WOL,
+      kind: woreda,
+      level: woreda,
+      type: woreda_office_m1,
+      name: { am: ሆቢቻ, en: Hobicha, wal-Latn: Hobicha },
+      toConfirm: [name.am, name.wal-Latn, category, unit_type]
+    }
+  - {
+      code: WOL-HUMBO,
+      parent: WOL,
+      kind: woreda,
+      level: woreda,
+      type: woreda_office_m1,
+      name: { am: ሁምቦ, en: Humbo, wal-Latn: Humbo },
+      toConfirm: [name.am, name.wal-Latn, category, unit_type]
+    }
+  - {
+      code: WOL-KAWO-KOYSHA,
+      parent: WOL,
+      kind: woreda,
+      level: woreda,
+      type: woreda_office_m1,
+      name: { am: ካዎ ኮይሻ, en: Kawo Koysha, wal-Latn: Kawo Koysha },
+      toConfirm: [name.am, name.wal-Latn, category, unit_type]
+    }
+  - {
+      code: WOL-KINDO-DIDAYE,
+      parent: WOL,
+      kind: woreda,
+      level: woreda,
+      type: woreda_office_m1,
+      name: { am: ኪንዶ ዲዳዬ, en: Kindo Didaye, wal-Latn: Kindo Didaye },
+      toConfirm: [name.am, name.wal-Latn, category, unit_type]
+    }
+  - {
+      code: WOL-KINDO-KOYSHA,
+      parent: WOL,
+      kind: woreda,
+      level: woreda,
+      type: woreda_office_m1,
+      name: { am: ኪንዶ ኮይሻ, en: Kindo Koysha, wal-Latn: Kindo Koysha },
+      toConfirm: [name.am, name.wal-Latn, category, unit_type]
+    }
+  - {
+      code: WOL-OFFA,
+      parent: WOL,
+      kind: woreda,
+      level: woreda,
+      type: woreda_office_m1,
+      name: { am: ኦፋ, en: Offa, wal-Latn: Offa },
+      toConfirm: [name.am, name.wal-Latn, category, unit_type]
+    }
+  - {
+      code: WOL-SODO-ZURIA,
+      parent: WOL,
+      kind: woreda,
+      level: woreda,
+      type: woreda_office_m1,
+      name: { am: ሶዶ ዙሪያ, en: Sodo Zuria, wal-Latn: Sodo Zuria },
+      toConfirm: [name.am, name.wal-Latn, category, unit_type]
+    }
+
+  # the town administrations known so far; the zone adds more (lower-grade towns have their own units)
+  - {
+      code: WOL-SODO-CITY,
+      parent: WOL,
+      kind: city_admin,
+      level: town,
+      name: { am: ወላይታ ሶዶ ከተማ አስተዳደር, en: Wolaita Sodo city administration, wal-Latn: Wolaytta Sooduwa },
+      toConfirm: [name.am, name.wal-Latn, category, unit_type, parent]
+    }
+  - {
+      code: WOL-AREKA,
+      parent: WOL,
+      kind: town_admin,
+      level: town,
+      name: { am: አረካ ከተማ አስተዳደር, en: Areka town administration, wal-Latn: Areka },
+      toConfirm: [name.am, name.wal-Latn, category, unit_type]
+    }
+  - {
+      code: WOL-BODITI,
+      parent: WOL,
+      kind: town_admin,
+      level: town,
+      type: town_unit_f1,
+      category: f1,
+      name: { am: ቦዲቲ ከተማ አስተዳደር, en: Boditi town administration, wal-Latn: Boditi },
+      toConfirm: [name.wal-Latn]
+    }
+  - {
+      code: WOL-GUNUNO,
+      parent: WOL,
+      kind: town_admin,
+      level: town,
+      name: { am: ጉኑኖ (ሀሙስ) ከተማ አስተዳደር, en: Gununo (Hamus) town administration, wal-Latn: Gununo },
+      toConfirm: [name.am, name.wal-Latn, category, unit_type]
+    }
+  - {
+      code: WOL-TEBELA,
+      parent: WOL,
+      kind: town_admin,
+      level: town,
+      name: { am: ተበላ ከተማ አስተዳደር, en: Tebela town administration, wal-Latn: Tebela },
+      toConfirm: [name.am, name.wal-Latn, category, unit_type]
+    }
+  - {
+      code: WOL-BALE-HAWASSA,
+      parent: WOL,
+      kind: town_admin,
+      level: town,
+      name: { am: ባሌ ሀዋሳ ከተማ አስተዳደር, en: Bale Hawassa town administration, wal-Latn: Bale Hawassa },
+      toConfirm: [name.am, name.wal-Latn, category, unit_type]
+    }
+  - {
+      code: WOL-GESUBA,
+      parent: WOL,
+      kind: town_admin,
+      level: town,
+      type: town_unit_f3,
+      category: f3,
+      name: { am: ገሱባ ከተማ አስተዳደር, en: Gesuba town administration, wal-Latn: Gesuba },
+      toConfirm: [name.wal-Latn, unit_type]
+    }
+  - {
+      code: WOL-BITENA,
+      parent: WOL,
+      kind: town_admin,
+      level: town,
+      type: town_unit_f4,
+      category: f4,
+      name: { am: ቢጠና ከተማ አስተዳደር, en: Bitena town administration, wal-Latn: Bitena },
+      toConfirm: [name.wal-Latn, unit_type]
+    }

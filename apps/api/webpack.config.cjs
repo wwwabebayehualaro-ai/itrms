@@ -1,6 +1,6 @@
 // The API bundle (code-structure.md §5.5): Nest's webpack builder with swc-loader, decorator metadata on. The @itrms/*
 // workspace packages are TypeScript source and are bundled in; npm packages stay external and load from node_modules.
-// One bundle per process: main (HTTP), worker and migrate. CommonJS output (.cjs): the package itself is an ES module.
+// One bundle per process: main (HTTP), worker, migrate and seed. CommonJS output (.cjs): the package itself is an ES module.
 const path = require('node:path');
 
 const swc = {
@@ -30,6 +30,7 @@ module.exports = (defaults) => ({
         main: './src/main.ts',
         worker: './src/worker.ts',
         migrate: './src/migrate.ts',
+        seed: './src/seed.ts',
         openapi: './src/openapi-cli.ts'
     },
     output: { path: path.join(__dirname, 'dist'), filename: '[name].cjs', clean: true },

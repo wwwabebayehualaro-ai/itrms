@@ -7,6 +7,7 @@ import { Controller, Get, Injectable, Res } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import type { FastifyReply } from 'fastify';
 
+import { Public } from '../iam/access';
 import { Metrics } from './metrics';
 
 const CHECK_TIMEOUT_MS = 2000;
@@ -45,6 +46,7 @@ export class ReadinessRegistry {
 
 // infrastructure endpoints, not part of the API contract (openapi.json)
 @ApiExcludeController()
+@Public()
 @Controller()
 export class HealthController {
     constructor(

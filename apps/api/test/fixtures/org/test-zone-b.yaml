@@ -1,0 +1,41 @@
+# Test only (never shown in the demo): a synthetic second zone of the same region, with unit types of its own. It proves
+# onboarding a zone is a file, not code, and gives the isolation matrix (task 0.9) another zone.
+region:
+  code: SER
+
+unitTypes:
+  - key: tzb_zone_office
+    level: zone
+    name: { am: የሙከራ ዞን ቢሮ, en: Test zone office }
+    capabilities: [prints_documents]
+    services: [RS-01..03, PT-01]
+    roles: [unit_admin, unit_head, viewer]
+  - key: tzb_woreda_desk
+    level: woreda
+    name: { am: የሙከራ ወረዳ ዴስክ, en: Test woreda desk }
+    categories: [m2]
+    services: [RS-01, CP-01..02]
+    roles: [unit_admin, viewer]
+    departments:
+      - { key: road_safety, process: road_safety, name: { am: የመንገድ ትራፊክ ደህንነት, en: Road traffic safety } }
+
+units:
+  # the woredas come first on purpose: the import places parents that appear later in the file
+  - {
+      code: TZB-W1,
+      parent: TZB,
+      kind: woreda,
+      level: woreda,
+      type: tzb_woreda_desk,
+      category: m2,
+      name: { am: የሙከራ ወረዳ 1, en: Test Woreda 1 }
+    }
+  - {
+      code: TZB-W2,
+      parent: TZB,
+      kind: woreda,
+      level: woreda,
+      type: tzb_woreda_desk,
+      name: { am: የሙከራ ወረዳ 2, en: Test Woreda 2 }
+    }
+  - { code: TZB, kind: zone, level: zone, type: tzb_zone_office, name: { am: የሙከራ ዞን ቢ, en: Test Zone B } }

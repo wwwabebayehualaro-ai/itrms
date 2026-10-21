@@ -13,12 +13,15 @@ import {
     type OnModuleInit,
     type Provider
 } from '@nestjs/common';
-import { APP_FILTER, APP_PIPE } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_PIPE, DiscoveryModule } from '@nestjs/core';
 import { ZodValidationPipe } from 'nestjs-zod';
 
 import type { KernelConfig } from './config';
 import type { Database } from './db/database';
 import { ProblemFilter } from './errors/problem.filter';
+import { AccessGuard, AUTHENTICATOR, RouteInventory, type Authenticator } from './iam/access';
+import { OrgAdminService } from './org/org-admin.service';
+import { OrgController } from './org/org.controller';
 import { HealthController, ReadinessRegistry } from './observability/health';
 import type { Logger } from './observability/logger';
 import { Metrics } from './observability/metrics';
@@ -43,7 +46,18 @@ class DatabaseLifecycle implements OnModuleInit, OnApplicationShutdown {
 
 export interface KernelOptions {
     database?: Database;
+    /** Who is calling (task 0.10). Without one every `@Require` route answers 401. */
+    authenticator?: Authenticator;
 }
+
+/** The OpenAPI writer and unit tests run without a database: a route that reaches it fails loudly. */
+const unavailable = () => Promise.reject(new Error('This process has no database'));
+const NO_DATABASE: Database = {
+    scoped: unavailable,
+    recordSensitiveEvent: unavailable,
+    ping: unavailable,
+    close: () => Promise.resolve()
+};
 
 @Module({})
 export class KernelModule {
@@ -52,16 +66,21 @@ export class KernelModule {
             config.process === 'http'
                 ? [
                       { provide: APP_FILTER, useClass: ProblemFilter },
-                      { provide: APP_PIPE, useClass: ZodValidationPipe }
+                      { provide: APP_PIPE, useClass: ZodValidationPipe },
+                      { provide: APP_GUARD, useClass: AccessGuard },
+                      RouteInventory,
+                      OrgAdminService,
+                      ...(options.authenticator ? [{ provide: AUTHENTICATOR, useValue: options.authenticator }] : [])
                   ]
                 : [];
         const database: Provider[] = options.database
             ? [{ provide: DATABASE, useValue: options.database }, DatabaseLifecycle]
-            : [];
+            : [{ provide: DATABASE, useValue: NO_DATABASE }];
         return {
             module: KernelModule,
             global: true,
-            controllers: config.process === 'http' ? [HealthController] : [],
+            imports: config.process === 'http' ? [DiscoveryModule] : [],
+            controllers: config.process === 'http' ? [HealthController, OrgController] : [],
             providers: [
                 { provide: KERNEL_CONFIG, useValue: config },
                 { provide: LOGGER, useValue: logger },
@@ -70,7 +89,7 @@ export class KernelModule {
                 ...database,
                 ...http
             ],
-            exports: [KERNEL_CONFIG, LOGGER, Metrics, ReadinessRegistry, ...(options.database ? [DATABASE] : [])]
+            exports: [KERNEL_CONFIG, LOGGER, Metrics, ReadinessRegistry, DATABASE]
         };
     }
 }

@@ -1,7 +1,7 @@
 /**
  * @itrms/kernel/context: what the code serving a request knows about it, without passing it around: the request id (also
- * the `traceId` of problem bodies and the `X-Request-Id` header), the person's language, and once signed in (tasks 0.8–0.9)
- * the user and the active unit. Kept in AsyncLocalStorage for the whole request.
+ * the `traceId` of problem bodies and the `X-Request-Id` header), the person's language, and once signed in the caller and
+ * their active unit. Kept in AsyncLocalStorage for the whole request.
  */
 import { randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -11,13 +11,21 @@ export type Language = (typeof LANGUAGES)[number];
 /** Amharic is the default language of every installation (i18n-and-languages.md). */
 export const DEFAULT_LANGUAGE: Language = 'am';
 
+/** Who is calling, acting for which unit, with the permissions they hold there (from `role_assignments`, ADR-0031). */
+export interface Principal {
+    userId: string;
+    unitId: string;
+    regionId: string;
+    /** The active unit's ltree path: the person's scope is its subtree. */
+    scopePath: string;
+    permissions: ReadonlySet<string>;
+}
+
 export interface RequestContext {
     readonly requestId: string;
     readonly language: Language;
-    /** Set by authentication (task 0.8). */
-    user?: { id: string };
-    /** The unit the person acts for (task 0.9). */
-    unitId?: string;
+    /** The signed-in caller and their active unit, set by the AccessGuard (`@itrms/kernel/iam`). */
+    principal?: Principal;
 }
 
 const storage = new AsyncLocalStorage<RequestContext>();

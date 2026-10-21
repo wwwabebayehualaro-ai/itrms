@@ -416,7 +416,7 @@ is possible whenever INSA or a bureau asks.
 
 | Rule | Enforced by | From task |
 |---|---|---|
-| SEC-AC-1 (`@Require` on every handler) | lint rule + route inventory test | 0.6 |
+| SEC-AC-1 (`@Require` on every handler) | `RouteInventory` stops a process with an unmarked handler; `AccessGuard` denies by default (`platform/kernel/api/iam/access.spec.ts`) | 0.8 |
 | SEC-AC-2, SEC-AC-10 (RLS, isolation matrix) | integration tests on PostgreSQL 16 | 0.9 |
 | SEC-IN-1, SEC-AP-5 (Zod in and out) | controller base + contract tests | 0.6 |
 | SEC-IN-3, SEC-IN-5, SEC-CR-5 (no raw SQL, no unlisted `dangerouslySetInnerHTML`, no `Math.random` for security) | ESLint rules in `packages/config` (Semgrep already reports `Math.random` and unsafe regexes) | 0.6 |

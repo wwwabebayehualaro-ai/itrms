@@ -13,6 +13,7 @@
     "start": "node --enable-source-maps dist/main.cjs",
     "start:worker": "node --enable-source-maps dist/worker.cjs",
     "migrate": "node --enable-source-maps dist/migrate.cjs",
+    "seed:org": "node --enable-source-maps dist/seed.cjs org",
     "openapi": "nest build && node dist/openapi.cjs",
     "db:generate": "drizzle-kit generate"
   },
@@ -46,6 +47,7 @@
     "@opentelemetry/exporter-prometheus": "0.223.0",
     "@opentelemetry/sdk-metrics": "2.12.0",
     "drizzle-orm": "0.45.3",
+    "exceljs": "4.4.0",
     "fastify": "5.12.5",
     "nestjs-zod": "5.5.0",
     "pg": "8.23.1",
@@ -53,6 +55,7 @@
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "uuid": "14.0.2",
+    "yaml": "2.9.1",
     "zod": "4.6.5"
   }
 }

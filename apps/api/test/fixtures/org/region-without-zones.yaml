@@ -1,0 +1,43 @@
+# Test only: a region with no zones (configurable depth). Woredas sit directly under the region; a city administration has
+# sub-cities below it, and a sub-city has a kebele.
+region:
+  code: TRX
+  name: { am: የሙከራ ክልል, en: Test Region X }
+
+levels:
+  - { key: region, rank: 1, name: { am: ክልል, en: Region } }
+  - { key: woreda, rank: 2, name: { am: ወረዳ, en: District } }
+  - { key: city, rank: 2, name: { am: ከተማ አስተዳደር, en: City administration } }
+  - { key: sub_city, rank: 3, name: { am: ክፍለ ከተማ, en: Sub-city } }
+  - { key: kebele, rank: 4, name: { am: ቀበሌ, en: Kebele } }
+
+unitTypes:
+  - key: district_office
+    level: woreda
+    name: { am: የወረዳ ጽ/ቤት, en: District office }
+    services: [RS-01..07, PT-01..06]
+
+units:
+  - {
+      code: TRX-W1,
+      kind: special_woreda,
+      level: woreda,
+      type: district_office,
+      name: { am: ወረዳ አንድ, en: District One }
+    }
+  - { code: TRX-CITY, kind: city_admin, level: city, name: { am: የሙከራ ከተማ, en: Test City } }
+  - {
+      code: TRX-CITY-S1,
+      parent: TRX-CITY,
+      kind: sub_city,
+      level: sub_city,
+      name: { am: ክፍለ ከተማ አንድ, en: Sub-city One }
+    }
+  - {
+      code: TRX-CITY-S2,
+      parent: TRX-CITY,
+      kind: sub_city,
+      level: sub_city,
+      name: { am: ክፍለ ከተማ ሁለት, en: Sub-city Two }
+    }
+  - { code: TRX-CITY-S1-K1, parent: TRX-CITY-S1, kind: kebele, level: kebele, name: { am: ቀበሌ 01, en: Kebele 01 } }

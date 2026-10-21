@@ -12,6 +12,7 @@ import { createHttpApp } from './bootstrap';
 import { loadConfig } from './config';
 import { currentContext } from './context';
 import { ConflictError, RateLimitedError } from './errors';
+import { Public } from './iam/access';
 import { KernelModule } from './kernel.module';
 import { createLogger } from './observability/logger';
 
@@ -23,6 +24,7 @@ class CreateThing extends createZodDto(
     })
 ) {}
 
+@Public()
 @Controller('test')
 class TestController {
     @Get('context')

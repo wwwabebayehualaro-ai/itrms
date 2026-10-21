@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 import { Body, Controller, Inject, Param, Patch, Module, type DynamicModule } from '@nestjs/common';
 import { createHttpApp, createLogger, DATABASE, KernelModule } from '@itrms/kernel/api';
+import { Public } from '@itrms/kernel/iam';
 import { loadConfig } from '@itrms/kernel/config';
 import {
     audited,
@@ -353,6 +354,8 @@ describe('the audit log', () => {
 describe('over HTTP', () => {
     class Rename extends createZodDto(z.object({ name: z.string().min(1), rowVersion: z.number().int() })) {}
 
+    // a test route: the access rules have their own tests (kernel iam)
+    @Public()
     @Controller('things')
     class ThingsController {
         constructor(@Inject(DATABASE) private readonly database: Database) {}
