@@ -186,12 +186,13 @@
         {
           "id": "0.6",
           "title": "API skeleton",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.6-api-skeleton",
           "commits": [
             "2e1c2a9",
             "3f595aa",
-            "773169a"
+            "773169a",
+            "b7b566b"
           ],
           "evidence": [
             "ci:local 773169a on Linux (Docker 29.6.2), complete: checks pass (turbo lint/typecheck/test/build --concurrency=3 60/60; @itrms/kernel 27/27, @itrms/api 3/3, form-engine 38/38, schemas 4/4, ui 64+2 skips, web 28/28; nest build of main/worker/migrate bundles; pnpm audit clean after the fastify 5.12.5 / glob 13.0.6 / picomatch 4.0.7 overrides), stories pass (1638 + visual 468/468), infra pass (dev stack + S3 contract 17/17), gitleaks pass (5 commits), trivy pass (0 HIGH/CRITICAL, 600 packages), semgrep pass (225 rules, 784 files, 0). Report .ci-local/773169a7e198/report.md.",
@@ -205,7 +206,7 @@
         {
           "id": "0.6a",
           "title": "Module manifest loader and OpenAPI pipeline",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
