@@ -19,7 +19,8 @@
     "./db": "./api/db/index.ts",
     "./db/system": "./api/db/system.ts",
     "./iam": "./api/iam/index.ts",
-    "./org": "./api/org/index.ts"
+    "./org": "./api/org/index.ts",
+    "./testing": "./api/testing/index.ts"
   },
   "imports": {
     "#contracts/*": "./contracts/*.ts",

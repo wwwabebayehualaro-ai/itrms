@@ -9,6 +9,8 @@ export interface DbContext {
     unitId?: string;
     /** The ltree path of the unit's subtree the person may see (`et.snnp.wolaita`). */
     scopePath?: string;
+    /** An external participant's organisation (class P rows, ADR-0031). */
+    partyId?: string;
     ip?: string;
 }
 

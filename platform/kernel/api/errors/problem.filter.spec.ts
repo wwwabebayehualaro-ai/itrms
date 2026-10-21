@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { testApp } from '../test-app';
+import { problemOf } from './problem.filter';
 
 let app: Awaited<ReturnType<typeof testApp>>;
 
@@ -142,5 +143,26 @@ describe('problem+json', () => {
         });
         expect(res.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
         expect(res.json()).toEqual({ requestId: res.headers['x-request-id'], language: 'am' });
+    });
+});
+
+describe('database refusals', () => {
+    it('are 409 for a taken unique key, 404 for a missing reference and 403 for a row-level security check, wrapped or not', () => {
+        const unique = Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' });
+        const rls = Object.assign(new Error('new row violates row-level security policy for table "org_units"'), {
+            code: '42501'
+        });
+        const wrapped = new Error('Failed query: insert …', { cause: rls });
+        expect(problemOf(unique, 'en')).toMatchObject({ status: 409, code: 'duplicate_reference' });
+        expect(problemOf(wrapped, 'en')).toMatchObject({ status: 403, code: 'forbidden' });
+        expect(problemOf(wrapped, 'en')).not.toHaveProperty('detail');
+        const grant = Object.assign(new Error('permission denied for table org_units'), { code: '42501' });
+        expect(problemOf(grant, 'en')).toMatchObject({ status: 500, code: 'internal_error' });
+        const off = Object.assign(new Error('query would be affected by row-level security policy for table "x"'), {
+            code: '42501'
+        });
+        expect(problemOf(off, 'en')).toMatchObject({ status: 500 });
+        const missing = Object.assign(new Error('unit not found'), { code: '23503' });
+        expect(problemOf(missing, 'en')).toMatchObject({ status: 404, code: 'not_found' });
     });
 });

@@ -1,0 +1,1 @@
+CREATE INDEX "audit_log_org_path_gist" ON "kernel"."audit_log" USING gist ("org_path");

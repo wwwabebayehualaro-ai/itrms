@@ -175,7 +175,8 @@ module.exports = {
             comment:
                 'The itrms_system pool (BYPASSRLS) is imported only by jobs, event handlers and the worker entries (architecture §5).',
             severity: 'error',
-            from: { pathNot: WORKER_CODE },
+            // and the integration tests that prove what it may and may not do
+            from: { pathNot: [...WORKER_CODE, '^apps/api/test/integration/'] },
             to: { path: SYSTEM_POOL }
         },
         {
@@ -188,6 +189,14 @@ module.exports = {
                 pathNot: WORKER_CODE
             },
             to: { path: SYSTEM_POOL, reachable: true }
+        },
+        {
+            name: 'testing-only-in-tests',
+            comment:
+                '@itrms/kernel/testing (contexts for any unit, the matrix expectations) is for tests, never for running code.',
+            severity: 'error',
+            from: { pathNot: '\\.spec\\.ts$|/test/' },
+            to: { path: '^platform/kernel/api/testing/' }
         },
         {
             name: 'worker-code-only-from-worker-entries',

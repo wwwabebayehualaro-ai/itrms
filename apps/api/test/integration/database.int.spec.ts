@@ -126,7 +126,14 @@ afterAll(async () => {
     await container?.stop();
 });
 
-const ctx = { requestId: 'req-1', userId: '0199f0a0-0000-7000-8000-000000000001', ip: '10.0.0.9' };
+// the audit log is class T: a request writes the audit of its own scope (any region and path will do for these tests)
+const ctx = {
+    requestId: 'req-1',
+    userId: '0199f0a0-0000-7000-8000-000000000001',
+    regionId: '0199f0a0-0000-7000-8000-0000000000f1',
+    scopePath: 'u0199f0a0000070008000000000000f1',
+    ip: '10.0.0.9'
+};
 
 describe('the role bootstrap and the migrations', () => {
     it('create the four roles with their limits, and run again without harm', async () => {
@@ -362,7 +369,7 @@ describe('over HTTP', () => {
 
         @Patch(':id')
         rename(@Param('id') id: string, @Body() body: Rename) {
-            return this.database.scoped({ requestId: 'http' }, (tx) =>
+            return this.database.scoped({ ...ctx, requestId: 'http' }, (tx) =>
                 updateAudited(tx, things, id, body.rowVersion, { name: body.name })
             );
         }

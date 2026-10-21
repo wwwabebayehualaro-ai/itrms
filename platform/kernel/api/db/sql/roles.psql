@@ -26,6 +26,9 @@ SELECT format('ALTER ROLE itrms_app LOGIN NOSUPERUSER NOCREATEROLE NOCREATEDB NO
 SELECT format('ALTER ROLE itrms_system LOGIN NOSUPERUSER NOCREATEROLE NOCREATEDB NOREPLICATION BYPASSRLS INHERIT PASSWORD %L', :'system_password') \gexec
 SELECT format('ALTER ROLE itrms_backup LOGIN NOSUPERUSER NOCREATEROLE NOCREATEDB REPLICATION NOBYPASSRLS INHERIT PASSWORD %L', :'backup_password') \gexec
 
+-- server messages in English whatever the server's locale: the API tells a row-level-security refusal by its message
+ALTER ROLE itrms_app SET lc_messages = 'C';
+
 -- no ITRMS role is a member of another role (itrms_app in itrms_owner, or pg_read_all_data, would undo the limits above)
 SELECT format('REVOKE %I FROM %I', g.rolname, m.rolname)
 FROM pg_auth_members a

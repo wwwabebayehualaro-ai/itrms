@@ -36,6 +36,34 @@
       "when": 1792597346629,
       "tag": "0004_kernel_org_tree_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792599423611,
+      "tag": "0005_kernel_org_path",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792599463661,
+      "tag": "0006_kernel_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792599523534,
+      "tag": "0007_kernel_audit_log_scope_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792601016539,
+      "tag": "0008_kernel_unit_type_same_region",
+      "breakpoints": true
     }
   ]
 }

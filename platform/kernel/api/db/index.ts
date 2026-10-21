@@ -18,6 +18,7 @@ export {
     type BaseTable
 } from './audit';
 export { AUDIT_ACTIONS, auditLog, kernelSchema, type AuditAction } from './audit-log.table';
+export { declaredRlsTables, RLS_CLASSES, rlsOf, rlsPolicies, withRls, type RlsClass, type RlsDeclaration } from './rls';
 
 /** The role bootstrap (roles.psql), run by a superuser before the migrations: the dev stack and the tests read it. */
 export const ROLES_SQL = fileURLToPath(new URL('./sql/roles.psql', import.meta.url));

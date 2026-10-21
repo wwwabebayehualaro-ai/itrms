@@ -63,6 +63,27 @@ const clientStatusOf = (error: unknown): number | undefined => {
     return fastify && typeof status === 'number' && status >= 400 && status < 500 ? status : undefined;
 };
 
+/**
+ * PostgreSQL refusals that are the request's, not ours (the driver's error, or its cause when the query builder wraps it):
+ * a unique key already taken is 409 `duplicate_reference`; a referenced record that does not exist or is out of the
+ * person's scope is 404; a row-level-security check is 403 (the guards should have refused first: logged as a warning,
+ * and the person learns nothing about the row). The API's role reads server messages in English (roles.psql).
+ */
+export function databaseRefusalOf(error: unknown): { status: number; code: string } | undefined {
+    for (
+        let e = error as { code?: unknown; message?: unknown; cause?: unknown } | undefined, depth = 0;
+        e && depth < 3;
+        depth++
+    ) {
+        if (e.code === '23505') return { status: 409, code: 'duplicate_reference' };
+        if (e.code === '23503') return { status: 404, code: 'not_found' };
+        if (e.code === '42501' && typeof e.message === 'string' && e.message.includes('violates row-level security'))
+            return { status: 403, code: 'forbidden' };
+        e = e.cause as typeof e;
+    }
+    return undefined;
+}
+
 /** The problem body for anything thrown while serving a request. */
 export function problemOf(error: unknown, language: Language, traceId?: string): Problem {
     const make = (status: number, code: string, extra: Partial<Problem> = {}): Problem => ({
@@ -78,6 +99,8 @@ export function problemOf(error: unknown, language: Language, traceId?: string):
             ...(error.detail ? { detail: error.detail } : {}),
             ...(error.errors?.length ? { errors: error.errors } : {})
         });
+    const refusal = databaseRefusalOf(error);
+    if (refusal) return make(refusal.status, refusal.code);
     if (error instanceof ZodValidationException) {
         const cause = error.getZodError();
         return make(422, 'validation_failed', cause instanceof ZodError ? { errors: fieldErrors(cause) } : {});
@@ -103,6 +126,11 @@ export class ProblemFilter implements ExceptionFilter {
             context?.requestId ?? requestIdFrom(request.id)
         );
         if (problem.status >= 500) this.logger.error({ err: error, status: problem.status }, 'request failed');
+        else if (databaseRefusalOf(error)?.code === 'forbidden')
+            this.logger.warn(
+                { code: problem.code, status: problem.status },
+                'row-level security refused a write the guards let through'
+            );
         else this.logger.debug({ code: problem.code, status: problem.status }, 'request refused');
         if (error instanceof RateLimitedError) void reply.header('retry-after', String(error.retryAfter));
         void reply

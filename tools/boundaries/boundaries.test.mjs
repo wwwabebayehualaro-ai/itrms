@@ -27,6 +27,7 @@ const EXPECTED = {
     'modules/competency/web/bad-api.ts': 'web-never-imports-api',
     'modules/competency/api/bad-ui.ts': 'api-never-imports-ui',
     'platform/fees/api/bad-system.ts': 'system-pool-only-in-worker-code',
+    'platform/fees/api/bad-testing.ts': 'testing-only-in-tests',
     'apps/verify/src/bad-kernel.ts': 'verify-app-allow-list',
     'packages/form-engine/src/core/bad-react.ts': 'form-engine-core-is-ui-free',
     'platform/forms/api/bad-app.ts': 'no-importing-apps',

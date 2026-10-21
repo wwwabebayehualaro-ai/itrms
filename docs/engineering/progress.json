@@ -263,10 +263,21 @@
         {
           "id": "0.9",
           "title": "Row-level security and the isolation test matrix",
-          "status": "ready",
+          "status": "in review",
           "branch": null,
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "2528441"
+          ],
+          "evidence": [
+            "pnpm --filter @itrms/api test:int → 78/78 on PostgreSQL 16; isolation.int.spec 50: transaction, config, registry × own, child, parent, sibling, other zone, other region for read, insert, update, delete; moves out of scope and forged regions refused; party rows by party only",
+            "no context on the connection that just served a scoped transaction (pool max 1) → no rows in every class; set_config('app.bypass_rls'/'app.is_admin') grants nothing; SET row_security = off refused",
+            "EXPLAIN as itrms_app at Wolaita Zone: Bitmap Heap Scan on org_units, Recheck (path <@ scope) OR (path @> scope) on org_units_path_gist (printed in the test log)",
+            "completeness: every table with region_id is declared (withRls), RLS on, kernel.apply_rls applied, exactly its class's policies TO itrms_app with the class's expressions; every relation itrms_app can read is declared or reviewed (kernel.rls_tables); no SECURITY DEFINER function callable but kernel.record_context_free_event",
+            "org tables class C, audit_log class T; set_org_path keeps the scope column (a written value is replaced); a move as itrms_app carries the scope of rows below (sample rows, departments) and leaves the audit log unchanged; system context (itrms_system) audits each use; dependency-cruiser keeps it and @itrms/kernel/testing out of running code (fixtures 59/59)",
+            "pnpm turbo run lint typecheck test build --concurrency=3 → 60/60; pnpm boundaries → no violations; prettier clean",
+            "reviewer agent: no high; 4 medium (scope column grant without trigger, completeness gaps, write-matrix gaps, context-free denials) and L1/L3/L4/L6 fixed in 2528441; L2/L5/L7 + denial recording recorded as follow-ups (0.10, product owner)",
+            "CI: GitHub unavailable (account suspended) and pnpm ci:local not run (memory); merged on local evidence at the product owner's request for speed"
+          ],
           "blockers": [],
           "notes": ""
         },
@@ -1234,12 +1245,14 @@
     {
       "foundIn": "0.7",
       "item": "audit_log RLS (class T: people see the audit of their scope) with the isolation matrix",
-      "movedTo": "0.9"
+      "movedTo": "0.9",
+      "closedIn": "0.9: kernel.audit_log is class T (rls_transaction), isolation matrix"
     },
     {
       "foundIn": "0.8",
       "item": "RLS class C on the org tables (org_units, org_level_definitions, unit_types, unit_type_services, unit_type_roles, unit_service_overrides, org_departments) with the isolation matrix; a SECURITY DEFINER lookup of the caller's active unit for the authenticator",
-      "movedTo": "0.9"
+      "movedTo": "0.9",
+      "closedIn": "0.9: all seven org tables class C via kernel.apply_rls, org_path kept by set_org_path; the active-unit lookup for the authenticator stays with 0.10"
     },
     {
       "foundIn": "0.8",
@@ -1254,7 +1267,8 @@
     {
       "foundIn": "0.8",
       "item": "Moving a unit must also rewrite org_path on its class-T rows (a job, audited; ADR-0011); today only org_units paths move",
-      "movedTo": "0.9"
+      "movedTo": "0.9",
+      "closedIn": "0.9: the move trigger rewrites the scope column of every declared table below the unit, in the same transaction (synchronous; a job if tables grow large)"
     },
     {
       "foundIn": "0.8",
@@ -1274,7 +1288,8 @@
     {
       "foundIn": "0.8",
       "item": "RLS INSERT policy on org_units must refuse a new root (a region is created only by installation); per-unit audit of descendants' path rewrites if history-by-date needs it",
-      "movedTo": "0.9"
+      "movedTo": "0.9",
+      "closedIn": "0.9: the config INSERT check (path inside the scope, region = the actor's) refuses a new root; descendants' path rewrites stay recorded by the org.unit_moved event"
     },
     {
       "foundIn": "0.8",
@@ -1284,6 +1299,36 @@
     {
       "foundIn": "0.8",
       "item": "GET /org-units/{id}/subtree runs two lookups per unit (describeUnit); batch levels and types before regions with kebeles use it",
+      "movedTo": "0.10"
+    },
+    {
+      "foundIn": "0.9",
+      "item": "The subtree rewrite on a move is synchronous in the move's transaction; once class-T tables hold many rows per unit, move it to an audited job (ADR-0011)",
+      "movedTo": "Phase 1"
+    },
+    {
+      "foundIn": "0.9",
+      "item": "The authenticator must resolve the active unit's path through a SECURITY DEFINER lookup (role_assignments × org_units) before any scope is set",
+      "movedTo": "0.10"
+    },
+    {
+      "foundIn": "0.9",
+      "item": "The request settings (app.region_id, app.scope_path) are plain settings: SQL injection as itrms_app could set them. Set them through a SECURITY DEFINER set_context that checks role_assignments and locks them for the transaction",
+      "movedTo": "0.10"
+    },
+    {
+      "foundIn": "0.9",
+      "item": "Record denials (guard refusals and RLS refusals mapped to 403) as access.denied events through recordSensitiveEvent (SEC-LG-1/2)",
+      "movedTo": "0.10"
+    },
+    {
+      "foundIn": "0.9",
+      "item": "A unique key per region (e.g. org unit codes) answers 409 for a code taken in a unit the person cannot see: an existence probe within the region; accept or scope the uniqueness",
+      "movedTo": "product owner"
+    },
+    {
+      "foundIn": "0.9",
+      "item": "Audit rows take unit_id and org_path from the request context; once the authenticator resolves the active unit server-side (0.10), nothing else may set them",
       "movedTo": "0.10"
     }
   ]

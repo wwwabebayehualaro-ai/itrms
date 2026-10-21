@@ -2,15 +2,29 @@
  * The org tree and unit types (ADR-0011, ADR-0026; architecture.md §5, org-and-unit-types.md). A region is the root unit of
  * its own tree (`region_id = id`); its level definitions set the depth and the level names. `path` is the materialised
  * ancestry, kept by triggers (drizzle/0004): set from the parent on insert, rewritten for the whole subtree on a move, and
- * refused when written directly. Every write goes through the audited helpers. RLS (class C) arrives with task 0.9.
+ * refused when written directly. Every write goes through the audited helpers. All are class C (configuration, inherited
+ * down the tree: readable in the subtree and by its ancestors' units, written in the subtree); the policies are in
+ * drizzle/0006.
  */
 import type { I18nText } from '@itrms/schemas';
 import { sql } from 'drizzle-orm';
-import { boolean, index, integer, jsonb, text, uniqueIndex, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import {
+    boolean,
+    foreignKey,
+    index,
+    integer,
+    jsonb,
+    text,
+    unique,
+    uniqueIndex,
+    uuid,
+    type AnyPgColumn
+} from 'drizzle-orm/pg-core';
 
 import { audited } from '../db/audit-policy';
 import { kernelSchema } from '../db/audit-log.table';
 import { baseColumns, ltree } from '../db/columns';
+import { withRls } from '../db/rls';
 
 /** A team a unit type creates in each of its units (Form 15 teams: one per work process). */
 export interface DepartmentTemplate {
@@ -27,6 +41,8 @@ export const orgLevelDefinitions = audited(
             regionId: uuid('region_id')
                 .notNull()
                 .references((): AnyPgColumn => orgUnits.id),
+            /** the scope of the row for RLS: set by trigger from the unit (or the region) it belongs to */
+            orgPath: ltree('org_path').notNull().default(''),
             key: text('key').notNull(),
             name: jsonb('name').$type<I18nText>().notNull(),
             /** 1 for the region; a unit's level ranks below its parent's (a special woreda: rank 3 directly under rank 1) */
@@ -44,6 +60,8 @@ export const unitTypes = audited(
             regionId: uuid('region_id')
                 .notNull()
                 .references((): AnyPgColumn => orgUnits.id),
+            /** the scope of the row for RLS: set by trigger from the unit (or the region) it belongs to */
+            orgPath: ltree('org_path').notNull().default(''),
             key: text('key').notNull(),
             name: jsonb('name').$type<I18nText>().notNull(),
             levelKey: text('level_key').notNull(),
@@ -60,7 +78,11 @@ export const unitTypes = audited(
             departments: jsonb('departments').$type<DepartmentTemplate[]>().notNull().default([]),
             active: boolean('active').notNull().default(true)
         },
-        (t) => [uniqueIndex('unit_types_key_uq').on(t.regionId, t.key)]
+        // (id, region_id) is the target of the composite keys below: a row names a unit type of its own region only
+        (t) => [
+            uniqueIndex('unit_types_key_uq').on(t.regionId, t.key),
+            unique('unit_types_id_region_uq').on(t.id, t.regionId)
+        ]
     )
 );
 
@@ -70,13 +92,20 @@ export const unitTypeServices = audited(
         {
             ...baseColumns(),
             regionId: uuid('region_id').notNull(),
-            unitTypeId: uuid('unit_type_id')
-                .notNull()
-                .references(() => unitTypes.id),
+            /** the scope of the row for RLS: set by trigger from the unit (or the region) it belongs to */
+            orgPath: ltree('org_path').notNull().default(''),
+            unitTypeId: uuid('unit_type_id').notNull(),
             serviceCode: text('service_code').notNull(),
             enabled: boolean('enabled').notNull().default(true)
         },
-        (t) => [uniqueIndex('unit_type_services_uq').on(t.unitTypeId, t.serviceCode)]
+        (t) => [
+            uniqueIndex('unit_type_services_uq').on(t.unitTypeId, t.serviceCode),
+            foreignKey({
+                name: 'unit_type_services_unit_type_fk',
+                columns: [t.unitTypeId, t.regionId],
+                foreignColumns: [unitTypes.id, unitTypes.regionId]
+            })
+        ]
     )
 );
 
@@ -86,12 +115,19 @@ export const unitTypeRoles = audited(
         {
             ...baseColumns(),
             regionId: uuid('region_id').notNull(),
-            unitTypeId: uuid('unit_type_id')
-                .notNull()
-                .references(() => unitTypes.id),
+            /** the scope of the row for RLS: set by trigger from the unit (or the region) it belongs to */
+            orgPath: ltree('org_path').notNull().default(''),
+            unitTypeId: uuid('unit_type_id').notNull(),
             roleKey: text('role_key').notNull()
         },
-        (t) => [uniqueIndex('unit_type_roles_uq').on(t.unitTypeId, t.roleKey)]
+        (t) => [
+            uniqueIndex('unit_type_roles_uq').on(t.unitTypeId, t.roleKey),
+            foreignKey({
+                name: 'unit_type_roles_unit_type_fk',
+                columns: [t.unitTypeId, t.regionId],
+                foreignColumns: [unitTypes.id, unitTypes.regionId]
+            })
+        ]
     )
 );
 
@@ -121,7 +157,7 @@ export const orgUnits = audited(
             code: text('code').notNull(),
             name: jsonb('name').$type<I18nText>().notNull(),
             category: text('category'),
-            unitTypeId: uuid('unit_type_id').references(() => unitTypes.id),
+            unitTypeId: uuid('unit_type_id'),
             keycloakGroupId: text('keycloak_group_id'),
             /** facts the unit has still to confirm (`name.am`, `category`, `unit_type`): shown in the org admin screen */
             toConfirm: text('to_confirm')
@@ -133,7 +169,12 @@ export const orgUnits = audited(
         (t) => [
             uniqueIndex('org_units_code_uq').on(t.regionId, t.code),
             index('org_units_path_gist').using('gist', t.path),
-            index('org_units_parent_idx').on(t.parentId)
+            index('org_units_parent_idx').on(t.parentId),
+            foreignKey({
+                name: 'org_units_unit_type_fk',
+                columns: [t.unitTypeId, t.regionId],
+                foreignColumns: [unitTypes.id, unitTypes.regionId]
+            })
         ]
     )
 );
@@ -144,6 +185,8 @@ export const orgDepartments = audited(
         {
             ...baseColumns(),
             regionId: uuid('region_id').notNull(),
+            /** the scope of the row for RLS: set by trigger from the unit (or the region) it belongs to */
+            orgPath: ltree('org_path').notNull().default(''),
             orgUnitId: uuid('org_unit_id')
                 .notNull()
                 .references(() => orgUnits.id),
@@ -162,6 +205,8 @@ export const unitServiceOverrides = audited(
         {
             ...baseColumns(),
             regionId: uuid('region_id').notNull(),
+            /** the scope of the row for RLS: set by trigger from the unit (or the region) it belongs to */
+            orgPath: ltree('org_path').notNull().default(''),
             orgUnitId: uuid('org_unit_id')
                 .notNull()
                 .references(() => orgUnits.id),
@@ -172,3 +217,11 @@ export const unitServiceOverrides = audited(
         (t) => [uniqueIndex('unit_service_overrides_uq').on(t.orgUnitId, t.serviceCode)]
     )
 );
+
+withRls(orgUnits, 'config', 'path');
+withRls(orgLevelDefinitions, 'config');
+withRls(unitTypes, 'config');
+withRls(unitTypeServices, 'config');
+withRls(unitTypeRoles, 'config');
+withRls(orgDepartments, 'config');
+withRls(unitServiceOverrides, 'config');
