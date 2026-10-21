@@ -224,17 +224,24 @@
         {
           "id": "0.7",
           "title": "Database foundation and audit log",
-          "status": "in progress",
+          "status": "done",
           "branch": "task/0.7-database-audit",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "2b45f6f",
+            "419454c"
+          ],
+          "evidence": [
+            "pnpm --filter @itrms/api test:int → 10/10 on PostgreSQL 16 (Testcontainers): roles bootstrap idempotent + attributes, migrations from zero, audit row per insert/update/delete in the same transaction, rollback leaves none, sensitive event survives rollback, omit/mask/bigint, stale_version 409, append-only trigger, drizzle history owner-only",
+            "lint, typecheck, unit tests (api, kernel), prettier → pass locally (2026-10-21)",
+            "CI: GitHub PR #1 run started 2026-10-21, result unreadable (GitHub account suspended); pnpm ci:local twice killed for low memory before finishing; gitleaks full history → pass (30 commits). Merged without a complete CI record at the product owner's request for speed"
+          ],
           "blockers": [],
           "notes": "2026-10-21: 11cf7f2. Roles bootstrap (kernel db/sql/roles.psql, idempotent, passwords via psql variables on stdin; dev:infra applies it every start); @itrms/kernel/db: createDatabase + scoped (set_config locals), base columns (UUIDv7 app-side, row_version), kernel.audit_log + audited helpers (insert/update/delete with FOR UPDATE + version check → 409 stale_version, recordEvent), audited()/notAudited() registry; apps/api/drizzle: 0000 generated + 0001 hand-written (CHECKs, append-only trigger incl. TRUNCATE, grants app SELECT/INSERT); migrate process applies as itrms_owner; DATABASE_URL/DATABASE_MIGRATE_URL; readiness check; Testcontainers int tests 7/7 (apps/api test:int), audit coverage test. Follow-ups to record: hash chain + monthly partitions + PII masking in diffs; sensitive events in their own transaction."
         },
         {
           "id": "0.8",
           "title": "Org tree",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
