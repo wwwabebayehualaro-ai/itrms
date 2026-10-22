@@ -309,6 +309,9 @@ importers:
       '@itrms/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@itrms/ethiopian-calendar':
+        specifier: workspace:*
+        version: link:../../packages/ethiopian-calendar
       '@nestjs/cli':
         specifier: 11.0.9
         version: 11.0.9(@swc/core@1.16.13(@swc/helpers@0.5.23))(@types/node@24.19.1)(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.28)(prettier@3.9.9)
@@ -546,6 +549,9 @@ importers:
       '@itrms/config':
         specifier: workspace:*
         version: link:../config
+      fast-check:
+        specifier: 4.10.2
+        version: 4.10.2
 
   packages/form-engine:
     dependencies:
@@ -839,6 +845,9 @@ importers:
 
   platform/kernel:
     dependencies:
+      '@itrms/ethiopian-calendar':
+        specifier: workspace:*
+        version: link:../../packages/ethiopian-calendar
       '@itrms/module-sdk':
         specifier: workspace:*
         version: link:../../packages/module-sdk

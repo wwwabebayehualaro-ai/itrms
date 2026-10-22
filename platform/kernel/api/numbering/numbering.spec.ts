@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { requestHash } from '../idempotency/idempotency';
-import { fiscalYear, formatNumber } from './numbering';
+import { formatNumber } from './numbering';
 
 describe('numbers (architecture.md §15)', () => {
     it('fill the pattern: the unit, the zero-padded number and the fiscal year', () => {
@@ -11,14 +11,6 @@ describe('numbers (architecture.md §15)', () => {
         expect(formatNumber('R-{seq}', { unit: 'X', seq: 1234567n, efy: 2019 })).toBe('R-1234567');
         // a number longer than the padding is never cut
         expect(formatNumber('{seq:03}', { unit: 'X', seq: 12345n, efy: 2019 })).toBe('12345');
-    });
-
-    it('name the Ethiopian fiscal year (Hamle 1 to Sene 30) by the year it ends in', () => {
-        expect(fiscalYear(new Date('2026-07-07T12:00:00+03:00'))).toBe(2018);
-        expect(fiscalYear(new Date('2026-07-08T00:30:00+03:00'))).toBe(2019);
-        expect(fiscalYear(new Date('2026-10-22T12:00:00+03:00'))).toBe(2019);
-        // 7 July 23:30 UTC is already 8 July in Addis Ababa
-        expect(fiscalYear(new Date('2026-07-07T23:30:00Z'))).toBe(2019);
     });
 });
 

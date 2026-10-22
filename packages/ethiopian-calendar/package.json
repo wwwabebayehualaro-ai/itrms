@@ -16,6 +16,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "devDependencies": {
-    "@itrms/config": "workspace:*"
+    "@itrms/config": "workspace:*",
+    "fast-check": "4.10.2"
   }
 }

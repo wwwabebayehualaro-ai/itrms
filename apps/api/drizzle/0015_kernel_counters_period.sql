@@ -1,0 +1,1 @@
+ALTER TABLE "kernel"."number_counters" ADD COLUMN "period" text DEFAULT '' NOT NULL;

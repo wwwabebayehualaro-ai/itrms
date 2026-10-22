@@ -322,6 +322,12 @@ Split on 2026-10-21 (scope too large for one session): the BFF sign-in moved to 
   Timket and the like); a property test round-trips every day from 1900 to 2100 Gregorian; there are no runtime
   dependencies.
 - **Tests:** a reference-table test, property tests (fast-check, MIT), formatting snapshots per language.
+- **Done (2026-10-22):**
+  - `packages/ethiopian-calendar` (see its README). Every day from 1900 to 2100 is checked against ICU's Ethiopic
+    calendar as an oracle in the tests, so the package itself keeps no runtime dependency.
+  - The Wolaytta month and weekday names are transliterations marked `PROVISIONAL` until the translator's names arrive.
+  - Number counters with `{efy}` now restart at 1 each fiscal year (0.11's follow-up): a `period` on the counter, which
+    only moves forward.
 
 ### 0.13 i18n platform
 - **Do:**

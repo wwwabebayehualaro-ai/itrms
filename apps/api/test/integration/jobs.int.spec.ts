@@ -27,6 +27,7 @@ import { loadConfig } from '@itrms/kernel/config';
 import { createDatabase, type Database } from '@itrms/kernel/db';
 import { createSystemDatabase, type SystemDatabase } from '@itrms/kernel/db/system';
 import type { Authenticator, Principal } from '@itrms/kernel/iam';
+import { efy } from '@itrms/ethiopian-calendar';
 import { nextNumber, setUpCounter } from '@itrms/kernel/numbering';
 import { findUnitByCode, importOrg, orgUnits, parseOrgYaml, type OrgUnit } from '@itrms/kernel/org';
 import { emit } from '@itrms/kernel/outbox';
@@ -100,7 +101,9 @@ describe('numbering (architecture.md §15)', () => {
                 unitId: boditi.id,
                 regionId: boditi.regionId,
                 pattern: '{unit}/{seq:06}/{efy}',
-                startAfter: 41n
+                startAfter: 41n,
+                // the migrated numbers are this fiscal year's
+                startYear: efy(new Date())
             })
         );
     });
@@ -130,7 +133,8 @@ describe('numbering (architecture.md §15)', () => {
                 unitId: boditi.id,
                 regionId: boditi.regionId,
                 pattern: '{unit}/{seq:06}/{efy}',
-                startAfter: 10n
+                startAfter: 10n,
+                startYear: efy(new Date())
             })
         );
         expect((await app.scoped(contextFor(boditi), (tx) => nextNumber(tx, 'fees.receipt', boditi.id))).value).toBe(
@@ -150,6 +154,43 @@ describe('numbering (architecture.md §15)', () => {
         await expect(
             owner.query('update kernel.number_counters set last_value = 0 where unit_id = $1', [boditi.id])
         ).rejects.toMatchObject({ code: '23514' });
+    });
+
+    it('starts again at 1 in a new fiscal year when the pattern has the year, and never goes back a year', async () => {
+        // a counter last used in EFY 2017 (inserted as a migration would leave it)
+        await owner.query(
+            `insert into kernel.number_counters (id, region_id, unit_id, key, pattern, last_value, period)
+             values (gen_random_uuid(), $1, $2, 'fees.yearly', '{seq}/{efy}', 77, '2017')`,
+            [boditi.regionId, boditi.id]
+        );
+        const take = () => app.scoped(contextFor(boditi), (tx) => nextNumber(tx, 'fees.yearly', boditi.id));
+        const first = await take();
+        expect(first.value).toBe(1n);
+        expect(first.number).toMatch(/^1\/20\d\d$/);
+        expect((await take()).value).toBe(2n);
+        await expect(
+            owner.query("update kernel.number_counters set period = '2017' where key = 'fees.yearly'")
+        ).rejects.toMatchObject({ code: '23514' });
+        // request code cannot jump to a later year (it would block the counter until then), nor write a malformed one
+        for (const period of ['2099', '2019a'])
+            await expect(
+                app.scoped(contextFor(boditi), (tx) =>
+                    tx.execute(
+                        sql`update kernel.number_counters set period = ${period}, last_value = 1 where key = 'fees.yearly'`
+                    )
+                )
+            ).rejects.toMatchObject({ cause: { code: '23514' } });
+        // a counter that numbers by year keeps the year in its pattern
+        await expect(
+            installer.scoped({}, (tx) =>
+                setUpCounter(tx, {
+                    key: 'fees.yearly',
+                    unitId: boditi.id,
+                    regionId: boditi.regionId,
+                    pattern: '{seq}'
+                })
+            )
+        ).rejects.toMatchObject({ status: 409, code: 'invalid_transition' });
     });
 
     it("keeps a unit's counter to its scope", async () => {

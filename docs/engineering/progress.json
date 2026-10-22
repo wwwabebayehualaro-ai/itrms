@@ -368,10 +368,18 @@
         {
           "id": "0.12",
           "title": "Ethiopian calendar package",
-          "status": "ready",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.12-calendar",
+          "commits": [
+            "def8339"
+          ],
+          "evidence": [
+            "packages/ethiopian-calendar vitest → 15/15: Meskerem 1 for 1990–2030 E.C., Gena, Timket, Adwa, the millennium, Pagume 6; every day 1900–2100 round-trips and steps by one; every 7th day equals ICU's Ethiopic calendar; fast-check shifts; formatting per language (am, en, wal-Latn, om, ti); Ethiopic numerals incl. 1 010 000; Hamle 1 = 8 July 1900–2099; no runtime dependencies",
+            "apps/api pnpm test:int → 106/106 (counters: restart at 1 in a new fiscal year, period never back, app cannot jump or write a malformed year, {efy} kept once used)",
+            "pnpm turbo run lint typecheck test (calendar, kernel, api) → 9/9; test:tools 69/69; boundaries 0; format clean",
+            "reviewer agent: 0 high, 3 medium, 4 low; all fixed",
+            "CI: local evidence only (GitHub account suspended), merged at the product owner's request for speed"
+          ],
           "blockers": [],
           "notes": ""
         },
@@ -1502,7 +1510,8 @@
     {
       "foundIn": "0.11",
       "item": "Number counters restart each Ethiopian fiscal year where the pattern has {efy} (an efy period per counter row)",
-      "movedTo": "0.12"
+      "movedTo": "0.12",
+      "closedIn": "0.12: period per counter, restart at 1 each fiscal year; kernel.current_efy; app may set only the current year"
     },
     {
       "foundIn": "0.11",
@@ -1513,6 +1522,16 @@
       "foundIn": "0.11",
       "item": "Identity sync across several worker replicas: tolerate a group created by another replica (409) and serialise per region",
       "movedTo": "0.26"
+    },
+    {
+      "foundIn": "0.12",
+      "item": "Ethiopian DatePicker in packages/ui on @itrms/ethiopian-calendar (entry and display of Ethiopian dates)",
+      "movedTo": "0.13"
+    },
+    {
+      "foundIn": "0.12",
+      "item": "Wolaytta month and weekday names from the translator (transliterations marked PROVISIONAL until then)",
+      "movedTo": "Phase 1"
     }
   ]
 }

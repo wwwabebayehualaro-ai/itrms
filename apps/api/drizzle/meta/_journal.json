@@ -106,6 +106,20 @@
       "when": 1792656839424,
       "tag": "0014_kernel_counters_forward_only",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1792658175768,
+      "tag": "0015_kernel_counters_period",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1792658182717,
+      "tag": "0016_kernel_counters_fiscal_period",
+      "breakpoints": true
     }
   ]
 }

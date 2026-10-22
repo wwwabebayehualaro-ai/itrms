@@ -28,6 +28,11 @@ export const numberCounters = withRls(
                 key: text('key').notNull(),
                 /** `{unit}/{seq:06}/{efy}`: the unit's code, the number padded, the Ethiopian fiscal year */
                 pattern: text('pattern').notNull(),
+                /**
+                 * The fiscal year the numbers belong to, when the pattern has `{efy}`: a new year starts again at 1. Empty:
+                 * not yet used (a set-up counter continues from its start), or a pattern without the year.
+                 */
+                period: text('period').notNull().default(''),
                 /** the last number issued; a migrated register starts after its highest number (`start_after`) */
                 lastValue: bigint('last_value', { mode: 'bigint' })
                     .notNull()
