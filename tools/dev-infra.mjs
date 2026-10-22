@@ -16,7 +16,12 @@ import { createServer } from 'node:net';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { CreateBucketCommand, HeadBucketCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+    CreateBucketCommand,
+    HeadBucketCommand,
+    PutBucketLifecycleConfigurationCommand,
+    S3Client
+} from '@aws-sdk/client-s3';
 import { parse as parseYaml } from 'yaml';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -244,6 +249,23 @@ async function seedBuckets(env) {
             await s3.send(new CreateBucketCommand({ Bucket }));
             console.log(`  bucket ${Bucket} created`);
         }
+        // uploads never confirmed (task 0.15): the store's own rule; the worker's purge is the guarantee
+        await s3.send(
+            new PutBucketLifecycleConfigurationCommand({
+                Bucket,
+                LifecycleConfiguration: {
+                    Rules: [
+                        {
+                            ID: 'quarantine-expiry',
+                            Status: 'Enabled',
+                            Filter: { Prefix: 'quarantine/' },
+                            Expiration: { Days: 2 },
+                            AbortIncompleteMultipartUpload: { DaysAfterInitiation: 1 }
+                        }
+                    ]
+                }
+            })
+        );
     }
     s3.destroy();
 }
@@ -453,6 +475,15 @@ function writeAppEnv(env) {
     const issuer = `http://localhost:${p.KEYCLOAK_HOST_PORT}/realms/itrms`;
     const pg = (role) =>
         `postgres://itrms_${role}:${env[`ITRMS_${role.toUpperCase()}_PASSWORD`]}@127.0.0.1:${p.PG_HOST_PORT}/itrms`;
+    const s3 = `http://127.0.0.1:${p.S3_HOST_PORT}`;
+    // the object store (task 0.15): the API signs for the store's address; browsers reach it at /files on the app
+    const objectStore = {
+        S3_ENDPOINT: s3,
+        S3_BUCKET: 'itrms-dev',
+        S3_ACCESS_KEY: env.S3_ACCESS_KEY,
+        S3_SECRET_KEY: env.S3_SECRET_KEY,
+        S3_PUBLIC_PATH: '/files'
+    };
     const personalData = {
         AUDIT_HMAC_KEY: env.AUDIT_HMAC_KEY,
         FIELD_KEYS: `dev:${Buffer.from(env.FIELD_KEK, 'hex').toString('base64')}`,
@@ -463,6 +494,7 @@ function writeAppEnv(env) {
             NODE_ENV: 'development',
             DATABASE_URL: pg('app'),
             ...personalData,
+            ...objectStore,
             PORT: '4000',
             OIDC_ISSUER: issuer
         },
@@ -477,6 +509,7 @@ function writeAppEnv(env) {
             DATABASE_URL: pg('app'),
             DATABASE_SYSTEM_URL: pg('system'),
             ...personalData,
+            ...objectStore,
             VALKEY_QUEUES_URL: `redis://127.0.0.1:${p.VALKEY_QUEUES_HOST_PORT}/0`,
             KEYCLOAK_URL: `http://localhost:${p.KEYCLOAK_HOST_PORT}`,
             KEYCLOAK_ADMIN_CLIENT_SECRET: env.KEYCLOAK_IDENTITY_ADMIN_SECRET
@@ -487,6 +520,7 @@ function writeAppEnv(env) {
             OIDC_ISSUER: issuer,
             OIDC_CLIENT_ID: 'itrms-web',
             OIDC_CLIENT_SECRET: env.KEYCLOAK_WEB_CLIENT_SECRET,
+            FILES_UPSTREAM: s3,
             SESSION_VALKEY_URL: `redis://127.0.0.1:${p.VALKEY_SESSIONS_HOST_PORT}/0`,
             SESSION_KEYS: `dev:${Buffer.from(env.BFF_SESSION_KEY, 'hex').toString('base64')}`
         }

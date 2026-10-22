@@ -38,6 +38,9 @@
     "testcontainers": "12.2.0"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1146.0",
+    "@aws-sdk/s3-presigned-post": "3.1146.0",
+    "@aws-sdk/s3-request-presigner": "3.1146.0",
     "@itrms/competency": "workspace:*",
     "@itrms/documents": "workspace:*",
     "@itrms/fees": "workspace:*",

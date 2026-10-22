@@ -12,6 +12,12 @@ const nextConfig = {
     // Workspace packages are TypeScript source (code-structure.md §5.5): Next compiles them.
     transpilePackages: ['@itrms/ui', '@itrms/form-engine', '@itrms/schemas', '@itrms/parties'],
     outputFileTracingRoot: monorepoRoot,
+    // development only: the object store behind /files, as Nginx serves it in production (task 0.15). The store checks
+    // each presigned URL as the API signed it, for the store's own address: the rewrite sends Host and path unchanged.
+    async rewrites() {
+        const upstream = process.env.NODE_ENV === 'development' ? process.env.FILES_UPSTREAM : undefined;
+        return upstream ? [{ source: '/files/:path*', destination: `${upstream}/:path*` }] : [];
+    },
     async redirects() {
         // the builder used to live at a path derived from its folder structure
         return [

@@ -55,6 +55,8 @@ export interface JobsOptions {
     logger: Logger;
     relayEveryMs?: number;
     sweepEveryMs?: number;
+    /** more recurring work of the installation (the files purge), each run never overlapping the previous one */
+    recurring?: readonly { name: string; everyMs: number; run: () => Promise<number> }[];
     /** retries and backoff (tests make them fast) */
     jobOptions?: BullJobOptions;
 }
@@ -117,7 +119,8 @@ export function startJobs(options: JobsOptions): RunningJobs {
     const timers = [
         loop('outbox relayed', options.relayEveryMs ?? 1_000, () => relayOnce(system, target)),
         loop('outbox swept', options.sweepEveryMs ?? 60_000, () => sweepStuck(system)),
-        loop('idempotency keys swept', 3_600_000, () => sweepIdempotencyKeys(system))
+        loop('idempotency keys swept', 3_600_000, () => sweepIdempotencyKeys(system)),
+        ...(options.recurring ?? []).map((r) => loop(r.name, r.everyMs, r.run))
     ];
     return {
         queue,

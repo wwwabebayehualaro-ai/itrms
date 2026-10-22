@@ -3,7 +3,8 @@ import { defineModule } from '@itrms/module-sdk';
 // The kernel's permissions and the cross-cutting roles (roles-and-permissions.md §1–2). Work-process roles
 // (`competency.officer` …) are their modules'. Sensitive resources (role assignments, service configuration, the audit
 // log) are always named one by one, never granted by a wildcard.
-const READ_ORG = ['org-unit:read', 'service-config:read'];
+// every office uploads and reads its own files (task 0.15): the scope is the unit's subtree (RLS)
+const READ_ORG = ['org-unit:read', 'service-config:read', 'file:upload', 'file:read'];
 // the register of people and organisations (@itrms/parties, roles-and-permissions.md §2): every office reads it; intake
 // (records officers) registers and corrects, and asks for merges; a unit head approves them
 const REGISTER = ['person:read', 'organisation:read'];
@@ -32,7 +33,9 @@ export default defineModule({
         // the region's settings (its languages)
         setting: ['update'],
         // sensitive personal fields in clear (Fayda FIN, phone, full birth date), with a reason, audited (task 0.14)
-        pii: ['reveal']
+        pii: ['reveal'],
+        // uploaded files (scans, photos): upload and confirm, read and download within the unit's subtree
+        file: ['upload', 'read']
     },
     roles: {
         bureau_admin: [

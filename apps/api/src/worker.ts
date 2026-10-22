@@ -7,11 +7,12 @@ import 'reflect-metadata';
 
 import { KeycloakIdentityAdmin } from '@itrms/integrations/api';
 import { createWorkerContext } from '@itrms/kernel/api';
-import { identitySyncHandlers, startJobs, type OutboxHandler } from '@itrms/kernel/api/worker';
+import { identitySyncHandlers, purgeExpiredUploads, startJobs, type OutboxHandler } from '@itrms/kernel/api/worker';
 import { createDatabase } from '@itrms/kernel/db';
 import { createSystemDatabase } from '@itrms/kernel/db/system';
 
 import { AppModule } from './app.module';
+import { objectStoreOf } from './object-store';
 import { fail, start } from './start';
 
 async function main() {
@@ -24,7 +25,8 @@ async function main() {
         });
         const background = Boolean(config.DATABASE_SYSTEM_URL && config.VALKEY_QUEUES_URL);
         // with background work the stop signal is handled here: the jobs stop before the database closes
-        const app = await createWorkerContext(AppModule.forRoot(config, logger, { database }), logger, {
+        const objectStore = objectStoreOf(config);
+        const app = await createWorkerContext(AppModule.forRoot(config, logger, { database, objectStore }), logger, {
             shutdownHooks: !background
         });
 
@@ -71,7 +73,17 @@ async function main() {
                 },
                 system,
                 handlers,
-                logger
+                logger,
+                // uploads never confirmed, or refused, are removed after 24 hours (task 0.15)
+                recurring: objectStore
+                    ? [
+                          {
+                              name: 'files purged',
+                              everyMs: 3_600_000,
+                              run: () => purgeExpiredUploads(system, objectStore)
+                          }
+                      ]
+                    : []
             });
             const stop = async (signal: string) => {
                 logger.info({ signal }, 'worker stopping');

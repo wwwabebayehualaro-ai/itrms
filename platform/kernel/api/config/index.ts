@@ -64,6 +64,26 @@ const auditKey = z.string().min(32, 'must be at least 32 characters').optional()
  * Sensitive personal fields (security.md §11, task 0.14): the key-encryption keys, `id:base64` of 32 bytes each, the
  * first wrapping new data keys; and the separate key of the blind indexes. Without them nothing sensitive can be written.
  */
+/**
+ * The object store (files, task 0.15): the S3 API the API and the worker use, its bucket and credentials, and the path on
+ * the app's origin through which browsers reach it (`/files`, proxied). Unset: no file routes work (development without
+ * SeaweedFS).
+ */
+const objectStore = {
+    S3_ENDPOINT: z.url({ protocol: /^https?$/ }).optional(),
+    S3_REGION: z.string().min(1).default('us-east-1'),
+    S3_BUCKET: z
+        .string()
+        .regex(/^[a-z0-9][a-z0-9.-]{2,62}$/, 'is not a bucket name')
+        .default('itrms'),
+    S3_ACCESS_KEY: z.string().min(1).optional(),
+    S3_SECRET_KEY: z.string().min(16, 'must be at least 16 characters').optional(),
+    S3_PUBLIC_PATH: z
+        .string()
+        .regex(/^\/[a-z0-9-]+$/, 'is a path such as /files')
+        .optional()
+};
+
 const fieldKeys = {
     FIELD_KEYS: z
         .string()
@@ -114,6 +134,7 @@ const schemas = {
             DATABASE_URL: postgresUrl,
             AUDIT_HMAC_KEY: auditKey,
             ...fieldKeys,
+            ...objectStore,
             PORT: z.coerce.number().int().min(1).max(65535).default(4000),
             HOST: z.string().min(1).default('127.0.0.1'),
             /**
@@ -161,6 +182,7 @@ const schemas = {
             DATABASE_URL: postgresUrl,
             AUDIT_HMAC_KEY: auditKey,
             ...fieldKeys,
+            ...objectStore,
             /** The system pool (role itrms_system, BYPASSRLS): outbox relay and sweeps (task 0.11). */
             DATABASE_SYSTEM_URL: postgresUrl.optional(),
             /** The queues' Valkey (BullMQ): with the system pool, the worker relays and runs the outbox. */
