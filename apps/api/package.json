@@ -34,6 +34,7 @@
     "testcontainers": "12.2.0"
   },
   "dependencies": {
+    "@itrms/competency": "workspace:*",
     "@itrms/documents": "workspace:*",
     "@itrms/fees": "workspace:*",
     "@itrms/forms": "workspace:*",

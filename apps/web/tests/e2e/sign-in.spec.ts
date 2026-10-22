@@ -132,8 +132,8 @@ test('signs in with a password and a new TOTP, acts in its unit only, and never 
     expect((await call(page, 'GET', '/api/v1/me/workspace')).body?.activeUnit).toMatchObject({ code: 'WOL-BODITI' });
 
     // sign-out ends the BFF session and the Keycloak session (SEC-SE-4)
-    await page.getByRole('button', { name: /^Account:/ }).click();
-    await page.getByRole('menuitem', { name: 'Sign out' }).click();
+    await page.locator('[data-user-menu]').click();
+    await page.locator('[data-sign-out]').click();
     await expect(page).toHaveURL(SIGN_IN_PAGE);
     expect(await keycloakSessions(DUAL.id)).toEqual([]);
     expect(await cookie(page, '__Host-itrms_sid')).toBeUndefined();

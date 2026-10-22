@@ -56,16 +56,16 @@ describe('the installed modules', () => {
         const config = loadConfig('http', DB);
         const logger = createLogger(config, quiet);
         const broken = defineModule({
-            key: 'competency',
+            key: 'freight',
             layer: 'work-process',
             version: '1.0.0',
-            title: { am: 'ብቃት', en: 'Competency' },
-            workProcess: 1,
+            title: { am: 'ጭነት', en: 'Freight' },
+            workProcess: 3,
             dependsOn: ['kernel', 'drivers'],
-            effects: ['competency.issueLicence']
+            effects: ['freight.issuePermit']
         });
         expect(() => AppModule.forRoot(config, logger, { slices: [...SLICES, { manifest: broken }] })).toThrow(
-            /The installed modules cannot start:\n- competency: depends on "drivers", which is not installed\n- competency: effect "competency.issueLicence" is declared but not implemented/
+            /The installed modules cannot start:\n- freight: depends on "drivers", which is not installed\n- freight: effect "freight.issuePermit" is declared but not implemented/
         );
         expect(() => AppModule.forRoot(loadConfig('http', { ...DB, MODULES_DISABLED: 'kernel' }), logger)).toThrow(
             ManifestError

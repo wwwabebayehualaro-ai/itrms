@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "e2e": "playwright test",
-    "api:types": "openapi-typescript ../../contracts/openapi.json -o src/lib/api/schema.d.ts"
+    "api:types": "openapi-typescript ../../contracts/openapi.json -o src/lib/api/schema.d.ts",
+    "gen:icons": "tsx scripts/shell/menu-icons.ts && prettier --write src/shell/menu-icons.generated.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",
@@ -40,7 +41,9 @@
     "zustand": "5.0.15"
   },
   "devDependencies": {
+    "@itrms/competency": "workspace:*",
     "@itrms/config": "workspace:*",
+    "@itrms/kernel": "workspace:*",
     "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "4.3.3",
     "@tanstack/react-query-devtools": "5.104.1",

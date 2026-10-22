@@ -153,3 +153,11 @@ users:
       home: WOL-BODITI,
       roles: [{ unit: WOL-BODITI, role: cashier }, { unit: WOL, role: records_officer }]
     }
+  # two units with different menus, for the unit switcher (task 0.10b): licensing at the zone, none at Damot Gale
+  - {
+      username: demo.multi,
+      displayName: Zone Competency Officer and Damot Gale Records (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000402,
+      home: WOL,
+      roles: [{ unit: WOL, role: competency.officer }, { unit: WOL-DAMOT-GALE, role: records_officer }]
+    }

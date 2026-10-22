@@ -4,11 +4,18 @@
  * without API code yet contributes its manifest only.
  */
 import type { DynamicModule, Type } from '@nestjs/common';
+import competency from '@itrms/competency/manifest';
+import competencyAm from '@itrms/competency/messages/am';
+import competencyEn from '@itrms/competency/messages/en';
+import competencyWal from '@itrms/competency/messages/wal-Latn';
 import documents from '@itrms/documents/manifest';
 import fees from '@itrms/fees/manifest';
 import forms from '@itrms/forms/manifest';
 import integrations from '@itrms/integrations/manifest';
 import kernel from '@itrms/kernel/manifest';
+import kernelAm from '@itrms/kernel/messages/am';
+import kernelEn from '@itrms/kernel/messages/en';
+import kernelWal from '@itrms/kernel/messages/wal-Latn';
 import type { InstalledSlice } from '@itrms/module-sdk';
 import reports from '@itrms/reports/manifest';
 import services from '@itrms/services/manifest';
@@ -16,6 +23,8 @@ import workflow from '@itrms/workflow/manifest';
 
 export type ApiSlice = InstalledSlice<Type | DynamicModule>;
 
-export const SLICES: ApiSlice[] = [kernel, integrations, forms, fees, documents, workflow, services, reports].map(
-    (manifest) => ({ manifest })
-);
+export const SLICES: ApiSlice[] = [
+    { manifest: kernel, messages: { am: kernelAm, en: kernelEn, 'wal-Latn': kernelWal } },
+    ...[integrations, forms, fees, documents, workflow, services, reports].map((manifest) => ({ manifest })),
+    { manifest: competency, messages: { am: competencyAm, en: competencyEn, 'wal-Latn': competencyWal } }
+];

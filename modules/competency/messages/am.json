@@ -1,0 +1,10 @@
+{
+  "competency.nav.applications": "የመንጃ ፈቃድ ማመልከቻዎች",
+  "competency.nav.exams": "ፈተናዎች",
+  "competency.nav.printBatches": "የህትመት ጥቅሎች",
+  "competency.action.newApplication": "አዲስ የመንጃ ፈቃድ ማመልከቻ",
+  "competency.role.officer": "የብቃት ማረጋገጫ ባለሙያ",
+  "competency.role.lead": "የብቃት ማረጋገጫ ቡድን መሪ",
+  "competency.role.examiner": "ፈታኝ",
+  "competency.role.inspector": "የቴክኒክ ምርመራ ባለሙያ"
+}

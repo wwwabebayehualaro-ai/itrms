@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-10-21",
+  "updated": "2026-10-22",
   "statuses": [
     "planned",
     "ready",
@@ -327,10 +327,19 @@
         {
           "id": "0.10b",
           "title": "Application shell",
-          "status": "ready",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.10b-shell",
+          "commits": [
+            "c6840bd"
+          ],
+          "evidence": [
+            "pnpm turbo run lint typecheck test (web, kernel, module-sdk, competency, api, integrations) → 18/18 tasks; kernel menu.spec + loader.spec, module-sdk menu schema, web shell.test.tsx (icons cover manifests, language, favourites per person)",
+            "apps/api pnpm test:int → 90/90: Damot Gale records officer menu = [kernel.home]; Boditi competency officer → competency.applications + exams; same officer with DVC services overridden off → no licensing; demo.multi menu follows the unit",
+            "apps/web playwright → 3/3: shell.spec (zone shows licensing + Ctrl+K pages/actions; switch to Damot Gale → only home, zone org-unit 404; back) and the 0.10a sign-in journeys",
+            "pnpm test:tools → 69/69; boundaries → 0 violations; check:slices → 9 slices; format clean; openapi.json unchanged",
+            "reviewer agent: 0 high, 4 medium, 7 low; all fixed except entitlement filtering (deferred, follow-up) and unknown service codes (0.21)",
+            "CI: local evidence only (GitHub account suspended), merged at the product owner's request for speed"
+          ],
           "blockers": [],
           "notes": ""
         },
@@ -1444,6 +1453,31 @@
       "foundIn": "0.10a",
       "item": "Port the legacy engine e2e journeys (tests/e2e/legacy) to the BFF sign-in",
       "movedTo": "0.16"
+    },
+    {
+      "foundIn": "0.10b",
+      "item": "Favourites, recents, language and calendar preferences stored server-side so they follow the person between PCs (today in the browser)",
+      "movedTo": "0.13"
+    },
+    {
+      "foundIn": "0.10b",
+      "item": "Menu entitlement filtering (manifest entitlement vs the installation's licence keys); today only MODULES_DISABLED applies",
+      "movedTo": "Phase 1"
+    },
+    {
+      "foundIn": "0.10b",
+      "item": "Badges, the notifications bell and role workspaces (home widgets) in the shell",
+      "movedTo": "0.20"
+    },
+    {
+      "foundIn": "0.10b",
+      "item": "Competency menu routes (/competency/applications, /exams, /print-batches) have no screens yet",
+      "movedTo": "0.24"
+    },
+    {
+      "foundIn": "0.10b",
+      "item": "Unknown service codes in menu requires are not checked against the service catalogue",
+      "movedTo": "0.21"
     }
   ]
 }

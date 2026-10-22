@@ -17,6 +17,20 @@ Decision: [ADR-0028](../decisions/0028-menu-and-workspace-model.md).
   * Icons are a hand-kept map.
   * "Home" is hard-coded.
 
+**Since task 0.10b:**
+* Manifests declare `menu` items with a typed schema (`@itrms/module-sdk` `menuItemSchema`): the key and label are
+  the module's own, the group is one of the fixed groups, the icon a lucide name and the route an app route.
+* The manifest loader requires every label in `am` and `en` in the slice's catalogue.
+* `GET /me/workspace` returns `menu` (computed by `@itrms/kernel/iam` `effectiveMenu`, labels as `I18nText`) and
+  `settings`.
+* The web shell (`apps/web/src/shell`) draws the sidebar, the unit switcher, the command palette with pages, quick
+  actions and recents, favourites, and the user menu with language and calendar.
+* Favourites, recents, language and calendar are kept in the browser until the user preferences move to the server
+  (task 0.13).
+* The icon map is generated (`pnpm --filter @itrms/web gen:icons`); a unit test fails when a manifest names an icon
+  that is missing from it.
+* Not yet built: badges and notifications, role workspaces, the bureau overlay (Phase 1), entitlement checks.
+
 ## 2. Principles
 1. **Declared by modules, computed by the server, customisable by the bureau.** No screen builds its own menu.
 2. **The menu shows what the user can do here.** An item appears only when its module is available (entitled, enabled
@@ -28,15 +42,15 @@ Decision: [ADR-0028](../decisions/0028-menu-and-workspace-model.md).
 ## 3. Menu model
 
 ```ts
-// declared in a module manifest (modularization.md §4)
+// declared in a module manifest (modularization.md §4); the work process is the module's own `workProcess`
 menu: [
-  { key: 'competency.applications', group: 'work-process:1', order: 10,
+  { key: 'competency.applications', group: 'work-process', order: 10,
     label: 'competency.nav.applications',           // i18n key, translated in every enabled language
     icon: 'id-card', route: '/competency/applications',
     requires: { permission: 'licence:read', services: ['DVC-03', 'DVC-04'], capabilities: [] },
     badge: 'competency.openTasks',                  // a count provider (server-side, cached 60 s)
     quickActions: [{ key: 'competency.newLicence', label: 'competency.action.newLicence', route: '/cases/new?service=DVC-03', permission: 'case:create' }] },
-  { key: 'competency.printBatches', group: 'work-process:1', order: 40, label: 'competency.nav.printBatches',
+  { key: 'competency.printBatches', group: 'work-process', order: 40, label: 'competency.nav.printBatches',
     icon: 'printer', route: '/competency/print-batches', requires: { permission: 'licence:print', capabilities: ['prints_documents'] } },
 ]
 ```

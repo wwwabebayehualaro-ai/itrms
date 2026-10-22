@@ -3,7 +3,7 @@
  * cookie, which no script can read: this module knows only the CSRF token (a readable cookie, sent back in a header or a
  * form field) and how to leave for sign-in and sign-out. No token ever reaches it.
  */
-import { CSRF_COOKIE, CSRF_FIELD } from './cookies';
+import { CSRF_COOKIE, CSRF_FIELD, CSRF_HEADER } from './cookies';
 
 function readCookie(name: string): string | null {
     if (typeof document === 'undefined') return null;
@@ -30,6 +30,17 @@ export const session = {
         // a full navigation, not the router: /auth/sign-in is a BFF route handler that redirects to Keycloak
         // eslint-disable-next-line @next/next/no-location-assign-relative-destination
         window.location.assign(`/auth/sign-in?${query.toString()}`);
+    },
+
+    /** Asks the BFF to act for another unit; the answer is the workspace there. Throws when refused (no role there). */
+    async switchUnit<T>(unitId: string): Promise<T> {
+        const response = await fetch('/auth/unit', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', [CSRF_HEADER]: session.csrfToken() ?? '' },
+            body: JSON.stringify({ unitId })
+        });
+        if (!response.ok) throw new Error(`unit switch refused (${response.status})`);
+        return (await response.json()) as T;
     },
 
     /**

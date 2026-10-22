@@ -74,7 +74,7 @@ let browserClient: QueryClient | undefined;
 /**
  * The app's single QueryClient (mount once, inside NotifyProvider). Besides sensible defaults and one place that
  * reports failures, it guarantees cached server data never outlives the signed-in user: the cache is dropped on
- * sign-out and whenever the user changes, so one tenant's data can never be shown to another.
+ * sign-out and whenever the user or their active unit changes, so one unit's data can never be shown in another's.
  */
 export function QueryProvider({ children }: { children: React.ReactNode }) {
     const notify = useNotify();
@@ -85,7 +85,9 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         return useAuthStore.subscribe((state, prev) => {
-            if (state.user?.id !== prev.user?.id) client.clear();
+            // another person, or another unit (another data scope): nothing cached may be shown again
+            if (state.user?.id !== prev.user?.id || state.user?.activeUnit.id !== prev.user?.activeUnit.id)
+                client.clear();
         });
     }, [client]);
 

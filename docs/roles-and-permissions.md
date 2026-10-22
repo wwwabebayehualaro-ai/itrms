@@ -118,6 +118,7 @@ change only through the workflow effects of a case (architecture §8).
 | Damot Gale woreda (ምድብ 1) | unit_head, records_officer, road_safety.officer, public_transport.officer (no competency roles: no such positions [D]) |
 | Boditi town (ፈርጅ 1) | unit_head, records_officer, cashier (daily revenue collector), competency.lead (team leader), competency.officer (licensing expert, also examiner) |
 | South Ethiopia bureau | bureau_admin |
+| Wolaita Zone + Damot Gale | `demo.dual` (Boditi cashier, zone records officer) and `demo.multi` (zone competency.officer, Damot Gale records officer): one person in two units, for the unit switcher |
 | Test Zone B (tests only) | one user per role, for the isolation matrix |
 
 ## 5. Open items

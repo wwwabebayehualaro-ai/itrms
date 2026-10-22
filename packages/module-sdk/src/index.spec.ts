@@ -54,6 +54,30 @@ describe('defineModule', () => {
         expect(manifestProblems({ ...valid, menus: [] })[0]).toMatch(/menus/);
     });
 
+    it('checks menu items: owned keys and labels, a known group, an icon name and an app route', () => {
+        const item = {
+            key: 'competency.applications',
+            group: 'work-process' as const,
+            label: 'competency.nav.applications',
+            icon: 'id-card',
+            route: '/competency/applications',
+            requires: { permission: 'licence:read', services: ['DVC-03'] }
+        };
+        const m = defineModule({ ...valid, menu: [item] });
+        expect(m.menu[0]).toMatchObject({ order: 100, requires: { capabilities: [] }, quickActions: [] });
+        expect(
+            manifestProblems({ ...valid, menu: [{ ...item, key: 'drivers.list', label: 'drivers.nav.list' }] })
+        ).toEqual([
+            'menu item "drivers.list" must start with "competency."',
+            'menu label "drivers.nav.list" must start with "competency."'
+        ]);
+        expect(manifestProblems({ ...valid, menu: [{ ...item, group: 'sidebar' }] })[0]).toMatch(/menu.0.group/);
+        expect(manifestProblems({ ...valid, menu: [{ ...item, icon: 'IdCard' }] })[0]).toMatch(/lucide icon/);
+        for (const route of ['https://evil.example', '//evil', '/competency//x'])
+            expect(manifestProblems({ ...valid, menu: [{ ...item, route }] })[0]).toMatch(/app route/);
+        expect(manifestProblems({ ...valid, menu: [item, item] })).toEqual(['menu has duplicates']);
+    });
+
     it('asks a work-process module for its work process and title', () => {
         const rest = { ...valid, workProcess: undefined, title: undefined };
         expect(manifestProblems(rest)).toEqual([

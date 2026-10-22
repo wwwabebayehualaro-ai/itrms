@@ -23,7 +23,7 @@ export class AppModule {
         logger: Logger,
         { database, slices = SLICES }: AppOptions = {}
     ): DynamicModule {
-        const { manifests, modules } = loadSlices(slices, { disabled: config.MODULES_DISABLED });
+        const { manifests, modules, messages } = loadSlices(slices, { disabled: config.MODULES_DISABLED });
         logger.info({ modules: manifests.map((m) => m.key) }, 'modules loaded');
         const identity =
             config.process === 'http' && config.OIDC_ISSUER
@@ -32,7 +32,12 @@ export class AppModule {
         return {
             module: AppModule,
             imports: [
-                KernelModule.forRoot(config, logger, { database, identity, roles: rolePermissions(manifests) }),
+                KernelModule.forRoot(config, logger, {
+                    database,
+                    identity,
+                    roles: rolePermissions(manifests),
+                    shell: { manifests, messages }
+                }),
                 ...modules
             ]
         };

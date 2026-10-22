@@ -18,5 +18,21 @@
   "kernel.errors.not_eligible": "The conditions for this are not met.",
   "kernel.errors.rate_limited": "Too many requests. Please try again later.",
   "kernel.errors.internal_error": "Something went wrong. Quote the reference to support.",
-  "kernel.errors.unavailable": "The service is temporarily unavailable. Please try again later."
+  "kernel.errors.unavailable": "The service is temporarily unavailable. Please try again later.",
+  "kernel.nav.home": "Home",
+  "kernel.nav.group.home": "Home",
+  "kernel.nav.group.my-work": "My work",
+  "kernel.nav.group.work-process": "Work processes",
+  "kernel.nav.group.registries": "Registries",
+  "kernel.nav.group.reports": "Reports",
+  "kernel.nav.group.administration": "Administration",
+  "kernel.nav.group.help": "Help",
+  "kernel.role.bureau_admin": "Bureau administrator",
+  "kernel.role.unit_admin": "Unit administrator",
+  "kernel.role.unit_head": "Unit head",
+  "kernel.role.records_officer": "Records officer",
+  "kernel.role.cashier": "Cashier",
+  "kernel.role.finance_officer": "Finance officer",
+  "kernel.role.auditor": "Auditor",
+  "kernel.role.viewer": "Viewer"
 }

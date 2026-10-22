@@ -18,5 +18,21 @@
   "kernel.errors.not_eligible": "ለዚህ የሚያስፈልጉት መስፈርቶች አልተሟሉም።",
   "kernel.errors.rate_limited": "በጣም ብዙ ጥያቄዎች ተልከዋል። እባክዎ ቆይተው እንደገና ይሞክሩ።",
   "kernel.errors.internal_error": "ችግር ተፈጥሯል። ለድጋፍ ሰጪው የማጣቀሻ ቁጥሩን ይንገሩ።",
-  "kernel.errors.unavailable": "አገልግሎቱ ለጊዜው አይገኝም። እባክዎ ቆይተው እንደገና ይሞክሩ።"
+  "kernel.errors.unavailable": "አገልግሎቱ ለጊዜው አይገኝም። እባክዎ ቆይተው እንደገና ይሞክሩ።",
+  "kernel.nav.home": "መነሻ",
+  "kernel.nav.group.home": "መነሻ",
+  "kernel.nav.group.my-work": "የእኔ ሥራዎች",
+  "kernel.nav.group.work-process": "የሥራ ሂደቶች",
+  "kernel.nav.group.registries": "መዝገቦች",
+  "kernel.nav.group.reports": "ሪፖርቶች",
+  "kernel.nav.group.administration": "አስተዳደር",
+  "kernel.nav.group.help": "እገዛ",
+  "kernel.role.bureau_admin": "የቢሮ አስተዳዳሪ",
+  "kernel.role.unit_admin": "የክፍሉ አስተዳዳሪ",
+  "kernel.role.unit_head": "የክፍሉ ኃላፊ",
+  "kernel.role.records_officer": "የመዝገብ ባለሙያ",
+  "kernel.role.cashier": "ገንዘብ ያዥ",
+  "kernel.role.finance_officer": "የሂሳብ ባለሙያ",
+  "kernel.role.auditor": "ኦዲተር",
+  "kernel.role.viewer": "ተመልካች"
 }

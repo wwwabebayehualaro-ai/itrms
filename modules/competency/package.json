@@ -1,0 +1,33 @@
+{
+  "name": "@itrms/competency",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Driver and vehicle competency: driver licences, bolo inspections and the competency services",
+  "exports": {
+    "./manifest": "./module.ts",
+    "./contracts": "./contracts/index.ts",
+    "./api": "./api/index.ts",
+    "./api/worker": "./api/worker.ts",
+    "./web/server": "./web/server.ts",
+    "./web/client": "./web/client.ts",
+    "./messages/*": "./messages/*.json",
+    "./seed": "./seed/index.ts"
+  },
+  "imports": {
+    "#contracts/*": "./contracts/*.ts",
+    "#api/*": "./api/*.ts",
+    "#web/*": "./web/*.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@itrms/module-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@itrms/config": "workspace:*"
+  }
+}

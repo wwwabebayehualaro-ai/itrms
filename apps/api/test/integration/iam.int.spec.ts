@@ -10,19 +10,27 @@ import { fileURLToPath } from 'node:url';
 
 import { Module, type DynamicModule } from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { createHttpApp, createLogger, KernelModule } from '@itrms/kernel/api';
+import { createHttpApp, createLogger, KernelModule, loadSlices } from '@itrms/kernel/api';
 import { loadConfig } from '@itrms/kernel/config';
 import { createDatabase, type Database } from '@itrms/kernel/db';
 import { rolePermissions } from '@itrms/kernel/iam';
 import { importUsers, userImportSchema } from '@itrms/kernel/seed';
-import kernelManifest from '@itrms/kernel/manifest';
-import { findUnitByCode, importOrg, orgUnits, parseOrgYaml, type OrgUnit } from '@itrms/kernel/org';
+import {
+    clearServiceOverride,
+    findUnitByCode,
+    importOrg,
+    orgUnits,
+    parseOrgYaml,
+    setServiceOverride,
+    type OrgUnit
+} from '@itrms/kernel/org';
 import { and, eq, isNull } from 'drizzle-orm';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type JWTPayload } from 'jose';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
+import { SLICES } from '../../src/slices';
 import { startPostgres, type TestPostgres } from './support/postgres';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -33,6 +41,8 @@ const SUB = {
     dual: '0199f0a0-d000-7000-8000-000000000401',
     zoneAdmin: '0199f0a0-d000-7000-8000-000000000102',
     damotRecords: '0199f0a0-d000-7000-8000-000000000202',
+    boditiOfficer: '0199f0a0-d000-7000-8000-000000000305',
+    multi: '0199f0a0-d000-7000-8000-000000000402',
     bureauAdmin: '0199f0a0-d000-7000-8000-000000000001'
 };
 
@@ -78,6 +88,8 @@ beforeAll(async () => {
     const config = loadConfig('http', { DATABASE_URL: pg.url('app') });
     const logger = createLogger(config, new Writable({ write: (_c, _e, done) => done() }));
     const database = createDatabase(config.DATABASE_URL);
+    // the installation's real slices: their roles, menus and catalogues
+    const installed = loadSlices(SLICES);
     @Module({})
     class Root {
         static forRoot(): DynamicModule {
@@ -87,7 +99,8 @@ beforeAll(async () => {
                     KernelModule.forRoot(config, logger, {
                         database,
                         identity: { issuer: ISSUER, audience: AUDIENCE, keys: createLocalJWKSet({ keys: [jwk] }) },
-                        roles: rolePermissions([kernelManifest])
+                        roles: rolePermissions(installed.manifests),
+                        shell: { manifests: installed.manifests, messages: installed.messages }
                     })
                 ]
             };
@@ -168,6 +181,67 @@ describe('the token', () => {
         });
         const res = await call('GET', '/api/v1/me/workspace', { token: forged });
         expect(res.json()).toMatchObject({ roles: ['records_officer'] });
+    });
+});
+
+describe('the menu (task 0.10b, ADR-0028)', () => {
+    interface Workspace {
+        activeUnit: { code: string };
+        menu: { key: string; label: { am: string; en: string }; items: { key: string; route: string }[] }[];
+    }
+    const itemsOf = (w: Workspace) => w.menu.flatMap((g) => g.items.map((i) => i.key));
+
+    it("shows no licensing at Damot Gale (no DVC services), and a Boditi competency officer's licensing", async () => {
+        const damot = await unitAt('WOL-DAMOT-GALE');
+        const atDamot = (
+            await call('GET', '/api/v1/me/workspace', { token: await token(SUB.damotRecords), unit: damot.id })
+        ).json<Workspace>();
+        expect(itemsOf(atDamot)).toEqual(['kernel.home']);
+
+        const boditi = await unitAt('WOL-BODITI');
+        const officer = (
+            await call('GET', '/api/v1/me/workspace', { token: await token(SUB.boditiOfficer), unit: boditi.id })
+        ).json<Workspace>();
+        expect(officer.menu.map((g) => g.key)).toEqual(['home', 'work-process:1']);
+        expect(officer.menu[1]?.label).toMatchObject({ en: 'Driver and vehicle competency' });
+        // applications and exams (Boditi has examiners); print batches need licence:print, which officers lack
+        expect(itemsOf(officer)).toEqual(['kernel.home', 'competency.applications', 'competency.exams']);
+    });
+
+    it('hides licensing from a competency officer whose unit stops offering the licensing services', async () => {
+        const boditi = await unitAt('WOL-BODITI');
+        const licensing = ['DVC-03', 'DVC-04', 'DVC-08', 'DVC-10', 'DVC-11'];
+        const officerMenu = async () =>
+            itemsOf(
+                (
+                    await call('GET', '/api/v1/me/workspace', {
+                        token: await token(SUB.boditiOfficer),
+                        unit: boditi.id
+                    })
+                ).json<Workspace>()
+            );
+        await installer.scoped({}, async (tx) => {
+            for (const code of licensing) await setServiceOverride(tx, boditi.id, code, false, 'test: no licensing');
+        });
+        try {
+            // the same person and role: only the unit's services changed
+            expect(await officerMenu()).toEqual(['kernel.home']);
+        } finally {
+            await installer.scoped({}, async (tx) => {
+                for (const code of licensing) await clearServiceOverride(tx, boditi.id, code);
+            });
+        }
+        expect(await officerMenu()).toContain('competency.applications');
+    });
+
+    it('follows the unit the person acts for', async () => {
+        const zone = await unitAt('WOL');
+        const damot = await unitAt('WOL-DAMOT-GALE');
+        const t = await token(SUB.multi);
+        const atZone = (await call('GET', '/api/v1/me/workspace', { token: t, unit: zone.id })).json<Workspace>();
+        const atDamot = (await call('GET', '/api/v1/me/workspace', { token: t, unit: damot.id })).json<Workspace>();
+        expect(itemsOf(atZone)).toContain('competency.applications');
+        expect(itemsOf(atDamot)).toEqual(['kernel.home']);
     });
 });
 

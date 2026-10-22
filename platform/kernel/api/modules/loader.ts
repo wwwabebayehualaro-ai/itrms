@@ -13,9 +13,12 @@ import {
     manifestProblems,
     permissionsOf,
     type InstalledSlice,
+    type MessageCatalogues,
     type ModuleLayer,
     type ModuleManifest
 } from '@itrms/module-sdk';
+
+import { roleLabelKey } from '../iam/menu';
 
 const RANK: Record<ModuleLayer, number> = { kernel: 0, platform: 1, registry: 2, 'work-process': 3 };
 
@@ -31,6 +34,8 @@ export interface LoadedSlices<Module> {
     manifests: ModuleManifest[];
     /** Their NestJS modules, for the application module to import. */
     modules: Module[];
+    /** Their message catalogues merged, by language tag. */
+    messages: Record<string, Record<string, string>>;
 }
 
 function cycles(manifests: ModuleManifest[]): string[] {
@@ -129,6 +134,36 @@ export function loadSlices<Module>(
             if (!emitter.has(event)) problems.push(`${m.key}: consumes "${event}", which no installed module emits`);
     }
 
+    // the texts the server shows, from the slices' own catalogues: menu labels, role names and the menu's group names,
+    // each in Amharic and English; a slice's keys are its own (no slice overwrites another's text)
+    const messages: Record<string, Record<string, string>> = {};
+    const needs = (owner: ModuleManifest, catalogues: MessageCatalogues, key: string, what: string) => {
+        for (const language of ['am', 'en'])
+            if (!catalogues[language]?.[key])
+                problems.push(`${owner.key}: ${what} "${key}" has no ${language} text in its messages`);
+    };
+    const kernelCatalogues = installed.get('kernel')?.messages ?? {};
+    const kernelManifest = installed.get('kernel')?.manifest;
+    for (const { manifest: m, messages: catalogues = {} } of enabled) {
+        for (const [language, catalogue] of Object.entries(catalogues))
+            for (const [k, text] of Object.entries(catalogue)) {
+                if (!k.startsWith(`${m.key}.`)) problems.push(`${m.key}: message "${k}" must start with "${m.key}."`);
+                else (messages[language] ??= {})[k] = text;
+            }
+        for (const item of m.menu) {
+            for (const label of [item.label, ...item.quickActions.map((a) => a.label)])
+                needs(m, catalogues, label, 'menu label');
+            for (const requires of [item.requires, ...item.quickActions.map((a) => a.requires)])
+                if (requires.permission && !permissions.has(requires.permission))
+                    problems.push(
+                        `${m.key}: menu item "${item.key}" needs "${requires.permission}", which no installed module defines`
+                    );
+            if (item.group !== 'work-process' && kernelManifest)
+                needs(kernelManifest, kernelCatalogues, `kernel.nav.group.${item.group}`, 'menu group');
+        }
+        for (const role of Object.keys(m.roles)) needs(m, catalogues, roleLabelKey(role), `role ${role}'s name`);
+    }
+
     if (problems.length) throw new ManifestError(problems);
-    return { manifests, modules: enabled.flatMap((s) => (s.module === undefined ? [] : [s.module])) };
+    return { manifests, modules: enabled.flatMap((s) => (s.module === undefined ? [] : [s.module])), messages };
 }

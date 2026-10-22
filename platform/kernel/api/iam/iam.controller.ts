@@ -15,6 +15,8 @@ import { withinScope } from '../org/org-admin.service';
 import { describeUnit, effectiveServices, getUnit } from '../org/org-tree';
 import { currentPrincipal, Require, requestDbContext, SignedIn } from './access';
 import { assignmentsOf, grantRole, revokeRole } from './assignments';
+import { CLIENT_SETTINGS, effectiveMenu, roleLabels } from './menu';
+import { SHELL, type Shell } from './shell';
 import { users } from './iam.table';
 
 class GrantDto extends createZodDto(
@@ -47,7 +49,10 @@ interface UnitRow extends Record<string, unknown> {
 
 @Controller('api/v1')
 export class IamController {
-    constructor(@Inject(DATABASE) private readonly db: Database) {}
+    constructor(
+        @Inject(DATABASE) private readonly db: Database,
+        @Inject(SHELL) private readonly shell: Shell
+    ) {}
 
     @Get('me/workspace')
     @SignedIn()
@@ -58,9 +63,28 @@ export class IamController {
             const unit = await getUnit(tx, principal.unitId);
             const sub = user?.keycloakSub ?? '';
             const units = await tx.execute<UnitRow>(sql`select * from kernel.principal_units(${sub})`);
+            const described = await describeUnit(tx, unit);
+            const services = await effectiveServices(tx, unit.id);
             return {
                 user: { id: principal.userId, username: user?.username, displayName: user?.displayName },
-                activeUnit: { ...(await describeUnit(tx, unit)), services: await effectiveServices(tx, unit.id) },
+                activeUnit: { ...described, services },
+                // what this person can do here (ADR-0028); the API still decides every call
+                menu: effectiveMenu(this.shell.manifests, this.shell.messages, {
+                    permissions: principal.permissions,
+                    services: new Set(services),
+                    capabilities: new Set(described.capabilities)
+                }),
+                // the display settings as the modules declare them (unit overrides come with task 0.21)
+                settings: Object.fromEntries(
+                    this.shell.manifests.flatMap((m) =>
+                        m.settings.filter((s) => CLIENT_SETTINGS.test(s.key)).map((s) => [s.key, s.default] as const)
+                    )
+                ),
+                // the names of the roles shown here and in the unit list (keys are never shown to a person)
+                roleLabels: roleLabels(this.shell.messages, [
+                    ...principal.roles,
+                    ...units.rows.flatMap((u) => u.roles)
+                ]),
                 units: units.rows.map((u) => ({ id: u.unit_id, code: u.code, name: u.name, roles: u.roles })),
                 roles: principal.roles,
                 permissions: [...principal.permissions].sort()

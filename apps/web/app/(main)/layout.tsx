@@ -9,8 +9,8 @@ interface AppLayoutProps {
 export const viewport: Viewport = { initialScale: 1, width: 'device-width' };
 
 export const metadata: Metadata = {
-    title: 'Digital File Cabinet',
-    description: 'Build forms, collect requests and track them in one place.',
+    // the product's name, the same in every language
+    title: 'ITRMS',
     robots: { index: false, follow: false },
     icons: { icon: '/favicon.ico' }
 };

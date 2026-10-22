@@ -41,7 +41,10 @@ const competency = slice(
         effects: ['competency.issueLicence'],
         events: { consumes: ['licence.issued.v1'] }
     },
-    { effects: ['competency.issueLicence'] }
+    {
+        effects: ['competency.issueLicence'],
+        messages: { am: { 'competency.role.officer': 'ባለሙያ' }, en: { 'competency.role.officer': 'Officer' } }
+    }
 );
 
 /** A second work process, varied per test. */
@@ -59,7 +62,18 @@ const freight = (
             dependsOn: ['kernel'],
             ...extra
         },
-        events ? { events } : {}
+        {
+            ...(events ? { events } : {}),
+            // its roles' names (freight.officer → freight.role.officer)
+            messages: Object.fromEntries(
+                ['am', 'en'].map((language) => [
+                    language,
+                    Object.fromEntries(
+                        Object.keys(extra.roles ?? {}).map((r) => [r.replace('freight.', 'freight.role.'), r])
+                    )
+                ])
+            )
+        }
     );
 
 /** The problems loadSlices reports, or [] when it loads. */
@@ -164,6 +178,47 @@ describe('loadSlices', () => {
             roles: { 'freight.officer': ['licence:read'] }
         });
         expect(problems([kernel, workflow, drivers, emitting, listening], ['competency'])).toEqual([]);
+    });
+
+    it('needs every menu label in Amharic and English, and merges the catalogues', () => {
+        const menu = [
+            {
+                key: 'freight.permits',
+                group: 'work-process' as const,
+                label: 'freight.nav.permits',
+                icon: 'truck',
+                route: '/freight/permits'
+            }
+        ];
+        const withMenu = (messages: InstalledSlice<string>['messages']) => ({
+            ...slice({ key: 'freight', layer: 'work-process', version: '1.0.0', title, workProcess: 3, menu }),
+            messages
+        });
+        expect(problems([kernel, withMenu({ en: { 'freight.nav.permits': 'Permits' } })])).toEqual([
+            'freight: menu label "freight.nav.permits" has no am text in its messages'
+        ]);
+        const loaded = loadSlices([
+            kernel,
+            withMenu({ am: { 'freight.nav.permits': 'ፈቃዶች' }, en: { 'freight.nav.permits': 'Permits' } })
+        ]);
+        expect(loaded.messages.am).toEqual({ 'freight.nav.permits': 'ፈቃዶች' });
+
+        // a permission nobody defines would hide the item for ever; another slice's keys are not this slice's to set
+        const texts = { am: { 'freight.nav.permits': 'ፈቃዶች' }, en: { 'freight.nav.permits': 'Permits' } };
+        const guarded = slice({
+            key: 'freight',
+            layer: 'work-process',
+            version: '1.0.0',
+            title,
+            workProcess: 3,
+            menu: [{ ...menu[0], requires: { permission: 'permit:read' } }]
+        } as ModuleManifestInput);
+        expect(
+            problems([kernel, { ...guarded, messages: { ...texts, en: { ...texts.en, 'kernel.nav.home': 'Mine' } } }])
+        ).toEqual([
+            'freight: message "kernel.nav.home" must start with "freight."',
+            'freight: menu item "freight.permits" needs "permit:read", which no installed module defines'
+        ]);
     });
 
     it('says every problem in one message', () => {

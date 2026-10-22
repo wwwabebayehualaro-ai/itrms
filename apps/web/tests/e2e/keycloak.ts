@@ -7,6 +7,8 @@ import { createHmac } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import type { Page } from '@playwright/test';
+
 const ROOT = join(import.meta.dirname, '..', '..', '..', '..');
 
 function stackEnv(): Record<string, string> {
@@ -95,3 +97,17 @@ export function totp(secret: string, offset = 0): string {
 
 /** Milliseconds until the next 30-second TOTP step begins (Keycloak refuses a code used twice). */
 export const untilNextStep = () => 30_000 - (Date.now() % 30_000) + 500;
+
+/** Signs a reset account in at Keycloak through the app, setting up its TOTP; returns the TOTP secret. */
+export async function firstSignIn(page: Page, username: string): Promise<string> {
+    await page.goto('/');
+    await page.locator('#username').fill(username);
+    await page.locator('#password').fill(DEMO_PASSWORD);
+    await page.locator('#kc-login').click();
+    await page.locator('#mode-manual').click();
+    const secret = (await page.locator('#kc-totp-secret-key').innerText()).replace(/\s/g, '');
+    await page.locator('#totp').fill(totp(secret));
+    await page.locator('#saveTOTPBtn').click();
+    await page.waitForURL((url) => !url.pathname.startsWith('/realms/'));
+    return secret;
+}

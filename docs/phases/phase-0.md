@@ -278,6 +278,13 @@ Split on 2026-10-21 (scope too large for one session): the BFF sign-in moved to 
 - **Done when:** a Damot Gale user's menu shows no licensing items and a Boditi competency officer's does; switching units
   changes the menu and the data scope.
 - **Tests:** menu filtering per unit and role; e2e unit switching.
+- **Done (2026-10-22):**
+  - Typed `menu` in the module SDK; `effectiveMenu` in the kernel; `menu` and `settings` in `/me/workspace`.
+  - `modules/competency` scaffolded with its permissions, roles and menu only; the licence slice follows in 0.24.
+  - The shell in `apps/web/src/shell` and the generated icon map.
+  - Favourites, recents and preferences are kept in the browser until 0.13.
+  - Entitlement filtering waits for the licence keys (Phase 1); enablement is the loader's `MODULES_DISABLED`.
+  - Badges, the notifications bell and role workspaces come with the inbox (0.20).
 
 ### 0.11 Numbering, idempotency, outbox, jobs
 - **Do:**

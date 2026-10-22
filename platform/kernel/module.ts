@@ -44,5 +44,10 @@ export default defineModule({
         finance_officer: READ_ORG,
         auditor: [...READ_ORG, 'role-assignment:read', 'audit-log:read'],
         viewer: READ_ORG
-    }
+    },
+    // the installation's languages (i18n-and-languages.md): Amharic and English everywhere; a region adds its own
+    // (Wolaita: wal-Latn) as an override, with the configuration inheritance of task 0.21
+    settings: [{ key: 'i18n.languages', default: ['am', 'en'] }],
+    // the platform's own entries; work processes, registries and reports bring theirs (navigation-and-menus.md §3)
+    menu: [{ key: 'kernel.home', group: 'home', order: 0, label: 'kernel.nav.home', icon: 'house', route: '/' }]
 });

@@ -23,6 +23,7 @@ import { AccessGuard, AUTHENTICATOR, RouteInventory, type Authenticator } from '
 import { IamController } from './iam/iam.controller';
 import { OidcAuthenticator, type OidcOptions } from './iam/oidc-authenticator';
 import type { RolePermissions } from './iam/roles';
+import { SHELL, type Shell } from './iam/shell';
 import { OrgAdminService } from './org/org-admin.service';
 import { OrgController } from './org/org.controller';
 import { HealthController, ReadinessRegistry } from './observability/health';
@@ -55,6 +56,8 @@ export interface KernelOptions {
     identity?: OidcOptions;
     /** What each role grants, from the installed manifests. */
     roles?: RolePermissions;
+    /** The enabled manifests and their catalogues: the menu `/me/workspace` computes (ADR-0028). */
+    shell?: Shell;
 }
 
 /** The OpenAPI writer and unit tests run without a database: a route that reaches it fails loudly. */
@@ -99,6 +102,7 @@ export class KernelModule {
             controllers: config.process === 'http' ? [HealthController, OrgController, IamController] : [],
             providers: [
                 { provide: KERNEL_CONFIG, useValue: config },
+                { provide: SHELL, useValue: options.shell ?? { manifests: [], messages: {} } },
                 { provide: LOGGER, useValue: logger },
                 Metrics,
                 ReadinessRegistry,

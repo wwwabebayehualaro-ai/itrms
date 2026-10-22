@@ -34,10 +34,64 @@ const SERVICE = /^[A-Z]{2,5}-\d{2}$/;
 /** `resource:action` (`licence:issue`). */
 export const PERMISSION = /^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$/;
 
+/** The menu's groups, fixed by the platform (navigation-and-menus.md §3): one per work process between "my work" and the registries. */
+export const MENU_GROUPS = [
+    'home',
+    'my-work',
+    'work-process',
+    'registries',
+    'reports',
+    'administration',
+    'help'
+] as const;
+export type MenuGroup = (typeof MENU_GROUPS)[number];
+/** A lucide icon name (`id-card`); the web app's icon map is generated from the manifests and fails on an unknown one. */
+const ICON = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
+/** An app route: `/competency/applications`, with an optional query (`/cases/new?service=DVC-03`). */
+const ROUTE = /^\/([a-z0-9-]+(\/[a-z0-9-]+)*)?(\?[A-Za-z0-9=&\-_.]+)?$/;
+
 const key = z.string().regex(KEY, 'must be kebab-case');
 const qualified = z.string().regex(QUALIFIED, 'must be <module>.<name>');
 const event = z.string().regex(EVENT, 'must be <entity>.<happened>.v<n>');
 const service = z.string().regex(SERVICE, 'must be a service code such as DVC-01');
+
+/** What a menu item or a quick action needs: a permission held here, one of the services the unit offers, its capabilities. */
+const requiresSchema = z
+    .object({
+        permission: z.string().regex(PERMISSION, 'must be resource:action').optional(),
+        /** shown when the active unit offers any of them */
+        services: z.array(service).default([]),
+        /** shown when the unit's type has all of them */
+        capabilities: z.array(z.string().regex(CAPABILITY, 'must be a snake_case capability')).default([])
+    })
+    .strict();
+
+const quickActionSchema = z
+    .object({
+        key: qualified,
+        /** a message key of the module's catalogue (`competency.action.newApplication`) */
+        label: qualified,
+        route: z.string().regex(ROUTE, 'must be an app route such as /competency/applications'),
+        requires: requiresSchema.default({ services: [], capabilities: [] })
+    })
+    .strict();
+
+export const menuItemSchema = z
+    .object({
+        key: qualified,
+        group: z.enum(MENU_GROUPS),
+        order: z.number().int().min(0).max(10_000).default(100),
+        /** a message key of the module's catalogue (`competency.nav.applications`) */
+        label: qualified,
+        icon: z.string().regex(ICON, 'must be a lucide icon name such as id-card'),
+        route: z.string().regex(ROUTE, 'must be an app route such as /competency/applications'),
+        requires: requiresSchema.default({ services: [], capabilities: [] }),
+        quickActions: z.array(quickActionSchema).default([])
+    })
+    .strict();
+
+export type MenuItem = z.output<typeof menuItemSchema>;
+export type MenuRequires = z.output<typeof requiresSchema>;
 
 export const manifestSchema = z
     .object({
@@ -79,8 +133,8 @@ export const manifestSchema = z
             .default([]),
         numberSequences: z.array(z.object({ key, pattern: z.string().min(1) }).strict()).default([]),
         lookups: z.array(key).default([]),
-        /** Menu entries (navigation-and-menus.md); their shape is checked by the shell. */
-        menu: z.array(z.unknown()).default([]),
+        /** Menu entries (navigation-and-menus.md §3); the API computes each person's menu from them. */
+        menu: z.array(menuItemSchema).default([]),
         widgets: z.array(qualified).default([]),
         reports: z.array(qualified).default([]),
         documents: z.array(key).default([]),
@@ -123,11 +177,22 @@ export function manifestProblems(input: unknown): string[] {
         );
     }
     own('effect', m.effects);
+    own(
+        'menu item',
+        m.menu.flatMap((i) => [i.key, ...i.quickActions.map((a) => a.key)])
+    );
+    own(
+        'menu label',
+        m.menu.flatMap((i) => [i.label, ...i.quickActions.map((a) => a.label)])
+    );
+    if (m.menu.some((i) => i.group === 'work-process') && m.workProcess === undefined)
+        problems.push("menu items in the work-process group need the module's workProcess");
     own('widget', m.widgets);
     own('report', m.reports);
     for (const [name, list] of [
         ['effects', m.effects],
         ['services', m.services],
+        ['menu', m.menu.map((i) => i.key)],
         ['events.emits', m.events.emits],
         ['events.consumes', m.events.consumes]
     ] as const)
@@ -147,11 +212,16 @@ export const permissionsOf = (m: ModuleManifest): string[] =>
     Object.entries(m.permissions).flatMap(([resource, actions]) => actions.map((a) => `${resource}:${a}`));
 
 /**
- * A slice as the API installs it: its manifest, its NestJS module (the type is the API's business: `unknown` here, since
+ * A slice as the API installs it: its manifest, its message catalogues, its NestJS module (the type is the API's business: `unknown` here, since
  * tool packages import no framework), the effects it implements and the payload schemas of the events it emits.
  */
+/** A slice's message catalogues by language tag (`messages/am.json` …): key → text. */
+export type MessageCatalogues = Readonly<Record<string, Readonly<Record<string, string>>>>;
+
 export interface InstalledSlice<Module = unknown> {
     manifest: ModuleManifest;
+    /** Its catalogues, for the texts the server shows (menu labels); keys required in `am` and `en`. */
+    messages?: MessageCatalogues;
     module?: Module;
     effects?: readonly string[];
     events?: Readonly<Record<string, z.ZodType>>;
