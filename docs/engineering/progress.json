@@ -409,10 +409,11 @@
         {
           "id": "0.14",
           "title": "People and organisations register",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.14-parties",
           "commits": [
-            "3c9c19b"
+            "3c9c19b",
+            "dc90c2d"
           ],
           "evidence": [
             "parties.int.spec (PostgreSQL 16): a person created in Damot Gale is found from Boditi (names in both scripts, homophones) and from Test Zone B, and is invisible in Test Region X (persons, person_sensitive, data keys)",
@@ -430,7 +431,7 @@
         {
           "id": "0.15",
           "title": "Files on object storage",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
