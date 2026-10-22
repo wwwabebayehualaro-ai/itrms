@@ -121,6 +121,8 @@ const schemas = {
         AUDIT_HMAC_KEY: auditKey,
         /** The system pool (role itrms_system, BYPASSRLS): outbox relay and sweeps (task 0.11). */
         DATABASE_SYSTEM_URL: postgresUrl.optional(),
+        /** The queues' Valkey (BullMQ): with the system pool, the worker relays and runs the outbox. */
+        VALKEY_QUEUES_URL: z.url({ protocol: /^rediss?$/ }).optional(),
         ...identityAdmin
     }),
     migrate: z.object({

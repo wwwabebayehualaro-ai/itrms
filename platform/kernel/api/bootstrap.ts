@@ -82,11 +82,19 @@ export async function createHttpApp(
 }
 
 /** The worker's context: the same modules, no HTTP server. */
-export async function createWorkerContext(root: RootModule, logger: Logger): Promise<INestApplicationContext> {
+/**
+ * The worker's application context. With `shutdownHooks: false` the caller handles SIGTERM itself, so it can stop its
+ * jobs before the context closes the database.
+ */
+export async function createWorkerContext(
+    root: RootModule,
+    logger: Logger,
+    { shutdownHooks = true }: { shutdownHooks?: boolean } = {}
+): Promise<INestApplicationContext> {
     const context = await NestFactory.createApplicationContext(root, {
         logger: new PinoNestLogger(logger),
         abortOnError: false
     });
-    context.enableShutdownHooks();
+    if (shutdownHooks) context.enableShutdownHooks();
     return context;
 }

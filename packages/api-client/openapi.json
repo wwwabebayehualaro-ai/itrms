@@ -244,6 +244,43 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/jobs": {
+      "get": {
+        "operationId": "JobsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Jobs"
+        ]
+      }
+    },
+    "/api/v1/admin/jobs/{id}/retries": {
+      "post": {
+        "operationId": "JobsController_retry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Jobs"
+        ]
+      }
+    },
     "/api/v1/me/workspace": {
       "get": {
         "operationId": "IamController_workspace",

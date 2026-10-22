@@ -12,6 +12,20 @@ export interface DbContext {
     /** An external participant's organisation (class P rows, ADR-0031). */
     partyId?: string;
     ip?: string;
+    /**
+     * Runs around the request's business transaction: the idempotency record (`@itrms/kernel/idempotency`) is claimed in
+     * it before the work, and gets the work's result before the commit. Used by the first transaction only.
+     */
+    transactionHook?: TransactionHook;
+}
+
+export interface TransactionHook {
+    begin(tx: Tx): Promise<void>;
+    end(tx: Tx, result: unknown): Promise<void>;
+    /** set once a transaction has used it */
+    used?: boolean;
+    /** how many transactions the request opened with it (one, for a POST) */
+    transactions?: number;
 }
 
 export type Db = NodePgDatabase;

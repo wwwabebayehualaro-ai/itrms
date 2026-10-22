@@ -12,6 +12,7 @@ import { deleteAudited, insertAudited, recordEvent, updateAudited } from '../db/
 import { newId } from '../db/columns';
 import type { Tx } from '../db/types';
 import { ConflictError, NotFoundError, ValidationError, type FieldError } from '../errors';
+import { emit } from '../outbox/outbox';
 import {
     orgDepartments,
     orgLevelDefinitions,
@@ -144,7 +145,13 @@ export async function createUnit(tx: Tx, input: NewUnit): Promise<OrgUnit> {
             process: department.process ?? null,
             name: department.name
         });
+    await unitChanged(tx, unit, 'created');
     return unit;
+}
+
+/** The identity provider mirrors the tree (its groups): the worker updates it from this event. */
+async function unitChanged(tx: Tx, unit: OrgUnit, change: 'created' | 'renamed' | 'moved' | 'deactivated') {
+    await emit(tx, 'org-unit.changed.v1', { unitId: unit.id, change }, { unitId: unit.id, regionId: unit.regionId });
 }
 
 /** A region: the root of its own tree. Its levels are added next (the import does both in one transaction). */
@@ -153,7 +160,7 @@ export async function createRegion(
     input: { code: string; name: I18nText; levelKey: string; toConfirm?: string[] }
 ): Promise<OrgUnit> {
     const id = newId();
-    return insertAudited(tx, orgUnits, {
+    const region = await insertAudited(tx, orgUnits, {
         id,
         regionId: id,
         parentId: null,
@@ -163,10 +170,14 @@ export async function createRegion(
         name: input.name,
         toConfirm: input.toConfirm ?? []
     });
+    await unitChanged(tx, region, 'created');
+    return region;
 }
 
 export async function renameUnit(tx: Tx, id: string, version: number, name: I18nText): Promise<OrgUnit> {
-    return updateAudited(tx, orgUnits, id, version, { name });
+    const unit = await updateAudited(tx, orgUnits, id, version, { name });
+    await unitChanged(tx, unit, 'renamed');
+    return unit;
 }
 
 /** Moves a unit and its subtree under another unit of the region (the triggers rewrite the paths). */
@@ -198,6 +209,7 @@ export async function moveUnit(tx: Tx, id: string, version: number, parentId: st
             descendants
         }
     });
+    await unitChanged(tx, moved, 'moved');
     return moved;
 }
 
@@ -213,7 +225,9 @@ export async function deactivateUnit(tx: Tx, id: string, version: number): Promi
         .where(and(eq(orgUnits.parentId, id), eq(orgUnits.active, true)))
         .limit(1);
     if (child) invalid('id', 'has_active_children', 'deactivate the units below it first');
-    return updateAudited(tx, orgUnits, id, version, { active: false });
+    const deactivated = await updateAudited(tx, orgUnits, id, version, { active: false });
+    await unitChanged(tx, deactivated, 'deactivated');
+    return deactivated;
 }
 
 /** The units of a subtree, the root first, then by depth and code. */

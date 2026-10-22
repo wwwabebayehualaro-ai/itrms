@@ -3,6 +3,7 @@
  * are signed by a key of the test's own (a local JWKS stands in for Keycloak's): the API checks signature, issuer,
  * audience and expiry, then reads the caller's roles in the unit of `X-Org-Unit` from role_assignments.
  */
+import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { Writable } from 'node:stream';
@@ -140,6 +141,8 @@ async function call(
             headers: {
                 ...(as ? { authorization: `Bearer ${as.token}` } : {}),
                 ...(as?.unit ? { 'x-org-unit': as.unit } : {}),
+                // every POST carries an Idempotency-Key, as the web client's do
+                ...(method === 'POST' ? { 'idempotency-key': randomUUID() } : {}),
                 ...headers
             }
         });

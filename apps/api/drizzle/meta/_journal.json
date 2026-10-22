@@ -85,6 +85,27 @@
       "when": 1792603340366,
       "tag": "0011_kernel_unit_type_roles_delegable",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792654670120,
+      "tag": "0012_kernel_counters_idempotency_outbox",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792654691125,
+      "tag": "0013_kernel_jobs_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792656839424,
+      "tag": "0014_kernel_counters_forward_only",
+      "breakpoints": true
     }
   ]
 }

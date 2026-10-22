@@ -53,7 +53,9 @@ export function createDatabase(url: string, options: DatabaseOptions = {}): Data
             max,
             application_name: `${options.applicationName ?? 'itrms-api'}${suffix}`,
             // a statement that runs away is cut, so one request cannot hold a connection for ever
-            statement_timeout: 30_000
+            statement_timeout: 30_000,
+            // nor may a transaction sit idle holding its locks (a caller waiting on something else: a queue, a network)
+            idle_in_transaction_session_timeout: 60_000
         });
         // without a listener an idle client's error would end the process; the readiness check reports the outage
         p.on('error', (error) => options.onError?.(error));
@@ -74,7 +76,14 @@ export function createDatabase(url: string, options: DatabaseOptions = {}): Data
                     )}`
                 );
                 bindContext(tx, ctx, options.auditKey);
-                return fn(tx);
+                const hook = ctx.transactionHook;
+                if (hook) hook.transactions = (hook.transactions ?? 0) + 1;
+                if (!hook || hook.used) return fn(tx);
+                hook.used = true;
+                await hook.begin(tx);
+                const result = await fn(tx);
+                await hook.end(tx, result);
+                return result;
             });
     const scoped = scopedOn(drizzle(main));
     const eventsDb = drizzle(events);

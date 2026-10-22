@@ -429,6 +429,9 @@ service), `reports` (heavy exports and quarterly reports), `sla`, `imports` (pap
   marks the event `done` when it succeeds. A sweep re-enqueues events left `enqueued` too long. So losing Valkey loses no
   work.
 - Every handler is idempotent, retries with exponential backoff, and parks failures in a dead-letter list visible to admins.
+- The relay and the sweeps poll every second or minute on the system pool. Each such recurring reason is written to the
+  audit log at its first use in a process and logged at every use, so the log records that the relay ran without a row per
+  poll.
 - **Valkey configuration:** `appendonly yes`, `appendfsync everysec`, `maxmemory-policy noeviction`. There are separate
   instances for queues and for BFF sessions, each with its own memory alert.
 - Scheduled jobs (BullMQ repeatable jobs): SLA sweep, licence and association renewal reminders (SMS N days before expiry),
@@ -490,6 +493,10 @@ Object storage through the S3 API (SeaweedFS, ADR-0020).
   request_hash) under a unique constraint, inserted **in the business transaction**.
   - A replay with the same hash returns the first result. A replay with a different hash gets 422.
   - Keys are kept for **7 days**. The PWA queue asks the user before replaying anything older than 6 days (ADR-0024).
+  - The record also names the **unit** the request acted for (`X-Org-Unit`, part of the request): the same key sent for
+    another unit is another request, and each record lives in its unit's RLS scope.
+  - A POST does its work in **one** `db.scoped` transaction, which carries the record (development and tests refuse
+    another shape).
 
 ## 16. Integration adapters
 

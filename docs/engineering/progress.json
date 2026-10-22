@@ -347,10 +347,20 @@
         {
           "id": "0.11",
           "title": "Numbering, idempotency, outbox, jobs",
-          "status": "ready",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.11-outbox",
+          "commits": [
+            "399855b",
+            "25d16fe"
+          ],
+          "evidence": [
+            "apps/api pnpm test:int → 105/105 (jobs.int.spec: 50 parallel issuers → 42..91 consecutive; rollback leaves no gap; app moves a counter only +1, nobody back; replay → first response + Idempotent-Replayed; other body 422; key in use 409; failed request keeps nothing; dead-letter list + retry; relay crash replay without duplicates; done handler skipped; sweep re-sends lost jobs; real Valkey: jobId dedupe, flushall loses nothing, dead → retry → handled)",
+            "pnpm turbo run lint typecheck test (kernel, api, integrations, web) → 12/12 tasks; kernel unit tests incl. numbering.spec, identity-sync.spec (coalescing, audited per run), problem.filter.spec (RLS refusal recorded)",
+            "live: dev worker relayed role-assignment.changed.v1 → Keycloak membership removed, then restored; 48 system uses logged, 3 audit rows (recurring)",
+            "pnpm test:tools → 69/69; boundaries → 0 violations; check:slices → 9; format clean; openapi.json regenerated (admin jobs routes)",
+            "reviewer agent: 1 high, 5 medium, 5 low; all fixed except the yearly counter reset (0.12 follow-up)",
+            "CI: local evidence only (GitHub account suspended), merged at the product owner's request for speed"
+          ],
           "blockers": [],
           "notes": ""
         },
@@ -1316,7 +1326,8 @@
     {
       "foundIn": "0.8",
       "item": "Idempotency-Key on the org POSTs (create, moves, deactivations); org import over HTTP as an outbox job (upload CSV/Excel, report per row)",
-      "movedTo": "0.11"
+      "movedTo": "0.11",
+      "closedIn": "0.11: IdempotencyInterceptor covers every POST (org included); org import over HTTP moved to a new follow-up"
     },
     {
       "foundIn": "0.8",
@@ -1348,7 +1359,7 @@
     {
       "foundIn": "0.8",
       "item": "Org import: report rows that already exist with a different parent/type/category instead of skipping silently; name parent cycles inside the file; bound .xlsx size and zip expansion before ExcelJS loads an upload",
-      "movedTo": "0.11"
+      "movedTo": "0.26"
     },
     {
       "foundIn": "0.8",
@@ -1396,7 +1407,8 @@
     {
       "foundIn": "0.10",
       "item": "Record RLS refusals mapped to 403 as access.denied too (the problem filter has no database; through the outbox)",
-      "movedTo": "0.11"
+      "movedTo": "0.11",
+      "closedIn": "0.11: the problem filter records RLS refusals as access.denied (reason row_level_security), unit-tested"
     },
     {
       "foundIn": "0.10",
@@ -1433,7 +1445,8 @@
     {
       "foundIn": "0.10a",
       "item": "Group sync and account provisioning through the outbox (IdentityAdmin from a worker handler) instead of the seed command",
-      "movedTo": "0.11"
+      "movedTo": "0.11",
+      "closedIn": "0.11: org-unit.changed.v1 / role-assignment.changed.v1 through the outbox; the worker's coalesced identity sync (live check against Keycloak)"
     },
     {
       "foundIn": "0.10a",
@@ -1479,6 +1492,26 @@
       "foundIn": "0.10b",
       "item": "Unknown service codes in menu requires are not checked against the service catalogue",
       "movedTo": "0.21"
+    },
+    {
+      "foundIn": "0.11",
+      "item": "Org import over HTTP as an outbox job (upload CSV/Excel, a report per row)",
+      "movedTo": "Phase 1"
+    },
+    {
+      "foundIn": "0.11",
+      "item": "Number counters restart each Ethiopian fiscal year where the pattern has {efy} (an efy period per counter row)",
+      "movedTo": "0.12"
+    },
+    {
+      "foundIn": "0.11",
+      "item": "Dead-letter screen for administrators (the API exists: GET /api/v1/admin/jobs, POST …/retries)",
+      "movedTo": "Phase 1"
+    },
+    {
+      "foundIn": "0.11",
+      "item": "Identity sync across several worker replicas: tolerate a group created by another replica (409) and serialise per region",
+      "movedTo": "0.26"
     }
   ]
 }

@@ -16,6 +16,7 @@ import type { Principal } from '../context';
 import { insertAudited, updateAudited } from '../db/audit';
 import type { Tx } from '../db/types';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError, type FieldError } from '../errors';
+import { emit } from '../outbox/outbox';
 import { withinScope } from '../org/org-admin.service';
 import { findUnitByCode, getUnit, type OrgUnit } from '../org/org-tree';
 import { orgUnits, unitTypeRoles } from '../org/org.table';
@@ -85,7 +86,7 @@ export async function grantRole(tx: Tx, granter: Granter | typeof INSTALLER, gra
         if (past) invalid('validFrom', 'backdated', 'an assignment starts now or later');
     }
     try {
-        return await insertAudited(tx, roleAssignments, {
+        const assignment = await insertAudited(tx, roleAssignments, {
             regionId: unit.regionId,
             userId: grant.userId,
             unitId: grant.unitId,
@@ -96,6 +97,8 @@ export async function grantRole(tx: Tx, granter: Granter | typeof INSTALLER, gra
             grantedBy: granter === INSTALLER ? null : granter.userId,
             reason: grant.reason
         });
+        await assignmentChanged(tx, assignment, 'granted');
+        return assignment;
     } catch (error) {
         if ((error as { cause?: { code?: string } }).cause?.code === '23505')
             throw new ConflictError('duplicate_reference', { detail: 'The person already holds this role here.' });
@@ -129,9 +132,21 @@ export async function revokeRole(tx: Tx, revoker: Granter, id: string, version: 
             throw new ConflictError('invalid_transition', { detail: 'The region would have no bureau administrator.' });
     }
     // ended by the database's clock, which the next request's check reads
-    return updateAudited(tx, roleAssignments, id, version, {
+    const revoked = await updateAudited(tx, roleAssignments, id, version, {
         validTo: sql`greatest(now(), ${roleAssignments.validFrom})` as unknown as Date
     });
+    await assignmentChanged(tx, revoked, 'revoked');
+    return revoked;
+}
+
+/** The identity provider mirrors who belongs to which unit (group membership): the worker updates it from this event. */
+async function assignmentChanged(tx: Tx, a: RoleAssignment, change: 'granted' | 'revoked') {
+    await emit(
+        tx,
+        'role-assignment.changed.v1',
+        { assignmentId: a.id, userId: a.userId, unitId: a.unitId, change },
+        { unitId: a.unitId, regionId: a.regionId }
+    );
 }
 
 /** The open assignments of a unit, with who holds them. */

@@ -299,6 +299,15 @@ Split on 2026-10-21 (scope too large for one session): the BFF sign-in moved to 
   replayed POST returns the first response; a crashed relay replays without duplicates; a handler that dies after the
   enqueue is retried by the sweep; flushing Valkey loses no event.
 - **Tests:** concurrency tests on Postgres; idempotency tests; outbox relay tests with a fake queue and a real Valkey.
+- **Done (2026-10-22):**
+  - `@itrms/kernel/numbering` and `@itrms/kernel/outbox`, the `IdempotencyInterceptor`, and the relay, sweeps and
+    BullMQ consumer in `@itrms/kernel/api/worker` (`pnpm --filter @itrms/api dev:worker`). The dead-letter list is at
+    `GET /api/v1/admin/jobs` and `POST …/:id/retries` (`job:read` and `job:retry`); its screen comes with the admin
+    screens.
+  - The kernel emits `org-unit.changed.v1` and `role-assignment.changed.v1`; the worker mirrors them into Keycloak
+    (group sync through the outbox, 0.10a's follow-up).
+  - Recurring system work is audited once per process and reason, then logged.
+  - The EFY in numbers is a stand-in until the calendar package (0.12).
 
 ### 0.12 Ethiopian calendar package
 - **Do:** `packages/ethiopian-calendar`:

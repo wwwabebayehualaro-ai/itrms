@@ -35,7 +35,7 @@ snake_case, documented per module), `detail`, `errors[{ path, code, message }]`,
 | 401 | `step_up_required` | the action needs a second factor entered recently (SEC-SE-5); `WWW-Authenticate: Bearer error="insufficient_user_authentication", max_age=…` (RFC 9470) |
 | 403 | `forbidden` | permission or unit scope (no detail about the record) |
 | 404 | `not_found` / `feature_disabled` | missing, outside scope, or module not available here |
-| 409 | `stale_version`, `idempotency_in_progress`, `invalid_transition`, `duplicate_reference` | conflicts |
+| 409 | `stale_version`, `idempotency_in_progress`, `invalid_transition`, `duplicate_reference`, `not_configured` | conflicts; `not_configured`: the office lacks the configuration the action needs (a number series) |
 | 422 | `validation_failed`, `idempotency_mismatch`, `not_eligible` | business or field validation |
 | 429 | `rate_limited` | with `Retry-After` |
 

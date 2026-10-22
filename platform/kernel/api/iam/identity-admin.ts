@@ -41,21 +41,20 @@ interface MemberRow extends Record<string, unknown> {
     unit_ids: string[];
 }
 
+/** What the identity provider must mirror: the active units (parents first) and each person's units. */
+export interface IdentitySnapshot {
+    units: IdentityUnit[];
+    members: IdentityMember[];
+}
+
 /**
- * Mirrors the active org tree and the open role assignments into the identity provider. Reads every region, so it runs
- * only where RLS does not apply: the seed (the owner role) or the worker's system context.
+ * Reads the active org tree and the open role assignments of every region, so it runs only where RLS does not apply: the
+ * seed (the owner role) or the worker's system context. Read first, then applied with the transaction closed: the
+ * identity provider's calls take time, and no transaction waits on them.
  */
-export async function syncIdentity(tx: Tx, admin: IdentityAdmin): Promise<{ units: number; members: number }> {
+export async function identitySnapshot(tx: Tx): Promise<IdentitySnapshot> {
     const units = await tx.execute<UnitRow>(
         sql`select id, code, parent_id, name from kernel.org_units where active order by nlevel(path), code`
-    );
-    await admin.syncUnits(
-        units.rows.map((u) => ({
-            id: u.id,
-            code: u.code,
-            parentId: u.parent_id,
-            name: u.name.am ?? u.name.en ?? Object.values(u.name)[0] ?? u.code
-        }))
     );
     const members = await tx.execute<MemberRow>(sql`
         select u.keycloak_sub, coalesce(array_agg(distinct a.unit_id::text) filter (where a.id is not null), '{}') as unit_ids
@@ -64,6 +63,28 @@ export async function syncIdentity(tx: Tx, admin: IdentityAdmin): Promise<{ unit
             on a.user_id = u.id and a.valid_from <= now() and (a.valid_to is null or a.valid_to > now())
          where u.keycloak_sub is not null and u.active
          group by u.keycloak_sub`);
-    for (const m of members.rows) await admin.syncMemberships({ keycloakSub: m.keycloak_sub, unitIds: m.unit_ids });
-    return { units: units.rows.length, members: members.rows.length };
+    return {
+        units: units.rows.map((u) => ({
+            id: u.id,
+            code: u.code,
+            parentId: u.parent_id,
+            name: u.name.am ?? u.name.en ?? Object.values(u.name)[0] ?? u.code
+        })),
+        members: members.rows.map((m) => ({ keycloakSub: m.keycloak_sub, unitIds: m.unit_ids }))
+    };
+}
+
+/** Makes the identity provider mirror a snapshot. */
+export async function applyIdentity(
+    admin: IdentityAdmin,
+    snapshot: IdentitySnapshot
+): Promise<{ units: number; members: number }> {
+    await admin.syncUnits(snapshot.units);
+    for (const member of snapshot.members) await admin.syncMemberships(member);
+    return { units: snapshot.units.length, members: snapshot.members.length };
+}
+
+/** Both at once, for the seed command (one installer transaction). */
+export async function syncIdentity(tx: Tx, admin: IdentityAdmin): Promise<{ units: number; members: number }> {
+    return applyIdentity(admin, await identitySnapshot(tx));
 }

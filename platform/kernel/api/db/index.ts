@@ -6,6 +6,7 @@
 import { fileURLToPath } from 'node:url';
 
 export { createDatabase, type Database, type DatabaseOptions, type Db, type DbContext, type Tx } from './database';
+export type { TransactionHook } from './types';
 export { baseColumns, ltree, newId } from './columns';
 export { audited, auditOptionsOf, auditPolicyOf, notAudited, type AuditOptions } from './audit-policy';
 export {

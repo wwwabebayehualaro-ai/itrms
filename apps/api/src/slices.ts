@@ -12,6 +12,7 @@ import documents from '@itrms/documents/manifest';
 import fees from '@itrms/fees/manifest';
 import forms from '@itrms/forms/manifest';
 import integrations from '@itrms/integrations/manifest';
+import { KERNEL_EVENTS } from '@itrms/kernel/contracts';
 import kernel from '@itrms/kernel/manifest';
 import kernelAm from '@itrms/kernel/messages/am';
 import kernelEn from '@itrms/kernel/messages/en';
@@ -24,7 +25,7 @@ import workflow from '@itrms/workflow/manifest';
 export type ApiSlice = InstalledSlice<Type | DynamicModule>;
 
 export const SLICES: ApiSlice[] = [
-    { manifest: kernel, messages: { am: kernelAm, en: kernelEn, 'wal-Latn': kernelWal } },
+    { manifest: kernel, events: KERNEL_EVENTS, messages: { am: kernelAm, en: kernelEn, 'wal-Latn': kernelWal } },
     ...[integrations, forms, fees, documents, workflow, services, reports].map((manifest) => ({ manifest })),
     { manifest: competency, messages: { am: competencyAm, en: competencyEn, 'wal-Latn': competencyWal } }
 ];

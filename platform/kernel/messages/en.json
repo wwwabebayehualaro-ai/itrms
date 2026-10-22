@@ -11,6 +11,7 @@
   "kernel.errors.idempotency_in_progress": "The same request is still being processed.",
   "kernel.errors.invalid_transition": "This step is not possible in the current state.",
   "kernel.errors.duplicate_reference": "This reference is already in use.",
+  "kernel.errors.not_configured": "This is not set up for this office yet.",
   "kernel.errors.payload_too_large": "The request is too large.",
   "kernel.errors.unsupported_media_type": "This kind of content is not accepted.",
   "kernel.errors.validation_failed": "Some values are not valid.",

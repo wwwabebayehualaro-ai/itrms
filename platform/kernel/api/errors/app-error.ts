@@ -90,7 +90,12 @@ export class NotFoundError extends AppError {
 export class ConflictError extends AppError {
     readonly status = 409;
     constructor(
-        code: 'stale_version' | 'idempotency_in_progress' | 'invalid_transition' | 'duplicate_reference',
+        code:
+            | 'stale_version'
+            | 'idempotency_in_progress'
+            | 'invalid_transition'
+            | 'duplicate_reference'
+            | 'not_configured',
         options?: AppErrorOptions
     ) {
         super(code, options);

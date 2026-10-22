@@ -11,6 +11,7 @@
   "kernel.errors.idempotency_in_progress": "ያው ጥያቄ አሁንም በሂደት ላይ ነው።",
   "kernel.errors.invalid_transition": "ይህ እርምጃ አሁን ባለበት ሁኔታ አይቻልም።",
   "kernel.errors.duplicate_reference": "ይህ መለያ ቁጥር ቀድሞ ጥቅም ላይ ውሏል።",
+  "kernel.errors.not_configured": "ይህ ለዚህ ቢሮ ገና አልተዘጋጀም።",
   "kernel.errors.payload_too_large": "ጥያቄው በጣም ትልቅ ነው።",
   "kernel.errors.unsupported_media_type": "ይህ ዓይነት ይዘት ተቀባይነት የለውም።",
   "kernel.errors.validation_failed": "አንዳንድ እሴቶች ትክክል አይደሉም።",

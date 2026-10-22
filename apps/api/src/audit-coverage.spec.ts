@@ -44,6 +44,11 @@ describe('every table', () => {
             return typeof policy === 'object' ? [`${t.name}: ${policy.notAudited}`] : [];
         });
         // the allowlist: grows only with a reason, reviewed with the table
-        expect(exceptions).toEqual(['kernel.audit_log: it is the audit log']);
+        expect(exceptions.sort()).toEqual([
+            'kernel.audit_log: it is the audit log',
+            'kernel.idempotency_keys: a technical record of a request already audited by the write it carried',
+            'kernel.number_counters: a counter moves with every number issued; the business row that carries the number is audited',
+            "kernel.outbox_events: an event of a business write that is itself audited; its status is the relay's bookkeeping"
+        ]);
     });
 });

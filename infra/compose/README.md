@@ -28,7 +28,8 @@ pnpm test:int                    # integration tests against the stack (S3 contr
 the ports first and names any that is taken; set another value in `.env`.
 
 **App settings:** `pnpm dev:infra` also writes the settings the API and the BFF read in development, from `.env`:
-`apps/api/.env.http.local` and `apps/api/.env.migrate.local` (`pnpm --filter @itrms/api dev:start | dev:migrate | dev:seed`)
+`apps/api/.env.http.local`, `.env.worker.local` and `.env.migrate.local` (`pnpm --filter @itrms/api dev:start | dev:worker |
+dev:migrate | dev:seed`; the worker relays the outbox through the queues' Valkey)
 and `apps/web/.env.local` (Next.js). They are git-ignored and owner-only like `.env`. Signing in end to end:
 
 ```

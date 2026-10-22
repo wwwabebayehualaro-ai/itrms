@@ -83,6 +83,7 @@ In code a permission is `resource:action` with the resource in kebab-case, as th
 | `issued_document` | R | — | R | R | R (receipts) | R | R | R | — | R |
 | `document_template` | A | — | R | — | — | — | — | — | — | R |
 | `audit_log` | R | R (subtree users only) | R | — | — | — | — | — | — | R |
+| `job` (dead-letter list, retry) | R, retry | — | — | — | — | — | — | — | — | — |
 | `pii:reveal` (Fayda id, phone, medical data) | — | — | ✓ | ✓ (at intake) | — | — | ✓ | ✓ | — | — |
 | `export` (CSV/Excel) | ✓ | — | ✓ | — | — | ✓ | — | ✓ | — | ✓ |
 

@@ -20,6 +20,8 @@
     "./db/system": "./api/db/system.ts",
     "./iam": "./api/iam/index.ts",
     "./org": "./api/org/index.ts",
+    "./numbering": "./api/numbering/index.ts",
+    "./outbox": "./api/outbox/index.ts",
     "./testing": "./api/testing/index.ts"
   },
   "imports": {
@@ -42,9 +44,11 @@
     "@opentelemetry/api": "1.9.1",
     "@opentelemetry/exporter-prometheus": "0.223.0",
     "@opentelemetry/sdk-metrics": "2.12.0",
+    "bullmq": "5.81.5",
     "drizzle-orm": "0.45.3",
     "exceljs": "4.4.0",
     "fastify": "5.12.5",
+    "ioredis": "5.11.1",
     "jose": "6.2.12",
     "nestjs-zod": "5.5.0",
     "pg": "8.23.1",

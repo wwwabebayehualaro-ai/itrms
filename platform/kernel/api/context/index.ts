@@ -6,6 +6,8 @@
 import { randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 
+import type { TransactionHook } from '../db/types';
+
 export const LANGUAGES = ['am', 'en', 'wal-Latn'] as const;
 export type Language = (typeof LANGUAGES)[number];
 /** Amharic is the default language of every installation (i18n-and-languages.md). */
@@ -33,6 +35,8 @@ export interface RequestContext {
     readonly language: Language;
     /** The signed-in caller and their active unit, set by the AccessGuard (`@itrms/kernel/iam`). */
     principal?: Principal;
+    /** What the request's business transaction runs around its work (the idempotency record of a POST). */
+    transactionHook?: TransactionHook;
 }
 
 const storage = new AsyncLocalStorage<RequestContext>();

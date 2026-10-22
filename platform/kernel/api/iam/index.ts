@@ -29,5 +29,13 @@ export {
     type MenuContext
 } from './menu';
 export { SHELL, type Shell } from './shell';
-export { syncIdentity, type IdentityAdmin, type IdentityMember, type IdentityUnit } from './identity-admin';
+export {
+    applyIdentity,
+    identitySnapshot,
+    syncIdentity,
+    type IdentityAdmin,
+    type IdentityMember,
+    type IdentitySnapshot,
+    type IdentityUnit
+} from './identity-admin';
 export * from './iam.table';

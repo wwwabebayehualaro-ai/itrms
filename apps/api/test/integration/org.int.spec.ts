@@ -4,6 +4,7 @@
  * definitions, effective services with a unit override, import of a second zone from YAML, CSV and Excel, and the admin
  * API's scope and permission checks.
  */
+import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { Writable } from 'node:stream';
@@ -350,7 +351,16 @@ describe('the admin API', () => {
         };
     };
     const call = (method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE', url: string, body?: object, headers = {}) =>
-        http.getHttpAdapter().getInstance().inject({ method, url, payload: body, headers });
+        http
+            .getHttpAdapter()
+            .getInstance()
+            // every POST carries an Idempotency-Key, as the web client's do
+            .inject({
+                method,
+                url,
+                payload: body,
+                headers: { ...(method === 'POST' ? { 'idempotency-key': randomUUID() } : {}), ...headers }
+            });
 
     it('answers 401 to nobody and 403 without the permission', async () => {
         const boditi = await unit('SER', 'WOL-BODITI');

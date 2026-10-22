@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { testApp } from '../test-app';
-import { problemOf } from './problem.filter';
+import type { Database } from '../db/database';
+import type { Logger } from '../observability/logger';
+import { problemOf, ProblemFilter } from './problem.filter';
 
 let app: Awaited<ReturnType<typeof testApp>>;
 
@@ -164,5 +166,24 @@ describe('database refusals', () => {
         expect(problemOf(off, 'en')).toMatchObject({ status: 500 });
         const missing = Object.assign(new Error('unit not found'), { code: '23503' });
         expect(problemOf(missing, 'en')).toMatchObject({ status: 404, code: 'not_found' });
+    });
+
+    it('record a row-level security refusal as a denial, like a guard refusal', async () => {
+        const events: { type: string; data?: unknown }[] = [];
+        const database = {
+            recordSensitiveEvent: (_ctx: unknown, event: { type: string; data?: unknown }) =>
+                Promise.resolve(void events.push(event))
+        } as unknown as Database;
+        const logger = { error: () => undefined } as unknown as Logger;
+        const filter = new ProblemFilter(logger, database) as unknown as {
+            recordDenial(error: unknown, route: string): Promise<void>;
+        };
+        const rls = Object.assign(new Error('new row violates row-level security policy for table "org_units"'), {
+            code: '42501'
+        });
+        await filter.recordDenial(new Error('Failed query: update …', { cause: rls }), 'POST /api/v1/org-units');
+        expect(events).toEqual([
+            { type: 'access.denied', data: { route: 'POST /api/v1/org-units', reason: 'row_level_security' } }
+        ]);
     });
 });

@@ -428,6 +428,7 @@ is possible whenever INSA or a bureau asks.
 | SEC-SE-5 (step-up) | `@Require(…, { recentAuth })` and `StepUpRequiredError` (RFC 9470); role grants and revocations need a factor in the last 5 minutes (`iam.int.spec.ts`) | 0.10a |
 | SEC-ID-1, SEC-ID-3 (second factor, breached passwords) | the realm's `itrms browser` flow (TOTP required) and `passwordBlacklist`; the e2e signs in with TOTP twice | 0.10a |
 | SEC-LG-1 (audit in the same transaction) | the audit test of every write path | 0.7 |
+| SEC-AP-3 (idempotent POSTs) | `IdempotencyInterceptor` (key required on every POST, claimed in the business transaction); `apps/api/test/integration/jobs.int.spec.ts`: replay, 422 mismatch, 409 in progress | 0.11 |
 | SEC-SC-1, SEC-SC-2 (secrets) | gitleaks; log-redaction test | 0.2; 0.6 |
 | SEC-DV-1 (dependencies) | pnpm settings, Renovate, `pnpm audit` | 0.2 |
 | SEC-IF-1, SEC-IF-2 (containers, networks) | a Compose policy test (Trivy has no Compose scanner; it checks Dockerfiles once there are any) | 0.26 |

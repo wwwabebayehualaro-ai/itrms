@@ -14,7 +14,9 @@ export default defineModule({
         'org-unit': ['read', 'create', 'update', 'move', 'deactivate'],
         'service-config': ['read', 'update'],
         'role-assignment': ['read', 'grant', 'revoke'],
-        'audit-log': ['read']
+        'audit-log': ['read'],
+        // the outbox's events and jobs: the dead-letter list, sending a dead event back
+        job: ['read', 'retry']
     },
     roles: {
         bureau_admin: [
@@ -27,7 +29,9 @@ export default defineModule({
             'role-assignment:read',
             'role-assignment:grant',
             'role-assignment:revoke',
-            'audit-log:read'
+            'audit-log:read',
+            'job:read',
+            'job:retry'
         ],
         unit_admin: [
             ...READ_ORG,
@@ -48,6 +52,11 @@ export default defineModule({
     // the installation's languages (i18n-and-languages.md): Amharic and English everywhere; a region adds its own
     // (Wolaita: wal-Latn) as an override, with the configuration inheritance of task 0.21
     settings: [{ key: 'i18n.languages', default: ['am', 'en'] }],
+    // the identity provider follows the tree and the assignments through the outbox (the worker's identity sync)
+    events: {
+        emits: ['org-unit.changed.v1', 'role-assignment.changed.v1'],
+        consumes: ['org-unit.changed.v1', 'role-assignment.changed.v1']
+    },
     // the platform's own entries; work processes, registries and reports bring theirs (navigation-and-menus.md §3)
     menu: [{ key: 'kernel.home', group: 'home', order: 0, label: 'kernel.nav.home', icon: 'house', route: '/' }]
 });

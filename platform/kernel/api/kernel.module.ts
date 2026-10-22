@@ -13,7 +13,7 @@ import {
     type OnModuleInit,
     type Provider
 } from '@nestjs/common';
-import { APP_FILTER, APP_GUARD, APP_PIPE, DiscoveryModule } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE, DiscoveryModule } from '@nestjs/core';
 import { ZodValidationPipe } from 'nestjs-zod';
 
 import type { KernelConfig } from './config';
@@ -23,6 +23,8 @@ import { AccessGuard, AUTHENTICATOR, RouteInventory, type Authenticator } from '
 import { IamController } from './iam/iam.controller';
 import { OidcAuthenticator, type OidcOptions } from './iam/oidc-authenticator';
 import type { RolePermissions } from './iam/roles';
+import { IdempotencyInterceptor } from './idempotency/idempotency';
+import { JobsController } from './outbox/jobs.controller';
 import { SHELL, type Shell } from './iam/shell';
 import { OrgAdminService } from './org/org-admin.service';
 import { OrgController } from './org/org.controller';
@@ -87,6 +89,8 @@ export class KernelModule {
                       { provide: APP_FILTER, useClass: ProblemFilter },
                       { provide: APP_PIPE, useClass: ZodValidationPipe },
                       { provide: APP_GUARD, useClass: AccessGuard },
+                      // after the guard (it needs the caller): every POST is idempotent
+                      { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
                       RouteInventory,
                       OrgAdminService,
                       ...authenticatorOf(options)
@@ -99,7 +103,8 @@ export class KernelModule {
             module: KernelModule,
             global: true,
             imports: config.process === 'http' ? [DiscoveryModule] : [],
-            controllers: config.process === 'http' ? [HealthController, OrgController, IamController] : [],
+            controllers:
+                config.process === 'http' ? [HealthController, OrgController, IamController, JobsController] : [],
             providers: [
                 { provide: KERNEL_CONFIG, useValue: config },
                 { provide: SHELL, useValue: options.shell ?? { manifests: [], messages: {} } },

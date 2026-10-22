@@ -37,6 +37,9 @@ export function bindContext(tx: Tx, ctx: DbContext, auditKey?: string) {
     BINDINGS.set(tx, { ctx, auditKey });
 }
 
+/** The context of a transaction opened by db.scoped() (who acts, for which unit, in which request). */
+export const contextOfTx = (tx: Tx): DbContext => bindingOf(tx).ctx;
+
 function bindingOf(tx: Tx): Binding {
     const binding = BINDINGS.get(tx);
     if (!binding) throw new Error('the write helpers take only a transaction opened by db.scoped()');

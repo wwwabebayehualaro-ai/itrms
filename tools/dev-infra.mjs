@@ -438,7 +438,8 @@ async function grantIdentityAdmin(env, token) {
 
 /**
  * The local settings the API and the BFF read in development, derived from infra/compose/.env (git-ignored, owner-only
- * like it): apps/api/.env.http.local and .env.migrate.local (`node --env-file`), apps/web/.env.local (Next.js).
+ * like it): apps/api/.env.http.local, .env.worker.local and .env.migrate.local (`node --env-file`), apps/web/.env.local
+ * (Next.js).
  */
 function writeAppEnv(env) {
     const p = ports(env);
@@ -455,6 +456,14 @@ function writeAppEnv(env) {
         [join(ROOT, 'apps', 'api', '.env.migrate.local')]: {
             NODE_ENV: 'development',
             DATABASE_MIGRATE_URL: pg('owner'),
+            KEYCLOAK_URL: `http://localhost:${p.KEYCLOAK_HOST_PORT}`,
+            KEYCLOAK_ADMIN_CLIENT_SECRET: env.KEYCLOAK_IDENTITY_ADMIN_SECRET
+        },
+        [join(ROOT, 'apps', 'api', '.env.worker.local')]: {
+            NODE_ENV: 'development',
+            DATABASE_URL: pg('app'),
+            DATABASE_SYSTEM_URL: pg('system'),
+            VALKEY_QUEUES_URL: `redis://127.0.0.1:${p.VALKEY_QUEUES_HOST_PORT}/0`,
             KEYCLOAK_URL: `http://localhost:${p.KEYCLOAK_HOST_PORT}`,
             KEYCLOAK_ADMIN_CLIENT_SECRET: env.KEYCLOAK_IDENTITY_ADMIN_SECRET
         },
@@ -477,7 +486,7 @@ function writeAppEnv(env) {
         );
         restrictToOwner(file);
     }
-    console.log('  app settings: apps/api/.env.http.local, apps/api/.env.migrate.local, apps/web/.env.local');
+    console.log('  app settings: apps/api/.env.{http,worker,migrate}.local, apps/web/.env.local');
 }
 
 async function up(observability) {
