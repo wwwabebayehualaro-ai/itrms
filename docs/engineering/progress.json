@@ -327,10 +327,11 @@
         {
           "id": "0.10b",
           "title": "Application shell",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.10b-shell",
           "commits": [
-            "c6840bd"
+            "c6840bd",
+            "76bd871"
           ],
           "evidence": [
             "pnpm turbo run lint typecheck test (web, kernel, module-sdk, competency, api, integrations) → 18/18 tasks; kernel menu.spec + loader.spec, module-sdk menu schema, web shell.test.tsx (icons cover manifests, language, favourites per person)",
@@ -346,7 +347,7 @@
         {
           "id": "0.11",
           "title": "Numbering, idempotency, outbox, jobs",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
