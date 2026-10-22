@@ -368,10 +368,11 @@
         {
           "id": "0.12",
           "title": "Ethiopian calendar package",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.12-calendar",
           "commits": [
-            "def8339"
+            "def8339",
+            "c5653f3"
           ],
           "evidence": [
             "packages/ethiopian-calendar vitest → 15/15: Meskerem 1 for 1990–2030 E.C., Gena, Timket, Adwa, the millennium, Pagume 6; every day 1900–2100 round-trips and steps by one; every 7th day equals ICU's Ethiopic calendar; fast-check shifts; formatting per language (am, en, wal-Latn, om, ti); Ethiopic numerals incl. 1 010 000; Hamle 1 = 8 July 1900–2099; no runtime dependencies",
@@ -386,7 +387,7 @@
         {
           "id": "0.13",
           "title": "i18n platform",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
