@@ -39,7 +39,8 @@ test('switching the unit changes the menu and the data scope', async ({ page }) 
     await page.locator('[data-unit="WOL-DAMOT-GALE"]').click();
     await expect(topbar.locator('[data-active-unit]')).toHaveAttribute('data-active-unit', 'WOL-DAMOT-GALE');
     await expect(page.locator('[data-app-sidebar] [data-menu-item="competency.applications"]')).toHaveCount(0);
-    expect(await menuItems(page)).toEqual(['kernel.home']);
+    // no licensing items; the register of people and organisations is read from every office
+    expect(await menuItems(page)).toEqual(['kernel.home', 'parties.persons', 'parties.organisations']);
     const scoped = await page.evaluate(async (zoneId) => {
         const workspace = (await (await fetch('/api/v1/me/workspace')).json()) as { activeUnit: { code: string } };
         const zoneRecord = await fetch(`/api/v1/org-units/${zoneId}`);

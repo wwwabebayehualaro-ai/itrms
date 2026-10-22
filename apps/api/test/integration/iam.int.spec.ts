@@ -193,22 +193,24 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
         menu: { key: string; label: { am: string; en: string }; items: { key: string; route: string }[] }[];
     }
     const itemsOf = (w: Workspace) => w.menu.flatMap((g) => g.items.map((i) => i.key));
+    // every office reads the register of people and organisations (task 0.14)
+    const REGISTER = ['parties.persons', 'parties.organisations'];
 
     it("shows no licensing at Damot Gale (no DVC services), and a Boditi competency officer's licensing", async () => {
         const damot = await unitAt('WOL-DAMOT-GALE');
         const atDamot = (
             await call('GET', '/api/v1/me/workspace', { token: await token(SUB.damotRecords), unit: damot.id })
         ).json<Workspace>();
-        expect(itemsOf(atDamot)).toEqual(['kernel.home']);
+        expect(itemsOf(atDamot)).toEqual(['kernel.home', ...REGISTER]);
 
         const boditi = await unitAt('WOL-BODITI');
         const officer = (
             await call('GET', '/api/v1/me/workspace', { token: await token(SUB.boditiOfficer), unit: boditi.id })
         ).json<Workspace>();
-        expect(officer.menu.map((g) => g.key)).toEqual(['home', 'work-process:1']);
+        expect(officer.menu.map((g) => g.key)).toEqual(['home', 'work-process:1', 'registries']);
         expect(officer.menu[1]?.label).toMatchObject({ en: 'Driver and vehicle competency' });
         // applications and exams (Boditi has examiners); print batches need licence:print, which officers lack
-        expect(itemsOf(officer)).toEqual(['kernel.home', 'competency.applications', 'competency.exams']);
+        expect(itemsOf(officer)).toEqual(['kernel.home', 'competency.applications', 'competency.exams', ...REGISTER]);
     });
 
     it('hides licensing from a competency officer whose unit stops offering the licensing services', async () => {
@@ -228,7 +230,7 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
         });
         try {
             // the same person and role: only the unit's services changed
-            expect(await officerMenu()).toEqual(['kernel.home']);
+            expect(await officerMenu()).toEqual(['kernel.home', ...REGISTER]);
         } finally {
             await installer.scoped({}, async (tx) => {
                 for (const code of licensing) await clearServiceOverride(tx, boditi.id, code);
@@ -244,7 +246,7 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
         const atZone = (await call('GET', '/api/v1/me/workspace', { token: t, unit: zone.id })).json<Workspace>();
         const atDamot = (await call('GET', '/api/v1/me/workspace', { token: t, unit: damot.id })).json<Workspace>();
         expect(itemsOf(atZone)).toContain('competency.applications');
-        expect(itemsOf(atDamot)).toEqual(['kernel.home']);
+        expect(itemsOf(atDamot)).toEqual(['kernel.home', ...REGISTER]);
     });
 });
 
@@ -274,8 +276,13 @@ describe('a person in two units', () => {
         }>();
         expect(atZone.roles).toEqual(['records_officer']);
         expect(atZone.activeUnit.code).toBe('WOL');
-        // the same permissions here, from different roles; neither grants administration
-        for (const perms of [atBoditi.permissions]) expect(perms).toEqual(['org-unit:read', 'service-config:read']);
+        // a cashier reads the org and the register; nothing more
+        expect(atBoditi.permissions).toEqual([
+            'org-unit:read',
+            'organisation:read',
+            'person:read',
+            'service-config:read'
+        ]);
     });
 
     it('is refused a unit they hold no role in, and the refusal is on record', async () => {

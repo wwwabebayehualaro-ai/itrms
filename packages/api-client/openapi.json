@@ -70,6 +70,111 @@
         ],
         "type": "object"
       },
+      "DuplicateCheckDto": {
+        "additionalProperties": false,
+        "properties": {
+          "nameAm": {
+            "additionalProperties": false,
+            "properties": {
+              "father": {
+                "maxLength": 60,
+                "minLength": 1,
+                "pattern": "^[\\p{Script=Ethiopic}][\\p{Script=Ethiopic}\\s.'’-]*$",
+                "type": "string"
+              },
+              "given": {
+                "maxLength": 60,
+                "minLength": 1,
+                "pattern": "^[\\p{Script=Ethiopic}][\\p{Script=Ethiopic}\\s.'’-]*$",
+                "type": "string"
+              },
+              "grandfather": {
+                "maxLength": 60,
+                "minLength": 1,
+                "pattern": "^[\\p{Script=Ethiopic}][\\p{Script=Ethiopic}\\s.'’-]*$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "given",
+              "father"
+            ],
+            "type": "object"
+          },
+          "nameEn": {
+            "additionalProperties": false,
+            "properties": {
+              "father": {
+                "maxLength": 60,
+                "minLength": 1,
+                "pattern": "^[\\p{Script=Latin}][\\p{Script=Latin}\\s.'’-]*$",
+                "type": "string"
+              },
+              "given": {
+                "maxLength": 60,
+                "minLength": 1,
+                "pattern": "^[\\p{Script=Latin}][\\p{Script=Latin}\\s.'’-]*$",
+                "type": "string"
+              },
+              "grandfather": {
+                "maxLength": 60,
+                "minLength": 1,
+                "pattern": "^[\\p{Script=Latin}][\\p{Script=Latin}\\s.'’-]*$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "given",
+              "father"
+            ],
+            "type": "object"
+          },
+          "sensitive": {
+            "additionalProperties": false,
+            "properties": {
+              "birthDate": {
+                "anyOf": [
+                  {
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "fin": {
+                "anyOf": [
+                  {
+                    "maxLength": 20,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "phone": {
+                "anyOf": [
+                  {
+                    "maxLength": 20,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "nameAm"
+        ],
+        "type": "object"
+      },
       "GrantDto": {
         "additionalProperties": false,
         "properties": {
@@ -111,6 +216,87 @@
         ],
         "type": "object"
       },
+      "MemberAddDto": {
+        "additionalProperties": false,
+        "properties": {
+          "personId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "chair",
+              "secretary",
+              "treasurer",
+              "manager",
+              "owner",
+              "member"
+            ],
+            "type": "string"
+          },
+          "since": {
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "personId",
+          "role"
+        ],
+        "type": "object"
+      },
+      "MemberEndDto": {
+        "additionalProperties": false,
+        "properties": {
+          "until": {
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "until"
+        ],
+        "type": "object"
+      },
+      "MergeDecisionDto": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "maxLength": 500,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "MergeRequestDto": {
+        "additionalProperties": false,
+        "properties": {
+          "duplicateId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 10,
+            "type": "string"
+          },
+          "survivorId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "survivorId",
+          "duplicateId",
+          "reason"
+        ],
+        "type": "object"
+      },
       "MoveUnitDto": {
         "additionalProperties": false,
         "properties": {
@@ -123,6 +309,501 @@
         "required": [
           "parentId"
         ],
+        "type": "object"
+      },
+      "OrganisationCreateDto": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "additionalProperties": false,
+            "properties": {
+              "houseNumber": {
+                "maxLength": 30,
+                "minLength": 1,
+                "type": "string"
+              },
+              "kebele": {
+                "maxLength": 60,
+                "minLength": 1,
+                "type": "string"
+              },
+              "unitId": {
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "unitId"
+            ],
+            "type": "object"
+          },
+          "kind": {
+            "enum": [
+              "association",
+              "training_school",
+              "contractor",
+              "consultant",
+              "garage",
+              "insurer",
+              "health_facility",
+              "government_office",
+              "other"
+            ],
+            "type": "string"
+          },
+          "licenceNumber": {
+            "maxLength": 60,
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "additionalProperties": false,
+            "properties": {
+              "am": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "en": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "am",
+              "en"
+            ],
+            "type": "object"
+          },
+          "tin": {
+            "pattern": "^\\d{10}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name"
+        ],
+        "type": "object"
+      },
+      "OrganisationUpdateDto": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "houseNumber": {
+                    "maxLength": 30,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "kebele": {
+                    "maxLength": 60,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "unitId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "unitId"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "enum": [
+              "association",
+              "training_school",
+              "contractor",
+              "consultant",
+              "garage",
+              "insurer",
+              "health_facility",
+              "government_office",
+              "other"
+            ],
+            "type": "string"
+          },
+          "licenceNumber": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "additionalProperties": false,
+            "properties": {
+              "am": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "en": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "am",
+              "en"
+            ],
+            "type": "object"
+          },
+          "tin": {
+            "anyOf": [
+              {
+                "pattern": "^\\d{10}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "PersonCreateDto": {
+        "additionalProperties": false,
+        "properties": {
+          "acknowledgedDuplicates": {
+            "items": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "type": "array"
+          },
+          "address": {
+            "additionalProperties": false,
+            "properties": {
+              "houseNumber": {
+                "maxLength": 30,
+                "minLength": 1,
+                "type": "string"
+              },
+              "kebele": {
+                "maxLength": 60,
+                "minLength": 1,
+                "type": "string"
+              },
+              "unitId": {
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "unitId"
+            ],
+            "type": "object"
+          },
+          "birthYear": {
+            "maximum": 2100,
+            "minimum": 1900,
+            "type": "integer"
+          },
+          "nameAm": {
+            "additionalProperties": false,
+            "properties": {
+              "father": {
+                "maxLength": 60,
+                "minLength": 1,
+                "pattern": "^[\\p{Script=Ethiopic}][\\p{Script=Ethiopic}\\s.'’-]*$",
+                "type": "string"
+              },
+              "given": {
+                "maxLength": 60,
+                "minLength": 1,
+                "pattern": "^[\\p{Script=Ethiopic}][\\p{Script=Ethiopic}\\s.'’-]*$",
+                "type": "string"
+              },
+              "grandfather": {
+                "maxLength": 60,
+                "minLength": 1,
+                "pattern": "^[\\p{Script=Ethiopic}][\\p{Script=Ethiopic}\\s.'’-]*$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "given",
+              "father"
+            ],
+            "type": "object"
+          },
+          "nameEn": {
+            "additionalProperties": false,
+            "properties": {
+              "father": {
+                "maxLength": 60,
+                "minLength": 1,
+                "pattern": "^[\\p{Script=Latin}][\\p{Script=Latin}\\s.'’-]*$",
+                "type": "string"
+              },
+              "given": {
+                "maxLength": 60,
+                "minLength": 1,
+                "pattern": "^[\\p{Script=Latin}][\\p{Script=Latin}\\s.'’-]*$",
+                "type": "string"
+              },
+              "grandfather": {
+                "maxLength": 60,
+                "minLength": 1,
+                "pattern": "^[\\p{Script=Latin}][\\p{Script=Latin}\\s.'’-]*$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "given",
+              "father"
+            ],
+            "type": "object"
+          },
+          "sensitive": {
+            "additionalProperties": false,
+            "properties": {
+              "birthDate": {
+                "anyOf": [
+                  {
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "fin": {
+                "anyOf": [
+                  {
+                    "maxLength": 20,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "phone": {
+                "anyOf": [
+                  {
+                    "maxLength": 20,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "sex": {
+            "enum": [
+              "female",
+              "male"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "nameAm",
+          "sex"
+        ],
+        "type": "object"
+      },
+      "PersonLookupDto": {
+        "additionalProperties": false,
+        "properties": {
+          "fin": {
+            "maxLength": 20,
+            "type": "string"
+          },
+          "phone": {
+            "maxLength": 20,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "PersonUpdateDto": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "houseNumber": {
+                    "maxLength": 30,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "kebele": {
+                    "maxLength": 60,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "unitId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "unitId"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "birthYear": {
+            "anyOf": [
+              {
+                "maximum": 2100,
+                "minimum": 1900,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nameAm": {
+            "additionalProperties": false,
+            "properties": {
+              "father": {
+                "maxLength": 60,
+                "minLength": 1,
+                "pattern": "^[\\p{Script=Ethiopic}][\\p{Script=Ethiopic}\\s.'’-]*$",
+                "type": "string"
+              },
+              "given": {
+                "maxLength": 60,
+                "minLength": 1,
+                "pattern": "^[\\p{Script=Ethiopic}][\\p{Script=Ethiopic}\\s.'’-]*$",
+                "type": "string"
+              },
+              "grandfather": {
+                "maxLength": 60,
+                "minLength": 1,
+                "pattern": "^[\\p{Script=Ethiopic}][\\p{Script=Ethiopic}\\s.'’-]*$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "given",
+              "father"
+            ],
+            "type": "object"
+          },
+          "nameEn": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "father": {
+                    "maxLength": 60,
+                    "minLength": 1,
+                    "pattern": "^[\\p{Script=Latin}][\\p{Script=Latin}\\s.'’-]*$",
+                    "type": "string"
+                  },
+                  "given": {
+                    "maxLength": 60,
+                    "minLength": 1,
+                    "pattern": "^[\\p{Script=Latin}][\\p{Script=Latin}\\s.'’-]*$",
+                    "type": "string"
+                  },
+                  "grandfather": {
+                    "maxLength": 60,
+                    "minLength": 1,
+                    "pattern": "^[\\p{Script=Latin}][\\p{Script=Latin}\\s.'’-]*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "given",
+                  "father"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sensitive": {
+            "additionalProperties": false,
+            "properties": {
+              "birthDate": {
+                "anyOf": [
+                  {
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "fin": {
+                "anyOf": [
+                  {
+                    "maxLength": 20,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "phone": {
+                "anyOf": [
+                  {
+                    "maxLength": 20,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "sex": {
+            "enum": [
+              "female",
+              "male"
+            ],
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "PreferencesDto": {
@@ -267,6 +948,34 @@
         },
         "required": [
           "name"
+        ],
+        "type": "object"
+      },
+      "RevealDto": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "items": {
+              "enum": [
+                "birthDate",
+                "phone",
+                "fin"
+              ],
+              "type": "string"
+            },
+            "maxItems": 3,
+            "minItems": 1,
+            "type": "array"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 10,
+            "type": "string"
+          }
+        },
+        "required": [
+          "fields",
+          "reason"
         ],
         "type": "object"
       },
@@ -677,6 +1386,502 @@
         },
         "tags": [
           "Org"
+        ]
+      }
+    },
+    "/api/v1/organisations": {
+      "get": {
+        "operationId": "OrganisationsController_search",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "maxLength": 100,
+              "minLength": 2,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Organisations"
+        ]
+      },
+      "post": {
+        "operationId": "OrganisationsController_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganisationCreateDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Organisations"
+        ]
+      }
+    },
+    "/api/v1/organisations/{id}": {
+      "get": {
+        "operationId": "OrganisationsController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Organisations"
+        ]
+      },
+      "patch": {
+        "operationId": "OrganisationsController_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganisationUpdateDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Organisations"
+        ]
+      }
+    },
+    "/api/v1/organisations/{id}/members": {
+      "post": {
+        "operationId": "OrganisationsController_addMember",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberAddDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Organisations"
+        ]
+      }
+    },
+    "/api/v1/organisations/{id}/members/{memberId}/end": {
+      "post": {
+        "operationId": "OrganisationsController_endMember",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "memberId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberEndDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Organisations"
+        ]
+      }
+    },
+    "/api/v1/person-merges": {
+      "get": {
+        "operationId": "MergesController_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "pending",
+              "enum": [
+                "pending",
+                "approved",
+                "rejected"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Merges"
+        ]
+      },
+      "post": {
+        "operationId": "MergesController_request",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Merges"
+        ]
+      }
+    },
+    "/api/v1/person-merges/{id}/approval": {
+      "post": {
+        "operationId": "MergesController_approve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeDecisionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Merges"
+        ]
+      }
+    },
+    "/api/v1/person-merges/{id}/rejection": {
+      "post": {
+        "operationId": "MergesController_reject",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeDecisionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Merges"
+        ]
+      }
+    },
+    "/api/v1/persons": {
+      "get": {
+        "operationId": "PersonsController_search",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 100,
+              "minLength": 2,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Persons"
+        ]
+      },
+      "post": {
+        "operationId": "PersonsController_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonCreateDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Persons"
+        ]
+      }
+    },
+    "/api/v1/persons/duplicates": {
+      "post": {
+        "operationId": "PersonsController_duplicates",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DuplicateCheckDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Persons"
+        ]
+      }
+    },
+    "/api/v1/persons/lookup": {
+      "post": {
+        "operationId": "PersonsController_lookup",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonLookupDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Persons"
+        ]
+      }
+    },
+    "/api/v1/persons/{id}": {
+      "get": {
+        "operationId": "PersonsController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Persons"
+        ]
+      },
+      "patch": {
+        "operationId": "PersonsController_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonUpdateDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Persons"
+        ]
+      }
+    },
+    "/api/v1/persons/{id}/reveal": {
+      "post": {
+        "operationId": "PersonsController_reveal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevealDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Persons"
         ]
       }
     },

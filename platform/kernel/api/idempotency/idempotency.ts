@@ -7,10 +7,20 @@
  *   - same key, another request: 422 `idempotency_mismatch`;
  *   - same key while the first is still running: 409 `idempotency_in_progress`.
  * Records are kept 7 days (the worker's sweep deletes them after).
+ *
+ * A POST whose answer must never be stored (`@NotReplayable`: a reveal, whose answer holds sensitive fields in clear)
+ * keeps no record: sent again, it runs again, and is audited again.
  */
-import { createHash } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 
-import { Inject, Injectable, type CallHandler, type ExecutionContext, type NestInterceptor } from '@nestjs/common';
+import {
+    Inject,
+    Injectable,
+    SetMetadata,
+    type CallHandler,
+    type ExecutionContext,
+    type NestInterceptor
+} from '@nestjs/common';
 import { HTTP_CODE_METADATA } from '@nestjs/common/constants';
 import { Reflector } from '@nestjs/core';
 import { and, eq, gt, lte, sql } from 'drizzle-orm';
@@ -28,6 +38,22 @@ import { DATABASE, KERNEL_CONFIG, LOGGER } from '../observability/tokens';
 import { idempotencyKeys } from './idempotency.table';
 
 export const RETENTION_DAYS = 7;
+
+const NOT_REPLAYABLE = 'kernel:not-replayable';
+/**
+ * A POST whose response must not be kept for replay (it holds sensitive fields in clear): no idempotency record. Only for
+ * reads that change nothing but the audit log, which records each call.
+ */
+export function NotReplayable(): MethodDecorator {
+    return (target, key, descriptor) => {
+        NOT_REPLAYABLE_HANDLERS.add(`${target.constructor.name}.${String(key)}`);
+        SetMetadata(NOT_REPLAYABLE, true)(target, key, descriptor);
+    };
+}
+
+const NOT_REPLAYABLE_HANDLERS = new Set<string>();
+/** Every handler marked @NotReplayable (`Controller.method`): a test keeps the list reviewed. */
+export const notReplayableHandlers = (): string[] => [...NOT_REPLAYABLE_HANDLERS].sort();
 /** The first key of the idempotency locks: no other advisory lock of the installation shares their space. */
 export const LOCK_NAMESPACE = 0x1de4;
 /** The second key: the record's identity, hashed. */
@@ -57,10 +83,23 @@ function canonical(value: unknown): unknown {
     return value;
 }
 
-export function requestHash(method: string, path: string, unitId: string, body: unknown): string {
-    return createHash('sha256')
+/**
+ * The fingerprint of a request, keyed: an HMAC, never a plain hash, because a body may hold a FIN or a phone number and an
+ * unkeyed hash of a small space can be reversed by trying every value (SEC-PD-1).
+ */
+export function requestHash(key: Buffer, method: string, path: string, unitId: string, body: unknown): string {
+    return createHmac('sha256', key)
         .update(JSON.stringify([method, path, unitId, canonical(body ?? null)]))
         .digest('hex');
+}
+
+/**
+ * The installation's key for request fingerprints, derived from AUDIT_HMAC_KEY (required in production); without one (a
+ * development process) a key of the process's own, so a replay after a restart is refused as a different request.
+ */
+export function requestHashKey(config: KernelConfig): Buffer {
+    const auditKey = config.process === 'migrate' ? undefined : config.AUDIT_HMAC_KEY;
+    return auditKey ? createHmac('sha256', auditKey).update('itrms:idempotency').digest() : randomBytes(32);
 }
 
 interface Claim {
@@ -143,7 +182,11 @@ export class IdempotencyInterceptor implements NestInterceptor {
         @Inject(DATABASE) private readonly database: Database,
         @Inject(LOGGER) private readonly logger: Logger,
         @Inject(KERNEL_CONFIG) private readonly config: KernelConfig
-    ) {}
+    ) {
+        this.hashKey = requestHashKey(config);
+    }
+
+    private readonly hashKey: Buffer;
 
     /**
      * A POST does its work in one transaction, which carries its idempotency record: with none, nothing is kept, and with
@@ -165,6 +208,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
         const principal: Principal | undefined = reqContext?.principal;
         // POSTs of a signed-in caller; public endpoints (verification, webhooks) have their own replay rules
         if (request.method !== 'POST' || !principal || !reqContext) return next.handle();
+        if (this.reflector.get<boolean | undefined>(NOT_REPLAYABLE, context.getHandler())) return next.handle();
 
         const header = request.headers['idempotency-key'];
         const key = typeof header === 'string' ? header : undefined;
@@ -181,7 +225,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
             method: 'POST',
             path,
             key,
-            hash: requestHash('POST', path, principal.unitId, request.body),
+            hash: requestHash(this.hashKey, 'POST', path, principal.unitId, request.body),
             statusCode
         };
         const reply = http.getResponse<FastifyReply>();

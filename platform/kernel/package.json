@@ -22,7 +22,9 @@
     "./org": "./api/org/index.ts",
     "./numbering": "./api/numbering/index.ts",
     "./outbox": "./api/outbox/index.ts",
-    "./testing": "./api/testing/index.ts"
+    "./testing": "./api/testing/index.ts",
+    "./crypto": "./api/crypto/index.ts",
+    "./tables": "./api/tables/index.ts"
   },
   "imports": {
     "#contracts/*": "./contracts/*.ts",

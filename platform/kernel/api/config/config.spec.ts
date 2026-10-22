@@ -27,6 +27,29 @@ describe('loadConfig', () => {
         });
     });
 
+    it('requires the personal-data keys in production, for the API and the worker, each key with one purpose', () => {
+        const problems = (env: Record<string, string>, kind: 'http' | 'worker') => {
+            try {
+                loadConfig(kind, env);
+                return [];
+            } catch (e) {
+                return (e as ConfigError).problems;
+            }
+        };
+        expect(problems({ ...DB, NODE_ENV: 'production' }, 'worker')).toEqual([
+            'AUDIT_HMAC_KEY: is required in production',
+            'FIELD_KEYS: is required in production',
+            'BLIND_INDEX_KEY: is required in production'
+        ]);
+        const key = 'k'.repeat(40);
+        expect(problems({ ...DB, AUDIT_HMAC_KEY: key, BLIND_INDEX_KEY: key }, 'http')).toEqual([
+            'BLIND_INDEX_KEY: must differ from AUDIT_HMAC_KEY'
+        ]);
+        expect(problems({ ...DB, FIELD_KEYS: 'k1:dG9vLXNob3J0' }, 'http')).toEqual([
+            'FIELD_KEYS: expected id:base64 entries of 32-byte keys, each id once'
+        ]);
+    });
+
     it('fails at startup and names every problem', () => {
         let error: unknown;
         try {

@@ -10,3 +10,4 @@ export { HealthController, ReadinessRegistry, type ReadinessCheck } from './obse
 export { DATABASE, KERNEL_CONFIG, LOGGER } from './observability/tokens';
 export type { KernelOptions } from './kernel.module';
 export { loadSlices, ManifestError, type LoadedSlices } from './modules/loader';
+export { NotReplayable, notReplayableHandlers } from './idempotency/idempotency';

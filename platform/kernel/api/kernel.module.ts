@@ -17,6 +17,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE, DiscoveryModule } fro
 import { ZodValidationPipe } from 'nestjs-zod';
 
 import type { KernelConfig } from './config';
+import { FieldCrypto } from './crypto/field-crypto';
 import type { Database } from './db/database';
 import { ProblemFilter } from './errors/problem.filter';
 import { AccessGuard, AUTHENTICATOR, RouteInventory, type Authenticator } from './iam/access';
@@ -32,7 +33,7 @@ import { OrgController } from './org/org.controller';
 import { HealthController, ReadinessRegistry } from './observability/health';
 import type { Logger } from './observability/logger';
 import { Metrics } from './observability/metrics';
-import { DATABASE, KERNEL_CONFIG, LOGGER } from './observability/tokens';
+import { DATABASE, FIELD_CRYPTO, KERNEL_CONFIG, LOGGER } from './observability/tokens';
 
 /** Registers the database's readiness check and closes its pool when the process stops. */
 @Injectable()
@@ -112,12 +113,20 @@ export class KernelModule {
                 { provide: KERNEL_CONFIG, useValue: config },
                 { provide: SHELL, useValue: options.shell ?? { manifests: [], messages: {} } },
                 { provide: LOGGER, useValue: logger },
+                {
+                    provide: FIELD_CRYPTO,
+                    useValue: new FieldCrypto(
+                        config.process === 'migrate'
+                            ? {}
+                            : { fieldKeys: config.FIELD_KEYS, blindIndexKey: config.BLIND_INDEX_KEY }
+                    )
+                },
                 Metrics,
                 ReadinessRegistry,
                 ...database,
                 ...http
             ],
-            exports: [KERNEL_CONFIG, LOGGER, Metrics, ReadinessRegistry, DATABASE]
+            exports: [KERNEL_CONFIG, LOGGER, Metrics, ReadinessRegistry, DATABASE, FIELD_CRYPTO]
         };
     }
 }

@@ -366,6 +366,12 @@ Split on 2026-10-21 (scope too large for one session): the BFF sign-in moved to 
   EXPLAIN under RLS showing index use.
 - **Tests:** API integration (create, search in both scripts, duplicate warning), RLS class R, e2e create + search in
   Amharic.
+- **Done (2026-10-22):** `modules/parties` (the first registry slice) and `@itrms/kernel/crypto`. Search is
+  `parties.search_persons` (names folded by `foldForSearch`, each word a trigram-indexed substring, the first 1000 matches
+  ranked) and blind-index lookups by FIN or phone (a POST: never in a URL). A merge is asked by one person and approved by
+  another (`person:approve-merge`, unit heads), then `person.merged.v1` is emitted. Measured: 10⁶ generated persons, every
+  search's median 11–27 ms (`pnpm --filter @itrms/api test:perf`). The screens live in `apps/web/src/screens/registry`
+  until the kernel's web runtime lets slices hold their own (follow-up). The photo waits for files (0.15).
 
 ### 0.15 Files on object storage
 - **Do:**

@@ -385,11 +385,18 @@ describe('every tenant table', () => {
               AND has_function_privilege('itrms_app', p.oid, 'EXECUTE')
             ORDER BY 1`);
         expect(rows.map((r) => r.name)).toEqual([
+            // the caller's region's first data key, once (task 0.14)
+            'kernel.ensure_region_data_key(uuid,text,bytea)',
             'kernel.principal_units(text)',
             'kernel.record_context_free_event(text,jsonb,uuid,text,text)',
+            // ids, codes and names of units of the caller's region only (task 0.14)
+            'kernel.region_units(uuid[])',
             'kernel.resolve_principal(text,uuid)',
             // the caller's own preferences only (by app.user_id), task 0.13
-            'kernel.set_my_preferences(jsonb)'
+            'kernel.set_my_preferences(jsonb)',
+            // the registers' searches, limited to the caller's region; ids only (task 0.14)
+            'parties.search_organisations(text,integer)',
+            'parties.search_persons(text,bytea,bytea,integer)'
         ]);
     });
 });

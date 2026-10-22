@@ -6,7 +6,7 @@ export default defineConfig({
     test: {
         env: { TZ: 'Africa/Addis_Ababa' },
         include: ['**/*.spec.{ts,tsx}'],
-        exclude: ['**/node_modules/**', '**/dist/**', '**/*.int.spec.ts', '**/*.e2e.ts'],
+        exclude: ['**/node_modules/**', '**/dist/**', '**/*.int.spec.ts', '**/*.perf.spec.ts', '**/*.e2e.ts'],
         passWithNoTests: true,
         // Component tests drive real dialogs and forms with user-event; on a 4-core CI machine running every package at
         // once they take 5–8 s, so Vitest's 5 s default fails them (seen on local Linux CI).

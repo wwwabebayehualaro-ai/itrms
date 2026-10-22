@@ -48,7 +48,8 @@ describe('every table', () => {
             'kernel.audit_log: it is the audit log',
             'kernel.idempotency_keys: a technical record of a request already audited by the write it carried',
             'kernel.number_counters: a counter moves with every number issued; the business row that carries the number is audited',
-            "kernel.outbox_events: an event of a business write that is itself audited; its status is the relay's bookkeeping"
+            "kernel.outbox_events: an event of a business write that is itself audited; its status is the relay's bookkeeping",
+            'kernel.region_data_keys: key material: written only by kernel.ensure_region_data_key, which writes its own audit event'
         ]);
     });
 });

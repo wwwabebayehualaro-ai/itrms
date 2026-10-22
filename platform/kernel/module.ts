@@ -4,6 +4,18 @@ import { defineModule } from '@itrms/module-sdk';
 // (`competency.officer` …) are their modules'. Sensitive resources (role assignments, service configuration, the audit
 // log) are always named one by one, never granted by a wildcard.
 const READ_ORG = ['org-unit:read', 'service-config:read'];
+// the register of people and organisations (@itrms/parties, roles-and-permissions.md §2): every office reads it; intake
+// (records officers) registers and corrects, and asks for merges; a unit head approves them
+const REGISTER = ['person:read', 'organisation:read'];
+const INTAKE = [
+    ...REGISTER,
+    'person:lookup',
+    'person:create',
+    'person:update',
+    'person:merge',
+    'organisation:create',
+    'organisation:update'
+];
 
 export default defineModule({
     key: 'kernel',
@@ -18,11 +30,14 @@ export default defineModule({
         // the outbox's events and jobs: the dead-letter list, sending a dead event back
         job: ['read', 'retry'],
         // the region's settings (its languages)
-        setting: ['update']
+        setting: ['update'],
+        // sensitive personal fields in clear (Fayda FIN, phone, full birth date), with a reason, audited (task 0.14)
+        pii: ['reveal']
     },
     roles: {
         bureau_admin: [
             ...READ_ORG,
+            ...REGISTER,
             'org-unit:create',
             'org-unit:update',
             'org-unit:move',
@@ -38,6 +53,7 @@ export default defineModule({
         ],
         unit_admin: [
             ...READ_ORG,
+            ...REGISTER,
             'org-unit:update',
             'service-config:update',
             'role-assignment:read',
@@ -45,12 +61,22 @@ export default defineModule({
             'role-assignment:revoke',
             'audit-log:read'
         ],
-        unit_head: [...READ_ORG, 'role-assignment:read', 'audit-log:read'],
-        records_officer: READ_ORG,
-        cashier: READ_ORG,
-        finance_officer: READ_ORG,
-        auditor: [...READ_ORG, 'role-assignment:read', 'audit-log:read'],
-        viewer: READ_ORG
+        unit_head: [
+            ...READ_ORG,
+            ...REGISTER,
+            'role-assignment:read',
+            'audit-log:read',
+            'pii:reveal',
+            'person:lookup',
+            'person:approve-merge'
+        ],
+        // at intake: checks the identity of the person in front of them
+        records_officer: [...READ_ORG, ...INTAKE, 'pii:reveal'],
+        cashier: [...READ_ORG, ...REGISTER],
+        finance_officer: [...READ_ORG, ...REGISTER],
+        auditor: [...READ_ORG, ...REGISTER, 'role-assignment:read', 'audit-log:read'],
+        // names and addresses only: never a sensitive field (no pii:reveal)
+        viewer: [...READ_ORG, ...REGISTER]
     },
     // the installation's languages (i18n-and-languages.md): Amharic and English everywhere; a region adds its own
     // (Wolaita: wal-Latn) as an override, with the configuration inheritance of task 0.21

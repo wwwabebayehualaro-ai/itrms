@@ -27,6 +27,10 @@
     "./vitest/nest-int": {
       "types": "./vitest-nest-int.d.ts",
       "default": "./vitest-nest-int.js"
+    },
+    "./vitest/nest-perf": {
+      "types": "./vitest-nest-perf.d.ts",
+      "default": "./vitest-nest-perf.js"
     }
   },
   "scripts": {

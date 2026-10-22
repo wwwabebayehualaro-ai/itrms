@@ -432,7 +432,8 @@ is possible whenever INSA or a bureau asks.
 | SEC-SC-1, SEC-SC-2 (secrets) | gitleaks; log-redaction test | 0.2; 0.6 |
 | SEC-DV-1 (dependencies) | pnpm settings, Renovate, `pnpm audit` | 0.2 |
 | SEC-IF-1, SEC-IF-2 (containers, networks) | a Compose policy test (Trivy has no Compose scanner; it checks Dockerfiles once there are any) | 0.26 |
-| SEC-DC-1 (classification of fields) | slice check (`check:slices`) | 0.14 |
+| SEC-PD-1, SEC-PD-2, SEC-CR-1 (encrypted fields, masked by default, one crypto module) | `@itrms/kernel/crypto`: AES-256-GCM per region (data keys wrapped by `FIELD_KEYS`), HMAC blind indexes (`BLIND_INDEX_KEY`), `reveal()` recording who and why first; `apps/api/test/integration/parties.int.spec.ts`: no clear value in the tables, the audit log or the idempotency records, a viewer never sees FIN or phone, reveal needs `pii:reveal`, a reason and a factor in the last 5 minutes | 0.14 |
+| SEC-DC-1 (classification of fields) | slice check (`check:slices`); until then the audit policy's `omit`/`mask` per table | 0.21 |
 
 [insa-aeg]: https://www.insa.gov.et/pdf/cyber-security-audit-and-evaluation
 

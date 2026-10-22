@@ -409,12 +409,23 @@
         {
           "id": "0.14",
           "title": "People and organisations register",
-          "status": "ready",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.14-parties",
+          "commits": [
+            "3c9c19b"
+          ],
+          "evidence": [
+            "parties.int.spec (PostgreSQL 16): a person created in Damot Gale is found from Boditi (names in both scripts, homophones) and from Test Zone B, and is invisible in Test Region X (persons, person_sensitive, data keys)",
+            "duplicates: same name + birth date + phone → 422 possible_duplicate until acknowledged; same FIN → 409 duplicate_reference",
+            "audit: every write audited in the same transaction; ciphertexts omitted, FIN/phone/birth-date indexes HMAC-masked; no clear value in tables, audit log or idempotency records (keyed request fingerprints)",
+            "viewer: GET shows only on-record flags; reveal, lookup and duplicate check 403; reveal needs pii:reveal + reason + factor ≤300 s, recorded first",
+            "pnpm --filter @itrms/api test:perf → 10^6 generated persons, 7 searches' medians 11–27 ms (< 300 ms); EXPLAIN: persons_search_trgm, then persons_pkey under the RLS region filter",
+            "API integration 123/123; turbo lint typecheck test 63/63; e2e 5/5 incl. registry.spec (register + Amharic search); i18n:check, boundaries (0 violations), check:slices (10), test:tools 72 pass",
+            "reviewer agent: 1 high (unkeyed idempotency hash) + 3 medium (unaudited lookup, viewer doc, merge with memberships) + lows fixed in 3c9c19b; 2-letter search scan → follow-up 0.26",
+            "CI: local evidence only (GitHub account suspended), merged at the product owner's request for speed"
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "Reviewer findings fixed (uncommitted): keyed idempotency request hash (HMAC), person:lookup permission with audited lookups and duplicate checks (@NotReplayable, allow-listed by test), merge approval handles memberships (scope check up front, ends a role the survivor holds), region-keyed data-key cache, production key checks for the worker, birth year never contradicts the birth date, revealed values not cached. Integration 123/123, turbo 63/63; e2e rerun pending (Next dev workers crashed on low memory)."
         },
         {
           "id": "0.15",
@@ -1564,6 +1575,46 @@
       "foundIn": "0.13",
       "item": "Settings PUT below the region answers 404 for an existing row and 403 for a new one: make both 403",
       "movedTo": "0.21"
+    },
+    {
+      "foundIn": "0.14",
+      "item": "Person photo in person_sensitive (an encrypted file reference)",
+      "movedTo": "0.15"
+    },
+    {
+      "foundIn": "0.14",
+      "item": "Registry screens live in apps/web/src/screens/registry: move them to modules/parties/web once the kernel web runtime (API client, useText) is a package",
+      "movedTo": "0.26"
+    },
+    {
+      "foundIn": "0.14",
+      "item": "Address picker across the whole region (any woreda, town, kebele), not only the active unit's subtree",
+      "movedTo": "0.25"
+    },
+    {
+      "foundIn": "0.14",
+      "item": "Rate limits on person search, lookup and reveal (SEC-AP-2)",
+      "movedTo": "0.26"
+    },
+    {
+      "foundIn": "0.14",
+      "item": "Transfer of a person's handling unit (a record moves, never copied)",
+      "movedTo": "0.24"
+    },
+    {
+      "foundIn": "0.14",
+      "item": "A failed query's error log carries its parameters (ciphertexts, names): redact query parameters in the logger",
+      "movedTo": "0.26"
+    },
+    {
+      "foundIn": "0.14",
+      "item": "Rotation of FIELD_KEYS: re-wrap the regions' data keys with the new key-encryption key (a job)",
+      "movedTo": "0.26"
+    },
+    {
+      "foundIn": "0.14",
+      "item": "A name search of only one- or two-letter words cannot use the trigram index (full scan): rate-limit it with the other searches",
+      "movedTo": "0.26"
     }
   ]
 }

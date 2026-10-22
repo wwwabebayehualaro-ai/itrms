@@ -1,6 +1,13 @@
 import { Writable } from 'node:stream';
 
-import { createHttpApp, createLogger, createWorkerContext, ManifestError, Metrics } from '@itrms/kernel/api';
+import {
+    createHttpApp,
+    createLogger,
+    createWorkerContext,
+    ManifestError,
+    Metrics,
+    notReplayableHandlers
+} from '@itrms/kernel/api';
 import { loadConfig } from '@itrms/kernel/config';
 import { defineModule } from '@itrms/module-sdk';
 import { describe, expect, it } from 'vitest';
@@ -12,6 +19,20 @@ import { SLICES } from './slices';
 const DB = { DATABASE_URL: 'postgres://itrms_app@localhost:5432/itrms' };
 
 const quiet = new Writable({ write: (_chunk, _encoding, callback) => callback() });
+
+describe('POSTs kept out of the idempotency records (@NotReplayable)', () => {
+    it('are only the reviewed reads whose answer or request holds sensitive values in clear', () => {
+        // the slices are loaded by the import of SLICES above; each entry here is reviewed with its handler
+        expect(SLICES.length).toBeGreaterThan(0);
+        expect(notReplayableHandlers()).toEqual([
+            // the duplicate check and the FIN/phone lookup: a sensitive value in the request
+            'PersonsController.duplicates',
+            'PersonsController.lookup',
+            // the sensitive fields in clear in the answer
+            'PersonsController.reveal'
+        ]);
+    });
+});
 
 describe('the API', () => {
     it('starts as the HTTP process, answers health and an unknown route as problem+json', async () => {

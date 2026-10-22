@@ -21,6 +21,7 @@
     "@itrms/ethiopian-calendar": "workspace:*",
     "@itrms/form-engine": "workspace:*",
     "@itrms/kernel": "workspace:*",
+    "@itrms/parties": "workspace:*",
     "@itrms/schemas": "workspace:*",
     "@itrms/ui": "workspace:*",
     "@tanstack/react-form": "1.33.5",

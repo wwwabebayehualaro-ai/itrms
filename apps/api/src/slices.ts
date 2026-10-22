@@ -17,6 +17,12 @@ import kernel from '@itrms/kernel/manifest';
 import kernelAm from '@itrms/kernel/messages/am';
 import kernelEn from '@itrms/kernel/messages/en';
 import kernelWal from '@itrms/kernel/messages/wal-Latn';
+import { PartiesModule } from '@itrms/parties/api';
+import { PARTIES_EVENTS } from '@itrms/parties/contracts';
+import parties from '@itrms/parties/manifest';
+import partiesAm from '@itrms/parties/messages/am';
+import partiesEn from '@itrms/parties/messages/en';
+import partiesWal from '@itrms/parties/messages/wal-Latn';
 import type { InstalledSlice } from '@itrms/module-sdk';
 import reports from '@itrms/reports/manifest';
 import services from '@itrms/services/manifest';
@@ -27,5 +33,11 @@ export type ApiSlice = InstalledSlice<Type | DynamicModule>;
 export const SLICES: ApiSlice[] = [
     { manifest: kernel, events: KERNEL_EVENTS, messages: { am: kernelAm, en: kernelEn, 'wal-Latn': kernelWal } },
     ...[integrations, forms, fees, documents, workflow, services, reports].map((manifest) => ({ manifest })),
+    {
+        manifest: parties,
+        module: PartiesModule,
+        events: PARTIES_EVENTS,
+        messages: { am: partiesAm, en: partiesEn, 'wal-Latn': partiesWal }
+    },
     { manifest: competency, messages: { am: competencyAm, en: competencyEn, 'wal-Latn': competencyWal } }
 ];

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { requestHash } from '../idempotency/idempotency';
+import { requestHash as hashOf } from '../idempotency/idempotency';
 import { formatNumber } from './numbering';
 
 describe('numbers (architecture.md §15)', () => {
@@ -15,6 +15,14 @@ describe('numbers (architecture.md §15)', () => {
 });
 
 describe('idempotency request hashes', () => {
+    const KEY = Buffer.alloc(32, 7);
+    const requestHash = (...args: [string, string, string, unknown]) => hashOf(KEY, ...args);
+
+    it('are keyed: another key, another hash (a body is never recoverable by trying values)', () => {
+        const body = { phone: '+251911000001' };
+        expect(hashOf(Buffer.alloc(32, 8), 'POST', '/p', 'u', body)).not.toBe(requestHash('POST', '/p', 'u', body));
+    });
+
     it('are the same for the same request whatever the order of its fields, and differ for any other', () => {
         const a = requestHash('POST', '/api/v1/x', 'unit-1', { b: 1, a: { d: [1, 2], c: 'x' } });
         expect(requestHash('POST', '/api/v1/x', 'unit-1', { a: { c: 'x', d: [1, 2] }, b: 1 })).toBe(a);

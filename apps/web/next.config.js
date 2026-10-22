@@ -10,7 +10,7 @@ const nextConfig = {
     // A second dev server (e.g. the e2e tests) must not share .next with the one a developer is running: NEXT_DIST_DIR=.next-e2e
     distDir: process.env.NEXT_DIST_DIR || '.next',
     // Workspace packages are TypeScript source (code-structure.md §5.5): Next compiles them.
-    transpilePackages: ['@itrms/ui', '@itrms/form-engine', '@itrms/schemas'],
+    transpilePackages: ['@itrms/ui', '@itrms/form-engine', '@itrms/schemas', '@itrms/parties'],
     outputFileTracingRoot: monorepoRoot,
     async redirects() {
         // the builder used to live at a path derived from its folder structure

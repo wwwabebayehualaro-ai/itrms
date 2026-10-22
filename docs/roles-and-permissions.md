@@ -22,7 +22,7 @@ Role keys are `<process>.<function>` for work-process roles, and plain names for
 | `cashier` | cashier / finance staff (ገንዘብ ያዥ፣ ሂሳብ ሠራተኛ) [D] | every unit with a till | Record payments, issue receipts, request reversals, close the cashier session |
 | `finance_officer` | accountant (ሂሳብ ሠራተኛ) [D] | zone, woreda, town | Approve receipt reversals, cashier-session differences; revenue reports |
 | `auditor` | internal audit [A] | any | Read-only on everything in the subtree, including the audit log and exports; cannot reveal masked data without `pii:reveal` |
-| `viewer` | — | any | Read-only dashboards and registries (no personal data) |
+| `viewer` | — | any | Read-only dashboards and registries: names and addresses, never a sensitive field (no FIN, phone or birth date; no lookup by them, no reveal) |
 
 ### Work-process roles
 For each process `p`, `p.officer` handles cases and `p.lead` decides the steps that need a lead or director. Rows marked
@@ -85,6 +85,8 @@ In code a permission is `resource:action` with the resource in kebab-case, as th
 | `audit_log` | R | R (subtree users only) | R | — | — | — | — | — | — | R |
 | `job` (dead-letter list, retry) | R, retry | — | — | — | — | — | — | — | — | — |
 | `pii:reveal` (Fayda id, phone, medical data) | — | — | ✓ | ✓ (at intake) | — | — | ✓ | ✓ | — | — |
+| `person:lookup` (find by an exact FIN or phone; each one audited) | — | — | ✓ | ✓ | — | — | ✓ | ✓ | — | — |
+| `person:merge` / `person:approve-merge` (maker-checker) | — | — | approve | ask | — | — | — | — | — | — |
 | `export` (CSV/Excel) | ✓ | — | ✓ | — | — | ✓ | — | ✓ | — | ✓ |
 
 Registry tables (`driver_licences`, later `vehicles`, `plates` …) are never written through a generic update permission. They

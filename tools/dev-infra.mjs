@@ -34,6 +34,11 @@ export const SECRET_KEYS = [
     'KEYCLOAK_IDENTITY_ADMIN_SECRET',
     // the BFF's AES-256-GCM session key (32 bytes, hex)
     'BFF_SESSION_KEY',
+    // personal data (task 0.14): the audit log's HMAC key for masked fields, the key-encryption key of the field
+    // encryption (32 bytes, hex) and the blind indexes' HMAC key
+    'AUDIT_HMAC_KEY',
+    'FIELD_KEK',
+    'BLIND_INDEX_KEY',
     'S3_ACCESS_KEY',
     'S3_SECRET_KEY',
     'GLITCHTIP_DB_PASSWORD',
@@ -117,7 +122,9 @@ export function ensureEnv(file = ENV_FILE) {
     const missing = SECRET_KEYS.filter((k) => !env[k]);
     if (missing.length) {
         const lines = missing.map((k) => {
-            env[k] = randomBytes(k === 'S3_ACCESS_KEY' ? 10 : k === 'BFF_SESSION_KEY' ? 32 : 24).toString('hex');
+            env[k] = randomBytes(
+                k === 'S3_ACCESS_KEY' ? 10 : k === 'BFF_SESSION_KEY' || k === 'FIELD_KEK' ? 32 : 24
+            ).toString('hex');
             return `${k}=${env[k]}`;
         });
         const header = existed
@@ -446,10 +453,16 @@ function writeAppEnv(env) {
     const issuer = `http://localhost:${p.KEYCLOAK_HOST_PORT}/realms/itrms`;
     const pg = (role) =>
         `postgres://itrms_${role}:${env[`ITRMS_${role.toUpperCase()}_PASSWORD`]}@127.0.0.1:${p.PG_HOST_PORT}/itrms`;
+    const personalData = {
+        AUDIT_HMAC_KEY: env.AUDIT_HMAC_KEY,
+        FIELD_KEYS: `dev:${Buffer.from(env.FIELD_KEK, 'hex').toString('base64')}`,
+        BLIND_INDEX_KEY: env.BLIND_INDEX_KEY
+    };
     const files = {
         [join(ROOT, 'apps', 'api', '.env.http.local')]: {
             NODE_ENV: 'development',
             DATABASE_URL: pg('app'),
+            ...personalData,
             PORT: '4000',
             OIDC_ISSUER: issuer
         },
@@ -463,6 +476,7 @@ function writeAppEnv(env) {
             NODE_ENV: 'development',
             DATABASE_URL: pg('app'),
             DATABASE_SYSTEM_URL: pg('system'),
+            ...personalData,
             VALKEY_QUEUES_URL: `redis://127.0.0.1:${p.VALKEY_QUEUES_HOST_PORT}/0`,
             KEYCLOAK_URL: `http://localhost:${p.KEYCLOAK_HOST_PORT}`,
             KEYCLOAK_ADMIN_CLIENT_SECRET: env.KEYCLOAK_IDENTITY_ADMIN_SECRET

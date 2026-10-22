@@ -1,0 +1,40 @@
+{
+  "name": "@itrms/parties",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "People and organisations: the regional register of persons (with their sensitive fields encrypted) and organisations, search, duplicates and merges.",
+  "exports": {
+    "./manifest": "./module.ts",
+    "./contracts": "./contracts/index.ts",
+    "./api": "./api/index.ts",
+    "./api/worker": "./api/worker.ts",
+    "./web/server": "./web/server.ts",
+    "./web/client": "./web/client.ts",
+    "./messages/*": "./messages/*.json",
+    "./seed": "./seed/index.ts"
+  },
+  "imports": {
+    "#contracts/*": "./contracts/*.ts",
+    "#api/*": "./api/*.ts",
+    "#web/*": "./web/*.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@itrms/kernel": "workspace:*",
+    "@itrms/module-sdk": "workspace:*",
+    "@itrms/schemas": "workspace:*",
+    "@nestjs/common": "11.2.7",
+    "drizzle-orm": "0.45.3",
+    "nestjs-zod": "5.5.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@itrms/config": "workspace:*",
+    "@types/node": "24.19.1"
+  }
+}

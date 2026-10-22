@@ -134,6 +134,20 @@
       "when": 1792659672844,
       "tag": "0018_kernel_preferences_settings_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792673598758,
+      "tag": "0019_parties",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792673659740,
+      "tag": "0020_parties_rls",
+      "breakpoints": true
     }
   ]
 }

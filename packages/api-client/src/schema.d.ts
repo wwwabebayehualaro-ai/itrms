@@ -193,6 +193,198 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organisations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["OrganisationsController_search"];
+        put?: never;
+        post: operations["OrganisationsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organisations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["OrganisationsController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["OrganisationsController_update"];
+        trace?: never;
+    };
+    "/api/v1/organisations/{id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["OrganisationsController_addMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organisations/{id}/members/{memberId}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["OrganisationsController_endMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/person-merges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["MergesController_list"];
+        put?: never;
+        post: operations["MergesController_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/person-merges/{id}/approval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["MergesController_approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/person-merges/{id}/rejection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["MergesController_reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/persons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PersonsController_search"];
+        put?: never;
+        post: operations["PersonsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/persons/duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PersonsController_duplicates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/persons/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PersonsController_lookup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/persons/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PersonsController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["PersonsController_update"];
+        trace?: never;
+    };
+    "/api/v1/persons/{id}/reveal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PersonsController_reveal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/role-assignments": {
         parameters: {
             query?: never;
@@ -262,6 +454,23 @@ export interface components {
             /** Format: uuid */
             unitTypeId?: string;
         };
+        DuplicateCheckDto: {
+            nameAm: {
+                father: string;
+                given: string;
+                grandfather?: string;
+            };
+            nameEn?: {
+                father: string;
+                given: string;
+                grandfather?: string;
+            };
+            sensitive?: {
+                birthDate?: string | null;
+                fin?: string | null;
+                phone?: string | null;
+            };
+        };
         GrantDto: {
             reason: string;
             roleKey: string;
@@ -274,9 +483,120 @@ export interface components {
             /** Format: date-time */
             validTo?: string;
         };
+        MemberAddDto: {
+            /** Format: uuid */
+            personId: string;
+            /** @enum {string} */
+            role: "chair" | "secretary" | "treasurer" | "manager" | "owner" | "member";
+            /** Format: date */
+            since?: string;
+        };
+        MemberEndDto: {
+            /** Format: date */
+            until: string;
+        };
+        MergeDecisionDto: {
+            note?: string;
+        };
+        MergeRequestDto: {
+            /** Format: uuid */
+            duplicateId: string;
+            reason: string;
+            /** Format: uuid */
+            survivorId: string;
+        };
         MoveUnitDto: {
             /** Format: uuid */
             parentId: string;
+        };
+        OrganisationCreateDto: {
+            address?: {
+                houseNumber?: string;
+                kebele?: string;
+                /** Format: uuid */
+                unitId: string;
+            };
+            /** @enum {string} */
+            kind: "association" | "training_school" | "contractor" | "consultant" | "garage" | "insurer" | "health_facility" | "government_office" | "other";
+            licenceNumber?: string;
+            name: {
+                am: string;
+                en: string;
+            };
+            tin?: string;
+        };
+        OrganisationUpdateDto: {
+            address?: {
+                houseNumber?: string;
+                kebele?: string;
+                /** Format: uuid */
+                unitId: string;
+            } | null;
+            /** @enum {string} */
+            kind?: "association" | "training_school" | "contractor" | "consultant" | "garage" | "insurer" | "health_facility" | "government_office" | "other";
+            licenceNumber?: string | null;
+            name?: {
+                am: string;
+                en: string;
+            };
+            tin?: string | null;
+        };
+        PersonCreateDto: {
+            acknowledgedDuplicates?: string[];
+            address?: {
+                houseNumber?: string;
+                kebele?: string;
+                /** Format: uuid */
+                unitId: string;
+            };
+            birthYear?: number;
+            nameAm: {
+                father: string;
+                given: string;
+                grandfather?: string;
+            };
+            nameEn?: {
+                father: string;
+                given: string;
+                grandfather?: string;
+            };
+            sensitive?: {
+                birthDate?: string | null;
+                fin?: string | null;
+                phone?: string | null;
+            };
+            /** @enum {string} */
+            sex: "female" | "male";
+        };
+        PersonLookupDto: {
+            fin?: string;
+            phone?: string;
+        };
+        PersonUpdateDto: {
+            address?: {
+                houseNumber?: string;
+                kebele?: string;
+                /** Format: uuid */
+                unitId: string;
+            } | null;
+            birthYear?: number | null;
+            nameAm?: {
+                father: string;
+                given: string;
+                grandfather?: string;
+            };
+            nameEn?: {
+                father: string;
+                given: string;
+                grandfather?: string;
+            } | null;
+            sensitive?: {
+                birthDate?: string | null;
+                fin?: string | null;
+                phone?: string | null;
+            };
+            /** @enum {string} */
+            sex?: "female" | "male";
         };
         PreferencesDto: {
             /** @enum {string} */
@@ -315,6 +635,10 @@ export interface components {
             } & {
                 [key: string]: string;
             };
+        };
+        RevealDto: {
+            fields: ("birthDate" | "phone" | "fin")[];
+            reason: string;
         };
         ServiceOverrideDto: {
             enabled: boolean;
@@ -609,6 +933,370 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrganisationsController_search: {
+        parameters: {
+            query?: {
+                q?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrganisationsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrganisationCreateDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrganisationsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrganisationsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrganisationUpdateDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrganisationsController_addMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberAddDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrganisationsController_endMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                memberId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberEndDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MergesController_list: {
+        parameters: {
+            query?: {
+                status?: "pending" | "approved" | "rejected";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MergesController_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeRequestDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MergesController_approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeDecisionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MergesController_reject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeDecisionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PersonsController_search: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PersonsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonCreateDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PersonsController_duplicates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DuplicateCheckDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PersonsController_lookup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonLookupDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PersonsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PersonsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonUpdateDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PersonsController_reveal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevealDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {

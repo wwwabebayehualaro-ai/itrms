@@ -10,6 +10,11 @@ describe('search folding', () => {
         expect(foldForSearch('ኀሠን')).toBe(foldForSearch('ሀሰን'));
         expect(foldForSearch('ዓለሙ')).toBe(foldForSearch('ኣለሙ'));
         expect(foldForSearch('ፀሐይ')).toBe(foldForSearch('ጸሀይ'));
+        // the 1st and 4th orders of h and of the glottal stop
+        expect(foldForSearch('ሃይሉ')).toBe(foldForSearch('ሀይሉ'));
+        expect(foldForSearch('ሓይሉ')).toBe(foldForSearch('ኃይሉ'));
+        expect(foldForSearch('ዓለሙ')).toBe(foldForSearch('አለሙ'));
+        expect(foldForSearch('ሁሴን')).not.toBe(foldForSearch('ሀሴን'));
         expect(foldForSearch('በቀለ')).not.toBe(foldForSearch('ቀበለ'));
     });
 
