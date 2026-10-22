@@ -387,10 +387,11 @@
         {
           "id": "0.13",
           "title": "i18n platform",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.13-i18n",
           "commits": [
-            "e6ed5b8"
+            "e6ed5b8",
+            "3e3b2f4"
           ],
           "evidence": [
             "pnpm turbo run lint typecheck test → 60/60 tasks successful",
@@ -408,7 +409,7 @@
         {
           "id": "0.14",
           "title": "People and organisations register",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
