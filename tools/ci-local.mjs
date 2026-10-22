@@ -91,6 +91,7 @@ export const CHECK_STEPS = [
     'pnpm install --frozen-lockfile',
     'pnpm check:slices',
     'pnpm boundaries',
+    'pnpm i18n:check',
     'pnpm test:tools',
     'pnpm format:check',
     'pnpm turbo run lint typecheck test build --concurrency=3',

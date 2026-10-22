@@ -1,0 +1,100 @@
+'use client';
+
+/**
+ * The region's languages (task 0.13): which of the installation's languages people may choose. Amharic and English are
+ * always on. Read with its version and saved with `PUT /api/v1/settings/i18n.languages` and If-Match (`setting:update`, a
+ * seat at the region): another administrator's change since is refused, never overwritten. The API checks the value and
+ * the scope.
+ */
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { INSTALLABLE_LANGUAGES, LANGUAGE_ENDONYMS } from '@itrms/schemas';
+import { Button, Checkbox, Label, PageHeader, useNotify } from '@itrms/ui';
+import client, { isApiError } from '@/lib/api/client';
+import { useAuthStore } from '@/lib/auth/authStore';
+import { useText } from '@/lib/preferences';
+
+/** Each language named in itself. */
+const OFFERED = INSTALLABLE_LANGUAGES.map((tag) => ({ tag, name: LANGUAGE_ENDONYMS[tag] }));
+const ALWAYS = new Set(['am', 'en']);
+const KEY = ['settings', 'i18n.languages'] as const;
+
+interface Setting {
+    value: string[];
+    version: number;
+}
+
+export default function LanguagesPage() {
+    const { t } = useText();
+    const notify = useNotify();
+    const queries = useQueryClient();
+    const hydrate = useAuthStore((s) => s.hydrate);
+    const setting = useQuery({
+        queryKey: KEY,
+        queryFn: async ({ signal }) => (await client.get<Setting>('v1/settings/i18n.languages', { signal })).data
+    });
+    // the person's choice; until they make one, the saved list
+    const [edited, setEdited] = useState<Set<string>>();
+    const chosen = edited ?? new Set(setting.data?.value ?? ['am', 'en']);
+    const [busy, setBusy] = useState(false);
+
+    const toggle = (tag: string, on: boolean) => {
+        const next = new Set(chosen);
+        if (on) next.add(tag);
+        else next.delete(tag);
+        setEdited(next);
+    };
+
+    const save = async () => {
+        if (!setting.data) return;
+        setBusy(true);
+        try {
+            await client.put(
+                'v1/settings/i18n.languages',
+                { value: OFFERED.map((l) => l.tag).filter((tag) => ALWAYS.has(tag) || chosen.has(tag)) },
+                { headers: { 'if-match': `"${setting.data.version}"` } }
+            );
+            setEdited(undefined);
+            await Promise.all([queries.invalidateQueries({ queryKey: KEY }), hydrate()]);
+            notify.success(t('shell.languages.saved'));
+        } catch (error) {
+            // changed meanwhile by another administrator: show theirs, the person chooses again
+            if (isApiError(error) && error.response?.status === 409) {
+                setEdited(undefined);
+                await queries.invalidateQueries({ queryKey: KEY });
+                notify.error(t('shell.languages.changed'));
+            } else notify.error(t('shell.languages.failed'));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div className="flex max-w-2xl flex-col gap-6">
+            <PageHeader title={t('shell.languages.title')} description={t('shell.languages.intro')} />
+            <ul className="flex flex-col gap-3">
+                {OFFERED.map(({ tag, name }) => (
+                    <li key={tag} className="flex items-center gap-3">
+                        <Checkbox
+                            id={`language-${tag}`}
+                            checked={ALWAYS.has(tag) || chosen.has(tag)}
+                            disabled={ALWAYS.has(tag) || busy || !setting.data}
+                            onCheckedChange={(on) => toggle(tag, on === true)}
+                        />
+                        <Label htmlFor={`language-${tag}`} lang={tag}>
+                            {name}
+                        </Label>
+                        {ALWAYS.has(tag) && (
+                            <span className="text-xs text-muted-foreground">{t('shell.languages.always')}</span>
+                        )}
+                    </li>
+                ))}
+            </ul>
+            <div>
+                <Button type="button" onClick={() => void save()} disabled={busy || !setting.data}>
+                    {t('shell.languages.save')}
+                </Button>
+            </div>
+        </div>
+    );
+}

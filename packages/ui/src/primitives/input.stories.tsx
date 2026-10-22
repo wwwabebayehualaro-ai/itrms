@@ -65,3 +65,15 @@ function LongTextDemo() {
 }
 
 export const LongText: Story = { render: () => <LongTextDemo /> };
+
+/** Ethiopic typing (F9): the field starts with it on; type `selam` and it writes ሰላም. */
+export const EthiopicTyping: Story = {
+    render: () => (
+        <div className="flex max-w-sm flex-col gap-2">
+            <Label htmlFor="name-am">
+                <T text={TEXT.applicantName} />
+            </Label>
+            <Input id="name-am" ethiopic defaultValue="ሰላም" lang="am" />
+        </div>
+    )
+};

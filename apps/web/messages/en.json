@@ -26,7 +26,7 @@
   "shell.user.noRole": "No role here",
   "shell.user.signOut": "Sign out",
   "shell.prefs.language": "Language",
-  "shell.prefs.calendar": "Calendar",
+  "shell.prefs.calendar.title": "Calendar",
   "shell.prefs.calendar.ethiopian": "Ethiopian (ዓ.ም)",
   "shell.prefs.calendar.gregorian": "Gregorian (GC)",
   "shell.appearance.trigger": "Appearance",
@@ -40,5 +40,12 @@
   "shell.appearance.compact": "Compact",
   "shell.unit.current": "Acting for {unit}",
   "shell.unit.switchFrom": "Switch unit (now: {unit})",
-  "shell.search.shortcut": "Ctrl K"
+  "shell.search.shortcut": "Ctrl K",
+  "shell.languages.title": "Languages",
+  "shell.languages.intro": "The languages people in this region can choose. Amharic and English are always on.",
+  "shell.languages.always": "always on",
+  "shell.languages.save": "Save",
+  "shell.languages.saved": "The region's languages are saved.",
+  "shell.languages.failed": "The languages could not be saved.",
+  "shell.languages.changed": "Another administrator changed the languages meanwhile. Check them and save again."
 }

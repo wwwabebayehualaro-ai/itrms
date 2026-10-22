@@ -9,3 +9,5 @@ export const LOGIN_COOKIE = '__Host-itrms_login';
 /** Header and form field the CSRF token comes back in. */
 export const CSRF_HEADER = 'x-csrf-token';
 export const CSRF_FIELD = 'csrf';
+/** The person's language, readable by the server before it renders (not a secret; the preference itself is the API's). */
+export const LANGUAGE_COOKIE = 'itrms_lang';

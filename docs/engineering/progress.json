@@ -387,10 +387,21 @@
         {
           "id": "0.13",
           "title": "i18n platform",
-          "status": "ready",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.13-i18n",
+          "commits": [
+            "e6ed5b8"
+          ],
+          "evidence": [
+            "pnpm turbo run lint typecheck test → 60/60 tasks successful",
+            "apps/api integration (real PostgreSQL 16) → 108 passed, incl. iam.int.spec: preferences PATCH merge + audit before/after, settings GET version / PUT If-Match 409 stale_version, zone admin 403",
+            "e2e (Playwright) → 4/4: i18n.spec (Amharic default, switch to English, preference follows to a PC without the cookie, API titles in the language), shell, sign-in x2",
+            "pnpm i18n:check → complete in am and en (10 folders), placeholders checked; tools tests pass",
+            "packages/ui: EthiopianDatePicker.spec (4), ethiopic.spec (4); web unit 53 incl. format (santim bigint, Ethiopian dates) and preferences saving",
+            "pnpm boundaries → 0 violations; check:slices → 9; prettier clean; openapi regenerated",
+            "reviewer agent: 1 high (preferences overwritten on load) + 2 medium (whole-object PUT, settings without If-Match) fixed in e6ed5b8; lows fixed or follow-ups",
+            "CI: local evidence only (GitHub account suspended), merged at the product owner's request for speed"
+          ],
           "blockers": [],
           "notes": ""
         },
@@ -1205,12 +1216,13 @@
     {
       "foundIn": "0.4",
       "item": "Hard-coded English labels in PdfViewer and LazyFileViewer (packages/ui/src/files): move to message catalogues",
-      "movedTo": "0.13"
+      "movedTo": "0.15 (PdfViewer and LazyFileViewer take labels since 0.13; the files screens pass catalogue messages)"
     },
     {
       "foundIn": "0.4",
       "item": "Login screen copy and branding still say Digital File Cabinet and are English-only",
-      "movedTo": "0.13"
+      "movedTo": "0.13",
+      "closedIn": "0.13: the login screen is Keycloak's itrms theme since 0.10a (am/en)"
     },
     {
       "foundIn": "0.4b",
@@ -1232,7 +1244,8 @@
     {
       "foundIn": "0.4b",
       "item": "AppearanceMenu labels and the shell's theme/density words are English defaults: pass catalogue messages; set <html lang> from the active locale (the Ethiopic typography rules key on :lang(am))",
-      "movedTo": "0.13"
+      "movedTo": "0.13",
+      "closedIn": "0.13: AppearanceMenu and shell words from the catalogues; <html lang> from the locale"
     },
     {
       "foundIn": "0.4b",
@@ -1257,12 +1270,12 @@
     {
       "foundIn": "0.4a",
       "item": "DatePicker shows Gregorian dates and English month/day names in Amharic (seen in the visual baselines): the Ethiopian calendar mode and localized labels",
-      "movedTo": "0.17 (DatePicker Ethiopian mode), 0.13 (labels)"
+      "movedTo": "0.17 (the form engine adopts EthiopianDatePicker, built in 0.13)"
     },
     {
       "foundIn": "0.4a",
       "item": "PdfViewer has no story: it needs a sample PDF and the pdf.js worker in Storybook; add one when its labels move to the catalogues (follow-up 24)",
-      "movedTo": "0.13"
+      "movedTo": "0.15 (with follow-up 24)"
     },
     {
       "foundIn": "0.4a",
@@ -1282,7 +1295,7 @@
     {
       "foundIn": "0.4c",
       "item": "MoneyInput announces a refused keystroke or paste (aria-describedby message; needs a catalogue key)",
-      "movedTo": "0.13"
+      "movedTo": "0.22"
     },
     {
       "foundIn": "0.4c",
@@ -1481,7 +1494,8 @@
     {
       "foundIn": "0.10b",
       "item": "Favourites, recents, language and calendar preferences stored server-side so they follow the person between PCs (today in the browser)",
-      "movedTo": "0.13"
+      "movedTo": "0.13",
+      "closedIn": "0.13: PUT /api/v1/me/preferences (users.preferences), applied by AuthGate"
     },
     {
       "foundIn": "0.10b",
@@ -1527,12 +1541,28 @@
     {
       "foundIn": "0.12",
       "item": "Ethiopian DatePicker in packages/ui on @itrms/ethiopian-calendar (entry and display of Ethiopian dates)",
-      "movedTo": "0.13"
+      "movedTo": "0.13",
+      "closedIn": "0.13: EthiopianDatePicker in packages/ui (spec + stories)"
     },
     {
       "foundIn": "0.12",
       "item": "Wolaytta month and weekday names from the translator (transliterations marked PROVISIONAL until then)",
       "movedTo": "Phase 1"
+    },
+    {
+      "foundIn": "0.13",
+      "item": "Ethiopic typing mode is shown only by a dashed border: announce it to screen readers (aria-description from the caller's catalogue) and keep the browser's undo across transliterated words",
+      "movedTo": "0.17"
+    },
+    {
+      "foundIn": "0.13",
+      "item": "useText().t takes any string: type the message keys (next-intl AppConfig Messages) so a typo fails typecheck",
+      "movedTo": "0.16"
+    },
+    {
+      "foundIn": "0.13",
+      "item": "Settings PUT below the region answers 404 for an existing row and 403 for a new one: make both 403",
+      "movedTo": "0.21"
     }
   ]
 }

@@ -16,6 +16,7 @@
     "test:int": "turbo run test:int",
     "boundaries": "depcruise apps platform modules packages --config .dependency-cruiser.cjs",
     "check:slices": "node tools/check-slices.mjs",
+    "i18n:check": "node tools/i18n/check.mjs",
     "test:tools": "node --test \"tools/**/*.test.mjs\"",
     "licences:report": "node tools/licences-report.mjs",
     "format": "prettier --write .",

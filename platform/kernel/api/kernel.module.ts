@@ -25,6 +25,7 @@ import { OidcAuthenticator, type OidcOptions } from './iam/oidc-authenticator';
 import type { RolePermissions } from './iam/roles';
 import { IdempotencyInterceptor } from './idempotency/idempotency';
 import { JobsController } from './outbox/jobs.controller';
+import { SettingsController } from './settings/settings.controller';
 import { SHELL, type Shell } from './iam/shell';
 import { OrgAdminService } from './org/org-admin.service';
 import { OrgController } from './org/org.controller';
@@ -104,7 +105,9 @@ export class KernelModule {
             global: true,
             imports: config.process === 'http' ? [DiscoveryModule] : [],
             controllers:
-                config.process === 'http' ? [HealthController, OrgController, IamController, JobsController] : [],
+                config.process === 'http'
+                    ? [HealthController, OrgController, IamController, JobsController, SettingsController]
+                    : [],
             providers: [
                 { provide: KERNEL_CONFIG, useValue: config },
                 { provide: SHELL, useValue: options.shell ?? { manifests: [], messages: {} } },

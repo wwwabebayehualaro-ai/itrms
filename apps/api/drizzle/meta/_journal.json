@@ -120,6 +120,20 @@
       "when": 1792658182717,
       "tag": "0016_kernel_counters_fiscal_period",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792659659328,
+      "tag": "0017_kernel_preferences_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792659672844,
+      "tag": "0018_kernel_preferences_settings_rls",
+      "breakpoints": true
     }
   ]
 }

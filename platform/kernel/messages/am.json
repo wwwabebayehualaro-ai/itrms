@@ -35,5 +35,6 @@
   "kernel.role.cashier": "ገንዘብ ያዥ",
   "kernel.role.finance_officer": "የሂሳብ ባለሙያ",
   "kernel.role.auditor": "ኦዲተር",
-  "kernel.role.viewer": "ተመልካች"
+  "kernel.role.viewer": "ተመልካች",
+  "kernel.nav.languages": "ቋንቋዎች"
 }

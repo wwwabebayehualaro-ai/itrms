@@ -125,6 +125,60 @@
         ],
         "type": "object"
       },
+      "PreferencesDto": {
+        "additionalProperties": false,
+        "properties": {
+          "calendar": {
+            "enum": [
+              "ethiopian",
+              "gregorian"
+            ],
+            "type": "string"
+          },
+          "favourites": {
+            "items": {
+              "maxLength": 120,
+              "type": "string"
+            },
+            "maxItems": 50,
+            "type": "array"
+          },
+          "language": {
+            "enum": [
+              "am",
+              "en",
+              "wal-Latn",
+              "om",
+              "ti"
+            ],
+            "type": "string"
+          },
+          "recents": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "at": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "key": {
+                  "maxLength": 120,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "at"
+              ],
+              "type": "object"
+            },
+            "maxItems": 20,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "Problem": {
         "additionalProperties": false,
         "properties": {
@@ -233,6 +287,16 @@
           "reason"
         ],
         "type": "object"
+      },
+      "SettingDto": {
+        "additionalProperties": false,
+        "properties": {
+          "value": {}
+        },
+        "required": [
+          "value"
+        ],
+        "type": "object"
       }
     }
   },
@@ -278,6 +342,30 @@
         },
         "tags": [
           "Jobs"
+        ]
+      }
+    },
+    "/api/v1/me/preferences": {
+      "patch": {
+        "operationId": "IamController_preferences",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreferencesDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Iam"
         ]
       }
     },
@@ -644,6 +732,60 @@
         },
         "tags": [
           "Iam"
+        ]
+      }
+    },
+    "/api/v1/settings/{key}": {
+      "get": {
+        "operationId": "SettingsController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Settings"
+        ]
+      },
+      "put": {
+        "operationId": "SettingsController_set",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Settings"
         ]
       }
     }

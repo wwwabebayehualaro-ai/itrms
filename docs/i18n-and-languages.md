@@ -69,7 +69,24 @@ taught in schools, so it **does not rely on `Intl`/ICU data for Wolaytta**. Rule
 their profile. The fallback chain is computed from the list order plus `en`. The installation's region bureau may turn a
 language on or off. Turning one off never deletes its translations.
 
-## 7. Open items
+## 7. What the platform does (task 0.13)
+
+* **Messages:** next-intl in `apps/web`; the shell's catalogue and every slice's (`<slice>/messages/*.json`) are merged
+  in `apps/web/src/i18n/messages.ts`, a missing text falling back `wal-Latn → am → en`. The language is not in the URL:
+  it is the person's preference, kept on the server (`PUT /api/v1/me/preferences`) and mirrored in the `itrms_lang`
+  cookie so the server renders in it. `<html lang>` follows it.
+* **Check:** `pnpm i18n:check` (CI) fails on a key missing in `am` or `en`, an empty text, a key of another owner, or a
+  key that is also another's prefix; missing optional-language keys are reported.
+* **Region languages:** `PUT /api/v1/settings/i18n.languages` (a bureau administrator; Amharic and English always on),
+  with the admin screen `/admin/languages`.
+* **Errors:** the API's problem titles in the request's `Accept-Language`, which the web client sends.
+* **Formats:** `apps/web/src/lib/format.ts`: money in Birr from santim (bigint, never a float), dates Ethiopian by
+  default (`@itrms/ethiopian-calendar`) with the Gregorian choice.
+* **Typing:** F9 turns on phonetic Ethiopic typing in any free-text `Input` or `Textarea` (`selam` → ሰላም); the
+  `EthiopianDatePicker` picks dates on the Ethiopian calendar and stores them Gregorian.
+* **Search:** `foldForSearch` (`@itrms/schemas`) folds Ethiopic homophones and Wolaytta's apostrophe spellings.
+
+## 8. Open items
 1. A named Wolaytta translator and reviewer at the zone.
 2. The Wolaytta names of the Ethiopian months and weekdays, and the preferred native name of the language.
 3. Whether certificates must also carry Wolaytta (default: Amharic + English only).

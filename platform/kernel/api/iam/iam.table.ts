@@ -8,7 +8,7 @@
  * role_assignments: class T (the unit's subtree).
  */
 import { sql } from 'drizzle-orm';
-import { boolean, index, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { boolean, index, jsonb, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 import { audited } from '../db/audit-policy';
 import { kernelSchema } from '../db/audit-log.table';
@@ -33,6 +33,11 @@ export const users = withRls(
                 username: text('username').notNull(),
                 /** the name shown in the application; the person's legal names are a person record's (task 0.14) */
                 displayName: text('display_name').notNull(),
+                /**
+                 * The person's own display preferences (language, calendar, favourites, recents), so they follow them between
+                 * PCs. Written only through kernel.set_my_preferences(): a person changes their own, nobody else's.
+                 */
+                preferences: jsonb('preferences').$type<Record<string, unknown>>().notNull().default({}),
                 active: boolean('active').notNull().default(true)
             },
             (t) => [

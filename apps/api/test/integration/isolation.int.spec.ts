@@ -387,7 +387,9 @@ describe('every tenant table', () => {
         expect(rows.map((r) => r.name)).toEqual([
             'kernel.principal_units(text)',
             'kernel.record_context_free_event(text,jsonb,uuid,text,text)',
-            'kernel.resolve_principal(text,uuid)'
+            'kernel.resolve_principal(text,uuid)',
+            // the caller's own preferences only (by app.user_id), task 0.13
+            'kernel.set_my_preferences(jsonb)'
         ]);
     });
 });

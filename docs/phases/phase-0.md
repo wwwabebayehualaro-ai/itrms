@@ -345,6 +345,10 @@ Split on 2026-10-21 (scope too large for one session): the BFF sign-in moved to 
 - **Done when:** the app shell, sign-in theme and errors show in Amharic and English, and Wolaytta loads with fallback; a
   missing `am`/`en` key fails CI (missing `wal-Latn` keys are reported, not failed); dates show Ethiopian by default.
 - **Tests:** a catalogue completeness test; format tests (money from santim, Ethiopian dates); an e2e language switch.
+- **Done (2026-10-22):** see [i18n-and-languages.md](../i18n-and-languages.md) §7. Preferences (language, calendar,
+  favourites, recents) moved to the server (0.10b's follow-up). Region settings are a first, region-level
+  `settings_values`; the inheritance down the tree is task 0.21. The forms keep the Gregorian `DatePicker` until the
+  form engine adopts the Ethiopian one (0.17).
 
 ### 0.14 People and organisations register
 - **Do:**

@@ -74,6 +74,8 @@ export interface HttpDeps {
      * `maxAge` seconds. The browser goes to sign-in.
      */
     onUnauthenticated?: (maxAge?: number) => void;
+    /** The person's language: the API answers (error titles, names) in it. */
+    language?: () => string | null;
     fetch?: typeof fetch;
     xhr?: () => XMLHttpRequest;
     newKey?: () => string;
@@ -243,6 +245,8 @@ export function createHttpClient(deps: HttpDeps = {}): HttpClient {
         const url = joinUrl(deps.baseUrl, config.url, config.params);
         const headers = new Headers(config.headers);
         if (!headers.has('accept')) headers.set('accept', 'application/json');
+        const language = deps.language?.();
+        if (language && !headers.has('accept-language')) headers.set('accept-language', language);
         if (key && !headers.has('idempotency-key')) headers.set('idempotency-key', key);
         const body = encodeBody(config.data, headers);
         return { url, body, headers: csrfHeaders(method, headers) };

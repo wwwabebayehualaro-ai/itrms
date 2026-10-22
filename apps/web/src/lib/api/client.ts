@@ -15,6 +15,8 @@ const baseUrl = '/api/';
 const client = createHttpClient({
     baseUrl,
     session,
+    // the page's language is the person's (the root layout sets it)
+    language: () => (typeof document === 'undefined' ? null : document.documentElement.lang || null),
     onUnauthenticated: (maxAge) => {
         if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth/')) session.signIn(maxAge);
     }

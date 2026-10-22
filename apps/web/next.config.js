@@ -1,6 +1,8 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import createNextIntlPlugin from 'next-intl/plugin';
+
 const monorepoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** @type {import('next').NextConfig} */
@@ -31,4 +33,5 @@ const nextConfig = {
     }
 };
 
-export default nextConfig;
+// next-intl: the messages and the language of each request (src/i18n/request.ts)
+export default createNextIntlPlugin('./src/i18n/request.ts')(nextConfig);

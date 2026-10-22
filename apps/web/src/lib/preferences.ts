@@ -1,44 +1,26 @@
 'use client';
 /**
- * The person's display preferences: language and calendar. Kept in this browser only until the user preferences are stored
- * on the server with the i18n platform (task 0.13); a storage the browser refuses leaves the defaults (Amharic, the
- * Ethiopian calendar).
+ * The person's preferences (task 0.13): language, calendar, favourites and recently opened pages. They live on the server
+ * (`PUT /api/v1/me/preferences`), so they follow the person between PCs; the workspace brings them at sign-in. The
+ * language is next-intl's locale: the `itrms_lang` cookie lets the server render in it, and changing it renders again.
  */
+import { useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { create } from 'zustand';
 
-import am from '../../messages/am.json';
-import en from '../../messages/en.json';
+import { LANGUAGE_ENDONYMS, SHIPPED_LANGUAGES } from '@itrms/schemas';
 
-export const LANGUAGES = ['am', 'en', 'wal-Latn'] as const;
+import { LANGUAGE_COOKIE } from './auth/cookies';
+import client from './api/client';
+
+export const LANGUAGES = SHIPPED_LANGUAGES;
 export type Language = (typeof LANGUAGES)[number];
 export const CALENDARS = ['ethiopian', 'gregorian'] as const;
 export type Calendar = (typeof CALENDARS)[number];
 
 /** Each language named in itself (an endonym, the same in every language), for the language menu. */
-export const LANGUAGE_NAMES: Record<Language, string> = { am: 'አማርኛ', en: 'English', 'wal-Latn': 'Wolayttatto' };
-
-const read = <T extends string>(key: string, allowed: readonly T[], fallback: T): T => {
-    try {
-        const value = typeof window === 'undefined' ? null : window.localStorage.getItem(key);
-        return allowed.find((a) => a === value) ?? fallback;
-    } catch {
-        return fallback;
-    }
-};
-const write = (key: string, value: string) => {
-    try {
-        window.localStorage.setItem(key, value);
-    } catch {
-        /* storage refused: the choice lasts until the page is reloaded */
-    }
-};
-
-interface Preferences {
-    language: Language;
-    calendar: Calendar;
-    setLanguage: (language: Language) => void;
-    setCalendar: (calendar: Calendar) => void;
-}
+export const LANGUAGE_NAMES: Record<Language, string> = LANGUAGE_ENDONYMS;
 
 /** The installation's languages (`i18n.languages` in the workspace settings) that the shell can show. */
 export function availableLanguages(setting: unknown): Language[] {
@@ -46,37 +28,138 @@ export function availableLanguages(setting: unknown): Language[] {
     return LANGUAGES.filter((l) => listed.includes(l));
 }
 
-export const usePreferences = create<Preferences>()((set) => ({
-    language: read('itrms.language', LANGUAGES, 'am'),
-    calendar: read('itrms.calendar', CALENDARS, 'ethiopian'),
-    setLanguage: (language) => {
-        write('itrms.language', language);
-        document.documentElement.lang = language;
-        set({ language });
+export interface Recent {
+    /** the menu item's key */
+    key: string;
+    at: number;
+}
+
+export interface StoredPreferences {
+    language?: string;
+    calendar?: Calendar;
+    favourites?: string[];
+    recents?: Recent[];
+}
+
+const MAX_RECENTS = 20;
+/** A change the person made is saved this long after the last one; the pages opened, at most once in this time. */
+const SAVE_DELAY = 800;
+const RECENTS_DELAY = 60_000;
+
+interface Preferences {
+    /** the server's preferences have arrived (until then a change stays on this page: it would overwrite them) */
+    loaded: boolean;
+    calendar: Calendar;
+    favourites: string[];
+    recents: Recent[];
+    /** the person's (from the workspace) */
+    load: (stored: StoredPreferences) => void;
+    setCalendar: (calendar: Calendar) => void;
+    toggleFavourite: (key: string) => void;
+    visit: (key: string) => void;
+}
+
+/**
+ * Sends the keys changed (`PATCH /api/v1/me/preferences`): the server keeps the others, so a page visit in one tab never
+ * drops a favourite pinned in another.
+ */
+let saver: (changes: StoredPreferences) => Promise<unknown> = (changes) => client.patch('v1/me/preferences', changes);
+/** Tests replace the server. */
+export const setPreferencesSaver = (fn: typeof saver) => (saver = fn);
+
+type Saved = 'calendar' | 'favourites' | 'recents';
+const pending = new Set<Saved>();
+let timer: ReturnType<typeof setTimeout> | undefined;
+
+/** The changed keys as they are now (read when sent, never when scheduled). */
+function takePending(): StoredPreferences {
+    const state = usePreferences.getState();
+    const changes: StoredPreferences = {};
+    for (const key of pending) Object.assign(changes, { [key]: state[key] });
+    pending.clear();
+    clearTimeout(timer);
+    timer = undefined;
+    return changes;
+}
+
+function schedule(key: Saved) {
+    if (!usePreferences.getState().loaded) return;
+    pending.add(key);
+    const onlyRecents = [...pending].every((k) => k === 'recents');
+    // the pages opened wait for the running timer (a minute at most); a change the person made restarts a short one
+    if (onlyRecents && timer) return;
+    clearTimeout(timer);
+    timer = setTimeout(
+        () => void saver(takePending()).catch(() => undefined),
+        onlyRecents ? RECENTS_DELAY : SAVE_DELAY
+    );
+}
+
+export const usePreferences = create<Preferences>()((set, get) => ({
+    loaded: false,
+    calendar: 'ethiopian',
+    favourites: [],
+    recents: [],
+    load: (stored) => {
+        // what this page did before is replaced by the person's own
+        pending.clear();
+        clearTimeout(timer);
+        timer = undefined;
+        set({
+            loaded: true,
+            calendar: stored.calendar ?? 'ethiopian',
+            favourites: stored.favourites ?? [],
+            recents: stored.recents ?? []
+        });
     },
     setCalendar: (calendar) => {
-        write('itrms.calendar', calendar);
         set({ calendar });
+        schedule('calendar');
+    },
+    toggleFavourite: (key) => {
+        const { favourites } = get();
+        set({ favourites: favourites.includes(key) ? favourites.filter((k) => k !== key) : [...favourites, key] });
+        schedule('favourites');
+    },
+    visit: (key) => {
+        const { recents } = get();
+        if (recents[0]?.key === key) return;
+        set({ recents: [{ key, at: Date.now() }, ...recents.filter((r) => r.key !== key)].slice(0, MAX_RECENTS) });
+        schedule('recents');
     }
 }));
 
-export type ShellKey = keyof typeof en & keyof typeof am;
+/** The cookie the server renders the language from (a year; the server's preference is the lasting one). */
+export function setLanguageCookie(language: string) {
+    document.cookie = `${LANGUAGE_COOKIE}=${encodeURIComponent(language)}; Path=/; Max-Age=31536000; SameSite=Lax; Secure`;
+}
+
+/** Changes the person's language: saved on the server, then the page renders again in it. */
+export function useSetLanguage() {
+    const router = useRouter();
+    return useCallback(
+        async (language: Language) => {
+            setLanguageCookie(language);
+            // now, with anything still waiting: the page is about to render again
+            await saver({ ...takePending(), language }).catch(() => undefined);
+            router.refresh();
+        },
+        [router]
+    );
+}
+
 type Text = { am: string; en: string } & Partial<Record<string, string>>;
 
 /**
- * The shell's own words (`messages/*.json`) and a data text (I18nText) in the person's language; a language without the
- * text falls back to Amharic, the installation's default (i18n-and-languages.md §6).
+ * The shell's words (next-intl, the merged catalogues) and a data text (I18nText) in the person's language; a language
+ * without the text falls back to Amharic, then English (i18n-and-languages.md §6).
  */
 export function useText() {
-    const language = usePreferences((s) => s.language);
-    const catalogue: Record<string, string> = language === 'en' ? en : am;
+    const language = useLocale();
+    const translate = useTranslations();
     return {
         language,
-        t: (key: ShellKey, values: Record<string, string> = {}) =>
-            (catalogue[key] ?? am[key]).replace(/\{(\w+)\}/g, (_, name: string) => values[name] ?? `{${name}}`),
-        text: (value: Text) => value[language] ?? value.am
+        t: (key: string, values?: Record<string, string>) => translate(key as never, values as never),
+        text: (value: Text) => value[language] ?? value.am ?? value.en
     };
 }
-
-// the page's language from the start (screen readers pick their voice from it), not only after a change
-if (typeof document !== 'undefined') document.documentElement.lang = usePreferences.getState().language;

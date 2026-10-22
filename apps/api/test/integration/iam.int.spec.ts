@@ -125,7 +125,7 @@ const access = { iss: ISSUER, aud: AUDIENCE, typ: 'Bearer', azp: 'itrms-web' };
 const token = (sub: string, authAge = 0) =>
     sign({ sub, ...access, auth_time: Math.floor(Date.now() / 1000) - authAge });
 async function call(
-    method: 'GET' | 'POST',
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH',
     url: string,
     as?: { token: string; unit?: string },
     body?: object,
@@ -442,5 +442,102 @@ describe('granting and revoking', () => {
             }
         );
         expect(res.statusCode).toBe(403);
+    });
+});
+
+describe('preferences and region settings (task 0.13)', () => {
+    interface Workspace {
+        preferences: Record<string, unknown>;
+        settings: Record<string, unknown>;
+    }
+
+    it("keeps a person's preferences on the server, wherever they act for", async () => {
+        const zone = await unitAt('WOL');
+        const damot = await unitAt('WOL-DAMOT-GALE');
+        const t = await token(SUB.multi);
+        const preferences = {
+            language: 'en',
+            calendar: 'gregorian',
+            favourites: ['kernel.home'],
+            recents: [{ key: 'kernel.home', at: 1_792_000_000_000 }]
+        };
+        // saved while acting for Damot Gale: the user row is the zone's (the home unit), above Damot Gale's scope …
+        expect(
+            (await call('PATCH', '/api/v1/me/preferences', { token: t, unit: damot.id }, preferences)).statusCode
+        ).toBe(200);
+        // … read back while acting for the zone
+        const atZone = (await call('GET', '/api/v1/me/workspace', { token: t, unit: zone.id })).json<Workspace>();
+        expect(atZone.preferences).toEqual(preferences);
+        // another tab sends only its pages: the favourites stay
+        const recents = [{ key: 'competency.exams', at: 1_792_000_100_000 }];
+        const merged = await call('PATCH', '/api/v1/me/preferences', { token: t, unit: zone.id }, { recents });
+        expect(merged.json()).toEqual({ ...preferences, recents });
+        const bad = await call(
+            'PATCH',
+            '/api/v1/me/preferences',
+            { token: t, unit: zone.id },
+            { language: 'xx', theme: 'x' }
+        );
+        expect(bad.statusCode).toBe(422);
+        const { rows } = await owner.query(
+            "select diff from kernel.audit_log where event_type = 'user.preferences_changed' order by at"
+        );
+        // what changed, with its before and after; the pages opened are named, never listed
+        expect(rows.map((r: { diff: unknown }) => r.diff)).toEqual([
+            {
+                keys: ['language', 'calendar', 'favourites', 'recents'],
+                before: { language: null, calendar: null, favourites: null },
+                after: { language: 'en', calendar: 'gregorian', favourites: ['kernel.home'] }
+            },
+            { keys: ['recents'], before: {}, after: {} }
+        ]);
+    });
+
+    it("lets a bureau administrator choose the region's languages, nobody below, and only a sound list", async () => {
+        const region = await unitAt('SER');
+        const zone = await unitAt('WOL');
+        const admin = await token(SUB.bureauAdmin);
+        const languages = ['am', 'en', 'wal-Latn'];
+        const read = await call('GET', '/api/v1/settings/i18n.languages', { token: admin, unit: region.id });
+        expect(read.json()).toEqual({ key: 'i18n.languages', value: ['am', 'en'], version: 0 });
+        const put = (value: string[], version: number | null) =>
+            call(
+                'PUT',
+                '/api/v1/settings/i18n.languages',
+                { token: admin, unit: region.id },
+                { value },
+                version === null ? {} : { 'if-match': `"${version}"` }
+            );
+        expect((await put(languages, null)).statusCode).toBe(400);
+        const set = await put(languages, 0);
+        expect(set.statusCode).toBe(200);
+        expect(set.json()).toMatchObject({ version: 1 });
+        // a second administrator who read the default before is refused, not allowed to overwrite
+        const late = await put(['am', 'en'], 0);
+        expect(late.statusCode).toBe(409);
+        expect(late.json()).toMatchObject({ code: 'stale_version' });
+        const seen = (
+            await call('GET', '/api/v1/me/workspace', { token: await token(SUB.dual), unit: zone.id })
+        ).json<Workspace>();
+        expect(seen.settings['i18n.languages']).toEqual(languages);
+
+        const withoutAmharic = await put(['en', 'wal-Latn'], 1);
+        expect(withoutAmharic.statusCode).toBe(422);
+        const unknownKey = await call(
+            'PUT',
+            '/api/v1/settings/security.sessionIdle',
+            { token: admin, unit: region.id },
+            { value: 1 },
+            { 'if-match': '"0"' }
+        );
+        expect(unknownKey.statusCode).toBe(404);
+        const zoneAdmin = await call(
+            'PUT',
+            '/api/v1/settings/i18n.languages',
+            { token: await token(SUB.zoneAdmin), unit: zone.id },
+            { value: languages },
+            { 'if-match': '"1"' }
+        );
+        expect(zoneAdmin.statusCode).toBe(403);
     });
 });

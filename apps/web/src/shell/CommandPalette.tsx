@@ -18,8 +18,7 @@ import {
     CommandShortcut
 } from '@itrms/ui';
 import { useAuthStore } from '@/lib/auth/authStore';
-import { useText } from '@/lib/preferences';
-import { useShortcuts } from '@/lib/shortcuts';
+import { usePreferences, useText } from '@/lib/preferences';
 import { MENU_ICONS } from './menu-icons.generated';
 
 export function CommandPalette() {
@@ -27,7 +26,7 @@ export function CommandPalette() {
     const router = useRouter();
     const [open, setOpen] = useState(false);
     const menu = useAuthStore((s) => s.workspace?.menu);
-    const recents = useShortcuts((s) => s.recents);
+    const recents = usePreferences((s) => s.recents);
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {

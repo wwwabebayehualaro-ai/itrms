@@ -8,7 +8,7 @@ import { i18nTextSchema } from '@itrms/schemas';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
-import { InvalidRequestError } from '../errors';
+import { InvalidRequestError, versionFrom } from '../errors';
 import { Require } from '../iam/access';
 import { OrgAdminService } from './org-admin.service';
 import { ORG_UNIT_KINDS } from './org.table';
@@ -37,14 +37,6 @@ class ServiceOverrideDto extends createZodDto(
 ) {}
 
 const SERVICE = /^[A-Z]{2,3}-\d{2}$/;
-
-/** `If-Match: "3"` (or 3): the row version the change is based on. */
-function versionFrom(header: string | undefined): number {
-    const match = /^\s*(?:W\/)?"?(\d{1,9})"?\s*$/.exec(header ?? '');
-    if (!match)
-        throw new InvalidRequestError('invalid_request', { detail: 'Send If-Match with the version you changed.' });
-    return Number(match[1]);
-}
 
 function serviceFrom(code: string): string {
     if (!SERVICE.test(code)) throw new InvalidRequestError('invalid_request', { detail: 'Not a service code.' });

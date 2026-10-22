@@ -26,6 +26,7 @@
     "@fontsource-variable/noto-sans": "5.3.0",
     "@fontsource-variable/noto-sans-ethiopic": "5.3.0",
     "@fontsource-variable/noto-sans-mono": "5.3.0",
+    "@itrms/ethiopian-calendar": "workspace:*",
     "@tanstack/react-form": "1.33.5",
     "@tanstack/react-table": "8.21.3",
     "class-variance-authority": "0.7.1",

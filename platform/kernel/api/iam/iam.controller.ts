@@ -3,13 +3,15 @@
  * the person is, the unit they act for (its services and capabilities), the units they can switch to, and their roles and
  * permissions there. The menu and settings join it in task 0.10b.
  */
-import { Body, Controller, Get, Headers, Inject, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Inject, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import { userPreferencesSchema } from '../../contracts';
 import { eq, sql } from 'drizzle-orm';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
+import { recordEvent } from '../db/audit';
 import type { Database } from '../db/database';
-import { InvalidRequestError, NotFoundError } from '../errors';
+import { NotFoundError, versionFrom } from '../errors';
 import { DATABASE } from '../observability/tokens';
 import { withinScope } from '../org/org-admin.service';
 import { describeUnit, effectiveServices, getUnit } from '../org/org-tree';
@@ -17,6 +19,7 @@ import { currentPrincipal, Require, requestDbContext, SignedIn } from './access'
 import { assignmentsOf, grantRole, revokeRole } from './assignments';
 import { CLIENT_SETTINGS, effectiveMenu, roleLabels } from './menu';
 import { SHELL, type Shell } from './shell';
+import { regionSettings } from '../settings/settings';
 import { users } from './iam.table';
 
 class GrantDto extends createZodDto(
@@ -33,12 +36,7 @@ class GrantDto extends createZodDto(
 /** Granting and revoking roles need a second factor entered in the last 5 minutes (SEC-SE-5). */
 const STEP_UP = 300;
 
-function versionFrom(header: string | undefined): number {
-    const match = /^\s*(?:W\/)?"?(\d{1,9})"?\s*$/.exec(header ?? '');
-    if (!match)
-        throw new InvalidRequestError('invalid_request', { detail: 'Send If-Match with the version you changed.' });
-    return Number(match[1]);
-}
+class PreferencesDto extends createZodDto(userPreferencesSchema) {}
 
 interface UnitRow extends Record<string, unknown> {
     unit_id: string;
@@ -74,12 +72,17 @@ export class IamController {
                     services: new Set(services),
                     capabilities: new Set(described.capabilities)
                 }),
-                // the display settings as the modules declare them (unit overrides come with task 0.21)
+                // the display settings: the modules' defaults, then the region's choices (unit overrides: task 0.21)
                 settings: Object.fromEntries(
-                    this.shell.manifests.flatMap((m) =>
-                        m.settings.filter((s) => CLIENT_SETTINGS.test(s.key)).map((s) => [s.key, s.default] as const)
-                    )
+                    Object.entries({
+                        ...Object.fromEntries(
+                            this.shell.manifests.flatMap((m) => m.settings.map((s) => [s.key, s.default] as const))
+                        ),
+                        ...(await regionSettings(tx, principal.regionId))
+                    }).filter(([key]) => CLIENT_SETTINGS.test(key))
                 ),
+                // the person's own (language, calendar, favourites, recents): they follow them between PCs
+                preferences: userPreferencesSchema.catch({}).parse(user?.preferences ?? {}),
                 // the names of the roles shown here and in the unit list (keys are never shown to a person)
                 roleLabels: roleLabels(this.shell.messages, [
                     ...principal.roles,
@@ -89,6 +92,38 @@ export class IamController {
                 roles: principal.roles,
                 permissions: [...principal.permissions].sort()
             };
+        });
+    }
+
+    /**
+     * The person's own preferences: the keys sent replace theirs, the others stay (two tabs or two PCs never drop each
+     * other's changes). The audit row names what changed, with the before and after of everything but the recent pages
+     * (a list of the person's own page visits, sent at most once a minute).
+     */
+    @Patch('me/preferences')
+    @SignedIn()
+    preferences(@Body() body: PreferencesDto) {
+        return this.db.scoped(requestDbContext(), async (tx) => {
+            const result = await tx.execute<{ before: unknown }>(
+                sql`select kernel.set_my_preferences(${JSON.stringify(body)}::jsonb) as before`
+            );
+            const row = result.rows[0];
+            if (!row || row.before === null) throw new NotFoundError();
+            const before = userPreferencesSchema.catch({}).parse(row.before);
+            const after = { ...before, ...body };
+            const keys = (Object.keys(body) as (keyof typeof body)[]).filter(
+                (k) => JSON.stringify(before[k]) !== JSON.stringify(after[k])
+            );
+            const shown = keys.filter((k) => k !== 'recents');
+            await recordEvent(tx, {
+                type: 'user.preferences_changed',
+                data: {
+                    keys,
+                    before: Object.fromEntries(shown.map((k) => [k, before[k] ?? null])),
+                    after: Object.fromEntries(shown.map((k) => [k, after[k] ?? null]))
+                }
+            });
+            return after;
         });
     }
 

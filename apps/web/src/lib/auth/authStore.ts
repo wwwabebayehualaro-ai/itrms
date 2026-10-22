@@ -1,6 +1,7 @@
 'use client';
 import { create } from 'zustand';
 import client from '../api/client';
+import type { StoredPreferences } from '../preferences';
 import { session } from './session';
 
 type Text = { am: string; en: string } & Partial<Record<string, string>>;
@@ -33,6 +34,8 @@ export interface Workspace {
     settings: Record<string, unknown>;
     /** The names of the roles in `roles` and `units[].roles`: a role key is never shown to a person. */
     roleLabels: Record<string, Text>;
+    /** The person's own, saved on the server (task 0.13). */
+    preferences: StoredPreferences;
 }
 
 /** No role names yet: one object for every caller, so a store selector returns the same value each time. */

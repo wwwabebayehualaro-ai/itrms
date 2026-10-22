@@ -41,6 +41,7 @@ import {
     LANGUAGE_NAMES,
     availableLanguages,
     usePreferences,
+    useSetLanguage,
     useText,
     type Calendar,
     type Language
@@ -60,11 +61,11 @@ function Logo({ className }: { className?: string }) {
 }
 
 function UserMenu() {
-    const { t } = useText();
+    const { t, text, language } = useText();
     const user = useAuthStore((s) => s.user);
     const logout = useAuthStore((s) => s.logout);
-    const { language, calendar, setLanguage, setCalendar } = usePreferences();
-    const { text } = useText();
+    const { calendar, setCalendar } = usePreferences();
+    const setLanguage = useSetLanguage();
     const roleLabels = useAuthStore((s) => s.workspace?.roleLabels ?? NO_LABELS);
     const languages = availableLanguages(useAuthStore((s) => s.workspace?.settings['i18n.languages']));
     const name = user?.full_name || user?.username || t('shell.user.signedIn');
@@ -107,7 +108,7 @@ function UserMenu() {
                         {t('shell.prefs.language')}
                     </DropdownMenuSubTrigger>
                     <DropdownMenuSubContent>
-                        <DropdownMenuRadioGroup value={language} onValueChange={(v) => setLanguage(v as Language)}>
+                        <DropdownMenuRadioGroup value={language} onValueChange={(v) => void setLanguage(v as Language)}>
                             {languages.map((l) => (
                                 <DropdownMenuRadioItem key={l} value={l} lang={l}>
                                     {LANGUAGE_NAMES[l]}
@@ -119,7 +120,7 @@ function UserMenu() {
                 <DropdownMenuSub>
                     <DropdownMenuSubTrigger>
                         <CalendarDays />
-                        {t('shell.prefs.calendar')}
+                        {t('shell.prefs.calendar.title')}
                     </DropdownMenuSubTrigger>
                     <DropdownMenuSubContent>
                         <DropdownMenuRadioGroup value={calendar} onValueChange={(v) => setCalendar(v as Calendar)}>

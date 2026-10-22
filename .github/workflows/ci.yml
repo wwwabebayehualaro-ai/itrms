@@ -35,6 +35,8 @@ jobs:
         run: pnpm check:slices
       - name: Layer boundaries
         run: pnpm boundaries
+      - name: Catalogues complete in Amharic and English
+        run: pnpm i18n:check
       - name: Boundary fixtures and tool tests
         run: pnpm test:tools
       - name: Formatting

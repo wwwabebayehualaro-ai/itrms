@@ -35,5 +35,6 @@
   "kernel.role.cashier": "Cashier",
   "kernel.role.finance_officer": "Finance officer",
   "kernel.role.auditor": "Auditor",
-  "kernel.role.viewer": "Viewer"
+  "kernel.role.viewer": "Viewer",
+  "kernel.nav.languages": "Languages"
 }

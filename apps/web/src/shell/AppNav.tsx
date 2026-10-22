@@ -19,8 +19,7 @@ import {
     useSidebar
 } from '@itrms/ui';
 import { useAuthStore, type MenuItem } from '@/lib/auth/authStore';
-import { useText } from '@/lib/preferences';
-import { useShortcuts } from '@/lib/shortcuts';
+import { usePreferences, useText } from '@/lib/preferences';
 import { MENU_ICONS } from './menu-icons.generated';
 
 /** The menu item a path belongs to: the longest route that is the path or one of its parents. */
@@ -37,15 +36,11 @@ export function AppNav() {
     const { setOpenMobile } = useSidebar();
     const { t, text } = useText();
     const menu = useAuthStore((s) => s.workspace?.menu);
-    const userId = useAuthStore((s) => s.user?.id);
-    const { favourites, toggleFavourite, load, visit } = useShortcuts();
+    const { favourites, toggleFavourite, visit } = usePreferences();
 
     const items = useMemo(() => (menu ?? []).flatMap((g) => g.items), [menu]);
     const current = itemAt(items, pathname);
 
-    useEffect(() => {
-        if (userId) load(userId);
-    }, [userId, load]);
     useEffect(() => {
         if (current) visit(current.key);
     }, [current, visit]);
