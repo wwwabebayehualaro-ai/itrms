@@ -347,11 +347,12 @@
         {
           "id": "0.11",
           "title": "Numbering, idempotency, outbox, jobs",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.11-outbox",
           "commits": [
             "399855b",
-            "25d16fe"
+            "25d16fe",
+            "23d2399"
           ],
           "evidence": [
             "apps/api pnpm test:int → 105/105 (jobs.int.spec: 50 parallel issuers → 42..91 consecutive; rollback leaves no gap; app moves a counter only +1, nobody back; replay → first response + Idempotent-Replayed; other body 422; key in use 409; failed request keeps nothing; dead-letter list + retry; relay crash replay without duplicates; done handler skipped; sweep re-sends lost jobs; real Valkey: jobId dedupe, flushall loses nothing, dead → retry → handled)",
@@ -367,7 +368,7 @@
         {
           "id": "0.12",
           "title": "Ethiopian calendar package",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
