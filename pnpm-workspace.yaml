@@ -23,6 +23,33 @@ allowBuilds:
   unrs-resolver: true
 # The tech-stack version rule (releases at least two weeks old) also for manual `pnpm add`, not only Renovate. Minutes.
 minimumReleaseAge: 20160
+# Security fixes younger than the age rule (SEC-DV-1), each pinned to the lowest fixed release; drop an entry once it is
+# two weeks old. 2026-10-24: next (GHSA-2464-fhr4-w9xw, GHSA-673q-mjm6-r5xr, critical RCEs), storybook (GHSA-f2ph-cmg5-wxc8,
+# critical), zod (oversized collections, high), happy-dom (import alias code execution, high), undici (high, DoS).
+minimumReleaseAgeExclude:
+  - next@16.4.1
+  - '@next/env@16.4.1'
+  - '@next/eslint-plugin-next@16.4.1'
+  - '@next/swc-darwin-arm64@16.4.1'
+  - '@next/swc-darwin-x64@16.4.1'
+  - '@next/swc-linux-arm64-gnu@16.4.1'
+  - '@next/swc-linux-arm64-musl@16.4.1'
+  - '@next/swc-linux-x64-gnu@16.4.1'
+  - '@next/swc-linux-x64-musl@16.4.1'
+  - '@next/swc-win32-arm64-msvc@16.4.1'
+  - '@next/swc-win32-x64-msvc@16.4.1'
+  - eslint-config-next@16.4.1
+  - storybook@10.6.2
+  - '@storybook/addon-a11y@10.6.2'
+  - '@storybook/addon-docs@10.6.2'
+  - '@storybook/addon-vitest@10.6.2'
+  - '@storybook/builder-vite@10.6.2'
+  - '@storybook/react@10.6.2'
+  - '@storybook/react-dom-shim@10.6.2'
+  - '@storybook/react-vite@10.6.2'
+  - zod@4.6.6
+  - happy-dom@21.0.4
+  - undici@8.12.2
 # seroval (via @tanstack/react-query-devtools, dev only) below 1.6.3 has GHSA-p6vx-979v-rg4c (critical) and
 # GHSA-jp82-f5mq-hwhp: pinned to a fixed release at least two weeks old. Remove once the devtools depend on it.
 overrides:
@@ -34,6 +61,10 @@ overrides:
   # @nestjs/cli (the API build, dev only) pins glob 11.0 (CLI command injection) and picomatch 4.0.3 (ReDoS)
   '@nestjs/cli>glob': 13.0.6
   picomatch@4: 4.0.7
+  # undici (via testcontainers, dev only) below 8.12.2: denial of service on excessive content-encodings (high)
+  undici@8: 8.12.2
+  # zod below 4.6.6 (high: oversized constrained collections) also reaches lint through eslint-plugin-react-hooks
+  zod@4: 4.6.6
 auditConfig:
   ignoreGhsas:
     # braces (via eslint-config-next → micromatch, lint time only): no fixed release yet. It expands the repository's own
