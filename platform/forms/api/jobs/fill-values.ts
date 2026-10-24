@@ -3,8 +3,9 @@
  * in batches, then the keys are recorded as complete (`indexed_keys`), from which point the queries use the value table.
  * Until then they filter on the answers: slower, never wrong.
  *
- * Each submission is read with its own version's fields, and a row is written only where that version's field has the
- * kind the published one compares (a field whose kind changed is left to the answers for that submission). Rows of the
+ * Every answer is read as the published version compares it, as the queries read the answers (a value of another kind
+ * has no row, and reads as nothing on the answers too); a key is copied only where the submission's own version did not
+ * restrict it. Rows of the
  * keys being filled are replaced, so a fill run again, or after a kind change, never keeps a stale one. The last step
  * holds the form's lock exclusively (submissions hold it shared), sweeps what was made meanwhile, and records the keys
  * the version published now still marks. A key with an answer of too many choices stays on the answers.
@@ -19,7 +20,7 @@ import { formPublishedV1 } from '../../contracts';
 import { formDefinitions, formVersions } from '../forms.table';
 import { clearValues, lockFormExclusive, nextBatch, valueRows, writeValues, type FillRow } from '../submission-values';
 import { fieldsFor } from '../support';
-import { filterableKinds, type Kind } from '../view-fields';
+import { filterableKinds, valueFields, type Kind } from '../view-fields';
 
 export const FILL_BATCH = 2000;
 /** How long before a fill began a submission still in flight may have started (its `created_at`, a request's start). */
@@ -28,8 +29,10 @@ const IN_FLIGHT_MS = 15 * 60_000;
 interface Plan {
     kinds: Map<string, Kind>;
     missing: string[];
-    /** each version's fields nobody is restricted from */
-    versions: Map<string, EngineField[]>;
+    /** the published version's fields nobody is restricted from: every answer is read as these compare it */
+    fields: EngineField[];
+    /** each version's top-level value keys nobody is restricted from: only those of its submissions are copied */
+    open: Map<string, Set<string>>;
     startedAt: Date;
 }
 
@@ -41,15 +44,18 @@ async function planOf(tx: Tx, formId: string): Promise<Plan> {
         .from(formVersions)
         .where(eq(formVersions.formId, formId));
     const versions = new Map(rows.map((v) => [v.id, fieldsFor(v.document, [])]));
-    const published = form?.publishedVersionId ? versions.get(form.publishedVersionId) : undefined;
-    const kinds = published ? filterableKinds(published) : new Map<string, Kind>();
+    const published = (form?.publishedVersionId && versions.get(form.publishedVersionId)) || [];
+    const kinds = filterableKinds(published);
+    const open = new Map([...versions].map(([id, fields]) => [id, new Set(valueFields(fields).map((f) => f.key))]));
     const indexed = form?.indexedKeys ?? [];
-    const now = await tx.execute<{ now: Date }>(sql`select now() as now`);
+    // the database's clock, as created_at is (the driver gives timestamps as text here)
+    const now = await tx.execute<{ now: string }>(sql`select now()::text as now`);
     return {
         kinds,
         missing: [...kinds.keys()].filter((k) => !indexed.includes(k)),
-        versions,
-        startedAt: now.rows[0]?.now ?? new Date()
+        fields: published,
+        open,
+        startedAt: new Date(now.rows[0]?.now ?? Date.now())
     };
 }
 
@@ -58,7 +64,10 @@ async function refill(tx: Tx, formId: string, plan: Plan, batch: FillRow[]): Pro
     const kinds = new Map([...plan.kinds].filter(([k]) => plan.missing.includes(k)));
     const overflow = new Set<string>();
     const rows = batch.flatMap((s) => {
-        const made = valueRows(plan.versions.get(s.form_version_id) ?? [], kinds, s.answers, {
+        // as the queries read the answers: by the published kind, of the keys the submission's own version left open
+        const open = plan.open.get(s.form_version_id) ?? new Set<string>();
+        const mine = new Map([...kinds].filter(([k]) => open.has(k)));
+        const made = valueRows(plan.fields, mine, s.answers, {
             submissionId: s.id,
             formId,
             regionId: s.region_id,

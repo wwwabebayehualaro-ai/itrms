@@ -1000,7 +1000,67 @@ export interface components {
             }[];
             /** @default [] */
             facets: string[];
-            filter?: components["schemas"]["SubmissionQueryDto__schema0"];
+            filter?: {
+                items: ({
+                    field: string;
+                    /** @enum {string} */
+                    op: "eq" | "ne" | "contains" | "ncontains" | "starts" | "in" | "nin" | "gt" | "gte" | "lt" | "lte" | "between" | "has" | "hasany" | "empty" | "notempty";
+                    value?: unknown;
+                } | {
+                    items: ({
+                        field: string;
+                        /** @enum {string} */
+                        op: "eq" | "ne" | "contains" | "ncontains" | "starts" | "in" | "nin" | "gt" | "gte" | "lt" | "lte" | "between" | "has" | "hasany" | "empty" | "notempty";
+                        value?: unknown;
+                    } | {
+                        items: ({
+                            field: string;
+                            /** @enum {string} */
+                            op: "eq" | "ne" | "contains" | "ncontains" | "starts" | "in" | "nin" | "gt" | "gte" | "lt" | "lte" | "between" | "has" | "hasany" | "empty" | "notempty";
+                            value?: unknown;
+                        } | {
+                            items: ({
+                                field: string;
+                                /** @enum {string} */
+                                op: "eq" | "ne" | "contains" | "ncontains" | "starts" | "in" | "nin" | "gt" | "gte" | "lt" | "lte" | "between" | "has" | "hasany" | "empty" | "notempty";
+                                value?: unknown;
+                            } | {
+                                items: {
+                                    field: string;
+                                    /** @enum {string} */
+                                    op: "eq" | "ne" | "contains" | "ncontains" | "starts" | "in" | "nin" | "gt" | "gte" | "lt" | "lte" | "between" | "has" | "hasany" | "empty" | "notempty";
+                                    value?: unknown;
+                                }[];
+                                /**
+                                 * @default and
+                                 * @enum {string}
+                                 */
+                                op: "and" | "or";
+                            })[];
+                            /**
+                             * @default and
+                             * @enum {string}
+                             */
+                            op: "and" | "or";
+                        })[];
+                        /**
+                         * @default and
+                         * @enum {string}
+                         */
+                        op: "and" | "or";
+                    })[];
+                    /**
+                     * @default and
+                     * @enum {string}
+                     */
+                    op: "and" | "or";
+                })[];
+                /**
+                 * @default and
+                 * @enum {string}
+                 */
+                op: "and" | "or";
+            };
             /** Format: uuid */
             formId: string;
             groupBy?: {
@@ -1026,19 +1086,6 @@ export interface components {
                 bucket?: "year" | "month" | "day";
                 field: string;
             };
-        };
-        SubmissionQueryDto__schema0: {
-            items: ({
-                field: string;
-                /** @enum {string} */
-                op: "eq" | "ne" | "contains" | "ncontains" | "starts" | "in" | "nin" | "gt" | "gte" | "lt" | "lte" | "between" | "has" | "hasany" | "empty" | "notempty";
-                value?: unknown;
-            } | components["schemas"]["SubmissionQueryDto__schema0"])[];
-            /**
-             * @default and
-             * @enum {string}
-             */
-            op: "and" | "or";
         };
     };
     responses: never;

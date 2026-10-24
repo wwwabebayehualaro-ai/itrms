@@ -1,8 +1,9 @@
 /**
  * The data viewer's queries over one form's submissions (task 0.16b): the view schema, and filter / search / sort /
  * group / aggregate / facets in one request. The fields a caller may name are the published version's that they may
- * see, and see as the same kind in every version of the form (submissions keep the version they were filled on: a field
- * restricted, or of another kind, in an older one would show that version's answers). The rows are those of the
+ * see, and see in every version of the form that has them (submissions keep the version they were filled on: a field
+ * restricted, a password or a row's field in an older one would show that version's answers). An older version's
+ * answer of another kind reads as nothing (the compiler's type guards). The rows are those of the
  * caller's subtree (RLS). The whole request has 10 s: each statement gets what is left (`statement_timeout`).
  */
 import { Inject, Injectable } from '@nestjs/common';
@@ -167,7 +168,7 @@ export class SubmissionQueryService {
 
     /**
      * The published version's value fields the caller may see, kept only where every version of the form that has the
-     * field shows it to them as the same kind; and which of them the value table holds.
+     * field shows it to them as a queryable field; and which of them the value table holds.
      */
     private async fieldsOf(tx: Tx, roles: readonly string[], formId: string) {
         const form = await this.forms.definition(tx, formId);
@@ -183,16 +184,14 @@ export class SubmissionQueryService {
             return {
                 id: v.id,
                 seen,
-                // every field id the version has (anywhere), and the kind of each top-level value field the caller sees
+                // every field id the version has (anywhere), and the top-level value fields the caller sees
                 has: new Set(readDocument(v.document).fields.map((f) => f.id)),
                 sees: new Map(seen.map((f) => [f.key, f.kind]))
             };
         });
         const published = versions.find((v) => v.id === form.publishedVersionId);
         if (!published) throw new ConflictError('not_configured', { detail: 'This form has not been published yet.' });
-        const fields = published.seen.filter((f) =>
-            versions.every((v) => !v.has.has(f.key) || v.sees.get(f.key) === f.kind)
-        );
+        const fields = published.seen.filter((f) => versions.every((v) => !v.has.has(f.key) || v.sees.has(f.key)));
         return { fields, indexedKeys: form.indexedKeys };
     }
 }
