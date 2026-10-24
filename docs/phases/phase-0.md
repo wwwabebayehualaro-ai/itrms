@@ -436,6 +436,12 @@ Split on 2026-10-24 (product owner): saved views, exports and history moved to 0
   submissions; each query has a `statement_timeout`; a key that is not allow-listed is refused (400).
 - **Tests:** query-compiler tests ported from `test_submission_query.py`; the 10⁶ timing and EXPLAIN test; isolation of
   the value table.
+- **Done (2026-10-24):** `platform/forms` `view-fields.ts` (the allow-list: the published version's top-level value fields
+  the caller may see in every version that has them, and `createdAt`, `submittedBy`, `handlingUnit`), `query-compiler.ts`
+  (every key and value bound) and `forms.submission_values` (ADR-0035), filled by the worker on `form.published.v1`
+  under a per-form advisory lock. Under RLS only leakproof comparisons reach an index: numbers are `double precision`,
+  and the answers have no GIN index. One 10 s deadline per request. On CI, 10⁶ submissions: indexed filters 7–26 ms
+  for the zone and a woreda, EXPLAIN under RLS in the performance job's log.
 
 ### 0.16d Saved views, exports and history
 - **Do:** in `platform/forms`: saved views (with the DataGrid's column choice, kept per user and shareable in the unit);

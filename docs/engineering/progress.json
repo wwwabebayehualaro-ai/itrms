@@ -484,13 +484,14 @@
         {
           "id": "0.16b",
           "title": "Submission queries and filterable indexes",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.16b-submission-queries",
           "commits": [
             "962b0ce",
             "c73fdd5",
             "ff7dd05",
-            "75ec5c2"
+            "75ec5c2",
+            "8a6b380"
           ],
           "evidence": [
             "pnpm turbo run lint typecheck test build → 66/66 tasks (local); boundaries, format:check, check:slices, i18n:check, form:schema --check → clean; OpenAPI regenerated",
