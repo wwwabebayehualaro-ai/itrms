@@ -8,8 +8,8 @@
  *   - same key while the first is still running: 409 `idempotency_in_progress`.
  * Records are kept 7 days (the worker's sweep deletes them after).
  *
- * A POST whose answer must never be stored (`@NotReplayable`: a reveal, whose answer holds sensitive fields in clear)
- * keeps no record: sent again, it runs again, and is audited again.
+ * A POST marked `@NotReplayable` (a reveal, a lookup by FIN, an upload's confirmation) keeps no record: sent again, it
+ * runs again.
  */
 import { createHmac, randomBytes } from 'node:crypto';
 
@@ -41,8 +41,9 @@ export const RETENTION_DAYS = 7;
 
 const NOT_REPLAYABLE = 'kernel:not-replayable';
 /**
- * A POST whose response must not be kept for replay (it holds sensitive fields in clear): no idempotency record. Only for
- * reads that change nothing but the audit log, which records each call.
+ * A POST that keeps no idempotency record: a read whose request or answer holds sensitive fields in clear (it changes
+ * nothing but the audit log, which records each call), or an operation that is safe to repeat by the state it checks
+ * (confirming an upload). Each use is listed and reviewed in a test.
  */
 export function NotReplayable(): MethodDecorator {
     return (target, key, descriptor) => {

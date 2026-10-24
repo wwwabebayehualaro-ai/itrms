@@ -5,3 +5,5 @@ export const KERNEL_CONFIG = Symbol('kernel.config');
 export const DATABASE = Symbol('kernel.database');
 /** The process's FieldCrypto (@itrms/kernel/crypto): from FIELD_KEYS and BLIND_INDEX_KEY. */
 export const FIELD_CRYPTO = Symbol('kernel.field-crypto');
+/** The process's object store (@itrms/kernel/files): an adapter bound by the entry, or none. */
+export const OBJECT_STORE = Symbol('kernel.object-store');

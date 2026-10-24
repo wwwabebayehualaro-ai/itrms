@@ -24,7 +24,8 @@
     "./outbox": "./api/outbox/index.ts",
     "./testing": "./api/testing/index.ts",
     "./crypto": "./api/crypto/index.ts",
-    "./tables": "./api/tables/index.ts"
+    "./tables": "./api/tables/index.ts",
+    "./files": "./api/files/index.ts"
   },
   "imports": {
     "#contracts/*": "./contracts/*.ts",

@@ -4,7 +4,7 @@ import { defineModule } from '@itrms/module-sdk';
 // the licence slice itself comes in task 0.24.
 const LICENSING = ['DVC-03', 'DVC-04', 'DVC-08', 'DVC-10', 'DVC-11'];
 // the register (roles-and-permissions.md §2): officers register and correct applicants and check their identity
-const REGISTER_READ = ['person:read', 'organisation:read'];
+const REGISTER_READ = ['person:read', 'organisation:read', 'file:upload', 'file:read'];
 const REGISTER_INTAKE = [
     ...REGISTER_READ,
     'person:lookup',

@@ -13,3 +13,4 @@ export {
     type OutboxJob
 } from './jobs/outbox-relay';
 export { identitySyncHandlers } from './handlers/identity-sync';
+export { purgeExpiredUploads, type PurgeOptions } from './jobs/files-purge';

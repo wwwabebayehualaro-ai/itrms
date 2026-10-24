@@ -26,13 +26,13 @@
     "test:int": "vitest run --config vitest.int.config.ts"
   },
   "dependencies": {
-    "@itrms/module-sdk": "workspace:*",
-    "@itrms/kernel": "workspace:*"
-  },
-  "devDependencies": {
     "@aws-sdk/client-s3": "3.1146.0",
     "@aws-sdk/s3-presigned-post": "3.1146.0",
     "@aws-sdk/s3-request-presigner": "3.1146.0",
+    "@itrms/kernel": "workspace:*",
+    "@itrms/module-sdk": "workspace:*"
+  },
+  "devDependencies": {
     "@itrms/config": "workspace:*"
   }
 }

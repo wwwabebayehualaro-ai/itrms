@@ -90,6 +90,7 @@ export function proxy(request: NextRequest) {
 export const config = {
     matcher: [
         // prefetches too: a header the client sends must never switch the security headers off
-        '/((?!_next/static|_next/image|favicon.ico).*)'
+        // /files is the object store behind a presigned URL (development's rewrite; Nginx in production), not a page
+        '/((?!_next/static|_next/image|favicon.ico|files/).*)'
     ]
 };

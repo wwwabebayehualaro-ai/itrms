@@ -8,11 +8,13 @@ import { KernelModule, loadSlices, type Logger } from '@itrms/kernel/api';
 import { rolePermissions } from '@itrms/kernel/iam';
 import type { KernelConfig } from '@itrms/kernel/config';
 import type { Database } from '@itrms/kernel/db';
+import type { ObjectStore } from '@itrms/kernel/files';
 
 import { SLICES, type ApiSlice } from './slices';
 
 export interface AppOptions {
     database?: Database;
+    objectStore?: ObjectStore;
     slices?: readonly ApiSlice[];
 }
 
@@ -21,7 +23,7 @@ export class AppModule {
     static forRoot(
         config: KernelConfig,
         logger: Logger,
-        { database, slices = SLICES }: AppOptions = {}
+        { database, objectStore, slices = SLICES }: AppOptions = {}
     ): DynamicModule {
         const { manifests, modules, messages } = loadSlices(slices, { disabled: config.MODULES_DISABLED });
         logger.info({ modules: manifests.map((m) => m.key) }, 'modules loaded');
@@ -34,6 +36,7 @@ export class AppModule {
             imports: [
                 KernelModule.forRoot(config, logger, {
                     database,
+                    objectStore,
                     identity,
                     roles: rolePermissions(manifests),
                     shell: { manifests, messages }

@@ -17,6 +17,7 @@ import {
     HeadObjectCommand,
     ListMultipartUploadsCommand,
     ListObjectsV2Command,
+    ListPartsCommand,
     PutBucketLifecycleConfigurationCommand,
     PutObjectCommand,
     S3Client,
@@ -66,7 +67,7 @@ async function pendingUploads(Prefix: string): Promise<string[]> {
 }
 
 /** A presigned POST as the browser sends it (architecture §14: small files, size and type conditions). */
-async function postUpload(Key: string, size: number, sentType: string) {
+async function postUpload(Key: string, size: number, sentType: string, sentKey = Key) {
     const { url, fields } = await createPresignedPost(s3, {
         Bucket,
         Key,
@@ -78,7 +79,8 @@ async function postUpload(Key: string, size: number, sentType: string) {
         Expires: 300
     });
     const form = new FormData();
-    for (const [k, v] of Object.entries(fields)) form.append(k, k === 'Content-Type' ? sentType : v);
+    for (const [k, v] of Object.entries(fields))
+        form.append(k, k === 'Content-Type' ? sentType : k === 'key' ? sentKey : v);
     form.append('file', new Blob([new Uint8Array(size)], { type: sentType }));
     return fetch(url, { method: 'POST', body: form });
 }
@@ -120,6 +122,15 @@ describe('presigned POST: small uploads with size and type conditions (architect
     it('refuses a file of another content type, and stores nothing', async () => {
         const Key = `${prefix}post/wrong-type.pdf`;
         expect((await postUpload(Key, 10, 'text/html')).status).toBe(403);
+        expect(await exists(Key)).toBe(false);
+    });
+
+    it('refuses a form whose key is not the signed one, and stores nothing at either', async () => {
+        // one upload ticket must never write another file's key (a stored, checked file of someone else)
+        const Key = `${prefix}post/signed.pdf`;
+        const other = `${prefix}post/someone-else.pdf`;
+        expect((await postUpload(Key, 10, 'application/pdf', other)).status).toBe(403);
+        expect(await exists(other)).toBe(false);
         expect(await exists(Key)).toBe(false);
     });
 });
@@ -252,6 +263,23 @@ describe('multipart uploads (large scans; Uppy part URLs, architecture §14)', (
             })
         );
         expect((await s3.send(new HeadObjectCommand({ Bucket, Key }))).ContentLength).toBe(1024);
+    });
+
+    it('lists an open upload’s parts with their ETags, even before any part, and answers 404 once it is aborted', async () => {
+        // what S3ObjectStore.completeMultipart checks before completing (the stores disagree on completing without parts)
+        const Key = `${prefix}multipart/listed.bin`;
+        const { UploadId } = await s3.send(new CreateMultipartUploadCommand({ Bucket, Key }));
+        expect((await s3.send(new ListPartsCommand({ Bucket, Key, UploadId }))).Parts ?? []).toEqual([]);
+
+        const { ETag } = await s3.send(
+            new UploadPartCommand({ Bucket, Key, UploadId, PartNumber: 1, Body: randomBytes(1024) })
+        );
+        const listed = await s3.send(new ListPartsCommand({ Bucket, Key, UploadId }));
+        expect(listed.Parts?.map((p) => [p.PartNumber, p.ETag])).toEqual([[1, ETag]]);
+
+        await s3.send(new AbortMultipartUploadCommand({ Bucket, Key, UploadId }));
+        const gone = await s3.send(new ListPartsCommand({ Bucket, Key, UploadId })).catch((e: unknown) => e);
+        expect(statusOf(gone)).toBe(404);
     });
 
     it('an aborted upload is listed before the abort and gone after it', async () => {

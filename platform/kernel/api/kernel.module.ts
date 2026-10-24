@@ -18,6 +18,8 @@ import { ZodValidationPipe } from 'nestjs-zod';
 
 import type { KernelConfig } from './config';
 import { FieldCrypto } from './crypto/field-crypto';
+import { FilesController } from './files/files.controller';
+import { NO_OBJECT_STORE, type ObjectStore } from './files/object-store';
 import type { Database } from './db/database';
 import { ProblemFilter } from './errors/problem.filter';
 import { AccessGuard, AUTHENTICATOR, RouteInventory, type Authenticator } from './iam/access';
@@ -33,7 +35,7 @@ import { OrgController } from './org/org.controller';
 import { HealthController, ReadinessRegistry } from './observability/health';
 import type { Logger } from './observability/logger';
 import { Metrics } from './observability/metrics';
-import { DATABASE, FIELD_CRYPTO, KERNEL_CONFIG, LOGGER } from './observability/tokens';
+import { DATABASE, FIELD_CRYPTO, KERNEL_CONFIG, LOGGER, OBJECT_STORE } from './observability/tokens';
 
 /** Registers the database's readiness check and closes its pool when the process stops. */
 @Injectable()
@@ -60,6 +62,8 @@ export interface KernelOptions {
     identity?: OidcOptions;
     /** What each role grants, from the installed manifests. */
     roles?: RolePermissions;
+    /** The object store's adapter (files, task 0.15); without one, a file route fails clearly. */
+    objectStore?: ObjectStore;
     /** The enabled manifests and their catalogues: the menu `/me/workspace` computes (ADR-0028). */
     shell?: Shell;
 }
@@ -107,12 +111,20 @@ export class KernelModule {
             imports: config.process === 'http' ? [DiscoveryModule] : [],
             controllers:
                 config.process === 'http'
-                    ? [HealthController, OrgController, IamController, JobsController, SettingsController]
+                    ? [
+                          HealthController,
+                          OrgController,
+                          IamController,
+                          JobsController,
+                          SettingsController,
+                          FilesController
+                      ]
                     : [],
             providers: [
                 { provide: KERNEL_CONFIG, useValue: config },
                 { provide: SHELL, useValue: options.shell ?? { manifests: [], messages: {} } },
                 { provide: LOGGER, useValue: logger },
+                { provide: OBJECT_STORE, useValue: options.objectStore ?? NO_OBJECT_STORE },
                 {
                     provide: FIELD_CRYPTO,
                     useValue: new FieldCrypto(
@@ -126,7 +138,7 @@ export class KernelModule {
                 ...database,
                 ...http
             ],
-            exports: [KERNEL_CONFIG, LOGGER, Metrics, ReadinessRegistry, DATABASE, FIELD_CRYPTO]
+            exports: [KERNEL_CONFIG, LOGGER, Metrics, ReadinessRegistry, DATABASE, FIELD_CRYPTO, OBJECT_STORE]
         };
     }
 }

@@ -278,6 +278,8 @@ describe('a person in two units', () => {
         expect(atZone.activeUnit.code).toBe('WOL');
         // a cashier reads the org and the register; nothing more
         expect(atBoditi.permissions).toEqual([
+            'file:read',
+            'file:upload',
             'org-unit:read',
             'organisation:read',
             'person:read',

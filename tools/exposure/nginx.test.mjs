@@ -80,3 +80,29 @@ test('the verify hostname serves only the static page, read-only', () => {
     assert.match(verify, /limit_except GET HEAD \{ deny all; \}/);
     assert.match(verify, /frame-ancestors 'none'/);
 });
+
+test('files: the object store is reached only through /files, with a presigned URL for one object (task 0.15)', () => {
+    // nothing else proxies to the store, and the public verify hostname never does
+    const toStore = [
+        ...app.matchAll(/location ([^{]+)\{(?:[^{}]|\{[^{}]*\})*?proxy_pass http:\/\/seaweedfs:8333/g)
+    ].map((m) => m[1].trim());
+    assert.deepEqual(toStore, ['~ ^/files/[a-z0-9.-]+/?$', '~ ^/files/[a-z0-9.-]+/.+']);
+    assert.doesNotMatch(verify, /seaweedfs/);
+    // the store's root and its bucket listing are refused
+    assert.match(app, /location \/files\/ \{ return 403; \}/);
+    const bucket = app.match(/location ~ \^\/files\/\[a-z0-9\.-\]\+\/\?\$ \{([\s\S]*?)\n    \}/)?.[1] ?? '';
+    assert.match(bucket, /limit_except POST \{ deny all; \}/);
+    assert.match(bucket, /if \(\$args != ""\) \{ return 403; \}/);
+    // an object only with a signature, never a listing, a multipart start, an ACL or a policy, and only GET and PUT
+    const object = app.match(/location ~ \^\/files\/\[a-z0-9\.-\]\+\/\.\+ \{([\s\S]*?)\n    \}/)?.[1] ?? '';
+    assert.match(object, /limit_except GET PUT \{ deny all; \}/);
+    assert.match(object, /if \(\$args !~ "\(\^\|&\)X-Amz-Signature="\) \{ return 403; \}/);
+    for (const op of ['uploads', 'list-type', 'delete', 'acl', 'policy', 'lifecycle'])
+        assert.match(object, new RegExp(op));
+    // the store sees its own Host (the signature was made for it), and nothing of it goes back
+    const proxy = readFileSync(join(ROOT, 'infra', 'compose', 'nginx', 'itrms-s3-proxy.conf'), 'utf8');
+    assert.match(proxy, /proxy_set_header Host seaweedfs:8333;/);
+    assert.match(proxy, /proxy_hide_header Server;/);
+    for (const header of ['Cookie', 'Authorization', 'X-Amz-Copy-Source'])
+        assert.match(proxy, new RegExp(`proxy_set_header ${header} "";`));
+});

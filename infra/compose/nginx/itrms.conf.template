@@ -90,6 +90,31 @@ server {
     # back-channel logout comes from Keycloak on the internal network, never from outside
     location = /auth/backchannel-logout { return 404; }
 
+    # uploaded files (task 0.15, architecture §14): the object store, reached only with a URL the API presigned for one
+    # object. The browser sends to and reads from /files/<bucket>/<key>; the store checks the signature as it was made for
+    # its own address (Host and path rewritten here). A listing, a bucket-level request or an unsigned one never reaches it.
+    # anything under /files the two locations below do not match (the root, another name): refused, never the app's
+    location /files/ { return 403; }
+    # the bucket itself: only the presigned POST of an upload (its policy is in the form), never a listing or a query
+    location ~ ^/files/[a-z0-9.-]+/?$ {
+        limit_except POST { deny all; }
+        if ($args != "") { return 403; }
+        client_max_body_size 17m;
+        rewrite ^/files/(.*)$ /$1 break;
+        proxy_pass http://seaweedfs:8333;
+        include /etc/nginx/itrms-s3-proxy.conf;
+    }
+    # one object: a presigned GET or HEAD (download), or PUT (a part of a large upload)
+    location ~ ^/files/[a-z0-9.-]+/.+ {
+        limit_except GET PUT { deny all; }
+        if ($args !~ "(^|&)X-Amz-Signature=") { return 403; }
+        if ($args ~ "(^|&)(uploads|list-type|delete|acl|policy|lifecycle|versioning|tagging)(=|&|$)") { return 403; }
+        client_max_body_size 9m;
+        rewrite ^/files/(.*)$ /$1 break;
+        proxy_pass http://seaweedfs:8333;
+        include /etc/nginx/itrms-s3-proxy.conf;
+    }
+
     # everything else is the staff app and its BFF (sign-in callback and sign-out under /auth, the API proxy under /api)
     location / {
         proxy_pass http://web:3000;
