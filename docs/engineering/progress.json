@@ -483,7 +483,17 @@
         },
         {
           "id": "0.16b",
-          "title": "Submission queries, saved views and exports",
+          "title": "Submission queries and filterable indexes",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.16d",
+          "title": "Saved views, exports and history",
           "status": "planned",
           "branch": null,
           "commits": [],

@@ -57,7 +57,7 @@ the build would cost a rewrite.
     only in service overrides.
 16. **Entitlements** (amends 0027): all registries belong to `itrms.core`. An expired licence file gives a grace period, then
     read-only with banners, and never blocks mid-day.
-17. **Scale:** filterable JSONB fields get indexes when a form is published; queries carry a service filter;
+17. **Scale:** filterable JSONB fields get indexes when a form is published (how: ADR-0035, a typed value table); queries carry a service filter;
     `statement_timeout`; EXPLAIN under RLS is part of "done" for search tasks.
 18. **Domain additions:** appeals (30 days, Proclamation 1074/2018 Art. 24), a correspondence register, controlled
     stationery stock, working calendars (hours, lunch, half days).

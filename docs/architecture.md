@@ -415,7 +415,8 @@ Definition (Zod schema in `packages/schemas`, stored versioned):
 - The data viewer (table, board, calendar, pivot, dashboard; saved views; CSV and Excel export) works for every service's
   cases through the ported query compiler, with RLS applied. **Scale rules:**
   - every query carries a service or form filter;
-  - fields the form author marks **filterable** get expression or partial indexes, created when the form is published;
+  - fields the form author marks **filterable** are indexed in the typed value table `forms.submission_values`, written
+    with each submission and filled for existing ones when a version makes a field filterable (ADR-0035; no runtime DDL);
   - each request has a `statement_timeout`;
   - large results become asynchronous exports.
 - **Reports** read typed tables, plus the `reports` module's own views. Raw JSONB is queried only by the data viewer, for

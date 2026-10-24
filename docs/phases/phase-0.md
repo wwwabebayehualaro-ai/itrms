@@ -424,18 +424,30 @@ is not available: the timing runs in CI on 10⁶ generated rows, as 0.14 did, an
   over HTTP. Answers enter the audit log as an HMAC. What the server cannot check yet (data sources, lookups, file
   references, other computed fields) is in the follow-ups for 0.17, 0.18 and 0.18a.
 
-### 0.16b Submission queries, saved views and exports
+### 0.16b Submission queries and filterable indexes
+Split on 2026-10-24 (product owner): saved views, exports and history moved to 0.16d. Indexes follow ADR-0035.
 - **Do:** in `platform/forms`:
-  - the JSONB query compiler port (filters, search, sort, group, aggregate, allow-listed);
-  - fields marked filterable get their indexes on publish; each query has a `statement_timeout`;
-  - saved views (with the DataGrid's column choice), CSV/Excel export (audited, through the worker), history.
+  - the JSONB query compiler port (filters, search, sort, group, aggregate; allow-listed keys only);
+  - `forms.submission_values` (ADR-0035), written with each submission from its version's filterable fields; the
+    worker fills existing submissions when a version makes a field filterable (`form.published.v1`);
+  - the view schema (what the data viewer can do with a form's submissions); each query has a `statement_timeout`.
 - **Done when:** a query over 10⁶ generated submissions (filtered by form and an indexed filterable field) answers in
-  under 300 ms in CI, with EXPLAIN under RLS attached; fields marked filterable get their indexes on publish; each query
-  has a `statement_timeout`; an export is audited.
-- **Tests:** query-compiler tests ported from `test_submission_query.py`; saved-view tests from `test_saved_views.py`; the
-  10⁶ timing and EXPLAIN test.
+  under 300 ms in CI, with EXPLAIN under RLS attached; a field made filterable by a new version is filled for existing
+  submissions; each query has a `statement_timeout`; a key that is not allow-listed is refused (400).
+- **Tests:** query-compiler tests ported from `test_submission_query.py`; the 10⁶ timing and EXPLAIN test; isolation of
+  the value table.
+
+### 0.16d Saved views, exports and history
+- **Do:** in `platform/forms`: saved views (with the DataGrid's column choice, kept per user and shareable in the unit);
+  CSV and Excel export of a query (ExcelJS, T14), through the worker as a file in `@itrms/kernel/files`, audited, cells
+  neutralised (SEC-IN-8); a submission's history (who changed what, from the audit log, without the masked answers'
+  values).
+- **Done when:** a saved view reopens with its filters, sort and columns; an export over the size limit runs in the
+  worker and is audited; a CSV cell starting with `=` is neutralised.
+- **Tests:** saved-view tests ported from `test_saved_views.py`; export tests (CSV, Excel, neutralisation, audit).
 
 ### 0.16c Web switch-over to the forms API
+- Needs 0.16b and 0.16d.
 - **Do:** point the web's builder, gallery, data viewer and record page at the new API (through the BFF); port the legacy
   engine e2e journeys to the BFF sign-in and run them in CI against the dev stack; retire the legacy forms backend
   (`Backend/` form modules).
