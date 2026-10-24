@@ -25,9 +25,17 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@itrms/module-sdk": "workspace:*"
+    "@itrms/form-engine": "workspace:*",
+    "@itrms/kernel": "workspace:*",
+    "@itrms/module-sdk": "workspace:*",
+    "@itrms/schemas": "workspace:*",
+    "@nestjs/common": "11.2.7",
+    "drizzle-orm": "0.45.3",
+    "nestjs-zod": "5.5.0",
+    "zod": "4.6.6"
   },
   "devDependencies": {
-    "@itrms/config": "workspace:*"
+    "@itrms/config": "workspace:*",
+    "@types/node": "24.19.1"
   }
 }

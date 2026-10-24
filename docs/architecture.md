@@ -258,6 +258,7 @@ records are **deactivated**, never deleted); `timestamptz` stored in UTC, busine
 | `service_versions` | a bureau default: form version, workflow definition version, fee rule version, document template versions, override policy (which keys a lower unit may change), effective dates |
 | `service_overrides` | per org unit: a patch of allowed keys (enabled, SLA hours, extra form overlay, help texts, template header); class C |
 | `form_definitions`, `form_versions` | the engine's documents (content-hashed, immutable versions; `I18nText` labels) |
+| `form_publications` | a request to make a form version the published one, decided by a second person (SEC-AC-6); class T at the form's owner unit |
 | `cases` | one service request: number, service version, resolved-config hash, applicant party, **subject refs** (`vehicle_id`, `person_id`, `licence_id`, `association_id`, `project_id`; typed FKs, nullable), handling unit, state, timestamps; class T |
 | `submissions` | form answers: `case_id`, `form_version_id`, `step_key`, `answers JSONB`, `submitted_by`; answers hold **ids** of registry records picked by lookup fields, never copies |
 | `workflow_definitions` | versioned JSON (§8) |

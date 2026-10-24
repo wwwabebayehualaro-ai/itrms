@@ -5,6 +5,7 @@
  */
 import { evaluateAll, type Scope } from './conditions';
 import { childrenOf, isFormArray, rowScopedIds, type EngineField } from './model';
+import { bindingRoots, resolveString } from './runtime/expression';
 
 /** What an untouched field of each type holds. */
 const TYPE_DEFAULTS: Record<string, unknown> = {
@@ -130,4 +131,71 @@ export function pruneHidden(
         return out;
     };
     return prune(null, values, values);
+}
+
+const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+
+/**
+ * Only the values of fields that hold one, at the level where each sits (inside rows too); every other key is dropped. Runs
+ * before the rules: a key that is no field of the form could otherwise stand in for what a condition reads (`user.role`).
+ */
+export function knownValues(fields: EngineField[], values: Record<string, unknown>): Record<string, unknown> {
+    const keep = (parentId: string | null, current: Record<string, unknown>) => {
+        const out: Record<string, unknown> = {};
+        for (const f of scopeFields(fields, parentId)) {
+            if (!holdsValue(f) || !Object.hasOwn(current, f.id)) continue;
+            const v = current[f.id];
+            if (!isFormArray(f)) out[f.id] = v;
+            // a section's value is its rows: anything else is not one
+            else if (Array.isArray(v)) out[f.id] = v.map((row) => keep(f.id, isRecord(row) ? row : {}));
+        }
+        return out;
+    };
+    return keep(null, values);
+}
+
+/** Roots a computed field may read wherever the form is checked: the server has no data sources, route or variables. */
+const PORTABLE_ROOTS = new Set(['form', 'row', 'root', 'user']);
+
+/**
+ * What a person could not have typed is the form's, not theirs, wherever the values come from (a browser, or a direct API
+ * call): a read-only computed field gets its computed value (when its expression reads only the form, its rows and the
+ * user), and a disabled field its default. Rules are evaluated against each row like the other passes.
+ */
+export function settledValues(
+    fields: EngineField[],
+    values: Record<string, unknown>,
+    scope: Scope = {}
+): Record<string, unknown> {
+    const byId = new Map(fields.map((f) => [f.id, f]));
+    const settle = (parentId: string | null, current: Record<string, unknown>, root: Record<string, unknown>) => {
+        const out = { ...current };
+        const ctx = { ...scope, root };
+        for (const f of scopeFields(fields, parentId)) {
+            if (!holdsValue(f)) continue;
+            const expression = f.computed?.readOnly ? f.computed.expression : undefined;
+            if (expression && [...bindingRoots(expression)].every((r) => PORTABLE_ROOTS.has(r))) {
+                const v = resolveString(expression, { ...scope, form: current, row: current, root });
+                if (v === undefined) delete out[f.id];
+                else out[f.id] = v;
+            } else if (!isEnabledIn(f, byId, current, ctx, parentId)) {
+                const v = initialValueOf(f, fields);
+                if (v === undefined) delete out[f.id];
+                else out[f.id] = v;
+            } else if (isFormArray(f) && Array.isArray(out[f.id])) {
+                out[f.id] = (out[f.id] as Record<string, unknown>[]).map((row) => settle(f.id, row ?? {}, root));
+            }
+        }
+        return out;
+    };
+    return settle(null, values, values);
+}
+
+/**
+ * What a submission stores: the form's own values (`knownValues`), with what nobody types settled (`settledValues`), without
+ * those of hidden fields (`pruneHidden`).
+ */
+export function submittedValues(fields: EngineField[], values: Record<string, unknown>, scope: Scope = {}) {
+    const known = knownValues(fields, values);
+    return pruneHidden(fields, settledValues(fields, known, scope), scope);
 }

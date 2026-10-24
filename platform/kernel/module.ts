@@ -3,8 +3,9 @@ import { defineModule } from '@itrms/module-sdk';
 // The kernel's permissions and the cross-cutting roles (roles-and-permissions.md §1–2). Work-process roles
 // (`competency.officer` …) are their modules'. Sensitive resources (role assignments, service configuration, the audit
 // log) are always named one by one, never granted by a wildcard.
-// every office uploads and reads its own files (task 0.15): the scope is the unit's subtree (RLS)
-const READ_ORG = ['org-unit:read', 'service-config:read', 'file:upload', 'file:read'];
+// every office uploads and reads its own files (task 0.15): the scope is the unit's subtree (RLS); and reads the forms it
+// fills in (its own, its subtree's and those of the offices above, task 0.16a)
+const READ_ORG = ['org-unit:read', 'service-config:read', 'file:upload', 'file:read', 'form:read'];
 // the register of people and organisations (@itrms/parties, roles-and-permissions.md §2): every office reads it; intake
 // (records officers) registers and corrects, and asks for merges; a unit head approves them
 const REGISTER = ['person:read', 'organisation:read'];
@@ -17,6 +18,9 @@ const INTAKE = [
     'organisation:create',
     'organisation:update'
 ];
+// forms (@itrms/forms, task 0.16a): the bureau and unit administrators author them; a second person approves a
+// publication (SEC-AC-6). Submissions follow the `case` column of roles-and-permissions.md §2 until cases exist (0.19).
+const AUTHOR_FORMS = ['form:create', 'form:update', 'form:publish'];
 
 export default defineModule({
     key: 'kernel',
@@ -52,7 +56,10 @@ export default defineModule({
             'audit-log:read',
             'job:read',
             'job:retry',
-            'setting:update'
+            'setting:update',
+            ...AUTHOR_FORMS,
+            'form:approve',
+            'submission:read'
         ],
         unit_admin: [
             ...READ_ORG,
@@ -62,7 +69,8 @@ export default defineModule({
             'role-assignment:read',
             'role-assignment:grant',
             'role-assignment:revoke',
-            'audit-log:read'
+            'audit-log:read',
+            ...AUTHOR_FORMS
         ],
         unit_head: [
             ...READ_ORG,
@@ -71,13 +79,15 @@ export default defineModule({
             'audit-log:read',
             'pii:reveal',
             'person:lookup',
-            'person:approve-merge'
+            'person:approve-merge',
+            'form:approve',
+            'submission:read'
         ],
         // at intake: checks the identity of the person in front of them
-        records_officer: [...READ_ORG, ...INTAKE, 'pii:reveal'],
-        cashier: [...READ_ORG, ...REGISTER],
-        finance_officer: [...READ_ORG, ...REGISTER],
-        auditor: [...READ_ORG, ...REGISTER, 'role-assignment:read', 'audit-log:read'],
+        records_officer: [...READ_ORG, ...INTAKE, 'pii:reveal', 'submission:create', 'submission:read'],
+        cashier: [...READ_ORG, ...REGISTER, 'submission:read'],
+        finance_officer: [...READ_ORG, ...REGISTER, 'submission:read'],
+        auditor: [...READ_ORG, ...REGISTER, 'role-assignment:read', 'audit-log:read', 'submission:read'],
         // names and addresses only: never a sensitive field (no pii:reveal)
         viewer: [...READ_ORG, ...REGISTER]
     },

@@ -1,9 +1,10 @@
 /**
  * The bundle keeps npm packages external, and Node resolves them from apps/api/node_modules. pnpm installs a workspace
  * package's dependencies only for that package, so the API must declare every npm dependency of the workspace packages it
- * bundles, or the built process fails at start ("Cannot find module").
+ * bundles, or the built process fails at start ("Cannot find module"). Of a package whose UI the API may never import
+ * (dependency-cruiser), only the npm packages its server entry imports count.
  */
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -18,6 +19,22 @@ const here = dirname(fileURLToPath(import.meta.url));
 const read = (path: string) => JSON.parse(readFileSync(path, 'utf8')) as Manifest;
 const api = read(join(here, '..', 'package.json'));
 
+/** Packages the API reaches only through one UI-free folder (architecture.md §3: `form-engine/core`). */
+const SERVER_ENTRIES: Record<string, string> = { '@itrms/form-engine': 'src/core' };
+
+/** The packages imported by the non-test sources of `dir`, as a manifest's dependencies would name them. */
+function importsOf(dir: string, versions: Record<string, string>): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const entry of readdirSync(dir, { recursive: true, encoding: 'utf8' })) {
+        if (!/\.tsx?$/.test(entry) || /\.spec\.tsx?$/.test(entry)) continue;
+        for (const [, spec] of readFileSync(join(dir, entry), 'utf8').matchAll(/from '([^'.#][^']*)'/g)) {
+            const name = spec?.startsWith('@') ? spec.split('/').slice(0, 2).join('/') : spec?.split('/')[0];
+            if (name && versions[name]) out[name] = versions[name];
+        }
+    }
+    return out;
+}
+
 /** The npm dependencies of every workspace package reachable from `manifest`, with who needs each. */
 function npmDependencies(manifest: Manifest, from: string, seen = new Set<string>()): Map<string, string> {
     const out = new Map<string, string>();
@@ -30,7 +47,12 @@ function npmDependencies(manifest: Manifest, from: string, seen = new Set<string
         seen.add(name);
         // the workspace link pnpm makes in the package's own node_modules (its exports do not list package.json)
         const path = join(dirname(from), 'node_modules', name, 'package.json');
-        for (const [dep, owner] of npmDependencies(read(path), path, seen)) if (!out.has(dep)) out.set(dep, owner);
+        const dependency = read(path);
+        const entry = SERVER_ENTRIES[name];
+        const reached = entry
+            ? { ...dependency, dependencies: importsOf(join(dirname(path), entry), dependency.dependencies ?? {}) }
+            : dependency;
+        for (const [dep, owner] of npmDependencies(reached, path, seen)) if (!out.has(dep)) out.set(dep, owner);
     }
     return out;
 }

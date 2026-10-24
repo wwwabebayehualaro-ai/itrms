@@ -1,0 +1,413 @@
+/**
+ * Form definitions, their versions and their publications (task 0.16a; form-platform.md G2, G6). A definition's working
+ * copy changes freely; publishing snapshots it as an immutable version (one per content: publishing the same content
+ * again reuses it) and asks a second person to approve. Until they do, people keep filling in the version published
+ * before. Every write goes through the audited helpers in the caller's transaction.
+ */
+import { Injectable } from '@nestjs/common';
+import { and, desc, eq, ilike, inArray, max, or, sql } from 'drizzle-orm';
+import { insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
+import { ConflictError, ForbiddenError, NotFoundError } from '@itrms/kernel/errors';
+import { unitRefs, withinScope, type UnitRef } from '@itrms/kernel/org';
+import { emit } from '@itrms/kernel/outbox';
+import type { z } from 'zod';
+
+import type {
+    Form,
+    FormSummary,
+    FormVersion,
+    FormVersionSummary,
+    Publication,
+    formCreateSchema,
+    formListQuerySchema,
+    formUpdateSchema,
+    publicationListQuerySchema
+} from '../contracts';
+import { formDefinitions, formPublications, formVersions } from './forms.table';
+import { assertReadable, contentHash, isUniqueViolation, required } from './support';
+
+type DefinitionRow = typeof formDefinitions.$inferSelect;
+type VersionRow = typeof formVersions.$inferSelect;
+type PublicationRow = typeof formPublications.$inferSelect;
+
+const LIST_LIMIT = 100;
+
+const escapeLike = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
+
+@Injectable()
+export class FormsService {
+    async list(tx: Tx, query: z.infer<typeof formListQuerySchema>): Promise<FormSummary[]> {
+        const conditions = [];
+        if (query.active) conditions.push(eq(formDefinitions.active, query.active === 'true'));
+        if (query.q) {
+            const like = `%${escapeLike(query.q)}%`;
+            conditions.push(
+                or(
+                    ilike(formDefinitions.key, like),
+                    sql`exists (select 1 from jsonb_each_text(${formDefinitions.name}) n where n.value ilike ${like})`
+                )
+            );
+        }
+        const rows = await tx
+            .select()
+            .from(formDefinitions)
+            .where(and(...conditions))
+            .orderBy(desc(formDefinitions.updatedAt), desc(formDefinitions.id))
+            .limit(query.limit);
+        return this.summaries(tx, rows);
+    }
+
+    async get(tx: Tx, id: string): Promise<Form> {
+        const row = await this.definition(tx, id);
+        const [summary] = await this.summaries(tx, [row]);
+        if (!summary) throw new NotFoundError();
+        return { ...summary, document: row.document, documentHash: row.documentHash };
+    }
+
+    async create(tx: Tx, ctx: DbContext, input: z.infer<typeof formCreateSchema>): Promise<Form> {
+        assertReadable(input.document);
+        try {
+            const row = await insertAudited(tx, formDefinitions, {
+                regionId: required(ctx.regionId),
+                ownerUnitId: required(ctx.unitId),
+                key: input.key,
+                name: input.name,
+                category: input.category ?? null,
+                document: input.document,
+                documentHash: contentHash(input.document),
+                documentUpdatedBy: ctx.userId ?? null
+            });
+            return this.get(tx, row.id);
+        } catch (error) {
+            if (isUniqueViolation(error, 'form_definitions_key_uq'))
+                throw new ConflictError('duplicate_reference', {
+                    detail: 'A form with this key already exists in the region.',
+                    cause: error
+                });
+            throw error;
+        }
+    }
+
+    async update(
+        tx: Tx,
+        ctx: DbContext,
+        id: string,
+        version: number,
+        input: z.infer<typeof formUpdateSchema>
+    ): Promise<Form> {
+        const current = await this.writable(tx, ctx, id);
+        if (input.document !== undefined) assertReadable(input.document);
+        const hash = input.document !== undefined ? contentHash(input.document) : undefined;
+        await updateAudited(tx, formDefinitions, id, version, {
+            ...(input.name !== undefined ? { name: input.name } : {}),
+            ...(input.category !== undefined ? { category: input.category } : {}),
+            ...(input.active !== undefined ? { active: input.active } : {}),
+            ...(input.document !== undefined ? { document: input.document, documentHash: hash } : {}),
+            // who changed the content (saving the same content again changes nothing)
+            ...(hash !== undefined && hash !== current.documentHash ? { documentUpdatedBy: ctx.userId ?? null } : {})
+        });
+        return this.get(tx, id);
+    }
+
+    async versions(tx: Tx, formId: string): Promise<FormVersionSummary[]> {
+        const form = await this.definition(tx, formId);
+        const rows = await tx
+            .select({
+                id: formVersions.id,
+                formId: formVersions.formId,
+                number: formVersions.number,
+                contentHash: formVersions.contentHash,
+                createdAt: formVersions.createdAt,
+                createdBy: formVersions.createdBy
+            })
+            .from(formVersions)
+            .where(eq(formVersions.formId, formId))
+            .orderBy(desc(formVersions.number))
+            .limit(LIST_LIMIT);
+        return rows.map((v) => ({
+            ...v,
+            createdAt: v.createdAt.toISOString(),
+            published: v.id === form.publishedVersionId
+        }));
+    }
+
+    async version(tx: Tx, formId: string, versionId: string): Promise<FormVersion> {
+        const [row] = await tx
+            .select()
+            .from(formVersions)
+            .where(and(eq(formVersions.id, versionId), eq(formVersions.formId, formId)));
+        if (!row) throw new NotFoundError();
+        return versionOf(row);
+    }
+
+    /** The version people fill in. */
+    async published(tx: Tx, formId: string): Promise<FormVersion> {
+        const form = await this.definition(tx, formId);
+        if (!form.publishedVersionId)
+            throw new ConflictError('not_configured', { detail: 'This form has not been published yet.' });
+        return this.version(tx, formId, form.publishedVersionId);
+    }
+
+    /** Snapshot the working copy and ask for it to be published. */
+    async requestPublication(tx: Tx, ctx: DbContext, formId: string, note?: string): Promise<Publication> {
+        // locked: two requests for one form are made one after the other (version numbers, the open request)
+        const form = await this.writable(tx, ctx, formId, { lock: true });
+        if (!form.active)
+            throw new ConflictError('invalid_transition', { detail: 'This form is switched off: switch it on first.' });
+        const [pending] = await tx
+            .select({ id: formPublications.id })
+            .from(formPublications)
+            .where(and(eq(formPublications.formId, formId), eq(formPublications.status, 'pending')));
+        if (pending)
+            throw new ConflictError('invalid_transition', {
+                detail: 'A publication of this form already waits for approval.'
+            });
+        // a form saved under an older contract is checked again before it can go live
+        assertReadable(form.document);
+        const version = await this.snapshot(tx, form);
+        if (version.id === form.publishedVersionId)
+            throw new ConflictError('invalid_transition', { detail: 'This version of the form is already published.' });
+        try {
+            const row = await insertAudited(tx, formPublications, {
+                regionId: form.regionId,
+                unitId: form.ownerUnitId,
+                formId,
+                formVersionId: version.id,
+                contentBy: form.documentUpdatedBy,
+                note: note ?? null
+            });
+            return (await this.publicationsOf(tx, [row]))[0] as Publication;
+        } catch (error) {
+            if (isUniqueViolation(error, 'form_publications_pending_uq'))
+                throw new ConflictError('invalid_transition', {
+                    detail: 'A publication of this form already waits for approval.',
+                    cause: error
+                });
+            throw error;
+        }
+    }
+
+    async publications(tx: Tx, query: z.infer<typeof publicationListQuerySchema>): Promise<Publication[]> {
+        const rows = await tx
+            .select()
+            .from(formPublications)
+            .where(
+                and(
+                    eq(formPublications.status, query.status),
+                    query.formId ? eq(formPublications.formId, query.formId) : undefined
+                )
+            )
+            .orderBy(desc(formPublications.createdAt), desc(formPublications.id))
+            .limit(LIST_LIMIT);
+        return this.publicationsOf(tx, rows);
+    }
+
+    async approve(tx: Tx, ctx: DbContext, id: string, version: number, note?: string): Promise<Publication> {
+        const publication = await this.pending(tx, ctx, id);
+        const form = await this.writable(tx, ctx, publication.formId, { lock: true });
+        if (!form.active)
+            throw new ConflictError('invalid_transition', {
+                detail: 'This form was switched off: reject the request.'
+            });
+        const previousVersionId = form.publishedVersionId;
+        await updateAudited(tx, formDefinitions, form.id, form.rowVersion, {
+            publishedVersionId: publication.formVersionId,
+            publishedAt: new Date()
+        });
+        const decided = await updateAudited(tx, formPublications, id, version, {
+            status: 'approved',
+            decidedBy: ctx.userId ?? null,
+            decidedAt: new Date(),
+            decisionNote: note ?? null
+        });
+        await emit(
+            tx,
+            'form.published.v1',
+            { formId: form.id, formVersionId: publication.formVersionId, previousVersionId, publicationId: id },
+            { unitId: form.ownerUnitId, regionId: form.regionId }
+        );
+        return (await this.publicationsOf(tx, [decided]))[0] as Publication;
+    }
+
+    async reject(tx: Tx, ctx: DbContext, id: string, version: number, note?: string): Promise<Publication> {
+        await this.pending(tx, ctx, id);
+        const decided = await updateAudited(tx, formPublications, id, version, {
+            status: 'rejected',
+            decidedBy: ctx.userId ?? null,
+            decidedAt: new Date(),
+            decisionNote: note ?? null
+        });
+        return (await this.publicationsOf(tx, [decided]))[0] as Publication;
+    }
+
+    /** The person who asked takes the request back (deciding stays with another person). */
+    async withdraw(tx: Tx, ctx: DbContext, id: string, version: number): Promise<Publication> {
+        const [row] = await tx.select().from(formPublications).where(eq(formPublications.id, id));
+        if (!row) throw new NotFoundError();
+        if (row.status !== 'pending')
+            throw new ConflictError('invalid_transition', { detail: 'This request was already decided.' });
+        if (row.createdBy !== ctx.userId)
+            throw new ForbiddenError({ detail: 'Only the person who asked can withdraw the request.' });
+        const withdrawn = await updateAudited(tx, formPublications, id, version, {
+            status: 'withdrawn',
+            decidedBy: ctx.userId ?? null,
+            decidedAt: new Date()
+        });
+        return (await this.publicationsOf(tx, [withdrawn]))[0] as Publication;
+    }
+
+    // ---- helpers ----
+
+    /** A form the caller may read (its own, its subtree's, or an ancestor's). */
+    async definition(tx: Tx, id: string): Promise<DefinitionRow> {
+        const [row] = await tx.select().from(formDefinitions).where(eq(formDefinitions.id, id));
+        if (!row) throw new NotFoundError();
+        return row;
+    }
+
+    /** A form the caller's unit owns or is above: one of an office above is read-only here. */
+    private async writable(
+        tx: Tx,
+        ctx: DbContext,
+        id: string,
+        options: { lock?: boolean } = {}
+    ): Promise<DefinitionRow> {
+        const row = await this.definition(tx, id);
+        if (!withinScope(row.orgPath, ctx.scopePath ?? ''))
+            throw new ForbiddenError({ detail: 'This form belongs to an office above yours.' });
+        if (!options.lock) return row;
+        // locked only once it is known to be the caller's (a lock also applies the UPDATE policy)
+        const [locked] = await tx.select().from(formDefinitions).where(eq(formDefinitions.id, id)).for('update');
+        if (!locked) throw new NotFoundError();
+        return locked;
+    }
+
+    /** The version holding the working copy: the existing one with its content, or a new one numbered after the last. */
+    private async snapshot(tx: Tx, form: DefinitionRow): Promise<VersionRow> {
+        const [existing] = await tx
+            .select()
+            .from(formVersions)
+            .where(and(eq(formVersions.formId, form.id), eq(formVersions.contentHash, form.documentHash)));
+        if (existing) return existing;
+        const [last] = await tx
+            .select({ number: max(formVersions.number) })
+            .from(formVersions)
+            .where(eq(formVersions.formId, form.id));
+        return insertAudited(tx, formVersions, {
+            regionId: form.regionId,
+            ownerUnitId: form.ownerUnitId,
+            formId: form.id,
+            number: (last?.number ?? 0) + 1,
+            contentHash: form.documentHash,
+            document: form.document
+        });
+    }
+
+    /** A request waiting for a decision, decided by someone other than who asked and who wrote the content (SEC-AC-6). */
+    private async pending(tx: Tx, ctx: DbContext, id: string): Promise<PublicationRow> {
+        const [row] = await tx.select().from(formPublications).where(eq(formPublications.id, id));
+        if (!row) throw new NotFoundError();
+        if (row.status !== 'pending')
+            throw new ConflictError('invalid_transition', { detail: 'This request was already decided.' });
+        if (row.createdBy && row.createdBy === ctx.userId)
+            throw new ForbiddenError({
+                detail: 'Who asks for a publication cannot approve it: another person decides.',
+                audit: { reason: 'separation_of_duties', publicationId: id }
+            });
+        if (row.contentBy && row.contentBy === ctx.userId)
+            throw new ForbiddenError({
+                detail: 'Who changed the form cannot approve its publication: another person decides.',
+                audit: { reason: 'separation_of_duties', publicationId: id }
+            });
+        return row;
+    }
+
+    private async summaries(tx: Tx, rows: readonly DefinitionRow[]): Promise<FormSummary[]> {
+        if (rows.length === 0) return [];
+        const ids = rows.map((r) => r.id);
+        const published = rows.map((r) => r.publishedVersionId).filter((v): v is string => Boolean(v));
+        const versions = published.length
+            ? await tx
+                  .select({ id: formVersions.id, number: formVersions.number, contentHash: formVersions.contentHash })
+                  .from(formVersions)
+                  .where(inArray(formVersions.id, published))
+            : [];
+        const byId = new Map(versions.map((v) => [v.id, v]));
+        const pending = new Set(
+            (
+                await tx
+                    .select({ formId: formPublications.formId })
+                    .from(formPublications)
+                    .where(and(inArray(formPublications.formId, ids), eq(formPublications.status, 'pending')))
+            ).map((p) => p.formId)
+        );
+        const units = await unitRefs(
+            tx,
+            rows.map((r) => r.ownerUnitId)
+        );
+        return rows.map((row) => {
+            const live = row.publishedVersionId ? byId.get(row.publishedVersionId) : undefined;
+            return {
+                id: row.id,
+                version: row.rowVersion,
+                key: row.key,
+                name: row.name,
+                category: row.category,
+                active: row.active,
+                status: pending.has(row.id)
+                    ? 'pending'
+                    : live && live.contentHash === row.documentHash
+                      ? 'published'
+                      : 'draft',
+                ownerUnit: unitOf(units, row.ownerUnitId),
+                publishedVersion:
+                    live && row.publishedAt
+                        ? { id: live.id, number: live.number, publishedAt: row.publishedAt.toISOString() }
+                        : null,
+                updatedAt: row.updatedAt.toISOString()
+            };
+        });
+    }
+
+    private async publicationsOf(tx: Tx, rows: readonly PublicationRow[]): Promise<Publication[]> {
+        if (rows.length === 0) return [];
+        const forms = await tx
+            .select({ id: formDefinitions.id, name: formDefinitions.name })
+            .from(formDefinitions)
+            .where(inArray(formDefinitions.id, [...new Set(rows.map((r) => r.formId))]));
+        const versions = await tx
+            .select({ id: formVersions.id, number: formVersions.number })
+            .from(formVersions)
+            .where(inArray(formVersions.id, [...new Set(rows.map((r) => r.formVersionId))]));
+        const names = new Map(forms.map((f) => [f.id, f.name]));
+        const numbers = new Map(versions.map((v) => [v.id, v.number]));
+        return rows.map((r) => ({
+            id: r.id,
+            version: r.rowVersion,
+            formId: r.formId,
+            formName: names.get(r.formId) ?? {},
+            formVersion: { id: r.formVersionId, number: numbers.get(r.formVersionId) ?? 0 },
+            status: r.status,
+            note: r.note,
+            requestedBy: r.createdBy,
+            requestedAt: r.createdAt.toISOString(),
+            decidedBy: r.decidedBy,
+            decidedAt: r.decidedAt?.toISOString() ?? null,
+            decisionNote: r.decisionNote
+        }));
+    }
+}
+
+export const versionOf = (row: VersionRow): FormVersion => ({
+    id: row.id,
+    formId: row.formId,
+    number: row.number,
+    contentHash: row.contentHash,
+    document: row.document,
+    createdAt: row.createdAt.toISOString(),
+    createdBy: row.createdBy
+});
+
+export function unitOf(units: ReadonlyMap<string, UnitRef>, id: string): UnitRef {
+    return units.get(id) ?? { id, code: '', name: {} };
+}
