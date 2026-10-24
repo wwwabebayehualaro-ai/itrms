@@ -13,7 +13,8 @@ import { baseColumns, ltree } from '../db/columns';
 import { withRls } from '../db/rls';
 import { orgUnits } from '../org/org.table';
 
-export const FILE_STATUSES = ['pending', 'stored', 'rejected', 'expired'] as const;
+/** `checking`: one confirmation holds the upload while it copies and checks it (a second one waits its turn) */
+export const FILE_STATUSES = ['pending', 'checking', 'stored', 'rejected', 'expired'] as const;
 export type FileStatus = (typeof FILE_STATUSES)[number];
 
 export const files = withRls(
@@ -53,9 +54,13 @@ export const files = withRls(
             (t) => [
                 index('files_org_path_gist').using('gist', t.orgPath),
                 index('files_linked_idx').on(t.linkedTable, t.linkedId),
+                // exactly what the purge selects (jobs/files-purge.ts), stored files waiting for a link included: the
+                // linked ones, which are most of the table, stay out of it
                 index('files_purge_idx')
                     .on(t.expiresAt)
-                    .where(sql`${t.status} in ('pending', 'rejected')`),
+                    .where(
+                        sql`${t.status} in ('pending', 'checking', 'rejected') or (${t.status} = 'stored' and ${t.linkedId} is null)`
+                    ),
                 index('files_created_by_idx').on(t.createdBy, t.status)
             ]
         )

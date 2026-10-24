@@ -16,3 +16,19 @@ Layer: kernel. Shape, public entries and rules: [code-structure.md](../../docs/p
 | `./web/server`, `./web/client` | screens and route map; embeddable client components |
 | `./messages/*` | `am`, `en`, `wal-Latn` catalogues, keys `kernel.<area>.<key>` |
 | `./seed` | service definitions, unit-type defaults, demo generators |
+| `./files` | uploaded files: the `ObjectStore` port, the `files` table, `linkFile` / `getFile` for other slices |
+
+## Files (task 0.15, architecture §14)
+
+Endpoints (`/api/v1/files`): `POST` begins an upload (`file:upload`) and answers a presigned POST, or part URLs above
+16 MiB; `POST :id/confirm` checks and stores it (`file:upload`, only who uploaded it); `GET :id` and `GET :id/download`
+(`file:read`, the uploading unit's subtree under RLS) answer the file and a short download URL.
+
+* An upload goes to `quarantine/`. Confirming claims it (`checking`), copies it to `files/`, and checks the copy: size,
+  magic bytes against the declared type, SHA-256. Then it is `stored`, or `rejected` and removed.
+* A record's service calls `linkFile(tx, id, { table, id, documentType })` in its own transaction. A file belongs to one
+  record, and a linked file no longer expires.
+* Limits per person: 20 files or 200 MiB waiting, 1 GiB a day; at most 50 MiB a file.
+* The worker's hourly purge (`jobs/files-purge.ts`) expires uploads not confirmed in 24 hours and stored files no record
+  linked in a week, then removes their objects and quarantine leftovers.
+* `S3ObjectStore` (`@itrms/integrations`) implements the port; the S3 contract suite proves what it relies on.

@@ -40,7 +40,7 @@ export async function purgeExpiredUploads(
                     and(
                         lte(files.expiresAt, new Date(now)),
                         or(
-                            inArray(files.status, ['pending', 'rejected'] as FileStatus[]),
+                            inArray(files.status, ['pending', 'checking', 'rejected'] as FileStatus[]),
                             and(eq(files.status, 'stored'), isNull(files.linkedId))
                         )
                     )
@@ -51,14 +51,15 @@ export async function purgeExpiredUploads(
     let removed = 0;
     for (const row of due) {
         try {
-            if (row.uploadId) await store.abortMultipart(row.objectKey, row.uploadId).catch(() => undefined);
-            await store.delete(row.objectKey);
-            // on the version read: a file confirmed or linked meanwhile is left as it is
+            // the row first, on the version read: a file confirmed or linked meanwhile is left as it is, object and all.
+            // An object whose removal then fails stays behind unreachable (no row serves it), never a record without it
             await system.systemContext(
                 REASON,
                 (tx) => updateAudited(tx, files, row.id, row.rowVersion, { status: 'expired', uploadId: null }),
                 recurring
             );
+            if (row.uploadId) await store.abortMultipart(row.objectKey, row.uploadId).catch(() => undefined);
+            await store.delete(row.objectKey);
             removed++;
         } catch (error) {
             onError(error, row.id);
@@ -72,7 +73,7 @@ export async function purgeExpiredUploads(
             tx
                 .select({ key: files.objectKey, uploadId: files.uploadId })
                 .from(files)
-                .where(eq(files.status, 'pending')),
+                .where(inArray(files.status, ['pending', 'checking'] as FileStatus[])),
         recurring
     );
     const ownedKeys = new Set(waiting.map((w) => w.key));

@@ -23,7 +23,7 @@ import { rolePermissions } from '@itrms/kernel/iam';
 import { findUnitByCode, importOrg, orgUnits, parseOrgYaml, type OrgUnit } from '@itrms/kernel/org';
 import { importUsers, userImportSchema } from '@itrms/kernel/seed';
 import { asUnit } from '@itrms/kernel/testing';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -456,6 +456,77 @@ describe('what the review asked of uploads (task 0.15)', () => {
     });
 });
 
+describe('what the second review asked (task 0.15)', () => {
+    it('confirms an upload once: a second confirmation at the same time never replaces or removes what was checked', async () => {
+        const bytes = pdf(4096);
+        const { ticket, sent } = await upload(bytes);
+        expect(sent.status).toBe(204);
+        const answers = await Promise.all([confirm(ticket.file.id), confirm(ticket.file.id)]);
+        const codes = answers.map((a) => a.statusCode).sort();
+        expect(codes).toContain(200);
+        expect(codes.every((c) => c === 200 || c === 409)).toBe(true);
+
+        const link = await call('GET', `/api/v1/files/${ticket.file.id}/download`, damot());
+        expect(link.statusCode).toBe(200);
+        const got = await fetch(link.json<{ url: string }>().url);
+        expect(Buffer.from(await got.arrayBuffer()).equals(bytes)).toBe(true);
+    });
+
+    it('refuses a confirmation while another one checks the upload', async () => {
+        const { ticket } = await upload(pdf(600));
+        await owner.query("update kernel.files set status = 'checking' where id = $1", [ticket.file.id]);
+        const answer = await confirm(ticket.file.id);
+        expect(answer.statusCode).toBe(409);
+        expect(answer.json<{ code: string }>().code).toBe('invalid_transition');
+    });
+
+    it('never links a file past its week', async () => {
+        const { ticket } = await upload(pdf(650));
+        expect((await confirm(ticket.file.id)).statusCode).toBe(200);
+        await owner.query("update kernel.files set expires_at = now() - interval '1 minute' where id = $1", [
+            ticket.file.id
+        ]);
+        await expect(
+            asUnit(app, units.damot, (tx) =>
+                linkFile(tx, ticket.file.id, { table: 'parties.persons', id: randomUUID() })
+            )
+        ).rejects.toMatchObject({ code: 'invalid_transition' });
+    });
+
+    it('leaves a file that a record links while the purge runs, object and all', async () => {
+        const { ticket } = await upload(pdf(900));
+        expect((await confirm(ticket.file.id)).statusCode).toBe(200);
+        await owner.query("update kernel.files set expires_at = now() + interval '1 minute' where id = $1", [
+            ticket.file.id
+        ]);
+        const system = createSystemDatabase(pg.url('system'), { onUse: () => undefined });
+        const failed: string[] = [];
+        let purging: Promise<number> | undefined;
+        try {
+            await asUnit(app, units.damot, async (tx) => {
+                await linkFile(tx, ticket.file.id, { table: 'parties.persons', id: randomUUID() });
+                // two minutes on, the purge finds the file unlinked (this link is not committed yet) and waits for its row
+                purging = purgeExpiredUploads(system, store, {
+                    now: Date.now() + 120_000,
+                    onError: (_, what) => failed.push(what)
+                });
+                await new Promise((resolve) => setTimeout(resolve, 500));
+            });
+            await purging;
+        } finally {
+            await system.close();
+        }
+        expect(failed).toContain(ticket.file.id);
+        const { rows } = await owner.query<{ status: string; linked_id: string | null; object_key: string }>(
+            'select status, linked_id, object_key from kernel.files where id = $1',
+            [ticket.file.id]
+        );
+        expect(rows[0]?.status).toBe('stored');
+        expect(rows[0]?.linked_id).not.toBeNull();
+        expect(await store.head(rows[0]?.object_key ?? '')).toBeDefined();
+    });
+});
+
 describe('the purge', () => {
     it('expires uploads never confirmed after 24 hours, removing their objects and open parts', async () => {
         const { ticket, sent } = await upload(pdf(512));
@@ -506,7 +577,7 @@ describe('the purge', () => {
 
     it('bounds what one person may have waiting', async () => {
         const { rows } = await owner.query<{ n: number }>(
-            "select count(*)::int as n from kernel.files where status = 'pending' and created_by = (select id from kernel.users where keycloak_sub = $1)",
+            "select count(*)::int as n from kernel.files where status in ('pending', 'checking') and created_by = (select id from kernel.users where keycloak_sub = $1)",
             [SUB.damotRecords]
         );
         const free = 20 - (rows[0]?.n ?? 0);
@@ -528,5 +599,58 @@ describe('the purge', () => {
             sha256: sha256(pdf(10))
         });
         expect(over.statusCode).toBe(429);
+    });
+});
+
+describe('kernel.files at scale', () => {
+    it('finds what the purge removes and what one person has waiting from their indexes (EXPLAIN, under RLS)', async () => {
+        // what the table mostly holds: stored files that records link, each by its own uploader
+        await owner.query(
+            `insert into kernel.files (id, region_id, unit_id, status, filename, content_type, size, sha256, object_key,
+                 document_type, linked_table, linked_id, confirmed_at, created_by)
+             select g.id, $1, $2, 'stored', 'scan.pdf', 'application/pdf', 1000, repeat('a', 64),
+                 'files/' || $3 || '/' || g.id, 'id_card', 'parties.persons', gen_random_uuid(), now(),
+                 gen_random_uuid()
+             from (select gen_random_uuid() as id from generate_series(1, 5000)) g`,
+            [units.damot.regionId, units.damot.id, units.damot.regionId]
+        );
+        await owner.query('analyze kernel.files');
+        const planOf = (rows: Record<string, unknown>[]) => rows.map((r) => String(r['QUERY PLAN'])).join('\n');
+
+        // jobs/files-purge.ts, as the worker runs it
+        const system = createSystemDatabase(pg.url('system'), { onUse: () => undefined });
+        const purge = await system
+            .systemContext('files.purge', async (tx) =>
+                planOf(
+                    (
+                        await tx.execute(
+                            sql`explain select * from kernel.files where expires_at <= ${new Date()}
+                                 and (status in ('pending', 'checking', 'rejected')
+                                      or (status = 'stored' and linked_id is null)) limit 500`
+                        )
+                    ).rows
+                )
+            )
+            .finally(() => system.close());
+        process.stdout.write(`EXPLAIN files due for the purge:\n${purge}\n`);
+        expect(purge).toContain('files_purge_idx');
+
+        // files.ts beginUpload, as Damot Gale under RLS: one person's waiting files and today's bytes
+        const { rows } = await owner.query<{ created_by: string }>(
+            "select created_by from kernel.files where filename = 'scan.pdf' and created_by is not null limit 1"
+        );
+        const person = rows[0]?.created_by ?? '';
+        const quota = await asUnit(app, units.damot, async (tx) =>
+            planOf(
+                (
+                    await tx.execute(
+                        sql`explain select count(*), sum(size) from kernel.files
+                             where created_by = ${person} and status in ('pending', 'checking')`
+                    )
+                ).rows
+            )
+        );
+        process.stdout.write(`EXPLAIN one person's waiting files under RLS:\n${quota}\n`);
+        expect(quota).toContain('files_created_by_idx');
     });
 });

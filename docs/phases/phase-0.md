@@ -388,12 +388,14 @@ Split on 2026-10-21 (scope too large for one session): the BFF sign-in moved to 
   - bucket listing through Nginx is denied;
   - orphaned uploads are purged after 24 h.
 - **Tests:** API integration with the S3 container; authorization tests; the purge job test.
-- **Done (2026-10-23):** `@itrms/kernel/files` (the `ObjectStore` port, `kernel.files` class T, begin, confirm, link,
+- **Done (2026-10-24):** `@itrms/kernel/files` (the `ObjectStore` port, `kernel.files` class T, begin, confirm, link,
   download) and `S3ObjectStore` in `@itrms/integrations`. Browsers reach the store on the app's own origin under
-  `/files`: the API signs for the store's address and Nginx (a Next rewrite in development) forwards with the store's Host,
-  so there is no CORS and no other origin in the CSP. Up to 16 MiB in one POST policy of exactly the declared size and type;
-  above, parts of 8 MiB with the length signed; at most 50 MiB, 20 files or 200 MiB waiting per person. The worker purges
-  every hour; the bucket also has a lifecycle rule. Nginx's /files rules are proven on a real Nginx in front of SeaweedFS
+  `/files`: the API signs for the store's address and Nginx (a Next route with Nginx's rules in development) forwards
+  with the store's Host, so there is no CORS and no other origin in the CSP. Up to 16 MiB in one POST policy of exactly
+  the declared size and type; above, parts of 8 MiB with the length signed; at most 50 MiB, 20 files or 200 MiB waiting
+  and 1 GiB a day per person. A confirmation claims the upload (`checking`) and checks a copy taken out of quarantine.
+  The worker purges every hour, expiring the row before removing the object, so a file linked meanwhile keeps it; the
+  bucket also has a lifecycle rule. Nginx's /files rules are proven on a real Nginx in front of SeaweedFS
   (`files-nginx.int.spec.ts`).
 
 ### 0.16 Forms API port with server-side validation

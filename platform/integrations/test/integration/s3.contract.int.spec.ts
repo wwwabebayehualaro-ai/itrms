@@ -67,7 +67,7 @@ async function pendingUploads(Prefix: string): Promise<string[]> {
 }
 
 /** A presigned POST as the browser sends it (architecture §14: small files, size and type conditions). */
-async function postUpload(Key: string, size: number, sentType: string) {
+async function postUpload(Key: string, size: number, sentType: string, sentKey = Key) {
     const { url, fields } = await createPresignedPost(s3, {
         Bucket,
         Key,
@@ -79,7 +79,8 @@ async function postUpload(Key: string, size: number, sentType: string) {
         Expires: 300
     });
     const form = new FormData();
-    for (const [k, v] of Object.entries(fields)) form.append(k, k === 'Content-Type' ? sentType : v);
+    for (const [k, v] of Object.entries(fields))
+        form.append(k, k === 'Content-Type' ? sentType : k === 'key' ? sentKey : v);
     form.append('file', new Blob([new Uint8Array(size)], { type: sentType }));
     return fetch(url, { method: 'POST', body: form });
 }
@@ -121,6 +122,15 @@ describe('presigned POST: small uploads with size and type conditions (architect
     it('refuses a file of another content type, and stores nothing', async () => {
         const Key = `${prefix}post/wrong-type.pdf`;
         expect((await postUpload(Key, 10, 'text/html')).status).toBe(403);
+        expect(await exists(Key)).toBe(false);
+    });
+
+    it('refuses a form whose key is not the signed one, and stores nothing at either', async () => {
+        // one upload ticket must never write another file's key (a stored, checked file of someone else)
+        const Key = `${prefix}post/signed.pdf`;
+        const other = `${prefix}post/someone-else.pdf`;
+        expect((await postUpload(Key, 10, 'application/pdf', other)).status).toBe(403);
+        expect(await exists(other)).toBe(false);
         expect(await exists(Key)).toBe(false);
     });
 });

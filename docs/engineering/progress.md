@@ -4,7 +4,7 @@
 > Update it with the CLI or the `/task-*` skills. Rules: [workflow.md](workflow.md). Statuses: planned, ready, in progress,
 > in review, done, blocked. Only the product owner moves a task to **done**.
 
-Last updated: 2026-10-22. Planning: done (docs/reviews/2026-10-18-design-review.md (30 findings resolved); business questionnaire sent via the Wolaita channel).
+Last updated: 2026-10-24. Planning: done (docs/reviews/2026-10-18-design-review.md (30 findings resolved); business questionnaire sent via the Wolaita channel).
 
 ## Phase 0: Core and demo — 20/33 done (61%)
 
@@ -223,3 +223,6 @@ Last updated: 2026-10-22. Planning: done (docs/reviews/2026-10-18-design-review.
 | 98 | 0.15 | The legacy form-template settings still upload through files/upload (apps/web/src/lib/api/useFileUpload.ts): move them to /api/v1/files | 0.16 | open |
 | 99 | 0.15 | Confirmation hashes the whole object in the request (up to 50 MiB): move the checks into the worker with the virus scan (ADR-0022) | Phase 1 | open |
 | 100 | 0.15 | The Nginx exposure test runs nginx:1.27-alpine (the image on hand): pin the production image and use it in the test | 0.26 | open |
+| 101 | 0.15 | Upload quota is counted under unit RLS: a person with roles in several units gets the quota once per unit; count per person outside unit scope (security review L1) | 0.26 | open |
+| 102 | 0.15 | File-name filter misses some invisible characters (U+061C, U+200C/D, U+2028/9, U+2060-2064, U+FEFF): refuse Cf/Zl/Zp (keep ZWJ/ZWNJ if Ethiopic input needs them), same in Zod and files_name_check (security review L3) | 0.26 | open |
+| 103 | 0.15 | Dev /files route: refuse '.'/'..' path segments; check that an S3 SDK error on confirm reaches the client only as a generic 500 (security review L4) | 0.26 | open |

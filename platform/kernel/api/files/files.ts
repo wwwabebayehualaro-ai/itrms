@@ -13,7 +13,7 @@
  *                extension is the type its bytes showed.
  *   5. purge     the worker removes what expired, and quarantine leftovers (jobs/files-purge.ts).
  */
-import { and, count, eq, gte, sql, sum } from 'drizzle-orm';
+import { and, count, eq, gte, inArray, sql, sum } from 'drizzle-orm';
 
 import {
     PART_SIZE,
@@ -92,7 +92,7 @@ export async function beginUpload(
     const [waiting] = await tx
         .select({ files: count(), bytes: sum(files.size) })
         .from(files)
-        .where(and(eq(files.createdBy, ctx.userId), eq(files.status, 'pending')));
+        .where(and(eq(files.createdBy, ctx.userId), inArray(files.status, ['pending', 'checking'] as const)));
     const [today] = await tx
         .select({ bytes: sum(files.size) })
         .from(files)
@@ -153,9 +153,11 @@ const still = (row: FileRow) =>
     new ConflictError('stale_version', { detail: `The upload ${row.id} changed meanwhile: confirm it again.` });
 
 /**
- * Checks an upload and stores it. The checks read objects (outside any transaction: a large file takes time); the outcome
- * is written in one, on the version read at the start, so a purge or a second confirmation meanwhile is not overwritten.
- * Confirming a stored file again answers it as it is.
+ * Checks an upload and stores it. The confirmation first claims the upload (`checking`, on the version read), so a
+ * second one at the same time is refused instead of copying over what this one checks. The checks read objects (outside
+ * any transaction: a large file takes time); the outcome is written on the claimed version, so a purge meanwhile is not
+ * overwritten. Whatever fails before an outcome hands the upload back (`pending`). Confirming a stored file again
+ * answers it as it is.
  */
 export async function confirmUpload(
     db: Database,
@@ -164,12 +166,48 @@ export async function confirmUpload(
     id: string,
     parts?: { partNumber: number; etag: string }[]
 ): Promise<StoredFile> {
-    const row = await db.scoped(ctx, (tx) => getFile(tx, id));
-    if (row.createdBy !== ctx.userId) throw new ForbiddenError({ detail: 'Only who uploaded a file confirms it.' });
-    if (row.status === 'stored') return fileOut(row);
-    if (row.status !== 'pending' || (row.expiresAt && row.expiresAt.getTime() <= Date.now()))
+    const read = await db.scoped(ctx, (tx) => getFile(tx, id));
+    if (read.createdBy !== ctx.userId) throw new ForbiddenError({ detail: 'Only who uploaded a file confirms it.' });
+    if (read.status === 'stored') return fileOut(read);
+    if (read.status === 'checking')
+        throw new ConflictError('invalid_transition', { detail: 'This upload is being checked: ask again shortly.' });
+    if (read.status !== 'pending' || (read.expiresAt && read.expiresAt.getTime() <= Date.now()))
         throw new ConflictError('invalid_transition', { detail: 'This upload was refused or has expired.' });
+    const row = await db.scoped(ctx, (tx) => updateAudited(tx, files, id, read.rowVersion, { status: 'checking' }));
+    let outcome = false;
+    try {
+        const stored = await checkAndStore(db, store, ctx, row, parts);
+        outcome = true;
+        return stored;
+    } catch (error) {
+        if (error instanceof Refused) {
+            outcome = true;
+            throw error.reason;
+        }
+        throw error;
+    } finally {
+        if (!outcome)
+            await db
+                .scoped(ctx, (tx) => updateAudited(tx, files, id, row.rowVersion, { status: 'pending' }))
+                .catch(() => undefined);
+    }
+}
 
+/** A refusal already written as the outcome (`rejected`): the claim is not handed back. */
+class Refused extends Error {
+    constructor(readonly reason: Error) {
+        super(reason.message);
+    }
+}
+
+async function checkAndStore(
+    db: Database,
+    store: ObjectStore,
+    ctx: DbContext,
+    row: FileRow,
+    parts?: { partNumber: number; etag: string }[]
+): Promise<StoredFile> {
+    const id = row.id;
     if (row.uploadId) {
         if (!parts?.length)
             throw new ValidationError('validation_failed', {
@@ -198,10 +236,12 @@ export async function confirmUpload(
         await db.scoped(ctx, (tx) =>
             updateAudited(tx, files, id, row.rowVersion, { status: 'rejected', rejectReason: reason, uploadId: null })
         );
-        throw new ValidationError('validation_failed', {
-            detail,
-            errors: [{ path: 'file', code: reason, message: detail }]
-        });
+        throw new Refused(
+            new ValidationError('validation_failed', {
+                detail,
+                errors: [{ path: 'file', code: reason, message: detail }]
+            })
+        );
     };
     const object = await store.head(key);
     if (!object || object.size !== row.size)
@@ -215,7 +255,7 @@ export async function confirmUpload(
     try {
         return await db.scoped(ctx, async (tx) => {
             const current = await getFile(tx, id);
-            if (current.status !== 'pending' || current.rowVersion !== row.rowVersion) throw still(row);
+            if (current.status !== 'checking' || current.rowVersion !== row.rowVersion) throw still(row);
             const stored = await updateAudited(tx, files, id, row.rowVersion, {
                 status: 'stored',
                 objectKey: key,
@@ -263,6 +303,9 @@ export async function linkFile(
     const row = await getFile(tx, id);
     if (row.status !== 'stored')
         throw new ConflictError('invalid_transition', { detail: 'Only a confirmed upload can be attached.' });
+    // past its week the purge may already be removing it: a record never gets a file that is going
+    if (row.expiresAt && row.expiresAt.getTime() <= Date.now())
+        throw new ConflictError('invalid_transition', { detail: 'This upload has expired: upload it again.' });
     if (row.linkedId && (row.linkedId !== to.id || row.linkedTable !== to.table))
         throw new ConflictError('invalid_transition', { detail: 'This file is attached to another record.' });
     const linked = await updateAudited(tx, files, id, row.rowVersion, {

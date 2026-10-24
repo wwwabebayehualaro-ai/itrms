@@ -83,7 +83,7 @@ export type FileUploadRequest = z.infer<typeof fileUploadRequestSchema>;
 
 export const fileSchema = z.object({
     id: z.uuid(),
-    status: z.enum(['pending', 'stored', 'rejected', 'expired']),
+    status: z.enum(['pending', 'checking', 'stored', 'rejected', 'expired']),
     filename: z.string(),
     contentType: z.string(),
     size: z.number().int(),
