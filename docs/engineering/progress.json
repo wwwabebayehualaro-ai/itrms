@@ -458,12 +458,12 @@
         {
           "id": "0.16a",
           "title": "Forms API: definitions, versions, submissions, server-side validation",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.16a-forms-api",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Design: schema forms with form_definitions and form_versions (config class on the owner unit), form_publications (transaction class, maker-checker) and submissions (transaction class on the handling unit, case_id nullable without a foreign key). Versions are immutable by trigger (only org_path may change, for unit moves) and by grants; their audit row omits the document (the content hash identifies it). Publishing is always maker-checker (SEC-AC-6), not a flag as in the legacy app. A submission names the version it was filled on, which must be the published one (409 stale_version otherwise). Answers are pruned to the form's value fields, hidden values pruned, validated with form-engine/core: 422 validation_failed with errors[{path,code,message}], paths as the engine writes them (items[2].qty). Kernel error codes only. The field-type list for the API comes from a generated form-engine/core file, checked like form:schema. Forms permissions: form:read for every office (READ_ORG); bureau_admin and unit_admin author (create, update, publish); bureau_admin and unit_head approve; submission:create for records officers; submission:read follows the case column of roles-and-permissions.md. unitRefs moved from parties to kernel/org (shared by both slices). The API bundle check now counts only the npm imports of form-engine/core (re2js added to the API)."
         },
         {
           "id": "0.16b",
@@ -1686,6 +1686,41 @@
       "foundIn": "0.15",
       "item": "Dev /files route: refuse '.'/'..' path segments; check that an S3 SDK error on confirm reaches the client only as a generic 500 (security review L4)",
       "movedTo": "0.26"
+    },
+    {
+      "foundIn": "0.16a",
+      "item": "Server-side conditions see only the form's values and user {id, roles}: a rule on data/route/variables (data sources) is evaluated as absent on the server. Lint must refuse a required or visibility rule that depends on client-only scope, or the API must resolve allow-listed data sources",
+      "movedTo": "0.18a"
+    },
+    {
+      "foundIn": "0.16a",
+      "item": "Remote validation (behavior.validation.remote) is not run on the server: RegistryLookup ids must be checked to exist in the caller's region",
+      "movedTo": "0.18"
+    },
+    {
+      "foundIn": "0.16a",
+      "item": "FileUpload values are what the client reports (name, size): store kernel file ids and check each is a stored file of the caller's subtree",
+      "movedTo": "0.18"
+    },
+    {
+      "foundIn": "0.16a",
+      "item": "Computed fields keep the client's value: recompute formulas on the server before validation and storage",
+      "movedTo": "0.17"
+    },
+    {
+      "foundIn": "0.16a",
+      "item": "Editing a submission (PATCH, re-validated on its version, keeping values of role-restricted fields) if the data viewer's record page needs it",
+      "movedTo": "0.16c"
+    },
+    {
+      "foundIn": "0.16a",
+      "item": "visibleToRoles in the designer offers the legacy roles (admin, editor): offer the installation's ITRMS role keys",
+      "movedTo": "0.16c"
+    },
+    {
+      "foundIn": "0.16a",
+      "item": "The legacy runtime.submit.serverAction is not run: a service version names module effects instead",
+      "movedTo": "0.21"
     }
   ]
 }

@@ -1,0 +1,378 @@
+{
+  "$comment": "The shared validation cases (form-platform.md G1, task 0.16a): run by the engine's tests (src/core/cases.spec.ts) and by the API's (apps/api/test/integration/forms.int.spec.ts), so the browser and the server answer every case the same. `errors`: path → message (empty: valid). `stored`: what a submission keeps (submittedValues).",
+  "cases": [
+    {
+      "name": "a required text left empty",
+      "fields": [
+        {
+          "id": "name",
+          "type": "InputText",
+          "props": { "required": true },
+          "behavior": { "validation": { "supported": true } }
+        }
+      ],
+      "values": {},
+      "errors": { "name": "This field is required" },
+      "stored": {}
+    },
+    {
+      "name": "the author's own message for a required field",
+      "fields": [
+        {
+          "id": "name",
+          "type": "InputText",
+          "props": { "required": true },
+          "behavior": { "validation": { "supported": true, "errorMessages": { "required": "ስም ያስፈልጋል" } } }
+        }
+      ],
+      "values": { "name": "" },
+      "errors": { "name": "ስም ያስፈልጋል" },
+      "stored": { "name": "" }
+    },
+    {
+      "name": "an email that is not one",
+      "fields": [
+        {
+          "id": "email",
+          "type": "InputText",
+          "props": {},
+          "behavior": { "validation": { "supported": true, "types": ["email"] } }
+        }
+      ],
+      "values": { "email": "not-an-email" },
+      "errors": { "email": "Please enter a valid email address" },
+      "stored": { "email": "not-an-email" }
+    },
+    {
+      "name": "a number below its minimum, the minimum in the author's message",
+      "fields": [
+        {
+          "id": "age",
+          "type": "InputNumber",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true,
+              "rules": { "min": 18 },
+              "errorMessages": { "min": "ዕድሜ ቢያንስ {min} መሆን አለበት" }
+            }
+          }
+        }
+      ],
+      "values": { "age": 16 },
+      "errors": { "age": "ዕድሜ ቢያንስ 18 መሆን አለበት" },
+      "stored": { "age": 16 }
+    },
+    {
+      "name": "a number above its maximum, sent as text",
+      "fields": [
+        {
+          "id": "seats",
+          "type": "InputNumber",
+          "props": {},
+          "behavior": { "validation": { "supported": true, "rules": { "max": 100 } } }
+        }
+      ],
+      "values": { "seats": "150" },
+      "errors": { "seats": "Cannot be more than 100" },
+      "stored": { "seats": "150" }
+    },
+    {
+      "name": "a value that does not match the pattern (RE2)",
+      "fields": [
+        {
+          "id": "plate",
+          "type": "InputText",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true,
+              "rules": { "pattern": "^[A-Z]{3}[0-9]{4}$", "patternMessage": "Format: ABC1234" }
+            }
+          }
+        }
+      ],
+      "values": { "plate": "AB12" },
+      "errors": { "plate": "Format: ABC1234" },
+      "stored": { "plate": "AB12" }
+    },
+    {
+      "name": "a text longer than its maximum",
+      "fields": [
+        {
+          "id": "code",
+          "type": "InputText",
+          "props": { "maxLength": 5 },
+          "behavior": { "validation": { "supported": true, "types": ["maxLength"] } }
+        }
+      ],
+      "values": { "code": "abcdefg" },
+      "errors": { "code": "Cannot exceed 5 characters" },
+      "stored": { "code": "abcdefg" }
+    },
+    {
+      "name": "a hidden required field neither blocks nor is stored",
+      "fields": [
+        { "id": "hasLicence", "type": "InputSwitch", "props": {}, "behavior": { "validation": { "supported": true } } },
+        {
+          "id": "licenceNumber",
+          "type": "InputText",
+          "props": { "required": true },
+          "behavior": {
+            "validation": { "supported": true },
+            "visibilityConditions": [{ "field": "hasLicence", "operator": "eq", "value": true }]
+          }
+        }
+      ],
+      "values": { "hasLicence": false, "licenceNumber": "sent anyway" },
+      "errors": {},
+      "stored": { "hasLicence": false }
+    },
+    {
+      "name": "the same field shown blocks when empty",
+      "fields": [
+        { "id": "hasLicence", "type": "InputSwitch", "props": {}, "behavior": { "validation": { "supported": true } } },
+        {
+          "id": "licenceNumber",
+          "type": "InputText",
+          "props": { "required": true },
+          "behavior": {
+            "validation": { "supported": true },
+            "visibilityConditions": [{ "field": "hasLicence", "operator": "eq", "value": true }]
+          }
+        }
+      ],
+      "values": { "hasLicence": true, "licenceNumber": "" },
+      "errors": { "licenceNumber": "This field is required" },
+      "stored": { "hasLicence": true, "licenceNumber": "" }
+    },
+    {
+      "name": "a field in a hidden panel is pruned",
+      "fields": [
+        { "id": "kind", "type": "RadioButton", "props": {}, "behavior": { "validation": { "supported": true } } },
+        {
+          "id": "orgBox",
+          "type": "Panel",
+          "category": "Layout",
+          "props": {},
+          "layout": { "options": { "isContainer": true } },
+          "behavior": { "visibilityConditions": [{ "field": "kind", "operator": "eq", "value": "organisation" }] }
+        },
+        {
+          "id": "tin",
+          "type": "InputText",
+          "parentId": "orgBox",
+          "props": { "required": true },
+          "behavior": { "validation": { "supported": true } }
+        }
+      ],
+      "values": { "kind": "person", "tin": "0012345678" },
+      "errors": {},
+      "stored": { "kind": "person" }
+    },
+    {
+      "name": "a disabled field is not checked, and keeps its value",
+      "fields": [
+        { "id": "locked", "type": "InputSwitch", "props": {}, "behavior": { "validation": { "supported": true } } },
+        {
+          "id": "remark",
+          "type": "InputText",
+          "props": { "required": true },
+          "behavior": {
+            "validation": { "supported": true },
+            "enabledConditions": [{ "field": "locked", "operator": "eq", "value": false }]
+          }
+        }
+      ],
+      "values": { "locked": true, "remark": "" },
+      "errors": {},
+      "stored": { "locked": true, "remark": "" }
+    },
+    {
+      "name": "too few rows",
+      "fields": [
+        {
+          "id": "items",
+          "type": "FormArray",
+          "label": "Items",
+          "category": "Layout",
+          "props": { "minItems": 1 },
+          "layout": { "options": { "isContainer": true } }
+        },
+        {
+          "id": "qty",
+          "type": "InputNumber",
+          "parentId": "items",
+          "props": {},
+          "behavior": { "validation": { "supported": true } }
+        }
+      ],
+      "values": { "items": [] },
+      "errors": { "items": "Items: at least 1 row required" },
+      "stored": { "items": [] }
+    },
+    {
+      "name": "a row's error carries the row's path",
+      "fields": [
+        {
+          "id": "items",
+          "type": "FormArray",
+          "category": "Layout",
+          "props": {},
+          "layout": { "options": { "isContainer": true } }
+        },
+        {
+          "id": "qty",
+          "type": "InputNumber",
+          "parentId": "items",
+          "props": { "required": true },
+          "behavior": { "validation": { "supported": true, "rules": { "min": 1 } } }
+        }
+      ],
+      "values": { "items": [{ "qty": 2 }, { "qty": 0 }] },
+      "errors": { "items[1].qty": "Must be at least 1" },
+      "stored": { "items": [{ "qty": 2 }, { "qty": 0 }] }
+    },
+    {
+      "name": "a condition inside a row reads that row",
+      "fields": [
+        {
+          "id": "items",
+          "type": "FormArray",
+          "category": "Layout",
+          "props": {},
+          "layout": { "options": { "isContainer": true } }
+        },
+        {
+          "id": "qty",
+          "type": "InputNumber",
+          "parentId": "items",
+          "props": {},
+          "behavior": { "validation": { "supported": true } }
+        },
+        {
+          "id": "reason",
+          "type": "InputText",
+          "parentId": "items",
+          "props": { "required": true },
+          "behavior": {
+            "validation": { "supported": true },
+            "visibilityConditions": [{ "field": "qty", "operator": "gt", "value": 10 }]
+          }
+        }
+      ],
+      "values": { "items": [{ "qty": 5, "reason": "not shown" }, { "qty": 20 }] },
+      "errors": { "items[1].reason": "This field is required" },
+      "stored": { "items": [{ "qty": 5 }, { "qty": 20 }] }
+    },
+    {
+      "name": "a required checkbox must be ticked",
+      "fields": [
+        {
+          "id": "agree",
+          "type": "Checkbox",
+          "props": { "required": true },
+          "behavior": { "validation": { "supported": true } }
+        }
+      ],
+      "values": { "agree": false },
+      "errors": { "agree": "This field is required" },
+      "stored": { "agree": false }
+    },
+    {
+      "name": "a required multi-select needs a choice",
+      "fields": [
+        {
+          "id": "grades",
+          "type": "MultiSelect",
+          "props": { "required": true },
+          "behavior": { "validation": { "supported": true } }
+        }
+      ],
+      "values": { "grades": [] },
+      "errors": { "grades": "This field is required" },
+      "stored": { "grades": [] }
+    },
+    {
+      "name": "a date before its minimum",
+      "fields": [
+        {
+          "id": "issuedOn",
+          "type": "Calendar",
+          "props": { "minDate": "2026-01-01" },
+          "behavior": { "validation": { "supported": true } }
+        }
+      ],
+      "values": { "issuedOn": "2025-12-31" },
+      "errors": { "issuedOn": "Date is too early" },
+      "stored": { "issuedOn": "2025-12-31" }
+    },
+    {
+      "name": "keys that are no field of the form are dropped",
+      "fields": [
+        { "id": "name", "type": "InputText", "props": {}, "behavior": { "validation": { "supported": true } } },
+        { "id": "intro", "type": "Divider", "category": "Layout", "props": {} }
+      ],
+      "values": { "name": "Abebe", "extra": 1, "intro": "not a value", "status": "approved" },
+      "errors": {},
+      "stored": { "name": "Abebe" }
+    },
+    {
+      "name": "a key sent as a condition's subject does not show a hidden field",
+      "fields": [
+        {
+          "id": "secret",
+          "type": "InputText",
+          "props": { "required": true },
+          "behavior": {
+            "validation": { "supported": true },
+            "visibilityConditions": [{ "field": "user.role", "operator": "eq", "value": "admin" }]
+          }
+        }
+      ],
+      "values": { "user.role": "admin", "secret": "x" },
+      "errors": {},
+      "stored": {}
+    },
+    {
+      "name": "a complete application passes and is stored as entered",
+      "fields": [
+        {
+          "id": "fullName",
+          "type": "InputText",
+          "props": { "required": true },
+          "behavior": { "validation": { "supported": true } }
+        },
+        {
+          "id": "age",
+          "type": "InputNumber",
+          "props": {},
+          "behavior": { "validation": { "supported": true, "rules": { "min": 18 } } }
+        },
+        {
+          "id": "grade",
+          "type": "Dropdown",
+          "props": { "required": true },
+          "behavior": { "validation": { "supported": true } }
+        },
+        {
+          "id": "items",
+          "type": "FormArray",
+          "category": "Layout",
+          "props": {},
+          "layout": { "options": { "isContainer": true } }
+        },
+        {
+          "id": "qty",
+          "type": "InputNumber",
+          "parentId": "items",
+          "props": { "required": true },
+          "behavior": { "validation": { "supported": true } }
+        }
+      ],
+      "values": { "fullName": "ሐና ተስፋዬ", "age": 24, "grade": "auto-1", "items": [{ "qty": 1 }, { "qty": 3 }] },
+      "errors": {},
+      "stored": { "fullName": "ሐና ተስፋዬ", "age": 24, "grade": "auto-1", "items": [{ "qty": 1 }, { "qty": 3 }] }
+    }
+  ]
+}

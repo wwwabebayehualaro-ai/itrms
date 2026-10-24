@@ -34,5 +34,6 @@ export {
     type OrgImportResult
 } from './org-import';
 export { OrgAdminService, withinScope } from './org-admin.service';
+export { unitRefs, type UnitRef } from './unit-refs';
 export { OrgController } from './org.controller';
 export * from './org.table';

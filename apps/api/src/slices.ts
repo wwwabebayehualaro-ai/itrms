@@ -10,6 +10,8 @@ import competencyEn from '@itrms/competency/messages/en';
 import competencyWal from '@itrms/competency/messages/wal-Latn';
 import documents from '@itrms/documents/manifest';
 import fees from '@itrms/fees/manifest';
+import { FormsModule } from '@itrms/forms/api';
+import { FORMS_EVENTS } from '@itrms/forms/contracts';
 import forms from '@itrms/forms/manifest';
 import integrations from '@itrms/integrations/manifest';
 import { KERNEL_EVENTS } from '@itrms/kernel/contracts';
@@ -32,7 +34,9 @@ export type ApiSlice = InstalledSlice<Type | DynamicModule>;
 
 export const SLICES: ApiSlice[] = [
     { manifest: kernel, events: KERNEL_EVENTS, messages: { am: kernelAm, en: kernelEn, 'wal-Latn': kernelWal } },
-    ...[integrations, forms, fees, documents, workflow, services, reports].map((manifest) => ({ manifest })),
+    { manifest: integrations },
+    { manifest: forms, module: FormsModule, events: FORMS_EVENTS },
+    ...[fees, documents, workflow, services, reports].map((manifest) => ({ manifest })),
     {
         manifest: parties,
         module: PartiesModule,

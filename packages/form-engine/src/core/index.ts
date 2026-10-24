@@ -13,6 +13,8 @@ export {
     initialValueOf,
     emptyRow,
     pruneHidden,
+    knownValues,
+    submittedValues,
     scopeFields,
     holdsValue,
     isListField,
@@ -21,3 +23,6 @@ export {
 } from './values';
 export { validateForm, fieldSchema, parseDate, REMOTE_PENDING } from './validate';
 export type { FieldErrors } from './validate';
+export { checkDocument, MAX_PROBLEMS } from './document';
+export type { DocumentProblem } from './document';
+export { FIELD_TYPES } from './fieldTypes';

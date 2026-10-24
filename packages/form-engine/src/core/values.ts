@@ -131,3 +131,26 @@ export function pruneHidden(
     };
     return prune(null, values, values);
 }
+
+const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+
+/**
+ * Only the values of fields that hold one, at the level where each sits (inside rows too); every other key is dropped. Runs
+ * before the rules: a key that is no field of the form could otherwise stand in for what a condition reads (`user.role`).
+ */
+export function knownValues(fields: EngineField[], values: Record<string, unknown>): Record<string, unknown> {
+    const keep = (parentId: string | null, current: Record<string, unknown>) => {
+        const out: Record<string, unknown> = {};
+        for (const f of scopeFields(fields, parentId)) {
+            if (!holdsValue(f) || !Object.hasOwn(current, f.id)) continue;
+            const v = current[f.id];
+            out[f.id] = isFormArray(f) && Array.isArray(v) ? v.map((row) => keep(f.id, isRecord(row) ? row : {})) : v;
+        }
+        return out;
+    };
+    return keep(null, values);
+}
+
+/** What a submission stores: the form's own values (`knownValues`) without those of hidden fields (`pruneHidden`). */
+export const submittedValues = (fields: EngineField[], values: Record<string, unknown>, scope: Scope = {}) =>
+    pruneHidden(fields, knownValues(fields, values), scope);

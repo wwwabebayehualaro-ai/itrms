@@ -244,6 +244,121 @@
         ],
         "type": "object"
       },
+      "FormCreateDto": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "document": {
+            "anyOf": [
+              {
+                "additionalProperties": {},
+                "propertyNames": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "items": {},
+                "type": "array"
+              }
+            ]
+          },
+          "key": {
+            "maxLength": 80,
+            "minLength": 2,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "name": {
+            "additionalProperties": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "properties": {
+              "am": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "en": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "am",
+              "en"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "document"
+        ],
+        "type": "object"
+      },
+      "FormUpdateDto": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "document": {
+            "anyOf": [
+              {
+                "additionalProperties": {},
+                "propertyNames": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "items": {},
+                "type": "array"
+              }
+            ]
+          },
+          "name": {
+            "additionalProperties": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "properties": {
+              "am": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "en": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "am",
+              "en"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
       "GrantDto": {
         "additionalProperties": false,
         "properties": {
@@ -990,6 +1105,28 @@
         "title": "Problem",
         "type": "object"
       },
+      "PublicationDecisionDto": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "PublicationRequestDto": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "RenameUnitDto": {
         "additionalProperties": false,
         "properties": {
@@ -1073,6 +1210,35 @@
         },
         "required": [
           "value"
+        ],
+        "type": "object"
+      },
+      "SubmissionCreateDto": {
+        "additionalProperties": false,
+        "properties": {
+          "answers": {
+            "additionalProperties": {},
+            "propertyNames": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "formId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "formVersionId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "formId",
+          "formVersionId",
+          "answers"
         ],
         "type": "object"
       }
@@ -1223,6 +1389,344 @@
         },
         "tags": [
           "Files"
+        ]
+      }
+    },
+    "/api/v1/form-publications": {
+      "get": {
+        "operationId": "PublicationsController_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "pending",
+              "enum": [
+                "pending",
+                "approved",
+                "rejected"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "formId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Publications"
+        ]
+      }
+    },
+    "/api/v1/form-publications/{id}/approval": {
+      "post": {
+        "operationId": "PublicationsController_approve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicationDecisionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Publications"
+        ]
+      }
+    },
+    "/api/v1/form-publications/{id}/rejection": {
+      "post": {
+        "operationId": "PublicationsController_reject",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicationDecisionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Publications"
+        ]
+      }
+    },
+    "/api/v1/forms": {
+      "get": {
+        "operationId": "FormsController_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "active",
+            "required": false,
+            "schema": {
+              "enum": [
+                "true",
+                "false"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
+        ]
+      },
+      "post": {
+        "operationId": "FormsController_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FormCreateDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
+        ]
+      }
+    },
+    "/api/v1/forms/{id}": {
+      "get": {
+        "operationId": "FormsController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
+        ]
+      },
+      "patch": {
+        "operationId": "FormsController_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FormUpdateDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
+        ]
+      }
+    },
+    "/api/v1/forms/{id}/publications": {
+      "post": {
+        "operationId": "FormsController_requestPublication",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicationRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
+        ]
+      }
+    },
+    "/api/v1/forms/{id}/versions": {
+      "get": {
+        "operationId": "FormsController_versions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
+        ]
+      }
+    },
+    "/api/v1/forms/{id}/versions/published": {
+      "get": {
+        "operationId": "FormsController_published",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
+        ]
+      }
+    },
+    "/api/v1/forms/{id}/versions/{versionId}": {
+      "get": {
+        "operationId": "FormsController_version",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "versionId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
         ]
       }
     },
@@ -2163,6 +2667,109 @@
         },
         "tags": [
           "Settings"
+        ]
+      }
+    },
+    "/api/v1/submissions": {
+      "get": {
+        "operationId": "SubmissionsController_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "formId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mine",
+            "required": false,
+            "schema": {
+              "enum": [
+                "true",
+                "false"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Submissions"
+        ]
+      },
+      "post": {
+        "operationId": "SubmissionsController_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmissionCreateDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Submissions"
+        ]
+      }
+    },
+    "/api/v1/submissions/{id}": {
+      "get": {
+        "operationId": "SubmissionsController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Submissions"
         ]
       }
     }
