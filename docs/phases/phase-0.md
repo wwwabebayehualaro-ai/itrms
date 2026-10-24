@@ -415,6 +415,14 @@ is not available: the timing runs in CI on 10⁶ generated rows, as 0.14 did, an
   submission keeps the version it was made on after a new one is published; the isolation matrix covers the new tables.
 - **Tests:** the shared validation case file (`packages/form-engine/test/cases.json`) run by the API tests; publish and
   approval tests ported from `test_form_publish.py` and `test_form_config.py`; isolation and audit tests.
+- **Done (2026-10-24):** `@itrms/forms` (`forms.form_definitions`, `form_versions`, `form_publications`, `submissions`;
+  migrations 0024–0025). Versions are immutable by grants and a trigger (only a unit move rewrites `org_path`).
+  Publishing is always maker-checker: neither the requester nor the content's last author approves; the requester may
+  withdraw. A submission names the published version it was filled on; the server keeps only the form's own values,
+  settles what nobody types (disabled fields at their default, read-only computed fields recomputed), prunes hidden
+  values, then runs `@itrms/form-engine/core` (choices within their options). The 25 shared cases run in the engine and
+  over HTTP. Answers enter the audit log as an HMAC. What the server cannot check yet (data sources, lookups, file
+  references, other computed fields) is in the follow-ups for 0.17, 0.18 and 0.18a.
 
 ### 0.16b Submission queries, saved views and exports
 - **Do:** in `platform/forms`:
