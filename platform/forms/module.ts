@@ -11,7 +11,10 @@ export default defineModule({
     title: { am: 'ቅጾች', en: 'Forms' },
     permissions: {
         form: ['read', 'create', 'update', 'publish', 'approve'],
-        submission: ['read', 'create', 'update']
+        // export: leaving the system with data is a right of its own (roles-and-permissions.md §2 `export`)
+        submission: ['read', 'create', 'update', 'export'],
+        // share: a saved view for the whole office, or the office's default view
+        'submission-view': ['share']
     },
     // the worker fills the values of newly filterable fields when a version is published (ADR-0035)
     events: { emits: ['form.published.v1'], consumes: ['form.published.v1'] }

@@ -333,3 +333,93 @@ export const submissionQueryResultSchema = z.object({
 });
 
 export type SubmissionQueryResult = z.infer<typeof submissionQueryResultSchema>;
+
+// ---- saved views, exports and history (task 0.16d) ----
+
+export const VIEW_MODES = ['table', 'cards', 'board', 'calendar', 'pivot', 'dashboard'] as const;
+export const VIEW_VISIBILITIES = ['private', 'unit'] as const;
+
+/** What a view keeps: the query's parts, the columns shown and the mode's own options (bounded). */
+export const viewConfigSchema = z.strictObject({
+    mode: z.enum(VIEW_MODES).default('table'),
+    search: z.string().max(QUERY_LIMITS.search).optional(),
+    filter: queryGroupSchema.optional(),
+    sort: z
+        .array(z.strictObject({ field: fieldKeySchema, desc: z.boolean().default(false) }))
+        .max(QUERY_LIMITS.sort)
+        .default([]),
+    /** the DataGrid's column choice, in order */
+    columns: z.array(fieldKeySchema).max(50).default([]),
+    pageSize: z.number().int().min(1).max(QUERY_LIMITS.pageSize).default(20),
+    /** a mode's own settings (the board's grouping, the calendar's month) */
+    options: boundedJson(z.record(z.string().max(64), z.unknown()), 4096).default({})
+});
+
+const viewName = z.string().trim().min(1).max(100);
+
+export const savedViewCreateSchema = z.strictObject({
+    name: viewName,
+    /** private: its owner's; unit: everyone of the unit who reads the form's submissions (sharing needs the right) */
+    visibility: z.enum(VIEW_VISIBILITIES).default('private'),
+    /** the view the unit opens the form's data with (a shared view only) */
+    isDefault: z.boolean().default(false),
+    config: viewConfigSchema
+});
+
+export const savedViewUpdateSchema = z
+    .strictObject({
+        name: viewName.optional(),
+        visibility: z.enum(VIEW_VISIBILITIES).optional(),
+        isDefault: z.boolean().optional(),
+        config: viewConfigSchema.optional()
+    })
+    .refine((u) => Object.keys(u).length > 0, 'nothing to change');
+
+export const savedViewSchema = z.object({
+    id: z.uuid(),
+    version: z.number().int(),
+    formId: z.uuid(),
+    unitId: z.uuid(),
+    name: z.string(),
+    visibility: z.enum(VIEW_VISIBILITIES),
+    isDefault: z.boolean(),
+    config: viewConfigSchema,
+    ownerId: z.uuid().nullable(),
+    /** the caller may change or delete it */
+    canEdit: z.boolean(),
+    updatedAt: z.string()
+});
+
+export type SavedView = z.infer<typeof savedViewSchema>;
+
+export const EXPORT_FORMATS = ['csv', 'xlsx'] as const;
+/** The most rows an export answers directly; more go to the background export (task 0.16e). */
+export const MAX_DIRECT_EXPORT_ROWS = 5000;
+
+/** What the viewer shows, as a file: the same filter, search and sort, the chosen fields (all by default). */
+export const submissionExportSchema = z.strictObject({
+    formId: z.uuid(),
+    format: z.enum(EXPORT_FORMATS).default('csv'),
+    filter: queryGroupSchema.optional(),
+    search: z.string().max(QUERY_LIMITS.search).optional(),
+    sort: z
+        .array(z.strictObject({ field: fieldKeySchema, desc: z.boolean().default(false) }))
+        .max(QUERY_LIMITS.sort)
+        .default([]),
+    fields: z.array(fieldKeySchema).min(1).max(100).optional()
+});
+
+export type SubmissionExport = z.infer<typeof submissionExportSchema>;
+
+export const historyEntrySchema = z.object({
+    id: z.uuid(),
+    /** insert, update, delete, or an event (`event:<type>`) */
+    action: z.string(),
+    at: z.string(),
+    actorId: z.uuid().nullable(),
+    actorName: z.string().nullable(),
+    /** what changed; the answers only as "answers" (the log holds them masked) */
+    changes: z.array(z.string())
+});
+
+export type HistoryEntry = z.infer<typeof historyEntrySchema>;

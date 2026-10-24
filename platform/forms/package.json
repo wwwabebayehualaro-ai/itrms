@@ -31,6 +31,7 @@
     "@itrms/schemas": "workspace:*",
     "@nestjs/common": "11.2.7",
     "drizzle-orm": "0.45.3",
+    "exceljs": "4.4.0",
     "nestjs-zod": "5.5.0",
     "zod": "4.6.6"
   },

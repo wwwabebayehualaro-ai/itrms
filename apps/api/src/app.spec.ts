@@ -32,6 +32,8 @@ describe('POSTs kept out of the idempotency records (@NotReplayable)', () => {
             'PersonsController.lookup',
             // the sensitive fields in clear in the answer
             'PersonsController.reveal',
+            // a file of submissions' answers (personal data) in the answer; the export itself is an audited event
+            'SubmissionsController.export',
             // a read sent as POST (the query is a document): its answer holds submissions' answers (personal data)
             'SubmissionsController.query'
         ]);

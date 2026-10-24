@@ -7,18 +7,27 @@
  * caller's subtree (RLS). The whole request has 10 s: each statement gets what is left (`statement_timeout`).
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { eq, sql, type SQL } from 'drizzle-orm';
+import { eq, inArray, sql, type SQL } from 'drizzle-orm';
+import { users } from '@itrms/kernel/tables';
 import type { Tx } from '@itrms/kernel/db';
 import { ConflictError, InvalidRequestError } from '@itrms/kernel/errors';
 
-import { QUERY_LIMITS, type Submission, type SubmissionQuery, type SubmissionQueryResult } from '../contracts';
+import {
+    MAX_DIRECT_EXPORT_ROWS,
+    QUERY_LIMITS,
+    type Submission,
+    type SubmissionExport,
+    type SubmissionQuery,
+    type SubmissionQueryResult
+} from '../contracts';
+import { formatValue, renderCsv, renderXlsx } from './export';
 import { FormsService } from './forms.service';
 import { formVersions, submissions } from './forms.table';
 import { QueryCompiler, type FieldSpec } from './query-compiler';
 import { SubmissionsService } from './submissions.service';
 import { fieldsFor } from './support';
 import { readDocument } from '@itrms/form-engine/core';
-import { BUILTIN_KEYS, describe, valueFields, type ViewField } from './view-fields';
+import { BUILTIN_KEYS, BUILTINS, describe, valueFields, type ViewField } from './view-fields';
 
 /** The time one query request may take, all its statements together. */
 export const QUERY_BUDGET_MS = 10_000;
@@ -52,21 +61,79 @@ export class SubmissionQueryService {
     }
 
     async query(tx: Tx, roles: readonly string[], q: SubmissionQuery): Promise<SubmissionQueryResult> {
-        // the ceiling of one request (NFR reads: p95 < 300 ms; a runaway filter is stopped, never left running)
-        const deadline = Date.now() + QUERY_BUDGET_MS;
-        const budget = async () => {
-            const left = deadline - Date.now();
-            if (left <= 0) throw tooLong();
-            await tx.execute(sql`select set_config('statement_timeout', ${String(Math.ceil(left))}, true)`);
-        };
-        try {
+        return withBudget(tx, (budget) => this.run(tx, roles, q, budget));
+    }
+
+    /**
+     * The rows a query matches, as a file people read (task 0.16d): at most MAX_DIRECT_EXPORT_ROWS, the chosen fields
+     * (all by default) as the viewer shows them. The caller records the export (an audited event, with its size).
+     */
+    async export(
+        tx: Tx,
+        roles: readonly string[],
+        input: SubmissionExport,
+        language: string
+    ): Promise<{ filename: string; contentType: string; body: Buffer; rows: number; fields: number }> {
+        return withBudget(tx, async (budget) => {
+            const { form, fields, indexedKeys } = await this.fieldsOf(tx, roles, input.formId);
+            const compiler = new QueryCompiler(input.formId, specsOf(fields, indexedKeys));
+            const cond = conditionsOf(compiler, input);
             await budget();
-            return await this.run(tx, roles, q, budget);
-        } catch (error) {
-            for (let e: unknown = error; e; e = (e as { cause?: unknown }).cause)
-                if ((e as { code?: string }).code === '57014') throw tooLong(error);
-            throw error;
-        }
+            const counted = await tx.execute<{ n: number }>(
+                sql`select count(*)::int as n from ${submissions} where ${cond}`
+            );
+            const total = Number(counted.rows[0]?.n ?? 0);
+            if (total > MAX_DIRECT_EXPORT_ROWS)
+                throw new InvalidRequestError('invalid_query', {
+                    detail: `${total} submissions match: an export answers at most ${MAX_DIRECT_EXPORT_ROWS}. Narrow the filter.`
+                });
+            const byKey = new Map(fields.map((f) => [f.key, f]));
+            const keys = input.fields ?? [...BUILTINS.map((b) => b.key), ...fields.map((f) => f.key)];
+            for (const k of keys)
+                if (!BUILTIN_KEYS.has(k) && !byKey.has(k))
+                    throw new InvalidRequestError('invalid_query', { detail: `unknown field "${k}"` });
+
+            await budget();
+            const order = compiler.orderBy(input.sort.length ? input.sort : [{ field: 'createdAt', desc: true }]);
+            const rows = await tx
+                .select()
+                .from(submissions)
+                .where(cond)
+                .orderBy(...order, sql`${submissions.id} desc`)
+                .limit(MAX_DIRECT_EXPORT_ROWS);
+            await budget();
+            const shown = await this.submissions.present(tx, roles, rows);
+            const people = await namesOf(
+                tx,
+                shown.map((s) => s.submittedBy)
+            );
+            const label = (k: string) => BUILTINS.find((b) => b.key === k)?.label ?? byKey.get(k)?.label ?? k;
+            const cell = (s: Submission, k: string): string => {
+                if (k === 'createdAt') return addisMinute(s.createdAt);
+                if (k === 'submittedBy') return s.submittedBy ? (people.get(s.submittedBy) ?? s.submittedBy) : '';
+                if (k === 'handlingUnit')
+                    return s.handlingUnit.name[language] ?? s.handlingUnit.name.en ?? s.handlingUnit.code;
+                const f = byKey.get(k);
+                return f ? formatValue(f, s.answers[k]) : '';
+            };
+            const headers = keys.map(label);
+            const table = shown.map((s) => keys.map((k) => cell(s, k)));
+            const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            const body =
+                input.format === 'xlsx'
+                    ? await renderXlsx(form.name[language] ?? form.name.en ?? form.key, headers, table)
+                    : renderCsv(headers, table);
+            return {
+                filename: `${form.key}-${stamp}.${input.format}`,
+                contentType:
+                    input.format === 'xlsx'
+                        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                        : 'text/csv; charset=utf-8',
+                body,
+                rows: shown.length,
+                fields: keys.length
+            };
+        });
     }
 
     private async run(
@@ -78,11 +145,7 @@ export class SubmissionQueryService {
         const { fields, indexedKeys } = await this.fieldsOf(tx, roles, q.formId);
         const compiler = new QueryCompiler(q.formId, specsOf(fields, indexedKeys));
 
-        const where: SQL[] = [sql`${submissions.formId} = ${q.formId}::uuid`];
-        if (q.filter?.items.length) where.push(compiler.group(q.filter));
-        const search = compiler.search(q.search);
-        if (search) where.push(search);
-        const cond = sql.join(where, sql` and `);
+        const cond = conditionsOf(compiler, q);
         const scalar = async (cols: SQL) => {
             await budget();
             return (
@@ -192,9 +255,57 @@ export class SubmissionQueryService {
         const published = versions.find((v) => v.id === form.publishedVersionId);
         if (!published) throw new ConflictError('not_configured', { detail: 'This form has not been published yet.' });
         const fields = published.seen.filter((f) => versions.every((v) => !v.has.has(f.key) || v.sees.has(f.key)));
-        return { fields, indexedKeys: form.indexedKeys };
+        return { form, fields, indexedKeys: form.indexedKeys };
     }
 }
+
+/** The form, its filter and its search, as one condition. */
+function conditionsOf(
+    compiler: QueryCompiler,
+    q: { formId: string; filter?: SubmissionQuery['filter']; search?: string }
+): SQL {
+    const where: SQL[] = [sql`${submissions.formId} = ${q.formId}::uuid`];
+    if (q.filter?.items.length) where.push(compiler.group(q.filter));
+    const search = compiler.search(q.search);
+    if (search) where.push(search);
+    return sql.join(where, sql` and `);
+}
+
+/**
+ * The whole request has QUERY_BUDGET_MS (NFR reads: p95 < 300 ms; a runaway filter is stopped, never left running): each
+ * statement gets what is left (`budget()` before it), and a cancelled one is the caller's 400, never a 500.
+ */
+async function withBudget<T>(tx: Tx, fn: (budget: () => Promise<void>) => Promise<T>): Promise<T> {
+    const deadline = Date.now() + QUERY_BUDGET_MS;
+    const budget = async () => {
+        const left = deadline - Date.now();
+        if (left <= 0) throw tooLong();
+        await tx.execute(sql`select set_config('statement_timeout', ${String(Math.ceil(left))}, true)`);
+    };
+    try {
+        await budget();
+        return await fn(budget);
+    } catch (error) {
+        for (let e: unknown = error; e; e = (e as { cause?: unknown }).cause)
+            if ((e as { code?: string }).code === '57014') throw tooLong(error);
+        throw error;
+    }
+}
+
+/** Staff names for a table (users are a regional record). */
+async function namesOf(tx: Tx, ids: readonly (string | null)[]): Promise<Map<string, string>> {
+    const wanted = [...new Set(ids.filter((id): id is string => Boolean(id)))];
+    if (wanted.length === 0) return new Map();
+    const rows = await tx
+        .select({ id: users.id, name: users.displayName })
+        .from(users)
+        .where(inArray(users.id, wanted));
+    return new Map(rows.map((r) => [r.id, r.name]));
+}
+
+/** An instant as read in Ethiopia: Addis Ababa time, to the minute (Gregorian here; Ethiopian dates come with 0.17). */
+const addisMinute = (iso: string) =>
+    new Date(Date.parse(iso) + 3 * 3_600_000).toISOString().slice(0, 16).replace('T', ' ');
 
 /** The allow-list: the built-in columns, then the form's fields (never shadowing one). */
 export function specsOf(fields: ViewField[], indexedKeys: readonly string[]): FieldSpec[] {

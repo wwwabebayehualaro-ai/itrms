@@ -59,7 +59,9 @@ export default defineModule({
             'setting:update',
             ...AUTHOR_FORMS,
             'form:approve',
-            'submission:read'
+            'submission:read',
+            'submission:export',
+            'submission-view:share'
         ],
         unit_admin: [
             ...READ_ORG,
@@ -70,7 +72,8 @@ export default defineModule({
             'role-assignment:grant',
             'role-assignment:revoke',
             'audit-log:read',
-            ...AUTHOR_FORMS
+            ...AUTHOR_FORMS,
+            'submission-view:share'
         ],
         unit_head: [
             ...READ_ORG,
@@ -81,13 +84,22 @@ export default defineModule({
             'person:lookup',
             'person:approve-merge',
             'form:approve',
-            'submission:read'
+            'submission:read',
+            'submission:export',
+            'submission-view:share'
         ],
         // at intake: checks the identity of the person in front of them
         records_officer: [...READ_ORG, ...INTAKE, 'pii:reveal', 'submission:create', 'submission:read'],
         cashier: [...READ_ORG, ...REGISTER, 'submission:read'],
-        finance_officer: [...READ_ORG, ...REGISTER, 'submission:read'],
-        auditor: [...READ_ORG, ...REGISTER, 'role-assignment:read', 'audit-log:read', 'submission:read'],
+        finance_officer: [...READ_ORG, ...REGISTER, 'submission:read', 'submission:export'],
+        auditor: [
+            ...READ_ORG,
+            ...REGISTER,
+            'role-assignment:read',
+            'audit-log:read',
+            'submission:read',
+            'submission:export'
+        ],
         // names and addresses only: never a sensitive field (no pii:reveal)
         viewer: [...READ_ORG, ...REGISTER]
     },

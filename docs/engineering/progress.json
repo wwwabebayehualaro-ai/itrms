@@ -509,12 +509,12 @@
         {
           "id": "0.16d",
           "title": "Saved views, history and direct exports",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.16d-views-history-exports",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Split on 2026-10-24 (product owner): background exports and server-generated files moved to 0.16e (the kernel's file store takes only browser uploads of PDFs and images). Saved views: forms.saved_views class T at the owner's unit; private views answered as missing to anyone but the owner (created_by check on top of RLS); sharing and the default need the new submission-view:share (bureau_admin, unit_admin, unit_head). Export: the new submission:export (bureau_admin, unit_head, finance_officer, auditor, as the matrix's export column); at most 5000 rows directly, same allow-list and budget as the query; every cell neutralised in CSV and XLSX; the export is a sensitive event (recordSensitiveEvent) with format, rows and fields; the bytes are sent on the reply (a StreamableFile was serialised as JSON). History: the submission's audit rows, newest first, actor names from kernel.users; changes by column, answers only as 'answers'."
         },
         {
           "id": "0.16e",
@@ -1797,6 +1797,21 @@
       "foundIn": "0.16b",
       "item": "Filters on fields that are not filterable scan the form's submissions in scope (no index can serve them under RLS): the data viewer should say so and suggest marking the field",
       "movedTo": "0.16c"
+    },
+    {
+      "foundIn": "0.16d",
+      "item": "Exports show dates Gregorian (Addis time for timestamps): give them the Ethiopian date columns of the EthDate field",
+      "movedTo": "0.17"
+    },
+    {
+      "foundIn": "0.16d",
+      "item": "Field labels in exports and views are the form's plain labels: use the I18nText labels in the caller's language",
+      "movedTo": "0.17"
+    },
+    {
+      "foundIn": "0.16d",
+      "item": "A submission's history shows only its own audit rows: add its case's steps when cases exist",
+      "movedTo": "0.19"
     }
   ]
 }

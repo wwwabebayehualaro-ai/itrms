@@ -84,6 +84,7 @@ In code a permission is `resource:action` with the resource in kebab-case, as th
 | `document_template` | A | — | R | — | — | — | — | — | — | R |
 | `form` (definitions; `publish` asks, `approve` decides: maker-checker) | C U publish approve | C U publish (own unit's forms) | R approve | R | R | R | R | R | R | R |
 | `submission` (form answers; follows `case` until cases exist, 0.19) | R | — | R | C R | R | R | — | — | — | R |
+| `submission:export` (CSV/Excel of a query, audited) and `submission-view:share` (a view for the office, its default) | export, share | share | export, share | — | — | export | — | — | — | export |
 | `audit_log` | R | R (subtree users only) | R | — | — | — | — | — | — | R |
 | `job` (dead-letter list, retry) | R, retry | — | — | — | — | — | — | — | — | — |
 | `pii:reveal` (Fayda id, phone, medical data) | — | — | ✓ | ✓ (at intake) | — | — | ✓ | ✓ | — | — |
