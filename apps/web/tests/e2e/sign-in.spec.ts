@@ -144,6 +144,7 @@ test('signs in with a password and a new TOTP, acts in its unit only, and never 
 });
 
 test('asks for the second factor at every sign-in; back-channel logout ends the session', async ({ page }) => {
+    // nosemgrep: ajinabraham.njsscan.generic.hardcoded_secrets.node_secret -- the TOTP secret Keycloak generated in this run, not a constant
     test.skip(!secret, 'needs the TOTP set up by the previous journey');
     // Keycloak refuses a code used twice: wait for the next 30-second step
     await page.waitForTimeout(untilNextStep());

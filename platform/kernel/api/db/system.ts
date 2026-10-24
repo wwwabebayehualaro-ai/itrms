@@ -41,6 +41,7 @@ export function createSystemDatabase(url: string, options: SystemDatabaseOptions
     const recorded = new Set<string>();
     return {
         async systemContext(reason, fn, use = {}) {
+            // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- REASON is anchored with one bounded character class (linear time)
             if (!REASON.test(reason)) throw new Error(`systemContext: "${reason}" is not a reason key (outbox.relay)`);
             options.onUse(reason, use);
             const ctx = { requestId: `system:${reason}` };

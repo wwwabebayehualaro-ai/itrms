@@ -3,6 +3,8 @@
  * Latin letters with the Ethiopic keyboard), the sensitive fields are kept hidden on the record, and the person is found
  * again by an Amharic search. The name and numbers are generated per run, so the journey repeats without duplicate warnings.
  */
+import { randomInt } from 'node:crypto';
+
 import { expect, test } from '@playwright/test';
 
 import { firstSignIn, resetAccount } from './keycloak';
@@ -11,12 +13,11 @@ const RECORDS = { id: '0199f0a0-d000-7000-8000-000000000202', username: 'demo.da
 const LETTERS = ['ለ', 'መ', 'ሰ', 'በ', 'ተ', 'ነ', 'ከ', 'ወ', 'ዘ', 'የ', 'ደ', 'ገ'];
 
 /** A generated Ethiopic name of three letters (never a real person's). */
-const generatedName = () =>
-    Array.from({ length: 3 }, () => LETTERS[Math.floor(Math.random() * LETTERS.length)]).join('');
+const generatedName = () => Array.from({ length: 3 }, () => LETTERS[randomInt(LETTERS.length)]).join('');
 
 test('registers a person in Amharic and finds them again by an Amharic search', async ({ page }) => {
     const given = generatedName();
-    const phone = `0911${String(Math.floor(Math.random() * 1_000_000)).padStart(6, '0')}`;
+    const phone = `0911${String(randomInt(1_000_000)).padStart(6, '0')}`;
     await resetAccount(RECORDS.id);
     await firstSignIn(page, RECORDS.username);
 

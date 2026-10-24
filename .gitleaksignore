@@ -4,6 +4,9 @@
 # False positive: tools/dev-infra.mjs passes env.S3_SECRET_KEY to the S3 client; there is no value in the code.
 a4ad4943a12f97184f1a8784285af20558803afd:tools/dev-infra.mjs:generic-api-key:215
 
+# False positive: the Valkey image tag the jobs integration test starts (valkey/valkey:<version>); not a key.
+23d23994942c71d07ab6e84334df34b35ae95d6d:apps/api/test/integration/jobs.int.spec.ts:generic-api-key:46
+
 # Legacy FastAPI test fixtures (a test JWT secret and a test password), test-only values; Backend/ is retired in tasks 0.5-0.6.
 0d8dbcdf2792bc03c65e15266cdf6def9b1e28f7:Backend/tests/conftest.py:generic-api-key:30
 0d8dbcdf2792bc03c65e15266cdf6def9b1e28f7:Backend/tests/test_numbering.py:generic-api-key:56

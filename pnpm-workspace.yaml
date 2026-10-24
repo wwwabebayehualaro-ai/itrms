@@ -14,6 +14,10 @@ allowBuilds:
   cpu-features: false
   protobufjs: false
   ssh2: false
+  # @parcel/watcher (via next-intl) and msgpackr-extract (via bullmq): their install scripts only compile from source when
+  # no prebuilt platform package fits; the prebuilt ones load without them. Never run
+  '@parcel/watcher': false
+  msgpackr-extract: false
   esbuild: true
   lefthook: true
   unrs-resolver: true

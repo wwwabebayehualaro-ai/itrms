@@ -76,6 +76,7 @@ export function formatNumberIn(value: number | bigint, language = 'am'): string 
  * "1,234.50 ብር" (Amharic, Tigrinya), "Birr 1,234.50" (English and the others). Anything else shows `empty`.
  */
 export function formatMoney(santim: bigint | string, language = 'am', empty = '—'): string {
+    // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- anchored, one bounded digit run (linear time)
     if (typeof santim === 'string' && !/^-?\d{1,30}$/.test(santim)) return empty;
     const amount = typeof santim === 'bigint' ? santim : BigInt(santim);
     const negative = amount < 0n;

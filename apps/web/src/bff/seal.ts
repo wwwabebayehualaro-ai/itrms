@@ -37,7 +37,7 @@ export function seal(keyring: Keyring, plaintext: string, aad: string): string {
     const key = keyring.keys.get(keyring.current);
     if (!key) throw new Error('the current key is missing');
     const iv = randomBytes(12);
-    const cipher = createCipheriv('aes-256-gcm', key, iv);
+    const cipher = createCipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
     cipher.setAAD(Buffer.from(aad));
     const body = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final(), cipher.getAuthTag()]);
     return `${keyring.current}.${iv.toString('base64url')}.${body.toString('base64url')}`;
@@ -52,7 +52,7 @@ export function open(keyring: Keyring, sealed: string, aad: string): string | un
     const body = Buffer.from(bodyText, 'base64url');
     if (iv.length !== 12 || body.length < 16) return undefined;
     try {
-        const decipher = createDecipheriv('aes-256-gcm', key, iv);
+        const decipher = createDecipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
         decipher.setAAD(Buffer.from(aad));
         decipher.setAuthTag(body.subarray(body.length - 16));
         return Buffer.concat([decipher.update(body.subarray(0, body.length - 16)), decipher.final()]).toString('utf8');

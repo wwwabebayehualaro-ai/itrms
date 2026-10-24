@@ -62,14 +62,15 @@ const uuidOf = (bytes: Buffer) => {
 
 function seal(key: Buffer, plain: Buffer, aad: Buffer): Buffer {
     const iv = randomBytes(IV);
-    const cipher = createCipheriv('aes-256-gcm', key, iv);
+    const cipher = createCipheriv('aes-256-gcm', key, iv, { authTagLength: TAG });
     cipher.setAAD(aad);
     const body = Buffer.concat([cipher.update(plain), cipher.final()]);
     return Buffer.concat([iv, cipher.getAuthTag(), body]);
 }
 
 function open(key: Buffer, sealed: Buffer, aad: Buffer): Buffer {
-    const decipher = createDecipheriv('aes-256-gcm', key, sealed.subarray(0, IV));
+    // a fixed tag length: without it a truncated record's shorter tag would be accepted
+    const decipher = createDecipheriv('aes-256-gcm', key, sealed.subarray(0, IV), { authTagLength: TAG });
     decipher.setAAD(aad);
     decipher.setAuthTag(sealed.subarray(IV, IV + TAG));
     return Buffer.concat([decipher.update(sealed.subarray(IV + TAG)), decipher.final()]);

@@ -164,6 +164,7 @@ export type ProblemCode = 'unauthenticated' | 'forbidden' | 'not_found' | 'inval
 
 /** An RFC 9457 problem in the API's shape, for refusals the BFF makes itself; the title in the person's language. */
 export function problem(request: NextRequest, status: number, code: ProblemCode): NextResponse {
+    // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- a fixed two-letter prefix and a word boundary (constant time)
     const english = /^en/i.test(request.headers.get('accept-language') ?? '');
     const title = (english ? en : am)[`shell.errors.${code}`];
     return NextResponse.json(

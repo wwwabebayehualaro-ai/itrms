@@ -270,6 +270,7 @@ describe('security headers (SEC-WB-1)', () => {
 
 describe('configuration', () => {
     it('names the problems, never the values', () => {
+        // nosemgrep: ajinabraham.njsscan.generic.hardcoded_secrets.node_secret -- a fake value the test checks never appears in a message
         const secret = 'a-very-secret-client-secret';
         let message = '';
         try {

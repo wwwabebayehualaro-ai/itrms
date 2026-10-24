@@ -45,6 +45,7 @@ export interface RequireOptions {
 
 /** The permission a handler (or every handler of a controller) needs: `resource:action` (`org-unit:move`). */
 export function Require(permission: string, options: RequireOptions = {}): MethodDecorator & ClassDecorator {
+    // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- PERMISSION is anchored; its two runs cannot match the ':' between them (linear time)
     if (!PERMISSION.test(permission)) throw new Error(`@Require('${permission}'): not a resource:action permission`);
     const { recentAuth } = options;
     if (recentAuth === undefined) return SetMetadata(REQUIRE, permission);

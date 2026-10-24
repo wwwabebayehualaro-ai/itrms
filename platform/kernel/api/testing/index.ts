@@ -18,6 +18,7 @@ export interface UnitLike {
     path: string;
 }
 
+// nosemgrep: ajinabraham.njsscan.generic.hardcoded_secrets.node_username -- a fixed test user id, not a credential
 export const TEST_USER = '0199f0a0-0000-7000-8000-00000000aaaa';
 
 /** The database context of a person acting for `unit`. */
