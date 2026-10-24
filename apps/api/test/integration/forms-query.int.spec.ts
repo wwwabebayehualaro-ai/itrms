@@ -11,7 +11,7 @@ import { createSystemDatabase, type SystemDatabase } from '@itrms/kernel/db/syst
 import { contextFor } from '@itrms/kernel/testing';
 import type { OrgUnit } from '@itrms/kernel/org';
 import { SubmissionQueryService } from '@itrms/forms/api';
-import { fillValues } from '@itrms/forms/api/worker';
+import { fillValues, formsHandlers } from '@itrms/forms/api/worker';
 import { submissionQuerySchema } from '@itrms/forms/contracts';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -450,6 +450,12 @@ describe('the allow-list', () => {
             const res = await query(forms.indexed, body);
             expect([400, 422], JSON.stringify(body)).toContain(res.statusCode);
         }
+        // a key off the allow-list is the compiler's refusal: always 400 invalid_query
+        for (const key of ['nope', 'secret', 'line_qty', 'title"; drop table x;--']) {
+            const res = await query(forms.indexed, cond(key, 'notempty'));
+            expect(res.statusCode, key).toBe(400);
+            expect(res.json<{ code: string }>().code).toBe('invalid_query');
+        }
         let nested: object = { op: 'and', items: [] };
         for (let i = 0; i < 8; i++) nested = { op: 'and', items: [nested] };
         // refused by its shape, before anything walks it
@@ -537,8 +543,24 @@ describe('a field made filterable by a new version', () => {
                 .fields.find((f) => f.key === 'title')?.indexed;
         expect(await indexed()).toBe(false);
         expect(titles(await query(forms.indexed, cond('title', 'eq', 'Gamma')))).toEqual(['Gamma']);
-        expect(await fillValues(system, forms.indexed)).toEqual(['title']);
+        // the worker's handler of the event, as the outbox relay calls it
+        await formsHandlers(system)['form.published.v1']?.({
+            eventId: randomUUID(),
+            type: 'form.published.v1',
+            payload: {
+                formId: forms.indexed,
+                formVersionId: randomUUID(),
+                previousVersionId: null,
+                publicationId: randomUUID()
+            }
+        });
         expect(await indexed()).toBe(true);
+        // every submission of the form (Damot Gale's and Boditi's) has its title in the value table
+        const rows = await api.owner.query<{ n: number }>(
+            `select count(*)::int as n from forms.submission_values where form_id = $1 and field_key = 'title'`,
+            [forms.indexed]
+        );
+        expect(rows.rows[0]?.n).toBe(ROWS.length + 1);
         expect(titles(await query(forms.indexed, cond('title', 'eq', 'Gamma')))).toEqual(['Gamma']);
         // again: nothing left to fill
         expect(await fillValues(system, forms.indexed)).toEqual([]);
