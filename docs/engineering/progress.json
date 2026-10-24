@@ -431,13 +431,14 @@
         {
           "id": "0.15",
           "title": "Files on object storage",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.15-files",
           "commits": [
             "b3ca1bf",
             "59d4b58",
             "9793fff",
-            "767dcf1"
+            "767dcf1",
+            "f70433e"
           ],
           "evidence": [
             "GitHub Actions run 40090381152 on 767dcf1 (PR #2): all 7 jobs green",
