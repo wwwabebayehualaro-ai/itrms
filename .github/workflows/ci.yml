@@ -62,6 +62,8 @@ jobs:
       SWC_NATIVE_BINDING_CACHE: /root/.cache/swc-native
     steps:
       - uses: actions/checkout@v7.0.1
+      # the checkout belongs to the runner user, not the container's root: git (lefthook install) refuses it otherwise
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - uses: pnpm/action-setup@v6.1.0
       - uses: actions/setup-node@v7.0.0
         with:
