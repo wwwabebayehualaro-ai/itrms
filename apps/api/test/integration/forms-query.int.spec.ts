@@ -25,7 +25,8 @@ const SUB = {
     zoneHead: '0199f0a0-d000-7000-8000-000000000101',
     damot: '0199f0a0-d000-7000-8000-000000000202',
     boditi: '0199f0a0-d000-7000-8000-000000000302',
-    trx: '0199f0a0-d000-7000-8000-00000000f206'
+    trx: '0199f0a0-d000-7000-8000-00000000f206',
+    damotHead: '0199f0a0-d000-7000-8000-00000000f207'
 };
 
 const field = (id: string, type: string, extra: Record<string, unknown> = {}) => ({
@@ -167,6 +168,16 @@ beforeAll(async () => {
             region: 'TRX',
             home: 'TRX-W1',
             roles: [['TRX-W1', 'records_officer']]
+        },
+        {
+            username: 'test.damot.head.records',
+            sub: SUB.damotHead,
+            region: 'SER',
+            home: 'WOL-DAMOT-GALE',
+            roles: [
+                ['WOL-DAMOT-GALE', 'unit_head'],
+                ['WOL-DAMOT-GALE', 'records_officer']
+            ]
         }
     ]);
     system = createSystemDatabase(pg.url('system'), { onUse: () => undefined });
@@ -441,7 +452,8 @@ describe('the allow-list', () => {
         }
         let nested: object = { op: 'and', items: [] };
         for (let i = 0; i < 8; i++) nested = { op: 'and', items: [nested] };
-        expect((await query(forms.indexed, { filter: nested })).statusCode).toBe(400);
+        // refused by its shape, before anything walks it
+        expect((await query(forms.indexed, { filter: nested })).statusCode).toBe(422);
         const fifty = Array.from({ length: 50 }, (_, i) => ({ field: 'title', op: 'eq', value: String(i) }));
         expect((await query(forms.indexed, { filter: { op: 'and', items: fifty } })).statusCode).toBe(200);
         const fiftyOne = {
@@ -534,12 +546,130 @@ describe('a field made filterable by a new version', () => {
 });
 
 describe('every query', () => {
-    it('runs under a statement timeout', async () => {
+    it("runs under a statement timeout: what is left of the request's 10 s", async () => {
         const service = api.http.get(SubmissionQueryService);
         const timeout = await api.installer.scoped(contextFor(units.damot), async (tx) => {
-            await service.query(tx, ['records_officer'], submissionQuerySchema.parse({ formId: forms.indexed }));
+            await service.query(
+                tx,
+                ['records_officer'],
+                submissionQuerySchema.parse({ formId: forms.indexed, groupBy: { field: 'dept' }, facets: ['dept'] })
+            );
             return (await tx.execute<{ t: string }>(sql`select current_setting('statement_timeout') as t`)).rows[0]?.t;
         });
-        expect(timeout).toBe('10s');
+        const ms = Number(/^(\d+)ms$/.exec(timeout ?? '')?.[1] ?? NaN);
+        expect(ms).toBeGreaterThan(0);
+        expect(ms).toBeLessThanOrEqual(10_000);
+    });
+});
+
+describe("the review's cases", () => {
+    const publishNext = async (formId: string, fields: unknown[]) => {
+        const current = (await api.call('GET', `/api/v1/forms/${formId}`, as.bureau())).json<{ version: number }>();
+        const edited = await api.call(
+            'PATCH',
+            `/api/v1/forms/${formId}`,
+            as.bureau(),
+            { document: { fields } },
+            {
+                'if-match': `"${current.version}"`
+            }
+        );
+        expect(edited.statusCode, edited.body).toBe(200);
+        const asked = (await api.call('POST', `/api/v1/forms/${formId}/publications`, as.bureau(), {})).json<{
+            id: string;
+            version: number;
+            formVersion: { id: string };
+        }>();
+        const approved = await api.call(
+            'POST',
+            `/api/v1/form-publications/${asked.id}/approval`,
+            as.bureau2(),
+            {},
+            {
+                'if-match': `"${asked.version}"`
+            }
+        );
+        expect(approved.statusCode, approved.body).toBe(200);
+        return asked.formVersion.id;
+    };
+    const indexed = async (formId: string, key: string) =>
+        (await api.call('GET', `/api/v1/forms/${formId}/view`, as.damot()))
+            .json<{ fields: { key: string; indexed: boolean }[] }>()
+            .fields.find((f) => f.key === key)?.indexed;
+
+    it('never lets a field an older version restricted be counted, grouped or filtered, once a newer one shows it', async () => {
+        const form = await createAndPublish('salaries', [
+            field('name', 'InputText'),
+            field('salary', 'InputNumber', { visibleToRoles: ['unit_head'] })
+        ]);
+        // Damot Gale's head (also its records officer, below) fills the restricted field in on the first version
+        const head = { sub: SUB.damotHead, unit: units.damot };
+        await submit(head, form.id, form.versionId, { name: 'Restricted', salary: 9000 });
+        const v2 = await publishNext(form.id, [field('name', 'InputText'), field('salary', 'InputNumber')]);
+        await submit(as.damot(), form.id, v2, { name: 'Open', salary: 10 });
+        for (const body of [
+            { facets: ['salary'] },
+            cond('salary', 'gt', 0),
+            { aggregates: [{ fn: 'sum', field: 'salary' }] }
+        ])
+            expect((await query(form.id, body)).statusCode, JSON.stringify(body)).toBe(400);
+        const view = (await api.call('GET', `/api/v1/forms/${form.id}/view`, as.damot())).json<{
+            fields: { key: string }[];
+        }>();
+        expect(view.fields.map((f) => f.key)).not.toContain('salary');
+        // the head, who sees it in every version, may
+        const sum = (await query(form.id, { aggregates: [{ fn: 'sum', field: 'salary' }] }, head)).json<Result>();
+        expect(sum.aggregates.sum_salary).toBe(9010);
+    });
+
+    it('drops an indexed key whose kind changes, and fills it again as the new kind', async () => {
+        const form = await createAndPublish('kind-change', [
+            field('title', 'InputText'),
+            field('day', 'Calendar', { filterable: true })
+        ]);
+        await submit(as.damot(), form.id, form.versionId, { title: 'early', day: '2026-01-05T22:30:00.000Z' });
+        await fillValues(system, form.id);
+        expect(await indexed(form.id, 'day')).toBe(true);
+        // a date: the day the person picked, its ISO text
+        expect(titles(await query(form.id, cond('day', 'eq', '2026-01-05')))).toEqual(['early']);
+        await publishNext(form.id, [
+            field('title', 'InputText'),
+            field('day', 'Calendar', { filterable: true, props: { showTime: true } })
+        ]);
+        expect(await indexed(form.id, 'day')).toBe(false);
+        // a timestamp: its day in Addis Ababa (22:30 UTC is 01:30 the next day there), on the answers and the index alike
+        expect(titles(await query(form.id, cond('day', 'eq', '2026-01-06')))).toEqual(['early']);
+        await fillValues(system, form.id);
+        expect(await indexed(form.id, 'day')).toBe(true);
+        expect(titles(await query(form.id, cond('day', 'eq', '2026-01-06')))).toEqual(['early']);
+        expect(titles(await query(form.id, cond('day', 'eq', '2026-01-05')))).toEqual([]);
+    });
+
+    it('matches a choice whose option value is a number the same on both paths', async () => {
+        const grades = { dataSource: { staticData: [1, 2, 3].map((n) => ({ label: `Grade ${n}`, value: n })) } };
+        for (const filterable of [true, false]) {
+            const form = await createAndPublish(`grades-${String(filterable)}`, [
+                field('title', 'InputText'),
+                field('grade', 'Dropdown', { filterable, data: grades }),
+                field('days', 'MultiSelect', { filterable, data: grades })
+            ]);
+            await submit(as.damot(), form.id, form.versionId, { title: 'two', grade: 2, days: [2, 3] });
+            if (filterable) await fillValues(system, form.id);
+            expect(titles(await query(form.id, cond('grade', 'eq', '2')))).toEqual(['two']);
+            expect(titles(await query(form.id, cond('days', 'has', '3')))).toEqual(['two']);
+            const facets = (await query(form.id, { rows: false, facets: ['grade'] })).json<Result>().facets;
+            expect(facets.grade).toEqual([{ value: '2', count: 1 }]);
+        }
+    });
+
+    it('refuses more choices than a filterable field indexes, with a 422', async () => {
+        const form = await createAndPublish('many-chips', [field('chips', 'Chips', { filterable: true })]);
+        const res = await api.call('POST', '/api/v1/submissions', as.damot(), {
+            formId: form.id,
+            formVersionId: form.versionId,
+            answers: { chips: Array.from({ length: 201 }, (_, i) => `c${i}`) }
+        });
+        expect(res.statusCode).toBe(422);
+        expect(res.json<{ errors: { path: string }[] }>().errors.map((e) => e.path)).toEqual(['chips']);
     });
 });

@@ -102,10 +102,22 @@ export function valueFields(fields: EngineField[]): ViewField[] {
 }
 
 /** The keys a version marks filterable (and the value table may hold): what the worker fills and a submission writes. */
-export const filterableKeys = (fields: EngineField[]): string[] =>
-    valueFields(fields)
-        .filter((f) => f.filterable)
-        .map((f) => f.key);
+export const filterableKeys = (fields: EngineField[]): string[] => [...filterableKinds(fields).keys()];
+
+/**
+ * The filterable keys of a version with the kind each is compared as. Pass the fields nobody is restricted from
+ * (`fieldsFor(document, [])`): a field restricted to some roles, or inside a restricted container, is never copied
+ * into the value table.
+ */
+export const filterableKinds = (fields: EngineField[]): Map<string, Kind> =>
+    new Map(
+        valueFields(fields)
+            .filter((f) => f.filterable)
+            .map((f) => [f.key, f.kind])
+    );
+
+/** Most choices one multiple-choice answer of a filterable field may hold (one value row each). */
+export const MAX_INDEXED_CHOICES = 200;
 
 /** Built-in columns every form's submissions have; a form's own field can never shadow them. */
 export const BUILTINS: readonly { key: string; kind: Kind; label: string }[] = [

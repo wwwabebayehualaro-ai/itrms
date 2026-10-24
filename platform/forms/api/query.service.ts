@@ -1,7 +1,9 @@
 /**
  * The data viewer's queries over one form's submissions (task 0.16b): the view schema, and filter / search / sort /
  * group / aggregate / facets in one request. The fields a caller may name are the published version's that they may
- * see; the rows are those of their subtree (RLS); every query runs under a statement timeout.
+ * see, and see as the same kind in every version of the form (submissions keep the version they were filled on: a field
+ * restricted, or of another kind, in an older one would show that version's answers). The rows are those of the
+ * caller's subtree (RLS). The whole request has 10 s: each statement gets what is left (`statement_timeout`).
  */
 import { Inject, Injectable } from '@nestjs/common';
 import { eq, sql, type SQL } from 'drizzle-orm';
@@ -14,7 +16,11 @@ import { formVersions, submissions } from './forms.table';
 import { QueryCompiler, type FieldSpec } from './query-compiler';
 import { SubmissionsService } from './submissions.service';
 import { fieldsFor } from './support';
+import { readDocument } from '@itrms/form-engine/core';
 import { BUILTIN_KEYS, describe, valueFields, type ViewField } from './view-fields';
+
+/** The time one query request may take, all its statements together. */
+export const QUERY_BUDGET_MS = 10_000;
 
 const num = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
 /** A group or facet key as the client filters with it (the database gives text, numbers or booleans). */
@@ -24,6 +30,12 @@ const key = (v: unknown): string | null => {
     if (typeof v === 'number' || typeof v === 'boolean' || typeof v === 'bigint') return String(v);
     return JSON.stringify(v);
 };
+
+const tooLong = (cause?: unknown) =>
+    new InvalidRequestError('invalid_query', {
+        detail: 'The query took too long: narrow the filter, or ask for fewer groups and counts.',
+        cause
+    });
 
 @Injectable()
 export class SubmissionQueryService {
@@ -39,9 +51,30 @@ export class SubmissionQueryService {
     }
 
     async query(tx: Tx, roles: readonly string[], q: SubmissionQuery): Promise<SubmissionQueryResult> {
+        // the ceiling of one request (NFR reads: p95 < 300 ms; a runaway filter is stopped, never left running)
+        const deadline = Date.now() + QUERY_BUDGET_MS;
+        const budget = async () => {
+            const left = deadline - Date.now();
+            if (left <= 0) throw tooLong();
+            await tx.execute(sql`select set_config('statement_timeout', ${String(Math.ceil(left))}, true)`);
+        };
+        try {
+            await budget();
+            return await this.run(tx, roles, q, budget);
+        } catch (error) {
+            for (let e: unknown = error; e; e = (e as { cause?: unknown }).cause)
+                if ((e as { code?: string }).code === '57014') throw tooLong(error);
+            throw error;
+        }
+    }
+
+    private async run(
+        tx: Tx,
+        roles: readonly string[],
+        q: SubmissionQuery,
+        budget: () => Promise<void>
+    ): Promise<SubmissionQueryResult> {
         const { fields, indexedKeys } = await this.fieldsOf(tx, roles, q.formId);
-        // the ceiling of one query (NFR reads: p95 < 300 ms; a runaway filter is stopped, never left running)
-        await tx.execute(sql`set local statement_timeout = '10s'`);
         const compiler = new QueryCompiler(q.formId, specsOf(fields, indexedKeys));
 
         const where: SQL[] = [sql`${submissions.formId} = ${q.formId}::uuid`];
@@ -49,9 +82,13 @@ export class SubmissionQueryService {
         const search = compiler.search(q.search);
         if (search) where.push(search);
         const cond = sql.join(where, sql` and `);
-        const scalar = async (cols: SQL) =>
-            (await tx.execute<Record<string, unknown>>(sql`select ${cols} from ${submissions} where ${cond}`))
-                .rows[0] ?? {};
+        const scalar = async (cols: SQL) => {
+            await budget();
+            return (
+                (await tx.execute<Record<string, unknown>>(sql`select ${cols} from ${submissions} where ${cond}`))
+                    .rows[0] ?? {}
+            );
+        };
 
         const total = Number((await scalar(sql`count(*) as n`)).n ?? 0);
 
@@ -60,6 +97,7 @@ export class SubmissionQueryService {
         const aggregateCols = q.aggregates.map((a) => compiler.aggregate(a.fn, a.field));
         const aggregates: Record<string, number | null> = {};
         if (aggregateCols.length) {
+            await budget();
             const row = await tx.execute<Record<string, unknown>>(
                 sql`select ${sql.join(
                     aggregateCols.map((c, i) => sql`${c} as ${sql.identifier(`a${i}`)}`),
@@ -77,6 +115,7 @@ export class SubmissionQueryService {
             const n = keys.length;
             const byDate = ['date', 'datetime'].includes(compiler.spec(q.groupBy.field).kind);
             // positional GROUP BY / ORDER BY: a key expression carries bound parameters and is written once
+            await budget();
             const result = await tx.execute<Record<string, unknown>>(
                 sql`select ${sql.join(
                     [
@@ -101,6 +140,7 @@ export class SubmissionQueryService {
 
         const facets: SubmissionQueryResult['facets'] = {};
         for (const field of new Set(q.facets)) {
+            await budget();
             const result = await tx.execute<{ v: unknown; n: unknown }>(
                 sql`select ${compiler.facetExpr(field)} as v, count(*) as n from ${submissions} where ${cond}
                     group by 1 order by 2 desc limit ${QUERY_LIMITS.facetValues}`
@@ -111,6 +151,7 @@ export class SubmissionQueryService {
         let items: Submission[] = [];
         if (q.rows) {
             const order = compiler.orderBy(q.sort.length ? q.sort : [{ field: 'createdAt', desc: true }]);
+            await budget();
             const rows = await tx
                 .select()
                 .from(submissions)
@@ -118,21 +159,41 @@ export class SubmissionQueryService {
                 .orderBy(...order, sql`${submissions.id} desc`)
                 .offset((q.page - 1) * q.pageSize)
                 .limit(q.pageSize);
+            await budget();
             items = await this.submissions.present(tx, roles, rows);
         }
         return { items, total, page: q.page, pageSize: q.pageSize, aggregates, groups, facets };
     }
 
-    /** The published version's value fields the caller may see, and which of them the value table holds. */
+    /**
+     * The published version's value fields the caller may see, kept only where every version of the form that has the
+     * field shows it to them as the same kind; and which of them the value table holds.
+     */
     private async fieldsOf(tx: Tx, roles: readonly string[], formId: string) {
         const form = await this.forms.definition(tx, formId);
         if (!form.publishedVersionId)
             throw new ConflictError('not_configured', { detail: 'This form has not been published yet.' });
-        const [version] = await tx
-            .select({ document: formVersions.document })
-            .from(formVersions)
-            .where(eq(formVersions.id, form.publishedVersionId));
-        return { fields: valueFields(fieldsFor(version?.document, roles)), indexedKeys: form.indexedKeys };
+        const versions = (
+            await tx
+                .select({ id: formVersions.id, document: formVersions.document })
+                .from(formVersions)
+                .where(eq(formVersions.formId, formId))
+        ).map((v) => {
+            const seen = valueFields(fieldsFor(v.document, roles));
+            return {
+                id: v.id,
+                seen,
+                // every field id the version has (anywhere), and the kind of each top-level value field the caller sees
+                has: new Set(readDocument(v.document).fields.map((f) => f.id)),
+                sees: new Map(seen.map((f) => [f.key, f.kind]))
+            };
+        });
+        const published = versions.find((v) => v.id === form.publishedVersionId);
+        if (!published) throw new ConflictError('not_configured', { detail: 'This form has not been published yet.' });
+        const fields = published.seen.filter((f) =>
+            versions.every((v) => !v.has.has(f.key) || v.sees.get(f.key) === f.kind)
+        );
+        return { fields, indexedKeys: form.indexedKeys };
     }
 }
 

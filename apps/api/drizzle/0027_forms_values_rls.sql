@@ -20,3 +20,27 @@ GRANT SELECT, INSERT ON "forms"."submission_values" TO itrms_app;
 GRANT UPDATE ("indexed_keys") ON "forms"."form_definitions" TO itrms_app;
 --> statement-breakpoint
 SELECT kernel.apply_rls('forms.submission_values', 'transaction', 'org_path');
+--> statement-breakpoint
+-- An answer's timestamp as an instant, read as the API's value writer reads it (submission-values.ts INSTANT): only the
+-- ISO forms with a zone, so the server's own zone never decides; anything else (or an impossible date) is NULL, never
+-- an error that would fail a query.
+CREATE FUNCTION "forms"."iso_instant"(v text) RETURNS timestamptz
+    LANGUAGE plpgsql
+    STABLE
+    PARALLEL SAFE
+    SET search_path = pg_catalog
+AS $$
+BEGIN
+    IF v IS NULL OR v !~ '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}:?\d{2})$' THEN
+        RETURN NULL;
+    END IF;
+    RETURN v::timestamptz;
+EXCEPTION
+    WHEN invalid_datetime_format OR datetime_field_overflow THEN
+        RETURN NULL;
+END;
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION "forms"."iso_instant"(text) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION "forms"."iso_instant"(text) TO itrms_app, itrms_system;

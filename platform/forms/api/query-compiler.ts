@@ -11,7 +11,8 @@
  *   - any other field: the answers, with a type guard (`jsonb_typeof`), so a value of the wrong type reads as nothing
  *     and never makes a query fail. Equality and "has" compare whole JSON values (`@>`): 100 is not "100". This path
  *     scans the form's submissions in the caller's scope (no index can serve it under RLS, ADR-0035).
- * Dates are compared as the engine stores them (ISO text); the built-in timestamps by the day in Addis Ababa.
+ * A date is compared as the day the person picked (its ISO text); a timestamp, the built-in ones too, by its day in
+ * Addis Ababa.
  */
 import { sql, type SQL } from 'drizzle-orm';
 import { InvalidRequestError } from '@itrms/kernel/errors';
@@ -123,6 +124,16 @@ export class QueryCompiler {
         return sql`(${submissions.answers} ->> ${spec.key}::text)`;
     }
 
+    /** A date or timestamp answer as the engine stores it (ISO text); anything else (an array, a number) reads as nothing. */
+    private dateText(spec: FieldSpec): SQL {
+        return sql`(case when jsonb_typeof(${this.node(spec)}) = 'string' then ${this.text(spec)} end)`;
+    }
+
+    /** A timestamp answer as an instant: only the ISO forms with a zone (forms.iso_instant), as the value table holds. */
+    private instant(spec: FieldSpec): SQL {
+        return sql`forms.iso_instant(${this.dateText(spec)})`;
+    }
+
     number(spec: FieldSpec): SQL {
         return sql`(case when jsonb_typeof(${this.node(spec)}) = 'number' then (${this.text(spec)})::numeric end)`;
     }
@@ -171,12 +182,13 @@ export class QueryCompiler {
         } else if (spec.indexed && spec.kind === 'date') {
             target = sql`${submissionValues.valueDate}`;
             lo = (day) => sql`${day}::date`;
-        } else if (spec.indexed) {
-            // a form's own timestamps are compared by their UTC day, as the answers' ISO text is
-            target = sql`${submissionValues.valueTs}`;
-            lo = (day) => sql`(${day}::date::timestamp at time zone 'UTC')`;
+        } else if (spec.kind === 'datetime') {
+            // a timestamp is on the day it is in Addis Ababa, on either path
+            target = spec.indexed ? sql`${submissionValues.valueTs}` : this.instant(spec);
+            lo = (day) => sql`(${day}::date::timestamp at time zone ${TZ})`;
         } else {
-            target = this.text(spec);
+            // a date is the day the person picked: its ISO text's first ten characters
+            target = this.dateText(spec);
             lo = (day) => sql`${day}::text`;
         }
         const hi = (day: string) => lo(nextDay(day));
@@ -247,10 +259,14 @@ export class QueryCompiler {
         }
 
         if (kind === 'multi') {
-            const has = (v: unknown) =>
-                spec.indexed
-                    ? this.indexed(spec, sql`${submissionValues.valueText} = ${asText(v)}`)
-                    : sql`${submissions.answers} @> jsonb_build_object(${spec.key}::text, jsonb_build_array(${json(asText(v))}::jsonb))`;
+            // a choice is compared as text (2 and "2" alike, as the value table folds it); a long one is not indexed
+            const has = (v: unknown) => {
+                const t = asText(v);
+                return spec.indexed && t.length <= MAX_INDEXED_TEXT
+                    ? this.indexed(spec, sql`${submissionValues.valueText} = ${t}`)
+                    : sql`exists (select 1 from jsonb_array_elements_text(case when jsonb_typeof(${this.node(spec)}) = 'array'
+                          then ${this.node(spec)} end) e where e = ${t})`;
+            };
             if (op === 'has') return has(value);
             return sql`(${sql.join(asList(value).map(has), sql` or `)})`;
         }
@@ -259,8 +275,9 @@ export class QueryCompiler {
         const col = this.text(spec);
         const short = (v: string) => spec.indexed && v.length <= MAX_INDEXED_TEXT;
         if (op === 'eq') {
+            // as text, on both paths: an option whose value is the number 2 matches "2"
             const v = asText(value);
-            return short(v) ? this.indexed(spec, sql`${submissionValues.valueText} = ${v}`) : this.holds(spec, v);
+            return short(v) ? this.indexed(spec, sql`${submissionValues.valueText} = ${v}`) : sql`${col} = ${v}`;
         }
         if (op === 'in') {
             const list = asList(value).map(asText);
@@ -327,7 +344,11 @@ export class QueryCompiler {
         if (!GROUPABLE.has(spec.kind)) return refuse(`cannot group by "${field}"`);
         if (spec.kind === 'date' || spec.kind === 'datetime') {
             const width = BUCKETS[bucket ?? 'month'];
-            const day = spec.column ? sql`to_char(${spec.column} at time zone ${TZ}, 'YYYY-MM-DD')` : this.text(spec);
+            const day = spec.column
+                ? sql`to_char(${spec.column} at time zone ${TZ}, 'YYYY-MM-DD')`
+                : spec.kind === 'datetime'
+                  ? sql`to_char(${this.instant(spec)} at time zone ${TZ}, 'YYYY-MM-DD')`
+                  : this.dateText(spec);
             return sql`substr(${day}, 1, ${width}::int)`;
         }
         if (spec.column) return sql`(${spec.column})::text`;

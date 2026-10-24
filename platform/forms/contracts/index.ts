@@ -257,12 +257,20 @@ export interface QueryGroup {
     items: (z.infer<typeof queryConditionSchema> | QueryGroup)[];
 }
 
-export const queryGroupSchema: z.ZodType<QueryGroup> = z.lazy(() =>
-    z.strictObject({
+/**
+ * A filter: conditions and groups nested at most QUERY_LIMITS.depth levels below the top. The levels are written out,
+ * not recursive, so a body nested any deeper is refused by its shape before anything walks it.
+ */
+function groupAt(level: number): z.ZodType<QueryGroup> {
+    const item =
+        level >= QUERY_LIMITS.depth ? queryConditionSchema : z.union([queryConditionSchema, groupAt(level + 1)]);
+    return z.strictObject({
         op: z.enum(['and', 'or']).default('and'),
-        items: z.array(z.union([queryConditionSchema, queryGroupSchema])).max(QUERY_LIMITS.conditions)
-    })
-);
+        items: z.array(item).max(QUERY_LIMITS.conditions)
+    });
+}
+
+export const queryGroupSchema = groupAt(0);
 
 const dimensionSchema = z.strictObject({
     field: fieldKeySchema,
