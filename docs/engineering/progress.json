@@ -509,11 +509,12 @@
         {
           "id": "0.16d",
           "title": "Saved views, history and direct exports",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.16d-views-history-exports",
           "commits": [
             "a4b87d0",
-            "a204f6d"
+            "a204f6d",
+            "f6c7893"
           ],
           "evidence": [
             "pnpm turbo run lint typecheck test build → 66/66 tasks (local); boundaries, format:check, check:slices, i18n:check → clean; OpenAPI regenerated",

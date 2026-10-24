@@ -454,6 +454,10 @@ Split on 2026-10-24 (product owner): exports over the size limit, through the wo
   an export is audited with its size; a CSV cell starting with `=` is neutralised, in the Excel file too.
 - **Tests:** saved-view tests ported from `test_saved_views.py`; export tests ported from `test_submission_query.py`
   (CSV, Excel, neutralisation, labels, audit, permission); history tests.
+- **Done (2026-10-24):** `forms.saved_views` (private to the owner, shared with `submission-view:share`, one default per
+  form and office), `GET /submissions/{id}/history` (audit rows, answers only as "answers"), `POST /submissions/export`
+  (`submission:export`; CSV every cell quoted and neutralised, Excel string cells with the text format on formula-like
+  ones; at most 5000 rows, two renders at once per process; a sensitive audit event with its size and field keys).
 
 ### 0.16e Background exports and server-generated files
 - **Do:** in `@itrms/kernel/files`: files the server generates (an object-store put, the CSV and XLSX types, a
