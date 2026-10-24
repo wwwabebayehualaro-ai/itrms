@@ -60,10 +60,13 @@ jobs:
     env:
       # The runner mounts /github/home as another user, and swc refuses a native cache under it; /root is the container's
       SWC_NATIVE_BINDING_CACHE: /root/.cache/swc-native
+      # The checkout belongs to the runner user, not the container's root, and git (lefthook install) refuses it. Config
+      # from the environment is command scope, where git honours safe.directory; the container holds only this checkout
+      GIT_CONFIG_COUNT: '1'
+      GIT_CONFIG_KEY_0: safe.directory
+      GIT_CONFIG_VALUE_0: '*'
     steps:
       - uses: actions/checkout@v7.0.1
-      # the checkout belongs to the runner user, not the container's root: git (lefthook install) refuses it otherwise
-      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - uses: pnpm/action-setup@v6.1.0
       - uses: actions/setup-node@v7.0.0
         with:
@@ -78,6 +81,17 @@ jobs:
         run: pnpm --filter @itrms/ui test:stories
       - name: Visual baselines (am and en, light, comfortable)
         run: pnpm --filter @itrms/ui test:visual
+      # A missing baseline is written in place and a changed one leaves its diff in test-results: both are what this
+      # image renders, to review before committing (as from pnpm ci:local --jobs stories --update-visual)
+      - if: failure()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: visual-results
+          path: |
+            packages/ui/visual/__screenshots__
+            packages/ui/visual/test-results
+            packages/ui/test-results
+          retention-days: 7
 
   infra:
     name: dev stack + S3 contract suite (Linux)
