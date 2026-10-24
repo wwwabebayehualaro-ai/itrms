@@ -134,6 +134,15 @@ export class PublicationsController {
         return this.db.scoped(ctx, (tx) => this.forms.approve(tx, ctx, id, version, body.note));
     }
 
+    @Post(':id/withdrawal')
+    @HttpCode(200)
+    @Require('form:publish')
+    withdraw(@Param('id', ParseUUIDPipe) id: string, @Headers('if-match') ifMatch: string | undefined) {
+        const ctx = requestDbContext();
+        const version = versionFrom(ifMatch);
+        return this.db.scoped(ctx, (tx) => this.forms.withdraw(tx, ctx, id, version));
+    }
+
     @Post(':id/rejection')
     @HttpCode(200)
     @Require('form:approve')

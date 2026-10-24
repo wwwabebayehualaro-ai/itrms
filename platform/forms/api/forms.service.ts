@@ -74,7 +74,8 @@ export class FormsService {
                 name: input.name,
                 category: input.category ?? null,
                 document: input.document,
-                documentHash: contentHash(input.document)
+                documentHash: contentHash(input.document),
+                documentUpdatedBy: ctx.userId ?? null
             });
             return this.get(tx, row.id);
         } catch (error) {
@@ -94,15 +95,16 @@ export class FormsService {
         version: number,
         input: z.infer<typeof formUpdateSchema>
     ): Promise<Form> {
-        await this.writable(tx, ctx, id);
+        const current = await this.writable(tx, ctx, id);
         if (input.document !== undefined) assertReadable(input.document);
+        const hash = input.document !== undefined ? contentHash(input.document) : undefined;
         await updateAudited(tx, formDefinitions, id, version, {
             ...(input.name !== undefined ? { name: input.name } : {}),
             ...(input.category !== undefined ? { category: input.category } : {}),
             ...(input.active !== undefined ? { active: input.active } : {}),
-            ...(input.document !== undefined
-                ? { document: input.document, documentHash: contentHash(input.document) }
-                : {})
+            ...(input.document !== undefined ? { document: input.document, documentHash: hash } : {}),
+            // who changed the content (saving the same content again changes nothing)
+            ...(hash !== undefined && hash !== current.documentHash ? { documentUpdatedBy: ctx.userId ?? null } : {})
         });
         return this.get(tx, id);
     }
@@ -171,6 +173,7 @@ export class FormsService {
                 unitId: form.ownerUnitId,
                 formId,
                 formVersionId: version.id,
+                contentBy: form.documentUpdatedBy,
                 note: note ?? null
             });
             return (await this.publicationsOf(tx, [row]))[0] as Publication;
@@ -237,6 +240,22 @@ export class FormsService {
         return (await this.publicationsOf(tx, [decided]))[0] as Publication;
     }
 
+    /** The person who asked takes the request back (deciding stays with another person). */
+    async withdraw(tx: Tx, ctx: DbContext, id: string, version: number): Promise<Publication> {
+        const [row] = await tx.select().from(formPublications).where(eq(formPublications.id, id));
+        if (!row) throw new NotFoundError();
+        if (row.status !== 'pending')
+            throw new ConflictError('invalid_transition', { detail: 'This request was already decided.' });
+        if (row.createdBy !== ctx.userId)
+            throw new ForbiddenError({ detail: 'Only the person who asked can withdraw the request.' });
+        const withdrawn = await updateAudited(tx, formPublications, id, version, {
+            status: 'withdrawn',
+            decidedBy: ctx.userId ?? null,
+            decidedAt: new Date()
+        });
+        return (await this.publicationsOf(tx, [withdrawn]))[0] as Publication;
+    }
+
     // ---- helpers ----
 
     /** A form the caller may read (its own, its subtree's, or an ancestor's). */
@@ -253,12 +272,14 @@ export class FormsService {
         id: string,
         options: { lock?: boolean } = {}
     ): Promise<DefinitionRow> {
-        const query = tx.select().from(formDefinitions).where(eq(formDefinitions.id, id));
-        const [row] = options.lock ? await query.for('update') : await query;
-        if (!row) throw new NotFoundError();
+        const row = await this.definition(tx, id);
         if (!withinScope(row.orgPath, ctx.scopePath ?? ''))
             throw new ForbiddenError({ detail: 'This form belongs to an office above yours.' });
-        return row;
+        if (!options.lock) return row;
+        // locked only once it is known to be the caller's (a lock also applies the UPDATE policy)
+        const [locked] = await tx.select().from(formDefinitions).where(eq(formDefinitions.id, id)).for('update');
+        if (!locked) throw new NotFoundError();
+        return locked;
     }
 
     /** The version holding the working copy: the existing one with its content, or a new one numbered after the last. */
@@ -282,7 +303,7 @@ export class FormsService {
         });
     }
 
-    /** A request waiting for a decision, decided by someone other than who asked (SEC-AC-6). */
+    /** A request waiting for a decision, decided by someone other than who asked and who wrote the content (SEC-AC-6). */
     private async pending(tx: Tx, ctx: DbContext, id: string): Promise<PublicationRow> {
         const [row] = await tx.select().from(formPublications).where(eq(formPublications.id, id));
         if (!row) throw new NotFoundError();
@@ -291,6 +312,11 @@ export class FormsService {
         if (row.createdBy && row.createdBy === ctx.userId)
             throw new ForbiddenError({
                 detail: 'Who asks for a publication cannot approve it: another person decides.',
+                audit: { reason: 'separation_of_duties', publicationId: id }
+            });
+        if (row.contentBy && row.contentBy === ctx.userId)
+            throw new ForbiddenError({
+                detail: 'Who changed the form cannot approve its publication: another person decides.',
                 audit: { reason: 'separation_of_duties', publicationId: id }
             });
         return row;

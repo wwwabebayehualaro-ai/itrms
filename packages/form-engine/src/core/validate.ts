@@ -7,7 +7,7 @@
  */
 import { z } from 'zod';
 import type { Scope } from './conditions';
-import { isFormArray, type EngineField } from './model';
+import { isFormArray, type EngineField, type FieldOption } from './model';
 import { str } from './runtime/path';
 import { compilePattern } from './safePattern';
 import { isEnabledIn, isListField, isVisibleIn, scopeFields } from './values';
@@ -176,6 +176,25 @@ export function fieldSchema(f: EngineField): z.ZodType<unknown> {
     });
 }
 
+const CHOICE_TYPES = new Set(['Dropdown', 'MultiSelect', 'RadioButton', 'CheckboxGroup']);
+
+/**
+ * A choice is one of the field's own options (in option groups too). Not checked when the options come from a data source
+ * or the field takes free text (`editable`): those are checked where the data is.
+ */
+function choiceError(f: EngineField, value: unknown): string | undefined {
+    if (!CHOICE_TYPES.has(f.type) || f.optionsBinding || f.props.editable || f.options.length === 0) return undefined;
+    if (isBlank(value) || (Array.isArray(value) && value.length === 0)) return undefined;
+    const allowed = new Set<string>();
+    const add = (options: readonly FieldOption[]) =>
+        options.forEach((o) => (o.items?.length ? add(o.items) : allowed.add(JSON.stringify(o.value))));
+    add(f.options);
+    const picked = Array.isArray(value) ? (value as unknown[]) : [value];
+    return picked.every((v) => allowed.has(JSON.stringify(v)))
+        ? undefined
+        : f.messages.type || 'Please choose one of the options';
+}
+
 /** Shown while a remote check runs (the renderer shows it as progress, not as a mistake). */
 export const REMOTE_PENDING = 'Checking…';
 
@@ -226,7 +245,9 @@ export function validateForm(fields: EngineField[], values: Record<string, unkno
                 continue;
             }
             const result = fieldSchema(f).safeParse(current[f.id]);
+            const choice = result.success ? choiceError(f, current[f.id]) : undefined;
             if (!result.success) errors[path] = result.error.issues[0]?.message ?? 'Invalid value';
+            else if (choice) errors[path] = choice;
             else if (f.remote && !isBlank(current[f.id])) {
                 const remote = remoteError(f, scope);
                 if (remote) errors[path] = remote;

@@ -16,6 +16,7 @@ CREATE TABLE "forms"."form_definitions" (
 	"active" boolean DEFAULT true NOT NULL,
 	"document" jsonb NOT NULL,
 	"document_hash" text NOT NULL,
+	"document_updated_by" uuid,
 	"published_version_id" uuid,
 	"published_at" timestamp with time zone
 );
@@ -32,6 +33,7 @@ CREATE TABLE "forms"."form_publications" (
 	"org_path" "ltree" DEFAULT '' NOT NULL,
 	"form_id" uuid NOT NULL,
 	"form_version_id" uuid NOT NULL,
+	"content_by" uuid,
 	"status" text DEFAULT 'pending' NOT NULL,
 	"note" text,
 	"decided_by" uuid,

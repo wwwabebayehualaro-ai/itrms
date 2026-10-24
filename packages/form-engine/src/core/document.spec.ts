@@ -54,4 +54,9 @@ describe('checkDocument', () => {
         expect(p['fields[2].parentId']).toBe('"x" sits in "gone", which is not a field of this form');
         expect(p['fields[3].parentId']).toMatch(/loop/);
     });
+
+    it('refuses keys an object inherits', () => {
+        for (const key of ['__proto__', 'constructor', 'toString', 'hasOwnProperty'])
+            expect(problems({ fields: [F(key, 'InputText')] })['fields[0].id']).toBe(`"${key}" cannot be a field key`);
+    });
 });

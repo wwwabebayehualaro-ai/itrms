@@ -40,13 +40,17 @@ ALTER TABLE "forms"."form_definitions"
 ALTER TABLE "forms"."form_publications"
     ADD CONSTRAINT "form_publications_version_fk" FOREIGN KEY ("form_version_id", "form_id")
         REFERENCES "forms"."form_versions" ("id", "form_id"),
-    ADD CONSTRAINT "form_publications_status_check" CHECK ("status" IN ('pending', 'approved', 'rejected')),
+    ADD CONSTRAINT "form_publications_status_check" CHECK ("status" IN ('pending', 'approved', 'rejected', 'withdrawn')),
     ADD CONSTRAINT "form_publications_text_check" CHECK (
         coalesce(length("note"), 1) BETWEEN 1 AND 500 AND coalesce(length("decision_note"), 1) BETWEEN 1 AND 500),
     ADD CONSTRAINT "form_publications_decision_check" CHECK (
         ("status" = 'pending') = ("decided_by" IS NULL AND "decided_at" IS NULL)),
-    -- the second person (SEC-AC-6): checked by the API, and here as the last word
-    ADD CONSTRAINT "form_publications_four_eyes_check" CHECK ("decided_by" IS NULL OR "decided_by" IS DISTINCT FROM "created_by");
+    -- the second person (SEC-AC-6), neither who asked nor who wrote the content: checked by the API, and here as the
+    -- last word; only the person who asked withdraws
+    ADD CONSTRAINT "form_publications_four_eyes_check" CHECK (
+        "status" NOT IN ('approved', 'rejected')
+        OR ("decided_by" IS DISTINCT FROM "created_by" AND "decided_by" IS DISTINCT FROM "content_by")),
+    ADD CONSTRAINT "form_publications_withdrawal_check" CHECK ("status" <> 'withdrawn' OR "decided_by" = "created_by");
 --> statement-breakpoint
 ALTER TABLE "forms"."submissions"
     ADD CONSTRAINT "submissions_version_fk" FOREIGN KEY ("form_version_id", "form_id")
@@ -79,8 +83,8 @@ GRANT USAGE ON SCHEMA "forms" TO itrms_app;
 GRANT SELECT, INSERT ON "forms"."form_definitions", "forms"."form_versions", "forms"."form_publications",
     "forms"."submissions" TO itrms_app;
 --> statement-breakpoint
-GRANT UPDATE ("name", "category", "active", "document", "document_hash", "published_version_id", "published_at",
-    "updated_at", "updated_by", "row_version")
+GRANT UPDATE ("name", "category", "active", "document", "document_hash", "document_updated_by", "published_version_id",
+    "published_at", "updated_at", "updated_by", "row_version")
     ON "forms"."form_definitions" TO itrms_app;
 --> statement-breakpoint
 GRANT UPDATE ("status", "decided_by", "decided_at", "decision_note", "updated_at", "updated_by", "row_version")

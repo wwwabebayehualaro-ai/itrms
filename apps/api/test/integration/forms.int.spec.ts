@@ -586,8 +586,78 @@ describe('a bureau form', () => {
             expect(r.diff.after ?? {}).not.toHaveProperty('document');
             expect(r.diff.before ?? {}).not.toHaveProperty('document');
         }
+        // answers hold personal data and role-restricted values: the log proves a change without holding them
         const submission = rows.find((r) => r.table_name === 'forms.submissions');
-        expect(submission?.diff.after).toHaveProperty('answers');
+        expect(submission?.diff.after?.answers).toMatch(/^hmac:[0-9a-f]{64}$/);
+    });
+});
+
+describe('a publication', () => {
+    it('is decided neither by who asked nor by who wrote the content, and only who asked withdraws it', async () => {
+        // the first bureau admin writes the form; the second asks for it to go live
+        const form = await createForm(as.bureau(), 'inspection-checklist');
+        const asked = (
+            await call('POST', `/api/v1/forms/${form.id}/publications`, as.bureau2(), {})
+        ).json<PublicationOut>();
+        const byAuthor = await call(
+            'POST',
+            `/api/v1/form-publications/${asked.id}/approval`,
+            as.bureau(),
+            {},
+            ifMatch(asked.version)
+        );
+        expect(byAuthor.statusCode).toBe(403);
+        expect(byAuthor.json<Problem>().detail).toMatch(/changed the form/);
+        const byOther = await call(
+            'POST',
+            `/api/v1/form-publications/${asked.id}/withdrawal`,
+            as.bureau(),
+            {},
+            ifMatch(asked.version)
+        );
+        expect(byOther.statusCode).toBe(403);
+        const withdrawn = await call(
+            'POST',
+            `/api/v1/form-publications/${asked.id}/withdrawal`,
+            as.bureau2(),
+            {},
+            ifMatch(asked.version)
+        );
+        expect(withdrawn.json()).toMatchObject({ status: 'withdrawn' });
+        expect((await get<FormOut>(`/api/v1/forms/${form.id}`, as.bureau())).status).toBe('draft');
+        // the database refuses it too
+        await expect(
+            owner.query(
+                `update forms.form_publications set status = 'approved', decided_by = content_by, decided_at = now()
+                  where id = $1`,
+                [asked.id]
+            )
+        ).rejects.toThrow(/four_eyes/);
+    });
+
+    it('of a form above the office is refused the same way as a change to it', async () => {
+        const bureauForm = (await get<{ items: FormOut[] }>('/api/v1/forms?q=inspection', as.zoneAdmin())).items[0];
+        const res = await call('POST', `/api/v1/forms/${bureauForm?.id ?? ''}/publications`, as.zoneAdmin(), {});
+        expect(res.statusCode).toBe(403);
+    });
+});
+
+describe('limits', () => {
+    it('refuse long names, deep nesting and NUL characters with a 422, never a 500', async () => {
+        const long = await call('POST', '/api/v1/forms', as.bureau(), {
+            key: 'long-name',
+            name: { am: 'ሀ'.repeat(201), en: 'Long' },
+            document: V1
+        });
+        expect(long.statusCode).toBe(422);
+        let deep: unknown = 'x';
+        for (let i = 0; i < 20; i++) deep = { deep };
+        const form = await createForm(as.bureau(), 'limits');
+        const versionId = (await publish(form.id, as.bureau(), as.bureau2())).formVersion.id;
+        for (const answers of [{ fullName: deep }, { fullName: 'a\u0000b' }, { phone: Array(6000).fill(1) }]) {
+            const res = await submit(as.damot(), form.id, versionId, answers);
+            expect(res.statusCode, res.body).toBe(422);
+        }
     });
 });
 

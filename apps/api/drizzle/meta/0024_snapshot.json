@@ -1,5 +1,5 @@
 {
-  "id": "552a7d61-bf41-4ecf-8817-0c0d217779a3",
+  "id": "899d1062-0443-44d0-b7b3-097cb9154634",
   "prevId": "fe8ecc3d-9f7e-4ebd-b51d-2ed14df8192f",
   "version": "7",
   "dialect": "postgresql",
@@ -102,6 +102,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "document_updated_by": {
+          "name": "document_updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "published_version_id": {
           "name": "published_version_id",
@@ -263,6 +269,12 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "content_by": {
+          "name": "content_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "status": {
           "name": "status",

@@ -132,3 +132,13 @@ export function extractReferences(value: unknown, acc: Set<string> = new Set()):
 export function isEmptyValue(v: unknown) {
     return v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
 }
+
+/** The roots (`form`, `data`, `user` …) a string's bindings read, defaulted ones included. */
+export function bindingRoots(input: string): Set<string> {
+    const roots = new Set<string>();
+    for (const [, expr = ''] of input.matchAll(BINDING)) {
+        const paths = isFormula(expr) ? formulaReferences(expr.trimStart().slice(1)) : [parseExpression(expr).path];
+        for (const p of paths) roots.add(p.split(/[.[]/)[0] ?? '');
+    }
+    return roots;
+}

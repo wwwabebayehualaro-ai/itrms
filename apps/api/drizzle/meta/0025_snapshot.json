@@ -1,6 +1,6 @@
 {
-  "id": "75aa354e-cf0f-4f14-8be8-292da8e8ba23",
-  "prevId": "552a7d61-bf41-4ecf-8817-0c0d217779a3",
+  "id": "801e0383-3753-4507-ba8e-27cee407b005",
+  "prevId": "899d1062-0443-44d0-b7b3-097cb9154634",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -102,6 +102,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "document_updated_by": {
+          "name": "document_updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "published_version_id": {
           "name": "published_version_id",
@@ -263,6 +269,12 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "content_by": {
+          "name": "content_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "status": {
           "name": "status",

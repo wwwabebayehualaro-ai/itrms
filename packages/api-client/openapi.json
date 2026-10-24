@@ -1405,7 +1405,8 @@
               "enum": [
                 "pending",
                 "approved",
-                "rejected"
+                "rejected",
+                "withdrawn"
               ],
               "type": "string"
             }
@@ -1487,6 +1488,29 @@
           },
           "required": true
         },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Publications"
+        ]
+      }
+    },
+    "/api/v1/form-publications/{id}/withdrawal": {
+      "post": {
+        "operationId": "PublicationsController_withdraw",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""

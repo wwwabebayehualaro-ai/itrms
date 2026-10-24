@@ -145,6 +145,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/form-publications/{id}/withdrawal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PublicationsController_withdraw"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/forms": {
         parameters: {
             query?: never;
@@ -1072,7 +1088,7 @@ export interface operations {
     PublicationsController_list: {
         parameters: {
             query?: {
-                status?: "pending" | "approved" | "rejected";
+                status?: "pending" | "approved" | "rejected" | "withdrawn";
                 formId?: string;
             };
             header?: never;
@@ -1126,6 +1142,25 @@ export interface operations {
                 "application/json": components["schemas"]["PublicationDecisionDto"];
             };
         };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PublicationsController_withdraw: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             200: {
                 headers: {

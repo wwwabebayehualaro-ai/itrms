@@ -9,19 +9,62 @@
 import { i18nTextSchema } from '@itrms/schemas';
 import { z } from 'zod';
 
-/** A stored form is at most this big as JSON (the contract also caps it at 1000 fields). */
-export const MAX_DOCUMENT_BYTES = 2 * 1024 * 1024;
+/** A stored form is at most this big as JSON (under the API's 1 MiB body limit; the contract caps it at 1000 fields). */
+export const MAX_DOCUMENT_BYTES = 960 * 1024;
 /** A submission's answers are at most this big as JSON. */
 export const MAX_ANSWERS_BYTES = 512 * 1024;
+/** How deep a document or answers may nest, and how many array items they may hold in all (SEC-IN-2). */
+export const MAX_DEPTH = 12;
+export const MAX_ITEMS = 5000;
 
 // contracts run in the browser too: no Buffer
 const utf8 = new TextEncoder();
-const jsonBytes = (v: unknown) => utf8.encode(JSON.stringify(v) ?? '').length;
+
+/** Why a JSON value is refused (too big, too deep, too many items, or a NUL, which PostgreSQL cannot store), or null. */
+function jsonProblem(value: unknown, maxBytes: number): string | null {
+    let items = 0;
+    const walk = (v: unknown, depth: number): string | null => {
+        if (depth > MAX_DEPTH) return `nested more than ${MAX_DEPTH} levels`;
+        if (Array.isArray(v)) {
+            items += v.length;
+            if (items > MAX_ITEMS) return `more than ${MAX_ITEMS} items`;
+            for (const x of v) {
+                const p = walk(x, depth + 1);
+                if (p) return p;
+            }
+        } else if (v && typeof v === 'object') {
+            for (const x of Object.values(v)) {
+                const p = walk(x, depth + 1);
+                if (p) return p;
+            }
+        }
+        return null;
+    };
+    const shape = walk(value, 0);
+    if (shape) return shape;
+    const json = JSON.stringify(value) ?? '';
+    // JSON writes a NUL as the escape \u0000
+    if (json.includes('\\u0000')) return 'a text holds a NUL character';
+    return utf8.encode(json).length > maxBytes ? `larger than ${Math.round(maxBytes / 1024)} KB` : null;
+}
+
+const boundedJson = <T extends z.ZodType>(schema: T, maxBytes: number) =>
+    schema.superRefine((v, ctx) => {
+        const problem = jsonProblem(v, maxBytes);
+        if (problem) ctx.addIssue({ code: 'custom', message: problem });
+    });
 
 /** The engine's document (`{ schemaVersion?, fields, runtime? }`, or the oldest bare field list); the API checks it. */
-export const formDocumentInputSchema = z
-    .union([z.record(z.string(), z.unknown()), z.array(z.unknown())])
-    .refine((d) => jsonBytes(d) <= MAX_DOCUMENT_BYTES, `a form is at most ${MAX_DOCUMENT_BYTES / 1024 / 1024} MB`);
+export const formDocumentInputSchema = boundedJson(
+    z.union([z.record(z.string(), z.unknown()), z.array(z.unknown())]),
+    MAX_DOCUMENT_BYTES
+);
+
+/** A form's name: Amharic and English, at most 10 languages of 200 characters. */
+export const formNameSchema = i18nTextSchema.refine(
+    (t) => Object.keys(t).length <= 10 && Object.values(t).every((v) => typeof v === 'string' && v.length <= 200),
+    'at most 10 languages of 200 characters'
+);
 
 /** A definition's key: lower-case words joined by hyphens, unique in the region (`driving-licence-application`). */
 export const formKeySchema = z
@@ -34,14 +77,14 @@ export const FORM_STATUSES = ['draft', 'pending', 'published'] as const;
 
 export const formCreateSchema = z.strictObject({
     key: formKeySchema,
-    name: i18nTextSchema,
+    name: formNameSchema,
     category: z.string().trim().min(1).max(100).optional(),
     document: formDocumentInputSchema
 });
 
 export const formUpdateSchema = z
     .strictObject({
-        name: i18nTextSchema.optional(),
+        name: formNameSchema.optional(),
         category: z.string().trim().min(1).max(100).nullable().optional(),
         active: z.boolean().optional(),
         document: formDocumentInputSchema.optional()
@@ -84,7 +127,8 @@ export const formVersionSchema = z.object({
 
 export const formVersionSummarySchema = formVersionSchema.omit({ document: true }).extend({ published: z.boolean() });
 
-export const PUBLICATION_STATUSES = ['pending', 'approved', 'rejected'] as const;
+/** withdrawn: the person who asked took the request back */
+export const PUBLICATION_STATUSES = ['pending', 'approved', 'rejected', 'withdrawn'] as const;
 
 export const publicationRequestSchema = z.strictObject({
     /** for the approver: what changed and why */
@@ -114,9 +158,7 @@ export const publicationSchema = z.object({
 });
 
 /** Answers keyed by field id, as the engine writes them; only the form's own fields are kept. */
-export const answersSchema = z
-    .record(z.string().max(200), z.unknown())
-    .refine((a) => jsonBytes(a) <= MAX_ANSWERS_BYTES, `answers are at most ${MAX_ANSWERS_BYTES / 1024} KB`);
+export const answersSchema = boundedJson(z.record(z.string().max(200), z.unknown()), MAX_ANSWERS_BYTES);
 
 export const submissionCreateSchema = z.strictObject({
     formId: z.uuid(),

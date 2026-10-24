@@ -19,7 +19,8 @@ export interface DocumentProblem {
 export const MAX_PROBLEMS = 20;
 
 const contract = formConfigSchema([...FIELD_TYPES]);
-const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+// a value is read as `values[key]`: never a key an object inherits (toString, valueOf, __proto__ …)
+const RESERVED_KEYS = new Set([...Object.getOwnPropertyNames(Object.prototype), 'prototype']);
 
 const where = (path: readonly PropertyKey[]) =>
     path.map((p, i) => (typeof p === 'number' ? `[${p}]` : `${i ? '.' : ''}${String(p)}`)).join('') || '(document)';
@@ -29,7 +30,6 @@ function structure(fields: readonly { id: string; parentId?: string | number | n
     const index = new Map<string, number>();
     fields.forEach((f, i) => {
         const key = f.id;
-        // a value is stored under its field's key: never one an object inherits
         if (RESERVED_KEYS.has(key))
             problems.push({ path: `fields[${i}].id`, message: `"${key}" cannot be a field key` });
         const first = index.get(key);

@@ -14,6 +14,7 @@ export {
     emptyRow,
     pruneHidden,
     knownValues,
+    settledValues,
     submittedValues,
     scopeFields,
     holdsValue,

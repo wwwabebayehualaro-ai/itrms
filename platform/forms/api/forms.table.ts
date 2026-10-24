@@ -11,7 +11,8 @@
  *   submissions        answers, pinned to the version they were filled on (class T at the handling unit). `case_id` gets
  *                      its foreign key when cases exist (task 0.19).
  *
- * The audit log holds a document's hash, never the document (the versions are the record of what was published).
+ * The audit log holds a document's hash, never the document (the versions are the record of what was published), and
+ * answers only as an HMAC: they hold personal data and the values of role-restricted fields.
  */
 import { sql } from 'drizzle-orm';
 import {
@@ -55,6 +56,8 @@ export const formDefinitions = withRls(
                 /** the working copy: what the next publication snapshots */
                 document: jsonb('document').notNull(),
                 documentHash: text('document_hash').notNull(),
+                /** who last changed the working copy: they cannot approve its publication (SEC-AC-6) */
+                documentUpdatedBy: uuid('document_updated_by'),
                 publishedVersionId: uuid('published_version_id').references((): AnyPgColumn => formVersions.id),
                 publishedAt: timestamp('published_at', { withTimezone: true })
             },
@@ -113,7 +116,9 @@ export const formPublications = withRls(
                 formVersionId: uuid('form_version_id')
                     .notNull()
                     .references(() => formVersions.id),
-                status: text('status', { enum: ['pending', 'approved', 'rejected'] })
+                /** who last changed the content asked for: neither they nor the requester decide */
+                contentBy: uuid('content_by'),
+                status: text('status', { enum: ['pending', 'approved', 'rejected', 'withdrawn'] })
                     .notNull()
                     .default('pending'),
                 note: text('note'),
@@ -165,7 +170,8 @@ export const submissions = withRls(
                     .where(sql`${t.caseId} is not null`),
                 index('submissions_org_path_gist').using('gist', t.orgPath)
             ]
-        )
+        ),
+        { mask: ['answers'] }
     ),
     'transaction'
 );
