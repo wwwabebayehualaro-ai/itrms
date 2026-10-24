@@ -509,12 +509,24 @@
         {
           "id": "0.16d",
           "title": "Saved views, history and direct exports",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.16d-views-history-exports",
+          "commits": [
+            "a4b87d0",
+            "a204f6d"
+          ],
+          "evidence": [
+            "pnpm turbo run lint typecheck test build → 66/66 tasks (local); boundaries, format:check, check:slices, i18n:check → clean; OpenAPI regenerated",
+            "apps/api test:int (PostgreSQL 16) → 11 files, 247 tests; forms-views.int.spec.ts 11 (test_saved_views.py port, export port, history, Excel, CSV quoting against ; and tab, sheet names, the 5000-row limit); API unit tests 10/10",
+            "Done when 1 (a saved view reopens): forms-views 'a private view belongs to its owner' (config toEqual on reopen)",
+            "Done when 2 (a private view is invisible to everyone else): same test (same unit's head and the zone's head: not listed, PATCH/DELETE 404)",
+            "Done when 3 (an export is audited with its size): 'is the viewer's rows as people read them' (kernel.audit_log submissions.exported [csv, 5], with fieldKeys)",
+            "Done when 4 (= neutralised, in Excel too): CSV quoted and apostrophe-prefixed; XLSX string cells with the text format (asserted cell type and numFmt '@')",
+            "GitHub Actions PR #5 at a204f6d → 8/8 jobs pass (stories re-run after a flaky axe check on an untouched component)",
+            "reviewer (opus) on a4b87d0 → 0 high, 3 medium, 6 low: fixed in a204f6d (masking → 0.18, rate limits → 0.26); task-verifier → all items PASS"
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "Split on 2026-10-24 (product owner): background exports and server-generated files moved to 0.16e (the kernel's file store takes only browser uploads of PDFs and images). Saved views: forms.saved_views class T at the owner's unit; private views answered as missing to anyone but the owner (created_by check on top of RLS); sharing and the default need the new submission-view:share (bureau_admin, unit_admin, unit_head). Export: the new submission:export (bureau_admin, unit_head, finance_officer, auditor, as the matrix's export column); at most 5000 rows directly, same allow-list and budget as the query; every cell neutralised in CSV and XLSX; the export is a sensitive event (recordSensitiveEvent) with format, rows and fields; the bytes are sent on the reply (a StreamableFile was serialised as JSON). History: the submission's audit rows, newest first, actor names from kernel.users; changes by column, answers only as 'answers'. Reviewer (opus) on a4b87d0: 0 high, 3 medium, 6 low, 4 suspicions. Fixed: every CSV cell quoted (a ; or tab separator can no longer split a formula out); the export reads only the chosen answer keys, renders after its transaction closes, writes Excel with ExcelJS's streaming writer, and at most 2 render at once per process (429 after); Excel cells starting like a formula keep their text with the text number format (ExcelJS 4.4 cannot write quotePrefix; a string cell is never evaluated on open and a text-formatted one stays text when edited, and phone numbers are not altered); sheet names Excel accepts (no quote at either end, not History); Yes/No, row counts and the built-in headers from forms.export.* in am and en; unit_admin's useless share grant removed; the export event records fieldKeys; history says truncated; a saved view's config is masked in the audit log; Excel cells capped at 32 767 characters; the file name's date is the Addis day. Moved: sensitive-field masking in exports to 0.18, export rate limits to 0.26."
         },
         {
           "id": "0.16e",
@@ -1797,6 +1809,31 @@
       "foundIn": "0.16b",
       "item": "Filters on fields that are not filterable scan the form's submissions in scope (no index can serve them under RLS): the data viewer should say so and suggest marking the field",
       "movedTo": "0.16c"
+    },
+    {
+      "foundIn": "0.16d",
+      "item": "Exports show dates Gregorian (Addis time for timestamps): give them the Ethiopian date columns of the EthDate field",
+      "movedTo": "0.17"
+    },
+    {
+      "foundIn": "0.16d",
+      "item": "Field labels in exports and views are the form's plain labels: use the I18nText labels in the caller's language",
+      "movedTo": "0.17"
+    },
+    {
+      "foundIn": "0.16d",
+      "item": "A submission's history shows only its own audit rows: add its case's steps when cases exist",
+      "movedTo": "0.19"
+    },
+    {
+      "foundIn": "0.16d",
+      "item": "Exports and query answers show every visible field in clear: a field flagged sensitive (phone, FIN, medical) is masked by default and revealed only through the audited reveal (SEC-PD-2, SEC-DC-1/2)",
+      "movedTo": "0.18"
+    },
+    {
+      "foundIn": "0.16d",
+      "item": "Rate limits on exports per person and per installation (SEC-AP-2); 0.16d only caps concurrent renders per process (2, then 429)",
+      "movedTo": "0.26"
     }
   ]
 }

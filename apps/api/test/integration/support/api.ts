@@ -52,7 +52,7 @@ export interface TestApi {
     /** a user's id in ITRMS (`created_by` of what they write) */
     userId(sub: string): Promise<string>;
     call(
-        method: 'GET' | 'POST' | 'PATCH',
+        method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
         url: string,
         as: As,
         body?: object,

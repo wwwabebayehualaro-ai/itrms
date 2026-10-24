@@ -240,3 +240,44 @@ export const submissionValues = withRls(
     ),
     'transaction'
 );
+
+/**
+ * A data viewer's saved view of a form's submissions (task 0.16d): private to its owner, or shared with the unit (class
+ * T at the unit: its subtree sees the shared ones). That a private view is its owner's alone is the service's check on
+ * `created_by`, on top of RLS. One default per form and unit.
+ */
+export const savedViews = withRls(
+    audited(
+        formsSchema.table(
+            'saved_views',
+            {
+                ...baseColumns(),
+                regionId: uuid('region_id').notNull(),
+                unitId: uuid('unit_id')
+                    .notNull()
+                    .references(() => orgUnits.id),
+                /** set by trigger from the unit */
+                orgPath: ltree('org_path').notNull().default(''),
+                formId: uuid('form_id')
+                    .notNull()
+                    .references(() => formDefinitions.id),
+                name: text('name').notNull(),
+                visibility: text('visibility', { enum: ['private', 'unit'] })
+                    .notNull()
+                    .default('private'),
+                isDefault: boolean('is_default').notNull().default(false),
+                config: jsonb('config').$type<Record<string, unknown>>().notNull()
+            },
+            (t) => [
+                index('saved_views_form_unit_idx').on(t.formId, t.unitId),
+                uniqueIndex('saved_views_default_uq')
+                    .on(t.formId, t.unitId)
+                    .where(sql`${t.isDefault}`),
+                index('saved_views_org_path_gist').using('gist', t.orgPath)
+            ]
+        ),
+        // a private view's filters may name a person: the log proves a change without holding them
+        { mask: ['config'] }
+    ),
+    'transaction'
+);

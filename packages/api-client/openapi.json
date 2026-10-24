@@ -1185,6 +1185,806 @@
         ],
         "type": "object"
       },
+      "SavedViewCreateDto": {
+        "additionalProperties": false,
+        "properties": {
+          "config": {
+            "additionalProperties": false,
+            "properties": {
+              "columns": {
+                "default": [],
+                "items": {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              "filter": {
+                "additionalProperties": false,
+                "properties": {
+                  "items": {
+                    "items": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "field": {
+                              "maxLength": 64,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "op": {
+                              "enum": [
+                                "eq",
+                                "ne",
+                                "contains",
+                                "ncontains",
+                                "starts",
+                                "in",
+                                "nin",
+                                "gt",
+                                "gte",
+                                "lt",
+                                "lte",
+                                "between",
+                                "has",
+                                "hasany",
+                                "empty",
+                                "notempty"
+                              ],
+                              "type": "string"
+                            },
+                            "value": {}
+                          },
+                          "required": [
+                            "field",
+                            "op"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "items": {
+                              "items": {
+                                "anyOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "field": {
+                                        "maxLength": 64,
+                                        "minLength": 1,
+                                        "type": "string"
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "eq",
+                                          "ne",
+                                          "contains",
+                                          "ncontains",
+                                          "starts",
+                                          "in",
+                                          "nin",
+                                          "gt",
+                                          "gte",
+                                          "lt",
+                                          "lte",
+                                          "between",
+                                          "has",
+                                          "hasany",
+                                          "empty",
+                                          "notempty"
+                                        ],
+                                        "type": "string"
+                                      },
+                                      "value": {}
+                                    },
+                                    "required": [
+                                      "field",
+                                      "op"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "items": {
+                                        "items": {
+                                          "anyOf": [
+                                            {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "field": {
+                                                  "maxLength": 64,
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "eq",
+                                                    "ne",
+                                                    "contains",
+                                                    "ncontains",
+                                                    "starts",
+                                                    "in",
+                                                    "nin",
+                                                    "gt",
+                                                    "gte",
+                                                    "lt",
+                                                    "lte",
+                                                    "between",
+                                                    "has",
+                                                    "hasany",
+                                                    "empty",
+                                                    "notempty"
+                                                  ],
+                                                  "type": "string"
+                                                },
+                                                "value": {}
+                                              },
+                                              "required": [
+                                                "field",
+                                                "op"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "items": {
+                                                  "items": {
+                                                    "anyOf": [
+                                                      {
+                                                        "additionalProperties": false,
+                                                        "properties": {
+                                                          "field": {
+                                                            "maxLength": 64,
+                                                            "minLength": 1,
+                                                            "type": "string"
+                                                          },
+                                                          "op": {
+                                                            "enum": [
+                                                              "eq",
+                                                              "ne",
+                                                              "contains",
+                                                              "ncontains",
+                                                              "starts",
+                                                              "in",
+                                                              "nin",
+                                                              "gt",
+                                                              "gte",
+                                                              "lt",
+                                                              "lte",
+                                                              "between",
+                                                              "has",
+                                                              "hasany",
+                                                              "empty",
+                                                              "notempty"
+                                                            ],
+                                                            "type": "string"
+                                                          },
+                                                          "value": {}
+                                                        },
+                                                        "required": [
+                                                          "field",
+                                                          "op"
+                                                        ],
+                                                        "type": "object"
+                                                      },
+                                                      {
+                                                        "additionalProperties": false,
+                                                        "properties": {
+                                                          "items": {
+                                                            "items": {
+                                                              "additionalProperties": false,
+                                                              "properties": {
+                                                                "field": {
+                                                                  "maxLength": 64,
+                                                                  "minLength": 1,
+                                                                  "type": "string"
+                                                                },
+                                                                "op": {
+                                                                  "enum": [
+                                                                    "eq",
+                                                                    "ne",
+                                                                    "contains",
+                                                                    "ncontains",
+                                                                    "starts",
+                                                                    "in",
+                                                                    "nin",
+                                                                    "gt",
+                                                                    "gte",
+                                                                    "lt",
+                                                                    "lte",
+                                                                    "between",
+                                                                    "has",
+                                                                    "hasany",
+                                                                    "empty",
+                                                                    "notempty"
+                                                                  ],
+                                                                  "type": "string"
+                                                                },
+                                                                "value": {}
+                                                              },
+                                                              "required": [
+                                                                "field",
+                                                                "op"
+                                                              ],
+                                                              "type": "object"
+                                                            },
+                                                            "maxItems": 50,
+                                                            "type": "array"
+                                                          },
+                                                          "op": {
+                                                            "default": "and",
+                                                            "enum": [
+                                                              "and",
+                                                              "or"
+                                                            ],
+                                                            "type": "string"
+                                                          }
+                                                        },
+                                                        "required": [
+                                                          "items"
+                                                        ],
+                                                        "type": "object"
+                                                      }
+                                                    ]
+                                                  },
+                                                  "maxItems": 50,
+                                                  "type": "array"
+                                                },
+                                                "op": {
+                                                  "default": "and",
+                                                  "enum": [
+                                                    "and",
+                                                    "or"
+                                                  ],
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "items"
+                                              ],
+                                              "type": "object"
+                                            }
+                                          ]
+                                        },
+                                        "maxItems": 50,
+                                        "type": "array"
+                                      },
+                                      "op": {
+                                        "default": "and",
+                                        "enum": [
+                                          "and",
+                                          "or"
+                                        ],
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "items"
+                                    ],
+                                    "type": "object"
+                                  }
+                                ]
+                              },
+                              "maxItems": 50,
+                              "type": "array"
+                            },
+                            "op": {
+                              "default": "and",
+                              "enum": [
+                                "and",
+                                "or"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "items"
+                          ],
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "maxItems": 50,
+                    "type": "array"
+                  },
+                  "op": {
+                    "default": "and",
+                    "enum": [
+                      "and",
+                      "or"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "items"
+                ],
+                "type": "object"
+              },
+              "mode": {
+                "default": "table",
+                "enum": [
+                  "table",
+                  "cards",
+                  "board",
+                  "calendar",
+                  "pivot",
+                  "dashboard"
+                ],
+                "type": "string"
+              },
+              "options": {
+                "additionalProperties": {},
+                "default": {},
+                "propertyNames": {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "pageSize": {
+                "default": 20,
+                "maximum": 100,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "search": {
+                "maxLength": 100,
+                "type": "string"
+              },
+              "sort": {
+                "default": [],
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "desc": {
+                      "default": false,
+                      "type": "boolean"
+                    },
+                    "field": {
+                      "maxLength": 64,
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "field"
+                  ],
+                  "type": "object"
+                },
+                "maxItems": 3,
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "isDefault": {
+            "default": false,
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "visibility": {
+            "default": "private",
+            "enum": [
+              "private",
+              "unit"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "config"
+        ],
+        "type": "object"
+      },
+      "SavedViewUpdateDto": {
+        "additionalProperties": false,
+        "properties": {
+          "config": {
+            "additionalProperties": false,
+            "properties": {
+              "columns": {
+                "default": [],
+                "items": {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              "filter": {
+                "additionalProperties": false,
+                "properties": {
+                  "items": {
+                    "items": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "field": {
+                              "maxLength": 64,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "op": {
+                              "enum": [
+                                "eq",
+                                "ne",
+                                "contains",
+                                "ncontains",
+                                "starts",
+                                "in",
+                                "nin",
+                                "gt",
+                                "gte",
+                                "lt",
+                                "lte",
+                                "between",
+                                "has",
+                                "hasany",
+                                "empty",
+                                "notempty"
+                              ],
+                              "type": "string"
+                            },
+                            "value": {}
+                          },
+                          "required": [
+                            "field",
+                            "op"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "items": {
+                              "items": {
+                                "anyOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "field": {
+                                        "maxLength": 64,
+                                        "minLength": 1,
+                                        "type": "string"
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "eq",
+                                          "ne",
+                                          "contains",
+                                          "ncontains",
+                                          "starts",
+                                          "in",
+                                          "nin",
+                                          "gt",
+                                          "gte",
+                                          "lt",
+                                          "lte",
+                                          "between",
+                                          "has",
+                                          "hasany",
+                                          "empty",
+                                          "notempty"
+                                        ],
+                                        "type": "string"
+                                      },
+                                      "value": {}
+                                    },
+                                    "required": [
+                                      "field",
+                                      "op"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "items": {
+                                        "items": {
+                                          "anyOf": [
+                                            {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "field": {
+                                                  "maxLength": 64,
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "eq",
+                                                    "ne",
+                                                    "contains",
+                                                    "ncontains",
+                                                    "starts",
+                                                    "in",
+                                                    "nin",
+                                                    "gt",
+                                                    "gte",
+                                                    "lt",
+                                                    "lte",
+                                                    "between",
+                                                    "has",
+                                                    "hasany",
+                                                    "empty",
+                                                    "notempty"
+                                                  ],
+                                                  "type": "string"
+                                                },
+                                                "value": {}
+                                              },
+                                              "required": [
+                                                "field",
+                                                "op"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "items": {
+                                                  "items": {
+                                                    "anyOf": [
+                                                      {
+                                                        "additionalProperties": false,
+                                                        "properties": {
+                                                          "field": {
+                                                            "maxLength": 64,
+                                                            "minLength": 1,
+                                                            "type": "string"
+                                                          },
+                                                          "op": {
+                                                            "enum": [
+                                                              "eq",
+                                                              "ne",
+                                                              "contains",
+                                                              "ncontains",
+                                                              "starts",
+                                                              "in",
+                                                              "nin",
+                                                              "gt",
+                                                              "gte",
+                                                              "lt",
+                                                              "lte",
+                                                              "between",
+                                                              "has",
+                                                              "hasany",
+                                                              "empty",
+                                                              "notempty"
+                                                            ],
+                                                            "type": "string"
+                                                          },
+                                                          "value": {}
+                                                        },
+                                                        "required": [
+                                                          "field",
+                                                          "op"
+                                                        ],
+                                                        "type": "object"
+                                                      },
+                                                      {
+                                                        "additionalProperties": false,
+                                                        "properties": {
+                                                          "items": {
+                                                            "items": {
+                                                              "additionalProperties": false,
+                                                              "properties": {
+                                                                "field": {
+                                                                  "maxLength": 64,
+                                                                  "minLength": 1,
+                                                                  "type": "string"
+                                                                },
+                                                                "op": {
+                                                                  "enum": [
+                                                                    "eq",
+                                                                    "ne",
+                                                                    "contains",
+                                                                    "ncontains",
+                                                                    "starts",
+                                                                    "in",
+                                                                    "nin",
+                                                                    "gt",
+                                                                    "gte",
+                                                                    "lt",
+                                                                    "lte",
+                                                                    "between",
+                                                                    "has",
+                                                                    "hasany",
+                                                                    "empty",
+                                                                    "notempty"
+                                                                  ],
+                                                                  "type": "string"
+                                                                },
+                                                                "value": {}
+                                                              },
+                                                              "required": [
+                                                                "field",
+                                                                "op"
+                                                              ],
+                                                              "type": "object"
+                                                            },
+                                                            "maxItems": 50,
+                                                            "type": "array"
+                                                          },
+                                                          "op": {
+                                                            "default": "and",
+                                                            "enum": [
+                                                              "and",
+                                                              "or"
+                                                            ],
+                                                            "type": "string"
+                                                          }
+                                                        },
+                                                        "required": [
+                                                          "items"
+                                                        ],
+                                                        "type": "object"
+                                                      }
+                                                    ]
+                                                  },
+                                                  "maxItems": 50,
+                                                  "type": "array"
+                                                },
+                                                "op": {
+                                                  "default": "and",
+                                                  "enum": [
+                                                    "and",
+                                                    "or"
+                                                  ],
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "items"
+                                              ],
+                                              "type": "object"
+                                            }
+                                          ]
+                                        },
+                                        "maxItems": 50,
+                                        "type": "array"
+                                      },
+                                      "op": {
+                                        "default": "and",
+                                        "enum": [
+                                          "and",
+                                          "or"
+                                        ],
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "items"
+                                    ],
+                                    "type": "object"
+                                  }
+                                ]
+                              },
+                              "maxItems": 50,
+                              "type": "array"
+                            },
+                            "op": {
+                              "default": "and",
+                              "enum": [
+                                "and",
+                                "or"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "items"
+                          ],
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "maxItems": 50,
+                    "type": "array"
+                  },
+                  "op": {
+                    "default": "and",
+                    "enum": [
+                      "and",
+                      "or"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "items"
+                ],
+                "type": "object"
+              },
+              "mode": {
+                "default": "table",
+                "enum": [
+                  "table",
+                  "cards",
+                  "board",
+                  "calendar",
+                  "pivot",
+                  "dashboard"
+                ],
+                "type": "string"
+              },
+              "options": {
+                "additionalProperties": {},
+                "default": {},
+                "propertyNames": {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "pageSize": {
+                "default": 20,
+                "maximum": 100,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "search": {
+                "maxLength": 100,
+                "type": "string"
+              },
+              "sort": {
+                "default": [],
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "desc": {
+                      "default": false,
+                      "type": "boolean"
+                    },
+                    "field": {
+                      "maxLength": 64,
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "field"
+                  ],
+                  "type": "object"
+                },
+                "maxItems": 3,
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "visibility": {
+            "enum": [
+              "private",
+              "unit"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "ServiceOverrideDto": {
         "additionalProperties": false,
         "properties": {
@@ -1239,6 +2039,371 @@
           "formId",
           "formVersionId",
           "answers"
+        ],
+        "type": "object"
+      },
+      "SubmissionExportDto": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "items": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array"
+          },
+          "filter": {
+            "additionalProperties": false,
+            "properties": {
+              "items": {
+                "items": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "field": {
+                          "maxLength": 64,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "op": {
+                          "enum": [
+                            "eq",
+                            "ne",
+                            "contains",
+                            "ncontains",
+                            "starts",
+                            "in",
+                            "nin",
+                            "gt",
+                            "gte",
+                            "lt",
+                            "lte",
+                            "between",
+                            "has",
+                            "hasany",
+                            "empty",
+                            "notempty"
+                          ],
+                          "type": "string"
+                        },
+                        "value": {}
+                      },
+                      "required": [
+                        "field",
+                        "op"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "items": {
+                          "items": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "field": {
+                                    "maxLength": 64,
+                                    "minLength": 1,
+                                    "type": "string"
+                                  },
+                                  "op": {
+                                    "enum": [
+                                      "eq",
+                                      "ne",
+                                      "contains",
+                                      "ncontains",
+                                      "starts",
+                                      "in",
+                                      "nin",
+                                      "gt",
+                                      "gte",
+                                      "lt",
+                                      "lte",
+                                      "between",
+                                      "has",
+                                      "hasany",
+                                      "empty",
+                                      "notempty"
+                                    ],
+                                    "type": "string"
+                                  },
+                                  "value": {}
+                                },
+                                "required": [
+                                  "field",
+                                  "op"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "items": {
+                                    "items": {
+                                      "anyOf": [
+                                        {
+                                          "additionalProperties": false,
+                                          "properties": {
+                                            "field": {
+                                              "maxLength": 64,
+                                              "minLength": 1,
+                                              "type": "string"
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "eq",
+                                                "ne",
+                                                "contains",
+                                                "ncontains",
+                                                "starts",
+                                                "in",
+                                                "nin",
+                                                "gt",
+                                                "gte",
+                                                "lt",
+                                                "lte",
+                                                "between",
+                                                "has",
+                                                "hasany",
+                                                "empty",
+                                                "notempty"
+                                              ],
+                                              "type": "string"
+                                            },
+                                            "value": {}
+                                          },
+                                          "required": [
+                                            "field",
+                                            "op"
+                                          ],
+                                          "type": "object"
+                                        },
+                                        {
+                                          "additionalProperties": false,
+                                          "properties": {
+                                            "items": {
+                                              "items": {
+                                                "anyOf": [
+                                                  {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "field": {
+                                                        "maxLength": 64,
+                                                        "minLength": 1,
+                                                        "type": "string"
+                                                      },
+                                                      "op": {
+                                                        "enum": [
+                                                          "eq",
+                                                          "ne",
+                                                          "contains",
+                                                          "ncontains",
+                                                          "starts",
+                                                          "in",
+                                                          "nin",
+                                                          "gt",
+                                                          "gte",
+                                                          "lt",
+                                                          "lte",
+                                                          "between",
+                                                          "has",
+                                                          "hasany",
+                                                          "empty",
+                                                          "notempty"
+                                                        ],
+                                                        "type": "string"
+                                                      },
+                                                      "value": {}
+                                                    },
+                                                    "required": [
+                                                      "field",
+                                                      "op"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "items": {
+                                                        "items": {
+                                                          "additionalProperties": false,
+                                                          "properties": {
+                                                            "field": {
+                                                              "maxLength": 64,
+                                                              "minLength": 1,
+                                                              "type": "string"
+                                                            },
+                                                            "op": {
+                                                              "enum": [
+                                                                "eq",
+                                                                "ne",
+                                                                "contains",
+                                                                "ncontains",
+                                                                "starts",
+                                                                "in",
+                                                                "nin",
+                                                                "gt",
+                                                                "gte",
+                                                                "lt",
+                                                                "lte",
+                                                                "between",
+                                                                "has",
+                                                                "hasany",
+                                                                "empty",
+                                                                "notempty"
+                                                              ],
+                                                              "type": "string"
+                                                            },
+                                                            "value": {}
+                                                          },
+                                                          "required": [
+                                                            "field",
+                                                            "op"
+                                                          ],
+                                                          "type": "object"
+                                                        },
+                                                        "maxItems": 50,
+                                                        "type": "array"
+                                                      },
+                                                      "op": {
+                                                        "default": "and",
+                                                        "enum": [
+                                                          "and",
+                                                          "or"
+                                                        ],
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "items"
+                                                    ],
+                                                    "type": "object"
+                                                  }
+                                                ]
+                                              },
+                                              "maxItems": 50,
+                                              "type": "array"
+                                            },
+                                            "op": {
+                                              "default": "and",
+                                              "enum": [
+                                                "and",
+                                                "or"
+                                              ],
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "items"
+                                          ],
+                                          "type": "object"
+                                        }
+                                      ]
+                                    },
+                                    "maxItems": 50,
+                                    "type": "array"
+                                  },
+                                  "op": {
+                                    "default": "and",
+                                    "enum": [
+                                      "and",
+                                      "or"
+                                    ],
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "items"
+                                ],
+                                "type": "object"
+                              }
+                            ]
+                          },
+                          "maxItems": 50,
+                          "type": "array"
+                        },
+                        "op": {
+                          "default": "and",
+                          "enum": [
+                            "and",
+                            "or"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "items"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              "op": {
+                "default": "and",
+                "enum": [
+                  "and",
+                  "or"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "items"
+            ],
+            "type": "object"
+          },
+          "formId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "format": {
+            "default": "csv",
+            "enum": [
+              "csv",
+              "xlsx"
+            ],
+            "type": "string"
+          },
+          "search": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "sort": {
+            "default": [],
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "desc": {
+                  "default": false,
+                  "type": "boolean"
+                },
+                "field": {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "field"
+              ],
+              "type": "object"
+            },
+            "maxItems": 3,
+            "type": "array"
+          }
+        },
+        "required": [
+          "formId"
         ],
         "type": "object"
       },
@@ -2227,6 +3392,60 @@
         ]
       }
     },
+    "/api/v1/forms/{id}/views": {
+      "get": {
+        "operationId": "FormsController_views",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
+        ]
+      },
+      "post": {
+        "operationId": "FormsController_createView",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedViewCreateDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
+        ]
+      }
+    },
     "/api/v1/me/preferences": {
       "patch": {
         "operationId": "IamController_preferences",
@@ -3113,6 +4332,60 @@
         ]
       }
     },
+    "/api/v1/saved-views/{id}": {
+      "delete": {
+        "operationId": "SavedViewsController_remove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "SavedViews"
+        ]
+      },
+      "patch": {
+        "operationId": "SavedViewsController_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedViewUpdateDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "SavedViews"
+        ]
+      }
+    },
     "/api/v1/settings/{key}": {
       "get": {
         "operationId": "SettingsController_get",
@@ -3247,6 +4520,30 @@
         ]
       }
     },
+    "/api/v1/submissions/export": {
+      "post": {
+        "operationId": "SubmissionsController_export",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmissionExportDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Submissions"
+        ]
+      }
+    },
     "/api/v1/submissions/query": {
       "post": {
         "operationId": "SubmissionsController_query",
@@ -3274,6 +4571,29 @@
     "/api/v1/submissions/{id}": {
       "get": {
         "operationId": "SubmissionsController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Submissions"
+        ]
+      }
+    },
+    "/api/v1/submissions/{id}/history": {
+      "get": {
+        "operationId": "SubmissionsController_history",
         "parameters": [
           {
             "in": "path",

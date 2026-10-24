@@ -5,6 +5,7 @@
 import {
     Body,
     Controller,
+    Delete,
     Get,
     Headers,
     HttpCode,
@@ -13,11 +14,13 @@ import {
     ParseUUIDPipe,
     Patch,
     Post,
-    Query
+    Query,
+    Res
 } from '@nestjs/common';
 import { DATABASE, NotReplayable } from '@itrms/kernel/api';
 import type { Database } from '@itrms/kernel/db';
 import { versionFrom } from '@itrms/kernel/errors';
+import { currentContext } from '@itrms/kernel/context';
 import { Require, currentPrincipal, requestDbContext } from '@itrms/kernel/iam';
 import { createZodDto } from 'nestjs-zod';
 
@@ -28,12 +31,18 @@ import {
     publicationDecisionSchema,
     publicationListQuerySchema,
     publicationRequestSchema,
+    savedViewCreateSchema,
+    savedViewUpdateSchema,
     submissionCreateSchema,
+    submissionExportSchema,
     submissionListQuerySchema,
     submissionQuerySchema
 } from '../contracts';
 import { FormsService } from './forms.service';
+import { formDefinitions } from './forms.table';
+import { render, rendering } from './export';
 import { SubmissionQueryService } from './query.service';
+import { SavedViewsService } from './views.service';
 import { SubmissionsService } from './submissions.service';
 
 class FormCreateDto extends createZodDto(formCreateSchema) {}
@@ -45,13 +54,26 @@ class PublicationListDto extends createZodDto(publicationListQuerySchema) {}
 class SubmissionCreateDto extends createZodDto(submissionCreateSchema) {}
 class SubmissionListDto extends createZodDto(submissionListQuerySchema) {}
 class SubmissionQueryDto extends createZodDto(submissionQuerySchema) {}
+class SubmissionExportDto extends createZodDto(submissionExportSchema) {}
+class SavedViewCreateDto extends createZodDto(savedViewCreateSchema) {}
+class SavedViewUpdateDto extends createZodDto(savedViewUpdateSchema) {}
+
+/** Who may share a view with the office, or make it its default. */
+const canShare = () => currentPrincipal().permissions.has('submission-view:share');
+
+/** What a handler sending a file uses of the reply (Fastify's, without depending on it here). */
+interface Reply {
+    header(name: string, value: string): Reply;
+    send(body: Buffer): unknown;
+}
 
 @Controller('api/v1/forms')
 export class FormsController {
     constructor(
         @Inject(DATABASE) private readonly db: Database,
         @Inject(FormsService) private readonly forms: FormsService,
-        @Inject(SubmissionQueryService) private readonly queries: SubmissionQueryService
+        @Inject(SubmissionQueryService) private readonly queries: SubmissionQueryService,
+        @Inject(SavedViewsService) private readonly savedViews: SavedViewsService
     ) {}
 
     @Get()
@@ -91,6 +113,21 @@ export class FormsController {
     view(@Param('id', ParseUUIDPipe) id: string) {
         const { roles } = currentPrincipal();
         return this.db.scoped(requestDbContext(), (tx) => this.queries.view(tx, roles, id));
+    }
+
+    /** The unit's shared views of the form's data and the caller's own. */
+    @Get(':id/views')
+    @Require('submission:read')
+    views(@Param('id', ParseUUIDPipe) id: string) {
+        const ctx = requestDbContext();
+        return this.db.scoped(ctx, async (tx) => ({ items: await this.savedViews.list(tx, ctx, canShare(), id) }));
+    }
+
+    @Post(':id/views')
+    @Require('submission:read')
+    createView(@Param('id', ParseUUIDPipe) id: string, @Body() body: SavedViewCreateDto) {
+        const ctx = requestDbContext();
+        return this.db.scoped(ctx, (tx) => this.savedViews.create(tx, ctx, canShare(), id, body));
     }
 
     @Get(':id/versions')
@@ -177,6 +214,52 @@ export class SubmissionsController {
         @Inject(SubmissionQueryService) private readonly queries: SubmissionQueryService
     ) {}
 
+    /**
+     * The rows a query matches as a CSV or Excel file (at most MAX_DIRECT_EXPORT_ROWS). Leaving the system with data is
+     * a right of its own, and every export is on record, with its size, even when sending it fails.
+     */
+    @Post('export')
+    @HttpCode(200)
+    @NotReplayable()
+    @Require('submission:export')
+    async export(@Body() body: SubmissionExportDto, @Res() reply: Reply): Promise<void> {
+        const ctx = requestDbContext();
+        const { roles } = currentPrincipal();
+        const language = currentContext()?.language ?? 'am';
+        // read in the transaction, made into a file after it (no connection held while it renders)
+        const { table, file } = await rendering(async () => {
+            const t = await this.db.scoped(ctx, (tx) => this.queries.exportTable(tx, roles, body, language));
+            return { table: t, file: { ...(await render(t)), filename: t.filename, rows: t.rows.length } };
+        });
+        await this.db.recordSensitiveEvent(ctx, {
+            type: 'submissions.exported',
+            table: formDefinitions,
+            rowId: body.formId,
+            data: {
+                format: body.format,
+                rows: file.rows,
+                // which columns left the system (keys, never values)
+                fieldKeys: table.keys,
+                filtered: Boolean(body.filter?.items.length),
+                searched: Boolean(body.search?.trim())
+            }
+        });
+        // the bytes themselves: the response is the file, never a serialised object
+        reply
+            .header('content-type', file.contentType)
+            .header('content-disposition', `attachment; filename="${file.filename}"`)
+            .header('x-row-count', String(file.rows))
+            .header('cache-control', 'no-store')
+            .send(file.body);
+    }
+
+    /** Who did what to a submission and when (the answers' values never: the log holds them masked). */
+    @Get(':id/history')
+    @Require('submission:read')
+    history(@Param('id', ParseUUIDPipe) id: string) {
+        return this.db.scoped(requestDbContext(), (tx) => this.submissions.history(tx, id));
+    }
+
     // a read sent as POST (the query is a document): no idempotency record is kept for it
     @Post('query')
     @HttpCode(200)
@@ -208,5 +291,34 @@ export class SubmissionsController {
     get(@Param('id', ParseUUIDPipe) id: string) {
         const { roles } = currentPrincipal();
         return this.db.scoped(requestDbContext(), (tx) => this.submissions.get(tx, roles, id));
+    }
+}
+
+@Controller('api/v1/saved-views')
+export class SavedViewsController {
+    constructor(
+        @Inject(DATABASE) private readonly db: Database,
+        @Inject(SavedViewsService) private readonly savedViews: SavedViewsService
+    ) {}
+
+    @Patch(':id')
+    @Require('submission:read')
+    update(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Headers('if-match') ifMatch: string | undefined,
+        @Body() body: SavedViewUpdateDto
+    ) {
+        const ctx = requestDbContext();
+        const version = versionFrom(ifMatch);
+        return this.db.scoped(ctx, (tx) => this.savedViews.update(tx, ctx, canShare(), id, version, body));
+    }
+
+    @Delete(':id')
+    @HttpCode(204)
+    @Require('submission:read')
+    async remove(@Param('id', ParseUUIDPipe) id: string, @Headers('if-match') ifMatch: string | undefined) {
+        const ctx = requestDbContext();
+        const version = versionFrom(ifMatch);
+        await this.db.scoped(ctx, (tx) => this.savedViews.remove(tx, ctx, canShare(), id, version));
     }
 }
