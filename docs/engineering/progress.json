@@ -508,7 +508,17 @@
         },
         {
           "id": "0.16d",
-          "title": "Saved views, exports and history",
+          "title": "Saved views, history and direct exports",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.16e",
+          "title": "Background exports and server-generated files",
           "status": "planned",
           "branch": null,
           "commits": [],

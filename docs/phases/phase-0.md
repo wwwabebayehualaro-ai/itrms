@@ -443,17 +443,28 @@ Split on 2026-10-24 (product owner): saved views, exports and history moved to 0
   and the answers have no GIN index. One 10 s deadline per request. On CI, 10⁶ submissions: indexed filters 7–26 ms
   for the zone and a woreda, EXPLAIN under RLS in the performance job's log.
 
-### 0.16d Saved views, exports and history
-- **Do:** in `platform/forms`: saved views (with the DataGrid's column choice, kept per user and shareable in the unit);
-  CSV and Excel export of a query (ExcelJS, T14), through the worker as a file in `@itrms/kernel/files`, audited, cells
-  neutralised (SEC-IN-8); a submission's history (who changed what, from the audit log, without the masked answers'
-  values).
-- **Done when:** a saved view reopens with its filters, sort and columns; an export over the size limit runs in the
-  worker and is audited; a CSV cell starting with `=` is neutralised.
-- **Tests:** saved-view tests ported from `test_saved_views.py`; export tests (CSV, Excel, neutralisation, audit).
+### 0.16d Saved views, history and direct exports
+Split on 2026-10-24 (product owner): exports over the size limit, through the worker, moved to 0.16e.
+- **Do:** in `platform/forms`: saved views (filters, search, sort, the DataGrid's column choice and the view mode; private
+  to their owner, or shared in the unit by someone allowed to; one default per form and unit); a submission's history
+  (who did what and when, from the audit log; the answers' values never, as the log holds them only masked); CSV and
+  Excel (ExcelJS, T14) export of a query up to a size limit, as the viewer shows it (labels, names), audited, every cell
+  neutralised (SEC-IN-8); a query over the limit is refused with the advice to use the background export (0.16e).
+- **Done when:** a saved view reopens with its filters, sort and columns; a private view is invisible to everyone else;
+  an export is audited with its size; a CSV cell starting with `=` is neutralised, in the Excel file too.
+- **Tests:** saved-view tests ported from `test_saved_views.py`; export tests ported from `test_submission_query.py`
+  (CSV, Excel, neutralisation, labels, audit, permission); history tests.
+
+### 0.16e Background exports and server-generated files
+- **Do:** in `@itrms/kernel/files`: files the server generates (an object-store put, the CSV and XLSX types, a
+  retention); in `platform/forms`: an export over the direct limit as a worker job (status resource, the file kept for
+  a limited time, a download link that expires, audited when it is made and when it is downloaded).
+- **Done when:** an export over the size limit runs in the worker, is audited, and is downloaded only by who asked for
+  it; an expired export is purged.
+- **Tests:** the job, the file's lifecycle, the S3 contract suite for the new put.
 
 ### 0.16c Web switch-over to the forms API
-- Needs 0.16b and 0.16d.
+- Needs 0.16b, 0.16d and 0.16e.
 - **Do:** point the web's builder, gallery, data viewer and record page at the new API (through the BFF); port the legacy
   engine e2e journeys to the BFF sign-in and run them in CI against the dev stack; retire the legacy forms backend
   (`Backend/` form modules).
