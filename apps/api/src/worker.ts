@@ -80,7 +80,10 @@ async function main() {
                           {
                               name: 'files purged',
                               everyMs: 3_600_000,
-                              run: () => purgeExpiredUploads(system, objectStore)
+                              run: () =>
+                                  purgeExpiredUploads(system, objectStore, {
+                                      onError: (err, what) => logger.warn({ err, what }, 'a file could not be purged')
+                                  })
                           }
                       ]
                     : []

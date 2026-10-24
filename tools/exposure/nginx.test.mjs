@@ -89,7 +89,7 @@ test('files: the object store is reached only through /files, with a presigned U
     assert.deepEqual(toStore, ['~ ^/files/[a-z0-9.-]+/?$', '~ ^/files/[a-z0-9.-]+/.+']);
     assert.doesNotMatch(verify, /seaweedfs/);
     // the store's root and its bucket listing are refused
-    assert.match(app, /location = \/files\/ \{ return 403; \}/);
+    assert.match(app, /location \/files\/ \{ return 403; \}/);
     const bucket = app.match(/location ~ \^\/files\/\[a-z0-9\.-\]\+\/\?\$ \{([\s\S]*?)\n    \}/)?.[1] ?? '';
     assert.match(bucket, /limit_except POST \{ deny all; \}/);
     assert.match(bucket, /if \(\$args != ""\) \{ return 403; \}/);
@@ -103,4 +103,6 @@ test('files: the object store is reached only through /files, with a presigned U
     const proxy = readFileSync(join(ROOT, 'infra', 'compose', 'nginx', 'itrms-s3-proxy.conf'), 'utf8');
     assert.match(proxy, /proxy_set_header Host seaweedfs:8333;/);
     assert.match(proxy, /proxy_hide_header Server;/);
+    for (const header of ['Cookie', 'Authorization', 'X-Amz-Copy-Source'])
+        assert.match(proxy, new RegExp(`proxy_set_header ${header} "";`));
 });

@@ -93,7 +93,8 @@ server {
     # uploaded files (task 0.15, architecture §14): the object store, reached only with a URL the API presigned for one
     # object. The browser sends to and reads from /files/<bucket>/<key>; the store checks the signature as it was made for
     # its own address (Host and path rewritten here). A listing, a bucket-level request or an unsigned one never reaches it.
-    location = /files/ { return 403; }
+    # anything under /files the two locations below do not match (the root, another name): refused, never the app's
+    location /files/ { return 403; }
     # the bucket itself: only the presigned POST of an upload (its policy is in the form), never a listing or a query
     location ~ ^/files/[a-z0-9.-]+/?$ {
         limit_except POST { deny all; }

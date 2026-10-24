@@ -269,6 +269,8 @@ describe('a refused upload', () => {
         );
         expect(rows[0]?.status).toBe('rejected');
         expect(await store.head(rows[0]?.object_key ?? '')).toBeUndefined();
+        // nor its checked copy
+        expect(await store.head(`files/${units.damot.regionId}/${ticket.file.id}`)).toBeUndefined();
     });
 
     it('is a file larger than declared: S3 itself refuses it and stores nothing', async () => {
@@ -346,6 +348,111 @@ describe('a large upload', () => {
         const confirmed = await confirm(ticket.file.id, { parts });
         expect(confirmed.statusCode, confirmed.body).toBe(200);
         expect(confirmed.json()).toMatchObject({ status: 'stored', size: bytes.length });
+    });
+});
+
+describe('what the review asked of uploads (task 0.15)', () => {
+    /** A PNG's signature, then random bytes. */
+    const png = (size: number) => {
+        const bytes = randomBytes(size);
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(bytes);
+        return bytes;
+    };
+
+    it('keeps what was checked: posting other bytes to the quarantine key after confirming changes nothing', async () => {
+        const bytes = pdf(2048);
+        const { ticket } = await upload(bytes);
+        expect((await confirm(ticket.file.id)).statusCode).toBe(200);
+        if (ticket.upload.kind !== 'post') throw new Error('expected a POST upload');
+        // the POST policy is still valid for a few minutes: an attacker re-posts to the same key
+        const form = new FormData();
+        for (const [k, v] of Object.entries(ticket.upload.fields)) form.append(k, v);
+        form.append('file', new Blob([new Uint8Array(pdf(2048))], { type: 'application/pdf' }));
+        expect((await fetch(ticket.upload.url, { method: 'POST', body: form })).status).toBe(204);
+        const link = (await call('GET', `/api/v1/files/${ticket.file.id}/download`, damot())).json<{ url: string }>();
+        expect(Buffer.from(await (await fetch(link.url)).arrayBuffer()).equals(bytes)).toBe(true);
+    });
+
+    it('offers a download under the extension of what the bytes are, and refuses names that disguise one', async () => {
+        const bytes = png(512);
+        const { ticket } = await upload(bytes, { contentType: 'image/png', filename: 'photo.html' });
+        expect((await confirm(ticket.file.id)).statusCode).toBe(200);
+        const link = (await call('GET', `/api/v1/files/${ticket.file.id}/download`, damot())).json<{ url: string }>();
+        const got = await fetch(link.url);
+        expect(got.headers.get('content-disposition')).toContain('filename="photo.png"');
+        for (const filename of ['scan\u202Efdp.exe', 'a\u200Bb.pdf', 'bad\u0085.pdf', 'a\\b.pdf'])
+            expect(
+                (
+                    await call('POST', '/api/v1/files', damot(), {
+                        filename,
+                        contentType: 'application/pdf',
+                        size: 10,
+                        sha256: sha256(pdf(10))
+                    })
+                ).statusCode,
+                JSON.stringify(filename)
+            ).toBe(422);
+    });
+
+    it("answers wrong parts as the client's mistake, and an overdue upload as expired", async () => {
+        const big = pdf(17 * 1024 * 1024);
+        const begun = (
+            await call('POST', '/api/v1/files', damot(), {
+                filename: 'parts.pdf',
+                contentType: 'application/pdf',
+                size: big.length,
+                sha256: sha256(big)
+            })
+        ).json<Ticket>();
+        const wrong = await confirm(begun.file.id, { parts: [{ partNumber: 1, etag: '"nope"' }] });
+        expect(wrong.statusCode).toBe(422);
+
+        const { ticket, sent } = await upload(pdf(300));
+        expect(sent.status).toBe(204);
+        await owner.query("update kernel.files set expires_at = now() - interval '1 minute' where id = $1", [
+            ticket.file.id
+        ]);
+        expect((await confirm(ticket.file.id)).statusCode).toBe(409);
+    });
+
+    it('removes a stored file no record linked within a week, and a quarantine leftover after a day', async () => {
+        const kept = await upload(pdf(700));
+        const unlinked = await upload(pdf(800));
+        for (const { ticket } of [kept, unlinked]) expect((await confirm(ticket.file.id)).statusCode).toBe(200);
+        await asUnit(app, units.damot, (tx) =>
+            linkFile(tx, kept.ticket.file.id, { table: 'parties.persons', id: randomUUID() })
+        );
+        // a leftover in quarantine that no file owns
+        const leftover = `quarantine/${units.damot.regionId}/${randomUUID()}`;
+        const post = await store.presignPost({ key: leftover, contentType: 'application/pdf', size: 9, expiresIn: 60 });
+        const form = new FormData();
+        for (const [k, v] of Object.entries(post.fields)) form.append(k, v);
+        form.append('file', new Blob([new TextEncoder().encode('%PDF-1.7\n')], { type: 'application/pdf' }));
+        expect((await fetch(post.url, { method: 'POST', body: form })).status).toBe(204);
+
+        const system = createSystemDatabase(pg.url('system'), { onUse: () => undefined });
+        const errors: unknown[] = [];
+        try {
+            // eight days on
+            await purgeExpiredUploads(system, store, {
+                now: Date.now() + 8 * 86_400_000,
+                onError: (e) => errors.push(e)
+            });
+        } finally {
+            await system.close();
+        }
+        expect(errors).toEqual([]);
+        const { rows } = await owner.query<{ id: string; status: string }>(
+            'select id, status from kernel.files where id = any($1::uuid[])',
+            [[kept.ticket.file.id, unlinked.ticket.file.id]]
+        );
+        expect(Object.fromEntries(rows.map((r) => [r.id, r.status]))).toEqual({
+            [kept.ticket.file.id]: 'stored',
+            [unlinked.ticket.file.id]: 'expired'
+        });
+        expect(await store.head(`files/${units.damot.regionId}/${unlinked.ticket.file.id}`)).toBeUndefined();
+        expect(await store.head(`files/${units.damot.regionId}/${kept.ticket.file.id}`)).toBeDefined();
+        expect(await store.head(leftover)).toBeUndefined();
     });
 });
 

@@ -20,6 +20,25 @@ export interface PendingMultipart {
     initiated: Date;
 }
 
+export interface ListedObject {
+    key: string;
+    lastModified: Date;
+}
+
+/**
+ * The store refused a request because of what the client sent (an unknown part or ETag, an upload already completed or
+ * aborted): the kernel answers it as the client's mistake, never as a server error.
+ */
+export class ObjectStoreRefusal extends Error {
+    constructor(
+        readonly kind: 'invalid' | 'missing',
+        message: string
+    ) {
+        super(message);
+        this.name = 'ObjectStoreRefusal';
+    }
+}
+
 export interface ObjectStore {
     /** A browser upload of exactly `size` bytes of `contentType`: S3 refuses anything else itself (POST policy). */
     presignPost(o: { key: string; contentType: string; size: number; expiresIn: number }): Promise<PresignedPost>;
@@ -49,6 +68,8 @@ export interface ObjectStore {
     delete(key: string): Promise<void>;
     /** Multipart uploads begun under a prefix and never completed. */
     listMultipart(prefix: string): Promise<PendingMultipart[]>;
+    /** Objects under a prefix, every page. */
+    listObjects(prefix: string): Promise<ListedObject[]>;
 }
 
 /** No store configured (development without SeaweedFS, the OpenAPI writer): every use fails clearly. */
@@ -65,5 +86,6 @@ export const NO_OBJECT_STORE: ObjectStore = {
     sha256: none,
     copy: none,
     delete: none,
-    listMultipart: none
+    listMultipart: none,
+    listObjects: none
 };

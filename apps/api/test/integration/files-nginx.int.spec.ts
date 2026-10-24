@@ -27,7 +27,7 @@ const credentials = { accessKeyId: process.env.S3_ACCESS_KEY ?? '', secretAccess
 /** The template's /files locations, in a server of their own. */
 function filesServer(): string {
     const template = readFileSync(join(NGINX_DIR, 'itrms.conf.template'), 'utf8');
-    const start = template.indexOf('    location = /files/');
+    const start = template.indexOf('    # anything under /files');
     const end = template.indexOf('    # everything else is the staff app');
     if (start < 0 || end < start) throw new Error('the /files locations are not in the template');
     return `server {\n    listen 80;\n${template.slice(start, end)}}\n`;
@@ -110,6 +110,9 @@ describe('/files through Nginx', () => {
     it('refuses a bucket listing, the store root, an unsigned object and any other operation', async () => {
         const refused = [
             ['GET', '/files/'],
+            // a path the object locations do not match is refused too, never sent on to the app
+            ['GET', '/files/UPPER/x'],
+            ['GET', '/files/a_b/x'],
             ['GET', `/files/${BUCKET}`],
             ['GET', `/files/${BUCKET}/`],
             ['GET', `/files/${BUCKET}?list-type=2`],

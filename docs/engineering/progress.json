@@ -436,7 +436,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Reviewer (1 high, 3 medium, lows) fixes written: copy out of quarantine then check the copy (no swap after checks), download name takes the detected type's extension, bidi/invisible/C1 names refused, unlinked stored files expire after 7 days, daily 1 GiB quota with a per-user lock, purge removes quarantine leftovers and continues past failures, S3 refusals mapped to 4xx, confirm refuses overdue uploads and checks the version, Nginx strips Cookie/Authorization/copy headers and refuses unmatched /files paths, dev /files is a route with Nginx's rules (the rewrite broke signatures). turbo 63/63, tools 73. Integration run pending: Docker stopped under memory pressure."
         },
         {
           "id": "0.16",

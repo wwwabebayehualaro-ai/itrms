@@ -18,12 +18,20 @@ import {
     GetObjectCommand,
     HeadObjectCommand,
     ListMultipartUploadsCommand,
+    ListObjectsV2Command,
     S3Client,
     UploadPartCommand
 } from '@aws-sdk/client-s3';
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import type { ObjectStore, PendingMultipart, PresignedPost, StoredObject } from '@itrms/kernel/files';
+import {
+    ObjectStoreRefusal,
+    type ListedObject,
+    type ObjectStore,
+    type PendingMultipart,
+    type PresignedPost,
+    type StoredObject
+} from '@itrms/kernel/files';
 
 export interface S3ObjectStoreOptions {
     endpoint: string;
@@ -37,10 +45,14 @@ export interface S3ObjectStoreOptions {
 
 const statusOf = (e: unknown) => (e as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
 
+/** RFC 8187: every character outside attr-char is percent-encoded (encodeURIComponent leaves ' ( ) * as they are). */
+const rfc8187 = (value: string) =>
+    encodeURIComponent(value).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+
 /** RFC 6266: an ASCII fallback and the UTF-8 name (Ethiopic file names download with their names). */
 function disposition(filename: string): string {
     const ascii = filename.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
-    return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+    return `attachment; filename="${ascii}"; filename*=UTF-8''${rfc8187(filename)}`;
 }
 
 export class S3ObjectStore implements ObjectStore {
@@ -120,6 +132,23 @@ export class S3ObjectStore implements ObjectStore {
     }
 
     async completeMultipart(o: {
+        key: string;
+        uploadId: string;
+        parts: { partNumber: number; etag: string }[];
+    }): Promise<void> {
+        try {
+            await this.complete(o);
+        } catch (e) {
+            // the client's parts or ETags are wrong, or the upload is gone (completed or aborted meanwhile)
+            const status = statusOf(e);
+            if (status === 404) throw new ObjectStoreRefusal('missing', 'the upload is no longer open');
+            if (status !== undefined && status >= 400 && status < 500)
+                throw new ObjectStoreRefusal('invalid', 'the parts do not match the upload');
+            throw e;
+        }
+    }
+
+    private async complete(o: {
         key: string;
         uploadId: string;
         parts: { partNumber: number; etag: string }[];
@@ -211,6 +240,20 @@ export class S3ObjectStore implements ObjectStore {
             KeyMarker = page.IsTruncated ? page.NextKeyMarker : undefined;
             UploadIdMarker = page.IsTruncated ? page.NextUploadIdMarker : undefined;
         } while (KeyMarker);
+        return out;
+    }
+
+    async listObjects(prefix: string): Promise<ListedObject[]> {
+        const out: ListedObject[] = [];
+        let ContinuationToken: string | undefined;
+        do {
+            const page = await this.s3.send(
+                new ListObjectsV2Command({ Bucket: this.bucket, Prefix: prefix, ContinuationToken })
+            );
+            for (const o of page.Contents ?? [])
+                if (o.Key) out.push({ key: o.Key, lastModified: o.LastModified ?? new Date() });
+            ContinuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+        } while (ContinuationToken);
         return out;
     }
 

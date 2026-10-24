@@ -9,12 +9,17 @@ ALTER TABLE "kernel"."files"
         CHECK ("content_type" IN ('application/pdf', 'image/jpeg', 'image/png', 'image/webp')),
     ADD CONSTRAINT "files_size_check" CHECK ("size" BETWEEN 1 AND 52428800),
     ADD CONSTRAINT "files_sha256_check" CHECK ("sha256" ~ '^[0-9a-f]{64}$'),
-    ADD CONSTRAINT "files_name_check" CHECK (length("filename") BETWEEN 1 AND 200 AND "filename" !~ '[/\\[:cntrl:]]'),
+    -- a name, never a path: no control (C0, DEL, C1), no separator, no mark that reorders or hides text
+    ADD CONSTRAINT "files_name_check" CHECK (
+        length("filename") BETWEEN 1 AND 200
+        AND "filename" !~ '[/\\[:cntrl:]\u007f-\u009f​‎‏‪-‮⁦-⁩]'),
     ADD CONSTRAINT "files_key_check"
         CHECK ("object_key" ~ '^(quarantine|files)/[0-9a-f-]{36}/[0-9a-f-]{36}$' AND "object_key" LIKE '%/' || "id"::text),
     ADD CONSTRAINT "files_document_type_check" CHECK ("document_type" ~ '^[a-z][a-z0-9_]{1,40}$'),
     ADD CONSTRAINT "files_link_check" CHECK (("linked_table" IS NULL) = ("linked_id" IS NULL)),
-    ADD CONSTRAINT "files_stored_check" CHECK (("status" = 'stored') = ("confirmed_at" IS NOT NULL)),
+    -- a stored file was confirmed; a waiting one was not (an expired one may have been, before nothing linked it)
+    ADD CONSTRAINT "files_stored_check" CHECK (
+        ("status" <> 'stored' OR "confirmed_at" IS NOT NULL) AND ("status" <> 'pending' OR "confirmed_at" IS NULL)),
     ADD CONSTRAINT "files_reason_check" CHECK (coalesce(length("reject_reason"), 0) <= 40);
 --> statement-breakpoint
 GRANT SELECT, INSERT ON "kernel"."files" TO itrms_app;

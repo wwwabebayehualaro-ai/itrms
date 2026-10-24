@@ -8,6 +8,8 @@ export { beginUpload, confirmUpload, downloadFile, fileOut, getFile, linkFile, p
 export { FILE_STATUSES, files, type FileStatus } from './files.table';
 export {
     NO_OBJECT_STORE,
+    ObjectStoreRefusal,
+    type ListedObject,
     type ObjectStore,
     type PendingMultipart,
     type PresignedPost,

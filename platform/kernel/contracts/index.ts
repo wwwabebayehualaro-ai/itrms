@@ -37,6 +37,22 @@ export const KERNEL_EVENTS = {
 
 // ---- files (task 0.15, architecture §14) ----
 
+/** A character a file name never holds: a control, a path separator, or a mark that reorders or hides text. */
+const unsafeInName = (c: string) => {
+    const code = c.charCodeAt(0);
+    return (
+        code < 0x20 ||
+        (code >= 0x7f && code <= 0x9f) ||
+        code === 0x200b ||
+        code === 0x200e ||
+        code === 0x200f ||
+        (code >= 0x202a && code <= 0x202e) ||
+        (code >= 0x2066 && code <= 0x2069) ||
+        c === '/' ||
+        c === '\\'
+    );
+};
+
 /** The kinds of file accepted: scans and photos of documents. */
 export const ACCEPTED_FILE_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'] as const;
 export const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -51,8 +67,8 @@ export const fileUploadRequestSchema = z.strictObject({
         .trim()
         .min(1)
         .max(200)
-        // no control character and no path separator: a name, never a path
-        .refine((v) => ![...v].some((c) => c.charCodeAt(0) < 0x20 || c === '/' || c === '\\'), 'is not a file name'),
+        // a name, never a path; no control character, and no direction or invisible mark that disguises an extension
+        .refine((v) => ![...v].some(unsafeInName), 'is not a file name'),
     contentType: z.enum(ACCEPTED_FILE_TYPES),
     size: z.number().int().min(1).max(MAX_FILE_SIZE),
     /** SHA-256 of the content, hex: the browser computes it, the server checks it on confirmation */
