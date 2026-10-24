@@ -32,7 +32,7 @@ Assets, in order of importance:
 | 9 | Information disclosure | staff browse personal data | sensitive tables encrypted, `reveal()` with reason, masked exports and audit, "who accessed my data", anomaly rules | 0.14, Phase 1–2 |
 | 10 | Information disclosure | backup or disk theft | LUKS, encrypted repositories, backups in Ethiopia under a data-processing agreement | 0.26 |
 | 11 | Information disclosure | verification page used to harvest data | minimal masked data, random tokens, rate limits, separate host | 0.23 |
-| 12 | Denial of service | upload flooding, huge exports, expensive searches | bounded uploads and quotas, async exports, statement timeouts, rate limits | 0.15, 0.16 |
+| 12 | Denial of service | upload flooding, huge exports, expensive searches | bounded uploads and quotas, async exports, statement timeouts, rate limits | 0.15, 0.16b |
 | 13 | Denial of service | ransomware on the main server | pull-mode, append-only off-site backups; restore drills; cold spare | 0.26 |
 | 14 | Elevation of privilege | role granted outside one's subtree | delegated admin limited to the subtree and the unit type's role catalogue; access reviews | 0.10, Phase 1 |
 | 15 | Elevation of privilege | SSRF from integrations to internal services | egress allowlist proxy, split networks, endpoints only from ops configuration | 0.26 |

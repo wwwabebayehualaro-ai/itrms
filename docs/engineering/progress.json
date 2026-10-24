@@ -456,8 +456,28 @@
           "notes": "Two security reviews: the first (1 high, 3 medium) fixed in 59d4b58; the second found no high and 2 medium (concurrent confirmations, purge vs link), fixed in 767dcf1, lows L1/L3/L4 moved to 0.26. Integration evidence is GitHub Actions on PR #2 (the local run could not start for lack of memory). The branch was rebased onto the CI fixes and pushed as task/0.15-files-rebased (no force push); task/0.15-files on the remote is the pre-rebase branch."
         },
         {
-          "id": "0.16",
-          "title": "Forms API port with server-side validation",
+          "id": "0.16a",
+          "title": "Forms API: definitions, versions, submissions, server-side validation",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.16b",
+          "title": "Submission queries, saved views and exports",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.16c",
+          "title": "Web switch-over to the forms API",
           "status": "planned",
           "branch": null,
           "commits": [],
@@ -1323,7 +1343,7 @@
     {
       "foundIn": "0.4c",
       "item": "DataGrid column chooser (show/hide/reorder columns, kept per user) alongside saved views and export",
-      "movedTo": "0.16"
+      "movedTo": "0.16b"
     },
     {
       "foundIn": "0.4c",
@@ -1522,7 +1542,7 @@
     {
       "foundIn": "0.10a",
       "item": "Port the legacy engine e2e journeys (tests/e2e/legacy) to the BFF sign-in",
-      "movedTo": "0.16"
+      "movedTo": "0.16c"
     },
     {
       "foundIn": "0.10b",
@@ -1590,7 +1610,7 @@
     {
       "foundIn": "0.13",
       "item": "useText().t takes any string: type the message keys (next-intl AppConfig Messages) so a typo fails typecheck",
-      "movedTo": "0.16"
+      "movedTo": "0.16c"
     },
     {
       "foundIn": "0.13",
@@ -1640,7 +1660,7 @@
     {
       "foundIn": "0.15",
       "item": "The legacy form-template settings still upload through files/upload (apps/web/src/lib/api/useFileUpload.ts): move them to /api/v1/files",
-      "movedTo": "0.16"
+      "movedTo": "0.16c"
     },
     {
       "foundIn": "0.15",

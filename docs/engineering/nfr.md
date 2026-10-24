@@ -8,7 +8,7 @@ that proves it. Contract values (availability, RPO/RTO) are proposals to agree w
 | Availability | Staff application during working hours | ≥ 99.5 % per month (excluding announced maintenance windows) | uptime probes (Alloy/Prometheus) | Phase 1 pilot |
 | Recovery | RPO (data loss) | ≤ 15 minutes | WAL archive lag alert; restore drill | 0.26, monthly drill |
 | Recovery | RTO (time to restore) | ≤ 8 hours (cold spare on site) | restore drill timing | 0.26, Phase 1 |
-| Performance | Reads (lists, record pages) | p95 < 300 ms at regional load | k6 + OpenTelemetry | 0.16, 0.26 |
+| Performance | Reads (lists, record pages) | p95 < 300 ms at regional load | k6 + OpenTelemetry | 0.16b, 0.26 |
 | Performance | Commands (submit, transition, payment) | p95 < 800 ms | k6 | 0.19, 0.22, 0.26 |
 | Performance | Name/registry search over 10⁶ persons | < 300 ms, index used under RLS | EXPLAIN + timing test | 0.14 |
 | Performance | PDF generation | < 5 s per document at p95; never in the request | job metrics | 0.23 |

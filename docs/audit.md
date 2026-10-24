@@ -213,8 +213,8 @@ design. DROP = not carried over (it stays in git history after task 0.1).
 
 | # | Capability | Today | Needed for ITRMS | Task |
 |---|---|---|---|---|
-| G1 | **Versioned definitions, each submission records its version** | ✅ Content-hashed immutable versions; submissions store `template_version_id`; publish approval | Keep it. Also link the service version (form + workflow + fee + document) to each case | 0.16, 0.21 |
-| G2 | **Server-side validation via shared Zod schemas** | ❌ Browser only (legacy #1) | `packages/form-engine/core` validation runs in the API on submit and on each workflow step. One code path, so there is no parity problem. Hidden-field pruning on the server too | 0.16 |
+| G1 | **Versioned definitions, each submission records its version** | ✅ Content-hashed immutable versions; submissions store `template_version_id`; publish approval | Keep it. Also link the service version (form + workflow + fee + document) to each case | 0.16a, 0.21 |
+| G2 | **Server-side validation via shared Zod schemas** | ❌ Browser only (legacy #1) | `packages/form-engine/core` validation runs in the API on submit and on each workflow step. One code path, so there is no parity problem. Hidden-field pruning on the server too | 0.16a |
 | G3 | **Conditional fields** | ✅ Visibility/enable conditions (and/or/xor/not), hidden containers hide children | Add `requiredWhen` and cross-field `validWhen` (legacy #5), e.g. "medical certificate required for grade ≥ 3" | 0.17 |
 | G4 | **Repeating sections** | ✅ `FormArray` with per-row rules, formulas, min/max rows | Keep. Add a print layout for rows (tables in PDFs) | 0.17 |
 | G5 | **File uploads** | ⚠️ Local disk, type/size/signature checks, no scanning | S3-compatible storage with presigned uploads, per-form limits, document type tags (medical certificate, photo, libre copy) | 0.15, 0.18 |

@@ -132,7 +132,7 @@ to the contract schema.
 
 | Capability | Legacy gap # | Task |
 |---|---|---|
-| Server-side validation (G1) | 1 | 0.16 |
+| Server-side validation (G1) | 1 | 0.16a |
 | Server-controlled status | 2 | 0.19 |
 | Access per form/unit | 3 | 0.9, 0.19 |
 | Drafts | 4 | 0.20 |

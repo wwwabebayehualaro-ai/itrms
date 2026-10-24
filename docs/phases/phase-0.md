@@ -398,21 +398,41 @@ Split on 2026-10-21 (scope too large for one session): the BFF sign-in moved to 
   bucket also has a lifecycle rule. Nginx's /files rules are proven on a real Nginx in front of SeaweedFS
   (`files-nginx.int.spec.ts`).
 
-### 0.16 Forms API port with server-side validation
-- **Do:** port `form_builder` and `form_submission` to `platform/forms`:
-  - definitions, content-hashed immutable versions, publish (+ approval);
-  - submissions pinned to a version;
+The forms port (`form_builder` and `form_submission` to `platform/forms`) is split in three (2026-10-24, product owner):
+the API, the queries over submissions, then the web switch-over. Cases (0.19) and services (0.21) do not exist yet, so
+`submissions.case_id` is nullable with no foreign key until 0.19 adds it, and the queries filter by **form** until 0.21
+adds the service filter (the 10⁶ check is repeated there). The reference server (8 vCPU / 48 GB, [NFRs](../engineering/nfr.md))
+is not available: the timing runs in CI on 10⁶ generated rows, as 0.14 did, and on the reference server in 0.26.
+
+### 0.16a Forms API: definitions, versions, submissions, server-side validation
+- **Do:** in `platform/forms`:
+  - `form_definitions` and `form_versions`: content-hashed, immutable versions; publish (+ approval);
+  - `submissions` pinned to a version (`case_id` nullable, no foreign key until 0.19);
   - **server-side validation with `packages/form-engine/core`** (prune hidden values, 422 `errors[{field,message}]` with row
     paths);
+  - RLS of each table's class, audit on every write, `@Require` on every route, the OpenAPI contract.
+- **Done when:** a submission violating a rule via direct API call gets a 422; a published version cannot change; a
+  submission keeps the version it was made on after a new one is published; the isolation matrix covers the new tables.
+- **Tests:** the shared validation case file (`packages/form-engine/test/cases.json`) run by the API tests; publish and
+  approval tests ported from `test_form_publish.py` and `test_form_config.py`; isolation and audit tests.
+
+### 0.16b Submission queries, saved views and exports
+- **Do:** in `platform/forms`:
   - the JSONB query compiler port (filters, search, sort, group, aggregate, allow-listed);
-  - saved views, CSV/Excel export (audited), history.
-  - Point the web's builder, gallery, data viewer and record page at the new API.
-- **Done when:** the legacy engine e2e journeys (builder, fill, multi-row, data viewer modes) pass against NestJS; a
-  submission violating a rule via direct API call gets a 422; a query over 10⁶ generated cases (filtered by service and an indexed filterable field) answers in under 300 ms on the
-  reference server, with EXPLAIN under RLS attached; fields marked filterable get their indexes on publish; each query
-  has a `statement_timeout`.
-- **Tests:** the shared validation case file (`packages/form-engine/test/cases.json`) run by the API tests; query-compiler tests
-  ported from `test_submission_query.py`; the e2e suite.
+  - fields marked filterable get their indexes on publish; each query has a `statement_timeout`;
+  - saved views (with the DataGrid's column choice), CSV/Excel export (audited, through the worker), history.
+- **Done when:** a query over 10⁶ generated submissions (filtered by form and an indexed filterable field) answers in
+  under 300 ms in CI, with EXPLAIN under RLS attached; fields marked filterable get their indexes on publish; each query
+  has a `statement_timeout`; an export is audited.
+- **Tests:** query-compiler tests ported from `test_submission_query.py`; saved-view tests from `test_saved_views.py`; the
+  10⁶ timing and EXPLAIN test.
+
+### 0.16c Web switch-over to the forms API
+- **Do:** point the web's builder, gallery, data viewer and record page at the new API (through the BFF); port the legacy
+  engine e2e journeys to the BFF sign-in and run them in CI against the dev stack; retire the legacy forms backend
+  (`Backend/` form modules).
+- **Done when:** the legacy engine e2e journeys (builder, fill, multi-row, data viewer modes) pass against NestJS in CI.
+- **Tests:** the e2e suite (`apps/web/tests/e2e/legacy`, ported).
 
 ### 0.17 Form engine for ITRMS, part 1
 - **Do:**
@@ -607,7 +627,7 @@ Split on 2026-10-21 (scope too large for one session): the BFF sign-in moved to 
 
 ## Tests to write in this phase (summary)
 Isolation matrix (0.9); audit-in-transaction (0.7); numbering concurrency (0.11); calendar reference + property tests
-(0.12); i18n completeness (0.13); shared validation cases (0.16); workflow engine suite (0.19); SLA date math (0.20);
+(0.12); i18n completeness (0.13); shared validation cases (0.16a); workflow engine suite (0.19); SLA date math (0.20);
 configuration resolution (0.21); fee goldens (0.22); PDF goldens (0.23); demo e2e (0.25); restore drill (0.26).
 
 ## Open questions for the product owner (block or shape Phase 0)
