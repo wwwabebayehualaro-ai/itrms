@@ -9,13 +9,15 @@ import { and, desc, eq, inArray, lt } from 'drizzle-orm';
 import { insertAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { ConflictError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
 import { unitRefs } from '@itrms/kernel/org';
-import { knownValues, submittedValues, validateForm, type EngineField } from '@itrms/form-engine/core';
+import { knownValues, readDocument, submittedValues, validateForm, type EngineField } from '@itrms/form-engine/core';
 import type { z } from 'zod';
 
 import type { Submission, submissionCreateSchema, submissionListQuerySchema } from '../contracts';
 import { formDefinitions, formVersions, submissions } from './forms.table';
 import { unitOf } from './forms.service';
+import { valueRows, writeValues } from './submission-values';
 import { fieldsFor, required, scopeFor } from './support';
+import { filterableKeys } from './view-fields';
 
 type SubmissionRow = typeof submissions.$inferSelect;
 
@@ -59,6 +61,17 @@ export class SubmissionsService {
             formVersionId: form.publishedVersionId,
             answers
         });
+        // the filterable fields' values, in the same transaction (ADR-0035): every field the version marks, whoever filled it
+        const all = readDocument(version.document).fields;
+        await writeValues(
+            tx,
+            valueRows(all, filterableKeys(all), answers, {
+                submissionId: row.id,
+                formId: form.id,
+                regionId: row.regionId,
+                handlingUnitId: row.handlingUnitId
+            })
+        );
         return (await this.present(tx, roles, [row]))[0] as Submission;
     }
 
@@ -95,7 +108,7 @@ export class SubmissionsService {
     }
 
     /** Submissions as the caller may see them: the values of fields restricted to other roles never leave the server. */
-    private async present(tx: Tx, roles: readonly string[], rows: readonly SubmissionRow[]): Promise<Submission[]> {
+    async present(tx: Tx, roles: readonly string[], rows: readonly SubmissionRow[]): Promise<Submission[]> {
         if (rows.length === 0) return [];
         const versions = await tx
             .select({ id: formVersions.id, number: formVersions.number, document: formVersions.document })

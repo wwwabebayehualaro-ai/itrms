@@ -10,6 +10,7 @@ import { insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/ke
 import { ConflictError, ForbiddenError, NotFoundError } from '@itrms/kernel/errors';
 import { unitRefs, withinScope, type UnitRef } from '@itrms/kernel/org';
 import { emit } from '@itrms/kernel/outbox';
+import { readDocument } from '@itrms/form-engine/core';
 import type { z } from 'zod';
 
 import type {
@@ -25,6 +26,7 @@ import type {
 } from '../contracts';
 import { formDefinitions, formPublications, formVersions } from './forms.table';
 import { assertReadable, contentHash, isUniqueViolation, required } from './support';
+import { filterableKeys } from './view-fields';
 
 type DefinitionRow = typeof formDefinitions.$inferSelect;
 type VersionRow = typeof formVersions.$inferSelect;
@@ -210,9 +212,17 @@ export class FormsService {
                 detail: 'This form was switched off: reject the request.'
             });
         const previousVersionId = form.publishedVersionId;
+        // a key the new version no longer marks filterable is not complete any more (its submissions write no value):
+        // the queries go back to the answers for it at once; the worker fills the newly marked ones (form.published.v1)
+        const [next] = await tx
+            .select({ document: formVersions.document })
+            .from(formVersions)
+            .where(eq(formVersions.id, publication.formVersionId));
+        const marked = filterableKeys(readDocument(next?.document).fields);
         await updateAudited(tx, formDefinitions, form.id, form.rowVersion, {
             publishedVersionId: publication.formVersionId,
-            publishedAt: new Date()
+            publishedAt: new Date(),
+            indexedKeys: form.indexedKeys.filter((k) => marked.includes(k))
         });
         const decided = await updateAudited(tx, formPublications, id, version, {
             status: 'approved',

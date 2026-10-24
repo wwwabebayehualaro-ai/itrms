@@ -207,3 +207,121 @@ export const formPublishedV1 = z.strictObject({
 });
 
 export const FORMS_EVENTS = { 'form.published.v1': formPublishedV1 } as const;
+
+// ---- queries over a form's submissions (task 0.16b) ----
+
+/** The bounds of one query (SEC-IN-2): conditions, nesting, list sizes, search, sort keys, groups and facets. */
+export const QUERY_LIMITS = {
+    conditions: 50,
+    depth: 4,
+    list: 200,
+    search: 100,
+    sort: 3,
+    aggregates: 8,
+    facets: 5,
+    facetValues: 50,
+    groups: 200,
+    groups2d: 600,
+    pageSize: 100
+} as const;
+
+export const QUERY_OPS = [
+    'eq',
+    'ne',
+    'contains',
+    'ncontains',
+    'starts',
+    'in',
+    'nin',
+    'gt',
+    'gte',
+    'lt',
+    'lte',
+    'between',
+    'has',
+    'hasany',
+    'empty',
+    'notempty'
+] as const;
+
+const fieldKeySchema = z.string().min(1).max(64);
+
+export const queryConditionSchema = z.strictObject({
+    field: fieldKeySchema,
+    op: z.enum(QUERY_OPS),
+    value: z.unknown().optional()
+});
+
+export interface QueryGroup {
+    op: 'and' | 'or';
+    items: (z.infer<typeof queryConditionSchema> | QueryGroup)[];
+}
+
+export const queryGroupSchema: z.ZodType<QueryGroup> = z.lazy(() =>
+    z.strictObject({
+        op: z.enum(['and', 'or']).default('and'),
+        items: z.array(z.union([queryConditionSchema, queryGroupSchema])).max(QUERY_LIMITS.conditions)
+    })
+);
+
+const dimensionSchema = z.strictObject({
+    field: fieldKeySchema,
+    /** dates only */
+    bucket: z.enum(['year', 'month', 'day']).optional()
+});
+
+export const submissionQuerySchema = z.strictObject({
+    formId: z.uuid(),
+    filter: queryGroupSchema.optional(),
+    search: z.string().max(QUERY_LIMITS.search).optional(),
+    sort: z
+        .array(z.strictObject({ field: fieldKeySchema, desc: z.boolean().default(false) }))
+        .max(QUERY_LIMITS.sort)
+        .default([]),
+    page: z.number().int().min(1).max(10_000).default(1),
+    pageSize: z.number().int().min(1).max(QUERY_LIMITS.pageSize).default(20),
+    /** over everything the filter matches (KPI tiles) */
+    aggregates: z
+        .array(
+            z.strictObject({
+                fn: z.enum(['count', 'sum', 'avg', 'min', 'max']),
+                field: fieldKeySchema.optional(),
+                alias: z
+                    .string()
+                    .regex(/^[A-Za-z_][A-Za-z0-9_]{0,31}$/)
+                    .optional()
+            })
+        )
+        .max(QUERY_LIMITS.aggregates)
+        .default([]),
+    groupBy: dimensionSchema.optional(),
+    /** a second dimension (pivot columns); only with groupBy */
+    thenBy: dimensionSchema.optional(),
+    /** fields to count the values of (filter sidebars, board columns) */
+    facets: z.array(fieldKeySchema).max(QUERY_LIMITS.facets).default([]),
+    /** false: totals, groups and facets only (dashboards, boards) */
+    rows: z.boolean().default(true)
+});
+
+export type SubmissionQuery = z.infer<typeof submissionQuerySchema>;
+
+const groupKey = z.string().nullable();
+
+export const submissionQueryResultSchema = z.object({
+    items: z.array(submissionSchema),
+    total: z.number().int(),
+    page: z.number().int(),
+    pageSize: z.number().int(),
+    aggregates: z.record(z.string(), z.number().nullable()),
+    groups: z.array(
+        z.object({
+            key: groupKey,
+            key2: groupKey,
+            count: z.number().int(),
+            aggregates: z.record(z.string(), z.number().nullable())
+        })
+    ),
+    facets: z.record(z.string(), z.array(z.object({ value: groupKey, count: z.number().int() })))
+});
+
+export type SubmissionQueryResult = z.infer<typeof submissionQueryResultSchema>;

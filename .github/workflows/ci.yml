@@ -116,6 +116,24 @@ jobs:
       - name: Container logs on failure
         if: failure()
         run: docker compose -f infra/compose/docker-compose.yml --env-file infra/compose/.env --profile observability logs --tail 200
+  perf:
+    # the NFR timings on 10^6 generated rows with EXPLAIN under RLS (tasks 0.14, 0.16b); the reference server repeats
+    # them in 0.26
+    name: performance (10^6 rows, EXPLAIN under RLS)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        env:
+          LEFTHOOK: '0'
+      - name: Performance tests (PostgreSQL 16 in a container)
+        run: pnpm --filter @itrms/api test:perf
   gitleaks:
     name: secrets (gitleaks)
     runs-on: ubuntu-24.04

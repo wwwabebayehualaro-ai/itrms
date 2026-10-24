@@ -78,7 +78,9 @@ export const storedFieldSchema = z
             .optional()
             .nullable(),
         metadata: z.object({ description: z.string().optional() }).loose().optional().nullable(),
-        visibleToRoles: z.array(z.string()).optional().nullable()
+        visibleToRoles: z.array(z.string()).optional().nullable(),
+        /** the data viewer filters by it on an index (ADR-0035): set by the author on a few top-level fields */
+        filterable: z.boolean().optional().nullable()
     })
     .loose();
 

@@ -31,7 +31,9 @@ describe('POSTs kept out of the idempotency records (@NotReplayable)', () => {
             'PersonsController.duplicates',
             'PersonsController.lookup',
             // the sensitive fields in clear in the answer
-            'PersonsController.reveal'
+            'PersonsController.reveal',
+            // a read sent as POST (the query is a document): its answer holds submissions' answers (personal data)
+            'SubmissionsController.query'
         ]);
     });
 });

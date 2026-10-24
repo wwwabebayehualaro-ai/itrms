@@ -45,6 +45,7 @@ describe('every table', () => {
         });
         // the allowlist: grows only with a reason, reviewed with the table
         expect(exceptions.sort()).toEqual([
+            'forms.submission_values: derived from its submission, whose insert is audited in the same transaction (ADR-0035)',
             'kernel.audit_log: it is the audit log',
             'kernel.idempotency_keys: a technical record of a request already audited by the write it carried',
             'kernel.number_counters: a counter moves with every number issued; the business row that carries the number is audited',

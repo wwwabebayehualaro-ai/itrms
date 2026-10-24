@@ -1241,6 +1241,218 @@
           "answers"
         ],
         "type": "object"
+      },
+      "SubmissionQueryDto": {
+        "additionalProperties": false,
+        "properties": {
+          "aggregates": {
+            "default": [],
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "alias": {
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,31}$",
+                  "type": "string"
+                },
+                "field": {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "fn": {
+                  "enum": [
+                    "count",
+                    "sum",
+                    "avg",
+                    "min",
+                    "max"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "fn"
+              ],
+              "type": "object"
+            },
+            "maxItems": 8,
+            "type": "array"
+          },
+          "facets": {
+            "default": [],
+            "items": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 5,
+            "type": "array"
+          },
+          "filter": {
+            "$ref": "#/components/schemas/SubmissionQueryDto__schema0"
+          },
+          "formId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "groupBy": {
+            "additionalProperties": false,
+            "properties": {
+              "bucket": {
+                "enum": [
+                  "year",
+                  "month",
+                  "day"
+                ],
+                "type": "string"
+              },
+              "field": {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "field"
+            ],
+            "type": "object"
+          },
+          "page": {
+            "default": 1,
+            "maximum": 10000,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "pageSize": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "rows": {
+            "default": true,
+            "type": "boolean"
+          },
+          "search": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "sort": {
+            "default": [],
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "desc": {
+                  "default": false,
+                  "type": "boolean"
+                },
+                "field": {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "field"
+              ],
+              "type": "object"
+            },
+            "maxItems": 3,
+            "type": "array"
+          },
+          "thenBy": {
+            "additionalProperties": false,
+            "properties": {
+              "bucket": {
+                "enum": [
+                  "year",
+                  "month",
+                  "day"
+                ],
+                "type": "string"
+              },
+              "field": {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "field"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "formId"
+        ],
+        "type": "object"
+      },
+      "SubmissionQueryDto__schema0": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "field": {
+                      "maxLength": 64,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "op": {
+                      "enum": [
+                        "eq",
+                        "ne",
+                        "contains",
+                        "ncontains",
+                        "starts",
+                        "in",
+                        "nin",
+                        "gt",
+                        "gte",
+                        "lt",
+                        "lte",
+                        "between",
+                        "has",
+                        "hasany",
+                        "empty",
+                        "notempty"
+                      ],
+                      "type": "string"
+                    },
+                    "value": {}
+                  },
+                  "required": [
+                    "field",
+                    "op"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "$ref": "#/components/schemas/SubmissionQueryDto__schema0"
+                }
+              ]
+            },
+            "maxItems": 50,
+            "type": "array"
+          },
+          "op": {
+            "default": "and",
+            "enum": [
+              "and",
+              "or"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
       }
     }
   },
@@ -1738,6 +1950,29 @@
           {
             "in": "path",
             "name": "versionId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
+        ]
+      }
+    },
+    "/api/v1/forms/{id}/view": {
+      "get": {
+        "operationId": "FormsController_view",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
             "required": true,
             "schema": {
               "type": "string"
@@ -2766,6 +3001,30 @@
         },
         "responses": {
           "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Submissions"
+        ]
+      }
+    },
+    "/api/v1/submissions/query": {
+      "post": {
+        "operationId": "SubmissionsController_query",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmissionQueryDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
             "description": ""
           }
         },

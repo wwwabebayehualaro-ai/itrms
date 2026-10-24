@@ -13,5 +13,6 @@ export default defineModule({
         form: ['read', 'create', 'update', 'publish', 'approve'],
         submission: ['read', 'create', 'update']
     },
-    events: { emits: ['form.published.v1'], consumes: [] }
+    // the worker fills the values of newly filterable fields when a version is published (ADR-0035)
+    events: { emits: ['form.published.v1'], consumes: ['form.published.v1'] }
 });

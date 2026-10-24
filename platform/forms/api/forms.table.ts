@@ -10,6 +10,7 @@
  *                      owner unit: its subtree asks, its heads and those above decide).
  *   submissions        answers, pinned to the version they were filled on (class T at the handling unit). `case_id` gets
  *                      its foreign key when cases exist (task 0.19).
+ *   submission_values  the typed values of filterable fields, for the data viewer's indexes (ADR-0035, task 0.16b).
  *
  * The audit log holds a document's hash, never the document (the versions are the record of what was published), and
  * answers only as an HMAC: they hold personal data and the values of role-restricted fields.
@@ -17,10 +18,14 @@
 import { sql } from 'drizzle-orm';
 import {
     boolean,
+    date,
+    doublePrecision,
     index,
     integer,
     jsonb,
     pgSchema,
+    primaryKey,
+    smallint,
     text,
     timestamp,
     uniqueIndex,
@@ -28,7 +33,7 @@ import {
     type AnyPgColumn
 } from 'drizzle-orm/pg-core';
 import { orgUnits } from '@itrms/kernel/tables';
-import { audited, baseColumns, ltree, withRls } from '@itrms/kernel/db';
+import { audited, baseColumns, ltree, notAudited, withRls } from '@itrms/kernel/db';
 
 export const formsSchema = pgSchema('forms');
 
@@ -59,6 +64,11 @@ export const formDefinitions = withRls(
                 /** who last changed the working copy: they cannot approve its publication (SEC-AC-6) */
                 documentUpdatedBy: uuid('document_updated_by'),
                 publishedVersionId: uuid('published_version_id').references((): AnyPgColumn => formVersions.id),
+                /** the filterable fields whose values every submission has in submission_values (ADR-0035) */
+                indexedKeys: text('indexed_keys')
+                    .array()
+                    .notNull()
+                    .default(sql`'{}'::text[]`),
                 publishedAt: timestamp('published_at', { withTimezone: true })
             },
             (t) => [
@@ -172,6 +182,61 @@ export const submissions = withRls(
             ]
         ),
         { mask: ['answers'] }
+    ),
+    'transaction'
+);
+
+/**
+ * The typed values of filterable fields (ADR-0035): what the data viewer filters on with ordinary indexes. Written with
+ * the submission in its transaction, filled by the worker when a version makes a field filterable; never edited apart.
+ * A multiple choice has one row per choice (`ordinal`).
+ */
+export const submissionValues = withRls(
+    notAudited(
+        formsSchema.table(
+            'submission_values',
+            {
+                submissionId: uuid('submission_id')
+                    .notNull()
+                    .references(() => submissions.id),
+                ordinal: smallint('ordinal').notNull().default(0),
+                formId: uuid('form_id').notNull(),
+                fieldKey: text('field_key').notNull(),
+                regionId: uuid('region_id').notNull(),
+                handlingUnitId: uuid('handling_unit_id').notNull(),
+                /** set by trigger from the handling unit */
+                orgPath: ltree('org_path').notNull().default(''),
+                valueText: text('value_text'),
+                /**
+                 * a JSON number is a double wherever it was read: stored as one, its comparison is leakproof, so under RLS the
+                 * index serves a range (numeric's is not: the filter would run after the scan, ADR-0035)
+                 */
+                valueNum: doublePrecision('value_num'),
+                valueDate: date('value_date'),
+                valueTs: timestamp('value_ts', { withTimezone: true }),
+                valueBool: boolean('value_bool')
+            },
+            (t) => [
+                primaryKey({ columns: [t.submissionId, t.fieldKey, t.ordinal] }),
+                index('submission_values_text_idx')
+                    .on(t.formId, t.fieldKey, t.valueText, t.submissionId)
+                    .where(sql`${t.valueText} is not null`),
+                index('submission_values_num_idx')
+                    .on(t.formId, t.fieldKey, t.valueNum, t.submissionId)
+                    .where(sql`${t.valueNum} is not null`),
+                index('submission_values_date_idx')
+                    .on(t.formId, t.fieldKey, t.valueDate, t.submissionId)
+                    .where(sql`${t.valueDate} is not null`),
+                index('submission_values_ts_idx')
+                    .on(t.formId, t.fieldKey, t.valueTs, t.submissionId)
+                    .where(sql`${t.valueTs} is not null`),
+                index('submission_values_bool_idx')
+                    .on(t.formId, t.fieldKey, t.valueBool, t.submissionId)
+                    .where(sql`${t.valueBool} is not null`),
+                index('submission_values_org_path_gist').using('gist', t.orgPath)
+            ]
+        ),
+        'derived from its submission, whose insert is audited in the same transaction (ADR-0035)'
     ),
     'transaction'
 );
