@@ -257,6 +257,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/forms/{id}/view": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["FormsController_view"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/preferences": {
         parameters: {
             query?: never;
@@ -673,6 +689,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/submissions/query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["SubmissionsController_query"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/submissions/{id}": {
         parameters: {
             query?: never;
@@ -957,6 +989,103 @@ export interface components {
             formId: string;
             /** Format: uuid */
             formVersionId: string;
+        };
+        SubmissionQueryDto: {
+            /** @default [] */
+            aggregates: {
+                alias?: string;
+                field?: string;
+                /** @enum {string} */
+                fn: "count" | "sum" | "avg" | "min" | "max";
+            }[];
+            /** @default [] */
+            facets: string[];
+            filter?: {
+                items: ({
+                    field: string;
+                    /** @enum {string} */
+                    op: "eq" | "ne" | "contains" | "ncontains" | "starts" | "in" | "nin" | "gt" | "gte" | "lt" | "lte" | "between" | "has" | "hasany" | "empty" | "notempty";
+                    value?: unknown;
+                } | {
+                    items: ({
+                        field: string;
+                        /** @enum {string} */
+                        op: "eq" | "ne" | "contains" | "ncontains" | "starts" | "in" | "nin" | "gt" | "gte" | "lt" | "lte" | "between" | "has" | "hasany" | "empty" | "notempty";
+                        value?: unknown;
+                    } | {
+                        items: ({
+                            field: string;
+                            /** @enum {string} */
+                            op: "eq" | "ne" | "contains" | "ncontains" | "starts" | "in" | "nin" | "gt" | "gte" | "lt" | "lte" | "between" | "has" | "hasany" | "empty" | "notempty";
+                            value?: unknown;
+                        } | {
+                            items: ({
+                                field: string;
+                                /** @enum {string} */
+                                op: "eq" | "ne" | "contains" | "ncontains" | "starts" | "in" | "nin" | "gt" | "gte" | "lt" | "lte" | "between" | "has" | "hasany" | "empty" | "notempty";
+                                value?: unknown;
+                            } | {
+                                items: {
+                                    field: string;
+                                    /** @enum {string} */
+                                    op: "eq" | "ne" | "contains" | "ncontains" | "starts" | "in" | "nin" | "gt" | "gte" | "lt" | "lte" | "between" | "has" | "hasany" | "empty" | "notempty";
+                                    value?: unknown;
+                                }[];
+                                /**
+                                 * @default and
+                                 * @enum {string}
+                                 */
+                                op: "and" | "or";
+                            })[];
+                            /**
+                             * @default and
+                             * @enum {string}
+                             */
+                            op: "and" | "or";
+                        })[];
+                        /**
+                         * @default and
+                         * @enum {string}
+                         */
+                        op: "and" | "or";
+                    })[];
+                    /**
+                     * @default and
+                     * @enum {string}
+                     */
+                    op: "and" | "or";
+                })[];
+                /**
+                 * @default and
+                 * @enum {string}
+                 */
+                op: "and" | "or";
+            };
+            /** Format: uuid */
+            formId: string;
+            groupBy?: {
+                /** @enum {string} */
+                bucket?: "year" | "month" | "day";
+                field: string;
+            };
+            /** @default 1 */
+            page: number;
+            /** @default 20 */
+            pageSize: number;
+            /** @default true */
+            rows: boolean;
+            search?: string;
+            /** @default [] */
+            sort: {
+                /** @default false */
+                desc: boolean;
+                field: string;
+            }[];
+            thenBy?: {
+                /** @enum {string} */
+                bucket?: "year" | "month" | "day";
+                field: string;
+            };
         };
     };
     responses: never;
@@ -1322,6 +1451,25 @@ export interface operations {
             path: {
                 id: string;
                 versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FormsController_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
             };
             cookie?: never;
         };
@@ -2069,6 +2217,27 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SubmissionsController_query: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmissionQueryDto"];
+            };
+        };
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

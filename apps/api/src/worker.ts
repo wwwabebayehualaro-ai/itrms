@@ -5,6 +5,7 @@
  */
 import 'reflect-metadata';
 
+import { formsHandlers } from '@itrms/forms/api/worker';
 import { KeycloakIdentityAdmin } from '@itrms/integrations/api';
 import { createWorkerContext } from '@itrms/kernel/api';
 import { identitySyncHandlers, purgeExpiredUploads, startJobs, type OutboxHandler } from '@itrms/kernel/api/worker';
@@ -45,7 +46,8 @@ async function main() {
                 },
                 onError: (err) => logger.warn({ err }, 'an idle system connection failed')
             });
-            const handlers: Record<string, OutboxHandler> = {};
+            // the forms' filterable values are filled when a version is published (ADR-0035)
+            const handlers: Record<string, OutboxHandler> = { ...formsHandlers(system) };
             // the identity provider follows the tree and the assignments, when the installation names its admin client
             if (config.KEYCLOAK_URL && config.KEYCLOAK_ADMIN_CLIENT_SECRET)
                 Object.assign(

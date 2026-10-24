@@ -9,21 +9,29 @@ Task 0.16a: definitions (`forms.form_definitions`, a working copy owned by a uni
 (422 `validation_failed`, `errors[{ path, code, message }]` with row paths such as `items[2].qty`). The browser and the server
 share one case file, `packages/form-engine/test/cases.json`. Queries, saved views and exports come in 0.16b.
 
-| Route | Permission |
-|---|---|
-| `GET/POST /api/v1/forms`, `GET/PATCH /api/v1/forms/{id}` | `form:read`, `form:create`, `form:update` |
-| `GET /api/v1/forms/{id}/versions[/{versionId}\|/published]` | `form:read` |
-| `POST /api/v1/forms/{id}/publications` | `form:publish` |
+| Route                                                              | Permission                                      |
+| ------------------------------------------------------------------ | ----------------------------------------------- |
+| `GET/POST /api/v1/forms`, `GET/PATCH /api/v1/forms/{id}`           | `form:read`, `form:create`, `form:update`       |
+| `GET /api/v1/forms/{id}/versions[/{versionId}\|/published]`        | `form:read`                                     |
+| `POST /api/v1/forms/{id}/publications`                             | `form:publish`                                  |
 | `GET /api/v1/form-publications`, `POST …/{id}/approval\|rejection` | `form:read`, `form:approve` (not the requester) |
-| `GET/POST /api/v1/submissions`, `GET /api/v1/submissions/{id}` | `submission:read`, `submission:create` |
+| `GET/POST /api/v1/submissions`, `GET /api/v1/submissions/{id}`     | `submission:read`, `submission:create`          |
+| `GET /api/v1/forms/{id}/view`, `POST /api/v1/submissions/query` | `submission:read` |
+
+Task 0.16b: the data viewer's queries. `view-fields.ts` is the allow-list (the published version's top-level value fields
+the caller may see, and the built-ins `createdAt`, `submittedBy`, `handlingUnit`); `query-compiler.ts` turns a data-only
+query into SQL with every key and value bound. Fields the author marks `filterable` are indexed in
+`forms.submission_values` (ADR-0035): written with each submission, filled by the worker (`jobs/fill-values.ts`) when a
+version marks a field, and used once the form lists the key in `indexed_keys`. Other fields are compared on the answers.
+Every query runs under a 10 s `statement_timeout`. The 10⁶ timing is `apps/api/test/perf/submissions-query.perf.spec.ts`.
 
 Layer: platform. Shape, public entries and rules: [code-structure.md](../../docs/platform/code-structure.md) §4.
 
-| Entry | Holds |
-|---|---|
-| `./manifest` | the module manifest (`module.ts`) |
-| `./contracts` | Zod DTOs, events, permission keys, error codes, query interfaces (isomorphic) |
-| `./api` | the NestJS module (server only) |
-| `./web/server`, `./web/client` | screens and route map; embeddable client components |
-| `./messages/*` | `am`, `en`, `wal-Latn` catalogues, keys `forms.<area>.<key>` |
-| `./seed` | service definitions, unit-type defaults, demo generators |
+| Entry                          | Holds                                                                         |
+| ------------------------------ | ----------------------------------------------------------------------------- |
+| `./manifest`                   | the module manifest (`module.ts`)                                             |
+| `./contracts`                  | Zod DTOs, events, permission keys, error codes, query interfaces (isomorphic) |
+| `./api`                        | the NestJS module (server only)                                               |
+| `./web/server`, `./web/client` | screens and route map; embeddable client components                           |
+| `./messages/*`                 | `am`, `en`, `wal-Latn` catalogues, keys `forms.<area>.<key>`                  |
+| `./seed`                       | service definitions, unit-type defaults, demo generators                      |

@@ -80,6 +80,8 @@ export interface EngineField {
     rowsBinding?: FieldRowsBinding;
     actions: Record<string, Action[]>;
     visibleToRoles?: string[];
+    /** indexed for the data viewer (ADR-0035) */
+    filterable: boolean;
     /** The stored field, for extensions and the builder (never mutated by the engine). */
     source: FormField;
 }
@@ -177,6 +179,7 @@ export function toEngineField(stored: StoredField): EngineField {
         rowsBinding: stored.data?.rowsBinding ?? undefined,
         actions: (stored.behavior?.actions ?? {}) as Record<string, Action[]>,
         visibleToRoles: stored.visibleToRoles ?? undefined,
+        filterable: stored.filterable === true,
         source: stored as unknown as FormField
     };
 }

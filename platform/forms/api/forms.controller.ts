@@ -15,7 +15,7 @@ import {
     Post,
     Query
 } from '@nestjs/common';
-import { DATABASE } from '@itrms/kernel/api';
+import { DATABASE, NotReplayable } from '@itrms/kernel/api';
 import type { Database } from '@itrms/kernel/db';
 import { versionFrom } from '@itrms/kernel/errors';
 import { Require, currentPrincipal, requestDbContext } from '@itrms/kernel/iam';
@@ -29,9 +29,11 @@ import {
     publicationListQuerySchema,
     publicationRequestSchema,
     submissionCreateSchema,
-    submissionListQuerySchema
+    submissionListQuerySchema,
+    submissionQuerySchema
 } from '../contracts';
 import { FormsService } from './forms.service';
+import { SubmissionQueryService } from './query.service';
 import { SubmissionsService } from './submissions.service';
 
 class FormCreateDto extends createZodDto(formCreateSchema) {}
@@ -42,12 +44,14 @@ class PublicationDecisionDto extends createZodDto(publicationDecisionSchema) {}
 class PublicationListDto extends createZodDto(publicationListQuerySchema) {}
 class SubmissionCreateDto extends createZodDto(submissionCreateSchema) {}
 class SubmissionListDto extends createZodDto(submissionListQuerySchema) {}
+class SubmissionQueryDto extends createZodDto(submissionQuerySchema) {}
 
 @Controller('api/v1/forms')
 export class FormsController {
     constructor(
         @Inject(DATABASE) private readonly db: Database,
-        @Inject(FormsService) private readonly forms: FormsService
+        @Inject(FormsService) private readonly forms: FormsService,
+        @Inject(SubmissionQueryService) private readonly queries: SubmissionQueryService
     ) {}
 
     @Get()
@@ -79,6 +83,14 @@ export class FormsController {
         const ctx = requestDbContext();
         const version = versionFrom(ifMatch);
         return this.db.scoped(ctx, (tx) => this.forms.update(tx, ctx, id, version, body));
+    }
+
+    /** What the data viewer can do with the form's submissions (fields, operators, parts, view modes). */
+    @Get(':id/view')
+    @Require('submission:read')
+    view(@Param('id', ParseUUIDPipe) id: string) {
+        const { roles } = currentPrincipal();
+        return this.db.scoped(requestDbContext(), (tx) => this.queries.view(tx, roles, id));
     }
 
     @Get(':id/versions')
@@ -161,8 +173,19 @@ export class PublicationsController {
 export class SubmissionsController {
     constructor(
         @Inject(DATABASE) private readonly db: Database,
-        @Inject(SubmissionsService) private readonly submissions: SubmissionsService
+        @Inject(SubmissionsService) private readonly submissions: SubmissionsService,
+        @Inject(SubmissionQueryService) private readonly queries: SubmissionQueryService
     ) {}
+
+    // a read sent as POST (the query is a document): no idempotency record is kept for it
+    @Post('query')
+    @HttpCode(200)
+    @NotReplayable()
+    @Require('submission:read')
+    query(@Body() body: SubmissionQueryDto) {
+        const { roles } = currentPrincipal();
+        return this.db.scoped(requestDbContext(), (tx) => this.queries.query(tx, roles, body));
+    }
 
     @Get()
     @Require('submission:read')

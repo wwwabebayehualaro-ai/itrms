@@ -24,7 +24,8 @@ import type {
     publicationListQuerySchema
 } from '../contracts';
 import { formDefinitions, formPublications, formVersions } from './forms.table';
-import { assertReadable, contentHash, isUniqueViolation, required } from './support';
+import { assertReadable, contentHash, fieldsFor, isUniqueViolation, required } from './support';
+import { filterableKinds } from './view-fields';
 
 type DefinitionRow = typeof formDefinitions.$inferSelect;
 type VersionRow = typeof formVersions.$inferSelect;
@@ -210,9 +211,23 @@ export class FormsService {
                 detail: 'This form was switched off: reject the request.'
             });
         const previousVersionId = form.publishedVersionId;
+        // a key stays indexed only if the new version marks it filterable with the same kind as the previous one: its
+        // rows are then complete and of the right type. The others go back to the answers at once; the worker fills
+        // the newly marked ones (form.published.v1)
+        const kindsOf = async (id: string | null) => {
+            if (!id) return new Map<string, string>();
+            const [v] = await tx
+                .select({ document: formVersions.document })
+                .from(formVersions)
+                .where(eq(formVersions.id, id));
+            return filterableKinds(fieldsFor(v?.document, [])) as Map<string, string>;
+        };
+        const before = await kindsOf(previousVersionId);
+        const after = await kindsOf(publication.formVersionId);
         await updateAudited(tx, formDefinitions, form.id, form.rowVersion, {
             publishedVersionId: publication.formVersionId,
-            publishedAt: new Date()
+            publishedAt: new Date(),
+            indexedKeys: form.indexedKeys.filter((k) => after.has(k) && after.get(k) === before.get(k))
         });
         const decided = await updateAudited(tx, formPublications, id, version, {
             status: 'approved',

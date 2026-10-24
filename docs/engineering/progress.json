@@ -484,12 +484,26 @@
         {
           "id": "0.16b",
           "title": "Submission queries and filterable indexes",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.16b-submission-queries",
+          "commits": [
+            "962b0ce",
+            "c73fdd5",
+            "ff7dd05",
+            "75ec5c2"
+          ],
+          "evidence": [
+            "pnpm turbo run lint typecheck test build → 66/66 tasks (local); boundaries, format:check, check:slices, i18n:check, form:schema --check → clean; OpenAPI regenerated",
+            "apps/api test:int (PostgreSQL 16, migrations from zero) → 10 files, 236 tests; forms-query.int.spec.ts 47 (test_submission_query.py port run on an indexed and a plain form, view schema, allow-list, isolation, fill, statement_timeout, 5 review cases)",
+            "Done when 1 (10^6 under 300 ms, EXPLAIN under RLS): submissions-query.perf.spec.ts on GitHub Actions run 40115029979 → plate 7.0 ms, two offices 26.0 / 10.0 ms (zone / woreda), amount range 8.8 / 6.9 ms; plans on submission_values_text_idx / _num_idx with region_id and org_path policies (printed in the job log)",
+            "Done when 2 (a newly filterable field is filled): forms-query.int.spec.ts 'a field made filterable by a new version' (form.published.v1 handler, value rows counted, indexed flag, same results)",
+            "Done when 3 (statement_timeout): 'every query runs under a statement timeout' (one 10 s deadline per request, each statement the rest)",
+            "Done when 4 (non-allow-listed key refused): 'the allow-list' (unknown, password, row-scoped, injected keys → 400 invalid_query; 28 bad bodies 400/422; >50 conditions 400)",
+            "GitHub Actions PR #4 at 75ec5c2 → 9/9 jobs pass incl. the new performance job",
+            "reviewer (opus) on 962b0ce → 1 high, 5 medium, 5 low: all fixed (c73fdd5, ff7dd05); task-verifier → all Done-when PASS, gaps fixed in 75ec5c2"
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "Design: ADR-0035 value table forms.submission_values (class T, not audited: derived from the submission, written in its transaction), filled by the worker on form.published.v1 (fillValues, batches of 2000) and recorded in form_definitions.indexed_keys; an approval drops keys the new version no longer marks. Query compiler ported from json_query.py as Drizzle sql fragments: keys and values always bound, allow-list from view-fields.ts (top-level value fields the caller may see; built-ins createdAt, submittedBy, handlingUnit). Measured under RLS: only leakproof comparisons become index conditions, so value_num is double precision (numeric's range: 342 ms filter on 10^5 rows -> 0.75 ms index lookup) and there is no GIN index on answers (jsonb @> is not leakproof: it scanned 10^5 rows). statement_timeout 10s per query transaction. Reviewer (opus) on 962b0ce: 1 high, 5 medium, 5 low, 3 suspicions; all fixed in the follow-up commits. High: a key is queryable only where every version of the form that has it shows it to the caller as a queryable field (an older version's restricted field or password is never queried). Medium: an approval keeps an indexed key only on an unchanged kind, and the fill replaces a submission's rows and reads every answer by the published kind (as the answers path does), copying only keys the submission's own version left open; submissions take the form's advisory lock shared, and the fill's last step takes it exclusively and sweeps submissions made since 15 minutes before it began; a filterable multiple choice holds at most 200 choices (422); fill batches select only the keys they fill; text and choice eq, and multi has, compare as text on both paths. Low: one 10 s deadline per request (each statement gets what is left, set_config; a cancel is a 400 invalid_query); long choices skip the index; a form's timestamps are compared by their Addis day on both paths (forms.iso_instant: ISO with a zone only); a date answer of another JSON type reads as nothing; fill batches are audited (not recurring); the filter's nesting is bounded by its Zod shape (422); restricted fields and their containers' children never reach the value table (fieldsFor(doc, [])). Not done: a composite FK from a value row to its submission's form (the code writes both from one row)."
         },
         {
           "id": "0.16d",
@@ -1752,6 +1766,26 @@
       "foundIn": "0.16a",
       "item": "A field the palette does not validate (no behavior.validation.supported) takes any JSON value: check every value-holding field's basic type on the server, by its kit type",
       "movedTo": "0.17"
+    },
+    {
+      "foundIn": "0.16b",
+      "item": "pnpm ci:local has no perf job: mirror ci.yml's performance job (10^6 rows) in tools/ci-local.mjs",
+      "movedTo": "0.26"
+    },
+    {
+      "foundIn": "0.16b",
+      "item": "A transfer of a submission's handling unit must move its submission_values rows too (they carry handling_unit_id for their scope)",
+      "movedTo": "0.19"
+    },
+    {
+      "foundIn": "0.16b",
+      "item": "The designer has no 'filterable' switch yet: offer it on top-level value fields (and the 0.18a lint warns above a few per form)",
+      "movedTo": "0.16c"
+    },
+    {
+      "foundIn": "0.16b",
+      "item": "Filters on fields that are not filterable scan the form's submissions in scope (no index can serve them under RLS): the data viewer should say so and suggest marking the field",
+      "movedTo": "0.16c"
     }
   ]
 }

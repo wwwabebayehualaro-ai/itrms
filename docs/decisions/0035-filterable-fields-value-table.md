@@ -24,19 +24,27 @@
 
 ## Decision
 * `forms.submission_values`: one row per submission and filterable field that holds a value. Columns: `submission_id`,
-  `form_id`, `field_key`, and a typed value (`value_text`, `value_num` `numeric`, `value_date` `date`, `value_bool`),
-  with the submission's `region_id` and `org_path`. It is class T, like the submission. The values are folded and
+  `form_id`, `field_key`, and a typed value (`value_text`, `value_num` `double precision`, `value_date`, `value_ts`,
+  `value_bool`), with the submission's `region_id` and `org_path`. It is class T, like the submission. The values are folded and
   bounded as the query compiler compares them.
 * The forms service writes them **in the same transaction as the submission**, from the filterable fields of the
   submission's own version. A client never writes them, and they are never edited apart from their submission.
+* Every value type has a comparison PostgreSQL marks **leakproof** (`text`, `double precision`, `date`, `timestamptz`,
+  `boolean`). Under RLS only a leakproof condition may become an index condition; any other runs as a filter after the
+  policies, over every row of the field. So numbers are stored as `double precision`. That is exact, because a form
+  answer's number is a JSON number, a double in the browser and the API alike; money fields carry integer santim
+  (task 0.18). It is not `numeric`, whose comparisons are not leakproof (measured: a range over 10⁵ rows ran as a 340 ms
+  filter instead of an index lookup).
 * Fixed indexes: `(form_id, field_key, value_<type>, submission_id)` for each type (partial: the value is not null),
-  plus `org_path` (gist). A `GIN (answers jsonb_path_ops)` index on `forms.submissions` serves containment filters on
-  any field.
+  plus `org_path` (gist). There is no GIN index on the answers: containment (`@>`) is not leakproof either, so under RLS
+  it could never serve a query (measured: 10⁵ rows scanned). A field that is not filterable is compared over the
+  form's submissions in the caller's scope, bounded by the statement timeout: that is why authors mark the fields
+  people filter by.
 * When a newly published version makes a field filterable, the worker (system pool, on `form.published.v1`) fills its
   values for the form's existing submissions in batches. Until it is done, a filter on that field runs on the JSONB
   (still correct, only slower), and the form says so.
 * The query compiler filters only on allow-listed keys: built-in columns, filterable fields through the value table,
-  other fields through containment. Every query names a form and runs under a `statement_timeout`.
+  other fields on the answers. Every query names a form and runs under a `statement_timeout`.
 
 ## Consequences
 * No runtime DDL, no owner credentials outside migrations, no write lock at publish. The schema and its indexes are

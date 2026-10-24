@@ -15,7 +15,9 @@ import type { z } from 'zod';
 import type { Submission, submissionCreateSchema, submissionListQuerySchema } from '../contracts';
 import { formDefinitions, formVersions, submissions } from './forms.table';
 import { unitOf } from './forms.service';
+import { lockFormShared, valueRows, writeValues, type Owner } from './submission-values';
 import { fieldsFor, required, scopeFor } from './support';
+import { filterableKinds, MAX_INDEXED_CHOICES } from './view-fields';
 
 type SubmissionRow = typeof submissions.$inferSelect;
 
@@ -27,6 +29,8 @@ export class SubmissionsService {
         roles: readonly string[],
         input: z.infer<typeof submissionCreateSchema>
     ): Promise<Submission> {
+        // first: a fill completing the form's filterable keys waits for this submission, or this reads its version
+        await lockFormShared(tx, input.formId);
         const [form] = await tx.select().from(formDefinitions).where(eq(formDefinitions.id, input.formId));
         if (!form) throw new NotFoundError();
         if (!form.active) throw new ConflictError('invalid_transition', { detail: 'This form takes no submissions.' });
@@ -46,6 +50,11 @@ export class SubmissionsService {
         const scope = scopeFor(ctx, roles);
         const answers = submittedValues(fields, input.answers, scope);
         const errors = validateForm(fields, answers, scope);
+        // the filterable fields' values (ADR-0035), from the version's fields nobody is restricted from
+        const open = fieldsFor(version.document, []);
+        const values = (owner: Owner) => valueRows(open, filterableKinds(open), answers, owner);
+        for (const key of values({ submissionId: '', formId: '', regionId: '', handlingUnitId: '' }).overflow)
+            errors[key] ??= `At most ${MAX_INDEXED_CHOICES} choices`;
         if (Object.keys(errors).length)
             throw new ValidationError('validation_failed', {
                 detail: 'Some answers are not valid.',
@@ -59,6 +68,16 @@ export class SubmissionsService {
             formVersionId: form.publishedVersionId,
             answers
         });
+        // in the same transaction, whoever filled them in
+        await writeValues(
+            tx,
+            values({
+                submissionId: row.id,
+                formId: form.id,
+                regionId: row.regionId,
+                handlingUnitId: row.handlingUnitId
+            }).rows
+        );
         return (await this.present(tx, roles, [row]))[0] as Submission;
     }
 
@@ -95,7 +114,7 @@ export class SubmissionsService {
     }
 
     /** Submissions as the caller may see them: the values of fields restricted to other roles never leave the server. */
-    private async present(tx: Tx, roles: readonly string[], rows: readonly SubmissionRow[]): Promise<Submission[]> {
+    async present(tx: Tx, roles: readonly string[], rows: readonly SubmissionRow[]): Promise<Submission[]> {
         if (rows.length === 0) return [];
         const versions = await tx
             .select({ id: formVersions.id, number: formVersions.number, document: formVersions.document })
