@@ -20,7 +20,7 @@ import { lockFormShared, valueRows, writeValues, type Owner } from './submission
 import { fieldsFor, required, scopeFor } from './support';
 import { filterableKinds, MAX_INDEXED_CHOICES } from './view-fields';
 
-type SubmissionRow = typeof submissions.$inferSelect;
+export type SubmissionRow = typeof submissions.$inferSelect;
 
 @Injectable()
 export class SubmissionsService {
@@ -92,7 +92,7 @@ export class SubmissionsService {
      * Who did what to a submission and when, newest first (task 0.16d), from the audit log as far as the caller's scope
      * reads it. The answers are in the log only as an HMAC: a change of them shows as "answers", never their values.
      */
-    async history(tx: Tx, id: string): Promise<HistoryEntry[]> {
+    async history(tx: Tx, id: string): Promise<{ items: HistoryEntry[]; truncated: boolean }> {
         const [row] = await tx.select({ id: submissions.id }).from(submissions).where(eq(submissions.id, id));
         if (!row) throw new NotFoundError();
         const entries = await tx
@@ -107,7 +107,9 @@ export class SubmissionsService {
             .from(auditLog)
             .where(and(eq(auditLog.tableName, 'forms.submissions'), eq(auditLog.rowId, id)))
             .orderBy(desc(auditLog.at), desc(auditLog.id))
-            .limit(100);
+            .limit(HISTORY_LIMIT + 1);
+        const truncated = entries.length > HISTORY_LIMIT;
+        entries.length = Math.min(entries.length, HISTORY_LIMIT);
         const actors = [...new Set(entries.map((e) => e.actorId).filter((a): a is string => Boolean(a)))];
         const names = actors.length
             ? new Map(
@@ -119,7 +121,7 @@ export class SubmissionsService {
                   ).map((u) => [u.id, u.name])
               )
             : new Map<string, string>();
-        return entries.map((e) => ({
+        const items = entries.map((e) => ({
             id: e.id,
             action: e.action === 'event' ? `event:${e.eventType ?? ''}` : e.action,
             at: e.at.toISOString(),
@@ -127,6 +129,7 @@ export class SubmissionsService {
             actorName: e.actorId ? (names.get(e.actorId) ?? null) : null,
             changes: e.action === 'update' ? changedColumns(e.diff) : []
         }));
+        return { items, truncated };
     }
 
     /** A form's submissions in the caller's subtree, newest first, a page at a time. */
@@ -186,6 +189,9 @@ export class SubmissionsService {
         });
     }
 }
+
+/** The newest entries a history shows (it says when there are older ones). */
+const HISTORY_LIMIT = 100;
 
 /** What an update changed, by column, without the bookkeeping. */
 function changedColumns(diff: unknown): string[] {

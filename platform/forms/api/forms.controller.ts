@@ -40,6 +40,7 @@ import {
 } from '../contracts';
 import { FormsService } from './forms.service';
 import { formDefinitions } from './forms.table';
+import { render, rendering } from './export';
 import { SubmissionQueryService } from './query.service';
 import { SavedViewsService } from './views.service';
 import { SubmissionsService } from './submissions.service';
@@ -224,9 +225,12 @@ export class SubmissionsController {
     async export(@Body() body: SubmissionExportDto, @Res() reply: Reply): Promise<void> {
         const ctx = requestDbContext();
         const { roles } = currentPrincipal();
-        const file = await this.db.scoped(ctx, (tx) =>
-            this.queries.export(tx, roles, body, currentContext()?.language ?? 'am')
-        );
+        const language = currentContext()?.language ?? 'am';
+        // read in the transaction, made into a file after it (no connection held while it renders)
+        const { table, file } = await rendering(async () => {
+            const t = await this.db.scoped(ctx, (tx) => this.queries.exportTable(tx, roles, body, language));
+            return { table: t, file: { ...(await render(t)), filename: t.filename, rows: t.rows.length } };
+        });
         await this.db.recordSensitiveEvent(ctx, {
             type: 'submissions.exported',
             table: formDefinitions,
@@ -234,7 +238,8 @@ export class SubmissionsController {
             data: {
                 format: body.format,
                 rows: file.rows,
-                fields: file.fields,
+                // which columns left the system (keys, never values)
+                fieldKeys: table.keys,
                 filtered: Boolean(body.filter?.items.length),
                 searched: Boolean(body.search?.trim())
             }
@@ -252,7 +257,7 @@ export class SubmissionsController {
     @Get(':id/history')
     @Require('submission:read')
     history(@Param('id', ParseUUIDPipe) id: string) {
-        return this.db.scoped(requestDbContext(), async (tx) => ({ items: await this.submissions.history(tx, id) }));
+        return this.db.scoped(requestDbContext(), (tx) => this.submissions.history(tx, id));
     }
 
     // a read sent as POST (the query is a document): no idempotency record is kept for it

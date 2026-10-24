@@ -1,1 +1,9 @@
-{}
+{
+  "forms.export.yes": "Yes",
+  "forms.export.no": "No",
+  "forms.export.row": "{count} row",
+  "forms.export.rows": "{count} rows",
+  "forms.export.createdAt": "Submitted",
+  "forms.export.submittedBy": "Submitted by",
+  "forms.export.handlingUnit": "Office"
+}

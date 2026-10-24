@@ -514,7 +514,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split on 2026-10-24 (product owner): background exports and server-generated files moved to 0.16e (the kernel's file store takes only browser uploads of PDFs and images). Saved views: forms.saved_views class T at the owner's unit; private views answered as missing to anyone but the owner (created_by check on top of RLS); sharing and the default need the new submission-view:share (bureau_admin, unit_admin, unit_head). Export: the new submission:export (bureau_admin, unit_head, finance_officer, auditor, as the matrix's export column); at most 5000 rows directly, same allow-list and budget as the query; every cell neutralised in CSV and XLSX; the export is a sensitive event (recordSensitiveEvent) with format, rows and fields; the bytes are sent on the reply (a StreamableFile was serialised as JSON). History: the submission's audit rows, newest first, actor names from kernel.users; changes by column, answers only as 'answers'."
+          "notes": "Split on 2026-10-24 (product owner): background exports and server-generated files moved to 0.16e (the kernel's file store takes only browser uploads of PDFs and images). Saved views: forms.saved_views class T at the owner's unit; private views answered as missing to anyone but the owner (created_by check on top of RLS); sharing and the default need the new submission-view:share (bureau_admin, unit_admin, unit_head). Export: the new submission:export (bureau_admin, unit_head, finance_officer, auditor, as the matrix's export column); at most 5000 rows directly, same allow-list and budget as the query; every cell neutralised in CSV and XLSX; the export is a sensitive event (recordSensitiveEvent) with format, rows and fields; the bytes are sent on the reply (a StreamableFile was serialised as JSON). History: the submission's audit rows, newest first, actor names from kernel.users; changes by column, answers only as 'answers'. Reviewer (opus) on a4b87d0: 0 high, 3 medium, 6 low, 4 suspicions. Fixed: every CSV cell quoted (a ; or tab separator can no longer split a formula out); the export reads only the chosen answer keys, renders after its transaction closes, writes Excel with ExcelJS's streaming writer, and at most 2 render at once per process (429 after); Excel cells starting like a formula keep their text with the text number format (ExcelJS 4.4 cannot write quotePrefix; a string cell is never evaluated on open and a text-formatted one stays text when edited, and phone numbers are not altered); sheet names Excel accepts (no quote at either end, not History); Yes/No, row counts and the built-in headers from forms.export.* in am and en; unit_admin's useless share grant removed; the export event records fieldKeys; history says truncated; a saved view's config is masked in the audit log; Excel cells capped at 32 767 characters; the file name's date is the Addis day. Moved: sensitive-field masking in exports to 0.18, export rate limits to 0.26."
         },
         {
           "id": "0.16e",
@@ -1812,6 +1812,16 @@
       "foundIn": "0.16d",
       "item": "A submission's history shows only its own audit rows: add its case's steps when cases exist",
       "movedTo": "0.19"
+    },
+    {
+      "foundIn": "0.16d",
+      "item": "Exports and query answers show every visible field in clear: a field flagged sensitive (phone, FIN, medical) is masked by default and revealed only through the audited reveal (SEC-PD-2, SEC-DC-1/2)",
+      "movedTo": "0.18"
+    },
+    {
+      "foundIn": "0.16d",
+      "item": "Rate limits on exports per person and per installation (SEC-AP-2); 0.16d only caps concurrent renders per process (2, then 429)",
+      "movedTo": "0.26"
     }
   ]
 }

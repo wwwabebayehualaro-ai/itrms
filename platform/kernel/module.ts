@@ -72,8 +72,7 @@ export default defineModule({
             'role-assignment:grant',
             'role-assignment:revoke',
             'audit-log:read',
-            ...AUTHOR_FORMS,
-            'submission-view:share'
+            ...AUTHOR_FORMS
         ],
         unit_head: [
             ...READ_ORG,

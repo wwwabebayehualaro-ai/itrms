@@ -6,6 +6,7 @@
  * names who did what, never the answers' values.
  */
 import ExcelJS from 'exceljs';
+import { sheetNameOf } from '@itrms/forms/api';
 import { MAX_DIRECT_EXPORT_ROWS } from '@itrms/forms/contracts';
 import type { OrgUnit } from '@itrms/kernel/org';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -262,9 +263,12 @@ describe('a submission history', () => {
         const id = await submit(as.damot(), { title: 'History', dept: 'ops' });
         const res = await api.call('GET', `/api/v1/submissions/${id}/history`, as.damot());
         expect(res.statusCode, res.body).toBe(200);
-        const items = res.json<{
+        const history = res.json<{
             items: { action: string; actorId: string; actorName: string | null; changes: string[] }[];
-        }>().items;
+            truncated: boolean;
+        }>();
+        expect(history.truncated).toBe(false);
+        const items = history.items;
         expect(items).toEqual([
             expect.objectContaining({ action: 'insert', actorId: await api.userId(SUB.damot), changes: [] })
         ]);
@@ -306,17 +310,20 @@ describe('an export', () => {
         expect(res.headers['content-disposition']).toMatch(/^attachment; filename="requests-\d{8}\.csv"$/);
         expect(res.rawPayload.subarray(0, 3)).toEqual(Buffer.from([0xef, 0xbb, 0xbf]));
         const lines = table(res.rawPayload);
-        expect(lines[0]).toBe('Submitted,Submitted by,Office,Title,Department,Urgent,Docs,Lines,Secret');
+        // every cell quoted: no separator (a semicolon, a tab) ever splits one
+        expect(lines[0]).toBe(
+            '"Submitted","Submitted by","Office","Title","Department","Urgent","Docs","Lines","Secret"'
+        );
         // the History row of the test above is in the form too
         expect(res.headers['x-row-count']).toBe('5');
         const csv = res.rawPayload.toString('utf8');
         expect(csv).toContain(`"'=HYPERLINK(""http://evil.example"")"`);
         expect(csv).not.toMatch(/(^|,)=HYPERLINK/m);
-        const gamma = lines.find((l) => l.includes(',Gamma,')) ?? '';
+        const gamma = lines.find((l) => l.includes(',"Gamma",')) ?? '';
         // labels, not values; Yes/No; file names; a count of rows; names, not ids
-        expect(gamma).toContain(',Gamma,Ops,No,a.pdf,2 rows,');
+        expect(gamma).toContain(',"Gamma","Ops","No","a.pdf","2 rows",');
         expect(gamma).not.toContain(await api.userId(SUB.damot));
-        expect(lines.find((l) => l.includes(',Alpha,'))).toContain(',Alpha,Sales,Yes,,1 row,');
+        expect(lines.find((l) => l.includes(',"Alpha",'))).toContain(',"Alpha","Sales","Yes","","1 row",');
         const events = await api.owner.query<{ diff: { rows: number; format: string } }>(
             "select diff from kernel.audit_log where event_type = 'submissions.exported' order by at"
         );
@@ -336,7 +343,7 @@ describe('an export', () => {
             sort: [{ field: 'title' }]
         });
         // Gamma, and the history test's submission
-        expect(table(head.rawPayload)).toEqual(['Title,Department', 'Gamma,Ops', 'History,Ops']);
+        expect(table(head.rawPayload)).toEqual(['"Title","Department"', '"Gamma","Ops"', '"History","Ops"']);
         // the zone's finance officer may export, but not see the heads' field: it is no column of theirs
         const finance = await exportOf(as.zoneFinance(), { fields: ['title', 'secret'] });
         expect(finance.statusCode).toBe(400);
@@ -368,11 +375,31 @@ describe('an export', () => {
         const sheet = workbook.worksheets[0];
         const values = (n: number) => (sheet?.getRow(n).values as unknown[]).slice(1);
         expect(values(1)).toEqual(['Title', 'Department']);
-        expect(sheet?.getRow(1).font?.bold).toBe(true);
+        // the formula as typed, with the text format: never evaluated, not even when edited
+        const evil = sheet?.getColumn(1).values.findIndex((v) => typeof v === 'string' && v.startsWith('=HYPERLINK'));
+        expect(evil).toBeGreaterThan(1);
+        expect(sheet?.getRow(evil ?? 0).getCell(1).numFmt).toBe('@');
+        expect(sheet?.getRow(1).getCell(1).font?.bold).toBe(true);
         const titles = Array.from({ length: (sheet?.rowCount ?? 1) - 1 }, (_, i) => values(i + 2)[0]);
-        expect(titles).toContain(`'=HYPERLINK("http://evil.example")`);
+        expect(titles).toContain('=HYPERLINK("http://evil.example")');
         // every cell is a string, never a formula
         sheet?.eachRow((row) => row.eachCell((cell) => expect(cell.type).toBe(ExcelJS.ValueType.String)));
+    });
+
+    it('quotes every CSV cell, so no separator splits a formula out of one', async () => {
+        await submit(as.damot(), { title: 'a;=1+1', dept: 'ops' });
+        await submit(as.damot(), { title: 'b\t=2+2', dept: 'ops' });
+        const csv = (await exportOf(as.damotHead(), { fields: ['title'] })).rawPayload.toString('utf8');
+        expect(csv).toContain('"a;=1+1"');
+        expect(csv).toContain('"b\t=2+2"');
+    });
+
+    it('names an Excel sheet as Excel accepts', () => {
+        // cut at 31 characters, it would end with a quote
+        expect(sheetNameOf(`${'a'.repeat(30)}' licence`)).toBe('a'.repeat(30));
+        expect(sheetNameOf('History')).toBe('Export');
+        expect(sheetNameOf('a:b/c?d*e[f]')).toBe('a b c d e f');
+        expect(sheetNameOf("''")).toBe('Export');
     });
 
     it('answers at most the direct limit, and says to narrow the filter', async () => {

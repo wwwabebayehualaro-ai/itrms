@@ -20,11 +20,11 @@ import {
     type SubmissionQuery,
     type SubmissionQueryResult
 } from '../contracts';
-import { formatValue, renderCsv, renderXlsx } from './export';
+import { formatValue, word, type ExportTable } from './export';
 import { FormsService } from './forms.service';
 import { formVersions, submissions } from './forms.table';
 import { QueryCompiler, type FieldSpec } from './query-compiler';
-import { SubmissionsService } from './submissions.service';
+import { SubmissionsService, type SubmissionRow } from './submissions.service';
 import { fieldsFor } from './support';
 import { readDocument } from '@itrms/form-engine/core';
 import { BUILTIN_KEYS, BUILTINS, describe, valueFields, type ViewField } from './view-fields';
@@ -65,15 +65,16 @@ export class SubmissionQueryService {
     }
 
     /**
-     * The rows a query matches, as a file people read (task 0.16d): at most MAX_DIRECT_EXPORT_ROWS, the chosen fields
-     * (all by default) as the viewer shows them. The caller records the export (an audited event, with its size).
+     * The rows a query matches as the table of a file people read (task 0.16d): at most MAX_DIRECT_EXPORT_ROWS, the
+     * chosen fields (all by default) as the viewer shows them. Only the columns the table needs are read (the chosen
+     * keys of the answers, never the whole documents); the file is made by the caller once the transaction is over.
      */
-    async export(
+    async exportTable(
         tx: Tx,
         roles: readonly string[],
         input: SubmissionExport,
         language: string
-    ): Promise<{ filename: string; contentType: string; body: Buffer; rows: number; fields: number }> {
+    ): Promise<ExportTable> {
         return withBudget(tx, async (budget) => {
             const { form, fields, indexedKeys } = await this.fieldsOf(tx, roles, input.formId);
             const compiler = new QueryCompiler(input.formId, specsOf(fields, indexedKeys));
@@ -92,46 +93,55 @@ export class SubmissionQueryService {
             for (const k of keys)
                 if (!BUILTIN_KEYS.has(k) && !byKey.has(k))
                     throw new InvalidRequestError('invalid_query', { detail: `unknown field "${k}"` });
+            const answerKeys = keys.filter((k) => byKey.has(k));
 
             await budget();
             const order = compiler.orderBy(input.sort.length ? input.sort : [{ field: 'createdAt', desc: true }]);
             const rows = await tx
-                .select()
+                .select({
+                    id: submissions.id,
+                    rowVersion: submissions.rowVersion,
+                    formId: submissions.formId,
+                    formVersionId: submissions.formVersionId,
+                    caseId: submissions.caseId,
+                    handlingUnitId: submissions.handlingUnitId,
+                    createdBy: submissions.createdBy,
+                    createdAt: submissions.createdAt,
+                    updatedAt: submissions.updatedAt,
+                    // only the chosen keys of the answers
+                    answers: sql<
+                        Record<string, unknown>
+                    >`(select coalesce(jsonb_object_agg(k, ${submissions.answers} -> k), '{}'::jsonb)
+                        from unnest(${`{${answerKeys.join(',')}}`}::text[]) k where ${submissions.answers} ? k)`
+                })
                 .from(submissions)
                 .where(cond)
                 .orderBy(...order, sql`${submissions.id} desc`)
                 .limit(MAX_DIRECT_EXPORT_ROWS);
             await budget();
-            const shown = await this.submissions.present(tx, roles, rows);
+            const shown = await this.submissions.present(tx, roles, rows as SubmissionRow[]);
             const people = await namesOf(
                 tx,
                 shown.map((s) => s.submittedBy)
             );
-            const label = (k: string) => BUILTINS.find((b) => b.key === k)?.label ?? byKey.get(k)?.label ?? k;
+            const label = (k: string) => (BUILTIN_KEYS.has(k) ? word(language, k) : (byKey.get(k)?.label ?? k));
             const cell = (s: Submission, k: string): string => {
                 if (k === 'createdAt') return addisMinute(s.createdAt);
                 if (k === 'submittedBy') return s.submittedBy ? (people.get(s.submittedBy) ?? s.submittedBy) : '';
                 if (k === 'handlingUnit')
                     return s.handlingUnit.name[language] ?? s.handlingUnit.name.en ?? s.handlingUnit.code;
                 const f = byKey.get(k);
-                return f ? formatValue(f, s.answers[k]) : '';
+                return f ? formatValue(f, s.answers[k], language) : '';
             };
-            const headers = keys.map(label);
-            const table = shown.map((s) => keys.map((k) => cell(s, k)));
-            const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-            const body =
-                input.format === 'xlsx'
-                    ? await renderXlsx(form.name[language] ?? form.name.en ?? form.key, headers, table)
-                    : renderCsv(headers, table);
+            // the day in Addis Ababa
+            const stamp = addisMinute(new Date().toISOString()).slice(0, 10).replace(/-/g, '');
             return {
+                format: input.format,
                 filename: `${form.key}-${stamp}.${input.format}`,
-                contentType:
-                    input.format === 'xlsx'
-                        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                        : 'text/csv; charset=utf-8',
-                body,
-                rows: shown.length,
-                fields: keys.length
+                sheetName: form.name[language] ?? form.name.en ?? form.key,
+                headers: keys.map(label),
+                rows: shown.map((s) => keys.map((k) => cell(s, k))),
+                keys
             };
         });
     }

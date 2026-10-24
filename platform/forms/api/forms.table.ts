@@ -275,7 +275,9 @@ export const savedViews = withRls(
                     .where(sql`${t.isDefault}`),
                 index('saved_views_org_path_gist').using('gist', t.orgPath)
             ]
-        )
+        ),
+        // a private view's filters may name a person: the log proves a change without holding them
+        { mask: ['config'] }
     ),
     'transaction'
 );
