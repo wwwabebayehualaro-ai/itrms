@@ -19,6 +19,7 @@ import {
     HeadObjectCommand,
     ListMultipartUploadsCommand,
     ListObjectsV2Command,
+    ListPartsCommand,
     S3Client,
     UploadPartCommand
 } from '@aws-sdk/client-s3';
@@ -44,6 +45,10 @@ export interface S3ObjectStoreOptions {
 }
 
 const statusOf = (e: unknown) => (e as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
+
+/** An ETag with or without its quotes (stores list them quoted; clients pass on what the part upload answered). */
+const unquoted = (etag: string) =>
+    etag.length >= 2 && etag.startsWith('"') && etag.endsWith('"') ? etag.slice(1, -1) : etag;
 
 /** RFC 8187: every character outside attr-char is percent-encoded (encodeURIComponent leaves ' ( ) * as they are). */
 const rfc8187 = (value: string) =>
@@ -136,6 +141,12 @@ export class S3ObjectStore implements ObjectStore {
         uploadId: string;
         parts: { partNumber: number; etag: string }[];
     }): Promise<void> {
+        // Checked against the store's own list first: S3 answers unknown parts with InvalidPart, but SeaweedFS answers an
+        // upload without parts with NoSuchUpload, which would read as an upload that is gone
+        const uploaded = await this.uploadedParts(o.key, o.uploadId);
+        if (!uploaded) throw new ObjectStoreRefusal('missing', 'the upload is no longer open');
+        if (o.parts.some((p) => unquoted(uploaded.get(p.partNumber) ?? '') !== unquoted(p.etag) || !p.etag))
+            throw new ObjectStoreRefusal('invalid', 'the parts do not match the upload');
         try {
             await this.complete(o);
         } catch (e) {
@@ -146,6 +157,26 @@ export class S3ObjectStore implements ObjectStore {
                 throw new ObjectStoreRefusal('invalid', 'the parts do not match the upload');
             throw e;
         }
+    }
+
+    /** Part number → ETag of what was uploaded, or undefined when the upload is not open (completed or aborted). */
+    private async uploadedParts(Key: string, UploadId: string): Promise<Map<number, string> | undefined> {
+        const parts = new Map<number, string>();
+        let PartNumberMarker: string | undefined;
+        try {
+            do {
+                const page = await this.s3.send(
+                    new ListPartsCommand({ Bucket: this.bucket, Key, UploadId, PartNumberMarker })
+                );
+                for (const p of page.Parts ?? [])
+                    if (p.PartNumber !== undefined && p.ETag) parts.set(p.PartNumber, p.ETag);
+                PartNumberMarker = page.IsTruncated ? page.NextPartNumberMarker : undefined;
+            } while (PartNumberMarker);
+        } catch (e) {
+            if (statusOf(e) === 404) return undefined;
+            throw e;
+        }
+        return parts;
     }
 
     private async complete(o: {

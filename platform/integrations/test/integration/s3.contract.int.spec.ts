@@ -17,6 +17,7 @@ import {
     HeadObjectCommand,
     ListMultipartUploadsCommand,
     ListObjectsV2Command,
+    ListPartsCommand,
     PutBucketLifecycleConfigurationCommand,
     PutObjectCommand,
     S3Client,
@@ -252,6 +253,23 @@ describe('multipart uploads (large scans; Uppy part URLs, architecture §14)', (
             })
         );
         expect((await s3.send(new HeadObjectCommand({ Bucket, Key }))).ContentLength).toBe(1024);
+    });
+
+    it('lists an open upload’s parts with their ETags, even before any part, and answers 404 once it is aborted', async () => {
+        // what S3ObjectStore.completeMultipart checks before completing (the stores disagree on completing without parts)
+        const Key = `${prefix}multipart/listed.bin`;
+        const { UploadId } = await s3.send(new CreateMultipartUploadCommand({ Bucket, Key }));
+        expect((await s3.send(new ListPartsCommand({ Bucket, Key, UploadId }))).Parts ?? []).toEqual([]);
+
+        const { ETag } = await s3.send(
+            new UploadPartCommand({ Bucket, Key, UploadId, PartNumber: 1, Body: randomBytes(1024) })
+        );
+        const listed = await s3.send(new ListPartsCommand({ Bucket, Key, UploadId }));
+        expect(listed.Parts?.map((p) => [p.PartNumber, p.ETag])).toEqual([[1, ETag]]);
+
+        await s3.send(new AbortMultipartUploadCommand({ Bucket, Key, UploadId }));
+        const gone = await s3.send(new ListPartsCommand({ Bucket, Key, UploadId })).catch((e: unknown) => e);
+        expect(statusOf(gone)).toBe(404);
     });
 
     it('an aborted upload is listed before the abort and gone after it', async () => {
