@@ -635,6 +635,52 @@ describe('a publication', () => {
         ).rejects.toThrow(/four_eyes/);
     });
 
+    it('is listed for its approvers while it waits, and is refused once its form is switched off', async () => {
+        // the legacy "approving a deleted form is refused": forms are switched off, never deleted
+        const form = await createForm(as.bureau(), 'retired-form');
+        const asked = (
+            await call('POST', `/api/v1/forms/${form.id}/publications`, as.bureau(), {})
+        ).json<PublicationOut>();
+        const waiting = await get<{ items: PublicationOut[] }>('/api/v1/form-publications', as.bureau2());
+        expect(waiting.items.map((p) => p.id)).toContain(asked.id);
+        // an office below the form's owner does not see the request
+        const below = await get<{ items: PublicationOut[] }>('/api/v1/form-publications', as.zoneHead());
+        expect(below.items.map((p) => p.id)).not.toContain(asked.id);
+        const current = await get<FormOut>(`/api/v1/forms/${form.id}`, as.bureau());
+        const off = await call(
+            'PATCH',
+            `/api/v1/forms/${form.id}`,
+            as.bureau(),
+            { active: false },
+            ifMatch(current.version)
+        );
+        expect(off.statusCode).toBe(200);
+        const approved = await call(
+            'POST',
+            `/api/v1/form-publications/${asked.id}/approval`,
+            as.bureau2(),
+            {},
+            ifMatch(asked.version)
+        );
+        expect(approved.statusCode).toBe(409);
+        expect(approved.json<Problem>().code).toBe('invalid_transition');
+        expect((await get<FormOut>(`/api/v1/forms/${form.id}`, as.bureau())).publishedVersion).toBeNull();
+        // the withdrawal is on record like every other write
+        const withdrawn = await call(
+            'POST',
+            `/api/v1/form-publications/${asked.id}/withdrawal`,
+            as.bureau(),
+            {},
+            ifMatch(asked.version)
+        );
+        expect(withdrawn.json()).toMatchObject({ status: 'withdrawn' });
+        const audit = await owner.query<{ diff: { after: Record<string, unknown> } }>(
+            `select diff from kernel.audit_log where row_id = $1 and action = 'update'`,
+            [asked.id]
+        );
+        expect(audit.rows.map((r) => r.diff.after.status)).toEqual(['withdrawn']);
+    });
+
     it('of a form above the office is refused the same way as a change to it', async () => {
         const bureauForm = (await get<{ items: FormOut[] }>('/api/v1/forms?q=inspection', as.zoneAdmin())).items[0];
         const res = await call('POST', `/api/v1/forms/${bureauForm?.id ?? ''}/publications`, as.zoneAdmin(), {});
