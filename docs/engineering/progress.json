@@ -595,10 +595,11 @@
         {
           "id": "0.17a",
           "title": "Form engine for ITRMS, part 1a: texts in every language",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.17a-i18n-texts",
           "commits": [
-            "73f28c2"
+            "73f28c2",
+            "7991a1c"
           ],
           "evidence": [
             "packages/schemas vitest → 20 passed (forms/text.spec.ts: shape, fallback, setTextIn, fieldTexts)",
