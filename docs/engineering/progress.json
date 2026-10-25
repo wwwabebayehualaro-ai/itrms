@@ -576,12 +576,12 @@
         {
           "id": "0.16f",
           "title": "Engine e2e journeys on the forms API in CI",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.16f-engine-e2e-ci",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Journeys rewritten for the BFF sign-in and the forms API (apps/web/tests/e2e/forms): builder + maker-checker publishing, filling in, repeating rows with formulas, the data viewer's six modes and export. Each journey makes its own forms through the API from a signed-in page (CSRF header, Origin, Idempotency-Key, If-Match) as demo.zone.admin (writes), demo.zone.head (approves) and demo.damot.records (fills in), and switches them off afterwards; no demo seed needed. CI job e2e starts the dev stack, migrates and seeds the reference design, starts the worker, and runs the whole suite (9 journeys, also sign-in, shell, i18n, registry). ci:local has no e2e job (as perf): GitHub Actions runs it. Found and fixed: the BFF needs an Origin header on a change; a switched-off (deleted) form stayed in the gallery and the dashboard's forms (the list now asks for active forms)."
         },
         {
           "id": "0.17",
@@ -1935,6 +1935,16 @@
       "foundIn": "0.16c",
       "item": "Typed message keys for useText().t (a typo fails typecheck), and the engine's own UI text (designer, viewer: 'Filterable', 'Only for roles', …) is English outside the catalogues",
       "movedTo": "0.17"
+    },
+    {
+      "foundIn": "0.16f",
+      "item": "Legacy journeys smoke and feature-flags, and scripts/e2e (demo seed, legacy templates), still use the legacy backend's sign-in and routes",
+      "movedTo": "0.26"
+    },
+    {
+      "foundIn": "0.16f",
+      "item": "Generated demo forms for the demo journey (a Wolaita transport bureau's forms in am/en) seeded through the forms API",
+      "movedTo": "0.25"
     }
   ]
 }

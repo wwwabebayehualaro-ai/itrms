@@ -116,6 +116,49 @@ jobs:
       - name: Container logs on failure
         if: failure()
         run: docker compose -f infra/compose/docker-compose.yml --env-file infra/compose/.env --profile observability logs --tail 200
+  e2e:
+    # the browser journeys (task 0.16f): sign-in, the shell, the registry and the form engine on the forms API, through
+    # the BFF, against the dev stack with the reference design seeded; Playwright starts the API and the web app
+    name: e2e journeys (Playwright, BFF sign-in)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        env:
+          LEFTHOOK: '0'
+      - name: Start the dev stack (writes the apps' local settings)
+        run: pnpm dev:infra
+      - name: Build the API, migrate, and seed the reference design (org, demo users, Keycloak groups)
+        run: |
+          pnpm --filter @itrms/api build
+          pnpm --filter @itrms/api dev:migrate
+          pnpm --filter @itrms/api dev:seed org seed/org/south-ethiopia.wolaita.yaml
+          pnpm --filter @itrms/api dev:seed users seed/users/wolaita.demo.yaml
+          pnpm --filter @itrms/api dev:seed identity
+      - name: Start the worker (outbox relay, the forms' value fill and exports)
+        run: nohup pnpm --filter @itrms/api dev:worker > worker.log 2>&1 &
+      - name: Chromium for Playwright
+        run: pnpm --filter @itrms/web exec playwright install --with-deps chromium
+      - name: Journeys
+        run: pnpm --filter @itrms/web e2e
+      - if: failure()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: e2e-results
+          path: |
+            apps/web/test-results
+            worker.log
+          retention-days: 7
+      - name: Container logs on failure
+        if: failure()
+        run: docker compose -f infra/compose/docker-compose.yml --env-file infra/compose/.env logs --tail 200
+
   perf:
     # the NFR timings on 10^6 generated rows with EXPLAIN under RLS (tasks 0.14, 0.16b); the reference server repeats
     # them in 0.26
