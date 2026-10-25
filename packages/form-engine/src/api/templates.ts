@@ -8,6 +8,7 @@ import type { FormTemplate, PublishedForm } from '@itrms/schemas';
 import {
     FORMS_API,
     formChangeOf,
+    ifMatch,
     keyOf,
     publishedOf,
     templateOf,
@@ -25,8 +26,7 @@ export const templateKeys = createKeys('templates');
 
 export type TemplateInput = Omit<FormTemplate, 'id' | 'created_at' | 'updated_at'>;
 
-/** A change says which version it was based on: a concurrent edit is refused (409), never overwritten. */
-export const ifMatch = (version: number) => ({ headers: { 'if-match': `"${version}"` } });
+export { ifMatch };
 
 const getForm = async (client: FormsClient, id: string, signal?: AbortSignal) =>
     (await client.get<WireForm>(`${FORMS_API.forms}/${id}`, { signal })).data;

@@ -136,3 +136,53 @@ export interface ViewState {
     /** The saved view this link was made from (applied when the link carries nothing else). */
     viewId?: string;
 }
+
+// ---- the record page and saved views ----
+
+export interface RecordForm {
+    template_id: string;
+    name: string;
+    form_config: { fields?: any[]; runtime?: any } | any[];
+    /** false: made before versions were recorded, shown with the current form */
+    versioned: boolean;
+    /** false: the form changed since this request was filled in */
+    current: boolean;
+}
+
+export interface FieldChange {
+    field: string;
+    old?: unknown;
+    new?: unknown;
+}
+
+export interface HistoryEntry {
+    id: string;
+    action: string;
+    occurred_at: string;
+    actor_id?: string | null;
+    actor_name?: string | null;
+    changes: FieldChange[];
+}
+
+/** What a saved view remembers (the shareable part of the view state). */
+export interface ViewConfig {
+    mode: string;
+    search: string;
+    filter: FilterGroup;
+    sort: SortKey[];
+    columns: string[];
+    page_size: number;
+    options: Record<string, unknown>;
+}
+
+export interface SavedView {
+    id: string;
+    template_id: string;
+    name: string;
+    visibility: 'private' | 'shared';
+    is_default: boolean;
+    config: ViewConfig;
+    owner_name?: string | null;
+    can_edit: boolean;
+    row_version: number;
+}

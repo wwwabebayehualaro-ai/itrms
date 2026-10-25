@@ -3,34 +3,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFormsClient } from '../host/FormsHost';
 import { createKeys } from '../host/client';
-import { ifMatch } from '../api/templates';
-import { FORMS_API, savedViewOf, toWireConfig, toWireVisibility, type WireSavedView } from '../api/wire';
-import type { FilterGroup, SortKey, ViewState } from './types';
+import { FORMS_API, ifMatch, savedViewOf, toWireConfig, toWireVisibility, type WireSavedView } from '../api/wire';
+import type { SavedView, ViewConfig, ViewState } from './types';
+
+export type { SavedView, ViewConfig } from './types';
 
 export const savedViewKeys = createKeys('saved-views');
-
-/** What a saved view remembers (the shareable part of the view state). */
-export interface ViewConfig {
-    mode: string;
-    search: string;
-    filter: FilterGroup;
-    sort: SortKey[];
-    columns: string[];
-    page_size: number;
-    options: Record<string, unknown>;
-}
-
-export interface SavedView {
-    id: string;
-    template_id: string;
-    name: string;
-    visibility: 'private' | 'shared';
-    is_default: boolean;
-    config: ViewConfig;
-    owner_name?: string | null;
-    can_edit: boolean;
-    row_version: number;
-}
 
 export const configOf = (s: ViewState): ViewConfig => ({
     mode: s.mode,

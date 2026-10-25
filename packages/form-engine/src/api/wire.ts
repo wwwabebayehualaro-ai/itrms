@@ -5,9 +5,17 @@
  * importing `@itrms/forms/contracts` (the API's OpenAPI contract is their source).
  */
 import type { FormSubmission, FormTemplate, PublishedForm } from '@itrms/schemas';
-import type { HistoryEntry } from '../viewer/recordApi';
-import type { FieldKind, FilterGroup, Op, QueryRequest, QueryResult, ViewSchema } from '../viewer/types';
-import type { SavedView, ViewConfig } from '../viewer/viewsApi';
+import type {
+    FieldKind,
+    FilterGroup,
+    HistoryEntry,
+    Op,
+    QueryRequest,
+    QueryResult,
+    SavedView,
+    ViewConfig,
+    ViewSchema
+} from '../viewer/types';
 
 /** Paths of the forms API, relative to the app's `/api/` proxy. */
 export const FORMS_API = {
@@ -24,6 +32,9 @@ export const FORMS_API = {
 export const DIRECT_EXPORT_ROWS = 5000;
 
 export type I18nText = Record<string, string>;
+
+/** A change says which version it was based on: a concurrent edit is refused (409), never overwritten. */
+export const ifMatch = (version: number) => ({ headers: { 'if-match': `"${version}"` } });
 
 export interface WireForm {
     id: string;
