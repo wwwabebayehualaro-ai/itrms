@@ -473,10 +473,19 @@ Split on 2026-10-24 (product owner): exports over the size limit, through the wo
   downloading it.
 
 ### 0.16c Web switch-over to the forms API
-- Needs 0.16b, 0.16d and 0.16e.
-- **Do:** point the web's builder, gallery, data viewer and record page at the new API (through the BFF); port the legacy
-  engine e2e journeys to the BFF sign-in and run them in CI against the dev stack; retire the legacy forms backend
-  (`Backend/` form modules).
+Split on 2026-10-25 (the e2e journeys in CI moved to 0.16f). Needs 0.16b, 0.16d and 0.16e.
+- **Do:** point the web's builder, gallery, data viewer, record page and approvals at the forms API through the BFF: the
+  engine's API hooks map the forms API's DTOs to the shapes its screens use (one place for the wire); publish asks for a
+  publication and the approvals screen decides it; the designer offers the `filterable` switch and the installation's
+  role keys for `visibleToRoles`; uploads go to `/api/v1/files`; retire the legacy forms backend (`Backend/` form
+  modules) and its legacy routes in the web.
+- **Done when:** the engine's API hooks and the screens' data paths are tested against the forms API's shapes; the web
+  typechecks and builds with no call to a legacy forms route; `Backend/` has no form module.
+- **Tests:** unit tests of the mapping layer (both directions), component tests of the screens on mocked hooks.
+
+### 0.16f Engine e2e journeys on the forms API in CI
+- **Do:** port the legacy engine e2e journeys (`apps/web/tests/e2e/legacy`) to the BFF sign-in; a CI job that starts the
+  dev stack, the API, the worker and the web, seeds the demo, and runs them.
 - **Done when:** the legacy engine e2e journeys (builder, fill, multi-row, data viewer modes) pass against NestJS in CI.
 - **Tests:** the e2e suite (`apps/web/tests/e2e/legacy`, ported).
 
