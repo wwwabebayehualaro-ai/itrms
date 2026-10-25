@@ -18,6 +18,7 @@ import {
     childrenOf,
     emptyRow,
     isEnabledIn,
+    isRequiredIn,
     isVisibleIn,
     type EngineDocument,
     type EngineField
@@ -103,6 +104,17 @@ function useRules(field: EngineField, scope: Scope): { visible: boolean; enabled
     return { visible: code >= 2, enabled: !readOnly && code % 2 === 1 };
 }
 
+/** Whether a field is required now: always, or while its `requiredWhen` formula holds over its scope's values. */
+function useRequired(field: EngineField, scope: Scope): boolean {
+    const { form } = useTree();
+    const runtime = useRuntimeScope();
+    return useSelector(form.store, (s: { values: Values }) =>
+        field.rules.requiredWhen
+            ? isRequiredIn(field, valuesAt(s.values, scope.rowPath), s.values, runtime)
+            : field.rules.required
+    );
+}
+
 const FieldNode = memo(function FieldNode({ field, scope }: { field: EngineField; scope: Scope }) {
     const { visible, enabled } = useRules(field, scope);
     const def = getFieldType(field.type);
@@ -174,6 +186,7 @@ function ValueField({
     const { form, readOnly } = useTree();
     const name = pathOf(scope, field.id);
     const api = useField({ form, name });
+    const required = useRequired(field, scope);
     const shown = useShownError(api.state.meta);
     // a remote check (`behavior.validation.remote`) in progress is shown as progress, not as a mistake
     const checking = shown === REMOTE_PENDING;
@@ -212,7 +225,7 @@ function ValueField({
             {!inlineLabel && field.label && (
                 <FieldLabel htmlFor={domId}>
                     {field.label}
-                    {field.rules.required && <span className="text-destructive">*</span>}
+                    {required && <span className="text-destructive">*</span>}
                 </FieldLabel>
             )}
             <Render

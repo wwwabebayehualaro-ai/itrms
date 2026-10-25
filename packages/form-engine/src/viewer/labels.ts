@@ -2,6 +2,8 @@
 
 import { useMemo } from 'react';
 import { formatCurrency, formatDate, formatDateTime } from '../host/format';
+import { useFormsLanguages } from '../host/FormsHost';
+import { ethiopianDateText } from '../core/dates';
 import type { ViewField, ViewOption, ViewSchema } from './types';
 
 export const EMPTY = '—';
@@ -19,6 +21,7 @@ export interface Labeler {
 
 /** Turns stored values into what people read. One place, used by every view mode, filter chip and export. */
 export function useLabeler(schema?: ViewSchema): Labeler {
+    const { language } = useFormsLanguages();
     return useMemo(() => {
         const fields = new Map((schema?.fields ?? []).map((f) => [f.key, f]));
         const field = (key: string) => fields.get(key);
@@ -43,7 +46,10 @@ export function useLabeler(schema?: ViewSchema): Labeler {
                 case 'boolean':
                     return v ? 'Yes' : 'No';
                 case 'date':
-                    return formatDate(v as string, EMPTY);
+                    // a day picked on the Ethiopian calendar is read in it, in the screens' language
+                    return f.type === 'EthDate' && typeof v === 'string'
+                        ? ethiopianDateText(v, { language, long: true }) || EMPTY
+                        : formatDate(v as string, EMPTY);
                 case 'datetime':
                     return formatDateTime(v as string, EMPTY);
                 case 'number':
@@ -62,5 +68,5 @@ export function useLabeler(schema?: ViewSchema): Labeler {
             return one(f, value);
         };
         return { field, options, lookup, text, loading: false };
-    }, [schema]);
+    }, [schema, language]);
 }

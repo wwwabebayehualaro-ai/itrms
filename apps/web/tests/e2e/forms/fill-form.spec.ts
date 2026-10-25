@@ -21,7 +21,9 @@ const LEAVE = [
     field('Calendar', 'firstDay', 'First day', { props: { required: true } }),
     field('InputNumber', 'days', 'Days', { props: { required: true } }),
     field('InputSwitch', 'halfDay', 'Half day'),
-    field('InputTextarea', 'reason', 'Reason')
+    field('InputTextarea', 'reason', 'Reason'),
+    // picked on the Ethiopian calendar, stored as the Gregorian day (task 0.17b)
+    field('EthDate', 'returnDay', 'Return day')
 ];
 
 interface Submission {
@@ -55,6 +57,8 @@ test('a request filled in is filed with its value shapes and shown read-only', a
         await dialog.getByLabel('Days').fill('2');
         await dialog.getByRole('switch', { name: 'Half day' }).click();
         await dialog.getByLabel('Reason').fill(reason);
+        await dialog.getByRole('button', { name: /Return day/ }).click();
+        await page.locator('[role="grid"] [data-day="5"]').click();
         await dialog.getByRole('button', { name: /Submit/ }).click();
         await expect(dialog).toBeHidden();
 
@@ -71,6 +75,8 @@ test('a request filled in is filed with its value shapes and shown read-only', a
             reason
         });
         expect(saved?.answers.firstDay).toMatch(/^\d{4}-\d{2}-15$/);
+        // the Ethiopian day is stored as an ISO Gregorian date
+        expect(saved?.answers.returnDay).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 
         // its page: the same form, read-only, with the stored values
         await page.goto(`/submitted-forms/template/${formId}/${saved?.id}`);

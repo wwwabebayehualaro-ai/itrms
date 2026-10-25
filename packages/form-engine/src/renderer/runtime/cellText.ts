@@ -1,6 +1,7 @@
 /** Plain-text formatting of table cells (no UI): shared by every table renderer. */
 import { formatCurrency, formatDate, formatDateTime } from '../../host/format';
 import { getByPath } from '../../core/runtime/expression';
+import { ethiopianDateText } from '../../core/dates';
 import type { TableColumn } from '@itrms/schemas';
 
 export const EMPTY = '—';
@@ -22,6 +23,9 @@ export function cellText(col: TableColumn, row: unknown, lookups: LookupMaps): s
     switch (col.type) {
         case 'date':
             return formatDate(v as string, EMPTY);
+        // a day picked on the Ethiopian calendar is read in it (stored as the Gregorian day)
+        case 'ethdate':
+            return (typeof v === 'string' && ethiopianDateText(v)) || EMPTY;
         case 'datetime':
             return formatDateTime(v as string, EMPTY);
         case 'currency':
