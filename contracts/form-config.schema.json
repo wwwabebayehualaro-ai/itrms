@@ -52,9 +52,24 @@
             "type": "string"
           },
           "label": {
-            "type": [
-              "string",
-              "null"
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "parentId": {
@@ -226,9 +241,7 @@
                                 "propertyNames": {
                                   "type": "string"
                                 },
-                                "additionalProperties": {
-                                  "type": "string"
-                                }
+                                "additionalProperties": {}
                               },
                               {
                                 "type": "null"
@@ -243,9 +256,7 @@
                                   "dataSourceId": {
                                     "type": "string"
                                   },
-                                  "message": {
-                                    "type": "string"
-                                  }
+                                  "message": {}
                                 },
                                 "required": [
                                   "dataSourceId"

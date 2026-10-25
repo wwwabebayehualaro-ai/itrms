@@ -57,12 +57,14 @@ import {
     PublishedFormRenderer,
     TemplateStatusTag,
     getRuntimeConfig,
+    useFormsLanguages,
     isViewTemplate,
     useTemplateList,
     useTemplateLoader,
     useTemplateMutations
 } from '@itrms/form-engine/renderer';
 import { fileRelationsOf, storedFieldsOf } from '@itrms/schemas';
+import { untranslatedTexts } from '@itrms/form-engine/core';
 import { useBuilderActions } from '@itrms/form-engine/designer';
 import { useCan } from '@/lib/auth/authHooks';
 import { getApiErrorMessage } from '@/lib/api/errors';
@@ -98,6 +100,7 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
     const { data: all = [], isPending, error, refetch } = useTemplateList();
     const { remove, publish } = useTemplateMutations();
     const loadTemplate = useTemplateLoader();
+    const { language } = useFormsLanguages();
     // people who start requests pick from forms; view templates (reports) are managed here, not filled in
     const templates = useMemo(() => (mode === 'start' ? all.filter((t) => !isViewTemplate(t)) : all), [all, mode]);
 
@@ -166,6 +169,37 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
     const toggle = (id: string) =>
         setSelected((cur) => (cur.has(id) ? new Set([...cur].filter((x) => x !== id)) : new Set([...cur, id])));
 
+    /** Publishes; a form with texts lacking Amharic or English asks first (a warning, never a block). */
+    const publishOne = async (t: IFormTemplate) => {
+        const send = () =>
+            publish.mutate(
+                { id: t.id as string },
+                {
+                    onSuccess: (p) =>
+                        notify.success(
+                            p.status === 'published'
+                                ? 'The form is published'
+                                : 'Sent for approval: it is published once approved'
+                        )
+                }
+            );
+        let missing = 0;
+        try {
+            const full = await loadTemplate(String(t.id));
+            missing = untranslatedTexts(storedFieldsOf(full.form_config), language).length;
+        } catch (e) {
+            notify.error(getApiErrorMessage(e, 'Could not open the form'));
+            return;
+        }
+        if (!missing) return send();
+        void confirmAction({
+            header: `Publish “${t.name}”?`,
+            message: `${missing} text${missing === 1 ? ' has' : 's have'} no Amharic or English text: people will see another language. Publish anyway?`,
+            acceptLabel: 'Publish anyway',
+            onAccept: send
+        });
+    };
+
     const deleteOne = (t: IFormTemplate) =>
         void confirmAction({
             header: `Delete “${t.name}”?`,
@@ -222,19 +256,7 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
                         label={`Publish ${t.name}`}
                         tooltip="Publish"
                         disabled={publish.isPending && publish.variables?.id === t.id}
-                        onClick={() =>
-                            publish.mutate(
-                                { id: t.id as string },
-                                {
-                                    onSuccess: (p) =>
-                                        notify.success(
-                                            p.status === 'published'
-                                                ? 'The form is published'
-                                                : 'Sent for approval: it is published once approved'
-                                        )
-                                }
-                            )
-                        }
+                        onClick={() => void publishOne(t)}
                     >
                         <Send />
                     </IconButton>

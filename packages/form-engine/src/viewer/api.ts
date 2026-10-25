@@ -1,7 +1,7 @@
 'use client';
 
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useFormsClient } from '../host/FormsHost';
+import { useFormsClient, useFormsLanguages } from '../host/FormsHost';
 import { createKeys } from '../host/client';
 import { FORMS_API, queryOf, resultOf, viewSchemaOf, type WireQueryResult, type WireViewSchema } from '../api/wire';
 import type { QueryRequest } from './types';
@@ -11,8 +11,10 @@ export const viewKeys = createKeys('submission-view');
 /** What the viewer can do with the data of one form (fields, operators, roles, modes). Derived by the server from the published version. */
 export function useViewSchema(templateId?: string) {
     const client = useFormsClient();
+    // the labels come back in the page's language
+    const { language } = useFormsLanguages();
     return useQuery({
-        queryKey: [...viewKeys.all, 'schema', templateId ?? ''],
+        queryKey: [...viewKeys.all, 'schema', templateId ?? '', language],
         queryFn: async ({ signal }) =>
             viewSchemaOf((await client.get<WireViewSchema>(`${FORMS_API.forms}/${templateId}/view`, { signal })).data),
         enabled: !!templateId,

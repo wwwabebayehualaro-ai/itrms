@@ -10,6 +10,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { eq, sql, type SQL } from 'drizzle-orm';
 import type { Tx } from '@itrms/kernel/db';
 import { ConflictError, InvalidRequestError } from '@itrms/kernel/errors';
+import { textIn } from '@itrms/schemas';
 
 import {
     MAX_DIRECT_EXPORT_ROWS,
@@ -36,6 +37,9 @@ const MAX_BUILTIN_OPTIONS = 200;
 /** The time one query request may take, all its statements together. */
 export const QUERY_BUDGET_MS = 10_000;
 
+/** A stored name in the caller's language (am, then en, then any: never the other optional language first). */
+const named = (name: Record<string, string>, language: string) => textIn({ am: '', en: '', ...name }, language);
+
 const num = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
 /** A group or facet key as the client filters with it (the database gives text, numbers or booleans). */
 const key = (v: unknown): string | null => {
@@ -60,7 +64,7 @@ export class SubmissionQueryService {
 
     /** What the data viewer can do with the form's submissions. */
     async view(tx: Tx, roles: readonly string[], formId: string, language: string) {
-        const { fields, indexedKeys } = await this.fieldsOf(tx, roles, formId);
+        const { fields, indexedKeys } = await this.fieldsOf(tx, roles, formId, language);
         return withBudget(tx, async (budget) => {
             // the built-ins' choices, from the submissions the caller sees (RLS bounds them): no directory of the region
             const distinct = async (column: SQL) => {
@@ -76,12 +80,17 @@ export class SubmissionQueryService {
             const units = await unitRefs(tx, unitIds);
             const people = await namesOf(tx, personIds);
             const byLabel = (a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label);
-            return describe(fields, indexedKeys, {
-                handlingUnit: [...units.values()]
-                    .map((u) => ({ value: u.id, label: u.name[language] ?? u.name.en ?? u.code }))
-                    .sort(byLabel),
-                submittedBy: [...people].map(([value, label]) => ({ value, label })).sort(byLabel)
-            });
+            return describe(
+                fields,
+                indexedKeys,
+                {
+                    handlingUnit: [...units.values()]
+                        .map((u) => ({ value: u.id, label: named(u.name, language) || u.code }))
+                        .sort(byLabel),
+                    submittedBy: [...people].map(([value, label]) => ({ value, label })).sort(byLabel)
+                },
+                (k) => word(language, k)
+            );
         });
     }
 
@@ -105,7 +114,7 @@ export class SubmissionQueryService {
         return withBudget(
             tx,
             async (budget) => {
-                const { form, fields, indexedKeys } = await this.fieldsOf(tx, roles, input.formId);
+                const { form, fields, indexedKeys } = await this.fieldsOf(tx, roles, input.formId, language);
                 const compiler = new QueryCompiler(input.formId, specsOf(fields, indexedKeys));
                 const cond = conditionsOf(compiler, input);
                 await budget();
@@ -169,8 +178,7 @@ export class SubmissionQueryService {
                 const cell = (s: Submission, k: string): string => {
                     if (k === 'createdAt') return addisMinute(s.createdAt);
                     if (k === 'submittedBy') return s.submittedBy ? (people.get(s.submittedBy) ?? s.submittedBy) : '';
-                    if (k === 'handlingUnit')
-                        return s.handlingUnit.name[language] ?? s.handlingUnit.name.en ?? s.handlingUnit.code;
+                    if (k === 'handlingUnit') return named(s.handlingUnit.name, language) || s.handlingUnit.code;
                     const f = byKey.get(k);
                     return f ? formatValue(f, s.answers[k], language) : '';
                 };
@@ -179,7 +187,7 @@ export class SubmissionQueryService {
                 return {
                     format: input.format,
                     filename: `${form.key}-${stamp}.${input.format}`,
-                    sheetName: form.name[language] ?? form.name.en ?? form.key,
+                    sheetName: named(form.name, language) || form.key,
                     headers: keys.map(label),
                     rows: shown.map((s) => keys.map((k) => cell(s, k))),
                     keys
@@ -286,7 +294,7 @@ export class SubmissionQueryService {
      * The published version's value fields the caller may see, kept only where every version of the form that has the
      * field shows it to them as a queryable field; and which of them the value table holds.
      */
-    private async fieldsOf(tx: Tx, roles: readonly string[], formId: string) {
+    private async fieldsOf(tx: Tx, roles: readonly string[], formId: string, language = 'am') {
         const form = await this.forms.definition(tx, formId);
         if (!form.publishedVersionId)
             throw new ConflictError('not_configured', { detail: 'This form has not been published yet.' });
@@ -296,7 +304,7 @@ export class SubmissionQueryService {
                 .from(formVersions)
                 .where(eq(formVersions.formId, formId))
         ).map((v) => {
-            const seen = valueFields(fieldsFor(v.document, roles));
+            const seen = valueFields(fieldsFor(v.document, roles, language));
             return {
                 id: v.id,
                 seen,

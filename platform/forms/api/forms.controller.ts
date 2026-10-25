@@ -288,7 +288,7 @@ export class SubmissionsController {
     create(@Body() body: SubmissionCreateDto) {
         const ctx = requestDbContext();
         const { roles } = currentPrincipal();
-        return this.db.scoped(ctx, (tx) => this.submissions.create(tx, ctx, roles, body));
+        return this.db.scoped(ctx, (tx) => this.submissions.create(tx, ctx, roles, body, currentContext()?.language));
     }
 
     @Get(':id')

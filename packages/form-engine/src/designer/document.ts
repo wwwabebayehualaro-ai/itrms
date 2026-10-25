@@ -6,7 +6,7 @@
  * children, siblings in their order) with `schemaVersion: 2`. Every key of a field the builder does not know is kept as it was.
  */
 import type { Draft } from 'immer';
-import type { FormField } from '@itrms/schemas';
+import { formTextIn, setTextIn, type FormField, type FormText } from '@itrms/schemas';
 import { getFieldType } from '../renderer/kit';
 import { keyFromLabel, renameFieldKey, renameInRuntime } from './fieldKeys';
 import { SCHEMA_VERSION } from '../core';
@@ -14,9 +14,16 @@ import { EMPTY_RUNTIME, type TemplateRuntimeConfig } from '@itrms/schemas';
 
 export const ROOT = '';
 
+/**
+ * The text a key or an address is made from: the English text of a map, else a plain string (older forms). An
+ * Ethiopic text has no letters to make one from, so its key is made when the English one is written.
+ */
+export const keySourceOf = (text: FormText | null | undefined): string =>
+    typeof text === 'string' ? text : typeof text?.en === 'string' ? text.en : '';
+
 /** A form's address from its name ("Leave request" -> leave-request). */
-export const slugify = (name: string) =>
-    name
+export const slugify = (name: FormText) =>
+    keySourceOf(name)
         .trim()
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
@@ -93,7 +100,9 @@ export function fromStored(
         const parent = parentOf(id);
         const f = byId[id];
         if (f && parent === ROOT && f.parentId) {
-            problems.push(`"${f.label || id}" pointed at a missing container and was moved to the top level`);
+            problems.push(
+                `"${formTextIn(f.label, 'en') || id}" pointed at a missing container and was moved to the top level`
+            );
             delete f.parentId;
         }
         (children[parent] ??= []).push(id);
@@ -141,8 +150,12 @@ export function accepts(doc: DesignDoc, parent: string, type: string): boolean {
 }
 
 /** A key nobody uses yet, from a label ("Unit price" -> unitPrice, unitPrice2, ...). */
-export function uniqueKey(doc: DesignDoc, label: string, taken: Set<string> = new Set(Object.keys(doc.byId))): string {
-    const base = keyFromLabel(label || 'field') || 'field';
+export function uniqueKey(
+    doc: DesignDoc,
+    label: FormText | undefined,
+    taken: Set<string> = new Set(Object.keys(doc.byId))
+): string {
+    const base = keyFromLabel(keySourceOf(label) || 'field') || 'field';
     let key = base;
     for (let n = 2; taken.has(key); n++) key = `${base}${n}`;
     taken.add(key);
@@ -229,6 +242,12 @@ export function removeField(d: D, id: string) {
     }
 }
 
+/** A label for a copy: " (copy)" after the text of every language. */
+const copyLabel = (label: FormText | undefined): FormText | undefined =>
+    typeof label === 'string'
+        ? `${label} (copy)`
+        : label && Object.fromEntries(Object.entries(label).map(([tag, text]) => [tag, `${text} (copy)`]));
+
 /** Copy of `id` and everything inside it, right after it; the copies get new unique keys. Returns the copy's id. */
 export function duplicateField(d: D, id: string): string | null {
     const doc = d as DesignDoc;
@@ -242,7 +261,7 @@ export function duplicateField(d: D, id: string): string | null {
         return {
             ...src,
             id: nid,
-            label: x === id ? `${src.label} (copy)` : src.label,
+            label: x === id ? copyLabel(src.label) : src.label,
             props: { ...src.props, ...(src.props?.id !== undefined && { id: nid }) },
             data: src.data && {
                 ...src.data,
@@ -295,3 +314,21 @@ export function setPath(target: Record<string, any>, path: string, value: unknow
 
 export const getPath = (target: unknown, path: string): unknown =>
     path.split('.').reduce<any>((o, k) => (o == null ? undefined : o[k]), target);
+
+/**
+ * Write one text of a field draft (a dotted path) in a language; the other languages' texts stay. A text left empty is
+ * removed, but written as '' over a palette default (which a removed one would bring back). Returns what was stored.
+ */
+export function writeText(
+    field: Draft<FormField>,
+    path: string,
+    language: string,
+    value: string,
+    plainAs: string
+): FormText | undefined {
+    const target = field as Record<string, any>;
+    const inherited = path.startsWith('props.') ? field.data?.defaultProps?.[path.slice(6)] : undefined;
+    const next = setTextIn(getPath(target, path) ?? inherited, language, value, plainAs);
+    setPath(target, path, next === undefined && inherited !== undefined ? '' : next);
+    return next;
+}

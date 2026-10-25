@@ -9,7 +9,10 @@ import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigat
 import { FormsHostProvider, type FormsHost, type FormsLocation } from '@itrms/form-engine/renderer';
 import client from '@/lib/api/client';
 import { isReported } from '@/lib/api/errors';
+import { useLocale } from 'next-intl';
 import { useAuthUser } from '@/lib/auth/authHooks';
+import { useAuthStore } from '@/lib/auth/authStore';
+import { formLanguages } from '@/lib/preferences';
 import logger from '@/lib/logger';
 import { ROLE_KEYS } from '@/shell/role-keys.generated';
 
@@ -30,10 +33,17 @@ function useLocation(): FormsLocation {
     );
 }
 
+function useLanguages(): { language: string; languages: readonly string[] } {
+    const language = useLocale();
+    const setting = useAuthStore((s) => s.workspace?.settings['i18n.languages']);
+    return useMemo(() => ({ language, languages: formLanguages(setting) }), [language, setting]);
+}
+
 const host: FormsHost = {
     client,
     useUser: useAuthUser,
     useLocation,
+    useLanguages,
     roleKeys: ROLE_KEYS,
     templatesHref: '/dynamic-template/saved-templates',
     isReported,

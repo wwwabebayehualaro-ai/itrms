@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { create } from 'zustand';
 
-import { LANGUAGE_ENDONYMS, SHIPPED_LANGUAGES } from '@itrms/schemas';
+import { INSTALLABLE_LANGUAGES, LANGUAGE_ENDONYMS, SHIPPED_LANGUAGES } from '@itrms/schemas';
 
 import { LANGUAGE_COOKIE } from './auth/cookies';
 import client from './api/client';
@@ -26,6 +26,16 @@ export const LANGUAGE_NAMES: Record<Language, string> = LANGUAGE_ENDONYMS;
 export function availableLanguages(setting: unknown): Language[] {
     const listed = Array.isArray(setting) ? setting : ['am', 'en'];
     return LANGUAGES.filter((l) => listed.includes(l));
+}
+
+/**
+ * The languages a form's texts are written in: Amharic and English first, then the installation's other languages
+ * (`i18n.languages`), including those the shell has no catalogue for (om, ti); unknown tags are dropped.
+ */
+export function formLanguages(setting: unknown): string[] {
+    const listed: unknown[] = Array.isArray(setting) ? setting : [];
+    const known = new Set<string>(INSTALLABLE_LANGUAGES);
+    return [...new Set(['am', 'en', ...listed.filter((l): l is string => typeof l === 'string' && known.has(l))])];
 }
 
 export interface Recent {

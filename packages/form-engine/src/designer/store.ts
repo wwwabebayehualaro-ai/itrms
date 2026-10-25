@@ -11,7 +11,7 @@
 import { createContext, useContext } from 'react';
 import { produce, type Draft } from 'immer';
 import { createStore, useStore, type StoreApi } from 'zustand';
-import type { FormField, FormTemplate } from '@itrms/schemas';
+import { setTextIn, type FormField, type FormTemplate } from '@itrms/schemas';
 import type { TemplateRuntimeConfig } from '@itrms/schemas';
 import { keyFromLabel } from './fieldKeys';
 import {
@@ -20,6 +20,7 @@ import {
     createField,
     duplicateField,
     insertField,
+    keySourceOf,
     moveField,
     parentOf,
     removeField,
@@ -43,6 +44,10 @@ export interface DesignerState {
     /** Changes when a different field is selected (not when the selected field's key is renamed): the inspector remounts on it. */
     selection: number;
     template: FormTemplate;
+    /** The language the builder writes texts in. Not part of the document: switching it is not an undo step. */
+    language: string;
+    /** The language a plain-string text was written in (the page's language the session started in): fixed. */
+    plainAs: string;
 }
 
 export interface DesignerActions {
@@ -58,8 +63,13 @@ export interface DesignerActions {
     duplicate: (id: string) => string | null;
     update: (id: string, recipe: (f: Draft<FormField>) => void, key?: string) => void;
     rename: (id: string, newKey: string) => void;
-    /** Change a field's label. A field added since the last save whose key still follows its label gets a key from the new label. */
-    relabel: (id: string, label: string) => void;
+    /**
+     * Change a field's label in the builder's language. A field added since the last save whose key still follows its
+     * English label gets a key from the new English label (never from a text without letters, such as an Amharic one).
+     * `language`: another language than the builder's (the translation table's cells).
+     */
+    relabel: (id: string, text: string, language?: string) => void;
+    setLanguage: (language: string) => void;
     setRuntime: (runtime: TemplateRuntimeConfig) => void;
     select: (id: string | null) => void;
     undo: () => void;
@@ -72,7 +82,11 @@ export type DesignerStore = StoreApi<DesignerState & { actions: DesignerActions 
 
 const BLANK: FormTemplate = { name: '', slug: '', form_config: {} };
 
-export function createDesignerStore(doc: DesignDoc = EMPTY_DOC, template: FormTemplate = BLANK): DesignerStore {
+export function createDesignerStore(
+    doc: DesignDoc = EMPTY_DOC,
+    template: FormTemplate = BLANK,
+    language = 'am'
+): DesignerStore {
     return createStore<DesignerState & { actions: DesignerActions }>()((set, get) => {
         const commit = (next: DesignDoc, key?: string, selected?: string | null, renamed = false) => {
             const s = get();
@@ -89,6 +103,8 @@ export function createDesignerStore(doc: DesignDoc = EMPTY_DOC, template: FormTe
         };
         const edit = (recipe: (d: Draft<DesignDoc>) => void, key?: string, selected?: string | null) =>
             commit(produce(get().doc, recipe), key, selected);
+        // the last label edit: its field after the edit (the key may have changed) and its undo-step key
+        let run: { id: string; key: string; language: string } | null = null;
         const keepSelection = (doc: DesignDoc, id: string | null) => (id && doc.byId[id] ? id : null);
 
         const actions: DesignerActions = {
@@ -184,20 +200,25 @@ export function createDesignerStore(doc: DesignDoc = EMPTY_DOC, template: FormTe
                 if (!doc.byId[id] || id === newKey) return;
                 commit(renameKey(doc, id, newKey), undefined, newKey, true);
             },
-            relabel: (id, label) => {
-                const { doc, saved, lastEdit } = get();
+            relabel: (id, text, lang) => {
+                const { doc, saved, plainAs } = get();
+                const language = lang ?? get().language;
                 const f = doc.byId[id];
                 if (!f) return;
+                const label = setTextIn(f.label, language, text, plainAs);
                 let next = produce(doc, (d) => {
                     const draft = d.byId[id];
-                    if (draft) draft.label = label;
+                    if (!draft) return;
+                    if (label === undefined) delete draft.label;
+                    else draft.label = label;
                 });
                 let selectedId = id;
-                const base = keyFromLabel(f.label ?? '');
+                const base = keyFromLabel(keySourceOf(f.label));
                 const follows =
                     // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- a fixed digits-only pattern (linear time)
-                    !saved.byId[id] && (id === base || (id.startsWith(base) && /^\d+$/.test(id.slice(base.length))));
-                if (follows && label.trim()) {
+                    !saved.byId[id] && (id === base || (id.startsWith(base) && /^d+$/.test(id.slice(base.length))));
+                const source = keySourceOf(label);
+                if (follows && /[A-Za-z]/.test(source) && source !== keySourceOf(f.label)) {
                     const taken = new Set(Object.keys(doc.byId).filter((k) => k !== id));
                     const key = uniqueKey(next, label, taken);
                     if (key !== id) {
@@ -206,15 +227,13 @@ export function createDesignerStore(doc: DesignDoc = EMPTY_DOC, template: FormTe
                     }
                 }
                 // typing one label is one undo step, even while its key follows along
-                commit(
-                    next,
-                    lastEdit?.key.startsWith('label:') && Date.now() - lastEdit.at < COALESCE_MS
-                        ? lastEdit.key
-                        : `label:${id}`,
-                    selectedId,
-                    true
-                );
+                // (the field's key changes along the way, so the run is followed by the key it ended on)
+                const key = run?.id === id && run.language === language ? run.key : `label:${selectedId}:${language}`;
+                run = { id: selectedId, key, language };
+                // the selection follows the key; another field's label edited from the translation table leaves it
+                commit(next, key, get().selected === id ? selectedId : undefined, true);
             },
+            setLanguage: (language) => set((s) => (s.language === language ? s : { language })),
             setRuntime: (runtime) =>
                 edit((d) => {
                     d.runtime = runtime;
@@ -257,6 +276,8 @@ export function createDesignerStore(doc: DesignDoc = EMPTY_DOC, template: FormTe
             selected: null,
             selection: 0,
             template,
+            language,
+            plainAs: language,
             actions
         };
     });

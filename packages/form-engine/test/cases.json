@@ -53,6 +53,38 @@
       }
     },
     {
+      "name": "the author's message in every language: the default language is Amharic",
+      "fields": [
+        {
+          "id": "name",
+          "type": "InputText",
+          "props": {
+            "required": true
+          },
+          "behavior": {
+            "validation": {
+              "supported": true,
+              "errorMessages": {
+                "required": {
+                  "am": "ስም ያስፈልጋል",
+                  "en": "A name is required"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "values": {
+        "name": ""
+      },
+      "errors": {
+        "name": "ስም ያስፈልጋል"
+      },
+      "stored": {
+        "name": ""
+      }
+    },
+    {
       "name": "an email that is not one",
       "fields": [
         {

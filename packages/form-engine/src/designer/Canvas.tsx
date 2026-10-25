@@ -111,7 +111,11 @@ const DesignNode = memo(function DesignNode({ id, inRow }: { id: string; inRow: 
     const selected = useDesigner((s) => s.selected === id);
     const actions = useDesignerActions();
     const { activeId } = useContext(DragCtx);
-    const field = useMemo(() => (stored ? toEngineField(stored as unknown as StoredField) : null), [stored]);
+    const language = useDesigner((s) => s.language);
+    const field = useMemo(
+        () => (stored ? toEngineField(stored as unknown as StoredField, language) : null),
+        [stored, language]
+    );
     const drag = useDraggable({ id });
     const drop = useDroppable({ id });
     if (!field) return null;

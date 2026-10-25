@@ -34,10 +34,10 @@ export function assertReadable(document: unknown): void {
 /**
  * The fields of a stored form the caller may see: a field with `visibleToRoles` only for those roles. A restricted
  * container takes its children with it (they are no longer reachable from the form's root), so their values are neither
- * shown, taken, nor checked.
+ * shown, taken, nor checked. Texts (labels, options, messages) come resolved in `language`.
  */
-export function fieldsFor(document: unknown, roles: readonly string[]): EngineField[] {
-    return readDocument(document).fields.filter(
+export function fieldsFor(document: unknown, roles: readonly string[], language = 'am'): EngineField[] {
+    return readDocument(document, { language }).fields.filter(
         (f) => !f.visibleToRoles?.length || f.visibleToRoles.some((r) => roles.includes(r))
     );
 }

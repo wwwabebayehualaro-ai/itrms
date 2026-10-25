@@ -175,12 +175,14 @@ export function describe(
     fields: ViewField[],
     indexedKeys: readonly string[],
     /** the built-ins' choices (the offices and the people in the caller's submissions) */
-    builtinOptions: Readonly<Record<string, { value: string; label: string }[]>> = {}
+    builtinOptions: Readonly<Record<string, { value: string; label: string }[]>> = {},
+    /** the built-ins' labels in the caller's language (English by default) */
+    builtinLabel: (key: string) => string = (k) => BUILTINS.find((b) => b.key === k)?.label ?? k
 ) {
     const described: ViewSchemaField[] = [
         ...BUILTINS.map((b) => ({
             key: b.key,
-            label: b.label,
+            label: builtinLabel(b.key),
             kind: b.kind,
             builtin: true,
             ops: OPS_BY_KIND[b.kind],

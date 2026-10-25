@@ -126,8 +126,8 @@ export function useTemplateMutations() {
     const create = useMutation({
         mutationFn: async (input: TemplateInput) => {
             const body = {
-                key: input.slug ? keyOf(input.slug) : keyOf(input.name),
-                name: textAll(input.name),
+                key: keyOf(input.slug || input.names?.en || input.name),
+                name: input.names ?? textAll(input.name),
                 ...(input.category ? { category: input.category } : {}),
                 document: formChangeOf({ form_config: input.form_config }).document ?? { fields: [] }
             };

@@ -17,11 +17,20 @@ export interface TestHostOptions {
     client?: Partial<FormsClient>;
     user?: FormsUser | null;
     location?: Partial<FormsLocation>;
+    /** The language the screens are shown in, and the installation's languages (default: Amharic, with am and en). */
+    language?: string;
+    languages?: readonly string[];
 }
 
 const unexpected = (name: string) => () => Promise.reject(new Error(`unexpected client.${name} call in a test`));
 
-export function testHost({ client = {}, user = null, location = {} }: TestHostOptions = {}): FormsHost {
+export function testHost({
+    client = {},
+    user = null,
+    location = {},
+    language = 'am',
+    languages = ['am', 'en']
+}: TestHostOptions = {}): FormsHost {
     const where: FormsLocation = {
         pathname: '/',
         search: new URLSearchParams(),
@@ -42,6 +51,7 @@ export function testHost({ client = {}, user = null, location = {} }: TestHostOp
         },
         useUser: () => user,
         useLocation: () => where,
+        useLanguages: () => ({ language, languages }),
         templatesHref: '/templates'
     };
 }

@@ -144,3 +144,53 @@ describe('designer store', () => {
         expect(selected).toBe('total');
     });
 });
+
+describe('designer store: texts in a language', () => {
+    const open = (language: string) => {
+        const store = createDesignerStore(undefined, undefined, language);
+        store.getState().actions.load(fromStored(stored).doc, { name: 'T', slug: 't', form_config: {} });
+        return store;
+    };
+
+    it('writes the label in the builder language and keeps the other languages', () => {
+        const store = open('en');
+        const a = store.getState().actions;
+        const id = a.add('InputText', 'Text')!;
+        a.relabel(id, 'Full name');
+        expect(store.getState().selected).toBe('fullName');
+        a.setLanguage('am');
+        expect(store.getState().past).toHaveLength(2); // adding, and typing the label; the switch is no step
+        a.relabel('fullName', 'ሙሉ ስም');
+        expect(store.getState().doc.byId.fullName?.label).toEqual({ en: 'Full name', am: 'ሙሉ ስም' });
+        expect(store.getState().selected).toBe('fullName'); // an Amharic label never renames the key
+        a.undo();
+        expect(store.getState().doc.byId.fullName?.label).toBe('Full name');
+    });
+
+    it('does not rename the key of a new field from an Ethiopic label (it used to become f, f2)', () => {
+        const store = open('am');
+        const a = store.getState().actions;
+        const id = a.add('InputText', 'Text')!;
+        for (const label of ['ሙ', 'ሙሉ', 'ሙሉ ስም']) a.relabel(id, label);
+        expect(store.getState().selected).toBe('text');
+        expect(store.getState().doc.byId.text?.label).toBe('ሙሉ ስም');
+        expect(store.getState().past).toHaveLength(2); // the typing is one step
+    });
+
+    it('writes a cell of the translation table in another language than the builder language', () => {
+        const store = open('am');
+        const a = store.getState().actions;
+        a.relabel('title', 'ርዕስ', 'am');
+        a.relabel('title', 'Title', 'en');
+        expect(store.getState().doc.byId.title?.label).toEqual({ am: 'ርዕስ', en: 'Title' });
+        expect(store.getState().language).toBe('am');
+    });
+
+    it('copies a map label per language', () => {
+        const store = open('en');
+        const a = store.getState().actions;
+        a.update('title', (f) => void (f.label = { am: 'ርዕስ', en: 'Title' }));
+        const copy = a.duplicate('title')!;
+        expect(store.getState().doc.byId[copy]?.label).toEqual({ am: 'ርዕስ (copy)', en: 'Title (copy)' });
+    });
+});

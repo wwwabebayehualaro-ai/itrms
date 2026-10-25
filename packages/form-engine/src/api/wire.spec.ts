@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
     filterKeys,
@@ -57,6 +57,10 @@ const submission: WireSubmission = {
 };
 
 describe('the forms API on the wire, as the screens see it', () => {
+    beforeEach(() => {
+        document.documentElement.lang = 'en';
+    });
+
     it('reads a form as a template: its name in the language, its key, its state and its version for If-Match', () => {
         expect(templateOf(form)).toMatchObject({
             id: form.id,
@@ -71,6 +75,9 @@ describe('the forms API on the wire, as the screens see it', () => {
             form_config: form.document
         });
         expect(textOf(form.name, 'am')).toBe('የጉዞ ጥያቄ');
+        // a language the name has no text in falls back to Amharic, then English
+        expect(textOf(form.name, 'wal-Latn')).toBe('የጉዞ ጥያቄ');
+        expect(textOf({ en: 'Trip' }, 'am')).toBe('Trip');
         // a list carries no document: an empty one, never a guess
         expect(templateOf({ ...form, document: undefined, publishedVersion: null })).toMatchObject({
             form_config: { fields: [] },
@@ -96,10 +103,12 @@ describe('the forms API on the wire, as the screens see it', () => {
             document: { fields: [{ id: 'a' }] }
         });
         expect(formChangeOf({ row_version: 3 })).toEqual({});
-        // a renamed form keeps its other languages' names: only the page's language changes
-        document.documentElement.lang = 'en';
-        expect(formChangeOf({ name: 'Trip', names: { am: 'የጉዞ ጥያቄ', en: 'Trip request' } })).toEqual({
-            name: { am: 'የጉዞ ጥያቄ', en: 'Trip' }
+        // the names the builder sends are the complete map, trimmed, the empty optional languages dropped
+        expect(
+            formChangeOf({ name: 'Trip', names: { am: ' የጉዞ ጥያቄ ', en: 'Trip request', 'wal-Latn': '  ' } })
+        ).toEqual({ name: { am: 'የጉዞ ጥያቄ', en: 'Trip request' } });
+        expect(formChangeOf({ names: { am: 'ጉዞ', en: 'Trip', 'wal-Latn': 'Wala' } })).toEqual({
+            name: { am: 'ጉዞ', en: 'Trip', 'wal-Latn': 'Wala' }
         });
     });
 
