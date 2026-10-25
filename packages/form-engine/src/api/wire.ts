@@ -103,6 +103,7 @@ export function templateOf(form: WireForm): FormTemplate {
     return {
         id: form.id,
         name: textOf(form.name),
+        names: form.name,
         slug: form.key,
         version: form.publishedVersion ? String(form.publishedVersion.number) : '',
         // a list carries no document: the builder reads it from the form itself
@@ -118,10 +119,15 @@ export function templateOf(form: WireForm): FormTemplate {
     };
 }
 
-/** What a form's change sends: the fields the builder and the settings may change. */
+/**
+ * What a form's change sends: the fields the builder and the settings may change. A new name replaces the page
+ * language's only, when the form's other names are known (`names`); the other languages keep theirs.
+ */
 export function formChangeOf(data: Partial<FormTemplate>) {
     return {
-        ...(data.name !== undefined ? { name: textAll(data.name) } : {}),
+        ...(data.name !== undefined
+            ? { name: data.names ? { ...data.names, [pageLanguage()]: data.name } : textAll(data.name) }
+            : {}),
         ...(data.category !== undefined ? { category: data.category || null } : {}),
         ...(data.is_active !== undefined ? { active: data.is_active } : {}),
         ...(data.form_config !== undefined

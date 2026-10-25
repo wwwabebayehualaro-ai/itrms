@@ -102,15 +102,17 @@ export function useSubmissionMutations() {
             qc.invalidateQueries({ queryKey: ['runtime-ds'] })
         ]);
 
-    // the answers are filed on the version the person filled in, which must still be the published one (409 otherwise)
+    // the answers are filed on the version the person filled in, which must still be the published one (409 otherwise);
+    // only a caller that did not render a version (none known) files on the one published now
     const create = useMutation({
         mutationFn: async (data: FormSubmissionInput) => {
-            const published = await qc.fetchQuery(publishedOptions(client, data.template_id));
+            const versionId =
+                data.form_version_id ?? (await qc.fetchQuery(publishedOptions(client, data.template_id))).version_id;
             return submissionOf(
                 (
                     await client.post<WireSubmission>(FORMS_API.submissions, {
                         formId: data.template_id,
-                        formVersionId: published.version_id,
+                        formVersionId: versionId,
                         answers: data.submission_data
                     })
                 ).data

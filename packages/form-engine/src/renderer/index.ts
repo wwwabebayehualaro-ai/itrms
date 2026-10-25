@@ -32,6 +32,7 @@ export {
     isViewTemplate,
     useTemplateQuery,
     useTemplateMutations,
+    useTemplateLoader,
     usePublishedTemplate,
     templateKeys
 } from '../api/templates';

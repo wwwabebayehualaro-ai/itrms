@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { keepPreviousData, queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createKeys, type FormsClient } from '../host/client';
 import { useFormsClient } from '../host/FormsHost';
@@ -72,6 +72,16 @@ export function useVisibleTemplates() {
 export function useTemplateQuery(id?: string) {
     const client = useFormsClient();
     return useQuery({ ...templateDetailOptions(client, id ?? ''), enabled: !!id });
+}
+
+/**
+ * Loads one form with its working copy, for a screen that holds only its list item (the gallery's Edit and Preview): a
+ * list item's document is empty, so editing or previewing it would show, and save, a blank form.
+ */
+export function useTemplateLoader() {
+    const client = useFormsClient();
+    const qc = useQueryClient();
+    return useCallback((id: string) => qc.fetchQuery(templateDetailOptions(client, id)), [client, qc]);
 }
 
 /** The form people fill in: the published version (409 `not_configured` while there is none). */

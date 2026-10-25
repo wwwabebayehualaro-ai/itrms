@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useFormsClient } from '../host/FormsHost';
 import { saveBlob } from '@itrms/ui';
@@ -30,13 +31,25 @@ function openLink(url: string) {
     a.click();
 }
 
-async function inBackground(client: FormsClient, body: object): Promise<number> {
+/** Looks at a job this many times in a row without an answer before it gives up (the network, not the export). */
+const MAX_MISSES = 3;
+
+async function inBackground(client: FormsClient, body: object, alive: () => boolean): Promise<number> {
     let job = (await client.post<ExportJob>('v1/submission-exports', body)).data;
     const until = Date.now() + POLL_FOR_MS;
+    let misses = 0;
     while (job.status === 'queued' || job.status === 'running') {
+        if (!alive()) throw new Error('The export goes on without this page: ask for it again to download it.');
         if (Date.now() > until) throw new Error('The export is still being made: ask for it again later.');
         await pause(POLL_MS);
-        job = (await client.get<ExportJob>(`v1/submission-exports/${job.id}`)).data;
+        try {
+            job = (await client.get<ExportJob>(`v1/submission-exports/${job.id}`)).data;
+            misses = 0;
+        } catch (error) {
+            // a dropped connection is not a failed export: look again, a few times
+            if (isRequestError(error) && error.response) throw error;
+            if (++misses >= MAX_MISSES) throw error;
+        }
     }
     if (job.status !== 'done') throw new Error(job.error ?? 'The export could not be made: ask for it again.');
     openLink((await client.post<{ url: string }>(`v1/submission-exports/${job.id}/download`, {})).data.url);
@@ -49,6 +62,15 @@ async function inBackground(client: FormsClient, body: object): Promise<number> 
  */
 export function useExportRequests() {
     const client = useFormsClient();
+    // a background export is no longer followed once the viewer is left
+    const mounted = useRef(true);
+    useEffect(() => {
+        mounted.current = true;
+        return () => {
+            mounted.current = false;
+        };
+    }, []);
+    const alive = () => mounted.current;
     return useMutation({
         mutationFn: async (req: { template_id: string; filter?: FilterGroup; search?: string; sort?: SortKey[] }) => {
             const body = {
@@ -58,21 +80,23 @@ export function useExportRequests() {
                 ...(req.search ? { search: req.search } : {}),
                 sort: sortKeys(req.sort, toWireKey)
             };
-            const { total } = (
-                await client.post<WireQueryResult>(`${FORMS_API.submissions}/query`, {
-                    formId: body.formId,
-                    ...(body.filter ? { filter: body.filter } : {}),
-                    ...(body.search ? { search: body.search } : {}),
-                    rows: false
-                })
-            ).data;
-            if (total > DIRECT_EXPORT_ROWS) return inBackground(client, body);
+            const count = async () =>
+                (
+                    await client.post<WireQueryResult>(`${FORMS_API.submissions}/query`, {
+                        formId: body.formId,
+                        ...(body.filter ? { filter: body.filter } : {}),
+                        ...(body.search ? { search: body.search } : {}),
+                        rows: false
+                    })
+                ).data.total;
+            if ((await count()) > DIRECT_EXPORT_ROWS) return inBackground(client, body, alive);
             let res: FormsResponse<Blob>;
             try {
                 res = await client.post<Blob>(`${FORMS_API.submissions}/export`, body, { responseType: 'blob' });
             } catch (error) {
-                // refused as too big for a direct answer (more rows came, or the limit is lower): made in the background
-                if (isRequestError(error) && error.response?.status === 400) return inBackground(client, body);
+                // refused because more rows came since the count: made in the background; any other refusal is shown
+                if (isRequestError(error) && error.response?.status === 400 && (await count()) > DIRECT_EXPORT_ROWS)
+                    return inBackground(client, body, alive);
                 throw error;
             }
             saveBlob(res.data, filenameFromDisposition(res.headers['content-disposition'], 'requests.csv'));

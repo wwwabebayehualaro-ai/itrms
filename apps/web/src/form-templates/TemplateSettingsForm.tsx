@@ -10,7 +10,8 @@ import { useTemplateMutations } from '@itrms/form-engine/renderer';
 import type { IFormTemplate } from '@/types/template_builder/form';
 
 const schema = z.object({
-    name: z.string().trim().min(1, 'A form needs a name').max(255, 'At most 255 characters'),
+    // the forms API's limit
+    name: z.string().trim().min(1, 'A form needs a name').max(200, 'At most 200 characters'),
     category: z.string().trim().max(100, 'At most 100 characters'),
     is_active: z.boolean()
 });
@@ -30,8 +31,11 @@ export function TemplateSettingsForm({ template, onSaved }: { template: IFormTem
             await update.mutateAsync({
                 id: template.id as string,
                 data: {
-                    ...v,
-                    category: v.category || undefined,
+                    // the name only when it changed, and then in the page's language only (the others keep theirs)
+                    ...(v.name !== template.name ? { name: v.name, names: template.names } : {}),
+                    // an emptied category is cleared (sent as null)
+                    category: v.category,
+                    is_active: v.is_active,
                     ...(template.row_version !== undefined && { row_version: template.row_version })
                 } as Partial<IFormTemplate>
             });
@@ -49,7 +53,7 @@ export function TemplateSettingsForm({ template, onSaved }: { template: IFormTem
                             <f.TextField
                                 label="Name"
                                 description="What people see in the list of forms."
-                                maxLength={255}
+                                maxLength={200}
                             />
                         )}
                     </form.AppField>

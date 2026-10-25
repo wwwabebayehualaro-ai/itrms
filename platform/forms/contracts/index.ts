@@ -158,9 +158,9 @@ export const publicationSchema = z.object({
     requestedAt: z.string(),
     decidedBy: z.uuid().nullable(),
     decidedByName: z.string().nullable(),
-    /** the caller may approve or reject it (pending, and neither the requester nor the content's author) */
+    /** the caller may approve or reject it (pending, `form:approve`, and neither the requester nor the content's author) */
     canDecide: z.boolean(),
-    /** the caller asked for it and may take it back */
+    /** the caller asked for it and may take it back (pending, `form:publish`) */
     canWithdraw: z.boolean(),
     decidedAt: z.string().nullable(),
     decisionNote: z.string().nullable()

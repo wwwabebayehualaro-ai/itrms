@@ -559,7 +559,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "The engine's API hooks map the forms API through one wire module (packages/form-engine/src/api/wire.ts): the screens keep their keys (created_at, submitted_by, handling_unit, page_size); changes send If-Match. A form is switched off, never deleted. The view schema now carries the built-ins' options (offices and submitters in the caller's submissions, RLS-bound), so the viewer needs no user directory. Rejecting a publication now requires a note (422 without). Requests are filed once: edit, delete, status and board moves wait for the workflow (useCanChangeRequests, 0.19). Exports over 5,000 rows, or refused as too big, go to the background export. The legacy status, recent-requests and waiting-requests screens were retired (the workflow inbox replaces them). Backend form_builder, form_submission and core_banking (a form server action) were removed."
+          "notes": "The engine's API hooks map the forms API through one wire module (packages/form-engine/src/api/wire.ts): the screens keep their keys (created_at, submitted_by, handling_unit, page_size); changes send If-Match. A form is switched off, never deleted. The view schema now carries the built-ins' options (offices and submitters in the caller's submissions, RLS-bound), so the viewer needs no user directory. Rejecting a publication now requires a note (422 without). Requests are filed once: edit, delete, status and board moves wait for the workflow (useCanChangeRequests, 0.19). Exports over 5,000 rows, or refused as too big, go to the background export. The legacy status, recent-requests and waiting-requests screens were retired (the workflow inbox replaces them). Backend form_builder, form_submission and core_banking (a form server action) were removed. Gates on 2026-10-25: turbo lint/typecheck/test 63/63 tasks; forms integration suites 65 tests in the first run, plus the query suite re-run with its new test (48); web build, i18n:check, check:slices and format:check pass; boundaries found 4 import cycles (form-engine wire.ts and the viewer hooks), fixed by moving the screen types into viewer/types.ts, now clean. Waiting for the reviewer before in review. Reviewer (2026-10-25): 1 high, 3 medium, 4 low; all fixed except the inbox's server-side paging (follow-up 0.20). Fixed: the gallery's Edit/Preview and the data page's Report load the form itself (a list item has no document: a blank builder saved would have replaced the working copy); a request is filed on the version it was filled in on (not whatever is published at submit); a settings save changes the name in the page's language only and clears an emptied category; canDecide/canWithdraw need form:approve/form:publish; the export goes to the background only when a fresh count is over the limit, and polling stops when the page is left; the built-ins' keys are reserved field keys; an unpublished form shows its notice (not_configured)."
         },
         {
           "id": "0.16f",
@@ -1902,6 +1902,11 @@
       "foundIn": "0.16c",
       "item": "A form's name is one string in the builder (sent as am and en alike) until the builder's translation table",
       "movedTo": "0.17"
+    },
+    {
+      "foundIn": "0.16c",
+      "item": "The approvals inbox scopes and pages the newest 100 publications of a status client-side: mine/decidable filters and a cursor on GET /v1/form-publications",
+      "movedTo": "0.20"
     }
   ]
 }

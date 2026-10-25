@@ -646,6 +646,19 @@ describe('a publication', () => {
         ).rejects.toThrow(/four_eyes/);
     });
 
+    it('tells a reader without the right to decide that they cannot', async () => {
+        // a zone form, asked for by the zone's admin: the zone's viewer reads the request but holds no form:approve
+        const form = await createForm(as.zoneAdmin(), 'zone-checklist');
+        const asked = (
+            await call('POST', `/api/v1/forms/${form.id}/publications`, as.zoneAdmin(), {})
+        ).json<PublicationOut>();
+        const seen = await get<{ items: (PublicationOut & { canDecide: boolean; canWithdraw: boolean })[] }>(
+            `/api/v1/form-publications?formId=${form.id}`,
+            as.zoneViewer()
+        );
+        expect(seen.items.find((p) => p.id === asked.id)).toMatchObject({ canDecide: false, canWithdraw: false });
+    });
+
     it('is listed for its approvers while it waits, and is refused once its form is switched off', async () => {
         // the legacy "approving a deleted form is refused": forms are switched off, never deleted
         const form = await createForm(as.bureau(), 'retired-form');

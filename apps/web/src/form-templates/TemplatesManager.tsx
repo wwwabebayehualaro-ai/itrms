@@ -59,6 +59,7 @@ import {
     getRuntimeConfig,
     isViewTemplate,
     useTemplateList,
+    useTemplateLoader,
     useTemplateMutations
 } from '@itrms/form-engine/renderer';
 import { fileRelationsOf, storedFieldsOf } from '@itrms/schemas';
@@ -96,6 +97,7 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
     const canPublish = useCan('form:publish');
     const { data: all = [], isPending, error, refetch } = useTemplateList();
     const { remove, publish } = useTemplateMutations();
+    const loadTemplate = useTemplateLoader();
     // people who start requests pick from forms; view templates (reports) are managed here, not filled in
     const templates = useMemo(() => (mode === 'start' ? all.filter((t) => !isViewTemplate(t)) : all), [all, mode]);
 
@@ -139,12 +141,22 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
         setCategories([]);
     };
 
-    /** The builder (and previews) work on the form put in the builder store. */
-    const putInBuilder = (t: IFormTemplate) => {
-        builder.setFields(storedFieldsOf(t.form_config));
-        builder.setRuntime(getRuntimeConfig(t.form_config) ?? EMPTY_RUNTIME);
-        builder.setTemplate(t);
+    /**
+     * The builder (and previews) work on the form put in the builder store: the form itself, loaded first (a list item
+     * has no document, and a blank builder saved would replace the form's working copy).
+     */
+    const putInBuilder = async (t: IFormTemplate) => {
+        const full = await loadTemplate(String(t.id));
+        builder.setFields(storedFieldsOf(full.form_config));
+        builder.setRuntime(getRuntimeConfig(full.form_config) ?? EMPTY_RUNTIME);
+        builder.setTemplate(full);
+        return full;
     };
+    const opening = (as: 'preview' | 'start' | 'edit', t: IFormTemplate) => () =>
+        void putInBuilder(t).then(
+            (full) => (as === 'edit' ? router.push('/dynamic-template/builder') : setOpen({ template: full, as })),
+            (e: unknown) => notify.error(getApiErrorMessage(e, 'Could not open the form'))
+        );
     const newForm = () => {
         builder.setFields([]);
         builder.setRuntime(EMPTY_RUNTIME);
@@ -186,36 +198,19 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
 
     const actions = (t: IFormTemplate) =>
         mode === 'start' ? (
-            <Button
-                type="button"
-                size="sm"
-                onClick={() => {
-                    putInBuilder(t);
-                    setOpen({ template: t, as: 'start' });
-                }}
-            >
+            <Button type="button" size="sm" onClick={opening('start', t)}>
                 <SquarePen />
                 Start
             </Button>
         ) : (
             <div className="flex items-center gap-0.5">
-                <IconButton
-                    label={`Preview ${t.name}`}
-                    tooltip="Preview"
-                    onClick={() => {
-                        putInBuilder(t);
-                        setOpen({ template: t, as: 'preview' });
-                    }}
-                >
+                <IconButton label={`Preview ${t.name}`} tooltip="Preview" onClick={opening('preview', t)}>
                     <Eye />
                 </IconButton>
                 <IconButton
                     label={`Edit ${t.name} in the builder`}
                     tooltip="Edit the form"
-                    onClick={() => {
-                        putInBuilder(t);
-                        router.push('/dynamic-template/builder');
-                    }}
+                    onClick={opening('edit', t)}
                 >
                     <PencilRuler />
                 </IconButton>

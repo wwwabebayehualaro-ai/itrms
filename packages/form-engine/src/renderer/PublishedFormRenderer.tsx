@@ -19,8 +19,7 @@ export function PublishedFormRenderer({ template, ...props }: RendererProps & { 
     if (isPending) return <InlineStatus loading className="p-4" />;
     if (error) {
         const notPublished =
-            isRequestError(error) &&
-            (error.response?.data as { code?: string } | undefined)?.code === 'form_not_published';
+            isRequestError(error) && (error.response?.data as { code?: string } | undefined)?.code === 'not_configured';
         return (
             <div data-slot="notice">
                 <Alert>
@@ -43,6 +42,8 @@ export function PublishedFormRenderer({ template, ...props }: RendererProps & { 
             fields={Array.isArray(config.fields) ? (config.fields as FormField[]) : []}
             template={{
                 ...template,
+                // what the request is filed on: the version shown, not whatever is published at submit time
+                published_version_id: data.version_id,
                 form_config: config,
                 file_relations: data.file_relations as FormTemplate['file_relations']
             }}

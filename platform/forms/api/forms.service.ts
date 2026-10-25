@@ -10,6 +10,7 @@ import { contextOfTx, insertAudited, updateAudited, type DbContext, type Tx } fr
 import { ConflictError, ForbiddenError, NotFoundError } from '@itrms/kernel/errors';
 import { unitRefs, withinScope, type UnitRef } from '@itrms/kernel/org';
 import { users } from '@itrms/kernel/tables';
+import { currentContext } from '@itrms/kernel/context';
 import { emit } from '@itrms/kernel/outbox';
 import type { z } from 'zod';
 
@@ -402,6 +403,9 @@ export class FormsService {
             rows.flatMap((r) => [r.createdBy, r.decidedBy])
         );
         const me = contextOfTx(tx).userId;
+        // what the caller's roles let them do with it (the routes enforce it again; this only tells the screens)
+        const granted = currentContext()?.principal?.permissions;
+        const may = (permission: string) => granted?.has(permission) ?? false;
         return rows.map((r) => ({
             id: r.id,
             version: r.rowVersion,
@@ -415,8 +419,8 @@ export class FormsService {
             requestedAt: r.createdAt.toISOString(),
             decidedBy: r.decidedBy,
             decidedByName: r.decidedBy ? (people.get(r.decidedBy) ?? null) : null,
-            canDecide: r.status === 'pending' && r.createdBy !== me && r.contentBy !== me,
-            canWithdraw: r.status === 'pending' && r.createdBy === me,
+            canDecide: r.status === 'pending' && r.createdBy !== me && r.contentBy !== me && may('form:approve'),
+            canWithdraw: r.status === 'pending' && r.createdBy === me && may('form:publish'),
             decidedAt: r.decidedAt?.toISOString() ?? null,
             decisionNote: r.decisionNote
         }));

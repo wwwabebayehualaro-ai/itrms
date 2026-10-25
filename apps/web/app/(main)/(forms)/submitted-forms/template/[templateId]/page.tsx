@@ -36,10 +36,12 @@ export default function TemplateSubmissionsPage() {
     const { data: template, isPending: templateLoading, error: templateError } = useTemplateQuery(templateId);
     const { data: allTemplates } = useTemplateList();
     // a report someone built in the builder for this form (`<slug>-table`) stays available as one more view of the data
-    const reportTemplate = useMemo(
+    const reportItem = useMemo(
         () => (template ? allTemplates?.find((t) => t.slug === `${template.slug}-table`) : undefined),
         [allTemplates, template]
     );
+    // the list item has no document: the report is drawn from the form itself
+    const { data: reportTemplate } = useTemplateQuery(reportItem?.id);
     const customViews = useMemo<ViewMode[]>(
         () =>
             reportTemplate

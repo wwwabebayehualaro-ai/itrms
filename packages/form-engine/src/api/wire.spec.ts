@@ -96,6 +96,11 @@ describe('the forms API on the wire, as the screens see it', () => {
             document: { fields: [{ id: 'a' }] }
         });
         expect(formChangeOf({ row_version: 3 })).toEqual({});
+        // a renamed form keeps its other languages' names: only the page's language changes
+        document.documentElement.lang = 'en';
+        expect(formChangeOf({ name: 'Trip', names: { am: 'የጉዞ ጥያቄ', en: 'Trip request' } })).toEqual({
+            name: { am: 'የጉዞ ጥያቄ', en: 'Trip' }
+        });
     });
 
     it('makes a key the API takes from any name', () => {
