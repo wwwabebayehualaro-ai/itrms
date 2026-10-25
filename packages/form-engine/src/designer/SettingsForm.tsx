@@ -75,10 +75,12 @@ interface Props {
     /** Whether the field itself sets it (otherwise the palette default shows). */
     own: (key: string) => boolean;
     onChange: (key: string, value: unknown) => void;
+    /** The text a setting shows as its placeholder while it has none of its own (a translation's fallback). */
+    fallback?: (key: string) => string | undefined;
     idPrefix: string;
 }
 
-export function SettingsForm({ schema, value, own, onChange, idPrefix }: Props) {
+export function SettingsForm({ schema, value, own, onChange, fallback, idPrefix }: Props) {
     const specs = settingsOf(schema);
     const [more, setMore] = useState(false);
     if (!specs.length) return <p className="text-sm text-muted-foreground">This field has no settings of its own.</p>;
@@ -91,6 +93,7 @@ export function SettingsForm({ schema, value, own, onChange, idPrefix }: Props) 
             id={`${idPrefix}-${s.key}`}
             value={value(s.key)}
             own={own(s.key)}
+            fallback={fallback?.(s.key)}
             onChange={(v) => onChange(s.key, v)}
         />
     );
@@ -145,12 +148,14 @@ function SettingControl({
     id,
     value,
     own,
+    fallback,
     onChange
 }: {
     spec: SettingSpec;
     id: string;
     value: unknown;
     own: boolean;
+    fallback?: string;
     onChange: (v: unknown) => void;
 }) {
     const title = spec.meta.title ?? humanize(spec.key);
@@ -197,7 +202,7 @@ function SettingControl({
             const props = {
                 id,
                 value: text,
-                placeholder: spec.meta.placeholder,
+                placeholder: text === '' ? (fallback ?? spec.meta.placeholder) : spec.meta.placeholder,
                 onChange: (e: { target: { value: string } }) => onChange(e.target.value),
                 className: own ? undefined : 'text-muted-foreground'
             };

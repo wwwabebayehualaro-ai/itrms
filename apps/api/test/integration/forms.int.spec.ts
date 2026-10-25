@@ -868,7 +868,14 @@ describe('the shared validation cases (packages/form-engine/test/cases.json)', (
     it.each(cases.map((c, i) => [c.name, c, i] as const))('%s: the server answers as the browser', async (_n, c, i) => {
         const form = await createForm(as.bureau(), `case-${i + 1}`, { fields: c.fields });
         const versionId = (await publish(form.id, as.bureau(), as.bureau2())).formVersion.id;
-        const res = await submit(as.damot(), form.id, versionId, c.values);
+        // the engine's default language, as the cases are written in it
+        const res = await call(
+            'POST',
+            '/api/v1/submissions',
+            as.damot(),
+            { formId: form.id, formVersionId: versionId, answers: c.values },
+            { 'accept-language': 'am' }
+        );
         if (Object.keys(c.errors).length === 0) {
             expect(res.statusCode, res.body).toBe(201);
             expect(res.json<SubmissionOut>().answers).toEqual(c.stored);
@@ -877,5 +884,46 @@ describe('the shared validation cases (packages/form-engine/test/cases.json)', (
             const errors = res.json<{ errors: { path: string; message: string }[] }>().errors;
             expect(Object.fromEntries(errors.map((e) => [e.path, e.message]))).toEqual(c.errors);
         }
+    });
+});
+
+describe('texts in every language', () => {
+    const named = text('fullName', {
+        label: { am: 'ሙሉ ስም', en: 'Full name' },
+        props: { required: true },
+        behavior: {
+            validation: { supported: true, errorMessages: { required: { am: 'ስም ያስፈልጋል', en: 'A name is required' } } }
+        }
+    });
+
+    it("gives an author's message in the caller's language (Amharic, English, and Amharic for Wolaytta)", async () => {
+        const form = await createForm(as.bureau(), 'texts-422', { fields: [named] });
+        const versionId = (await publish(form.id, as.bureau(), as.bureau2())).formVersion.id;
+        const messageIn = async (language: string) => {
+            const res = await call(
+                'POST',
+                '/api/v1/submissions',
+                as.damot(),
+                { formId: form.id, formVersionId: versionId, answers: { fullName: '' } },
+                { 'accept-language': language }
+            );
+            expect(res.statusCode, res.body).toBe(422);
+            return res.json<Problem>().errors.map((e) => e.message);
+        };
+        expect(await messageIn('en')).toEqual(['A name is required']);
+        expect(await messageIn('am')).toEqual(['ስም ያስፈልጋል']);
+        expect(await messageIn('wal-Latn')).toEqual(['ስም ያስፈልጋል']);
+    });
+
+    it('refuses a malformed text when the form is saved, naming where it is', async () => {
+        const res = await call('POST', '/api/v1/forms', as.bureau(), {
+            key: 'texts-bad',
+            name: { am: 'ቅጽ', en: 'Form' },
+            document: { fields: [text('a', { label: { am: 1 } }), text('b', { label: { 'not a tag': 'x' } })] }
+        });
+        expect(res.statusCode, res.body).toBe(422);
+        const paths = res.json<Problem>().errors.map((e) => e.path);
+        expect(paths[0]).toBe('document.fields[0].label');
+        expect(paths).toContain('document.fields[1].label');
     });
 });

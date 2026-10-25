@@ -44,7 +44,21 @@ export interface FormsHost {
     logError?: (message: string, error: unknown) => void;
     /** The installation's role keys: what a field's "Only for roles" may name. */
     roleKeys?: readonly string[];
+    /**
+     * A hook: the language the screens are shown in and the installation's languages (Amharic and English first): forms
+     * are drawn in it, and the builder translates into them. Without it: the page's language, Amharic and English.
+     */
+    useLanguages?: () => FormsLanguages;
 }
+
+export interface FormsLanguages {
+    language: string;
+    languages: readonly string[];
+}
+
+const pageLanguage = () => (typeof document !== 'undefined' && document.documentElement.lang) || 'am';
+const DEFAULT_LANGUAGES = ['am', 'en'] as const;
+const noLanguages = (): FormsLanguages => ({ language: pageLanguage(), languages: DEFAULT_LANGUAGES });
 
 const HostContext = createContext<FormsHost | null>(null);
 
@@ -59,6 +73,12 @@ export function useFormsHost(): FormsHost {
 }
 
 export const useFormsClient = () => useFormsHost().client;
+
+/** The language forms are drawn in, and the installation's languages. */
+export function useFormsLanguages(): FormsLanguages {
+    const { useLanguages = noLanguages } = useFormsHost();
+    return useLanguages();
+}
 
 export function useFormsUser(): FormsUser | null {
     const { useUser } = useFormsHost();

@@ -418,3 +418,135 @@ describe('an export', () => {
         });
     });
 });
+
+describe("texts in the caller's language", () => {
+    let texts = { id: '', versionId: '' };
+    const labelled = (id: string, type: string, label: unknown, extra: Record<string, unknown> = {}) => ({
+        id,
+        type,
+        label,
+        props: {},
+        ...extra
+    });
+
+    beforeAll(async () => {
+        const created = await api.call('POST', '/api/v1/forms', as.bureau(), {
+            key: 'texts',
+            name: { am: 'ጽሑፎች', en: 'Texts' },
+            document: {
+                fields: [
+                    labelled('title', 'InputText', { am: 'ርዕስ', en: 'Title' }),
+                    labelled(
+                        'dept',
+                        'Dropdown',
+                        { am: 'ክፍል', en: 'Department' },
+                        {
+                            data: {
+                                dataSource: {
+                                    staticData: [
+                                        { label: { am: 'ሽያጭ', en: 'Sales' }, value: 'sales' },
+                                        { label: { am: 'ሥራ' }, value: 'ops' },
+                                        { label: 'Plain', value: 'plain' }
+                                    ]
+                                }
+                            }
+                        }
+                    ),
+                    labelled('note', 'InputText', { am: 'ማስታወሻ' }),
+                    labelled('plain', 'InputText', 'Plain label')
+                ]
+            }
+        });
+        expect(created.statusCode, created.body).toBe(201);
+        const id = created.json<{ id: string }>().id;
+        const asked = (await api.call('POST', `/api/v1/forms/${id}/publications`, as.bureau(), {})).json<{
+            id: string;
+            version: number;
+            formVersion: { id: string };
+        }>();
+        const approved = await api.call(
+            'POST',
+            `/api/v1/form-publications/${asked.id}/approval`,
+            as.bureau2(),
+            {},
+            { 'if-match': `"${asked.version}"` }
+        );
+        expect(approved.statusCode, approved.body).toBe(200);
+        texts = { id, versionId: asked.formVersion.id };
+        await submit(as.damot(), { title: 'x', dept: 'sales' }, texts);
+        await submit(as.damot(), { title: 'y', dept: 'ops' }, texts);
+        await submit(as.damot(), { title: 'z', dept: 'plain' }, texts);
+    });
+
+    const viewIn = async (language: string) => {
+        const res = await api.call('GET', `/api/v1/forms/${texts.id}/view`, as.damotHead(), undefined, {
+            'accept-language': language
+        });
+        expect(res.statusCode, res.body).toBe(200);
+        const { fields } = res.json<{
+            fields: { key: string; label: string; options: { value: string; label: string }[] }[];
+        }>();
+        const by = (key: string) => fields.find((f) => f.key === key);
+        return {
+            labels: Object.fromEntries(fields.map((f) => [f.key, f.label])),
+            options: Object.fromEntries((by('dept')?.options ?? []).map((o) => [o.value, o.label]))
+        };
+    };
+
+    it('shows field, option and built-in labels in the language asked, falling back to Amharic', async () => {
+        expect(await viewIn('am')).toEqual({
+            labels: {
+                createdAt: 'የቀረበበት',
+                submittedBy: 'ያቀረበው',
+                handlingUnit: 'ጽሕፈት ቤት',
+                title: 'ርዕስ',
+                dept: 'ክፍል',
+                note: 'ማስታወሻ',
+                plain: 'Plain label'
+            },
+            options: { sales: 'ሽያጭ', ops: 'ሥራ', plain: 'Plain' }
+        });
+        expect(await viewIn('en')).toEqual({
+            labels: {
+                createdAt: 'Submitted',
+                submittedBy: 'Submitted by',
+                handlingUnit: 'Office',
+                title: 'Title',
+                dept: 'Department',
+                // only Amharic: the fallback
+                note: 'ማስታወሻ',
+                plain: 'Plain label'
+            },
+            options: { sales: 'Sales', ops: 'ሥራ', plain: 'Plain' }
+        });
+        // Wolaytta has no text here: Amharic, not English; the built-ins' catalogue falls back to English
+        const wal = await viewIn('wal-Latn');
+        expect(wal.labels).toMatchObject({ title: 'ርዕስ', dept: 'ክፍል', createdAt: 'Submitted' });
+        expect(wal.options).toEqual({ sales: 'ሽያጭ', ops: 'ሥራ', plain: 'Plain' });
+    });
+
+    it('exports the header and the option cells in the language asked', async () => {
+        const csvIn = async (language: string) => {
+            const res = await api.call(
+                'POST',
+                '/api/v1/submissions/export',
+                as.damotHead(),
+                { formId: texts.id, fields: ['title', 'dept', 'note'], sort: [{ field: 'title' }] },
+                { 'accept-language': language }
+            );
+            expect(res.statusCode, res.body).toBe(200);
+            return res.rawPayload
+                .toString('utf8')
+                .replace(/^\uFEFF/, '')
+                .trimEnd()
+                .split('\r\n');
+        };
+        expect(await csvIn('am')).toEqual(['"ርዕስ","ክፍል","ማስታወሻ"', '"x","ሽያጭ",""', '"y","ሥራ",""', '"z","Plain",""']);
+        expect(await csvIn('en')).toEqual([
+            '"Title","Department","ማስታወሻ"',
+            '"x","Sales",""',
+            '"y","ሥራ",""',
+            '"z","Plain",""'
+        ]);
+    });
+});

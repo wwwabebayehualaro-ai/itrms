@@ -595,12 +595,22 @@
         {
           "id": "0.17a",
           "title": "Form engine for ITRMS, part 1a: texts in every language",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.17a-i18n-texts",
+          "commits": [
+            "73f28c2"
+          ],
+          "evidence": [
+            "packages/schemas vitest → 20 passed (forms/text.spec.ts: shape, fallback, setTextIn, fieldTexts)",
+            "packages/form-engine vitest → 110 passed (core/text.spec.ts am/en + fallback; designer/Translations.spec.tsx; store, FormDesigner, wire, hooks specs)",
+            "apps/web vitest → 63 passed (formTexts.test.tsx: languages, names per language, publish warning)",
+            "apps/api forms + forms-views + forms-query + forms-exports (PostgreSQL 16) → 119 passed (view schema am/en/wal-Latn, export headers am/en, 422 per language, malformed text refused)",
+            "turbo lint/typecheck/test 63/63; boundaries, check:slices, i18n:check, format:check, web build pass; form_config contract current",
+            "e2e tests/e2e/forms → 4 passed locally (names am+en, publish warning)",
+            "reviewer → no high; 3 medium + lows fixed (f3c9c8b); task-verifier → Done when met"
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "Design (architect): one list of a field's translatable texts (packages/schemas forms/text.ts fieldTexts) drives resolving, the save-time contract check, the builder's translation table and the untranslated count. Texts resolve to one language where a form is read (core readDocument/toEngineField with a language: requested → am → en → any), so the renderer, validation, viewer and API stay string-based. A plain string is one text for every language (older documents stay valid); the builder keeps it plain in its authoring language and makes a map when another language is written. Decisions: a form's name needs Amharic and English (the API's contract; no silent copy of one string into both); missing am/en texts warn at publish, never block. No migration (JSONB), no OpenAPI change. Integrated (3c39fb1): designer (language switch, Translations sheet, texts per language, Save-as names am+en), API (view schema, exports and 422 messages in the caller's language), web (installation languages to the engine, names per language in settings, publish warning). Local: form-engine 109 tests, web 62, forms integration 119, schemas 20, form journeys 4 passed. Waiting for the full gates and the reviewer before in review. Gates: turbo lint/typecheck/test 63/63; boundaries, check:slices, i18n:check, format:check, web build pass. Reviewer: no high; 3 medium fixed (a numbered key followed its label no more: a lost backslash in the digits pattern; a settings save dropped names in languages the installation no longer lists; translating an option in another language changed its stored value: a translation never changes the value now), lows fixed (translation rows keyed by the field's place so typing does not drop them; option_<n> never repeats a value; the unused documentIn removed). Task-verifier: ready with caveats; the Done when items are met (schemas 20, form-engine 110, web 63 re-run by it; i18n:check pass; form_config contract current). Fixed: packages/form-engine/README.md documents the text shape (reading, writing, untranslated). Earlier follow-ups closed by this task: field labels in exports and views in the caller's language (0.16d), a form's name per language (0.16c)."
         },
         {
           "id": "0.17b",
@@ -1984,6 +1994,21 @@
       "foundIn": "0.16f",
       "item": "A shared and default saved view in the browser journeys (the API's forms-views integration tests cover sharing and defaults)",
       "movedTo": "0.20"
+    },
+    {
+      "foundIn": "0.17a",
+      "item": "More texts in every language: row add/remove button texts, the upload button, the options' empty message, panel and section titles, data table column headers (one entry each in fieldTexts)",
+      "movedTo": "0.17c"
+    },
+    {
+      "foundIn": "0.17a",
+      "item": "A new field labelled in Amharic first keeps its palette key when the English label is typed later (the key follows only an English/plain label it was made from): track per session which keys still follow their label",
+      "movedTo": "0.17c"
+    },
+    {
+      "foundIn": "0.17a",
+      "item": "Plain-string texts count as the language of whoever opens the form (the builder's authoring language): consider storing the authoring language with the form, so the untranslated count is the same for everyone",
+      "movedTo": "0.17c"
     }
   ]
 }

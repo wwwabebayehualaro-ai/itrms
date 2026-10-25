@@ -7,7 +7,14 @@
  */
 
 // ---- what the app provides: its HTTP client, the signed-in person, the location -------------------------
-export { FormsHostProvider, useFormsHost, useFormsClient, useFormsUser, useCan } from '../host/FormsHost';
+export {
+    FormsHostProvider,
+    useFormsHost,
+    useFormsClient,
+    useFormsUser,
+    useCan,
+    useFormsLanguages
+} from '../host/FormsHost';
 export type { FormsHost, FormsUser, FormsLocation } from '../host/FormsHost';
 export { isRequestError, requestErrorMessage, serverFormErrors } from '../host/client';
 export type {

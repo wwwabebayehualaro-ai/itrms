@@ -28,6 +28,7 @@ import {
     Database,
     Eye,
     FilePlus2,
+    Languages,
     MoreHorizontal,
     PencilRuler,
     Redo2,
@@ -51,6 +52,11 @@ import {
     IconButton,
     Input,
     Label,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
     Sheet,
     SheetContent,
     SheetDescription,
@@ -66,8 +72,8 @@ import { requestErrorMessage } from '../host/client';
 import { TemplateStatusTag } from '../renderer/TemplateStatusTag';
 import { useTemplateList, useTemplateMutations } from '../api/templates';
 import { useFields, useFormActions, useRuntimeConfig, useTemplate } from '../renderer/store/formStore';
-import { EMPTY_RUNTIME, type TemplateRuntimeConfig } from '@itrms/schemas';
-import { readDocument } from '../core';
+import { REQUIRED_TEXT_LANGUAGES, EMPTY_RUNTIME, formTextIn, type TemplateRuntimeConfig } from '@itrms/schemas';
+import { readDocument, untranslatedTexts } from '../core';
 import { EngineForm } from '../renderer/EngineForm';
 import { unsupportedFields } from '../renderer/kit';
 import '../renderer/fields/registerAll';
@@ -75,6 +81,7 @@ import { DataSources } from './DataSources';
 import { Canvas, DragStateProvider, LIST_PREFIX, PALETTE_PREFIX, dropTarget, type DragState } from './Canvas';
 import { EMPTY_DOC, accepts, fromStored, slugify, subtree, toStored, type DesignDoc } from './document';
 import { Inspector } from './Inspector';
+import { TranslationsSheet, endonym } from './Translations';
 import { Palette, type PaletteEntry } from './Palette';
 import {
     DesignerProvider,
@@ -86,7 +93,7 @@ import {
 } from './store';
 import type { FormTemplate } from '@itrms/schemas';
 
-import { useFormsHost, useFormsLocation } from '../host/FormsHost';
+import { useFormsHost, useFormsLanguages, useFormsLocation } from '../host/FormsHost';
 
 const area = (r?: { width: number; height: number } | null) => (r ? r.width * r.height : Infinity);
 
@@ -95,9 +102,10 @@ export function FormDesigner() {
     const fields = useFields();
     const runtime = useRuntimeConfig();
     const notify = useNotify();
+    const { language } = useFormsLanguages();
     const [{ store, problems }] = useState(() => {
         const { doc, problems } = fromStored({ fields }, runtime ?? EMPTY_RUNTIME);
-        return { store: createDesignerStore(doc, template), problems };
+        return { store: createDesignerStore(doc, template, language), problems };
     });
     const told = useRef(false);
     useEffect(() => {
@@ -126,6 +134,12 @@ function DesignerScreen() {
     const canUndo = useDesigner((s) => s.past.length > 0);
     const canRedo = useDesigner((s) => s.future.length > 0);
     const empty = useDesigner((s) => Object.keys(s.doc.byId).length === 0);
+    const language = useDesigner((s) => s.language);
+    const plainAs = useDesigner((s) => s.plainAs);
+    const doc = useDesigner((s) => s.doc);
+    const { languages } = useFormsLanguages();
+    const untranslated = useMemo(() => untranslatedTexts(toStored(doc).fields, plainAs).length, [doc, plainAs]);
+    const [translationsOpen, setTranslationsOpen] = useState(false);
     const [mode, setMode] = useState<'design' | 'preview'>('design');
     const [naming, setNaming] = useState(false);
     const [jsonOpen, setJsonOpen] = useState(false);
@@ -170,12 +184,13 @@ function DesignerScreen() {
             // other failures were reported by the mutation (QueryProvider)
         }
     };
-    const saveNew = async (name: string, category: string) => {
+    const saveNew = async (names: Record<string, string>, category: string) => {
         const { doc } = store.getState();
         try {
             const saved = await create.mutateAsync({
-                name,
-                slug: slugify(name),
+                name: formTextIn(names, language) ?? '',
+                names,
+                slug: slugify(names),
                 version: '1.0.0',
                 is_active: true,
                 ...(category && { category }),
@@ -312,7 +327,11 @@ function DesignerScreen() {
         const id = String(e.active.id);
         const entry = e.active.data.current?.entry as PaletteEntry | undefined;
         const f = store.getState().doc.byId[id];
-        setDrag({ activeId: id, target: null, label: entry?.label ?? f?.label ?? f?.id });
+        setDrag({
+            activeId: id,
+            target: null,
+            label: entry?.label ?? formTextIn(f?.label, store.getState().language) ?? f?.id
+        });
     };
     const onDragMove = (e: DragMoveEvent) => {
         const target = targetFor(e);
@@ -370,6 +389,32 @@ function DesignerScreen() {
                         Preview
                     </ToggleGroupItem>
                 </ToggleGroup>
+                <div className="flex items-center gap-1.5">
+                    <Label htmlFor="texts-in" className="text-xs text-muted-foreground">
+                        Texts in
+                    </Label>
+                    <Select value={language} onValueChange={actions.setLanguage}>
+                        <SelectTrigger id="texts-in" size="sm" aria-label="Texts in">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {languages.map((tag) => (
+                                <SelectItem key={tag} value={tag}>
+                                    {endonym(tag)}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={() => setTranslationsOpen(true)}>
+                    <Languages />
+                    Translations
+                    {untranslated > 0 && (
+                        <Badge className="bg-status-warning-bg text-status-warning-fg" data-untranslated-badge>
+                            {untranslated}
+                        </Badge>
+                    )}
+                </Button>
                 <Button type="button" variant="outline" size="sm" onClick={() => setSourcesOpen(true)}>
                     <Database />
                     Data sources
@@ -445,10 +490,12 @@ function DesignerScreen() {
                 open={naming}
                 onOpenChange={setNaming}
                 saving={create.isPending}
-                onSave={(name, category) => void saveNew(name, category)}
+                languages={languages}
+                onSave={(names, category) => void saveNew(names, category)}
             />
             <JsonDialog open={jsonOpen} onOpenChange={setJsonOpen} store={store} />
             <DataSourcesSheet open={sourcesOpen} onOpenChange={setSourcesOpen} />
+            <TranslationsSheet open={translationsOpen} onOpenChange={setTranslationsOpen} />
         </div>
     );
 }
@@ -457,8 +504,9 @@ function DesignerScreen() {
 function Preview() {
     const doc = useDesigner((s) => s.doc);
     const template = useDesigner((s) => s.template);
+    const language = useDesigner((s) => s.language);
     const stored = useMemo(() => toStored(doc), [doc]);
-    const unsupported = useMemo(() => unsupportedFields(readDocument(stored).fields), [stored]);
+    const unsupported = useMemo(() => unsupportedFields(readDocument(stored, { language }).fields), [stored, language]);
     const [result, setResult] = useState<Record<string, unknown> | null>(null);
     // no submit data source: a preview never calls the form's API
     const runtime = useMemo<TemplateRuntimeConfig>(() => ({ ...stored.runtime, submit: undefined }), [stored.runtime]);
@@ -476,6 +524,7 @@ function Preview() {
             )}
             <EngineForm
                 silent
+                language={language}
                 fields={stored.fields}
                 runtime={runtime}
                 template={{ ...template, id: template.id ?? 'preview', form_config: stored }}
@@ -497,20 +546,25 @@ function SaveAsDialog({
     open,
     onOpenChange,
     saving,
+    languages,
     onSave
 }: {
     open: boolean;
     onOpenChange: (o: boolean) => void;
     saving: boolean;
-    onSave: (name: string, category: string) => void;
+    languages: readonly string[];
+    onSave: (names: Record<string, string>, category: string) => void;
 }) {
-    const [name, setName] = useState('');
+    const [names, setNames] = useState<Record<string, string>>({});
     const [category, setCategory] = useState('');
     const { data: all } = useTemplateList();
     const categories = useMemo(
         () => Array.from(new Set((all ?? []).map((t) => t.category).filter((c): c is string => !!c))).sort(),
         [all]
     );
+    // Amharic and English are required; the installation's other languages are optional
+    const required = (tag: string) => (REQUIRED_TEXT_LANGUAGES as readonly string[]).includes(tag);
+    const complete = REQUIRED_TEXT_LANGUAGES.every((tag) => !!names[tag]?.trim());
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md" data-save-form>
@@ -522,19 +576,32 @@ function SaveAsDialog({
                     className="flex flex-col gap-4"
                     onSubmit={(e) => {
                         e.preventDefault();
-                        if (name.trim()) onSave(name.trim(), category.trim());
+                        if (!complete) return;
+                        onSave(
+                            Object.fromEntries(
+                                Object.entries(names)
+                                    .map(([tag, v]) => [tag, v.trim()] as const)
+                                    .filter(([, v]) => v !== '')
+                            ),
+                            category.trim()
+                        );
                     }}
                 >
-                    <div className="flex flex-col gap-2">
-                        <Label htmlFor="form-name">Name</Label>
-                        <Input
-                            id="form-name"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            autoFocus
-                            maxLength={120}
-                        />
-                    </div>
+                    {languages.map((tag, i) => (
+                        <div key={tag} className="flex flex-col gap-2">
+                            <Label htmlFor={`form-name-${tag}`}>
+                                Name in {endonym(tag)}
+                                {required(tag) ? '' : ' (optional)'}
+                            </Label>
+                            <Input
+                                id={`form-name-${tag}`}
+                                value={names[tag] ?? ''}
+                                onChange={(e) => setNames((n) => ({ ...n, [tag]: e.target.value }))}
+                                autoFocus={i === 0}
+                                maxLength={200}
+                            />
+                        </div>
+                    ))}
                     <div className="flex flex-col gap-2">
                         <Label htmlFor="form-category">Category (optional)</Label>
                         <Input
@@ -554,7 +621,7 @@ function SaveAsDialog({
                         <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={!name.trim() || saving}>
+                        <Button type="submit" disabled={!complete || saving}>
                             {saving ? <Spinner /> : <Check />}
                             Save form
                         </Button>

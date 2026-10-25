@@ -3,6 +3,7 @@
 import { memo, useMemo } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@itrms/ui';
 import { readDocument } from '../core';
+import { useFormsLanguages } from '../host/FormsHost';
 import { EngineForm, type EngineFormProps } from './EngineForm';
 import { unsupportedFields } from './kit';
 
@@ -14,13 +15,15 @@ export type FormRendererProps = EngineFormProps;
  * form never fails silently.
  */
 function FormRenderer(props: FormRendererProps) {
+    const { language: shown } = useFormsLanguages();
+    const language = props.language ?? shown;
     const missing = useMemo(() => {
-        const doc = readDocument({ fields: props.fields });
+        const doc = readDocument({ fields: props.fields }, { language });
         return [
             ...unsupportedFields(doc.fields).map((f) => f.label || f.id),
             ...doc.invalid.map((i) => `field ${i.index + 1} (${i.message})`)
         ];
-    }, [props.fields]);
+    }, [props.fields, language]);
     return (
         <>
             {missing.length > 0 && (

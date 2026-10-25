@@ -81,6 +81,20 @@ describe('the engine’s hooks on the forms API', () => {
             name: { am: 'Trip request', en: 'Trip request' },
             document: { fields: [{ id: 'a' }] }
         });
+        // a form saved with its names in every language keeps them; the key follows the English one
+        await act(() =>
+            result.current.create.mutateAsync({
+                name: 'የጉዞ ጥያቄ',
+                names: { am: 'የጉዞ ጥያቄ', en: 'Trip request', 'wal-Latn': 'Wala' },
+                slug: '',
+                form_config: [{ id: 'a' }]
+            })
+        );
+        expect(client.post).toHaveBeenLastCalledWith('v1/forms', {
+            key: 'trip-request',
+            name: { am: 'የጉዞ ጥያቄ', en: 'Trip request', 'wal-Latn': 'Wala' },
+            document: { fields: [{ id: 'a' }] }
+        });
         const published = await act(() => result.current.publish.mutateAsync({ id: FORM_ID, note: '  ' }));
         expect(client.post).toHaveBeenLastCalledWith(`v1/forms/${FORM_ID}/publications`, {});
         // a second person decides: until then it waits for approval

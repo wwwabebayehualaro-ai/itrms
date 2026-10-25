@@ -96,7 +96,10 @@ test('a form built in the builder is published once a second person approves, th
 
         // saved as a new form, a draft of the author's office
         await designer.getByRole('button', { name: 'Save as…' }).click();
-        await page.getByRole('dialog').getByLabel('Name', { exact: true }).fill(name);
+        // its name in Amharic and in English, both required (texts in every language, task 0.17a)
+        const saveAs = page.getByRole('dialog');
+        await saveAs.getByLabel('Name in አማርኛ').fill(`ቅጽ ${name}`);
+        await saveAs.getByLabel('Name in English').fill(name);
         await page.getByRole('button', { name: 'Save form' }).click();
         await expect(designer.getByRole('heading', { name })).toBeVisible();
         await expect(designer.locator('[data-unsaved]')).toHaveCount(0);
@@ -108,6 +111,7 @@ test('a form built in the builder is published once a second person approves, th
         expect(formId).toBeTruthy();
         const saved = await author.get<FormOut>(`v1/forms/${formId}`);
         expect(saved.status).toBe('draft');
+        expect(saved.name).toEqual({ am: `ቅጽ ${name}`, en: name });
         expect(saved.document.schemaVersion).toBe(2);
         expect(saved.document.fields.map((f) => [f.id, f.type, f.label, f.parentId ?? null])).toEqual([
             ['fullName', 'InputText', 'Full name', null],
@@ -118,7 +122,12 @@ test('a form built in the builder is published once a second person approves, th
 
         // asked for from the gallery: it waits for a second person, and takes no requests meanwhile
         await page.goto('/dynamic-template/saved-templates');
-        await page.getByRole('button', { name: `Publish ${name}` }).click();
+        // the gallery shows it by its Amharic name (the page's language)
+        await page.getByRole('button', { name: `Publish ቅጽ ${name}` }).click();
+        // its labels were written in one language: publishing warns, and goes on when confirmed
+        const warning = page.getByRole('alertdialog');
+        await expect(warning).toContainText('no Amharic or English text');
+        await warning.getByRole('button', { name: 'Publish anyway' }).click();
         await expect(page.getByText('Sent for approval').first()).toBeVisible();
         const filler = await signedIn(browser, PEOPLE.filler);
         await filler.goto(`/submitted-forms/template/${formId}`);

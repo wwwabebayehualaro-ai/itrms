@@ -538,6 +538,7 @@ function SourceEditor({
 export function DataSources() {
     const runtime = useDesigner((s) => s.doc.runtime);
     const byId = useDesigner((s) => s.doc.byId);
+    const language = useDesigner((s) => s.language);
     const actions = useDesignerActions();
     const [selected, setSelected] = useState(0);
     const sources = runtime.dataSources;
@@ -559,7 +560,7 @@ export function DataSources() {
     const subjects = useMemo<ConditionSubject[]>(
         () =>
             Object.values(byId)
-                .map((f) => toEngineField(f as unknown as StoredField))
+                .map((f) => toEngineField(f as unknown as StoredField, language))
                 .filter(holdsValue)
                 .map((f) => ({
                     id: `form.${f.id}`,
@@ -567,7 +568,7 @@ export function DataSources() {
                     kind: f.options.length ? 'choice' : 'text',
                     options: f.options
                 })),
-        [byId]
+        [byId, language]
     );
 
     return (

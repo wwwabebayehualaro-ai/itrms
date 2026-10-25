@@ -1,7 +1,7 @@
 'use client';
 
 /** Editors the inspector is made of, on the design system: numbers, option lists, conditions, table columns. */
-import { useState } from 'react';
+import { useState, type ComponentProps } from 'react';
 import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react';
 import {
     Button,
@@ -17,7 +17,15 @@ import {
     ToggleGroupItem
 } from '@itrms/ui';
 import { explainPattern } from '../core/safePattern';
-import type { VisibilityCondition } from '@itrms/schemas';
+import {
+    REQUIRED_TEXT_LANGUAGES,
+    formTextIn,
+    ownText,
+    setTextIn,
+    type FormText,
+    type VisibilityCondition
+} from '@itrms/schemas';
+import { keySourceOf } from './document';
 import type { ColumnType, TableColumn } from '@itrms/schemas';
 
 // ---- number -------------------------------------------------------------------------------------------------------------
@@ -102,10 +110,54 @@ function RowButtons({
     );
 }
 
+// ---- texts in a language ------------------------------------------------------------------------------------------------
+/**
+ * A box for one text of a form in the builder's language: it shows what that language has of its own, the text it falls
+ * back to as the placeholder (so a missing translation is visible, not blank), and "Missing" while a required language
+ * (Amharic, English) has none of a text that exists in another.
+ */
+export function LangInput({
+    text,
+    language,
+    plainAs,
+    onText,
+    placeholder,
+    hint = true,
+    ...rest
+}: {
+    text: unknown;
+    language: string;
+    plainAs: string;
+    onText: (value: string) => void;
+    placeholder?: string;
+    hint?: boolean;
+} & Omit<ComponentProps<typeof Input>, 'value' | 'onChange' | 'placeholder'>) {
+    const own = ownText(text, language, plainAs);
+    const fallback = formTextIn(text, language);
+    const missing = own === '' && !!fallback && (REQUIRED_TEXT_LANGUAGES as readonly string[]).includes(language);
+    return (
+        <>
+            <Input
+                {...rest}
+                value={own}
+                placeholder={own === '' ? fallback || placeholder : placeholder}
+                onChange={(e) => onText(e.target.value)}
+            />
+            {hint && missing && (
+                <p className="text-xs text-status-warning-fg" data-missing>
+                    Missing
+                </p>
+            )}
+        </>
+    );
+}
+
 // ---- options ------------------------------------------------------------------------------------------------------------
+/** One stored option: its label in every language and the value stored; any other key (`disabled`, `items`) is kept as it is. */
 export interface OptionRow {
-    label: string;
-    value: string | number;
+    label?: FormText;
+    value?: string | number;
+    [key: string]: unknown;
 }
 
 /** "Sick leave" -> "sick_leave": the stored value proposed for a new option. */
@@ -117,13 +169,52 @@ export const valueFromLabel = (label: string) =>
         .replace(/^_+|_+$/g, '');
 
 /**
- * The choices of a field. The value is what is stored in a request (and filtered on); it follows the label until it is edited,
- * so "Sick leave" stores `sick_leave`.
+ * The choices of a field. The value is what is stored in a request (and filtered on); it follows the English (or plain)
+ * label until it is edited, so "Sick leave" stores `sick_leave`. A label without letters (Amharic) never makes a value:
+ * a new option gets `option_<n>`, an option that has one keeps it. Editing a label changes that language's text only.
  */
-export function OptionsEditor({ value, onChange }: { value: OptionRow[]; onChange: (rows: OptionRow[]) => void }) {
+/** The first `option_<n>` no option stores yet (an option whose label gives no value of its own). */
+function freeValue(rows: readonly OptionRow[]): string {
+    const taken = new Set(rows.map((r) => String(r.value)));
+    let n = rows.length;
+    while (taken.has(`option_${n}`)) n++;
+    return `option_${n}`;
+}
+
+export function OptionsEditor({
+    value,
+    onChange,
+    language = 'am',
+    plainAs = language
+}: {
+    value: OptionRow[];
+    onChange: (rows: OptionRow[]) => void;
+    /** The language the labels are written in, and the one a plain-string label was written in. */
+    language?: string;
+    plainAs?: string;
+}) {
     const rows = value ?? [];
     const set = (i: number, patch: Partial<OptionRow>) =>
         onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+    const edit = (i: number, r: OptionRow, typed: string) => {
+        const label = setTextIn(r.label, language, typed, plainAs);
+        const before = keySourceOf(r.label);
+        // a translation never changes what an answer stores: the value follows the label only while it is written in
+        // the authoring language (and still equals the value made from it), or while the option has none
+        const follows =
+            r.value === undefined ||
+            r.value === '' ||
+            (language === plainAs && String(r.value) === valueFromLabel(before));
+        const proposed = valueFromLabel(keySourceOf(label));
+        const next: OptionRow = { ...r };
+        if (label === undefined) delete next.label;
+        else next.label = label;
+        if (follows && keySourceOf(label) !== before) {
+            if (proposed !== '' && !rows.some((x, j) => j !== i && String(x.value) === proposed)) next.value = proposed;
+            else if (r.value === undefined || r.value === '') next.value = freeValue(rows);
+        }
+        onChange(rows.map((x, j) => (j === i ? next : x)));
+    };
     return (
         <div className="flex flex-col gap-2" data-options-editor>
             {rows.length > 0 && (
@@ -135,22 +226,22 @@ export function OptionsEditor({ value, onChange }: { value: OptionRow[]; onChang
             )}
             {rows.map((r, i) => (
                 <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2" data-option={i}>
-                    <Input
-                        value={r.label}
-                        aria-label={`Option ${i + 1} label`}
-                        onChange={(e) => {
-                            const label = e.target.value;
-                            const follows = String(r.value) === valueFromLabel(r.label) || r.value === '';
-                            set(i, follows ? { label, value: valueFromLabel(label) } : { label });
-                        }}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && i === rows.length - 1) {
-                                e.preventDefault();
-                                onChange([...rows, { label: '', value: '' }]);
-                            }
-                        }}
-                        autoFocus={i === rows.length - 1 && r.label === ''}
-                    />
+                    <div className="flex flex-col gap-0.5">
+                        <LangInput
+                            text={r.label}
+                            language={language}
+                            plainAs={plainAs}
+                            aria-label={`Option ${i + 1} label`}
+                            onText={(typed) => edit(i, r, typed)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && i === rows.length - 1) {
+                                    e.preventDefault();
+                                    onChange([...rows, { label: '', value: '' }]);
+                                }
+                            }}
+                            autoFocus={i === rows.length - 1 && !formTextIn(r.label, language)}
+                        />
+                    </div>
                     <Input
                         value={String(r.value ?? '')}
                         aria-label={`Option ${i + 1} value`}

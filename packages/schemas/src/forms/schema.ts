@@ -30,7 +30,11 @@ export const storedFieldSchema = z
         id: z.union([z.string(), z.number()]).transform(String),
         type: z.string(),
         category: z.string().optional(),
-        label: z.string().optional().nullable(),
+        // a plain string, or a map by language (forms/text.ts); a malformed map never keeps a field from being drawn
+        label: z
+            .union([z.string(), z.record(z.string(), z.unknown())])
+            .optional()
+            .nullable(),
         parentId: z.union([z.string(), z.number()]).optional().nullable(),
         props: z.record(z.string(), z.unknown()).optional().nullable(),
         data: z
@@ -55,9 +59,9 @@ export const storedFieldSchema = z
                         supported: z.boolean().optional(),
                         types: z.array(z.string()).optional().nullable(),
                         rules: z.record(z.string(), z.unknown()).optional().nullable(),
-                        errorMessages: z.record(z.string(), z.string()).optional().nullable(),
+                        errorMessages: z.record(z.string(), z.unknown()).optional().nullable(),
                         remote: z
-                            .object({ dataSourceId: z.string(), message: z.string().optional() })
+                            .object({ dataSourceId: z.string(), message: z.unknown().optional() })
                             .loose()
                             .optional()
                             .nullable()

@@ -143,4 +143,71 @@ describe('FormDesigner', () => {
         expect(await screen.findByText(/"destination": "Lisbon"/)).toBeInTheDocument();
         expect(client.post).not.toHaveBeenCalled();
     });
+
+    it('switches the language the texts are shown and edited in: canvas, inspector and preview follow', async () => {
+        const user = userEvent.setup();
+        client.get.mockResolvedValue({ data: [] });
+        open({
+            ...saved,
+            form_config: {
+                fields: [field('destination', 'InputText', { am: 'መድረሻ', en: 'Destination' } as never)],
+                runtime: { dataSources: [] }
+            }
+        });
+        const canvas = screen.getByRole('main');
+        expect(within(canvas).getByText('መድረሻ')).toBeInTheDocument();
+
+        await user.click(screen.getByRole('combobox', { name: 'Texts in' }));
+        await user.click(await screen.findByRole('option', { name: 'English' }));
+        expect(within(canvas).getByText('Destination')).toBeInTheDocument();
+        // switching is no edit
+        expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument();
+
+        // editing writes English only; Amharic stays
+        await user.click(canvas.querySelector('[data-design-field="destination"]') as HTMLElement);
+        const label = within(screen.getByRole('complementary', { name: 'Field settings' })).getByLabelText('Label');
+        expect(label).toHaveValue('Destination');
+        await user.type(label, 's');
+        expect(within(canvas).getByText('Destinations')).toBeInTheDocument();
+
+        await user.click(screen.getByRole('radio', { name: /Preview/ }));
+        expect(await screen.findByLabelText('Destinations')).toBeInTheDocument();
+    });
+
+    it('saves a new form with its name in Amharic and English (both required) and the key from the English one', async () => {
+        const user = userEvent.setup();
+        client.get.mockResolvedValue({ data: [] });
+        client.post.mockImplementation((_url: string, body: any) =>
+            Promise.resolve({
+                data: {
+                    id: 'tpl-9',
+                    version: 1,
+                    key: body.key,
+                    name: body.name,
+                    category: null,
+                    active: true,
+                    status: 'draft',
+                    ownerUnit: { id: 'u-1', code: 'Z', name: { en: 'Zone' } },
+                    publishedVersion: null,
+                    updatedAt: '2026-10-25T08:00:00.000Z',
+                    document: body.document
+                }
+            })
+        );
+        open({ name: '', slug: '', form_config: { fields: saved.form_config.fields, runtime: { dataSources: [] } } });
+        await user.click(screen.getByRole('button', { name: /Save as/ }));
+        const dialog = await screen.findByRole('dialog');
+        const save = within(dialog).getByRole('button', { name: 'Save form' });
+        expect(save).toBeDisabled();
+        await user.type(within(dialog).getByLabelText(/Name in አማርኛ/), 'የጉዞ ጥያቄ');
+        expect(save).toBeDisabled(); // English is required too
+        await user.type(within(dialog).getByLabelText(/Name in English/), 'Trip request');
+        expect(save).toBeEnabled();
+        await user.click(save);
+        await waitFor(() => expect(client.post).toHaveBeenCalledTimes(1));
+        const [url, body] = client.post.mock.calls[0] ?? [];
+        expect(url).toBe('v1/forms');
+        expect(body.name).toEqual({ am: 'የጉዞ ጥያቄ', en: 'Trip request' });
+        expect(body.key).toBe('trip-request');
+    });
 });

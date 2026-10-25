@@ -7,7 +7,8 @@
 import { useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Download, Eye, Pencil, Search, Trash2 } from 'lucide-react';
 import { Button, Input, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@itrms/ui';
-import { useCan } from '../../host/FormsHost';
+import { useCan, useFormsLanguages } from '../../host/FormsHost';
+import { formTextIn } from '@itrms/schemas';
 import { saveBlob } from '@itrms/ui';
 import { cellText, type LookupMaps } from '../runtime/cellText';
 import { getByPath } from '../../core/runtime/expression';
@@ -44,6 +45,7 @@ function DataTableView({ field }: DisplayFieldProps) {
         return Array.isArray(list) ? (list as unknown[]) : [];
     }, [binding, state?.data, field.props.value, field.source.data]);
 
+    const { language } = useFormsLanguages();
     // value -> label maps for columns that show names instead of stored values (ids, option values)
     const lookups = useMemo<LookupMaps>(() => {
         const out: LookupMaps = {};
@@ -57,9 +59,10 @@ function DataTableView({ field }: DisplayFieldProps) {
                 // the lookup source is a form template: the options of the field this column shows (last part of the path)
                 const f = fields.find((x: any) => x.id === col.field.split('.').pop());
                 const opts = (
-                    (f?.data?.dataSource?.staticData ?? f?.props?.options ?? []) as { label: string; value: unknown }[]
+                    (f?.data?.dataSource?.staticData ?? f?.props?.options ?? []) as { label: unknown; value: unknown }[]
                 ).filter(Boolean);
-                out[col.field] = new Map(opts.map((o) => [String(o.value), o.label]));
+                // a label in the screens' language (forms/text.ts)
+                out[col.field] = new Map(opts.map((o) => [String(o.value), formTextIn(o.label, language) ?? '']));
             } else {
                 out[col.field] = new Map(
                     toOptions(data, api.getDataSource(col.lookupSource)?.responseMapping?.options).map((o) => [
@@ -70,7 +73,7 @@ function DataTableView({ field }: DisplayFieldProps) {
             }
         }
         return out;
-    }, [columns, lookupStates, runtimeData, api]);
+    }, [columns, lookupStates, runtimeData, api, language]);
 
     const [search, setSearch] = useState('');
     const [sort, setSort] = useState<{ field: string; desc: boolean } | null>(null);

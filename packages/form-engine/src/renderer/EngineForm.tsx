@@ -9,7 +9,7 @@ import { CircleAlert, RefreshCw, RotateCcw, Check } from 'lucide-react';
 import { useForm, useSelector, type AnyFormApi } from '@tanstack/react-form';
 import { Button, Card, Spinner, cn, useNotify } from '@itrms/ui';
 import { serverFormErrors } from '../host/client';
-import { useFormsHost, useFormsUser } from '../host/FormsHost';
+import { useFormsHost, useFormsLanguages, useFormsUser } from '../host/FormsHost';
 import type { FormField, FormTemplate } from '@itrms/schemas';
 import { initialValues, pruneHidden, readDocument, validateForm, type EngineDocument, type FieldErrors } from '../core';
 import { RuntimeProvider } from './runtime/RuntimeProvider';
@@ -46,6 +46,8 @@ export interface EngineFormProps {
     showRefresh?: boolean;
     /** No "submitted" message (the builder's preview shows what would be stored instead). */
     silent?: boolean;
+    /** The language its texts are shown in (default: the screens' language). */
+    language?: string;
 }
 
 /** True when the field kit can draw every field of `doc`. */
@@ -56,7 +58,9 @@ export function canRenderWithEngine(doc: EngineDocument): boolean {
 const toFormErrors = (errors: FieldErrors) => (Object.keys(errors).length ? { fields: errors } : undefined);
 
 export function EngineForm(props: EngineFormProps) {
-    const doc = useMemo(() => readDocument({ fields: props.fields }), [props.fields]);
+    const { language: shown } = useFormsLanguages();
+    const language = props.language ?? shown;
+    const doc = useMemo(() => readDocument({ fields: props.fields }, { language }), [props.fields, language]);
     // a new request leaves an empty form behind; an edited request is shown again when its saved values change
     const [resetKey, setResetKey] = useState(0);
     const valuesKey = props.submissionId ? JSON.stringify(props.initialValues ?? {}) : '';

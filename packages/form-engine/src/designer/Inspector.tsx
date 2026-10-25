@@ -36,7 +36,7 @@ import {
     cn,
     useNotify
 } from '@itrms/ui';
-import type { FormField } from '@itrms/schemas';
+import { formTextIn, ownText, type FormField } from '@itrms/schemas';
 import { KEY_PATTERN } from './fieldKeys';
 import { checkFormula } from '../core/runtime/formula';
 import type { FieldOptionsBinding, TableColumn } from '@itrms/schemas';
@@ -45,13 +45,14 @@ import { getFieldType, type DesignMeta } from '../renderer/kit';
 import {
     ColumnsEditor,
     ConditionsEditor,
+    LangInput,
     NumberInput,
     OptionsEditor,
     type ConditionSubject,
     type OptionRow
 } from './controls';
 import { explainPattern } from '../core/safePattern';
-import { ROOT, getPath, setPath } from './document';
+import { ROOT, getPath, setPath, writeText } from './document';
 import { SettingsForm } from './SettingsForm';
 import { useDesigner, useDesignerActions } from './store';
 import { useFormsHost } from '../host/FormsHost';
@@ -125,16 +126,35 @@ const Section = ({ title, children }: { title: string; children: ReactNode }) =>
 /** Edit helpers for one field: a dotted path in the stored field, each change one (coalesced) undo step. */
 function useFieldEdit(id: string) {
     const actions = useDesignerActions();
+    // the builder's language, and the one a plain-string text was written in
+    const language = useDesigner((s) => s.language);
+    const plainAs = useDesigner((s) => s.plainAs);
     return {
+        language,
+        plainAs,
         set: (path: string, value: unknown) =>
             actions.update(id, (f) => setPath(f as Record<string, any>, path, value), `${id}:${path}`),
-        apply: (recipe: (f: Draft<FormField>) => void, key: string) => actions.update(id, recipe, `${id}:${key}`)
+        apply: (recipe: (f: Draft<FormField>) => void, key: string) => actions.update(id, recipe, `${id}:${key}`),
+        /**
+         * Write one text in the builder's language: the other languages' texts stay. A text left empty is removed (but
+         * written as '' over a palette default, which a removed one would bring back); `validated` turns validation on.
+         */
+        text: (path: string, value: string, validated = false) =>
+            actions.update(
+                id,
+                (f) => {
+                    const next = writeText(f, path, language, value, plainAs);
+                    if (validated && next !== undefined)
+                        setPath(f as Record<string, any>, 'behavior.validation.supported', true);
+                },
+                `${id}:${path}:${language}`
+            )
     };
 }
 
 // ---- tabs --------------------------------------------------------------------------------------------------------------
 function FieldTab({ stored, field, design }: { stored: FormField; field: EngineField; design?: DesignMeta }) {
-    const { set } = useFieldEdit(stored.id);
+    const { set, text, language, plainAs } = useFieldEdit(stored.id);
     const roleKeys = useFormsHost().roleKeys ?? [];
     const roles = (stored as FormField & { visibleToRoles?: string[] }).visibleToRoles ?? [];
     // a key the installation has no role for hides the field from everyone
@@ -157,10 +177,12 @@ function FieldTab({ stored, field, design }: { stored: FormField; field: EngineF
     return (
         <div className="flex flex-col gap-4">
             <Row id="insp-label" label={field.isContainer ? 'Title' : 'Label'}>
-                <Input
+                <LangInput
                     id="insp-label"
-                    value={stored.label ?? ''}
-                    onChange={(e) => actions.relabel(stored.id, e.target.value)}
+                    text={stored.label}
+                    language={language}
+                    plainAs={plainAs}
+                    onText={(v) => actions.relabel(stored.id, v)}
                 />
             </Row>
             {value && (
@@ -185,10 +207,12 @@ function FieldTab({ stored, field, design }: { stored: FormField; field: EngineF
             )}
             {value && (
                 <Row id="insp-help" label="Help text" help="A line under the field.">
-                    <Input
+                    <LangInput
                         id="insp-help"
-                        value={String(stored.props?.helpText ?? '')}
-                        onChange={(e) => set('props.helpText', e.target.value || undefined)}
+                        text={stored.props?.helpText ?? stored.data?.defaultProps?.helpText}
+                        language={language}
+                        plainAs={plainAs}
+                        onText={(v) => text('props.helpText', v)}
                     />
                 </Row>
             )}
@@ -264,16 +288,23 @@ function FieldTab({ stored, field, design }: { stored: FormField; field: EngineF
     );
 }
 
+/** The settings that are texts in the form's languages. */
+const TEXT_SETTINGS = new Set(['placeholder', 'helpText']);
+
 function SettingsTab({ stored, design }: { stored: FormField; design?: DesignMeta }) {
-    const { set } = useFieldEdit(stored.id);
+    const { set, text, language, plainAs } = useFieldEdit(stored.id);
+    const raw = (k: string) => stored.props?.[k] ?? stored.data?.defaultProps?.[k];
     return (
         <SettingsForm
             schema={design?.settings}
             idPrefix={`insp-${stored.id}`}
-            value={(k) => stored.props?.[k] ?? stored.data?.defaultProps?.[k]}
+            value={(k) => (TEXT_SETTINGS.has(k) ? ownText(raw(k), language, plainAs) : raw(k))}
+            fallback={(k) => (TEXT_SETTINGS.has(k) ? formTextIn(raw(k), language) || undefined : undefined)}
             own={() => true}
             onChange={(k, v) =>
-                set(`props.${k}`, v === '' && stored.data?.defaultProps?.[k] === undefined ? undefined : v)
+                TEXT_SETTINGS.has(k)
+                    ? text(`props.${k}`, String(v ?? ''))
+                    : set(`props.${k}`, v === '' && stored.data?.defaultProps?.[k] === undefined ? undefined : v)
             }
         />
     );
@@ -291,7 +322,7 @@ function useGetSources() {
 }
 
 function OptionsTab({ stored }: { stored: FormField }) {
-    const { set } = useFieldEdit(stored.id);
+    const { set, language, plainAs } = useFieldEdit(stored.id);
     const sources = useGetSources();
     const binding = stored.data?.optionsBinding;
     // the stored list as it is (the engine leaves blank rows out; here a new blank row must stay to be filled in)
@@ -301,7 +332,7 @@ function OptionsTab({ stored }: { stored: FormField }) {
         []) as unknown[];
     const rows: OptionRow[] = (Array.isArray(raw) ? raw : []).map((o) =>
         o && typeof o === 'object'
-            ? { label: String((o as OptionRow).label ?? ''), value: (o as OptionRow).value ?? '' }
+            ? { ...(o as OptionRow), value: (o as OptionRow).value ?? '' }
             : { label: String(o), value: o as string | number }
     );
     const setBinding = (patch: Partial<FieldOptionsBinding> | undefined) =>
@@ -328,7 +359,12 @@ function OptionsTab({ stored }: { stored: FormField }) {
                 </ToggleGroupItem>
             </ToggleGroup>
             {!binding ? (
-                <OptionsEditor value={rows} onChange={(next) => set('data.dataSource.staticData', next)} />
+                <OptionsEditor
+                    value={rows}
+                    language={language}
+                    plainAs={plainAs}
+                    onChange={(next) => set('data.dataSource.staticData', next)}
+                />
             ) : (
                 <>
                     <Row
@@ -446,7 +482,7 @@ function RowsTab({ stored, field }: { stored: FormField; field: EngineField }) {
 }
 
 function RulesTab({ stored, field, design }: { stored: FormField; field: EngineField; design?: DesignMeta }) {
-    const { apply } = useFieldEdit(stored.id);
+    const { apply, text, language, plainAs } = useFieldEdit(stored.id);
     const rules = design?.rules ?? [];
     const rule = (name: string) => getPath(stored, `behavior.validation.rules.${name}`);
     const patternProblem = rule('pattern') ? explainPattern(String(rule('pattern'))) : null;
@@ -471,13 +507,13 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                     />
                     {field.rules.required && (
                         <Row id="insp-reqmsg" label="Message when empty">
-                            <Input
+                            <LangInput
                                 id="insp-reqmsg"
-                                value={String(stored.behavior?.validation?.errorMessages?.required ?? '')}
+                                text={stored.behavior?.validation?.errorMessages?.required}
+                                language={language}
+                                plainAs={plainAs}
                                 placeholder="This field is required"
-                                onChange={(e) =>
-                                    setRule('behavior.validation.errorMessages.required', e.target.value || undefined)
-                                }
+                                onText={(v) => text('behavior.validation.errorMessages.required', v, true)}
                             />
                         </Row>
                     )}
@@ -510,16 +546,13 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                             label="Message when the lookup fails"
                             help="Used when the data source gives no message of its own."
                         >
-                            <Input
+                            <LangInput
                                 id="insp-remotemsg"
-                                value={remote.message ?? ''}
+                                text={remote.message}
+                                language={language}
+                                plainAs={plainAs}
                                 placeholder="Could not be verified"
-                                onChange={(e) =>
-                                    setRule('behavior.validation.remote', {
-                                        ...remote,
-                                        message: e.target.value || undefined
-                                    })
-                                }
+                                onText={(v) => text('behavior.validation.remote.message', v, true)}
                             />
                         </Row>
                     )}
@@ -565,13 +598,13 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                         />
                     </Row>
                     <Row id="insp-patmsg" label="Message when it does not match">
-                        <Input
+                        <LangInput
                             id="insp-patmsg"
-                            value={String(rule('patternMessage') ?? '')}
+                            text={rule('patternMessage')}
+                            language={language}
+                            plainAs={plainAs}
                             placeholder="Invalid format"
-                            onChange={(e) =>
-                                setRule('behavior.validation.rules.patternMessage', e.target.value || undefined)
-                            }
+                            onText={(v) => text('behavior.validation.rules.patternMessage', v, true)}
                         />
                     </Row>
                 </Section>
@@ -668,13 +701,13 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
 }
 
 function LogicTab({ stored, field }: { stored: FormField; field: EngineField }) {
-    const { set } = useFieldEdit(stored.id);
+    const { set, language } = useFieldEdit(stored.id);
     const byId = useDesigner((s) => s.doc.byId);
     const subjects = useMemo<ConditionSubject[]>(
         () =>
             Object.values(byId)
                 .filter((f) => f.id !== stored.id)
-                .map((f) => toEngineField(f as unknown as StoredField))
+                .map((f) => toEngineField(f as unknown as StoredField, language))
                 .filter(holdsValue)
                 .map((f) => ({
                     id: f.id,
@@ -688,7 +721,7 @@ function LogicTab({ stored, field }: { stored: FormField; field: EngineField }) 
                             : 'text',
                     options: f.options
                 })),
-        [byId, stored.id]
+        [byId, stored.id, language]
     );
     const computed = stored.data?.computed;
     const m = computed?.expression?.match(/\{\{\s*=([^{}]+)\}\}/);
@@ -809,6 +842,7 @@ function JsonTab({ stored }: { stored: FormField }) {
 // ---- outline (nothing selected) ---------------------------------------------------------------------------------------------
 function Outline() {
     const doc = useDesigner((s) => s.doc);
+    const language = useDesigner((s) => s.language);
     const actions = useDesignerActions();
     const count = Object.keys(doc.byId).length;
     const item = (id: string, depth: number): ReactNode => {
@@ -828,7 +862,7 @@ function Outline() {
                     ) : (
                         <span className="w-3" />
                     )}
-                    <span className="flex-1 truncate">{f.label || f.id}</span>
+                    <span className="flex-1 truncate">{formTextIn(f.label, language) || f.id}</span>
                     <span className="text-xs text-muted-foreground">{label}</span>
                 </button>
                 {(doc.children[id]?.length ?? 0) > 0 && <ul>{doc.children[id]?.map((c) => item(c, depth + 1))}</ul>}
@@ -858,7 +892,11 @@ export function Inspector() {
     const selected = useDesigner((s) => s.selected);
     const selection = useDesigner((s) => s.selection);
     const stored = useDesigner((s) => (s.selected ? s.doc.byId[s.selected] : undefined));
-    const field = useMemo(() => (stored ? toEngineField(stored as unknown as StoredField) : null), [stored]);
+    const language = useDesigner((s) => s.language);
+    const field = useMemo(
+        () => (stored ? toEngineField(stored as unknown as StoredField, language) : null),
+        [stored, language]
+    );
     const [tab, setTab] = useState('field');
     if (!selected || !stored || !field) return <Outline />;
     const design = getFieldType(field.type)?.design;
@@ -883,7 +921,7 @@ export function Inspector() {
         <div className="flex flex-col gap-3" data-inspector={stored.id}>
             <div className="flex items-center gap-2">
                 {Icon && <Icon className="size-4 text-muted-foreground" />}
-                <h3 className="flex-1 truncate text-sm font-semibold">{stored.label || stored.id}</h3>
+                <h3 className="flex-1 truncate text-sm font-semibold">{field.label || stored.id}</h3>
                 <Badge variant="outline" className={cn('font-mono')}>
                     {stored.id}
                 </Badge>

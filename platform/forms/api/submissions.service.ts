@@ -28,7 +28,9 @@ export class SubmissionsService {
         tx: Tx,
         ctx: DbContext,
         roles: readonly string[],
-        input: z.infer<typeof submissionCreateSchema>
+        input: z.infer<typeof submissionCreateSchema>,
+        /** the language of the author's own messages in a 422 */
+        language = 'am'
     ): Promise<Submission> {
         // first: a fill completing the form's filterable keys waits for this submission, or this reads its version
         await lockFormShared(tx, input.formId);
@@ -47,7 +49,7 @@ export class SubmissionsService {
             .where(eq(formVersions.id, form.publishedVersionId));
         if (!version) throw new NotFoundError();
 
-        const fields = fieldsFor(version.document, roles);
+        const fields = fieldsFor(version.document, roles, language);
         const scope = scopeFor(ctx, roles);
         const answers = submittedValues(fields, input.answers, scope);
         const errors = validateForm(fields, answers, scope);

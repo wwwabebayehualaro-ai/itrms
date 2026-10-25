@@ -12,6 +12,7 @@
  */
 import {
     formDocumentSchema,
+    formTextIn,
     storedFieldSchema,
     type Action,
     type FieldOptionsBinding,
@@ -98,18 +99,17 @@ export interface EngineDocument {
 const num = (v: unknown): number | undefined =>
     v === undefined || v === null || v === '' || !Number.isFinite(Number(v)) ? undefined : Number(v);
 
-function staticOptions(f: StoredField, props: Record<string, unknown>): FieldOption[] {
-    const raw = f.data?.dataSource?.staticData ?? props.options ?? [];
-    if (!Array.isArray(raw)) return [];
+/** Options as the engine draws them: labels in one language (forms/text.ts), nested ones too. */
+function optionsIn(raw: unknown[], language: string): FieldOption[] {
     return raw
         .map((o): FieldOption | null => {
             if (o && typeof o === 'object') {
                 const r = o as Record<string, unknown>;
                 return {
-                    label: str(r.label ?? r.value ?? ''),
+                    label: formTextIn(r.label, language) ?? str(r.value ?? ''),
                     value: r.value,
                     disabled: r.disabled === true || undefined,
-                    items: Array.isArray(r.items) ? (r.items as FieldOption[]) : undefined
+                    items: Array.isArray(r.items) ? optionsIn(r.items as unknown[], language) : undefined
                 };
             }
             return typeof o === 'string' || typeof o === 'number' ? { label: String(o), value: o } : null;
@@ -117,10 +117,37 @@ function staticOptions(f: StoredField, props: Record<string, unknown>): FieldOpt
         .filter((o): o is FieldOption => !!o && (o.label !== '' || (o.value !== '' && o.value !== undefined)));
 }
 
-/** One stored field → the engine's view of it. */
-export function toEngineField(stored: StoredField): EngineField {
+function staticOptions(f: StoredField, props: Record<string, unknown>, language: string): FieldOption[] {
+    const raw = f.data?.dataSource?.staticData ?? props.options ?? [];
+    return Array.isArray(raw) ? optionsIn(raw, language) : [];
+}
+
+/** A text the engine draws, in one language ('' when it has none). */
+const textOf = (text: unknown, language: string) => formTextIn(text, language) ?? '';
+
+/** The messages of a field's rules, in one language (a message with no text in any language is left out). */
+function messagesIn(raw: Record<string, unknown> | null | undefined, language: string): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const [rule, text] of Object.entries(raw ?? {})) {
+        const value = formTextIn(text, language);
+        if (value) out[rule] = value;
+    }
+    return out;
+}
+
+/** Texts are read in Amharic when no language is given (the installation's default). */
+export const DEFAULT_TEXT_LANGUAGE = 'am';
+
+/**
+ * One stored field → the engine's view of it, its texts in `language` (forms/text.ts: the language, then Amharic, then
+ * English, then any). `props` carries the resolved help text and placeholder; `source` stays the stored field.
+ */
+export function toEngineField(stored: StoredField, language: string = DEFAULT_TEXT_LANGUAGE): EngineField {
     const defaults = stored.data?.defaultProps ?? {};
     const props: Record<string, unknown> = { ...defaults, ...(stored.props ?? {}) };
+    for (const key of ['helpText', 'placeholder'] as const)
+        if (props[key] !== undefined && props[key] !== null && typeof props[key] !== 'string')
+            props[key] = formTextIn(props[key], language);
     const v = stored.behavior?.validation;
     const types = v?.types ?? [];
     const rules = v?.rules ?? {};
@@ -133,7 +160,7 @@ export function toEngineField(stored: StoredField): EngineField {
         id: stored.id,
         type: stored.type,
         category: stored.category ?? 'Input',
-        label: stored.label ?? '',
+        label: textOf(stored.label, language),
         parentId:
             stored.parentId === undefined || stored.parentId === null || stored.parentId === ''
                 ? null
@@ -154,8 +181,7 @@ export function toEngineField(stored: StoredField): EngineField {
                 typeof rules.pattern === 'string' && rules.pattern.length > 0 && rules.pattern.length <= 200
                     ? rules.pattern
                     : undefined,
-            patternMessage:
-                typeof rules.patternMessage === 'string' && rules.patternMessage ? rules.patternMessage : undefined,
+            patternMessage: formTextIn(rules.patternMessage, language) || undefined,
             min: num(rules.min),
             max: num(rules.max),
             minDate: props.minDate || undefined,
@@ -165,16 +191,16 @@ export function toEngineField(stored: StoredField): EngineField {
             minItems: minItems !== undefined ? Math.max(0, minItems) : 0,
             maxItems: maxItems !== undefined && maxItems > 0 ? maxItems : Infinity
         },
-        messages: v?.errorMessages ?? {},
+        messages: messagesIn(v?.errorMessages, language),
         visibleWhen: stored.behavior?.visibilityConditions ?? [],
         enabledWhen: stored.behavior?.enabledConditions ?? [],
         computed: stored.data?.computed?.expression
             ? { expression: stored.data.computed.expression, readOnly: stored.data.computed.readOnly }
             : undefined,
         remote: v?.remote?.dataSourceId
-            ? { dataSourceId: v.remote.dataSourceId, message: v.remote.message || undefined }
+            ? { dataSourceId: v.remote.dataSourceId, message: formTextIn(v.remote.message, language) || undefined }
             : undefined,
-        options: staticOptions(stored, props),
+        options: staticOptions(stored, props, language),
         optionsBinding: stored.data?.optionsBinding ?? undefined,
         rowsBinding: stored.data?.rowsBinding ?? undefined,
         actions: (stored.behavior?.actions ?? {}) as Record<string, Action[]>,
@@ -193,7 +219,8 @@ const runtimeOf = (raw: unknown): TemplateRuntimeConfig | undefined => {
  * Read a stored `form_config` of any version: a bare field list (the oldest templates), `{ fields, runtime }` (version 1) or a
  * versioned document. Never throws: fields that cannot be read are reported in `invalid` and left out.
  */
-export function readDocument(raw: unknown): EngineDocument {
+export function readDocument(raw: unknown, opts: { language?: string } = {}): EngineDocument {
+    const language = opts.language ?? DEFAULT_TEXT_LANGUAGE;
     const doc = Array.isArray(raw) ? { fields: raw } : raw && typeof raw === 'object' ? raw : {};
     const parsed = formDocumentSchema.safeParse(doc);
     const base = parsed.success
@@ -207,7 +234,7 @@ export function readDocument(raw: unknown): EngineDocument {
         if (!r.success) return invalid.push({ index, message: r.error.issues[0]?.message ?? 'invalid field' });
         if (seen.has(r.data.id)) return invalid.push({ index, message: `duplicate field id "${r.data.id}"` });
         seen.add(r.data.id);
-        fields.push(toEngineField(r.data));
+        fields.push(toEngineField(r.data, language));
     });
     return { storedVersion: base.schemaVersion ?? 1, fields, runtime: runtimeOf(base.runtime), invalid };
 }

@@ -4,7 +4,7 @@
  * API changes this file only. The engine sits below the platform's slices, so it declares the wire types here instead of
  * importing `@itrms/forms/contracts` (the API's OpenAPI contract is their source).
  */
-import type { FormSubmission, FormTemplate, PublishedForm } from '@itrms/schemas';
+import { formTextIn, type FormSubmission, type FormTemplate, type PublishedForm } from '@itrms/schemas';
 import type {
     FieldKind,
     FilterGroup,
@@ -74,13 +74,13 @@ export interface WireSubmission {
 }
 
 /** The language the screens are shown in (the root layout sets it). */
-export const pageLanguage = (): string => (typeof document !== 'undefined' && document.documentElement.lang) || 'en';
+export const pageLanguage = (): string => (typeof document !== 'undefined' && document.documentElement.lang) || 'am';
 
-/** A data name in the page's language, then English, then any. */
+/** A data name in the page's language, then Amharic, then English, then any. */
 export const textOf = (text: I18nText | null | undefined, language = pageLanguage()): string =>
-    text ? (text[language] ?? text.en ?? Object.values(text)[0] ?? '') : '';
+    formTextIn(text, language) ?? '';
 
-/** An I18nText of one string (the builder edits one name until it has a translation table, task 0.17). */
+/** An I18nText of one string, for a caller that has one name only (the same in Amharic and English). */
 export const textAll = (value: string): I18nText => ({ am: value, en: value });
 
 /** A form key from a name: lower-case letters and digits joined by hyphens. */
@@ -120,14 +120,22 @@ export function templateOf(form: WireForm): FormTemplate {
 }
 
 /**
- * What a form's change sends: the fields the builder and the settings may change. A new name replaces the page
- * language's only, when the form's other names are known (`names`); the other languages keep theirs.
+ * What a form's change sends: the fields the builder and the settings may change. A caller that edits the names sends
+ * the complete map (`names`; the empty optional languages are dropped); one that has a single `name` sends it as
+ * Amharic and English both.
  */
 export function formChangeOf(data: Partial<FormTemplate>) {
+    const name = data.names
+        ? Object.fromEntries(
+              Object.entries(data.names)
+                  .map(([tag, value]) => [tag, value.trim()] as const)
+                  .filter(([, value]) => value !== '')
+          )
+        : data.name !== undefined
+          ? textAll(data.name)
+          : undefined;
     return {
-        ...(data.name !== undefined
-            ? { name: data.names ? { ...data.names, [pageLanguage()]: data.name } : textAll(data.name) }
-            : {}),
+        ...(name ? { name } : {}),
         ...(data.category !== undefined ? { category: data.category || null } : {}),
         ...(data.is_active !== undefined ? { active: data.is_active } : {}),
         ...(data.form_config !== undefined
