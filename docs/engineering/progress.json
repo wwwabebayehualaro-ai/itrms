@@ -616,12 +616,12 @@
         {
           "id": "0.17b",
           "title": "Form engine for ITRMS, part 1b: conditional rules and the Ethiopian date",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.17b-rules-ethdate",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Design (architect): requiredWhen {expression} and validWhen [{expression, message: FormText}] in behavior.validation, bare formulas (≤500 chars, ≤10 checks) evaluated in core with the computed fields' scope (form/row/root/user), validation over pruned values so browser and server agree; a formula error never blocks at run time and is refused at save (checkRuleFormula: known functions, portable references only); days(a,b) added for date comparisons. EthDate on the Ethiopian picker, stored ISO Gregorian (strict check), min/max as ISO dates; exports give the Ethiopian date as the field's column with the ISO date beside it (decided); the viewer shows Ethiopian dates. Server: a basic type check per kit type for every value field (core kinds.ts), and the recompute of read-only computed fields as a fixpoint (rows see the settled root, totals see settled rows)."
         },
         {
           "id": "0.17c",
@@ -2010,6 +2010,16 @@
       "foundIn": "0.17a",
       "item": "Plain-string texts count as the language of whoever opens the form (the builder's authoring language): consider storing the authoring language with the form, so the untranslated count is the same for everyone",
       "movedTo": "0.17c"
+    },
+    {
+      "foundIn": "0.17b",
+      "item": "today() in rule formulas (browser and server may disagree around midnight: needs the server's date passed to the browser)",
+      "movedTo": "0.18a"
+    },
+    {
+      "foundIn": "0.17b",
+      "item": "EthDate in the data viewer's date buckets (pivot, calendar view, drill-down) stays Gregorian: Ethiopian months and years",
+      "movedTo": "0.25"
     }
   ]
 }

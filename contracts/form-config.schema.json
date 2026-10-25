@@ -267,6 +267,48 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "requiredWhen": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "expression": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "expression"
+                                ],
+                                "additionalProperties": {}
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "validWhen": {
+                            "anyOf": [
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "expression": {
+                                      "type": "string"
+                                    },
+                                    "message": {}
+                                  },
+                                  "required": [
+                                    "expression"
+                                  ],
+                                  "additionalProperties": {}
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "additionalProperties": {}

@@ -180,6 +180,18 @@ const isEmpty = (v: unknown) => v === null || v === undefined || v === '';
 const pluck = (list: unknown, field?: unknown): number[] =>
     (Array.isArray(list) ? list : []).map((row) => (field === undefined ? num(row) : num(getByPath(row, text(field)))));
 
+const DAY_MS = 86_400_000;
+
+/** The day an ISO date ("YYYY-MM-DD") or instant names, as a UTC day number; null when it is not a real date. */
+function isoDay(v: unknown): number | null {
+    const m = typeof v === 'string' ? /^(\d{4})-(\d{2})-(\d{2})(?:$|T)/.exec(v) : null;
+    if (!m) return null;
+    const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+    const t = Date.UTC(y, mo - 1, d);
+    const back = new Date(t);
+    return back.getUTCFullYear() === y && back.getUTCMonth() === mo - 1 && back.getUTCDate() === d ? t / DAY_MS : null;
+}
+
 const FUNCTIONS: Record<string, (args: unknown[]) => unknown> = {
     sum: ([l, f]) => pluck(l, f).reduce((a, b) => a + b, 0),
     avg: ([l, f]) => {
@@ -201,7 +213,13 @@ const FUNCTIONS: Record<string, (args: unknown[]) => unknown> = {
     concat: (a) => a.map(text).join(''),
     upper: ([s]) => text(s).toUpperCase(),
     lower: ([s]) => text(s).toLowerCase(),
-    isEmpty: ([v]) => isEmpty(v) || (Array.isArray(v) && v.length === 0)
+    isEmpty: ([v]) => isEmpty(v) || (Array.isArray(v) && v.length === 0),
+    /** Whole days from a to b (ISO dates or instants; the date part counts); null when either is not a date. */
+    days: ([a, b]) => {
+        const from = isoDay(a);
+        const to = isoDay(b);
+        return from === null || to === null ? null : to - from;
+    }
 };
 
 function run(n: Node, scope: Record<string, unknown>): unknown {
@@ -269,14 +287,64 @@ export function evalFormula(src: string, scope: Record<string, unknown>): unknow
     }
 }
 
-/** Syntax check for the builder: returns an error message or null. */
+/**
+ * A rule's condition (`requiredWhen`, `validWhen`), by the language's own truthiness (null, undefined, '', 0 and false are
+ * false; a list is true). An error in the formula gives `undefined`: the rule is then not applied.
+ */
+export function evalCondition(src: string, scope: Record<string, unknown>): boolean | undefined {
+    try {
+        return truthy(run(compile(src), scope));
+    } catch {
+        return undefined;
+    }
+}
+
+const walk = (n: Node, visit: (n: Node) => void) => {
+    visit(n);
+    if (n.k === 'un') walk(n.a, visit);
+    else if (n.k === 'bin') {
+        walk(n.a, visit);
+        walk(n.b, visit);
+    } else if (n.k === 'cond') {
+        walk(n.c, visit);
+        walk(n.a, visit);
+        walk(n.b, visit);
+    } else if (n.k === 'call') n.args.forEach((a) => walk(a, visit));
+};
+
+/** Syntax check for the builder: returns an error message or null. Unknown function names are refused too. */
 export function checkFormula(src: string): string | null {
     try {
-        compile(src);
-        return null;
+        const unknown: string[] = [];
+        walk(compile(src), (n) => {
+            if (n.k === 'call' && !Object.hasOwn(FUNCTIONS, n.fn)) unknown.push(n.fn);
+        });
+        return unknown[0] === undefined ? null : `Unknown function "${unknown[0]}"`;
     } catch (e) {
         return e instanceof FormulaError ? e.message : 'Invalid formula';
     }
+}
+
+/**
+ * `checkFormula` for a rule: it may read only what the server also has — `form.*`, `row.*`, `root.*`, `user.id` and
+ * `user.roles` (never data sources, the route or variables).
+ */
+export function checkRuleFormula(src: string): string | null {
+    const problem = checkFormula(src);
+    if (problem) return problem;
+    for (const ref of formulaReferences(src)) {
+        const root = ref.split(/[.[]/)[0] ?? '';
+        const rest = ref.slice(root.length);
+        if (root === 'form' || root === 'row' || root === 'root') {
+            if (rest === '') return `"${ref}" needs a field: write ${root}.<field>`;
+        } else if (root === 'user') {
+            if (!/^\.(id|roles)(?![A-Za-z0-9_-])/.test(rest))
+                return `Rules may read only user.id and user.roles, not "${ref}"`;
+        } else if (root === 'data') return 'Data sources are not available to rules';
+        else if (root === 'route' || root === 'variables') return `"${root}" is not available to rules`;
+        else return `"${ref}" is not a known name: write form.${ref} to read a field`;
+    }
+    return null;
 }
 
 /** Data references used by a formula (for dependency tracking); function names are not references. */

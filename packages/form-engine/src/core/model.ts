@@ -23,6 +23,7 @@ import {
     type VisibilityCondition
 } from '@itrms/schemas';
 
+import { evalCondition } from './runtime/formula';
 import { str } from './runtime/path';
 
 export interface FieldOption {
@@ -52,6 +53,10 @@ export interface FieldRules {
     accept?: string;
     minItems: number;
     maxItems: number;
+    /** A formula (no `{{= }}`): the field is also required while it holds. Uses the `required` message. */
+    requiredWhen?: string;
+    /** Formulas that must all hold for a filled value; the first one that fails gives its message. */
+    validWhen: { expression: string; message?: string }[];
 }
 
 export interface EngineField {
@@ -189,7 +194,14 @@ export function toEngineField(stored: StoredField, language: string = DEFAULT_TE
             maxFileSize: num(props.maxFileSize),
             accept: typeof props.accept === 'string' && props.accept ? props.accept : undefined,
             minItems: minItems !== undefined ? Math.max(0, minItems) : 0,
-            maxItems: maxItems !== undefined && maxItems > 0 ? maxItems : Infinity
+            maxItems: maxItems !== undefined && maxItems > 0 ? maxItems : Infinity,
+            requiredWhen: v?.requiredWhen?.expression || undefined,
+            validWhen: (v?.validWhen ?? [])
+                .filter((rule) => rule.expression)
+                .map((rule) => ({
+                    expression: rule.expression,
+                    message: formTextIn(rule.message, language) || undefined
+                }))
         },
         messages: messagesIn(v?.errorMessages, language),
         visibleWhen: stored.behavior?.visibilityConditions ?? [],
@@ -259,4 +271,20 @@ export function rowScopedIds(fields: EngineField[]): Set<string> {
         });
     fields.filter(isFormArray).forEach((a) => visit(a.id));
     return out;
+}
+
+/**
+ * Whether a field is required now: always when the author set Required, or while its `requiredWhen` formula holds. The
+ * formula reads like a computed field's: `form` and `row` are the values of `current` (the form, or the row the field is
+ * in), `root` the whole form, plus `user`. A formula that fails to run does not make the field required.
+ */
+export function isRequiredIn(
+    f: EngineField,
+    current: Record<string, unknown>,
+    root: Record<string, unknown>,
+    scope: Record<string, unknown> = {}
+): boolean {
+    if (f.rules.required) return true;
+    const when = f.rules.requiredWhen;
+    return when ? evalCondition(when, { ...scope, form: current, row: current, root }) === true : false;
 }

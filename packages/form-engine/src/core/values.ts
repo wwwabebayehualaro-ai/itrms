@@ -157,10 +157,17 @@ export function knownValues(fields: EngineField[], values: Record<string, unknow
 /** Roots a computed field may read wherever the form is checked: the server has no data sources, route or variables. */
 const PORTABLE_ROOTS = new Set(['form', 'row', 'root', 'user']);
 
+/** The most passes `settledValues` makes over computed fields that read each other (more than that is a cycle). */
+const MAX_SETTLE_PASSES = 10;
+
 /**
  * What a person could not have typed is the form's, not theirs, wherever the values come from (a browser, or a direct API
  * call): a read-only computed field gets its computed value (when its expression reads only the form, its rows and the
  * user), and a disabled field its default. Rules are evaluated against each row like the other passes.
+ *
+ * A computed field may read another computed field, in a row or at the top level (`root.total` over the rows' line totals):
+ * the pass runs in stored order against the values settled so far, and repeats until nothing changes. A loop of fields that
+ * read each other never settles, so the passes are capped (the number of computed fields, at most 10, and one more).
  */
 export function settledValues(
     fields: EngineField[],
@@ -168,27 +175,47 @@ export function settledValues(
     scope: Scope = {}
 ): Record<string, unknown> {
     const byId = new Map(fields.map((f) => [f.id, f]));
-    const settle = (parentId: string | null, current: Record<string, unknown>, root: Record<string, unknown>) => {
-        const out = { ...current };
-        const ctx = { ...scope, root };
-        for (const f of scopeFields(fields, parentId)) {
-            if (!holdsValue(f)) continue;
-            const expression = f.computed?.readOnly ? f.computed.expression : undefined;
-            if (expression && [...bindingRoots(expression)].every((r) => PORTABLE_ROOTS.has(r))) {
-                const v = resolveString(expression, { ...scope, form: current, row: current, root });
-                if (v === undefined) delete out[f.id];
-                else out[f.id] = v;
-            } else if (!isEnabledIn(f, byId, current, ctx, parentId)) {
-                const v = initialValueOf(f, fields);
-                if (v === undefined) delete out[f.id];
-                else out[f.id] = v;
-            } else if (isFormArray(f) && Array.isArray(out[f.id])) {
-                out[f.id] = (out[f.id] as Record<string, unknown>[]).map((row) => settle(f.id, row ?? {}, root));
+    const portable = (f: EngineField) =>
+        holdsValue(f) &&
+        f.computed?.readOnly &&
+        f.computed.expression &&
+        [...bindingRoots(f.computed.expression)].every((r) => PORTABLE_ROOTS.has(r));
+
+    const pass = (input: Record<string, unknown>) => {
+        const top = { ...input };
+        const settle = (parentId: string | null, current: Record<string, unknown>) => {
+            const ctx = { ...scope, root: top };
+            for (const f of scopeFields(fields, parentId)) {
+                if (!holdsValue(f)) continue;
+                const expression = portable(f) ? f.computed?.expression : undefined;
+                if (expression) {
+                    const v = resolveString(expression, { ...scope, form: current, row: current, root: top });
+                    if (v === undefined) delete current[f.id];
+                    else current[f.id] = v;
+                } else if (!isEnabledIn(f, byId, current, ctx, parentId)) {
+                    const v = initialValueOf(f, fields);
+                    if (v === undefined) delete current[f.id];
+                    else current[f.id] = v;
+                } else if (isFormArray(f) && Array.isArray(current[f.id])) {
+                    current[f.id] = (current[f.id] as Record<string, unknown>[]).map((row) =>
+                        settle(f.id, { ...(row ?? {}) })
+                    );
+                }
             }
-        }
-        return out;
+            return current;
+        };
+        return settle(null, top);
     };
-    return settle(null, values, values);
+
+    const passes = Math.min(fields.filter(portable).length, MAX_SETTLE_PASSES) + 1;
+    let out = values;
+    for (let i = 0; i < passes; i++) {
+        const next = pass(out);
+        const same = JSON.stringify(next) === JSON.stringify(out);
+        out = next;
+        if (same) break;
+    }
+    return out;
 }
 
 /**

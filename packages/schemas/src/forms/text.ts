@@ -151,5 +151,17 @@ export function fieldTexts(field: unknown): FieldText[] {
     const remote = obj(validation?.remote)?.message;
     if (remote !== undefined && remote !== null)
         texts.push({ path: 'behavior.validation.remote.message', kind: 'message', ref: 'remote', value: remote });
+    const validWhen = validation?.validWhen;
+    if (Array.isArray(validWhen))
+        validWhen.forEach((rule, i) => {
+            const message = obj(rule)?.message;
+            if (message !== undefined && message !== null)
+                texts.push({
+                    path: `behavior.validation.validWhen.${i}.message`,
+                    kind: 'message',
+                    ref: `validWhen.${i + 1}`,
+                    value: message
+                });
+        });
     return texts;
 }
