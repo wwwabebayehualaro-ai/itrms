@@ -57,6 +57,10 @@ export interface FormField {
             errorMessages?: Record<string, FormText>;
             /** Valid only when this data source's lookup (which reads the field) succeeded; its error is the field's message. */
             remote?: { dataSourceId: string; message?: FormText };
+            /** Required only while this formula holds (task 0.17b). */
+            requiredWhen?: { expression: string };
+            /** Formulas that must hold, each with its message (task 0.17b). */
+            validWhen?: { expression: string; message?: FormText }[];
             [key: string]: unknown;
         };
         visibilityConditions?: VisibilityCondition[];

@@ -12,6 +12,7 @@ import type { Draft } from 'immer';
 import {
     Badge,
     Button,
+    EthiopianDatePicker,
     Combobox,
     DatePicker,
     Field,
@@ -38,7 +39,7 @@ import {
 } from '@itrms/ui';
 import { formTextIn, ownText, type FormField } from '@itrms/schemas';
 import { KEY_PATTERN } from './fieldKeys';
-import { checkFormula } from '../core/runtime/formula';
+import { checkFormula, checkRuleFormula } from '../core/runtime/formula';
 import type { FieldOptionsBinding, TableColumn } from '@itrms/schemas';
 import { holdsValue, parseDate, storedFieldSchema, toEngineField, type EngineField, type StoredField } from '../core';
 import { getFieldType, type DesignMeta } from '../renderer/kit';
@@ -481,6 +482,18 @@ function RowsTab({ stored, field }: { stored: FormField; field: EngineField }) {
     );
 }
 
+/** The most checks a field holds (the document contract's limit). */
+const MAX_CHECKS = 10;
+/** The Ethiopian picker's labels in the builder until the engine's own text is in the catalogues (task 0.17c). */
+const ETH_LABELS = {
+    placeholder: 'Any day',
+    previousMonth: 'Previous month',
+    nextMonth: 'Next month',
+    clear: 'Clear',
+    month: 'Month',
+    year: 'Year'
+};
+
 function RulesTab({ stored, field, design }: { stored: FormField; field: EngineField; design?: DesignMeta }) {
     const { apply, text, language, plainAs } = useFieldEdit(stored.id);
     const rules = design?.rules ?? [];
@@ -495,6 +508,8 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
     const num = (v: unknown) => (typeof v === 'number' ? v : undefined);
     const sources = useGetSources();
     const remote = stored.behavior?.validation?.remote;
+    const requiredWhen = stored.behavior?.validation?.requiredWhen?.expression ?? '';
+    const checks = (stored.behavior?.validation?.validWhen ?? []) as { expression: string; message?: unknown }[];
     return (
         <div className="flex flex-col gap-5">
             {holdsValue(field) && (
@@ -505,7 +520,28 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                         checked={field.rules.required}
                         onChange={(v) => setRule('props.required', v)}
                     />
-                    {field.rules.required && (
+                    {!field.rules.required && (
+                        <Row
+                            id="insp-reqwhen"
+                            label="Required only when"
+                            help="A formula, e.g. form.grade >= 3 (in a repeated row, row.* is that row). Leave empty: never."
+                            error={requiredWhen ? checkRuleFormula(requiredWhen) : null}
+                        >
+                            <Input
+                                id="insp-reqwhen"
+                                className="font-mono text-xs"
+                                value={requiredWhen}
+                                onChange={(e) =>
+                                    setRule(
+                                        'behavior.validation.requiredWhen',
+                                        e.target.value ? { expression: e.target.value } : undefined
+                                    )
+                                }
+                                placeholder="form.grade >= 3"
+                            />
+                        </Row>
+                    )}
+                    {(field.rules.required || !!requiredWhen) && (
                         <Row id="insp-reqmsg" label="Message when empty">
                             <LangInput
                                 id="insp-reqmsg"
@@ -516,6 +552,64 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                                 onText={(v) => text('behavior.validation.errorMessages.required', v, true)}
                             />
                         </Row>
+                    )}
+                </Section>
+            )}
+            {holdsValue(field) && (
+                <Section title="Must hold">
+                    {checks.map((check, i) => (
+                        <div key={i} className="flex flex-col gap-2 rounded-md border p-2" data-check={i}>
+                            <Row
+                                id={`insp-check-${i}`}
+                                label={`Check ${i + 1}`}
+                                help="A formula that must be true, e.g. days(form.issued, form.expires) > 0. Not checked while the field is empty."
+                                error={check.expression ? checkRuleFormula(check.expression) : null}
+                            >
+                                <Input
+                                    id={`insp-check-${i}`}
+                                    className="font-mono text-xs"
+                                    value={check.expression}
+                                    onChange={(e) =>
+                                        setRule(`behavior.validation.validWhen.${i}.expression`, e.target.value)
+                                    }
+                                />
+                            </Row>
+                            <Row id={`insp-check-msg-${i}`} label="Message when it does not hold">
+                                <LangInput
+                                    id={`insp-check-msg-${i}`}
+                                    text={check.message}
+                                    language={language}
+                                    plainAs={plainAs}
+                                    placeholder="This value is not valid"
+                                    onText={(v) => text(`behavior.validation.validWhen.${i}.message`, v, true)}
+                                />
+                            </Row>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="self-start"
+                                onClick={() =>
+                                    setRule(
+                                        'behavior.validation.validWhen',
+                                        checks.length > 1 ? checks.filter((_, j) => j !== i) : undefined
+                                    )
+                                }
+                            >
+                                Remove check {i + 1}
+                            </Button>
+                        </div>
+                    ))}
+                    {checks.length < MAX_CHECKS && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="self-start"
+                            onClick={() => setRule('behavior.validation.validWhen', [...checks, { expression: '' }])}
+                        >
+                            Add a check
+                        </Button>
                     )}
                 </Section>
             )}
@@ -644,6 +738,26 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                             value={parseDate(stored.props?.maxDate)}
                             onChange={(d) => setRule('props.maxDate', d ? day(d) : undefined)}
                             placeholder="Any day"
+                            aria-label="Not after"
+                        />
+                    </Row>
+                </Section>
+            )}
+            {rules.includes('ethDates') && (
+                <Section title="Dates">
+                    <Row label="Not before">
+                        <EthiopianDatePicker
+                            value={typeof stored.props?.minDate === 'string' ? stored.props.minDate : null}
+                            onChange={(v) => setRule('props.minDate', v ?? undefined)}
+                            labels={ETH_LABELS}
+                            aria-label="Not before"
+                        />
+                    </Row>
+                    <Row label="Not after">
+                        <EthiopianDatePicker
+                            value={typeof stored.props?.maxDate === 'string' ? stored.props.maxDate : null}
+                            onChange={(v) => setRule('props.maxDate', v ?? undefined)}
+                            labels={ETH_LABELS}
                             aria-label="Not after"
                         />
                     </Row>
