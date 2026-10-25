@@ -5,11 +5,11 @@ Department, for the answers the design needs (forms, fees, approval chains, the 
 
 | File | What it is |
 |---|---|
-| `ITRMS-business-questions-am.docx` / `.pdf` | Version 2.0 (ጥቅምት 15 ቀን 2019 ዓ.ም.): the official submission in answer to the department's letter ref. ወዞትመልመ/117 of 09/02/2019 E.C., on the company's letterhead. A cover letter, then 24 questions: 1–10 from version 1.0 (the driving-licence demo; its questions on the Wolaytta translation and on internet, computers and power were left out) and 11–24 for the other services and stakeholders the letter lists (vehicle registration, bolo, driving schools, public and freight transport, road safety, road construction, maintenance, design and contracts, stakeholder integration, phases, data migration, users, reports, legal approvals), with annexes for the org units, forms, stakeholder exchanges and service priorities. No woreda or town is named as a demo site. |
+| `ITRMS-business-questions-am.docx` / `.pdf` | Version 1.0 (ጥቅምት 15 ቀን 2019 ዓ.ም.), the first official submission: the answer to the department's letter ref. ወዞትመልመ/117 of 09/02/2019 E.C., on the company's letterhead. A cover letter, then 23 questions: 1–10 on the general working, fees and the driving-licence demo, 11–23 on the other services and stakeholders the letter lists (vehicle registration, bolo, driving schools, public and freight transport, road safety, road construction, maintenance, design and contracts, stakeholder integration, phases, data migration, reports, legal approvals), with annexes for the org units, forms, stakeholder exchanges and service priorities. No woreda or town is named as a demo site. |
 | `build/questions-am.cjs` | The generator of the .docx (the content lives in it). Questions are numbered by their place, so removing one renumbers every reference (`{Q13}` tokens). |
 | `build/assets/` | The letterhead (title page and cover letter) and the logo mark (the other pages' header). |
 
-Version 1.0 (ጥቅምት 8 ቀን 2019 ዓ.ም., 12 questions) is in git history.
+Earlier internal drafts (a 12-question discovery guide) are in git history; they were never sent.
 
 ## Rebuilding
 
