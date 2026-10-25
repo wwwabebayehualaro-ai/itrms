@@ -12,6 +12,7 @@ export * from './forms/stored';
 export * from './forms/schema';
 export * from './forms/contract';
 export * from './forms/dto';
+export * from './forms/text';
 export * from './i18n';
 export * from './problem';
 export * from './search';

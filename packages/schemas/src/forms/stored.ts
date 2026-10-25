@@ -5,6 +5,7 @@
  */
 import type { VisibilityCondition } from './conditions';
 import type { FieldOptionsBinding, FieldRowsBinding } from './runtime';
+import type { FormText } from './text';
 
 /** Something a field does on an event (see the form engine's renderer/actions.ts). */
 export type Action = {
@@ -23,7 +24,8 @@ export interface FormField {
     id: string;
     /** Stable type name, looked up in the field kit. */
     type: string;
-    label?: string;
+    /** One text for every language, or a map by language (forms/text.ts). */
+    label?: FormText;
     /** `Input` (holds a value), `Layout` (a container), `Data` (shows data). */
     category?: string;
     /** The container it sits in (none: the top level). */
@@ -52,9 +54,9 @@ export interface FormField {
                 patternMessage?: string;
                 [key: string]: unknown;
             };
-            errorMessages?: Record<string, string>;
+            errorMessages?: Record<string, FormText>;
             /** Valid only when this data source's lookup (which reads the field) succeeded; its error is the field's message. */
-            remote?: { dataSourceId: string; message?: string };
+            remote?: { dataSourceId: string; message?: FormText };
             [key: string]: unknown;
         };
         visibilityConditions?: VisibilityCondition[];

@@ -6,6 +6,8 @@
  */
 import { z } from 'zod';
 
+import { fieldTexts, formTextSchema } from './text';
+
 import { SCHEMA_VERSION, storedFieldSchema } from './schema';
 
 /** Limits of one form (the backend refuses bigger ones). */
@@ -26,10 +28,25 @@ export function formConfigSchema(types: string[]) {
             schemaVersion: z.number().int().min(1).max(SCHEMA_VERSION).optional(),
             fields: z
                 .array(
-                    storedFieldSchema.extend({
-                        id: z.string().min(1).max(200),
-                        type: z.enum(types as [string, ...string[]])
-                    })
+                    storedFieldSchema
+                        .extend({
+                            id: z.string().min(1).max(200),
+                            type: z.enum(types as [string, ...string[]])
+                        })
+                        // every text a plain string or a map of language tags to strings (forms/text.ts)
+                        .superRefine((field, ctx) => {
+                            for (const text of fieldTexts(field)) {
+                                if (text.value === undefined || text.value === null) continue;
+                                const checked = formTextSchema.safeParse(text.value);
+                                if (!checked.success)
+                                    for (const issue of checked.error.issues)
+                                        ctx.addIssue({
+                                            code: 'custom',
+                                            path: [...text.path.split('.'), ...issue.path.map(String)],
+                                            message: issue.message
+                                        });
+                            }
+                        })
                 )
                 .max(MAX_FIELDS),
             runtime: z
