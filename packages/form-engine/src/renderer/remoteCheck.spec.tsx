@@ -15,7 +15,7 @@ import { REMOTE_PENDING, readDocument, validateForm } from '../core';
 import { EngineForm } from './EngineForm';
 import { hostRenderer, requestError } from '../test-utils';
 
-const ALL = ['submission:update', 'submission:delete', 'submission:export', 'template:update', 'view:create'];
+const ALL = ['form:create', 'form:update', 'form:publish', 'submission:create', 'submission:read', 'submission:export'];
 const renderWithQuery = hostRenderer({
     client,
     user: {

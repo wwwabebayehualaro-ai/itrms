@@ -19,5 +19,5 @@ Logins (the password you seeded, also passed as `E2E_PASSWORD`): `admin@acme-cor
 1. **Manage Templates**: the forms (Equipment Request, Expense Report, Leave Request). Open one in the builder: palette, canvas, settings panel (Field, Settings, Options, Rules, Logic), Data sources, Preview, undo/redo.
 2. Sidebar, **Equipment Request**: the hand-built **Report** view (names not ids, currency, tags, files, search, Export CSV).
    **View** opens the request as the form, read-only (repeatable item rows, computed totals). **Edit** and **New request** (computed totals; "Why is it urgent?" appears for Urgent).
-3. **Expense Report** and **Leave Request**: no table was built for them; the **data viewer** works out from the fields what can be shown: Table, Cards, Board, Calendar (Leave Request), Pivot, Dashboard, filters, saved views, CSV export. A request opens as a page (form as filled in, history). See `../data-viewer/README.md`.
+3. **Expense Report** and **Leave Request**: no table was built for them; the **data viewer** works out from the fields what can be shown: Table, Cards, Board, Calendar (Leave Request), Pivot, Dashboard, filters, saved views, CSV export. A request opens as a page (form as filled in, history). The journey: `tests/e2e/forms/data-viewer.spec.ts`.
 4. As admin, **Delete** a row (only admin can). The table refreshes without a reload.

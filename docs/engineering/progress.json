@@ -576,12 +576,20 @@
         {
           "id": "0.16f",
           "title": "Engine e2e journeys on the forms API in CI",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.16f-engine-e2e-ci",
+          "commits": [
+            "e478732"
+          ],
+          "evidence": [
+            "PR #8 CI (head e478732) → all 9 jobs pass; e2e job: every journey passed (9)",
+            "local: npx playwright test (apps/web) against the dev stack → 9 passed",
+            "journeys: tests/e2e/forms builder-publish, fill-form, multi-row, data-viewer (6 modes, pivot drill-down, filter builder + link, sort, private saved view, record page, export)",
+            "form-engine vitest → 90 passed; web tsc + eslint (incl. tests/e2e) clean",
+            "task-verifier → ready with caveats; the dropped data-viewer coverage was ported, board moves recorded for 0.19, shared views for 0.20"
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "Journeys rewritten for the BFF sign-in and the forms API (apps/web/tests/e2e/forms): builder + maker-checker publishing, filling in, repeating rows with formulas, the data viewer's six modes and export. Each journey makes its own forms through the API from a signed-in page (CSRF header, Origin, Idempotency-Key, If-Match) as demo.zone.admin (writes), demo.zone.head (approves) and demo.damot.records (fills in), and switches them off afterwards; no demo seed needed. CI job e2e starts the dev stack, migrates and seeds the reference design, starts the worker, and runs the whole suite (9 journeys, also sign-in, shell, i18n, registry). ci:local has no e2e job (as perf): GitHub Actions runs it. Found and fixed: the BFF needs an Origin header on a change; a switched-off (deleted) form stayed in the gallery and the dashboard's forms (the list now asks for active forms). CI on PR #8 (head 4eea9e1): all 9 jobs pass; the e2e job ran 9 journeys, 9 passed (2.6m). Waiting for the task-verifier before in review. Task-verifier: the data viewer journey was thinner than the legacy scripts. Ported into it: pivot drill-down, the filter builder with the link and a reload keeping it, server sort on a column, a private saved view reopened from ?v=, the record page (read-only form, history, Back keeps the view). That found the saved-views menu checking legacy permission names (view:create, template:update): nobody could save or share a view; it now checks submission:read and submission-view:share. Phase entry's Do/Tests updated (reference design seeded, tests in tests/e2e/forms)."
         },
         {
           "id": "0.17",
@@ -1935,6 +1943,26 @@
       "foundIn": "0.16c",
       "item": "Typed message keys for useText().t (a typo fails typecheck), and the engine's own UI text (designer, viewer: 'Filterable', 'Only for roles', …) is English outside the catalogues",
       "movedTo": "0.17"
+    },
+    {
+      "foundIn": "0.16f",
+      "item": "Legacy journeys smoke and feature-flags, and scripts/e2e (demo seed, legacy templates), still use the legacy backend's sign-in and routes",
+      "movedTo": "0.26"
+    },
+    {
+      "foundIn": "0.16f",
+      "item": "Generated demo forms for the demo journey (a Wolaita transport bureau's forms in am/en) seeded through the forms API",
+      "movedTo": "0.25"
+    },
+    {
+      "foundIn": "0.16f",
+      "item": "Board moves (menu and drag) and editing a request from its page in the e2e journeys, once a filed request changes through its case's workflow",
+      "movedTo": "0.19"
+    },
+    {
+      "foundIn": "0.16f",
+      "item": "A shared and default saved view in the browser journeys (the API's forms-views integration tests cover sharing and defaults)",
+      "movedTo": "0.20"
     }
   ]
 }

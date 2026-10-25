@@ -39,8 +39,9 @@ interface Props {
 export function ViewsMenu({ templateId, state, defaultMode, patch }: Props) {
     const [open, setOpen] = useState(false);
     const notify = useNotify();
-    const canShare = useCan('template:update');
-    const canCreate = useCan('view:create');
+    // the forms API's rights: whoever reads the data keeps views of it; sharing one with the office is a right of its own
+    const canShare = useCan('submission-view:share');
+    const canCreate = useCan('submission:read');
     const { data: views = [] } = useSavedViews(templateId);
     const { create, update, remove } = useSavedViewMutations();
     const [saving, setSaving] = useState(false);

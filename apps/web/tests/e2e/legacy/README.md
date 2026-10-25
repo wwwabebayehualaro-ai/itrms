@@ -1,6 +1,9 @@
-# Legacy engine journeys (not run)
+# Legacy journeys (not run)
 
-These specs drove the Digital File Cabinet engine against the legacy FastAPI backend, signing in with its password
-form. Task 0.10a replaced that sign-in with the BFF (Keycloak, an HttpOnly session cookie, no token in the browser), so
-they no longer run: `playwright.config.ts` ignores this folder. They come back, rewritten for the BFF sign-in, when the
-engine runs against NestJS (phase-0 task "legacy engine e2e journeys pass against NestJS").
+What is left of the Digital File Cabinet journeys, which signed in with the legacy FastAPI backend's password form:
+`smoke.spec.ts` and `feature-flags.spec.ts` visit the legacy platform screens (feature flags, document numbers) that
+still call the legacy backend. `playwright.config.ts` ignores this folder; they go when those screens move to the API
+(task 0.26).
+
+The form engine's journeys (builder, publishing, filling in, repeating rows, the data viewer's modes) were rewritten for
+the BFF sign-in and the forms API in task 0.16f: `../forms/`.

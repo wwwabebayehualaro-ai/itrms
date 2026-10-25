@@ -35,8 +35,12 @@ export const templateListOptions = (client: FormsClient) =>
     queryOptions({
         queryKey: templateKeys.list(),
         queryFn: async ({ signal }) =>
+            // a deleted form is switched off: it leaves the lists (its submissions keep naming it)
             (
-                await client.get<{ items: WireForm[] }>(FORMS_API.forms, { params: { limit: LIST_LIMIT }, signal })
+                await client.get<{ items: WireForm[] }>(FORMS_API.forms, {
+                    params: { limit: LIST_LIMIT, active: 'true' },
+                    signal
+                })
             ).data.items.map(templateOf),
         placeholderData: keepPreviousData
     });

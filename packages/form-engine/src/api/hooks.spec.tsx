@@ -54,7 +54,10 @@ describe('the engine’s hooks on the forms API', () => {
         const { wrapper } = setup();
         const { result } = renderHook(() => useTemplateList(), { wrapper });
         await waitFor(() => expect(result.current.data).toBeDefined());
-        expect(client.get).toHaveBeenCalledWith('v1/forms', expect.objectContaining({ params: { limit: 100 } }));
+        expect(client.get).toHaveBeenCalledWith(
+            'v1/forms',
+            expect.objectContaining({ params: { limit: 100, active: 'true' } })
+        );
         expect(result.current.data?.[0]).toMatchObject({ id: FORM_ID, slug: 'trip-request', status: 'published' });
     });
 
