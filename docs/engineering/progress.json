@@ -532,12 +532,12 @@
         {
           "id": "0.16e",
           "title": "Background exports and server-generated files",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.16e-background-exports",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Kernel: files gain origin (upload | generated); a generated file may be CSV, XLSX or PDF (uploads keep their four checked types), is stored at once under files/<region>/<id> with its SHA-256 computed by the server (storeGeneratedFile: the object first, then the row; a refused row deletes the object), and the purge removes it like any unlinked file once keepUntil passes. ObjectStore gains put (S3ObjectStore: PutObjectCommand). Forms: forms.submission_exports (class T at the requester's unit, audited); POST /submission-exports (202) emits submission-export.requested.v1; the worker's handler runs the export on the app's pool under RLS with the requester's context and their roles at request time (never the system pool's sight), up to 100 000 rows and 120 s; a refusal they can act on fails the job with its reason, anything else is retried by the relay; only the requester follows and downloads it (others: 404), the download a short presigned link with file.downloaded and submissions.export_downloaded on record; an expired file shows the job as expired."
         },
         {
           "id": "0.16c",
@@ -1835,6 +1835,21 @@
       "foundIn": "0.16d",
       "item": "Rate limits on exports per person and per installation (SEC-AP-2); 0.16d only caps concurrent renders per process (2, then 429)",
       "movedTo": "0.26"
+    },
+    {
+      "foundIn": "0.16e",
+      "item": "A background export is rendered in the worker's memory (up to 100 000 rows): stream it to the object store as a multipart upload, and give the worker's export jobs their own queue and concurrency",
+      "movedTo": "0.26"
+    },
+    {
+      "foundIn": "0.16e",
+      "item": "Tell the requester when a background export is ready (an in-app notification)",
+      "movedTo": "0.20"
+    },
+    {
+      "foundIn": "0.16e",
+      "item": "How long exports are kept (7 days) and the background limit (100 000 rows) as region settings",
+      "movedTo": "0.21"
     }
   ]
 }

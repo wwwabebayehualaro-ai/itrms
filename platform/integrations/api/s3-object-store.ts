@@ -20,6 +20,7 @@ import {
     ListMultipartUploadsCommand,
     ListObjectsV2Command,
     ListPartsCommand,
+    PutObjectCommand,
     S3Client,
     UploadPartCommand
 } from '@aws-sdk/client-s3';
@@ -249,6 +250,18 @@ export class S3ObjectStore implements ObjectStore {
                 CopySource: `${this.bucket}/${from.split('/').map(encodeURIComponent).join('/')}`,
                 ContentType: contentType,
                 MetadataDirective: 'REPLACE'
+            })
+        );
+    }
+
+    async put(o: { key: string; body: Uint8Array; contentType: string }): Promise<void> {
+        await this.s3.send(
+            new PutObjectCommand({
+                Bucket: this.bucket,
+                Key: o.key,
+                Body: o.body,
+                ContentType: o.contentType,
+                ContentLength: o.body.byteLength
             })
         );
     }

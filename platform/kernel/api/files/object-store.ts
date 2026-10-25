@@ -65,6 +65,8 @@ export interface ObjectStore {
     /** The SHA-256 of the whole object, hex, streamed. */
     sha256(key: string): Promise<string>;
     copy(from: string, to: string, contentType: string): Promise<void>;
+    /** Stores bytes the server made (never a person's upload: those come through presigned URLs). */
+    put(o: { key: string; body: Uint8Array; contentType: string }): Promise<void>;
     delete(key: string): Promise<void>;
     /** Multipart uploads begun under a prefix and never completed. */
     listMultipart(prefix: string): Promise<PendingMultipart[]>;
@@ -85,6 +87,7 @@ export const NO_OBJECT_STORE: ObjectStore = {
     readRange: none,
     sha256: none,
     copy: none,
+    put: none,
     delete: none,
     listMultipart: none,
     listObjects: none

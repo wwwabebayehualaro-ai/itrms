@@ -14,6 +14,7 @@ import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { createHttpApp, createLogger, KernelModule, loadSlices } from '@itrms/kernel/api';
 import { loadConfig } from '@itrms/kernel/config';
 import { createDatabase, type Database } from '@itrms/kernel/db';
+import type { ObjectStore } from '@itrms/kernel/files';
 import { rolePermissions } from '@itrms/kernel/iam';
 import { findUnitByCode, importOrg, orgUnits, parseOrgYaml, type OrgUnit } from '@itrms/kernel/org';
 import { importUsers, userImportSchema } from '@itrms/kernel/seed';
@@ -61,7 +62,11 @@ export interface TestApi {
     close(): Promise<void>;
 }
 
-export async function startApi(pg: TestPostgres, users: TestUser[] = []): Promise<TestApi> {
+export async function startApi(
+    pg: TestPostgres,
+    users: TestUser[] = [],
+    options: { objectStore?: ObjectStore } = {}
+): Promise<TestApi> {
     const installer = createDatabase(pg.url('owner'));
     const owner = new Client({ connectionString: pg.url('owner') });
     await owner.connect();
@@ -122,6 +127,7 @@ export async function startApi(pg: TestPostgres, users: TestUser[] = []): Promis
                 imports: [
                     KernelModule.forRoot(config, logger, {
                         database: app,
+                        objectStore: options.objectStore,
                         identity: { issuer: ISSUER, audience: AUDIENCE, keys: createLocalJWKSet({ keys: [jwk] }) },
                         roles: rolePermissions(installed.manifests),
                         shell: { manifests: installed.manifests, messages: installed.messages }

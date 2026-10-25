@@ -55,6 +55,13 @@ const unsafeInName = (c: string) => {
 
 /** The kinds of file accepted: scans and photos of documents. */
 export const ACCEPTED_FILE_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'] as const;
+/** What the server itself makes and stores (task 0.16e): exports, and the documents of task 0.23. Never uploaded. */
+export const GENERATED_FILE_TYPES = {
+    'text/csv': 'csv',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+    'application/pdf': 'pdf'
+} as const;
+export type GeneratedFileType = keyof typeof GENERATED_FILE_TYPES;
 export const MAX_FILE_SIZE = 50 * 1024 * 1024;
 /** Up to this size a file goes in one presigned POST; above it, in parts of PART_SIZE (the last one smaller). */
 export const SINGLE_UPLOAD_LIMIT = 16 * 1024 * 1024;

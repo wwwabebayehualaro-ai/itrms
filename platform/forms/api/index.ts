@@ -6,3 +6,4 @@ export { SubmissionsService } from './submissions.service';
 export { SubmissionQueryService } from './query.service';
 export * from './forms.table';
 export { neutralise, sheetNameOf } from './export';
+export { ExportsService } from './exports.service';

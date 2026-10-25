@@ -13,12 +13,16 @@
  *                extension is the type its bytes showed.
  *   5. purge     the worker removes what expired, and quarantine leftovers (jobs/files-purge.ts).
  */
+import { createHash } from 'node:crypto';
+
 import { and, count, eq, gte, inArray, sql, sum } from 'drizzle-orm';
 
 import {
+    GENERATED_FILE_TYPES,
     PART_SIZE,
     SINGLE_UPLOAD_LIMIT,
     type FileUploadRequest,
+    type GeneratedFileType,
     type StoredFile,
     type UploadTicket
 } from '../../contracts';
@@ -73,8 +77,11 @@ export function partsOf(size: number): { partNumber: number; size: number }[] {
 }
 
 /** The name a download is offered under: the person's name, with the extension of the type the bytes showed. */
-export function downloadName(filename: string, contentType: FileType): string {
-    const extension = FILE_TYPES[contentType].extension;
+export function downloadName(filename: string, contentType: FileType | GeneratedFileType): string {
+    const extension =
+        contentType in FILE_TYPES
+            ? FILE_TYPES[contentType as FileType].extension
+            : GENERATED_FILE_TYPES[contentType as GeneratedFileType];
     const base = filename.replace(/\.[^.]{1,10}$/, '') || 'file';
     return `${base}.${extension}`;
 }
@@ -283,12 +290,50 @@ export async function downloadFile(
     if (row.status !== 'stored') throw new NotFoundError();
     const url = await store.presignGet({
         key: row.objectKey,
-        filename: downloadName(row.filename, row.contentType as FileType),
+        filename: downloadName(row.filename, row.contentType as FileType | GeneratedFileType),
         contentType: row.contentType,
         expiresIn: DOWNLOAD_URL_SECONDS
     });
     await recordEvent(tx, { type: 'file.downloaded', table: files, rowId: id });
     return { url, expiresAt: new Date(Date.now() + DOWNLOAD_URL_SECONDS * 1000).toISOString() };
+}
+
+/**
+ * Stores a file the server made (an export, task 0.16e), in the caller's transaction and unit: the object first, then
+ * its row (`stored` at once, its SHA-256 computed here); a row that cannot be written leaves no object behind. It is kept
+ * until `keepUntil` unless a record links it, then the purge removes it like any unlinked file.
+ */
+export async function storeGeneratedFile(
+    tx: Tx,
+    store: ObjectStore,
+    ctx: DbContext,
+    file: { filename: string; contentType: GeneratedFileType; body: Uint8Array; documentType: string; keepUntil: Date }
+): Promise<StoredFile> {
+    if (!ctx.unitId || !ctx.regionId) throw new ForbiddenError({ detail: 'Choose the office you act for.' });
+    const id = newId();
+    const key = storedKey(ctx.regionId, id);
+    await store.put({ key, body: file.body, contentType: file.contentType });
+    try {
+        const row = await insertAudited(tx, files, {
+            id,
+            regionId: ctx.regionId,
+            unitId: ctx.unitId,
+            origin: 'generated',
+            status: 'stored',
+            filename: file.filename,
+            contentType: file.contentType,
+            size: file.body.byteLength,
+            sha256: createHash('sha256').update(file.body).digest('hex'),
+            objectKey: key,
+            documentType: file.documentType,
+            confirmedAt: new Date(),
+            expiresAt: file.keepUntil
+        });
+        return fileOut(row);
+    } catch (error) {
+        await store.delete(key).catch(() => undefined);
+        throw error;
+    }
 }
 
 /**

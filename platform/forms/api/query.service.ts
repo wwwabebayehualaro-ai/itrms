@@ -73,77 +73,86 @@ export class SubmissionQueryService {
         tx: Tx,
         roles: readonly string[],
         input: SubmissionExport,
-        language: string
+        language: string,
+        /** the direct export's, unless the worker makes a background one (task 0.16e) */
+        limits: { maxRows: number; budgetMs: number } = { maxRows: MAX_DIRECT_EXPORT_ROWS, budgetMs: QUERY_BUDGET_MS }
     ): Promise<ExportTable> {
-        return withBudget(tx, async (budget) => {
-            const { form, fields, indexedKeys } = await this.fieldsOf(tx, roles, input.formId);
-            const compiler = new QueryCompiler(input.formId, specsOf(fields, indexedKeys));
-            const cond = conditionsOf(compiler, input);
-            await budget();
-            const counted = await tx.execute<{ n: number }>(
-                sql`select count(*)::int as n from ${submissions} where ${cond}`
-            );
-            const total = Number(counted.rows[0]?.n ?? 0);
-            if (total > MAX_DIRECT_EXPORT_ROWS)
-                throw new InvalidRequestError('invalid_query', {
-                    detail: `${total} submissions match: an export answers at most ${MAX_DIRECT_EXPORT_ROWS}. Narrow the filter.`
-                });
-            const byKey = new Map(fields.map((f) => [f.key, f]));
-            const keys = input.fields ?? [...BUILTINS.map((b) => b.key), ...fields.map((f) => f.key)];
-            for (const k of keys)
-                if (!BUILTIN_KEYS.has(k) && !byKey.has(k))
-                    throw new InvalidRequestError('invalid_query', { detail: `unknown field "${k}"` });
-            const answerKeys = keys.filter((k) => byKey.has(k));
+        return withBudget(
+            tx,
+            async (budget) => {
+                const { form, fields, indexedKeys } = await this.fieldsOf(tx, roles, input.formId);
+                const compiler = new QueryCompiler(input.formId, specsOf(fields, indexedKeys));
+                const cond = conditionsOf(compiler, input);
+                await budget();
+                const counted = await tx.execute<{ n: number }>(
+                    sql`select count(*)::int as n from ${submissions} where ${cond}`
+                );
+                const total = Number(counted.rows[0]?.n ?? 0);
+                if (total > limits.maxRows)
+                    throw new InvalidRequestError('invalid_query', {
+                        detail:
+                            limits.maxRows === MAX_DIRECT_EXPORT_ROWS
+                                ? `${total} submissions match: a direct export answers at most ${MAX_DIRECT_EXPORT_ROWS}. Ask for it in the background (made into a file you download), or narrow the filter.`
+                                : `${total} submissions match: an export holds at most ${limits.maxRows}. Narrow the filter.`
+                    });
+                const byKey = new Map(fields.map((f) => [f.key, f]));
+                const keys = input.fields ?? [...BUILTINS.map((b) => b.key), ...fields.map((f) => f.key)];
+                for (const k of keys)
+                    if (!BUILTIN_KEYS.has(k) && !byKey.has(k))
+                        throw new InvalidRequestError('invalid_query', { detail: `unknown field "${k}"` });
+                const answerKeys = keys.filter((k) => byKey.has(k));
 
-            await budget();
-            const order = compiler.orderBy(input.sort.length ? input.sort : [{ field: 'createdAt', desc: true }]);
-            const rows = await tx
-                .select({
-                    id: submissions.id,
-                    rowVersion: submissions.rowVersion,
-                    formId: submissions.formId,
-                    formVersionId: submissions.formVersionId,
-                    caseId: submissions.caseId,
-                    handlingUnitId: submissions.handlingUnitId,
-                    createdBy: submissions.createdBy,
-                    createdAt: submissions.createdAt,
-                    updatedAt: submissions.updatedAt,
-                    // only the chosen keys of the answers
-                    answers: sql<
-                        Record<string, unknown>
-                    >`(select coalesce(jsonb_object_agg(k, ${submissions.answers} -> k), '{}'::jsonb)
+                await budget();
+                const order = compiler.orderBy(input.sort.length ? input.sort : [{ field: 'createdAt', desc: true }]);
+                const rows = await tx
+                    .select({
+                        id: submissions.id,
+                        rowVersion: submissions.rowVersion,
+                        formId: submissions.formId,
+                        formVersionId: submissions.formVersionId,
+                        caseId: submissions.caseId,
+                        handlingUnitId: submissions.handlingUnitId,
+                        createdBy: submissions.createdBy,
+                        createdAt: submissions.createdAt,
+                        updatedAt: submissions.updatedAt,
+                        // only the chosen keys of the answers
+                        answers: sql<
+                            Record<string, unknown>
+                        >`(select coalesce(jsonb_object_agg(k, ${submissions.answers} -> k), '{}'::jsonb)
                         from unnest(${`{${answerKeys.join(',')}}`}::text[]) k where ${submissions.answers} ? k)`
-                })
-                .from(submissions)
-                .where(cond)
-                .orderBy(...order, sql`${submissions.id} desc`)
-                .limit(MAX_DIRECT_EXPORT_ROWS);
-            await budget();
-            const shown = await this.submissions.present(tx, roles, rows as SubmissionRow[]);
-            const people = await namesOf(
-                tx,
-                shown.map((s) => s.submittedBy)
-            );
-            const label = (k: string) => (BUILTIN_KEYS.has(k) ? word(language, k) : (byKey.get(k)?.label ?? k));
-            const cell = (s: Submission, k: string): string => {
-                if (k === 'createdAt') return addisMinute(s.createdAt);
-                if (k === 'submittedBy') return s.submittedBy ? (people.get(s.submittedBy) ?? s.submittedBy) : '';
-                if (k === 'handlingUnit')
-                    return s.handlingUnit.name[language] ?? s.handlingUnit.name.en ?? s.handlingUnit.code;
-                const f = byKey.get(k);
-                return f ? formatValue(f, s.answers[k], language) : '';
-            };
-            // the day in Addis Ababa
-            const stamp = addisMinute(new Date().toISOString()).slice(0, 10).replace(/-/g, '');
-            return {
-                format: input.format,
-                filename: `${form.key}-${stamp}.${input.format}`,
-                sheetName: form.name[language] ?? form.name.en ?? form.key,
-                headers: keys.map(label),
-                rows: shown.map((s) => keys.map((k) => cell(s, k))),
-                keys
-            };
-        });
+                    })
+                    .from(submissions)
+                    .where(cond)
+                    .orderBy(...order, sql`${submissions.id} desc`)
+                    .limit(limits.maxRows);
+                await budget();
+                const shown = await this.submissions.present(tx, roles, rows as SubmissionRow[]);
+                const people = await namesOf(
+                    tx,
+                    shown.map((s) => s.submittedBy)
+                );
+                const label = (k: string) => (BUILTIN_KEYS.has(k) ? word(language, k) : (byKey.get(k)?.label ?? k));
+                const cell = (s: Submission, k: string): string => {
+                    if (k === 'createdAt') return addisMinute(s.createdAt);
+                    if (k === 'submittedBy') return s.submittedBy ? (people.get(s.submittedBy) ?? s.submittedBy) : '';
+                    if (k === 'handlingUnit')
+                        return s.handlingUnit.name[language] ?? s.handlingUnit.name.en ?? s.handlingUnit.code;
+                    const f = byKey.get(k);
+                    return f ? formatValue(f, s.answers[k], language) : '';
+                };
+                // the day in Addis Ababa
+                const stamp = addisMinute(new Date().toISOString()).slice(0, 10).replace(/-/g, '');
+                return {
+                    format: input.format,
+                    filename: `${form.key}-${stamp}.${input.format}`,
+                    sheetName: form.name[language] ?? form.name.en ?? form.key,
+                    headers: keys.map(label),
+                    rows: shown.map((s) => keys.map((k) => cell(s, k))),
+                    keys
+                };
+            },
+            limits.budgetMs
+        );
     }
 
     private async run(
@@ -285,8 +294,12 @@ function conditionsOf(
  * The whole request has QUERY_BUDGET_MS (NFR reads: p95 < 300 ms; a runaway filter is stopped, never left running): each
  * statement gets what is left (`budget()` before it), and a cancelled one is the caller's 400, never a 500.
  */
-async function withBudget<T>(tx: Tx, fn: (budget: () => Promise<void>) => Promise<T>): Promise<T> {
-    const deadline = Date.now() + QUERY_BUDGET_MS;
+async function withBudget<T>(
+    tx: Tx,
+    fn: (budget: () => Promise<void>) => Promise<T>,
+    budgetMs = QUERY_BUDGET_MS
+): Promise<T> {
+    const deadline = Date.now() + budgetMs;
     const budget = async () => {
         const left = deadline - Date.now();
         if (left <= 0) throw tooLong();

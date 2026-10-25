@@ -19,6 +19,7 @@ share one case file, `packages/form-engine/test/cases.json`. Queries, saved view
 | `GET /api/v1/forms/{id}/view`, `POST /api/v1/submissions/query` | `submission:read` |
 | `GET/POST /api/v1/forms/{id}/views`, `PATCH/DELETE /api/v1/saved-views/{id}`, `GET /api/v1/submissions/{id}/history` | `submission:read` (sharing a view: `submission-view:share`) |
 | `POST /api/v1/submissions/export` | `submission:export` |
+| `POST /api/v1/submission-exports`, `GET …/{id}`, `POST …/{id}/download` | `submission:export` (the requester alone) |
 
 Task 0.16b: the data viewer's queries. `view-fields.ts` is the allow-list (the published version's top-level value fields
 the caller may see, and the built-ins `createdAt`, `submittedBy`, `handlingUnit`); `query-compiler.ts` turns a data-only
@@ -32,6 +33,8 @@ Task 0.16d: saved views (`views.service.ts`: private to their owner, or shared w
 answers' values: the log holds them masked), and direct CSV and Excel exports (`export.ts`): the viewer's rows as people
 read them, every cell neutralised (SEC-IN-8), at most 5000 rows, each export an audited event with its size. Exports
 over the limit run in the worker from 0.16e.
+
+Task 0.16e: background exports.
 
 Layer: platform. Shape, public entries and rules: [code-structure.md](../../docs/platform/code-structure.md) §4.
 

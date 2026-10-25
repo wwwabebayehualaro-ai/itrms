@@ -16,7 +16,8 @@ import type { SystemDatabase } from '@itrms/kernel/db/system';
 import type { OutboxHandler } from '@itrms/kernel/api/worker';
 import type { EngineField } from '@itrms/form-engine/core';
 
-import { formPublishedV1 } from '../../contracts';
+import { formPublishedV1, submissionExportRequestedV1 } from '../../contracts';
+import { runExport, type ExportDeps } from './run-export';
 import { formDefinitions, formVersions } from '../forms.table';
 import { clearValues, lockFormExclusive, nextBatch, valueRows, writeValues, type FillRow } from '../submission-values';
 import { fieldsFor } from '../support';
@@ -134,10 +135,18 @@ export async function fillValues(system: SystemDatabase, formId: string): Promis
     );
 }
 
-export function formsHandlers(system: SystemDatabase): Record<string, OutboxHandler> {
+/** The forms' outbox handlers; the background exports need the app's pool and the object store too. */
+export function formsHandlers(system: SystemDatabase, deps?: ExportDeps): Record<string, OutboxHandler> {
     return {
         'form.published.v1': async (job) => {
             await fillValues(system, formPublishedV1.parse(job.payload).formId);
-        }
+        },
+        ...(deps
+            ? {
+                  'submission-export.requested.v1': async (job) => {
+                      await runExport(system, deps, submissionExportRequestedV1.parse(job.payload).exportId);
+                  }
+              }
+            : {})
     };
 }

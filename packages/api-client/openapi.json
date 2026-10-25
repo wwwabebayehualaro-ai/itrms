@@ -4440,6 +4440,76 @@
         ]
       }
     },
+    "/api/v1/submission-exports": {
+      "post": {
+        "operationId": "ExportsController_request",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmissionExportDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Exports"
+        ]
+      }
+    },
+    "/api/v1/submission-exports/{id}": {
+      "get": {
+        "operationId": "ExportsController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Exports"
+        ]
+      }
+    },
+    "/api/v1/submission-exports/{id}/download": {
+      "post": {
+        "operationId": "ExportsController_download",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Exports"
+        ]
+      }
+    },
     "/api/v1/submissions": {
       "get": {
         "operationId": "SubmissionsController_list",

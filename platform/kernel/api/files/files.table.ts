@@ -2,7 +2,8 @@
  * Uploaded files (architecture §14, task 0.15). A row is made when an upload is asked for (`pending`, its object under
  * `quarantine/`); the uploader confirms it (size, SHA-256 and first bytes checked), it is moved to `files/` and becomes
  * `stored`; a record links it with a document type. An upload never confirmed, or refused, is `expired` by the purge after
- * 24 hours and its object removed. Class T: the uploading unit's subtree reads and downloads it.
+ * 24 hours and its object removed. Class T: the uploading unit's subtree reads and downloads it. A file the server
+ * generates (an export, task 0.16e) is stored at once, with a time it is kept until.
  */
 import { sql } from 'drizzle-orm';
 import { bigint, index, text, timestamp, uuid } from 'drizzle-orm/pg-core';
@@ -49,7 +50,11 @@ export const files = withRls(
                 expiresAt: timestamp('expires_at', { withTimezone: true }),
                 confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
                 /** why a confirmation was refused (size, type, checksum) */
-                rejectReason: text('reject_reason')
+                rejectReason: text('reject_reason'),
+                /** upload: a person's (checked by its bytes); generated: made by the server (an export, a document) */
+                origin: text('origin', { enum: ['upload', 'generated'] })
+                    .notNull()
+                    .default('upload')
             },
             (t) => [
                 index('files_org_path_gist').using('gist', t.orgPath),

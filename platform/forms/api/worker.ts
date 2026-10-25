@@ -2,3 +2,4 @@
 // processes load it, so the HTTP process never reaches the system pool (dependency-cruiser:
 // http-entries-never-reach-system-pool).
 export { fillValues, formsHandlers, FILL_BATCH } from './jobs/fill-values';
+export { runExport, type ExportDeps } from './jobs/run-export';

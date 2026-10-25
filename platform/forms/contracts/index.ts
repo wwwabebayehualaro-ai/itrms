@@ -206,7 +206,13 @@ export const formPublishedV1 = z.strictObject({
     publicationId: z.uuid()
 });
 
-export const FORMS_EVENTS = { 'form.published.v1': formPublishedV1 } as const;
+/** A background export was asked for: the worker makes its file (task 0.16e). */
+export const submissionExportRequestedV1 = z.strictObject({ exportId: z.uuid() });
+
+export const FORMS_EVENTS = {
+    'form.published.v1': formPublishedV1,
+    'submission-export.requested.v1': submissionExportRequestedV1
+} as const;
 
 // ---- queries over a form's submissions (task 0.16b) ----
 
@@ -395,6 +401,9 @@ export type SavedView = z.infer<typeof savedViewSchema>;
 export const EXPORT_FORMATS = ['csv', 'xlsx'] as const;
 /** The most rows an export answers directly; more go to the background export (task 0.16e). */
 export const MAX_DIRECT_EXPORT_ROWS = 5000;
+/** The most rows a background export makes into a file, and how long the file is kept for its requester. */
+export const MAX_BACKGROUND_EXPORT_ROWS = 100_000;
+export const EXPORT_KEEP_DAYS = 7;
 
 /** What the viewer shows, as a file: the same filter, search and sort, the chosen fields (all by default). */
 export const submissionExportSchema = z.strictObject({
@@ -423,3 +432,24 @@ export const historyEntrySchema = z.object({
 });
 
 export type HistoryEntry = z.infer<typeof historyEntrySchema>;
+
+// ---- background exports (task 0.16e) ----
+
+export const EXPORT_JOB_STATUSES = ['queued', 'running', 'done', 'failed', 'expired'] as const;
+
+/** A background export as its requester sees it: they alone may follow and download it. */
+export const exportJobSchema = z.object({
+    id: z.uuid(),
+    formId: z.uuid(),
+    format: z.enum(EXPORT_FORMATS),
+    status: z.enum(EXPORT_JOB_STATUSES),
+    rows: z.number().int().nullable(),
+    /** why it failed, for the person (too many rows, a field no longer there) */
+    error: z.string().nullable(),
+    createdAt: z.string(),
+    finishedAt: z.string().nullable(),
+    /** the file is kept until then */
+    keptUntil: z.string().nullable()
+});
+
+export type ExportJob = z.infer<typeof exportJobSchema>;
