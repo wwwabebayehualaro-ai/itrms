@@ -532,12 +532,13 @@
         {
           "id": "0.16e",
           "title": "Background exports and server-generated files",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.16e-background-exports",
           "commits": [
             "875a178",
             "3dc3154",
-            "cd06291"
+            "cd06291",
+            "cdbe076"
           ],
           "evidence": [
             "pnpm turbo run lint typecheck test build → 66/66 tasks (local); boundaries, format:check, check:slices, i18n:check → clean; OpenAPI regenerated",

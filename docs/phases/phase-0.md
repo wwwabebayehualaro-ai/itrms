@@ -466,6 +466,11 @@ Split on 2026-10-24 (product owner): exports over the size limit, through the wo
 - **Done when:** an export over the size limit runs in the worker, is audited, and is downloaded only by who asked for
   it; an expired export is purged.
 - **Tests:** the job, the file's lifecycle, the S3 contract suite for the new put.
+- **Done (2026-10-25):** `@itrms/kernel/files` generated files (origin `generated`: put outside any transaction, recorded
+  in the caller's, at most 50 MB, their owner's alone, purged once kept long enough); `forms.submission_exports` with
+  `POST /submission-exports` (two pending per person), a worker that re-reads the requester's rights and runs the export
+  under RLS as them (100 000 rows, 120 s), every failure ended with a reason code, the requester alone following and
+  downloading it.
 
 ### 0.16c Web switch-over to the forms API
 - Needs 0.16b, 0.16d and 0.16e.
