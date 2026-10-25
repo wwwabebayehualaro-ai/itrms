@@ -1,6 +1,6 @@
 {
-  "id": "2d4fee17-ed3f-46d3-80be-0bef464198a1",
-  "prevId": "d25bd2f7-0008-431c-b18d-baab8911a41d",
+  "id": "d223262b-bc49-4fe6-b619-7331ea0506a5",
+  "prevId": "1ba1e0f0-de8f-4fbe-a355-7f0082e18cf7",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -873,6 +873,12 @@
         "file_id": {
           "name": "file_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_code": {
+          "name": "error_code",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },

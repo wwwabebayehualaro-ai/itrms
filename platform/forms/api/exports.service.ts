@@ -5,18 +5,21 @@
  * download is on record. Others' exports are answered as missing.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { and, count, eq, inArray, sql } from 'drizzle-orm';
 import { insertAudited, recordEvent, type DbContext, type Tx } from '@itrms/kernel/db';
-import { NotFoundError } from '@itrms/kernel/errors';
+import { NotFoundError, RateLimitedError } from '@itrms/kernel/errors';
 import { downloadFile, files, type ObjectStore } from '@itrms/kernel/files';
 import { emit } from '@itrms/kernel/outbox';
 
-import type { ExportJob, SubmissionExport } from '../contracts';
+import { MAX_PENDING_EXPORTS, type ExportJob, type SubmissionExport } from '../contracts';
 import { FormsService } from './forms.service';
 import { submissionExports } from './forms.table';
 import { required } from './support';
 
 type ExportRow = typeof submissionExports.$inferSelect;
+
+/** The first key of the per-person export locks (no other advisory lock shares it). */
+const EXPORT_LOCK = 0x1e8a;
 
 @Injectable()
 export class ExportsService {
@@ -30,6 +33,21 @@ export class ExportsService {
         input: SubmissionExport
     ): Promise<ExportJob> {
         await this.forms.definition(tx, input.formId);
+        // one person's requests one at a time: two at once cannot both pass the cap
+        await tx.execute(sql`select pg_advisory_xact_lock(${EXPORT_LOCK}, hashtext(${required(ctx.userId)}))`);
+        const [pending] = await tx
+            .select({ n: count() })
+            .from(submissionExports)
+            .where(
+                and(
+                    eq(submissionExports.createdBy, required(ctx.userId)),
+                    inArray(submissionExports.status, ['queued', 'running'])
+                )
+            );
+        if ((pending?.n ?? 0) >= MAX_PENDING_EXPORTS)
+            throw new RateLimitedError(30, {
+                detail: `You have ${MAX_PENDING_EXPORTS} exports being made: wait for one to finish.`
+            });
         const row = await insertAudited(tx, submissionExports, {
             regionId: required(ctx.regionId),
             unitId: required(ctx.unitId),
@@ -81,6 +99,7 @@ export class ExportsService {
             format: (row.request as { format?: 'csv' | 'xlsx' }).format ?? 'csv',
             status: expired ? 'expired' : row.status,
             rows: row.rows,
+            errorCode: row.errorCode,
             error: row.error,
             createdAt: row.createdAt.toISOString(),
             finishedAt: row.finishedAt?.toISOString() ?? null,

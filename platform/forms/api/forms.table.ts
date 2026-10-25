@@ -312,6 +312,9 @@ export const submissionExports = withRls(
                     .default('queued'),
                 rows: integer('rows'),
                 fileId: uuid('file_id').references(() => files.id),
+                errorCode: text('error_code', {
+                    enum: ['too_many_rows', 'too_large', 'invalid_query', 'not_permitted', 'failed']
+                }),
                 error: text('error'),
                 finishedAt: timestamp('finished_at', { withTimezone: true })
             },

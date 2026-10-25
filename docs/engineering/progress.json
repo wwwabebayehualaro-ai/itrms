@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-10-24",
+  "updated": "2026-10-25",
   "statuses": [
     "planned",
     "ready",
@@ -537,7 +537,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Kernel: files gain origin (upload | generated); a generated file may be CSV, XLSX or PDF (uploads keep their four checked types), is stored at once under files/<region>/<id> with its SHA-256 computed by the server (storeGeneratedFile: the object first, then the row; a refused row deletes the object), and the purge removes it like any unlinked file once keepUntil passes. ObjectStore gains put (S3ObjectStore: PutObjectCommand). Forms: forms.submission_exports (class T at the requester's unit, audited); POST /submission-exports (202) emits submission-export.requested.v1; the worker's handler runs the export on the app's pool under RLS with the requester's context and their roles at request time (never the system pool's sight), up to 100 000 rows and 120 s; a refusal they can act on fails the job with its reason, anything else is retried by the relay; only the requester follows and downloads it (others: 404), the download a short presigned link with file.downloaded and submissions.export_downloaded on record; an expired file shows the job as expired."
+          "notes": "Kernel: files gain origin (upload | generated); a generated file may be CSV, XLSX or PDF (uploads keep their four checked types), is stored at once under files/<region>/<id> with its SHA-256 computed by the server (storeGeneratedFile: the object first, then the row; a refused row deletes the object), and the purge removes it like any unlinked file once keepUntil passes. ObjectStore gains put (S3ObjectStore: PutObjectCommand). Forms: forms.submission_exports (class T at the requester's unit, audited); POST /submission-exports (202) emits submission-export.requested.v1; the worker's handler runs the export on the app's pool under RLS with the requester's context and their roles at request time (never the system pool's sight), up to 100 000 rows and 120 s; a refusal they can act on fails the job with its reason, anything else is retried by the relay; only the requester follows and downloads it (others: 404), the download a short presigned link with file.downloaded and submissions.export_downloaded on record; an expired file shows the job as expired. Reviewer (opus) on 875a178: 1 high, 4 medium, 1 medium/low, 2 low. Fixed: an export's file is capped at 50 MB (the size of the chosen answers is weighed before they are read, the CSV is built line by line and refused past the cap, the workbook checked after) and every failure ends the job (failed, a reason code from too_many_rows | too_large | invalid_query | not_permitted | failed, translated through forms.export.failed.*), a failure that is not the person's still thrown for the logs and the relay; kernel getFile (so download and link too) answers a generated file to its owner alone; the object is put outside any transaction, the job row is locked when recording (a second delivery records nothing) and any failure after the put removes the object; at most 2 queued or running exports per person (advisory lock, 429); the worker re-reads the requester's roles at run time (active user, valid assignment, active unit) and needs submission:export from what they still hold. Moved: a queue of its own and streamed multipart output (0.26)."
         },
         {
           "id": "0.16c",
@@ -1850,6 +1850,11 @@
       "foundIn": "0.16e",
       "item": "How long exports are kept (7 days) and the background limit (100 000 rows) as region settings",
       "movedTo": "0.21"
+    },
+    {
+      "foundIn": "0.16e",
+      "item": "Flaky under the full integration run's load (pass alone): files 'keeps what was checked' re-confirm answered 409, and parties 'moves the memberships' row order; make both deterministic",
+      "movedTo": "0.26"
     }
   ]
 }

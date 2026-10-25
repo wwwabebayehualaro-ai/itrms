@@ -20,7 +20,8 @@ import {
     type SubmissionQuery,
     type SubmissionQueryResult
 } from '../contracts';
-import { formatValue, word, type ExportTable } from './export';
+import { ExportRefused, formatValue, word, type ExportTable } from './export';
+import { MAX_GENERATED_BYTES } from '@itrms/kernel/files';
 import { FormsService } from './forms.service';
 import { formVersions, submissions } from './forms.table';
 import { QueryCompiler, type FieldSpec } from './query-compiler';
@@ -89,18 +90,30 @@ export class SubmissionQueryService {
                 );
                 const total = Number(counted.rows[0]?.n ?? 0);
                 if (total > limits.maxRows)
-                    throw new InvalidRequestError('invalid_query', {
-                        detail:
-                            limits.maxRows === MAX_DIRECT_EXPORT_ROWS
-                                ? `${total} submissions match: a direct export answers at most ${MAX_DIRECT_EXPORT_ROWS}. Ask for it in the background (made into a file you download), or narrow the filter.`
-                                : `${total} submissions match: an export holds at most ${limits.maxRows}. Narrow the filter.`
-                    });
+                    throw new ExportRefused(
+                        'too_many_rows',
+                        limits.maxRows === MAX_DIRECT_EXPORT_ROWS
+                            ? `${total} submissions match: a direct export answers at most ${MAX_DIRECT_EXPORT_ROWS}. Ask for it in the background (made into a file you download), or narrow the filter.`
+                            : `${total} submissions match: an export holds at most ${limits.maxRows}. Narrow the filter.`
+                    );
                 const byKey = new Map(fields.map((f) => [f.key, f]));
                 const keys = input.fields ?? [...BUILTINS.map((b) => b.key), ...fields.map((f) => f.key)];
                 for (const k of keys)
                     if (!BUILTIN_KEYS.has(k) && !byKey.has(k))
                         throw new InvalidRequestError('invalid_query', { detail: `unknown field "${k}"` });
                 const answerKeys = keys.filter((k) => byKey.has(k));
+                const subset = sql`(select coalesce(jsonb_object_agg(k, ${submissions.answers} -> k), '{}'::jsonb)
+                    from unnest(${`{${answerKeys.join(',')}}`}::text[]) k where ${submissions.answers} ? k)`;
+                // what the chosen answers weigh, before they are read: an export that cannot fit is refused at once
+                await budget();
+                const weighed = await tx.execute<{ bytes: string | null }>(
+                    sql`select sum(pg_column_size(${subset}))::text as bytes from ${submissions} where ${cond}`
+                );
+                if (Number(weighed.rows[0]?.bytes ?? 0) > MAX_GENERATED_BYTES)
+                    throw new ExportRefused(
+                        'too_large',
+                        'The chosen answers are too large for one file: narrow the filter or choose fewer fields.'
+                    );
 
                 await budget();
                 const order = compiler.orderBy(input.sort.length ? input.sort : [{ field: 'createdAt', desc: true }]);
@@ -116,10 +129,7 @@ export class SubmissionQueryService {
                         createdAt: submissions.createdAt,
                         updatedAt: submissions.updatedAt,
                         // only the chosen keys of the answers
-                        answers: sql<
-                            Record<string, unknown>
-                        >`(select coalesce(jsonb_object_agg(k, ${submissions.answers} -> k), '{}'::jsonb)
-                        from unnest(${`{${answerKeys.join(',')}}`}::text[]) k where ${submissions.answers} ? k)`
+                        answers: sql<Record<string, unknown>>`${subset}`
                     })
                     .from(submissions)
                     .where(cond)

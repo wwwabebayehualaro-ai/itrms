@@ -26,7 +26,7 @@ import {
     type StoredFile,
     type UploadTicket
 } from '../../contracts';
-import { insertAudited, recordEvent, updateAudited } from '../db/audit';
+import { contextOfTx, insertAudited, recordEvent, updateAudited } from '../db/audit';
 import { newId } from '../db/columns';
 import type { Database } from '../db/database';
 import type { DbContext, Tx } from '../db/types';
@@ -149,10 +149,12 @@ export async function beginUpload(
     return { file: fileOut(opened), upload: { kind: 'parts', parts }, expiresAt };
 }
 
-/** The file, as the caller may see it (RLS: the uploading unit's subtree). */
+/** The file, as the caller may see it (RLS: the uploading unit's subtree; a generated one, its owner alone). */
 export async function getFile(tx: Tx, id: string): Promise<FileRow> {
     const [row] = await tx.select().from(files).where(eq(files.id, id));
     if (!row) throw new NotFoundError();
+    // a file the server made for one person (an export) is theirs alone, whoever else may read the unit's files
+    if (row.origin === 'generated' && row.createdBy !== contextOfTx(tx).userId) throw new NotFoundError();
     return row;
 }
 
@@ -298,42 +300,73 @@ export async function downloadFile(
     return { url, expiresAt: new Date(Date.now() + DOWNLOAD_URL_SECONDS * 1000).toISOString() };
 }
 
+/** The largest file the server makes (the files table's size check holds for every file). */
+export const MAX_GENERATED_BYTES = 50 * 1024 * 1024;
+
+/** A generated object in the store, not yet recorded: what recordGeneratedFile then writes as its row. */
+export interface GeneratedObject {
+    id: string;
+    key: string;
+    size: number;
+    sha256: string;
+    contentType: GeneratedFileType;
+}
+
 /**
- * Stores a file the server made (an export, task 0.16e), in the caller's transaction and unit: the object first, then
- * its row (`stored` at once, its SHA-256 computed here); a row that cannot be written leaves no object behind. It is kept
- * until `keepUntil` unless a record links it, then the purge removes it like any unlinked file.
+ * Puts the bytes of a file the server made (an export, task 0.16e) in the store, outside any transaction (a large upload
+ * never holds a connection). The caller then records it with recordGeneratedFile in its transaction, and removes the
+ * object (removeGeneratedObject) if that transaction does not commit: no object is left that no row serves.
  */
-export async function storeGeneratedFile(
-    tx: Tx,
+export async function putGeneratedObject(
     store: ObjectStore,
+    regionId: string,
+    file: { contentType: GeneratedFileType; body: Uint8Array }
+): Promise<GeneratedObject> {
+    if (file.body.byteLength < 1 || file.body.byteLength > MAX_GENERATED_BYTES)
+        throw new ValidationError('validation_failed', { detail: 'The file is empty or too large to keep.' });
+    const id = newId();
+    const key = storedKey(regionId, id);
+    await store.put({ key, body: file.body, contentType: file.contentType });
+    return {
+        id,
+        key,
+        size: file.body.byteLength,
+        sha256: createHash('sha256').update(file.body).digest('hex'),
+        contentType: file.contentType
+    };
+}
+
+export const removeGeneratedObject = (store: ObjectStore, object: GeneratedObject) =>
+    store.delete(object.key).catch(() => undefined);
+
+/**
+ * The row of a generated object, `stored` at once in the caller's unit, kept until `keepUntil` unless a record links it
+ * (then the purge removes it like any unlinked file). Only the person it was made for reads it (getFile).
+ */
+export async function recordGeneratedFile(
+    tx: Tx,
     ctx: DbContext,
-    file: { filename: string; contentType: GeneratedFileType; body: Uint8Array; documentType: string; keepUntil: Date }
+    object: GeneratedObject,
+    meta: { filename: string; documentType: string; keepUntil: Date }
 ): Promise<StoredFile> {
     if (!ctx.unitId || !ctx.regionId) throw new ForbiddenError({ detail: 'Choose the office you act for.' });
-    const id = newId();
-    const key = storedKey(ctx.regionId, id);
-    await store.put({ key, body: file.body, contentType: file.contentType });
-    try {
-        const row = await insertAudited(tx, files, {
-            id,
-            regionId: ctx.regionId,
-            unitId: ctx.unitId,
-            origin: 'generated',
-            status: 'stored',
-            filename: file.filename,
-            contentType: file.contentType,
-            size: file.body.byteLength,
-            sha256: createHash('sha256').update(file.body).digest('hex'),
-            objectKey: key,
-            documentType: file.documentType,
-            confirmedAt: new Date(),
-            expiresAt: file.keepUntil
-        });
-        return fileOut(row);
-    } catch (error) {
-        await store.delete(key).catch(() => undefined);
-        throw error;
-    }
+    if (!object.key.startsWith(`files/${ctx.regionId}/`)) throw new ForbiddenError();
+    const row = await insertAudited(tx, files, {
+        id: object.id,
+        regionId: ctx.regionId,
+        unitId: ctx.unitId,
+        origin: 'generated',
+        status: 'stored',
+        filename: meta.filename,
+        contentType: object.contentType,
+        size: object.size,
+        sha256: object.sha256,
+        objectKey: object.key,
+        documentType: meta.documentType,
+        confirmedAt: new Date(),
+        expiresAt: meta.keepUntil
+    });
+    return fileOut(row);
 }
 
 /**

@@ -436,6 +436,11 @@ export type HistoryEntry = z.infer<typeof historyEntrySchema>;
 // ---- background exports (task 0.16e) ----
 
 export const EXPORT_JOB_STATUSES = ['queued', 'running', 'done', 'failed', 'expired'] as const;
+/** Why an export failed, as a code the screens translate (forms.export.failed.<code>), with the detail beside it. */
+export const EXPORT_FAILURES = ['too_many_rows', 'too_large', 'invalid_query', 'not_permitted', 'failed'] as const;
+export type ExportFailure = (typeof EXPORT_FAILURES)[number];
+/** How many background exports one person may have queued or running at once. */
+export const MAX_PENDING_EXPORTS = 2;
 
 /** A background export as its requester sees it: they alone may follow and download it. */
 export const exportJobSchema = z.object({
@@ -444,7 +449,8 @@ export const exportJobSchema = z.object({
     format: z.enum(EXPORT_FORMATS),
     status: z.enum(EXPORT_JOB_STATUSES),
     rows: z.number().int().nullable(),
-    /** why it failed, for the person (too many rows, a field no longer there) */
+    /** why it failed, as a code to translate, and its detail (too many rows, a field no longer there) */
+    errorCode: z.enum(EXPORT_FAILURES).nullable(),
     error: z.string().nullable(),
     createdAt: z.string(),
     finishedAt: z.string().nullable(),

@@ -11,6 +11,8 @@ import { fileURLToPath } from 'node:url';
 
 import ExcelJS from 'exceljs';
 import { formsHandlers } from '@itrms/forms/api/worker';
+import { loadSlices } from '@itrms/kernel/api';
+import { permissionsOf, rolePermissions } from '@itrms/kernel/iam';
 import { S3ObjectStore } from '@itrms/integrations/api';
 import { purgeExpiredUploads } from '@itrms/kernel/api/worker';
 import { createDatabase, type Database } from '@itrms/kernel/db';
@@ -18,6 +20,7 @@ import { createSystemDatabase, type SystemDatabase } from '@itrms/kernel/db/syst
 import type { OrgUnit } from '@itrms/kernel/org';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { SLICES } from '../../src/slices';
 import { startApi, type As, type TestApi } from './support/api';
 import { startPostgres, type TestPostgres } from './support/postgres';
 
@@ -58,6 +61,7 @@ interface Job {
     id: string;
     status: string;
     rows: number | null;
+    errorCode: string | null;
     error: string | null;
     keptUntil: string | null;
 }
@@ -70,9 +74,16 @@ const field = (id: string, type: string, extra: Record<string, unknown> = {}) =>
     ...extra
 });
 
+const catalogue = rolePermissions(loadSlices(SLICES).manifests);
+
 /** What the worker does when the outbox relays the event. */
-const runWorker = (exportId: string) =>
-    formsHandlers(system, { database: app, store })['submission-export.requested.v1']?.({
+const runWorker = (exportId: string, maxBytes?: number) =>
+    formsHandlers(system, {
+        database: app,
+        store,
+        permissionsOf: (roles) => permissionsOf(catalogue, roles),
+        maxBytes
+    })['submission-export.requested.v1']?.({
         eventId: randomUUID(),
         type: 'submission-export.requested.v1',
         payload: { exportId }
@@ -238,9 +249,87 @@ describe('a background export', () => {
         await runWorker(id);
         expect((await job(as.damotHead(), id)).json<Job>()).toMatchObject({
             status: 'failed',
+            errorCode: 'invalid_query',
             error: expect.stringMatching(/unknown field "nope"/) as unknown
         });
         expect((await download(as.damotHead(), id)).statusCode).toBe(404);
+    });
+
+    it("is its requester's file alone, through the kernel's file routes too", async () => {
+        const [row] = (
+            await api.owner.query<{ file_id: string }>('select file_id from forms.submission_exports where id = $1', [
+                exportId
+            ])
+        ).rows;
+        const fileId = row?.file_id ?? '';
+        expect((await api.call('GET', `/api/v1/files/${fileId}`, as.damotHead())).statusCode).toBe(200);
+        // the zone's head and the unit's records officer may read the unit's files, not someone's export
+        for (const other of [as.zoneHead(), as.damot()]) {
+            expect((await api.call('GET', `/api/v1/files/${fileId}`, other)).statusCode).toBe(404);
+            expect((await api.call('POST', `/api/v1/files/${fileId}/download`, other, {})).statusCode).toBe(404);
+        }
+    });
+
+    it('fails with too_large when its file would pass the limit, leaving no object behind', async () => {
+        const id = (await ask(as.damotHead())).json<Job>().id;
+        await runWorker(id, 100);
+        expect((await job(as.damotHead(), id)).json<Job>()).toMatchObject({ status: 'failed', errorCode: 'too_large' });
+        const owned = new Set(
+            (await api.owner.query<{ object_key: string }>('select object_key from kernel.files')).rows.map(
+                (r) => r.object_key
+            )
+        );
+        const objects = await store.listObjects(`files/${units.damot.regionId}/`);
+        expect(objects.filter((o) => !owned.has(o.key))).toEqual([]);
+    });
+
+    it('is made once when it is delivered twice at the same time', async () => {
+        const id = (await ask(as.damotHead())).json<Job>().id;
+        await Promise.allSettled([runWorker(id), runWorker(id)]);
+        expect((await job(as.damotHead(), id)).json<Job>()).toMatchObject({ status: 'done', rows: 3 });
+        const owned = new Set(
+            (await api.owner.query<{ object_key: string }>('select object_key from kernel.files')).rows.map(
+                (r) => r.object_key
+            )
+        );
+        const objects = await store.listObjects(`files/${units.damot.regionId}/`);
+        expect(objects.filter((o) => !owned.has(o.key))).toEqual([]);
+    });
+
+    it('runs with the rights its requester holds when it runs', async () => {
+        const id = (await ask(as.damotHead())).json<Job>().id;
+        // their unit_head role (the one that gives the right to export) ends before the worker gets to it
+        await api.owner.query(
+            `update kernel.role_assignments set valid_to = now() where role_key = 'unit_head'
+               and user_id = (select id from kernel.users where keycloak_sub = $1)`,
+            [SUB.damotHead]
+        );
+        try {
+            await runWorker(id);
+            // they cannot even follow it now (the right is gone): the job itself says why it ended
+            expect((await job(as.damotHead(), id)).statusCode).toBe(403);
+            const ended = await api.owner.query<{ status: string; error_code: string; file_id: string | null }>(
+                'select status, error_code, file_id from forms.submission_exports where id = $1',
+                [id]
+            );
+            expect(ended.rows[0]).toEqual({ status: 'failed', error_code: 'not_permitted', file_id: null });
+        } finally {
+            await api.owner.query(
+                `update kernel.role_assignments set valid_to = null where role_key = 'unit_head'
+                   and user_id = (select id from kernel.users where keycloak_sub = $1)`,
+                [SUB.damotHead]
+            );
+        }
+    });
+
+    it('waits its turn: at most two being made per person', async () => {
+        const first = await ask(as.damotHead());
+        const second = await ask(as.damotHead());
+        expect([first.statusCode, second.statusCode]).toEqual([202, 202]);
+        const third = await ask(as.damotHead());
+        expect(third.statusCode).toBe(429);
+        for (const r of [first, second]) await runWorker(r.json<Job>().id);
+        expect((await ask(as.damotHead())).statusCode).toBe(202);
     });
 
     it('is purged with the other unlinked files once its week is up', async () => {

@@ -24,12 +24,16 @@ ALTER TABLE "forms"."submission_exports"
     ADD CONSTRAINT "submission_exports_text_check" CHECK (
         coalesce(length("error"), 0) <= 500 AND "language" IN ('am', 'en', 'wal-Latn')
         AND cardinality("roles") <= 50 AND coalesce("rows", 0) >= 0),
+    -- a failed export says why, as a code the screens translate
+    ADD CONSTRAINT "submission_exports_error_check" CHECK (
+        ("status" = 'failed') = ("error_code" IS NOT NULL)
+        AND coalesce("error_code", 'failed') IN ('too_many_rows', 'too_large', 'invalid_query', 'not_permitted', 'failed')),
     ADD CONSTRAINT "submission_exports_request_check" CHECK (
         jsonb_typeof("request") = 'object' AND pg_column_size("request") <= 65536);
 --> statement-breakpoint
 GRANT SELECT, INSERT ON "forms"."submission_exports" TO itrms_app;
 --> statement-breakpoint
-GRANT UPDATE ("status", "rows", "file_id", "error", "finished_at", "updated_at", "updated_by", "row_version")
+GRANT UPDATE ("status", "rows", "file_id", "error_code", "error", "finished_at", "updated_at", "updated_by", "row_version")
     ON "forms"."submission_exports" TO itrms_app;
 --> statement-breakpoint
 SELECT kernel.apply_rls('forms.submission_exports', 'transaction', 'org_path');

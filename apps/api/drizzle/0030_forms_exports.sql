@@ -15,6 +15,7 @@ CREATE TABLE "forms"."submission_exports" (
 	"status" text DEFAULT 'queued' NOT NULL,
 	"rows" integer,
 	"file_id" uuid,
+	"error_code" text,
 	"error" text,
 	"finished_at" timestamp with time zone
 );

@@ -1,5 +1,5 @@
 {
-  "id": "d25bd2f7-0008-431c-b18d-baab8911a41d",
+  "id": "1ba1e0f0-de8f-4fbe-a355-7f0082e18cf7",
   "prevId": "cec94ea9-c0b2-48af-8cba-adf36d530db0",
   "version": "7",
   "dialect": "postgresql",
@@ -873,6 +873,12 @@
         "file_id": {
           "name": "file_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_code": {
+          "name": "error_code",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },

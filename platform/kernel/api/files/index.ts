@@ -12,8 +12,12 @@ export {
     getFile,
     linkFile,
     partsOf,
+    MAX_GENERATED_BYTES,
     PENDING_QUOTA,
-    storeGeneratedFile
+    putGeneratedObject,
+    recordGeneratedFile,
+    removeGeneratedObject,
+    type GeneratedObject
 } from './files';
 export { FILE_STATUSES, files, type FileStatus } from './files.table';
 export {
