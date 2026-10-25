@@ -554,10 +554,11 @@
         {
           "id": "0.16c",
           "title": "Web switch-over to the forms API",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.16c-web-switch-over",
           "commits": [
-            "6c7ea51"
+            "6c7ea51",
+            "4752f21"
           ],
           "evidence": [
             "pnpm turbo run lint typecheck test --continue → 63/63 tasks",
