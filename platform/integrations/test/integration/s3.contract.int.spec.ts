@@ -340,6 +340,19 @@ describe('promotion, lifecycle, delete and list', () => {
         }
     });
 
+    it('keeps what the server puts as it was put: bytes, content type and size (S3ObjectStore.put, task 0.16e)', async () => {
+        const Key = `${prefix}generated/export.csv`;
+        const Body = Buffer.from(['"ስም","Name"', '"ሐና","Hana"', ''].join(String.fromCharCode(13, 10)), 'utf8');
+        await s3.send(
+            new PutObjectCommand({ Bucket, Key, Body, ContentType: 'text/csv', ContentLength: Body.byteLength })
+        );
+        const head = await s3.send(new HeadObjectCommand({ Bucket, Key }));
+        expect(head.ContentType).toBe('text/csv');
+        expect(head.ContentLength).toBe(Body.byteLength);
+        const got = await s3.send(new GetObjectCommand({ Bucket, Key }));
+        expect(Buffer.from((await got.Body?.transformToByteArray()) ?? [])).toEqual(Body);
+    });
+
     it('a deleted object is gone', async () => {
         const Key = `${prefix}delete/me.txt`;
         await s3.send(new PutObjectCommand({ Bucket, Key, Body: 'bye' }));

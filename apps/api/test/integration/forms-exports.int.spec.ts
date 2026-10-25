@@ -333,7 +333,16 @@ describe('a background export', () => {
     });
 
     it('is purged with the other unlinked files once its week is up', async () => {
+        const [kept] = (
+            await api.owner.query<{ object_key: string }>(
+                'select f.object_key from kernel.files f join forms.submission_exports e on e.file_id = f.id where e.id = $1',
+                [exportId]
+            )
+        ).rows;
+        expect(await store.head(kept?.object_key ?? '')).toBeDefined();
         const removed = await purgeExpiredUploads(system, store, { now: Date.now() + 8 * 86_400_000 });
+        // the object itself is gone from the store, not only its row
+        expect(await store.head(kept?.object_key ?? '')).toBeUndefined();
         expect(removed).toBeGreaterThanOrEqual(2);
         expect((await job(as.damotHead(), exportId)).json<Job>().status).toBe('expired');
         expect((await download(as.damotHead(), exportId)).statusCode).toBe(404);
