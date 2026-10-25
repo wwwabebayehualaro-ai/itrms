@@ -32,12 +32,21 @@ export {
     isViewTemplate,
     useTemplateQuery,
     useTemplateMutations,
+    useTemplateLoader,
     usePublishedTemplate,
     templateKeys
 } from '../api/templates';
 export type { TemplateInput, PublishedForm } from '../api/templates';
-export { useSubmissionList, useSubmissionQuery, useSubmissionMutations, submissionKeys } from '../api/submissions';
-export type { SubmissionListParams } from '../api/submissions';
+export {
+    useCanChangeRequests,
+    useSubmissionList,
+    useSubmissionQuery,
+    useSubmissionMutations,
+    submissionKeys,
+    type ScreenSubmission,
+    type SubmissionListPage,
+    type SubmissionListParams
+} from '../api/submissions';
 export { usePreview as useAttachmentPreview } from '../api/usePreview';
 
 // ---- extension points -------------------------------------------------------------------------------

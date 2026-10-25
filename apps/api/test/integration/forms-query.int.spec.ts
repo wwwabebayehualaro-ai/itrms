@@ -245,6 +245,23 @@ describe('the view schema', () => {
         expect((await indexed(forms.indexed)).sort()).toEqual(['amount', 'dept', 'tags', 'urgent', 'when']);
         expect(await indexed(forms.plain)).toEqual([]);
     });
+    it("offers as the built-ins' choices the offices and people of the submissions the caller sees, by name", async () => {
+        type View = { fields: { key: string; options: { value: string; label: string }[] }[] };
+        const optionsOf = async (who: As, key: string) =>
+            (await api.call('GET', `/api/v1/forms/${forms.indexed}/view`, who))
+                .json<View>()
+                .fields.find((f) => f.key === key)?.options ?? [];
+        // Damot Gale never learns of its sibling's office or its people from the choices
+        expect((await optionsOf(as.damot(), 'handlingUnit')).map((o) => o.value)).toEqual([units.damot.id]);
+        expect(await optionsOf(as.damot(), 'submittedBy')).toHaveLength(1);
+        // the zone sees both offices' requests, so both offices and both submitters, named
+        const offices = await optionsOf(as.zoneHead(), 'handlingUnit');
+        expect(offices.map((o) => o.value).sort()).toEqual([units.boditi.id, units.damot.id].sort());
+        expect(offices.every((o) => o.label.length > 0 && o.label !== o.value)).toBe(true);
+        const people = await optionsOf(as.zoneHead(), 'submittedBy');
+        expect(people).toHaveLength(2);
+        expect(people.every((p) => p.label.length > 0 && p.label !== p.value)).toBe(true);
+    });
 });
 
 describe('filters, the same on the value table and on the answers', () => {

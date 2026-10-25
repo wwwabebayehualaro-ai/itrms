@@ -56,7 +56,7 @@ describe('checkDocument', () => {
     });
 
     it('refuses keys an object inherits', () => {
-        for (const key of ['__proto__', 'constructor', 'toString', 'hasOwnProperty'])
+        for (const key of ['__proto__', 'constructor', 'toString', 'hasOwnProperty', 'created_at', 'handlingUnit'])
             expect(problems({ fields: [F(key, 'InputText')] })['fields[0].id']).toBe(`"${key}" cannot be a field key`);
     });
 });

@@ -94,6 +94,19 @@ describe('FilterBuilder', () => {
         });
     });
 
+    it('says when a condition is on a field that is not filterable (it reads every request)', async () => {
+        const user = userEvent.setup();
+        const slow: ViewSchema = {
+            ...schema,
+            fields: schema.fields.map((x) => ({ ...x, indexed: x.key !== 'total' }))
+        };
+        wrap(<FilterBuilder schema={slow} labeler={labeler} value={{ op: 'and', items: [] }} onApply={vi.fn()} />);
+        await user.click(screen.getByRole('button', { name: 'Filter' }));
+        await user.click(screen.getByRole('button', { name: 'Add condition' }));
+        // the first field, Total, is preselected: not indexed
+        expect(await screen.findByText(/“Total” is not filterable/)).toBeInTheDocument();
+    });
+
     it('describes conditions in words, with labels instead of stored values', () => {
         expect(describeCondition({ field: 'total', op: 'between', value: [10, 20] }, schema, labeler)).toBe(
             'Total between $10 and $20'

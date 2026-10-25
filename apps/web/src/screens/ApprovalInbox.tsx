@@ -26,19 +26,19 @@ import { useZodForm, ZodForm } from '@itrms/ui';
 import { ApprovalStatusTag } from './ApprovalStatusTag';
 
 const PAGE_SIZE = 20;
-const ALL = 'any';
 
 /** The approvals inbox: requests waiting for the user's decision, the user's own requests, and (admins) everything. */
 export function ApprovalInbox() {
-    const canSeeAll = useCan('approval:read');
+    // who may decide sees every request of the unit's view
+    const canSeeAll = useCan('form:approve');
     const [scope, setScope] = React.useState<ApprovalScope>('to_decide');
-    const [status, setStatus] = React.useState<ApprovalStatus | typeof ALL>(ALL);
+    const [status, setStatus] = React.useState<ApprovalStatus>('pending');
     const [page, setPage] = React.useState(1);
     const [openId, setOpenId] = React.useState<string | null>(null);
 
     const { data, isPending, isFetching, error } = useApprovals({
         scope,
-        status: status === ALL ? undefined : status,
+        status,
         page,
         page_size: PAGE_SIZE
     });
@@ -72,7 +72,7 @@ export function ApprovalInbox() {
                     <Select
                         value={status}
                         onValueChange={(v) => {
-                            setStatus(v as ApprovalStatus | typeof ALL);
+                            setStatus(v as ApprovalStatus);
                             setPage(1);
                         }}
                     >
@@ -80,7 +80,6 @@ export function ApprovalInbox() {
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value={ALL}>Any status</SelectItem>
                             <SelectItem value="pending">Waiting</SelectItem>
                             <SelectItem value="approved">Approved</SelectItem>
                             <SelectItem value="rejected">Rejected</SelectItem>
@@ -189,7 +188,8 @@ export function ApprovalInbox() {
     );
 }
 
-const decisionSchema = z.object({ comment: z.string().max(2000, 'At most 2000 characters') });
+// `note`, as the API names it: a 422 on it shows on the field
+const decisionSchema = z.object({ note: z.string().max(500, 'At most 500 characters') });
 
 function ApprovalDetail({ approval: a, onDone }: { approval: Approval; onDone: () => void }) {
     const { approve, reject, cancel } = useApprovalActions();
@@ -197,9 +197,9 @@ function ApprovalDetail({ approval: a, onDone }: { approval: Approval; onDone: (
     const action = React.useRef<'approve' | 'reject'>('approve');
     const form = useZodForm({
         schema: decisionSchema,
-        defaultValues: { comment: '' },
-        // a rejection without a reason comes back as a 422 on `comment` and is shown on the field
-        onSubmit: async ({ comment }) => {
+        defaultValues: { note: '' },
+        // a rejection without a reason comes back as a 422 on `note` and is shown on the field
+        onSubmit: async ({ note: comment }) => {
             if (action.current === 'approve')
                 await approve.mutateAsync({ id: a.id, comment, row_version: a.row_version });
             else await reject.mutateAsync({ id: a.id, comment, row_version: a.row_version });
@@ -246,29 +246,11 @@ function ApprovalDetail({ approval: a, onDone }: { approval: Approval; onDone: (
                         </>
                     )}
                 </dl>
-                {a.payload && Object.keys(a.payload).length > 0 && (
-                    <>
-                        <Separator />
-                        <div>
-                            <div className="mb-2 font-medium">Details</div>
-                            <dl className="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-1">
-                                {Object.entries(a.payload).map(([k, v]) => (
-                                    <React.Fragment key={k}>
-                                        <dt className="text-muted-foreground">{k.replace(/_/g, ' ')}</dt>
-                                        <dd className="break-words">
-                                            {typeof v === 'object' ? JSON.stringify(v) : String(v)}
-                                        </dd>
-                                    </React.Fragment>
-                                ))}
-                            </dl>
-                        </div>
-                    </>
-                )}
                 {a.can_decide && (
                     <>
                         <Separator />
                         <ZodForm form={form}>
-                            <form.AppField name="comment">
+                            <form.AppField name="note">
                                 {(f) => (
                                     <f.TextareaField
                                         label="Comment"

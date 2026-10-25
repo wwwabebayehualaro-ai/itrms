@@ -1116,6 +1116,20 @@
         },
         "type": "object"
       },
+      "PublicationRejectionDto": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "note"
+        ],
+        "type": "object"
+      },
       "PublicationRequestDto": {
         "additionalProperties": false,
         "properties": {
@@ -3097,7 +3111,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PublicationDecisionDto"
+                "$ref": "#/components/schemas/PublicationRejectionDto"
               }
             }
           },
@@ -4517,7 +4531,7 @@
           {
             "in": "query",
             "name": "formId",
-            "required": true,
+            "required": false,
             "schema": {
               "format": "uuid",
               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",

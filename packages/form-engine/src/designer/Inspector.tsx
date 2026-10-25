@@ -54,6 +54,7 @@ import { explainPattern } from '../core/safePattern';
 import { ROOT, getPath, setPath } from './document';
 import { SettingsForm } from './SettingsForm';
 import { useDesigner, useDesignerActions } from './store';
+import { useFormsHost } from '../host/FormsHost';
 
 const WIDTHS = [
     { value: '12', label: 'Full width' },
@@ -134,6 +135,10 @@ function useFieldEdit(id: string) {
 // ---- tabs --------------------------------------------------------------------------------------------------------------
 function FieldTab({ stored, field, design }: { stored: FormField; field: EngineField; design?: DesignMeta }) {
     const { set } = useFieldEdit(stored.id);
+    const roleKeys = useFormsHost().roleKeys ?? [];
+    const roles = (stored as FormField & { visibleToRoles?: string[] }).visibleToRoles ?? [];
+    // a key the installation has no role for hides the field from everyone
+    const unknownRoles = roleKeys.length ? roles.filter((r) => !roleKeys.includes(r)) : [];
     const actions = useDesignerActions();
     const keys = useDesigner((s) => s.doc.byId);
     const [key, setKey] = useState<string | null>(null);
@@ -222,6 +227,15 @@ function FieldTab({ stored, field, design }: { stored: FormField; field: EngineF
                     }
                 />
             )}
+            {value && (
+                <SwitchRow
+                    id="insp-filterable"
+                    label="Filterable"
+                    help="The data viewer filters by it fast, on any number of requests (its answers are indexed when the form is published)."
+                    checked={stored.filterable === true}
+                    onChange={(v) => set('filterable', v || undefined)}
+                />
+            )}
             <SwitchRow
                 id="insp-disabled"
                 label="Read-only"
@@ -232,13 +246,17 @@ function FieldTab({ stored, field, design }: { stored: FormField; field: EngineF
             <Row
                 id="insp-roles"
                 label="Only for roles"
-                help="Leave empty for everyone. Hidden from other roles, on screen and in exports."
+                help={`Leave empty for everyone. Hidden from other roles, on screen and in exports.${
+                    roleKeys.length ? ` Roles: ${roleKeys.join(', ')}.` : ''
+                }`}
+                error={unknownRoles.length ? `Not a role of this installation: ${unknownRoles.join(', ')}` : null}
             >
                 <TagsInput
                     id="insp-roles"
-                    value={(stored as FormField & { visibleToRoles?: string[] }).visibleToRoles ?? []}
+                    value={roles}
                     onChange={(v) => set('visibleToRoles', v.length ? v : undefined)}
-                    placeholder="e.g. hr, finance"
+                    placeholder={roleKeys.length ? `e.g. ${roleKeys.slice(0, 2).join(', ')}` : 'e.g. unit_head'}
+                    invalid={unknownRoles.length > 0}
                 />
             </Row>
             {design && <p className="text-xs text-muted-foreground">{design.hint}</p>}

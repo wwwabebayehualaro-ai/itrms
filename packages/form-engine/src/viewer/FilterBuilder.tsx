@@ -152,12 +152,7 @@ function ValueEditor({
             </ToggleGroup>
         );
 
-    if (
-        field.kind === 'date' ||
-        field.kind === 'datetime' ||
-        field.key === 'created_at' ||
-        field.key === 'updated_at'
-    ) {
+    if (field.kind === 'date' || field.kind === 'datetime' || field.key === 'created_at') {
         const cal = (v: unknown, set: (d: string | null) => void, ph: string) => (
             <DatePicker
                 value={parseYmd(v)}
@@ -368,6 +363,13 @@ export function FilterBuilder({ schema, labeler, value, onApply }: FilterBuilder
                                 >
                                     <X />
                                 </IconButton>
+                                {f.indexed === false && (
+                                    // no index serves it under RLS: it reads every request in view (ADR-0035)
+                                    <span className="basis-full text-xs text-muted-foreground" data-unindexed>
+                                        “{f.label}” is not filterable: this condition reads every request and is slow on
+                                        many. The form’s author can mark the field filterable in the builder.
+                                    </span>
+                                )}
                             </div>
                         );
                     })}

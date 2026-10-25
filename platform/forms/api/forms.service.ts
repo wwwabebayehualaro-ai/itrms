@@ -6,9 +6,11 @@
  */
 import { Injectable } from '@nestjs/common';
 import { and, desc, eq, ilike, inArray, max, or, sql } from 'drizzle-orm';
-import { insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
+import { contextOfTx, insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { ConflictError, ForbiddenError, NotFoundError } from '@itrms/kernel/errors';
 import { unitRefs, withinScope, type UnitRef } from '@itrms/kernel/org';
+import { users } from '@itrms/kernel/tables';
+import { currentContext } from '@itrms/kernel/context';
 import { emit } from '@itrms/kernel/outbox';
 import type { z } from 'zod';
 
@@ -396,6 +398,14 @@ export class FormsService {
             .where(inArray(formVersions.id, [...new Set(rows.map((r) => r.formVersionId))]));
         const names = new Map(forms.map((f) => [f.id, f.name]));
         const numbers = new Map(versions.map((v) => [v.id, v.number]));
+        const people = await namesOf(
+            tx,
+            rows.flatMap((r) => [r.createdBy, r.decidedBy])
+        );
+        const me = contextOfTx(tx).userId;
+        // what the caller's roles let them do with it (the routes enforce it again; this only tells the screens)
+        const granted = currentContext()?.principal?.permissions;
+        const may = (permission: string) => granted?.has(permission) ?? false;
         return rows.map((r) => ({
             id: r.id,
             version: r.rowVersion,
@@ -405,8 +415,12 @@ export class FormsService {
             status: r.status,
             note: r.note,
             requestedBy: r.createdBy,
+            requestedByName: r.createdBy ? (people.get(r.createdBy) ?? null) : null,
             requestedAt: r.createdAt.toISOString(),
             decidedBy: r.decidedBy,
+            decidedByName: r.decidedBy ? (people.get(r.decidedBy) ?? null) : null,
+            canDecide: r.status === 'pending' && r.createdBy !== me && r.contentBy !== me && may('form:approve'),
+            canWithdraw: r.status === 'pending' && r.createdBy === me && may('form:publish'),
             decidedAt: r.decidedAt?.toISOString() ?? null,
             decisionNote: r.decisionNote
         }));
@@ -425,4 +439,15 @@ export const versionOf = (row: VersionRow): FormVersion => ({
 
 export function unitOf(units: ReadonlyMap<string, UnitRef>, id: string): UnitRef {
     return units.get(id) ?? { id, code: '', name: {} };
+}
+
+/** Staff names for what a form shows (users are a regional record). */
+export async function namesOf(tx: Tx, ids: readonly (string | null)[]): Promise<Map<string, string>> {
+    const wanted = [...new Set(ids.filter((id): id is string => Boolean(id)))];
+    if (wanted.length === 0) return new Map();
+    const rows = await tx
+        .select({ id: users.id, name: users.displayName })
+        .from(users)
+        .where(inArray(users.id, wanted));
+    return new Map(rows.map((r) => [r.id, r.name]));
 }

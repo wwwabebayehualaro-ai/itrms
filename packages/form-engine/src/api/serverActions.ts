@@ -4,18 +4,19 @@ import { useQuery } from '@tanstack/react-query';
 import type { ServerAction } from '@itrms/schemas';
 
 import { createKeys } from '../host/client';
-import { useFormsClient } from '../host/FormsHost';
 
 export type { ServerAction };
 
 export const serverActionKeys = createKeys('server-actions');
 
-/** The server actions a form can run on submit (coded work registered by modules, e.g. posting a transaction). */
+/**
+ * The server actions a form can run on submit (coded work registered by modules). The forms API has none yet: a form's
+ * coded work comes as module effects named by its service's configuration (task 0.21), so the designer offers none.
+ */
 export function useServerActions() {
-    const client = useFormsClient();
     return useQuery({
         queryKey: serverActionKeys.all,
-        queryFn: async ({ signal }) => (await client.get<ServerAction[]>('form/server-actions', { signal })).data,
-        staleTime: 5 * 60_000
+        queryFn: (): ServerAction[] => [],
+        staleTime: Infinity
     });
 }

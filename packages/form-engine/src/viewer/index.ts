@@ -7,4 +7,4 @@ export type { ViewSchema, ViewField, QueryRequest, QueryResult, ViewRow, ViewSta
 export { useRecordForm, useRecordHistory, recordKeys } from './recordApi';
 export type { RecordForm, HistoryEntry, FieldChange } from './recordApi';
 export { useLabeler } from './labels';
-export { StatusTag, STATUSES, titleOf } from './components';
+export { titleOf } from './components';

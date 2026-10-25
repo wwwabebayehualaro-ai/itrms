@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useDirectory } from '../host/directory';
 import { formatCurrency, formatDate, formatDateTime } from '../host/format';
 import type { ViewField, ViewOption, ViewSchema } from './types';
 
@@ -9,7 +8,7 @@ export const EMPTY = '—';
 
 export interface Labeler {
     field: (key: string) => ViewField | undefined;
-    /** Choices of a field: its own options, or the tenant's people for person fields. */
+    /** Choices of a field (the built-ins' are the offices and people in the data, from the server). */
     options: (key: string) => ViewOption[];
     /** value -> label of a field (option names, people names), for the table cell renderer. */
     lookup: (key: string) => Map<string, string>;
@@ -20,22 +19,19 @@ export interface Labeler {
 
 /** Turns stored values into what people read. One place, used by every view mode, filter chip and export. */
 export function useLabeler(schema?: ViewSchema): Labeler {
-    const { data: people, names, isPending } = useDirectory();
     return useMemo(() => {
         const fields = new Map((schema?.fields ?? []).map((f) => [f.key, f]));
         const field = (key: string) => fields.get(key);
         const options = (key: string): ViewOption[] => {
             const f = field(key);
-            if (!f) return [];
-            if (f.person) return (people ?? []).map((u) => ({ value: u.id, label: u.full_name || u.email }));
-            return f.options;
+            return f?.options ?? [];
         };
         const lookups = new Map<string, Map<string, string>>();
         const lookup = (key: string) => {
             let m = lookups.get(key);
             if (!m) {
                 const f = field(key);
-                m = f?.person ? names : new Map((f?.options ?? []).map((o) => [String(o.value), o.label]));
+                m = new Map((f?.options ?? []).map((o) => [String(o.value), o.label]));
                 lookups.set(key, m);
             }
             return m;
@@ -57,10 +53,7 @@ export function useLabeler(schema?: ViewSchema): Labeler {
                           ? Number(v).toLocaleString('en-US', { maximumFractionDigits: 6 })
                           : String(v);
                 default:
-                    return (
-                        lookup(f.key).get(String(v)) ??
-                        (f.kind === 'choice' && f.key === 'status' ? String(v).replace(/[_-]+/g, ' ') : String(v))
-                    );
+                    return lookup(f.key).get(String(v)) ?? String(v);
             }
         };
         const text = (key: string, value: unknown) => {
@@ -68,6 +61,6 @@ export function useLabeler(schema?: ViewSchema): Labeler {
             if (Array.isArray(value)) return value.length ? value.map((x) => one(f, x)).join(', ') : EMPTY;
             return one(f, value);
         };
-        return { field, options, lookup, text, loading: isPending };
-    }, [schema, people, names, isPending]);
+        return { field, options, lookup, text, loading: false };
+    }, [schema]);
 }

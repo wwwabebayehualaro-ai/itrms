@@ -15,9 +15,8 @@ modules/<feature>/
 Rules:
 * Build only on `app.foundation` (errors, security, db, audit, approval, numbering, idempotency, ...). Never reimplement a
   cross-cutting concern; if the platform lacks something, add it to the foundation (platform team review).
-* A module may use another module's public services/models (e.g. `form_submission` reads `form_builder` templates); the
-  foundation never imports a module.
+* A module may use another module's public services/models; the foundation never imports a module.
 * New models are imported in `app/models.py`; every new table gets `enable_rls_sql(...)` in its migration.
 
-Current modules: `form_builder` (templates, `/template`), `form_submission` (submissions, query, export, saved views, `/form`),
-`files` (uploads, `/files`).
+Current modules: `files` (uploads, `/files`). The forms (templates, submissions, query, export, saved views) moved to the
+forms API, `@itrms/forms` (task 0.16c).

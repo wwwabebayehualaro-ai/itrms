@@ -1,5 +1,5 @@
 import type { FormSubmission } from '@itrms/schemas';
-/** Contract of the data viewer. Mirrors Backend `submission_fields.describe` and `form_submission_query_schema`. */
+/** Contract of the data viewer, in the screens' keys: `api/wire.ts` maps the forms API's view schema and queries to it. */
 
 export type FieldKind =
     'text' | 'choice' | 'multi' | 'number' | 'date' | 'datetime' | 'boolean' | 'files' | 'rows' | 'person';
@@ -32,7 +32,7 @@ export interface ViewField {
     key: string;
     label: string;
     kind: FieldKind;
-    /** Stores a user id (directory-bound choice or built-in submitter): show the person's name. */
+    /** Stores a user id (the built-in submitter): its options carry the people's names. */
     person: boolean;
     builtin: boolean;
     ops: Op[];
@@ -42,6 +42,10 @@ export interface ViewField {
     options: ViewOption[];
     currency?: string | null;
     type?: string;
+    /** marked filterable by the form's author */
+    filterable?: boolean;
+    /** its filters run on the value table's indexes (fast on any number of requests) */
+    indexed?: boolean;
 }
 
 export interface ViewRoles {
@@ -102,6 +106,9 @@ export interface QueryRequest {
 
 export interface ViewRow extends FormSubmission {
     submitted_by_name?: string | null;
+    /** the office that handles the request, and its name */
+    handling_unit?: string;
+    handling_unit_name?: string;
 }
 
 export interface QueryResult {
@@ -128,4 +135,54 @@ export interface ViewState {
     options: Record<string, unknown>;
     /** The saved view this link was made from (applied when the link carries nothing else). */
     viewId?: string;
+}
+
+// ---- the record page and saved views ----
+
+export interface RecordForm {
+    template_id: string;
+    name: string;
+    form_config: { fields?: any[]; runtime?: any } | any[];
+    /** false: made before versions were recorded, shown with the current form */
+    versioned: boolean;
+    /** false: the form changed since this request was filled in */
+    current: boolean;
+}
+
+export interface FieldChange {
+    field: string;
+    old?: unknown;
+    new?: unknown;
+}
+
+export interface HistoryEntry {
+    id: string;
+    action: string;
+    occurred_at: string;
+    actor_id?: string | null;
+    actor_name?: string | null;
+    changes: FieldChange[];
+}
+
+/** What a saved view remembers (the shareable part of the view state). */
+export interface ViewConfig {
+    mode: string;
+    search: string;
+    filter: FilterGroup;
+    sort: SortKey[];
+    columns: string[];
+    page_size: number;
+    options: Record<string, unknown>;
+}
+
+export interface SavedView {
+    id: string;
+    template_id: string;
+    name: string;
+    visibility: 'private' | 'shared';
+    is_default: boolean;
+    config: ViewConfig;
+    owner_name?: string | null;
+    can_edit: boolean;
+    row_version: number;
 }

@@ -10,13 +10,14 @@ export type { TransactionHook } from './types';
 export { baseColumns, ltree, newId } from './columns';
 export { audited, auditOptionsOf, auditPolicyOf, notAudited, type AuditOptions } from './audit-policy';
 export {
+    type AuditEvent,
+    type BaseTable,
+    contextOfTx,
     deleteAudited,
     insertAudited,
     plain,
     recordEvent,
-    updateAudited,
-    type AuditEvent,
-    type BaseTable
+    updateAudited
 } from './audit';
 export { AUDIT_ACTIONS, auditLog, kernelSchema, type AuditAction } from './audit-log.table';
 export { declaredRlsTables, RLS_CLASSES, rlsOf, rlsPolicies, withRls, type RlsClass, type RlsDeclaration } from './rls';

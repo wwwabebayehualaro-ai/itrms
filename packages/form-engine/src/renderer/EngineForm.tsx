@@ -117,6 +117,7 @@ function EngineFormBody({
             const pruned = pruneHidden(doc.fields, values, scope);
             const submission = {
                 template_id: template.id,
+                ...(template.published_version_id ? { form_version_id: template.published_version_id } : {}),
                 submission_data: pruned,
                 status: 'submitted',
                 form_metadata: {

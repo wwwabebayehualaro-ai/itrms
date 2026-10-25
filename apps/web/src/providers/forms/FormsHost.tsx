@@ -11,6 +11,7 @@ import client from '@/lib/api/client';
 import { isReported } from '@/lib/api/errors';
 import { useAuthUser } from '@/lib/auth/authHooks';
 import logger from '@/lib/logger';
+import { ROLE_KEYS } from '@/shell/role-keys.generated';
 
 function useLocation(): FormsLocation {
     const router = useRouter();
@@ -33,6 +34,7 @@ const host: FormsHost = {
     client,
     useUser: useAuthUser,
     useLocation,
+    roleKeys: ROLE_KEYS,
     templatesHref: '/dynamic-template/saved-templates',
     isReported,
     logError: (message, error) => logger.error({ err: error }, message)

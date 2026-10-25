@@ -13,6 +13,8 @@ export const formTemplateStatusSchema = z.enum(['draft', 'pending_approval', 'pu
 export const formTemplateSchema = z.object({
     id: z.string().optional(),
     name: z.string(),
+    /** The name in every language it has (the forms API's I18nText); `name` is the one shown. */
+    names: z.record(z.string(), z.string()).optional(),
     slug: z.string(),
     version: z.string().optional(),
     form_config: objectOrList,
@@ -100,15 +102,20 @@ export const uploadedFileSchema = z.object({
 export type UploadedFile = z.infer<typeof uploadedFileSchema>;
 
 /** A new submission, or the fields of one to change. */
-export const formSubmissionInputSchema = formSubmissionSchema.pick({
-    template_id: true,
-    submission_data: true,
-    files_uploaded: true,
-    form_metadata: true,
-    status: true,
-    submitted_by: true,
-    submission_duration: true,
-    validation_errors: true
-});
+export const formSubmissionInputSchema = formSubmissionSchema
+    .pick({
+        template_id: true,
+        submission_data: true,
+        files_uploaded: true,
+        form_metadata: true,
+        status: true,
+        submitted_by: true,
+        submission_duration: true,
+        validation_errors: true
+    })
+    .extend({
+        /** The published version the person filled in: filed on it, refused (409) if another is published since. */
+        form_version_id: z.string().optional()
+    });
 
 export type FormSubmissionInput = z.infer<typeof formSubmissionInputSchema>;

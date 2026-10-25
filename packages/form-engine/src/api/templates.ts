@@ -1,35 +1,53 @@
 'use client';
 
+import { useCallback, useRef } from 'react';
 import { keepPreviousData, queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createKeys, type FormsClient } from '../host/client';
 import { useFormsClient } from '../host/FormsHost';
 import type { FormTemplate, PublishedForm } from '@itrms/schemas';
+import {
+    FORMS_API,
+    formChangeOf,
+    ifMatch,
+    keyOf,
+    publishedOf,
+    templateOf,
+    textAll,
+    type WireForm,
+    type WireVersion
+} from './wire';
 
-const BASE = 'template/forms/templates';
-/** The approval inbox (the app's `approvalKeys.all`): a publish may open a request there. */
+/** The approval inbox (the app's `approvalKeys.all`): a publish opens a request there. */
 const APPROVALS = ['approvals'] as const;
-/** The backend caps a page at 500; the template gallery filters/sorts client-side over the full list. */
-const LIST_LIMIT = 500;
+/** The API's largest page; the template gallery filters and sorts client-side over it. */
+const LIST_LIMIT = 100;
 
 export const templateKeys = createKeys('templates');
 
 export type TemplateInput = Omit<FormTemplate, 'id' | 'created_at' | 'updated_at'>;
 
+export { ifMatch };
+
+const getForm = async (client: FormsClient, id: string, signal?: AbortSignal) =>
+    (await client.get<WireForm>(`${FORMS_API.forms}/${id}`, { signal })).data;
+
 export const templateListOptions = (client: FormsClient) =>
     queryOptions({
         queryKey: templateKeys.list(),
         queryFn: async ({ signal }) =>
-            (await client.get<FormTemplate[]>(BASE, { params: { limit: LIST_LIMIT }, signal })).data,
+            (
+                await client.get<{ items: WireForm[] }>(FORMS_API.forms, { params: { limit: LIST_LIMIT }, signal })
+            ).data.items.map(templateOf),
         placeholderData: keepPreviousData
     });
 
 export const templateDetailOptions = (client: FormsClient, id: string) =>
     queryOptions({
         queryKey: templateKeys.detail(id),
-        queryFn: async ({ signal }) => (await client.get<FormTemplate>(`${BASE}/${id}`, { signal })).data
+        queryFn: async ({ signal }) => templateOf(await getForm(client, id, signal))
     });
 
-/** All templates of the tenant. Shared by the sidebar, the gallery and the builder, so it is fetched once and kept fresh by mutations. */
+/** All forms of the unit's view. Shared by the sidebar, the gallery and the builder, so it is fetched once and kept fresh by mutations. */
 export function useTemplateList() {
     const client = useFormsClient();
     return useQuery(templateListOptions(client));
@@ -50,38 +68,35 @@ export function useVisibleTemplates() {
     });
 }
 
-/** One template. Seeded from the cached list when possible, so opening a card renders instantly and revalidates in the background. */
+/** One form with its working copy (a list carries no document, so the detail is never seeded from it). */
 export function useTemplateQuery(id?: string) {
     const client = useFormsClient();
-    const qc = useQueryClient();
-    return useQuery({
-        ...templateDetailOptions(client, id ?? ''),
-        enabled: !!id,
-        initialData: () => qc.getQueryData<FormTemplate[]>(templateKeys.list())?.find((t) => t.id === id),
-        initialDataUpdatedAt: () => qc.getQueryState(templateKeys.list())?.dataUpdatedAt
-    });
+    return useQuery({ ...templateDetailOptions(client, id ?? ''), enabled: !!id });
 }
 
-const toPayload = (t: TemplateInput) => ({
-    template_data: {
-        name: t.name,
-        slug: t.slug,
-        // the builder hands over the field array; the API stores an object so the config can grow (runtime, settings…)
-        form_config: Array.isArray(t.form_config) ? { fields: t.form_config } : t.form_config,
-        version: t.version || '1.0.0',
-        ...(t.thumbnail_url && { thumbnail_url: t.thumbnail_url }),
-        ...(t.category && { category: t.category }),
-        ...(t.file_relations && { file_relations: t.file_relations })
-    }
-});
+/**
+ * Loads one form with its working copy, for a screen that holds only its list item (the gallery's Edit and Preview): a
+ * list item's document is empty, so editing or previewing it would show, and save, a blank form.
+ */
+export function useTemplateLoader() {
+    const client = useFormsClient();
+    const qc = useQueryClient();
+    return useCallback((id: string) => qc.fetchQuery(templateDetailOptions(client, id)), [client, qc]);
+}
 
-/** The form people fill in: the published version (409 `form_not_published` while there is none). */
+/** The form people fill in: the published version (409 `not_configured` while there is none). */
 export type { PublishedForm };
 
 export const publishedOptions = (client: FormsClient, id: string) =>
     queryOptions({
         queryKey: [...templateKeys.detail(id), 'published'] as const,
-        queryFn: async ({ signal }) => (await client.get<PublishedForm>(`${BASE}/${id}/published`, { signal })).data,
+        queryFn: async ({ signal }) => {
+            const [form, version] = await Promise.all([
+                getForm(client, id, signal),
+                client.get<WireVersion>(`${FORMS_API.forms}/${id}/versions/published`, { signal })
+            ]);
+            return publishedOf(form, version.data);
+        },
         retry: false,
         meta: { silent: true }
     });
@@ -92,20 +107,39 @@ export function usePublishedTemplate(id?: string) {
     return useQuery({ ...publishedOptions(client, id ?? ''), enabled: !!id });
 }
 
+interface WirePublication {
+    status: 'pending' | 'approved' | 'rejected' | 'withdrawn';
+}
+
 export function useTemplateMutations() {
     const client = useFormsClient();
     const qc = useQueryClient();
     const refresh = () => qc.invalidateQueries({ queryKey: templateKeys.all });
+    /** The version a change is based on: the one the screen holds, or (an overwrite, or none held) the current one. */
+    const versionOf = async (id: string, held?: number) => held ?? (await getForm(client, id)).version;
+    const shown = useRef(new Map<string, number>());
 
     const create = useMutation({
-        mutationFn: async (input: TemplateInput) => (await client.post<FormTemplate>(BASE, toPayload(input))).data,
+        mutationFn: async (input: TemplateInput) => {
+            const body = {
+                key: input.slug ? keyOf(input.slug) : keyOf(input.name),
+                name: textAll(input.name),
+                ...(input.category ? { category: input.category } : {}),
+                document: formChangeOf({ form_config: input.form_config }).document ?? { fields: [] }
+            };
+            return templateOf((await client.post<WireForm>(FORMS_API.forms, body)).data);
+        },
         onSuccess: refresh,
         meta: { errorMessage: 'Failed to create template' }
     });
 
     const update = useMutation({
-        mutationFn: async ({ id, data }: { id: string; data: Partial<FormTemplate> }) =>
-            (await client.put<FormTemplate>(`${BASE}/${id}`, data)).data,
+        mutationFn: async ({ id, data }: { id: string; data: Partial<FormTemplate> }) => {
+            const version = await versionOf(id, data.row_version);
+            return templateOf(
+                (await client.patch<WireForm>(`${FORMS_API.forms}/${id}`, formChangeOf(data), ifMatch(version))).data
+            );
+        },
         onSuccess: (saved) => {
             qc.setQueryData(templateKeys.detail(saved.id as string), saved);
             return refresh();
@@ -113,15 +147,23 @@ export function useTemplateMutations() {
         meta: { errorMessage: 'Failed to update template' }
     });
 
-    // Optimistic: the card disappears immediately and comes back if the server refuses.
+    // A form is never deleted (its submissions keep naming it): it is switched off. Optimistic: the card goes at once.
     const remove = useMutation({
         mutationFn: async (id: string) => {
-            await client.delete(`${BASE}/${id}`);
+            await client.patch(
+                `${FORMS_API.forms}/${id}`,
+                { active: false },
+                ifMatch(await versionOf(id, shown.current.get(id)))
+            );
+            shown.current.delete(id);
             return id;
         },
         onMutate: async (id) => {
             await qc.cancelQueries({ queryKey: templateKeys.all });
             const previous = qc.getQueryData<FormTemplate[]>(templateKeys.list());
+            // the version the card showed, kept before the card leaves the list (onMutate runs before mutationFn)
+            const version = previous?.find((t) => t.id === id)?.row_version;
+            if (version !== undefined) shown.current.set(id, version);
             qc.setQueryData<FormTemplate[]>(templateKeys.list(), (old) => old?.filter((t) => t.id !== id));
             return { previous };
         },
@@ -132,10 +174,16 @@ export function useTemplateMutations() {
         meta: { errorMessage: 'Failed to delete template' }
     });
 
-    // Publish the working copy: at once, or (feature flag forms.require_approval) as a request for a second person's approval.
+    // Publishing asks for a publication: a second person approves it in the approvals inbox (SEC-AC-6).
     const publish = useMutation({
-        mutationFn: async ({ id, note }: { id: string; note?: string }) =>
-            (await client.post<FormTemplate>(`${BASE}/${id}/publish`, { note: note || null })).data,
+        mutationFn: async ({ id, note }: { id: string; note?: string }) => {
+            const p = (
+                await client.post<WirePublication>(`${FORMS_API.forms}/${id}/publications`, {
+                    ...(note?.trim() ? { note: note.trim() } : {})
+                })
+            ).data;
+            return { status: p.status === 'approved' ? ('published' as const) : ('pending_approval' as const) };
+        },
         onSuccess: () => Promise.all([refresh(), qc.invalidateQueries({ queryKey: APPROVALS })]),
         meta: { errorMessage: 'Could not publish the form' }
     });

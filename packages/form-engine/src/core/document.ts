@@ -19,8 +19,10 @@ export interface DocumentProblem {
 export const MAX_PROBLEMS = 20;
 
 const contract = formConfigSchema([...FIELD_TYPES]);
-// a value is read as `values[key]`: never a key an object inherits (toString, valueOf, __proto__ …)
-const RESERVED_KEYS = new Set([...Object.getOwnPropertyNames(Object.prototype), 'prototype']);
+// a value is read as `values[key]`: never a key an object inherits (toString, valueOf, __proto__ …); nor a built-in
+// column of the submissions, in the API's words or the screens' (a filter on it would filter the built-in)
+const BUILTIN_COLUMNS = ['createdAt', 'submittedBy', 'handlingUnit', 'created_at', 'submitted_by', 'handling_unit'];
+const RESERVED_KEYS = new Set([...Object.getOwnPropertyNames(Object.prototype), 'prototype', ...BUILTIN_COLUMNS]);
 
 const where = (path: readonly PropertyKey[]) =>
     path.map((p, i) => (typeof p === 'number' ? `[${p}]` : `${i ? '.' : ''}${String(p)}`)).join('') || '(document)';

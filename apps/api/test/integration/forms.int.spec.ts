@@ -239,6 +239,8 @@ interface SubmissionOut {
     formVersion: { id: string; number: number };
     answers: Record<string, unknown>;
     handlingUnit: { code: string };
+    submittedBy: string | null;
+    submittedByName: string | null;
 }
 
 const text = (id: string, extra: Record<string, unknown> = {}) => ({
@@ -533,6 +535,15 @@ describe('a bureau form', () => {
         ).json<PublicationOut>();
         // back to the first content: its version, not a third
         expect(asked.formVersion.number).toBe(1);
+        // a rejection says why
+        const unexplained = await call(
+            'POST',
+            `/api/v1/form-publications/${asked.id}/rejection`,
+            as.bureau2(),
+            {},
+            ifMatch(asked.version)
+        );
+        expect(unexplained.statusCode).toBe(422);
         const rejected = await call(
             'POST',
             `/api/v1/form-publications/${asked.id}/rejection`,
@@ -635,6 +646,19 @@ describe('a publication', () => {
         ).rejects.toThrow(/four_eyes/);
     });
 
+    it('tells a reader without the right to decide that they cannot', async () => {
+        // a zone form, asked for by the zone's admin: the zone's viewer reads the request but holds no form:approve
+        const form = await createForm(as.zoneAdmin(), 'zone-checklist');
+        const asked = (
+            await call('POST', `/api/v1/forms/${form.id}/publications`, as.zoneAdmin(), {})
+        ).json<PublicationOut>();
+        const seen = await get<{ items: (PublicationOut & { canDecide: boolean; canWithdraw: boolean })[] }>(
+            `/api/v1/form-publications?formId=${form.id}`,
+            as.zoneViewer()
+        );
+        expect(seen.items.find((p) => p.id === asked.id)).toMatchObject({ canDecide: false, canWithdraw: false });
+    });
+
     it('is listed for its approvers while it waits, and is refused once its form is switched off', async () => {
         // the legacy "approving a deleted form is refused": forms are switched off, never deleted
         const form = await createForm(as.bureau(), 'retired-form');
@@ -643,6 +667,14 @@ describe('a publication', () => {
         ).json<PublicationOut>();
         const waiting = await get<{ items: PublicationOut[] }>('/api/v1/form-publications', as.bureau2());
         expect(waiting.items.map((p) => p.id)).toContain(asked.id);
+        // the inbox names who asked, and says what each caller may do with it
+        expect(waiting.items.find((p) => p.id === asked.id)).toMatchObject({
+            requestedByName: expect.any(String) as unknown,
+            canDecide: true,
+            canWithdraw: false
+        });
+        const own = await get<{ items: PublicationOut[] }>('/api/v1/form-publications', as.bureau());
+        expect(own.items.find((p) => p.id === asked.id)).toMatchObject({ canDecide: false, canWithdraw: true });
         // an office below the form's owner does not see the request
         const below = await get<{ items: PublicationOut[] }>('/api/v1/form-publications', as.zoneHead());
         expect(below.items.map((p) => p.id)).not.toContain(asked.id);
@@ -765,6 +797,12 @@ describe('submissions', () => {
             as.zoneRecords()
         );
         expect(mine.items.map((s) => s.id)).toEqual([made.zone]);
+        expect(mine.items[0]?.submittedByName).toEqual(expect.any(String));
+        // across forms, only one's own: everything in the unit's view needs a form to look at
+        const acrossForms = await get<{ items: SubmissionOut[] }>('/api/v1/submissions?mine=true', as.zoneRecords());
+        expect(acrossForms.items.map((s) => s.id)).toContain(made.zone);
+        expect(acrossForms.items.every((s) => s.submittedBy === acrossForms.items[0]?.submittedBy)).toBe(true);
+        expect((await call('GET', '/api/v1/submissions', as.zoneRecords())).statusCode).toBe(422);
     });
 
     it('keep the values of a field restricted to other roles on the server', async () => {

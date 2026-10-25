@@ -1071,6 +1071,9 @@ export interface components {
         PublicationDecisionDto: {
             note?: string;
         };
+        PublicationRejectionDto: {
+            note: string;
+        };
         PublicationRequestDto: {
             note?: string;
         };
@@ -1640,7 +1643,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PublicationDecisionDto"];
+                "application/json": components["schemas"]["PublicationRejectionDto"];
             };
         };
         responses: {
@@ -2698,8 +2701,8 @@ export interface operations {
     };
     SubmissionsController_list: {
         parameters: {
-            query: {
-                formId: string;
+            query?: {
+                formId?: string;
                 mine?: "true" | "false";
                 before?: string;
                 limit?: number;

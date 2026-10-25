@@ -9,7 +9,8 @@ import {
     useSubmissionMutations,
     useTemplateList,
     useTemplateQuery,
-    type RowActionDetail
+    type RowActionDetail,
+    useCanChangeRequests
 } from '@itrms/form-engine/renderer';
 import { storedFieldsOf } from '@itrms/schemas';
 import { DataViewer, type ViewMode, type ViewRow } from '@itrms/form-engine/viewer';
@@ -28,16 +29,19 @@ export default function TemplateSubmissionsPage() {
     const { templateId } = useParams<{ templateId: string }>();
     const notify = useNotify();
     const canCreate = useCan('submission:create');
-    const canEdit = useCan('submission:update');
-    const canDelete = useCan('submission:delete');
+    // a request changes only through its case's workflow (task 0.19)
+    const canEdit = useCanChangeRequests();
+    const canDelete = canEdit;
 
     const { data: template, isPending: templateLoading, error: templateError } = useTemplateQuery(templateId);
     const { data: allTemplates } = useTemplateList();
     // a report someone built in the builder for this form (`<slug>-table`) stays available as one more view of the data
-    const reportTemplate = useMemo(
+    const reportItem = useMemo(
         () => (template ? allTemplates?.find((t) => t.slug === `${template.slug}-table`) : undefined),
         [allTemplates, template]
     );
+    // the list item has no document: the report is drawn from the form itself
+    const { data: reportTemplate } = useTemplateQuery(reportItem?.id);
     const customViews = useMemo<ViewMode[]>(
         () =>
             reportTemplate
