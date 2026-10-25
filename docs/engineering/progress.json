@@ -559,7 +559,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "The engine's API hooks map the forms API through one wire module (packages/form-engine/src/api/wire.ts): the screens keep their keys (created_at, submitted_by, handling_unit, page_size); changes send If-Match. A form is switched off, never deleted. The view schema now carries the built-ins' options (offices and submitters in the caller's submissions, RLS-bound), so the viewer needs no user directory. Rejecting a publication now requires a note (422 without). Requests are filed once: edit, delete, status and board moves wait for the workflow (useCanChangeRequests, 0.19). Exports over 5,000 rows, or refused as too big, go to the background export. The legacy status, recent-requests and waiting-requests screens were retired (the workflow inbox replaces them). Backend form_builder, form_submission and core_banking (a form server action) were removed. Gates on 2026-10-25: turbo lint/typecheck/test 63/63 tasks; forms integration suites 65 tests in the first run, plus the query suite re-run with its new test (48); web build, i18n:check, check:slices and format:check pass; boundaries found 4 import cycles (form-engine wire.ts and the viewer hooks), fixed by moving the screen types into viewer/types.ts, now clean. Waiting for the reviewer before in review. Reviewer (2026-10-25): 1 high, 3 medium, 4 low; all fixed except the inbox's server-side paging (follow-up 0.20). Fixed: the gallery's Edit/Preview and the data page's Report load the form itself (a list item has no document: a blank builder saved would have replaced the working copy); a request is filed on the version it was filled in on (not whatever is published at submit); a settings save changes the name in the page's language only and clears an emptied category; canDecide/canWithdraw need form:approve/form:publish; the export goes to the background only when a fresh count is over the limit, and polling stops when the page is left; the built-ins' keys are reserved field keys; an unpublished form shows its notice (not_configured)."
+          "notes": "The engine's API hooks map the forms API through one wire module (packages/form-engine/src/api/wire.ts): the screens keep their keys (created_at, submitted_by, handling_unit, page_size); changes send If-Match. A form is switched off, never deleted. The view schema now carries the built-ins' options (offices and submitters in the caller's submissions, RLS-bound), so the viewer needs no user directory. Rejecting a publication now requires a note (422 without). Requests are filed once: edit, delete, status and board moves wait for the workflow (useCanChangeRequests, 0.19). Exports over 5,000 rows, or refused as too big, go to the background export. The legacy status, recent-requests and waiting-requests screens were retired (the workflow inbox replaces them). Backend form_builder, form_submission and core_banking (a form server action) were removed. Gates on 2026-10-25: turbo lint/typecheck/test 63/63 tasks; forms integration suites 65 tests in the first run, plus the query suite re-run with its new test (48); web build, i18n:check, check:slices and format:check pass; boundaries found 4 import cycles (form-engine wire.ts and the viewer hooks), fixed by moving the screen types into viewer/types.ts, now clean. Waiting for the reviewer before in review. Reviewer (2026-10-25): 1 high, 3 medium, 4 low; all fixed except the inbox's server-side paging (follow-up 0.20). Fixed: the gallery's Edit/Preview and the data page's Report load the form itself (a list item has no document: a blank builder saved would have replaced the working copy); a request is filed on the version it was filled in on (not whatever is published at submit); a settings save changes the name in the page's language only and clears an emptied category; canDecide/canWithdraw need form:approve/form:publish; the export goes to the background only when a fresh count is over the limit, and polling stops when the page is left; the built-ins' keys are reserved field keys; an unpublished form shows its notice (not_configured). Final evidence (head after the verifier's gaps): form-engine 90 tests, web 57, forms integration 114 tests in 4 files on PostgreSQL 16, boundaries clean. Stale legacy Backend tests of the removed modules deleted (test_core_banking, test_form_publish, test_submission_query). The legacy status/recent/waiting screens are gone before the 0.20 inbox replaces them; My requests remains."
         },
         {
           "id": "0.16f",
@@ -1696,7 +1696,8 @@
     {
       "foundIn": "0.13",
       "item": "useText().t takes any string: type the message keys (next-intl AppConfig Messages) so a typo fails typecheck",
-      "movedTo": "0.16c"
+      "movedTo": "0.16c",
+      "closedIn": "0.16c: moved to 0.17 with the engine's text"
     },
     {
       "foundIn": "0.13",
@@ -1746,7 +1747,8 @@
     {
       "foundIn": "0.15",
       "item": "The legacy form-template settings still upload through files/upload (apps/web/src/lib/api/useFileUpload.ts): move them to /api/v1/files",
-      "movedTo": "0.16c"
+      "movedTo": "0.16c",
+      "closedIn": "0.16c: the settings form's thumbnail upload and useFileUpload.ts were removed; the engine uploads through /api/v1/files"
     },
     {
       "foundIn": "0.15",
@@ -1796,12 +1798,14 @@
     {
       "foundIn": "0.16a",
       "item": "Editing a submission (PATCH, re-validated on its version, keeping values of role-restricted fields) if the data viewer's record page needs it",
-      "movedTo": "0.16c"
+      "movedTo": "0.16c",
+      "closedIn": "0.16c: moved to 0.19 (a filed request changes only through its case's workflow)"
     },
     {
       "foundIn": "0.16a",
       "item": "visibleToRoles in the designer offers the legacy roles (admin, editor): offer the installation's ITRMS role keys",
-      "movedTo": "0.16c"
+      "movedTo": "0.16c",
+      "closedIn": "0.16c: the designer offers the installation's role keys (generated from the manifests) and flags unknown ones"
     },
     {
       "foundIn": "0.16a",
@@ -1826,12 +1830,14 @@
     {
       "foundIn": "0.16b",
       "item": "The designer has no 'filterable' switch yet: offer it on top-level value fields (and the 0.18a lint warns above a few per form)",
-      "movedTo": "0.16c"
+      "movedTo": "0.16c",
+      "closedIn": "0.16c: Filterable switch on top-level value fields in the designer's Inspector"
     },
     {
       "foundIn": "0.16b",
       "item": "Filters on fields that are not filterable scan the form's submissions in scope (no index can serve them under RLS): the data viewer should say so and suggest marking the field",
-      "movedTo": "0.16c"
+      "movedTo": "0.16c",
+      "closedIn": "0.16c: the filter builder says when a condition's field is not filterable and points to the builder's switch"
     },
     {
       "foundIn": "0.16d",
@@ -1907,6 +1913,16 @@
       "foundIn": "0.16c",
       "item": "The approvals inbox scopes and pages the newest 100 publications of a status client-side: mine/decidable filters and a cursor on GET /v1/form-publications",
       "movedTo": "0.20"
+    },
+    {
+      "foundIn": "0.16c",
+      "item": "Editing a filed request (PATCH, re-validated on its version, keeping role-restricted values) as a workflow transition",
+      "movedTo": "0.19"
+    },
+    {
+      "foundIn": "0.16c",
+      "item": "Typed message keys for useText().t (a typo fails typecheck), and the engine's own UI text (designer, viewer: 'Filterable', 'Only for roles', …) is English outside the catalogues",
+      "movedTo": "0.17"
     }
   ]
 }

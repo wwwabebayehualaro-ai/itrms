@@ -8,9 +8,11 @@ import { DataViewer } from '@itrms/form-engine/viewer';
 ```
 
 ## How it stays dynamic
+
 The viewer talks to the forms API (`@itrms/forms`, through the app's `/api/` BFF). `../api/wire.ts` is the one place that
 knows the wire: it maps the API's DTOs and keys (`createdAt`, `submittedBy`, `handlingUnit`, `pageSize`, `groupBy`) to the
 screens' (`created_at`, `submitted_by`, `handling_unit`, `page_size`, `group_by`) and back.
+
 1. **The server describes the form's data** (`GET /v1/forms/{id}/view`): every queryable field of the published version
    the caller may see, with its kind (text, choice, multi, number, date, datetime, boolean, files, rows, person, unit),
    the operators it supports, whether it sorts/groups/aggregates, whether its filters are indexed (ADR-0035), its
@@ -31,16 +33,26 @@ screens' (`created_at`, `submitted_by`, `handling_unit`, `page_size`, `group_by`
    (`/v1/submission-exports`) and downloaded from a short-lived link when ready.
 
 ## Add a view mode
+
 ```tsx
-registerViewMode({ id: 'map', label: 'Map', icon: MapIcon /* lucide */, order: 70, available: (schema) => schema.fields.some((f) => f.key === 'location'), component: MapView });
+registerViewMode({
+    id: 'map',
+    label: 'Map',
+    icon: MapIcon /* lucide */,
+    order: 70,
+    available: (schema) => schema.fields.some((f) => f.key === 'location'),
+    component: MapView
+});
 // component: ({ templateId, schema, state, patch, labeler, onOpen, rowActions }) => ...  (use useSubmissionData for data)
 ```
+
 Other screens: the record page (`submitted-forms/template/[templateId]/[submissionId]`) shows a request with the form version it was filled in on, a "form changed" notice and its history (who changed which fields, never the values).
 
 ## Rules
-* Show people and options with `labeler.text(...)` (names, labels), never stored ids. Numbers/dates come formatted from `host/format.ts`.
-* Drill-down is a filter patch (`andFilter`, `groupCondition` in `drill.ts`): modes never filter in the browser.
-* Charts follow the dataviz rules (validated series colour `--chart-1`, thin marks, text in text tokens, a table view) and use the
+
+- Show people and options with `labeler.text(...)` (names, labels), never stored ids. Numbers/dates come formatted from `host/format.ts`.
+- Drill-down is a filter patch (`andFilter`, `groupCondition` in `drill.ts`): modes never filter in the browser.
+- Charts follow the dataviz rules (validated series colour `--chart-1`, thin marks, text in text tokens, a table view) and use the
   shadcn `ChartContainer` (Recharts) from `@platform/ui`.
-* Built only from `@platform/ui` (ESLint error zone): pickers are `Combobox`/`DatePicker`/`TagsInput`, paging is `Pager`, statuses
+- Built only from `@platform/ui` (ESLint error zone): pickers are `Combobox`/`DatePicker`/`TagsInput`, paging is `Pager`, statuses
   are `StatusBadge`, icon buttons are `IconButton`.
