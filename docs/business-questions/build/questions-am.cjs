@@ -26,7 +26,8 @@ const {
     TableRow,
     TextRun,
     WidthType,
-    HeadingLevel
+    HeadingLevel,
+    ImageRun
 } = require('docx');
 
 const VERSION = '2.0';
@@ -43,9 +44,23 @@ const ANSWER = 'F2F2F2';
 const ANSWER_BORDER = '8EA9C1';
 const HEAD_FILL = 'D9E2F3';
 const WIDTH = 9638; // A4 less 2 cm margins, in DXA
+const ASSETS = path.join(__dirname, 'assets');
+// the letterhead is 1778 x 592 px; the mark 581 x 320 px (shown at the content width and at 18 pt high)
+const LETTERHEAD = { file: 'header-official.jpeg', type: 'jpg', width: 640, height: 213 };
+const MARK = { file: 'logo-mark.png', type: 'png', width: 44, height: 24 };
+const image = (img) =>
+    new ImageRun({
+        type: img.type,
+        data: fs.readFileSync(path.join(ASSETS, img.file)),
+        transformation: { width: img.width, height: img.height }
+    });
 
 // ---- building blocks ----------------------------------------------------------------------------------------------------
-const run = (text, opts = {}) => new TextRun({ text, font: FONT, ...opts });
+/** A question's stable number (its `no`) → its place in the document; filled once the list is known. */
+let NUMBER = new Map();
+/** `{Q13}` → the number question 13 is shown with. */
+const refs = (text) => text.replace(/\{Q(\d+)\}/g, (_, n) => String(NUMBER.get(Number(n)) ?? n));
+const run = (text, opts = {}) => new TextRun({ text: refs(text), font: FONT, ...opts });
 const para = (text, opts = {}) =>
     new Paragraph({ spacing: { after: 120, line: 300 }, ...opts, children: [run(text, opts.run)] });
 const h1 = (text) => new Paragraph({ heading: HeadingLevel.HEADING_1, children: [run(text)] });
@@ -124,8 +139,9 @@ const metaLine = (key, value, last) =>
 
 /** One question: its heading, priority and responder, background, numbered items and answer box. */
 function question(q) {
+    const no = NUMBER.get(q.no);
     const out = [
-        h2(`ጥያቄ ${q.no}፦ ${q.title}`),
+        h2(`ጥያቄ ${no}፦ ${q.title}`),
         metaLine('ቅድሚያ', q.priority),
         metaLine('ምላሽ የሚሰጠው', q.who, true),
         label('ዳራ'),
@@ -137,7 +153,7 @@ function question(q) {
             new Paragraph({
                 spacing: { after: 100, line: 300 },
                 indent: { left: 567, hanging: 567 },
-                children: [run(`${q.no}.${i + 1}  `, { bold: true }), run(item)]
+                children: [run(`${no}.${i + 1}  `, { bold: true }), run(item)]
             })
         )
     );
@@ -173,7 +189,7 @@ const QUESTIONS = [
         priority: HIGH,
         who: 'ፋይናንስና የብቃት ማረጋገጫ ዳይሬክቶሬት',
         background:
-            'የፌዴራል የአገልግሎት ክፍያ ተመን በሚኒስትሮች ምክር ቤት ደንብ ቁጥር 572/2025 (እ.ኤ.አ.) ተሻሽሏል፤ ሆኖም ዝርዝር ተመኑን ማግኘት አልቻልንም። ክልሉም የራሱ ተመን ሊኖረው ይችላል። ሥርዓቱ ትክክለኛውን ክፍያ እንዲያሰላ ተመኑ ያስፈልጋል። የሌሎቹ አገልግሎቶች (ቦሎ፣ ምዝገባ፣ የማህበራት ፈቃድ፣ የጭነት ብቃት ማረጋገጫ …) ክፍያም በጥያቄ 13–17 ተጠይቋል።',
+            'የፌዴራል የአገልግሎት ክፍያ ተመን በሚኒስትሮች ምክር ቤት ደንብ ቁጥር 572/2025 (እ.ኤ.አ.) ተሻሽሏል፤ ሆኖም ዝርዝር ተመኑን ማግኘት አልቻልንም። ክልሉም የራሱ ተመን ሊኖረው ይችላል። ሥርዓቱ ትክክለኛውን ክፍያ እንዲያሰላ ተመኑ ያስፈልጋል። የሌሎቹ አገልግሎቶች (ቦሎ፣ ምዝገባ፣ የማህበራት ፈቃድ፣ የጭነት ብቃት ማረጋገጫ …) ክፍያም በጥያቄ {Q13}–{Q17} ተጠይቋል።',
         items: [
             'ከታች ባለው ሠንጠረዥ አሁን የሚከፈለውን ክፍያ (በብር) ይሙሉ። ክፍያው እንደ መንጃ ፈቃዱ ደረጃ (አውቶሞቢል፣ ደረቅ 1፣ ህዝብ 1 ...) የሚለያይ ከሆነ በየደረጃው ይጻፉ።',
             'ተመኑ የተወሰነበት ሕግ ወይም መመሪያ የትኛው ነው? (ቁጥሩና ቀኑ) እባክዎ ቅጂ ያያይዙ።',
@@ -251,21 +267,6 @@ const QUESTIONS = [
         ]
     },
     {
-        no: 6,
-        title: 'የወላይትኛ ቋንቋ ትርጉም',
-        priority: 'ከፍተኛ (ለ6.1)፤ መካከለኛ (ለሌሎቹ)',
-        who: 'የመምሪያው ኃላፊና የቋንቋ ባለሙያ',
-        background:
-            'ሥርዓቱ በአማርኛ፣ በእንግሊዝኛና በወላይትኛ እንዲሠራ ተወስኗል። ወላይትኛ በትምህርት ቤቶች በላቲን ፊደል ስለሚጻፍ ሥርዓቱም የላቲን ፊደል ይጠቀማል። ትርጉሙ ብቁ በሆነ ሰው መሠራትና መረጋገጥ አለበት፤ በማሽን የተተረጎመ ጽሑፍ ያለ ማረጋገጫ ጥቅም ላይ አይውልም።',
-        items: [
-            'የሥርዓቱን ጽሑፎች (ለማሳያው ወደ 300 የሚጠጉ አጫጭር ቃላትና ዓረፍተ ነገሮች) የሚተረጉመው ማን ይሆናል? የሚያረጋግጠውስ ማን ነው? (ስም ወይም ኃላፊነት)',
-            'ቋንቋው በራሱ ቋንቋ እንዴት ይጻፋል (ለምሳሌ "Wolayttattuwaa")? የላቲን ፊደል መጠቀማችን ትክክል ነው?',
-            'የኢትዮጵያ ወራትና የሳምንቱ ቀናት በወላይትኛ በአባሪ "ሐ" ይሙሉ።',
-            'የሚታተሙ ሰነዶች (መንጃ ፈቃድ፣ ደረሰኝ፣ ምስክር ወረቀት) በአማርኛና በእንግሊዝኛ ብቻ ይሁኑ ወይስ ወላይትኛም ይጨመር?',
-            'ለተገልጋዮች የሚላኩ የጽሑፍ መልዕክቶች (SMS) በየትኛው ቋንቋ ይሁኑ? (ወላይትኛ፣ አማርኛ፣ ሁለቱም)'
-        ]
-    },
-    {
         no: 7,
         title: 'ከፌዴራልና ከክልል ሥርዓቶች ጋር ያለው ግንኙነት',
         priority: MID,
@@ -297,7 +298,7 @@ const QUESTIONS = [
         priority: LOW,
         who: 'የብቃት ማረጋገጫና የህዝብ ትራንስፖርት ዳይሬክቶሬቶች',
         background:
-            'የማሰልጠኛ ተቋማት ሥልጠና ያጠናቀቁ ሠልጣኞችን ለምዘና ያቀርባሉ፤ የትራንስፖርት ማህበራት ወርሃዊ የስምሪት መርሃ ግብራቸውን በመርሃ ግብር አውጪ ኮሚቴ አዘጋጅተው ለማጽደቅ ያቀርባሉ። ለማሳያው እነዚህ መረጃዎች በመምሪያው ሠራተኛ ይመዘገባሉ። የሌሎቹ ባለድርሻ አካላት ተሳትፎ በጥያቄ 21 ተጠይቋል።',
+            'የማሰልጠኛ ተቋማት ሥልጠና ያጠናቀቁ ሠልጣኞችን ለምዘና ያቀርባሉ፤ የትራንስፖርት ማህበራት ወርሃዊ የስምሪት መርሃ ግብራቸውን በመርሃ ግብር አውጪ ኮሚቴ አዘጋጅተው ለማጽደቅ ያቀርባሉ። ለማሳያው እነዚህ መረጃዎች በመምሪያው ሠራተኛ ይመዘገባሉ። የሌሎቹ ባለድርሻ አካላት ተሳትፎ በጥያቄ {Q21} ተጠይቋል።',
         items: [
             'በኋለኛው ምዕራፍ ማሰልጠኛ ተቋማትና ማህበራት ውስን የራሳቸው መግቢያ (አካውንት) ተሰጥቷቸው መረጃውን በቀጥታ ቢያቀርቡ ይመረጣል ወይስ በወረቀት መቀጠል?',
             'በዞኑ ስንት የማሰልጠኛ ተቋማት፣ የጤና ተቋማት (የህክምና ማረጋገጫ የሚሰጡ) እና የትራንስፖርት ማህበራት አሉ? (ግምታዊ ቁጥር)'
@@ -316,20 +317,6 @@ const QUESTIONS = [
             'የጡረታ መዋጮ መጠን (የሠራተኛው % እና የመንግሥት %) እና የሚሰላበት መሠረት (መሠረታዊ ደመወዝ ወይስ ጠቅላላ) ምንድን ነው?',
             'ፋይናንስ የሚቀበለውን የዝርዝር ቅጽ ናሙና ያያይዙ (የግል መረጃው ተሸፍኖ)።',
             'ዝርዝሩን ማን ያዘጋጃል፣ ማን ያረጋግጣል፣ ማን ያጸድቃል?'
-        ]
-    },
-    {
-        no: 11,
-        title: 'የኢንተርኔት፣ የኮምፒውተርና የኤሌክትሪክ ሁኔታ',
-        priority: MID,
-        who: 'የአይሲቲ ባለሙያ / አስተዳደር',
-        background:
-            'ሥርዓቱ የኢንተርኔት መቆራረጥን እንዲቋቋም ተደርጎ ይሠራል (ረቂቅ በኮምፒውተሩ ላይ ይቀመጣል፤ መስመሩ ሲመለስ ይላካል)። ለሙከራ ትግበራው ዕቅድ የእያንዳንዱን ጽ/ቤት ሁኔታ ማወቅ ያስፈልጋል።',
-        items: [
-            'በተደጋጋሚ የኢንተርኔት ወይም የኤሌክትሪክ መቋረጥ የሚያጋጥማቸው ጽ/ቤቶች የትኞቹ ናቸው?',
-            'ጽ/ቤቶቹ የሚጠቀሙት የኢንተርኔት ዓይነት ምንድን ነው? (ብሮድባንድ፣ የሞባይል ዳታ፣ የመንግሥት ኔትወርክ (WAN)፣ የለም)',
-            'በእያንዳንዱ ጽ/ቤት ለአገልግሎቱ የሚውሉ ኮምፒውተሮችና ማተሚያዎች ብዛት ስንት ነው?',
-            'ሥርዓቱ የሚጫንበት አገልጋይ (ሰርቨር) በክልሉ ቢሮ ይሆናል ወይስ በዞኑ? የመረጃ መጠባበቂያ (backup) የሚቀመጥበት ሁለተኛ ቦታ (ለምሳሌ ሌላ ቢሮ) አለ?'
         ]
     },
     {
@@ -482,7 +469,7 @@ const QUESTIONS = [
         background:
             'ደብዳቤው ሥርዓቱ ከሚከተሉት ባለድርሻ አካላት ጋር በቅንጅት ለመሥራት የሚያስችል እንዲሆን ይጠይቃል፦ የክልሉ ትራንስፖርትና መንገድ ልማት አስተዳደር ቢሮ፣ የህዝብና የከተማ ትራንስፖርት ማህበራት፣ የፖሊስ መምሪያዎች (ትራፊክ ፖሊስ)፣ ኢንሹራንስ ኩባንያዎች፣ የመንገድ ፈንድ፣ የኢትዮጵያ መንገዶች አስተዳደር፣ የአሽከርካሪ ማሰልጠኛ ተቋማት፣ መገናኛ ብዙሀን፣ የጤና ተቋማት፣ የገቢ ሰብሳቢ ቢሮዎች፣ ጋራዦች፣ አማካሪዎችና ተቋራጮች፣ የፋይናንስ ቢሮዎች፣ ውልና ማስረጃ፣ የተሽከርካሪ ምርመራ ተቋማት፣ የጉምሩክ ባለሥልጣን እና የተሽከርካሪና የአሽከርካሪ ባለንብረቶች። ትስስሩን ለመንደፍ ከእያንዳንዳቸው ጋር የሚለዋወጠው መረጃ ያስፈልጋል።',
         items: [
-            'በአባሪ "መ" ያለውን ሠንጠረዥ ይሙሉ (ከእያንዳንዱ ባለድርሻ ጋር የሚለዋወጠው መረጃ፣ አሁን እንዴት እንደሚለዋወጥ፣ በምን ያህል ጊዜ፣ የሚያገናኘው ክፍል)።',
+            'በአባሪ "ሐ" ያለውን ሠንጠረዥ ይሙሉ (ከእያንዳንዱ ባለድርሻ ጋር የሚለዋወጠው መረጃ፣ አሁን እንዴት እንደሚለዋወጥ፣ በምን ያህል ጊዜ፣ የሚያገናኘው ክፍል)።',
             'ከነዚህ ውስጥ በኤሌክትሮኒክ መንገድ ለማገናኘት በጣም አስቸኳይ የሆኑት ሦስቱ የትኞቹ ናቸው? ለምን?',
             'ከባለድርሻዎቹ መካከል የራሳቸው ኤሌክትሮኒክ ሥርዓት ያላቸው አሉ (ለምሳሌ የኢንሹራንስ ኩባንያዎች፣ ጉምሩክ፣ ገቢዎች፣ ባንኮች)? ካሉ የሥርዓቱን ስምና የሚመለከተውን ክፍል ይጻፉ።',
             'መረጃ ለመለዋወጥ የመግባቢያ ሰነድ (MoU) ወይም ሌላ ሕጋዊ ስምምነት ያስፈልጋል? ማን ይፈርማል?',
@@ -497,7 +484,7 @@ const QUESTIONS = [
         background:
             'ደብዳቤው የጠየቃቸው አገልግሎቶች ብዙ በመሆናቸው ሥርዓቱ በምዕራፍ ይገነባል፤ የመጀመሪያው ማሳያ የአዲስ መንጃ ፈቃድና የመንጃ ፈቃድ ዕድሳት ነው። ቀጣዮቹ ምዕራፎች በመምሪያው ቅድሚያ መሠረት ይወሰናሉ። ሥርዓቱ ከደብዳቤው በተጨማሪ የሰው ሀብት (የደመወዝ ዝርዝርን ጨምሮ)፣ የዕቅድና በጀት፣ የሎጂስቲክስ፣ የማህበረሰብ ተሳትፎና የመንገድ ጥራትና ደህንነት ኦዲት ክፍሎችን ማካተት ይችላል።',
         items: [
-            'በአባሪ "ሠ" በተዘረዘሩት አገልግሎቶች ላይ የቅድሚያ ደረጃ ይስጡ (1 = አስቸኳይ፣ 2 = ቀጣይ፣ 3 = በኋላ) እና ዓመታዊ የተገልጋይ ብዛትን በግምት ይጻፉ።',
+            'በአባሪ "መ" በተዘረዘሩት አገልግሎቶች ላይ የቅድሚያ ደረጃ ይስጡ (1 = አስቸኳይ፣ 2 = ቀጣይ፣ 3 = በኋላ) እና ዓመታዊ የተገልጋይ ብዛትን በግምት ይጻፉ።',
             'ከማሳያው በኋላ መጀመሪያ መሠራት ያለባቸው ሦስት አገልግሎቶች የትኞቹ ናቸው? ለምን?',
             'ከዞኑ መምሪያ በተጨማሪ የሙከራ ትግበራ የሚጀመርባቸው ጽ/ቤቶች (ከተማ አስተዳደሮችና ወረዳዎች) የትኞቹ ይሁኑ?',
             'ከደብዳቤው ውጭ የተጠቀሱት ክፍሎች (የሰው ሀብት፣ የዕቅድና በጀት፣ ሎጂስቲክስ፣ የማህበረሰብ ተሳትፎ፣ የመንገድ ጥራትና ደህንነት ኦዲት) በሥርዓቱ እንዲካተቱ ይፈለጋል? በየትኛው ምዕራፍ?',
@@ -562,6 +549,8 @@ const QUESTIONS = [
         ]
     }
 ];
+
+NUMBER = new Map(QUESTIONS.map((q, i) => [q.no, i + 1]));
 
 const ANNEX_A = [
     ['Abala Abaya (Faracho)', 'ወረዳ'],
@@ -632,31 +621,6 @@ const ANNEX_B = [
     'የቁርጥ ዋጋ (unit rate) ዝርዝር',
     'ለክልሉ የሚላኩ ወቅታዊ ሪፖርቶች',
     'ሌላ (ይግለጹ)'
-];
-
-const MONTHS = [
-    ['መስከረም', 'Meskerem'],
-    ['ጥቅምት', 'Tikimt'],
-    ['ኅዳር', 'Hidar'],
-    ['ታኅሣሥ', 'Tahsas'],
-    ['ጥር', 'Tir'],
-    ['የካቲት', 'Yekatit'],
-    ['መጋቢት', 'Megabit'],
-    ['ሚያዝያ', 'Miyazya'],
-    ['ግንቦት', 'Ginbot'],
-    ['ሰኔ', 'Sene'],
-    ['ሐምሌ', 'Hamle'],
-    ['ነሐሴ', 'Nehase'],
-    ['ጳጉሜ', 'Pagume']
-];
-const DAYS = [
-    ['እሑድ', 'Sunday'],
-    ['ሰኞ', 'Monday'],
-    ['ማክሰኞ', 'Tuesday'],
-    ['ረቡዕ', 'Wednesday'],
-    ['ሐሙስ', 'Thursday'],
-    ['ዓርብ', 'Friday'],
-    ['ቅዳሜ', 'Saturday']
 ];
 
 const STAKEHOLDERS = [
@@ -758,7 +722,7 @@ const coverLetter = [
         'ሥርዓቱን መምሪያው በሚሠራበት ትክክለኛ አሠራር፣ ሕግና መመሪያ መሠረት ለማበልጸግ ከመምሪያው ሥራ ክፍሎች ማብራሪያ የሚያስፈልጋቸው ጥያቄዎች በዚህ ሰነድ ቀርበዋል። ጥያቄዎቹ በደብዳቤው የተዘረዘሩትን አገልግሎቶችና ባለድርሻ አካላት በሙሉ ይሸፍናሉ፤ ቀደም ሲል (ጥቅምት 8 ቀን 2019 ዓ.ም.) የቀረቡትን ጥያቄዎችም ያካትታሉ።'
     ),
     para(
-        'በመሆኑም ጥያቄዎቹ ለሚመለከታቸው የሥራ ክፍሎች ተመርተው፣ ምላሹ ከተጠየቁት ቅጾችና ሰነዶች ጋር በሰነዱ ፊት ለፊት በተጠቀሰው ቀን እንዲላክልን በአክብሮት እንጠይቃለን። "ከፍተኛ" ቅድሚያ የተሰጣቸው ጥያቄዎች (በማጠቃለያ ሠንጠረዡ ይመልከቱ) ቀድመው ቢመለሱ የመጀመሪያው ማሳያ በጊዜ እንዲዘጋጅ ያግዛል። እንዲሁም ፕሮጀክቱን ከመምሪያው በኩል የሚያስተባብር ባለሙያ እንዲሰየምልን እንጠይቃለን (ጥያቄ 24)።'
+        'በመሆኑም ጥያቄዎቹ ለሚመለከታቸው የሥራ ክፍሎች ተመርተው፣ ምላሹ ከተጠየቁት ቅጾችና ሰነዶች ጋር በሰነዱ ፊት ለፊት በተጠቀሰው ቀን እንዲላክልን በአክብሮት እንጠይቃለን። "ከፍተኛ" ቅድሚያ የተሰጣቸው ጥያቄዎች (በማጠቃለያ ሠንጠረዡ ይመልከቱ) ቀድመው ቢመለሱ የመጀመሪያው ማሳያ በጊዜ እንዲዘጋጅ ያግዛል። እንዲሁም ፕሮጀክቱን ከመምሪያው በኩል የሚያስተባብር ባለሙያ እንዲሰየምልን እንጠይቃለን (ጥያቄ {Q24})።'
     ),
     new Paragraph({ spacing: { before: 360, after: 120 }, children: [run('ከሠላምታ ጋር')] }),
     para('ስም፦ ______________________________'),
@@ -771,13 +735,12 @@ const coverLetter = [
 ];
 
 const intro = [
-    pageBreak(),
     h1('1. ዓላማ'),
     para(
         `ይህ ሰነድ ወላይታ ዞን ትራንስፖርትና መንገድ ልማት አስተዳደር መምሪያ በ${LETTER} በጠየቀው መሠረት የሚበለጽገውን የተቀናጀ የትራንስፖርትና የመንገድ ልማት አስተዳደር ሥርዓት (ITRMS) ለመገንባት ከሥራ ክፍሎቹ ማብራሪያ የሚያስፈልጋቸውን ጥያቄዎች ይዟል። የቴክኖሎጂ ምርጫዎች በቴክኒክ ቡድኑ ተወስነዋል፤ ከዚህ በታች ያሉት ጥያቄዎች ግን የአሠራር፣ የሕግና የአደረጃጀት ውሳኔ ወይም መረጃ የሚጠይቁ በመሆናቸው በመምሪያው ባለሙያዎችና ኃላፊዎች መመለስ አለባቸው።`
     ),
     para(
-        'ጥያቄ 1–12 በእትም 1.0 የቀረቡ ናቸው። ጥያቄ 13–26 በደብዳቤው የተዘረዘሩትን ሌሎች አገልግሎቶች (የተሽከርካሪ ምዝገባ፣ ቦሎ፣ የማሰልጠኛ ተቋማት ክትትል፣ የህዝብና የጭነት ትራንስፖርት፣ የትራፊክ ደህንነት፣ የመንገድ ግንባታ፣ ጥገና፣ ዲዛይንና ውል አስተዳደር) እና ባለድርሻ አካላትን እንዲሁም የፕሮጀክቱን አፈጻጸም ይሸፍናሉ።'
+        'ጥያቄ 1–{Q12} ከእትም 1.0 የተወሰዱ ናቸው። ጥያቄ {Q13}–{Q26} በደብዳቤው የተዘረዘሩትን ሌሎች አገልግሎቶች (የተሽከርካሪ ምዝገባ፣ ቦሎ፣ የማሰልጠኛ ተቋማት ክትትል፣ የህዝብና የጭነት ትራንስፖርት፣ የትራፊክ ደህንነት፣ የመንገድ ግንባታ፣ ጥገና፣ ዲዛይንና ውል አስተዳደር) እና ባለድርሻ አካላትን እንዲሁም የፕሮጀክቱን አፈጻጸም ይሸፍናሉ።'
     ),
     para(
         'የመጀመሪያው ማሳያ (Demo) የአዲስ መንጃ ፈቃድና የመንጃ ፈቃድ ዕድሳት አገልግሎቶችን በዞኑ መምሪያ፣ በከተማ አስተዳደርና በወረዳ ጽ/ቤት መካከል ያሳያል። "ከፍተኛ" ቅድሚያ የተሰጣቸው ጥያቄዎች ለዚህ ማሳያ አስፈላጊ ናቸው።'
@@ -792,7 +755,7 @@ const intro = [
     table(
         ['ቁ.', 'ርዕስ', 'ቅድሚያ', 'ምላሽ የሚሰጠው'],
         [700, 4100, 1300, 3538],
-        QUESTIONS.map((q) => [String(q.no), q.title, q.priority.split(' ')[0], q.who])
+        QUESTIONS.map((q) => [String(NUMBER.get(q.no)), q.title, q.priority.split(' ')[0], q.who])
     ),
     pageBreak(),
     h1('4. ጥያቄዎች')
@@ -818,13 +781,7 @@ const annexes = [
         ANNEX_B.map((d, i) => [String(i + 1), d])
     ),
     pageBreak(),
-    h1('አባሪ ሐ፦ ወራትና ቀናት በወላይትኛ (ለጥያቄ 6)'),
-    label('ወራት'),
-    table(['አማርኛ', 'እንግሊዝኛ', 'ወላይትኛ (ይሙሉ)'], [3000, 3000, 3638], MONTHS),
-    label('የሳምንቱ ቀናት'),
-    table(['አማርኛ', 'እንግሊዝኛ', 'ወላይትኛ (ይሙሉ)'], [3000, 3000, 3638], DAYS),
-    pageBreak(),
-    h1('አባሪ መ፦ የባለድርሻ አካላት የመረጃ ልውውጥ (ለጥያቄ 21)'),
+    h1('አባሪ ሐ፦ የባለድርሻ አካላት የመረጃ ልውውጥ (ለጥያቄ {Q21})'),
     para('ለእያንዳንዱ ባለድርሻ የሚለዋወጠውን መረጃ፣ አሁን የሚለዋወጥበትን መንገድ (ወረቀት፣ ስልክ፣ ኢሜይል፣ ሥርዓት)፣ ድግግሞሹንና የሚያገናኘውን ክፍል ይጻፉ።'),
     table(
         ['ቁ.', 'ባለድርሻ አካል', 'የሚለዋወጠው መረጃ', 'አሁን እንዴት', 'በምን ያህል ጊዜ', 'የሚያገናኘው ክፍል'],
@@ -832,7 +789,7 @@ const annexes = [
         STAKEHOLDERS.map((s, i) => [String(i + 1), s])
     ),
     pageBreak(),
-    h1('አባሪ ሠ፦ የአገልግሎቶቹ ቅድሚያ (ለጥያቄ 22)'),
+    h1('አባሪ መ፦ የአገልግሎቶቹ ቅድሚያ (ለጥያቄ {Q22})'),
     para('አገልግሎቶቹ በደብዳቤው ከተዘረዘሩት የተወሰዱ ናቸው። ቅድሚያ፦ 1 = አስቸኳይ፣ 2 = ቀጣይ፣ 3 = በኋላ።'),
     table(
         ['ቁ.', 'አገልግሎት', 'ቅድሚያ (1/2/3)', 'ዓመታዊ ብዛት (ግምት)', 'የሚሰጠው ጽ/ቤት', 'ማስታወሻ'],
@@ -852,6 +809,43 @@ const annexes = [
     ),
     para('እናመሰግናለን!', { run: { bold: true } })
 ];
+
+const PAGE = {
+    page: {
+        size: { width: 11906, height: 16838 },
+        margin: { top: 1134, right: 1134, bottom: 1134, left: 1134, header: 708, footer: 708 }
+    }
+};
+
+const pageNumbers = new Footer({
+    children: [
+        new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [
+                run('ገጽ ', { size: 16 }),
+                new TextRun({ children: [PageNumber.CURRENT], font: FONT, size: 16 }),
+                run(' ከ ', { size: 16 }),
+                new TextRun({ children: [PageNumber.TOTAL_PAGES], font: FONT, size: 16 })
+            ]
+        })
+    ]
+});
+
+const letterhead = new Header({
+    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [image(LETTERHEAD)] })]
+});
+
+const runningHead = new Header({
+    children: [
+        new Paragraph({
+            border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: ANSWER_BORDER, space: 4 } },
+            children: [
+                image(MARK),
+                run(`   ITRMS — ለወላይታ ዞን የቀረቡ የሥራ ጥያቄዎች (እትም ${VERSION}) · ${COMPANY}`, { size: 16, color: '808080' })
+            ]
+        })
+    ]
+});
 
 const doc = new Document({
     creator: COMPANY,
@@ -897,43 +891,16 @@ const doc = new Document({
     },
     sections: [
         {
-            properties: {
-                page: {
-                    size: { width: 11906, height: 16838 },
-                    margin: { top: 1134, right: 1134, bottom: 1134, left: 1134, header: 708, footer: 708 }
-                }
-            },
-            headers: {
-                default: new Header({
-                    children: [
-                        new Paragraph({
-                            alignment: AlignmentType.RIGHT,
-                            children: [
-                                run(`ITRMS — ለወላይታ ዞን የቀረቡ የሥራ ጥያቄዎች (እትም ${VERSION}) · ${BRAND}`, {
-                                    size: 16,
-                                    color: '808080'
-                                })
-                            ]
-                        })
-                    ]
-                })
-            },
-            footers: {
-                default: new Footer({
-                    children: [
-                        new Paragraph({
-                            alignment: AlignmentType.CENTER,
-                            children: [
-                                run('ገጽ ', { size: 16 }),
-                                new TextRun({ children: [PageNumber.CURRENT], font: FONT, size: 16 }),
-                                run(' ከ ', { size: 16 }),
-                                new TextRun({ children: [PageNumber.TOTAL_PAGES], font: FONT, size: 16 })
-                            ]
-                        })
-                    ]
-                })
-            },
-            children: [...titleBlock, ...coverLetter, ...intro, ...QUESTIONS.flatMap(question), ...annexes]
+            properties: PAGE,
+            headers: { default: letterhead },
+            footers: { default: pageNumbers },
+            children: [...titleBlock, ...coverLetter]
+        },
+        {
+            properties: PAGE,
+            headers: { default: runningHead },
+            footers: { default: pageNumbers },
+            children: [...intro, ...QUESTIONS.flatMap(question), ...annexes]
         }
     ]
 });
