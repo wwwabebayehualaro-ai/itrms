@@ -13,7 +13,7 @@ import { isFormArray, isRequiredIn, type EngineField, type FieldOption } from '.
 import { evalCondition } from './runtime/formula';
 import { str } from './runtime/path';
 import { compilePattern } from './safePattern';
-import { holdsValue, isEnabledIn, isListField, isVisibleIn, pruneHidden, scopeFields } from './values';
+import { MAX_ROWS, holdsValue, isEnabledIn, isListField, isVisibleIn, pruneHidden, scopeFields } from './values';
 
 export type FieldErrors = Record<string, string>;
 
@@ -229,7 +229,8 @@ function remoteError(f: EngineField, scope: Scope): string | undefined {
 }
 
 function rowCountMessage(f: EngineField, rows: number, needsRow: boolean): string | undefined {
-    const { minItems, maxItems: max } = f.rules;
+    const { minItems } = f.rules;
+    const max = Math.min(f.rules.maxItems, MAX_ROWS);
     const min = needsRow ? Math.max(1, minItems) : minItems;
     const label = f.label || 'This section';
     if (needsRow && rows === 0 && minItems === 0 && f.messages.required) return f.messages.required;
@@ -282,14 +283,19 @@ export function validateForm(fields: EngineField[], values: Record<string, unkno
             const path = `${prefix}${f.id}`;
             if (isFormArray(f)) {
                 const rows = Array.isArray(current[f.id]) ? (current[f.id] as Record<string, unknown>[]) : [];
-                const when = f.rules.requiredWhen;
-                const needsRow = when ? evalCondition(when, ruleScope(scope, current, root)) === true : false;
+                const needsRow = f.validated && isRequiredIn(f, current, root, { user: scope.user });
                 const count = rowCountMessage(f, rows.length, needsRow);
-                if (count) errors[path] = count;
-                else rows.forEach((row, i) => run(f.id, row ?? {}, `${path}[${i}].`));
+                if (count) {
+                    errors[path] = count;
+                    continue;
+                }
+                // the section's own checks read its rows (count(form.lines) <= 5), then each row is checked
+                const check = f.validated ? validWhenError(f, rows, scope, current, root) : undefined;
+                if (check) errors[path] = check;
+                rows.forEach((row, i) => run(f.id, row ?? {}, `${path}[${i}].`));
                 continue;
             }
-            if (holdsValue(f)) {
+            if (holdsValue(f) && !f.computed?.readOnly) {
                 const shape = shapeError(f, current[f.id]);
                 if (shape) {
                     errors[path] = shape;

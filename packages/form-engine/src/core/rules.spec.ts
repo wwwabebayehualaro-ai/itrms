@@ -47,8 +47,11 @@ describe('days()', () => {
         expect(days('2026-05-05', '2026-05-05')).toBe(0);
         expect(days('2025-12-31', '2026-01-01')).toBe(1);
     });
-    it('reads the date part of an instant', () => {
-        expect(days('2026-09-01T23:59:00Z', '2026-09-02T00:01:00Z')).toBe(1);
+    it('reads an instant on its Addis Ababa day (UTC+3)', () => {
+        // 23:59 and 00:01 in Addis Ababa, across its midnight (20:59 and 21:01 UTC)
+        expect(days('2026-09-01T20:59:00Z', '2026-09-01T21:01:00Z')).toBe(1);
+        // 01:30 in Addis Ababa on the 25th is the 24th in UTC: it counts on the 25th
+        expect(days('2026-10-25', '2026-10-24T22:30:00Z')).toBe(0);
         expect(days('2026-09-01', '2026-09-03T10:00:00+03:00')).toBe(2);
     });
     it('gives null when either is not a real date', () => {
@@ -273,5 +276,57 @@ describe('settledValues chains of computed fields', () => {
             F('t', 'InputNumber', { data: { computed: { expression: '{{= form.qty }}' } } })
         );
         expect(settledValues(fields, { qty: 3, t: 99 })).toEqual({ qty: 3, t: 99 });
+    });
+});
+
+describe('review findings of task 0.17b', () => {
+    const row = (id: string, type: string, extra: Record<string, unknown> = {}) =>
+        F(id, type, { parentId: 'lines', ...extra });
+    const section = (validation: Record<string, unknown>, props: Record<string, unknown> = {}) =>
+        F('lines', 'FormArray', {
+            props,
+            layout: { options: { isContainer: true } },
+            behavior: { validation: V(validation) }
+        });
+
+    it('takes an untouched range slider (its scalar default) and a picked range, not another shape', () => {
+        const fields = doc(F('span', 'Slider', { props: { range: true } }));
+        expect(validateForm(fields, { span: 0 })).toEqual({});
+        expect(validateForm(fields, { span: [10, 40] })).toEqual({});
+        expect(validateForm(fields, { span: 'x' })).toHaveProperty('span');
+    });
+
+    it("checks a section's own rules over its rows, and Required needs a row", () => {
+        const fields = doc(
+            section({ validWhen: [{ expression: 'count(form.lines) <= 2', message: 'At most two lines' }] }),
+            row('what', 'InputText')
+        );
+        expect(validateForm(fields, { lines: [{ what: 'a' }, { what: 'b' }] })).toEqual({});
+        expect(validateForm(fields, { lines: [{ what: 'a' }, { what: 'b' }, { what: 'c' }] })).toEqual({
+            lines: 'At most two lines'
+        });
+        const required = doc(section({}, { required: true }), row('what', 'InputText'));
+        expect(validateForm(required, { lines: [] })).toHaveProperty('lines');
+    });
+
+    it('refuses more rows than the cap, and keeps no more than one past it', () => {
+        const fields = doc(section({}), row('what', 'InputText'));
+        const many = { lines: Array.from({ length: 5000 }, () => ({ what: 'x' })) };
+        expect(validateForm(fields, many).lines).toMatch(/at most 1000 rows/);
+    });
+
+    it('prunes a field shown only by a hidden field (a chain), the same on both sides', () => {
+        const fields = doc(
+            F('c', 'InputText'),
+            F('a', 'InputText', { behavior: { visibilityConditions: [{ field: 'c', operator: 'eq', value: 'yes' }] } }),
+            F('b', 'InputText', { behavior: { visibilityConditions: [{ field: 'a', operator: 'eq', value: 'x' }] } })
+        );
+        // C says "no": A is hidden, so B (shown only when A is "x") is hidden too, and its odd value is not taken
+        expect(validateForm(fields, { c: 'no', a: 'x', b: { any: 'object' } })).toEqual({});
+    });
+
+    it('refuses a subtraction written without spaces (it would read a field that cannot exist)', () => {
+        expect(checkRuleFormula('form.total-form.paid >= 0')).toMatch(/spaces around "-"/);
+        expect(checkRuleFormula('form.total - form.paid >= 0')).toBeNull();
     });
 });

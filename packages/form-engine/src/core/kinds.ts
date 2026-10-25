@@ -79,6 +79,8 @@ export function shapeError(f: EngineField, v: unknown): string | undefined {
         case 'multi':
             return Array.isArray(v) && v.every(isOption) ? undefined : bad('Please check your selection');
         case 'range':
+            // an untouched range slider still holds the scalar default of a plain slider: nothing chosen yet
+            if (typeof v === 'number') return undefined;
             return Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === 'number' && Number.isFinite(n))
                 ? undefined
                 : bad('Please check your selection');

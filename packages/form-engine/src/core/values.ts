@@ -130,8 +130,18 @@ export function pruneHidden(
         }
         return out;
     };
-    return prune(null, values, values);
+    // a field is judged on the values that stay: one shown only by a hidden field's value goes too
+    let out = values;
+    for (let pass = 0; pass <= fields.length; pass++) {
+        const next = prune(null, out, out);
+        if (JSON.stringify(next) === JSON.stringify(out)) return next;
+        out = next;
+    }
+    return out;
 }
+
+/** The most rows a repeatable section takes, whatever its own maximum (a rule in a row may read every row). */
+export const MAX_ROWS = 1000;
 
 const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
@@ -146,8 +156,10 @@ export function knownValues(fields: EngineField[], values: Record<string, unknow
             if (!holdsValue(f) || !Object.hasOwn(current, f.id)) continue;
             const v = current[f.id];
             if (!isFormArray(f)) out[f.id] = v;
-            // a section's value is its rows: anything else is not one
-            else if (Array.isArray(v)) out[f.id] = v.map((row) => keep(f.id, isRecord(row) ? row : {}));
+            // a section's value is its rows: anything else is not one; past the cap, validation refuses it, and
+            // nothing runs over more rows than one past it (rules may read every row from each row)
+            else if (Array.isArray(v))
+                out[f.id] = v.slice(0, MAX_ROWS + 1).map((row) => keep(f.id, isRecord(row) ? row : {}));
         }
         return out;
     };

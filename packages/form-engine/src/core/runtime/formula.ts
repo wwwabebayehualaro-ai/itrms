@@ -183,7 +183,16 @@ const pluck = (list: unknown, field?: unknown): number[] =>
 const DAY_MS = 86_400_000;
 
 /** The day an ISO date ("YYYY-MM-DD") or instant names, as a UTC day number; null when it is not a real date. */
+/** Addis Ababa's offset from UTC (no daylight saving): an instant counts on its day there. */
+const ADDIS_OFFSET_MS = 3 * 3_600_000;
+
 function isoDay(v: unknown): number | null {
+    // an instant (with a time) counts on its Addis Ababa day; a day is that day
+    if (typeof v === 'string' && v.includes('T')) {
+        const t = Date.parse(v);
+        if (Number.isNaN(t)) return null;
+        v = new Date(t + ADDIS_OFFSET_MS).toISOString().slice(0, 10);
+    }
     const m = typeof v === 'string' ? /^(\d{4})-(\d{2})-(\d{2})(?:$|T)/.exec(v) : null;
     if (!m) return null;
     const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
@@ -337,6 +346,8 @@ export function checkRuleFormula(src: string): string | null {
         const rest = ref.slice(root.length);
         if (root === 'form' || root === 'row' || root === 'root') {
             if (rest === '') return `"${ref}" needs a field: write ${root}.<field>`;
+            // a field key never holds a hyphen: `form.total-form.paid` is a subtraction written without spaces
+            if (rest.includes('-')) return `"${ref}" is not a field: put spaces around "-" to subtract`;
         } else if (root === 'user') {
             if (!/^\.(id|roles)(?![A-Za-z0-9_-])/.test(rest))
                 return `Rules may read only user.id and user.roles, not "${ref}"`;
