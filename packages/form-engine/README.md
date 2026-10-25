@@ -32,7 +32,9 @@ const host: FormsHost = {
     useLocation,                     // hook: pathname, search, params, push, replace (Next.js in the web app)
     templatesHref: '/dynamic-template/saved-templates',
     isReported,                      // optional: errors the app has already shown
-    logError: (message, error) => logger.error({ err: error }, message)
+    logError: (message, error) => logger.error({ err: error }, message),
+    roleKeys: ROLE_KEYS,             // optional: the installation's role keys ("Only for roles" in the builder)
+    useLanguages                     // optional hook: { language, languages } (forms are drawn in `language`)
 };
 <FormsHostProvider host={host}>{children}</FormsHostProvider>
 ```
@@ -51,6 +53,24 @@ import { DataViewer } from '@itrms/form-engine/viewer';
 ```
 The builder: `import { TemplateBuilder } from '@itrms/form-engine/designer'` (routed at `/dynamic-template/builder`; a separate
 entry so runtime pages do not ship it). The gallery opens a form in it through the builder store (`useBuilderActions`).
+
+## Texts in every language
+
+A field's label, help text, placeholder, option labels and custom messages are each a plain string (one text for every
+language, what older builders stored) or a text per language, `{ am, en, 'wal-Latn' }` (task 0.17a;
+`packages/schemas/src/forms/text.ts`). One list, `fieldTexts(field)`, names every translatable text of a field with its
+path; resolving, the save-time contract check, the builder's translation table and the untranslated count all walk it.
+
+- **Reading:** `readDocument(raw, { language })` / `toEngineField(stored, language)` give every text in one language
+  (the language, then Amharic, then English, then any; an empty text counts as missing), so the renderer, validation,
+  the viewer and the API work with plain strings. The renderer reads the host's language (`useFormsLanguages()`); the
+  API reads the request's.
+- **Writing (the builder):** `setTextIn(text, language, value, plainAs)`. A plain string written in the authoring language
+  (`plainAs`, the page's language) stays plain; written in another, it becomes a map that keeps it. A map never turns
+  back into a plain string, and a translation never changes a field's key or an option's value.
+- **Untranslated:** `untranslatedTexts(fields, plainAs)` lists the texts with nothing of their own in Amharic or
+  English (other languages are reported, not counted). The builder's Translations sheet shows them; publishing warns,
+  it does not block.
 
 ## Extend it
 
