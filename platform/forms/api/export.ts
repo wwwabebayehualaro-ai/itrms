@@ -13,6 +13,7 @@ import { PassThrough } from 'node:stream';
 import ExcelJS from 'exceljs';
 import { InvalidRequestError, RateLimitedError } from '@itrms/kernel/errors';
 import { MAX_GENERATED_BYTES } from '@itrms/kernel/files';
+import { ethiopianDateText } from '@itrms/form-engine/core';
 
 import type { ExportFailure } from '../contracts';
 
@@ -52,6 +53,8 @@ export function formatValue(field: ViewField, value: unknown, language: string):
         return '';
     const labels = new Map(field.options.map((o) => [JSON.stringify(o.value), o.label]));
     const one = (v: unknown) => labels.get(JSON.stringify(v)) ?? text(v);
+    // a day picked on the Ethiopian calendar is written down in it (the stored Gregorian day is its own column)
+    if (field.type === 'EthDate' && typeof value === 'string') return ethiopianDateText(value, { language }) || value;
     switch (field.kind) {
         case 'boolean':
             return value === true ? word(language, 'yes') : value === false ? word(language, 'no') : text(value);

@@ -182,14 +182,32 @@ export class SubmissionQueryService {
                     const f = byKey.get(k);
                     return f ? formatValue(f, s.answers[k], language) : '';
                 };
+                // an Ethiopian date gives two columns: as the viewer shows it (E.C.), and the stored Gregorian day
+                const columns = keys.flatMap((k) =>
+                    byKey.get(k)?.type === 'EthDate'
+                        ? [
+                              {
+                                  header: `${label(k)} (${word(language, 'ethiopianCalendar')})`,
+                                  cell: (s: Submission) => cell(s, k)
+                              },
+                              {
+                                  header: `${label(k)} (${word(language, 'gregorianCalendar')})`,
+                                  cell: (s: Submission) => {
+                                      const day = s.answers[k];
+                                      return typeof day === 'string' ? day : '';
+                                  }
+                              }
+                          ]
+                        : [{ header: label(k), cell: (s: Submission) => cell(s, k) }]
+                );
                 // the day in Addis Ababa
                 const stamp = addisMinute(new Date().toISOString()).slice(0, 10).replace(/-/g, '');
                 return {
                     format: input.format,
                     filename: `${form.key}-${stamp}.${input.format}`,
                     sheetName: named(form.name, language) || form.key,
-                    headers: keys.map(label),
-                    rows: shown.map((s) => keys.map((k) => cell(s, k))),
+                    headers: columns.map((c) => c.header),
+                    rows: shown.map((s) => columns.map((c) => c.cell(s))),
                     keys
                 };
             },

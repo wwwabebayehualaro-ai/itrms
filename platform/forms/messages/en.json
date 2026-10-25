@@ -3,6 +3,8 @@
   "forms.export.no": "No",
   "forms.export.row": "{count} row",
   "forms.export.rows": "{count} rows",
+  "forms.export.ethiopianCalendar": "E.C.",
+  "forms.export.gregorianCalendar": "G.C.",
   "forms.export.createdAt": "Submitted",
   "forms.export.submittedBy": "Submitted by",
   "forms.export.handlingUnit": "Office",

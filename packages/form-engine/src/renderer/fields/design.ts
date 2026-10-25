@@ -238,8 +238,18 @@ describeFieldType('ColorPicker', {
 });
 
 // ---- date & time ------------------------------------------------------------------------------------------------------
+describeFieldType('EthDate', {
+    label: 'Date (Ethiopian calendar)',
+    icon: Calendar,
+    group: 'Date & time',
+    hint: 'A day picked on the Ethiopian calendar (stored as the Gregorian date).',
+    keywords: ['date', 'ethiopian', 'calendar', 'day', 'ቀን', 'ዓ.ም'],
+    rules: ['ethDates'],
+    settings: z.object({ placeholder })
+});
+
 describeFieldType('Calendar', {
-    label: 'Date',
+    label: 'Date (Gregorian)',
     icon: Calendar,
     group: 'Date & time',
     hint: 'A day, optionally with a time.',

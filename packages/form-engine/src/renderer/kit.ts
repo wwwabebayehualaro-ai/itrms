@@ -54,7 +54,7 @@ export interface DesignMeta {
     keywords?: string[];
     settings?: z.ZodObject;
     /** Which rule editors the inspector offers (validation lives in `behavior.validation.rules` / props). */
-    rules?: Array<'length' | 'pattern' | 'range' | 'dates' | 'files' | 'items'>;
+    rules?: Array<'length' | 'pattern' | 'range' | 'dates' | 'ethDates' | 'files' | 'items'>;
     /** The field takes its choices from options (static or a data source). */
     options?: boolean;
     /** Settings a new field of this type starts with (stored in its `props`). */

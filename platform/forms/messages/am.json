@@ -3,6 +3,8 @@
   "forms.export.no": "አይደለም",
   "forms.export.row": "{count} ረድፍ",
   "forms.export.rows": "{count} ረድፎች",
+  "forms.export.ethiopianCalendar": "ዓ.ም",
+  "forms.export.gregorianCalendar": "እ.ኤ.አ",
   "forms.export.createdAt": "የቀረበበት",
   "forms.export.submittedBy": "ያቀረበው",
   "forms.export.handlingUnit": "ጽሕፈት ቤት",

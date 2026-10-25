@@ -14,6 +14,7 @@ import {
     Checkbox,
     Combobox,
     DatePicker,
+    EthiopianDatePicker,
     Input,
     RadioGroup,
     RadioGroupItem,
@@ -25,6 +26,8 @@ import {
     cn,
     useNotify
 } from '@itrms/ui';
+import { CALENDAR_LANGUAGES, type CalendarLanguage } from '@itrms/ethiopian-calendar';
+import { useFormsLanguages } from '../../host/FormsHost';
 import { useFileActions } from '../../host/files';
 import { formatBytes } from '../../host/format';
 import { parseDate, type EngineField } from '../../core';
@@ -399,6 +402,60 @@ function DateField({ field, id, value, onChange, onBlur, disabled, invalid, desc
     );
 }
 
+/** Picker labels until the engine's own text is in the catalogues (task 0.17c). */
+const ETH_DATE_LABELS = {
+    am: {
+        placeholder: 'ቀን ይምረጡ',
+        previousMonth: 'ያለፈው ወር',
+        nextMonth: 'የሚቀጥለው ወር',
+        clear: 'አጽዳ',
+        month: 'ወር',
+        year: 'ዓመት'
+    },
+    en: {
+        placeholder: 'Pick a date',
+        previousMonth: 'Previous month',
+        nextMonth: 'Next month',
+        clear: 'Clear',
+        month: 'Month',
+        year: 'Year'
+    }
+} as const;
+
+/** A day picked on the Ethiopian calendar, stored as the Gregorian `YYYY-MM-DD` (task 0.17b). */
+function EthDateField({
+    field,
+    id,
+    value,
+    onChange,
+    onBlur,
+    disabled,
+    invalid,
+    describedBy
+}: ValueFieldProps<unknown>) {
+    const { language } = useFormsLanguages();
+    const calendar: CalendarLanguage = (CALENDAR_LANGUAGES as readonly string[]).includes(language)
+        ? (language as CalendarLanguage)
+        : 'am';
+    const labels = ETH_DATE_LABELS[calendar === 'en' ? 'en' : 'am'];
+    const placeholder = str(p(field, 'placeholder'));
+    return (
+        <EthiopianDatePicker
+            id={id}
+            value={typeof value === 'string' ? value : null}
+            onChange={(v) => onChange(v)}
+            labels={placeholder ? { ...labels, placeholder } : labels}
+            language={calendar}
+            min={typeof field.rules.minDate === 'string' ? field.rules.minDate : undefined}
+            max={typeof field.rules.maxDate === 'string' ? field.rules.maxDate : undefined}
+            disabled={disabled}
+            invalid={invalid}
+            aria-describedby={describedBy}
+            onOpenChange={(o) => !o && onBlur()}
+        />
+    );
+}
+
 // ---- slider, rating, tags, colour -------------------------------------------------------------------------------------
 function SliderField({
     field,
@@ -651,6 +708,7 @@ defineFieldType({
     Render: DateField,
     supports: (f) => single(f) && !f.props.timeOnly && !f.props.view
 });
+defineFieldType({ kind: 'value', type: 'EthDate', Render: EthDateField });
 defineFieldType({ kind: 'value', type: 'Slider', Render: SliderField });
 defineFieldType({ kind: 'value', type: 'Rating', Render: RatingField });
 defineFieldType({ kind: 'value', type: 'Chips', Render: ChipsField });

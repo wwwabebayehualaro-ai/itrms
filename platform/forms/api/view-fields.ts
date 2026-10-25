@@ -7,7 +7,7 @@
  * fields come from `fieldsFor` (a field restricted to other roles is not there, so it can be neither filtered nor
  * grouped by: either would reveal its values).
  */
-import { holdsValue, isFormArray, scopeFields, type EngineField } from '@itrms/form-engine/core';
+import { holdsValue, scopeFields, valueKindOf, type EngineField } from '@itrms/form-engine/core';
 
 export type Kind =
     'text' | 'choice' | 'multi' | 'number' | 'date' | 'datetime' | 'boolean' | 'files' | 'rows' | 'person' | 'unit';
@@ -39,27 +39,16 @@ export const KEY = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/;
 /** The longest text value the value table holds (a longer one is compared on the answers). */
 export const MAX_INDEXED_TEXT = 500;
 
-const TEXT_TYPES = new Set(['InputText', 'InputTextarea', 'InputMask', 'AutoComplete', 'ColorPicker']);
-const CHOICE_TYPES = new Set(['Dropdown', 'RadioButton']);
-const MULTI_TYPES = new Set(['MultiSelect', 'CheckboxGroup', 'Chips']);
-const NUMBER_TYPES = new Set(['InputNumber', 'Rating', 'Knob', 'Slider']);
-const BOOLEAN_TYPES = new Set(['Checkbox', 'InputSwitch']);
 const STAGE_MAX_OPTIONS = 12;
 
 export function kindOf(f: EngineField): Kind | null {
-    const t = f.type;
-    if (t === 'Password') return null;
-    if (TEXT_TYPES.has(t)) return 'text';
-    if (t === 'Dropdown' && f.props.multiple) return 'multi';
-    if (CHOICE_TYPES.has(t)) return 'choice';
-    if (MULTI_TYPES.has(t)) return 'multi';
-    if (t === 'Slider') return f.props.range ? null : 'number';
-    if (NUMBER_TYPES.has(t)) return 'number';
-    if (BOOLEAN_TYPES.has(t)) return 'boolean';
-    if (t === 'Calendar') return f.props.showTime ? 'datetime' : 'date';
-    if (t === 'FileUpload') return 'files';
-    if (isFormArray(f)) return 'rows';
-    return null;
+    // the engine's one map of kit types to the kinds of values they hold (core/kinds.ts); a password is never queried,
+    // a range is two numbers (no single value to filter), an Ethiopian date is a day like any other
+    if (f.type === 'Password') return null;
+    const kind = valueKindOf(f);
+    if (kind === 'ethdate') return 'date';
+    if (kind === 'range') return null;
+    return kind;
 }
 
 export interface ViewField {

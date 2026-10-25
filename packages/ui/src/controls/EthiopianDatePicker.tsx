@@ -51,6 +51,8 @@ export interface EthiopianDatePickerProps {
     'aria-label'?: string;
     'aria-describedby'?: string;
     className?: string;
+    /** Told when the calendar opens and closes (a form marks the field touched on closing). */
+    onOpenChange?: (open: boolean) => void;
 }
 
 const ISO = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -98,6 +100,7 @@ export function EthiopianDatePicker({
     disabled,
     invalid,
     className,
+    onOpenChange: told,
     ...aria
 }: EthiopianDatePickerProps) {
     const selected = fromIso(value);
@@ -134,6 +137,7 @@ export function EthiopianDatePicker({
             setFocused(at.day);
         }
         setOpen(next);
+        told?.(next);
     };
 
     const pick = (day: number) => {
