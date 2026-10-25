@@ -130,6 +130,16 @@ describe('designer store', () => {
         expect(store.getState().doc.byId.note?.label).toBe('Notes');
     });
 
+    it('lets a numbered key follow its label (text2 becomes phone)', () => {
+        const store = load();
+        const a = store.getState().actions;
+        a.add('InputText', 'Text');
+        const second = a.add('InputText', 'Text') ?? '';
+        expect(second).toMatch(/^text\d+$/);
+        a.relabel(second, 'Phone');
+        expect(store.getState().doc.byId.phone?.label).toBe('Phone');
+    });
+
     it('renames a key everywhere it is used', () => {
         const store = load();
         const a = store.getState().actions;

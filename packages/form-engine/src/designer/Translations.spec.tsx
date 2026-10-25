@@ -87,7 +87,7 @@ describe('Translations', () => {
 const renderEditor = (ui: ReactElement) => render(<TooltipProvider>{ui}</TooltipProvider>);
 
 describe('OptionsEditor', () => {
-    it('keeps the other languages, disabled and other keys of an option when its label changes', () => {
+    it('keeps the other languages, disabled, other keys and the value of an option when it is translated', () => {
         const seen: unknown[] = [];
         renderEditor(
             <OptionsEditor
@@ -98,7 +98,8 @@ describe('OptionsEditor', () => {
             />
         );
         fireEvent.change(screen.getByLabelText('Option 1 label'), { target: { value: 'Single' } });
-        expect(seen[0]).toEqual([{ label: { am: 'አንድ', en: 'Single' }, value: 'single', disabled: true, items: [] }]);
+        // a translation never changes what answers store (published answers keep matching)
+        expect(seen[0]).toEqual([{ label: { am: 'አንድ', en: 'Single' }, value: 'one', disabled: true, items: [] }]);
     });
 
     it('never makes a value from an Ethiopic label', () => {

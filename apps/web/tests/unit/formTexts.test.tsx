@@ -69,6 +69,31 @@ describe('TemplateSettingsForm', () => {
         expect(engine.update).not.toHaveBeenCalled();
     });
 
+    it('keeps a name in a language the installation no longer lists', async () => {
+        const user = userEvent.setup();
+        renderWithQuery(
+            <NotifyProvider>
+                <TemplateSettingsForm
+                    template={{ ...template, names: { am: 'ፈቃድ', en: 'Leave', 'wal-Latn': 'Hayyama' } }}
+                    onSaved={() => undefined}
+                />
+            </NotifyProvider>
+        );
+        // an untouched save leaves the names alone (the wal-Latn name is not one of the listed languages)
+        await user.click(screen.getByRole('button', { name: 'Save settings' }));
+        await waitFor(() => expect(engine.update).toHaveBeenCalled());
+        expect(engine.update.mock.lastCall?.[0].data).not.toHaveProperty('names');
+        await user.clear(screen.getByLabelText(/Name \(English\)/));
+        await user.type(screen.getByLabelText(/Name \(English\)/), 'Leave request');
+        await user.click(screen.getByRole('button', { name: 'Save settings' }));
+        await waitFor(() => expect(engine.update).toHaveBeenCalled());
+        expect(engine.update.mock.lastCall?.[0].data.names).toEqual({
+            am: 'ፈቃድ',
+            en: 'Leave request',
+            'wal-Latn': 'Hayyama'
+        });
+    });
+
     it('sends the names only when they changed, optional languages dropped when empty', async () => {
         const onSaved = vi.fn();
         renderWithQuery(

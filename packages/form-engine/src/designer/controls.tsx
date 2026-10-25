@@ -173,6 +173,14 @@ export const valueFromLabel = (label: string) =>
  * label until it is edited, so "Sick leave" stores `sick_leave`. A label without letters (Amharic) never makes a value:
  * a new option gets `option_<n>`, an option that has one keeps it. Editing a label changes that language's text only.
  */
+/** The first `option_<n>` no option stores yet (an option whose label gives no value of its own). */
+function freeValue(rows: readonly OptionRow[]): string {
+    const taken = new Set(rows.map((r) => String(r.value)));
+    let n = rows.length;
+    while (taken.has(`option_${n}`)) n++;
+    return `option_${n}`;
+}
+
 export function OptionsEditor({
     value,
     onChange,
@@ -191,14 +199,19 @@ export function OptionsEditor({
     const edit = (i: number, r: OptionRow, typed: string) => {
         const label = setTextIn(r.label, language, typed, plainAs);
         const before = keySourceOf(r.label);
-        const follows = r.value === undefined || r.value === '' || String(r.value) === valueFromLabel(before);
+        // a translation never changes what an answer stores: the value follows the label only while it is written in
+        // the authoring language (and still equals the value made from it), or while the option has none
+        const follows =
+            r.value === undefined ||
+            r.value === '' ||
+            (language === plainAs && String(r.value) === valueFromLabel(before));
         const proposed = valueFromLabel(keySourceOf(label));
         const next: OptionRow = { ...r };
         if (label === undefined) delete next.label;
         else next.label = label;
         if (follows && keySourceOf(label) !== before) {
-            if (proposed !== '') next.value = proposed;
-            else if (r.value === undefined || r.value === '') next.value = `option_${i + 1}`;
+            if (proposed !== '' && !rows.some((x, j) => j !== i && String(x.value) === proposed)) next.value = proposed;
+            else if (r.value === undefined || r.value === '') next.value = freeValue(rows);
         }
         onChange(rows.map((x, j) => (j === i ? next : x)));
     };

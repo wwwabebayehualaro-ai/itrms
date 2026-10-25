@@ -39,12 +39,16 @@ export function TemplateSettingsForm({ template, onSaved }: { template: IFormTem
             is_active: template.is_active ?? true
         },
         onSubmit: async (v) => {
-            const names = Object.fromEntries(Object.entries(v.names).filter(([, text]) => text !== ''));
+            // the shown languages override the stored names; a name in a language the installation no longer lists stays
+            const shown = Object.fromEntries(languages.map((l) => [l, v.names[l] ?? '']));
+            const names = Object.fromEntries(Object.entries({ ...stored, ...shown }).filter(([, text]) => text !== ''));
             await update.mutateAsync({
                 id: template.id as string,
                 data: {
-                    // the names (the complete map, empty optional languages dropped) only when they changed
-                    ...(changed(names, stored) ? { names } : {}),
+                    // the names (the complete map, empty optional languages dropped) only when a shown one changed
+                    ...(changed(shown, Object.fromEntries(languages.map((l) => [l, stored[l] ?? ''])))
+                        ? { names }
+                        : {}),
                     // an emptied category is cleared (sent as null)
                     category: v.category,
                     is_active: v.is_active,

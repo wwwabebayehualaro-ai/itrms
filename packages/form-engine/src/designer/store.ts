@@ -216,7 +216,7 @@ export function createDesignerStore(
                 const base = keyFromLabel(keySourceOf(f.label));
                 const follows =
                     // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- a fixed digits-only pattern (linear time)
-                    !saved.byId[id] && (id === base || (id.startsWith(base) && /^d+$/.test(id.slice(base.length))));
+                    !saved.byId[id] && (id === base || (id.startsWith(base) && /^\d+$/.test(id.slice(base.length))));
                 const source = keySourceOf(label);
                 if (follows && /[A-Za-z]/.test(source) && source !== keySourceOf(f.label)) {
                     const taken = new Set(Object.keys(doc.byId).filter((k) => k !== id));

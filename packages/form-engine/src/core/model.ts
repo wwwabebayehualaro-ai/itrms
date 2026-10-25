@@ -11,7 +11,6 @@
  * engine renderer reads them.
  */
 import {
-    fieldTexts,
     formDocumentSchema,
     formTextIn,
     storedFieldSchema,
@@ -238,37 +237,6 @@ export function readDocument(raw: unknown, opts: { language?: string } = {}): En
         fields.push(toEngineField(r.data, language));
     });
     return { storedVersion: base.schemaVersion ?? 1, fields, runtime: runtimeOf(base.runtime), invalid };
-}
-
-/**
- * The stored document with every text in one language (a plain string each): for code that reads the stored shape
- * itself (another form's options in a table). Unreadable input comes back as it is.
- */
-export function documentIn(raw: unknown, language: string): unknown {
-    const fields = Array.isArray(raw)
-        ? raw
-        : raw && typeof raw === 'object'
-          ? (raw as { fields?: unknown }).fields
-          : [];
-    if (!Array.isArray(fields)) return raw;
-    const resolved = fields.map((f: unknown) => {
-        if (!f || typeof f !== 'object') return f;
-        const copy = structuredClone(f) as Record<string, unknown>;
-        for (const text of fieldTexts(copy)) {
-            if (text.value === undefined || text.value === null || typeof text.value === 'string') continue;
-            setAt(copy, text.path.split('.'), formTextIn(text.value, language) ?? '');
-        }
-        return copy;
-    });
-    return Array.isArray(raw) ? resolved : { ...(raw as object), fields: resolved };
-}
-
-/** Sets a value at a dotted path of plain objects and arrays (the path exists: fieldTexts read it). */
-function setAt(target: Record<string, unknown>, path: string[], value: unknown) {
-    let node: unknown = target;
-    for (const key of path.slice(0, -1)) node = (node as Record<string, unknown> | undefined)?.[key];
-    const last = path[path.length - 1];
-    if (node && typeof node === 'object' && last !== undefined) (node as Record<string, unknown>)[last] = value;
 }
 
 /** Fields directly inside `parentId` (null = top level), in stored order. */

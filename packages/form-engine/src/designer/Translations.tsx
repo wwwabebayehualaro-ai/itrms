@@ -97,12 +97,13 @@ export function Translations() {
     // every text that has a value in some language, in the form's order
     const rows = useMemo<Row[]>(
         () =>
-            fields.flatMap((field) =>
+            // a row is known by the field's place, not its key: typing an English label can rename a new field's key
+            fields.flatMap((field, index) =>
                 fieldTexts(field)
                     .filter((t) => !!formTextIn(t.value, plainAs))
                     .map((t): Row => ({
                         ...t,
-                        rowKey: `${field.id}:${t.path}`,
+                        rowKey: `${index}:${t.path}`,
                         fieldId: field.id,
                         fieldLabel: formTextIn(field.label, pageLanguage) || field.id
                     }))
@@ -200,7 +201,7 @@ export function Translations() {
                 </TableHeader>
                 <TableBody>
                     {visible.map((row) => (
-                        <TableRow key={row.rowKey} data-text-row={row.rowKey}>
+                        <TableRow key={row.rowKey} data-text-row={`${row.fieldId}:${row.path}`}>
                             <TableCell className="align-top whitespace-normal">
                                 <div className="flex flex-col gap-0.5">
                                     <span className="text-sm font-medium">{row.fieldLabel}</span>
