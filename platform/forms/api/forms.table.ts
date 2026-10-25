@@ -32,7 +32,7 @@ import {
     uuid,
     type AnyPgColumn
 } from 'drizzle-orm/pg-core';
-import { orgUnits } from '@itrms/kernel/tables';
+import { files, orgUnits } from '@itrms/kernel/tables';
 import { audited, baseColumns, ltree, notAudited, withRls } from '@itrms/kernel/db';
 
 export const formsSchema = pgSchema('forms');
@@ -278,6 +278,51 @@ export const savedViews = withRls(
         ),
         // a private view's filters may name a person: the log proves a change without holding them
         { mask: ['config'] }
+    ),
+    'transaction'
+);
+
+/**
+ * A background export (task 0.16e): asked for by one person, made by the worker with their scope and roles as they were
+ * when they asked, kept as a generated file for EXPORT_KEEP_DAYS. Class T at their unit; only they follow and download
+ * it (the service's check on `created_by`, on top of RLS).
+ */
+export const submissionExports = withRls(
+    audited(
+        formsSchema.table(
+            'submission_exports',
+            {
+                ...baseColumns(),
+                regionId: uuid('region_id').notNull(),
+                unitId: uuid('unit_id')
+                    .notNull()
+                    .references(() => orgUnits.id),
+                /** set by trigger from the unit */
+                orgPath: ltree('org_path').notNull().default(''),
+                formId: uuid('form_id')
+                    .notNull()
+                    .references(() => formDefinitions.id),
+                /** the export asked for (format, filter, search, sort, fields) */
+                request: jsonb('request').$type<Record<string, unknown>>().notNull(),
+                /** the requester's roles in the unit when they asked: what they could see then */
+                roles: text('roles').array().notNull(),
+                language: text('language').notNull(),
+                status: text('status', { enum: ['queued', 'running', 'done', 'failed'] })
+                    .notNull()
+                    .default('queued'),
+                rows: integer('rows'),
+                fileId: uuid('file_id').references(() => files.id),
+                errorCode: text('error_code', {
+                    enum: ['too_many_rows', 'too_large', 'invalid_query', 'not_permitted', 'failed']
+                }),
+                error: text('error'),
+                finishedAt: timestamp('finished_at', { withTimezone: true })
+            },
+            (t) => [
+                index('submission_exports_creator_idx').on(t.createdBy, t.createdAt.desc()),
+                index('submission_exports_org_path_gist').using('gist', t.orgPath)
+            ]
+        )
     ),
     'transaction'
 );

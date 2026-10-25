@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-10-24",
+  "updated": "2026-10-25",
   "statuses": [
     "planned",
     "ready",
@@ -532,12 +532,23 @@
         {
           "id": "0.16e",
           "title": "Background exports and server-generated files",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.16e-background-exports",
+          "commits": [
+            "875a178",
+            "3dc3154",
+            "cd06291"
+          ],
+          "evidence": [
+            "pnpm turbo run lint typecheck test build → 66/66 tasks (local); boundaries, format:check, check:slices, i18n:check → clean; OpenAPI regenerated",
+            "apps/api test:int (PostgreSQL 16, dev stack SeaweedFS) → 257 tests, of which 2 in older suites (files re-confirm, parties membership order) failed once under the full run's load and pass alone twice (follow-up to 0.26); forms-exports.int.spec.ts 10/10; platform/integrations S3 contract suite 20/20 (the new put round trip)",
+            "Done when 1 (an export over the limit runs in the worker, is audited, downloaded only by who asked): forms-exports 'is made by the worker as its requester…' (submissions.exported, file.downloaded, submissions.export_downloaded), 'is its requester's file alone, through the kernel's file routes too' (404 for the zone head and the unit's records officer), 'runs with the rights its requester holds when it runs'",
+            "Done when 2 (an expired export is purged): 'is purged with the other unlinked files once its week is up' (the object gone from the store, the job expired, download 404)",
+            "GitHub Actions PR #6 at cd06291 → 8/8 jobs pass",
+            "reviewer (opus) on 875a178 → 1 high, 4 medium, 1 medium/low, 2 low: fixed in 3dc3154 (own queue and streamed output → 0.26); task-verifier → all Done-when PASS, gaps fixed in cd06291"
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "Kernel: files gain origin (upload | generated); a generated file may be CSV, XLSX or PDF (uploads keep their four checked types), is stored at once under files/<region>/<id> with its SHA-256 computed by the server (storeGeneratedFile: the object first, then the row; a refused row deletes the object), and the purge removes it like any unlinked file once keepUntil passes. ObjectStore gains put (S3ObjectStore: PutObjectCommand). Forms: forms.submission_exports (class T at the requester's unit, audited); POST /submission-exports (202) emits submission-export.requested.v1; the worker's handler runs the export on the app's pool under RLS with the requester's context and their roles at request time (never the system pool's sight), up to 100 000 rows and 120 s; a refusal they can act on fails the job with its reason, anything else is retried by the relay; only the requester follows and downloads it (others: 404), the download a short presigned link with file.downloaded and submissions.export_downloaded on record; an expired file shows the job as expired. Reviewer (opus) on 875a178: 1 high, 4 medium, 1 medium/low, 2 low. Fixed: an export's file is capped at 50 MB (the size of the chosen answers is weighed before they are read, the CSV is built line by line and refused past the cap, the workbook checked after) and every failure ends the job (failed, a reason code from too_many_rows | too_large | invalid_query | not_permitted | failed, translated through forms.export.failed.*), a failure that is not the person's still thrown for the logs and the relay; kernel getFile (so download and link too) answers a generated file to its owner alone; the object is put outside any transaction, the job row is locked when recording (a second delivery records nothing) and any failure after the put removes the object; at most 2 queued or running exports per person (advisory lock, 429); the worker re-reads the requester's roles at run time (active user, valid assignment, active unit) and needs submission:export from what they still hold. Moved: a queue of its own and streamed multipart output (0.26)."
         },
         {
           "id": "0.16c",
@@ -1834,6 +1845,26 @@
     {
       "foundIn": "0.16d",
       "item": "Rate limits on exports per person and per installation (SEC-AP-2); 0.16d only caps concurrent renders per process (2, then 429)",
+      "movedTo": "0.26"
+    },
+    {
+      "foundIn": "0.16e",
+      "item": "A background export is rendered in the worker's memory (up to 100 000 rows): stream it to the object store as a multipart upload, and give the worker's export jobs their own queue and concurrency",
+      "movedTo": "0.26"
+    },
+    {
+      "foundIn": "0.16e",
+      "item": "Tell the requester when a background export is ready (an in-app notification)",
+      "movedTo": "0.20"
+    },
+    {
+      "foundIn": "0.16e",
+      "item": "How long exports are kept (7 days) and the background limit (100 000 rows) as region settings",
+      "movedTo": "0.21"
+    },
+    {
+      "foundIn": "0.16e",
+      "item": "Flaky under the full integration run's load (pass alone): files 'keeps what was checked' re-confirm answered 409, and parties 'moves the memberships' row order; make both deterministic",
       "movedTo": "0.26"
     }
   ]

@@ -5,5 +5,10 @@
   "forms.export.rows": "{count} rows",
   "forms.export.createdAt": "Submitted",
   "forms.export.submittedBy": "Submitted by",
-  "forms.export.handlingUnit": "Office"
+  "forms.export.handlingUnit": "Office",
+  "forms.export.failed.too_many_rows": "Too many submissions match: narrow the filter.",
+  "forms.export.failed.too_large": "The file would be too large: narrow the filter or choose fewer fields.",
+  "forms.export.failed.invalid_query": "The export cannot be made as asked (a field or filter is no longer there).",
+  "forms.export.failed.not_permitted": "You no longer hold the right to export in this office.",
+  "forms.export.failed.failed": "The export could not be made: ask for it again."
 }

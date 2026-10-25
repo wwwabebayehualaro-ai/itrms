@@ -7,12 +7,15 @@ import 'reflect-metadata';
 
 import { formsHandlers } from '@itrms/forms/api/worker';
 import { KeycloakIdentityAdmin } from '@itrms/integrations/api';
-import { createWorkerContext } from '@itrms/kernel/api';
+import { createWorkerContext, loadSlices } from '@itrms/kernel/api';
+import { permissionsOf, rolePermissions } from '@itrms/kernel/iam';
 import { identitySyncHandlers, purgeExpiredUploads, startJobs, type OutboxHandler } from '@itrms/kernel/api/worker';
 import { createDatabase } from '@itrms/kernel/db';
+import { NO_OBJECT_STORE } from '@itrms/kernel/files';
 import { createSystemDatabase } from '@itrms/kernel/db/system';
 
 import { AppModule } from './app.module';
+import { SLICES } from './slices';
 import { objectStoreOf } from './object-store';
 import { fail, start } from './start';
 
@@ -47,7 +50,15 @@ async function main() {
                 onError: (err) => logger.warn({ err }, 'an idle system connection failed')
             });
             // the forms' filterable values are filled when a version is published (ADR-0035)
-            const handlers: Record<string, OutboxHandler> = { ...formsHandlers(system) };
+            // what roles give, for the background exports' check of the requester's rights when they run
+            const catalogue = rolePermissions(loadSlices(SLICES, { disabled: config.MODULES_DISABLED }).manifests);
+            const handlers: Record<string, OutboxHandler> = {
+                ...formsHandlers(system, {
+                    database,
+                    store: objectStore ?? NO_OBJECT_STORE,
+                    permissionsOf: (roles) => permissionsOf(catalogue, roles)
+                })
+            };
             // the identity provider follows the tree and the assignments, when the installation names its admin client
             if (config.KEYCLOAK_URL && config.KEYCLOAK_ADMIN_CLIENT_SECRET)
                 Object.assign(

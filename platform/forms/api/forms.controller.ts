@@ -19,6 +19,7 @@ import {
 } from '@nestjs/common';
 import { DATABASE, NotReplayable } from '@itrms/kernel/api';
 import type { Database } from '@itrms/kernel/db';
+import { OBJECT_STORE, type ObjectStore } from '@itrms/kernel/files';
 import { versionFrom } from '@itrms/kernel/errors';
 import { currentContext } from '@itrms/kernel/context';
 import { Require, currentPrincipal, requestDbContext } from '@itrms/kernel/iam';
@@ -43,6 +44,7 @@ import { formDefinitions } from './forms.table';
 import { render, rendering } from './export';
 import { SubmissionQueryService } from './query.service';
 import { SavedViewsService } from './views.service';
+import { ExportsService } from './exports.service';
 import { SubmissionsService } from './submissions.service';
 
 class FormCreateDto extends createZodDto(formCreateSchema) {}
@@ -320,5 +322,42 @@ export class SavedViewsController {
         const ctx = requestDbContext();
         const version = versionFrom(ifMatch);
         await this.db.scoped(ctx, (tx) => this.savedViews.remove(tx, ctx, canShare(), id, version));
+    }
+}
+
+/** Background exports (task 0.16e): asked for here, made by the worker, followed and downloaded by their requester alone. */
+@Controller('api/v1/submission-exports')
+export class ExportsController {
+    constructor(
+        @Inject(DATABASE) private readonly db: Database,
+        @Inject(OBJECT_STORE) private readonly store: ObjectStore,
+        @Inject(ExportsService) private readonly exportsService: ExportsService
+    ) {}
+
+    @Post()
+    @HttpCode(202)
+    @Require('submission:export')
+    request(@Body() body: SubmissionExportDto) {
+        const ctx = requestDbContext();
+        const { roles } = currentPrincipal();
+        const language = currentContext()?.language ?? 'am';
+        return this.db.scoped(ctx, (tx) => this.exportsService.request(tx, ctx, roles, language, body));
+    }
+
+    @Get(':id')
+    @Require('submission:export')
+    get(@Param('id', ParseUUIDPipe) id: string) {
+        const ctx = requestDbContext();
+        return this.db.scoped(ctx, (tx) => this.exportsService.get(tx, ctx, id));
+    }
+
+    // a short-lived link (never kept for a replay); the download is on record
+    @Post(':id/download')
+    @HttpCode(200)
+    @NotReplayable()
+    @Require('submission:export')
+    download(@Param('id', ParseUUIDPipe) id: string) {
+        const ctx = requestDbContext();
+        return this.db.scoped(ctx, (tx) => this.exportsService.download(tx, ctx, this.store, id));
     }
 }

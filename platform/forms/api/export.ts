@@ -11,7 +11,10 @@
 import { PassThrough } from 'node:stream';
 
 import ExcelJS from 'exceljs';
-import { RateLimitedError } from '@itrms/kernel/errors';
+import { InvalidRequestError, RateLimitedError } from '@itrms/kernel/errors';
+import { MAX_GENERATED_BYTES } from '@itrms/kernel/files';
+
+import type { ExportFailure } from '../contracts';
 
 import am from '../messages/am.json';
 import en from '../messages/en.json';
@@ -73,12 +76,38 @@ export interface ExportTable {
     keys: string[];
 }
 
+/** An export the person can act on refused (too many rows, too large, a field not there), with its reason's code. */
+export class ExportRefused extends InvalidRequestError {
+    constructor(
+        readonly reason: ExportFailure,
+        detail: string
+    ) {
+        super('invalid_query', { detail });
+    }
+}
+
+const tooLarge = (maxBytes: number) =>
+    new ExportRefused(
+        'too_large',
+        `The file would be larger than ${Math.round(maxBytes / 1024 / 1024)} MB: narrow the filter or choose fewer fields.`
+    );
+
 const csvCell = (cell: string) => `"${neutralise(cell).replace(/"/g, '""')}"`;
 
-/** RFC 4180, every cell quoted, CRLF, with a byte-order mark so a spreadsheet reads the UTF-8 (Ethiopic) correctly. */
-export function renderCsv(headers: string[], rows: string[][]): Buffer {
-    const lines = [headers, ...rows].map((r) => r.map(csvCell).join(','));
-    return Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(`${lines.join('\r\n')}\r\n`, 'utf8')]);
+/**
+ * RFC 4180, every cell quoted, CRLF, with a byte-order mark so a spreadsheet reads the UTF-8 (Ethiopic) correctly. Built
+ * line by line, and refused once it passes `maxBytes` (never one string of the whole file).
+ */
+export function renderCsv(headers: string[], rows: string[][], maxBytes = MAX_GENERATED_BYTES): Buffer {
+    const chunks: Buffer[] = [Buffer.from([0xef, 0xbb, 0xbf])];
+    let size = 3;
+    for (const r of [headers, ...rows]) {
+        const line = Buffer.from(`${r.map(csvCell).join(',')}\r\n`, 'utf8');
+        size += line.byteLength;
+        if (size > maxBytes) throw tooLarge(maxBytes);
+        chunks.push(line);
+    }
+    return Buffer.concat(chunks, size);
 }
 
 /** A name Excel accepts for a sheet: at most 31 characters, none of : \ / ? * [ ], no quote at either end, not "History". */
@@ -136,11 +165,13 @@ export async function rendering<T>(work: () => Promise<T>): Promise<T> {
     }
 }
 
-export async function render(table: ExportTable): Promise<{ body: Buffer; contentType: string }> {
-    return table.format === 'xlsx'
-        ? {
-              body: await renderXlsx(table.sheetName, table.headers, table.rows),
-              contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-          }
-        : { body: renderCsv(table.headers, table.rows), contentType: 'text/csv; charset=utf-8' };
+export async function render(
+    table: ExportTable,
+    maxBytes = MAX_GENERATED_BYTES
+): Promise<{ body: Buffer; contentType: string }> {
+    if (table.format === 'csv')
+        return { body: renderCsv(table.headers, table.rows, maxBytes), contentType: 'text/csv; charset=utf-8' };
+    const body = await renderXlsx(table.sheetName, table.headers, table.rows);
+    if (body.byteLength > maxBytes) throw tooLarge(maxBytes);
+    return { body, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
 }

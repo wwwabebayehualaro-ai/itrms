@@ -17,5 +17,9 @@ export default defineModule({
         'submission-view': ['share']
     },
     // the worker fills the values of newly filterable fields when a version is published (ADR-0035)
-    events: { emits: ['form.published.v1'], consumes: ['form.published.v1'] }
+    // and makes the background exports asked for (task 0.16e)
+    events: {
+        emits: ['form.published.v1', 'submission-export.requested.v1'],
+        consumes: ['form.published.v1', 'submission-export.requested.v1']
+    }
 });

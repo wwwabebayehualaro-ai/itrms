@@ -1,0 +1,191 @@
+/**
+ * The worker's half of a background export (task 0.16e): on `submission-export.requested.v1`, the export is made with
+ * the requester's rights as they are when it runs: the roles they asked with that they still hold in the unit (an active
+ * user, a valid assignment, an active unit), which must still give `submission:export`. It runs on the app's pool under
+ * RLS with their context, never with the system pool's sight of every row.
+ *
+ * The rows are read in one transaction and rendered outside it; the file is put in the store outside any transaction,
+ * then recorded with the job's completion in one (the job row locked: a second delivery at the same time records
+ * nothing); any failure after the put removes the object, so none is left that no row serves. Every failure ends the
+ * job (`failed`, a reason code and its detail), so none stays `running`; a failure that is not the person's to fix is
+ * thrown on as well, for the logs and the relay's retry (which then finds the job ended).
+ */
+import { and, eq, gt, isNull, lte, or } from 'drizzle-orm';
+import { recordEvent, updateAudited, type Database, type DbContext, type Tx } from '@itrms/kernel/db';
+import type { SystemDatabase } from '@itrms/kernel/db/system';
+import { AppError } from '@itrms/kernel/errors';
+import {
+    MAX_GENERATED_BYTES,
+    putGeneratedObject,
+    recordGeneratedFile,
+    removeGeneratedObject,
+    type GeneratedObject,
+    type ObjectStore
+} from '@itrms/kernel/files';
+import { orgUnits, users } from '@itrms/kernel/tables';
+import { roleAssignments } from '@itrms/kernel/iam';
+
+import {
+    EXPORT_KEEP_DAYS,
+    MAX_BACKGROUND_EXPORT_ROWS,
+    submissionExportSchema,
+    type ExportFailure
+} from '../../contracts';
+import { ExportRefused, render } from '../export';
+import { FormsService } from '../forms.service';
+import { submissionExports } from '../forms.table';
+import { SubmissionQueryService } from '../query.service';
+import { SubmissionsService } from '../submissions.service';
+
+/** A background export's time in the database, all its statements together. */
+export const BACKGROUND_BUDGET_MS = 120_000;
+
+export interface ExportDeps {
+    /** the app's pool: the export runs under RLS, as its requester */
+    database: Database;
+    store: ObjectStore;
+    /** what roles give (the installation's role catalogue) */
+    permissionsOf: (roles: readonly string[]) => ReadonlySet<string>;
+    /** the largest file an export may make (tests make it small) */
+    maxBytes?: number;
+}
+
+type Job = typeof submissionExports.$inferSelect;
+
+/** The roles the requester still holds in the unit now: an active user, a valid assignment, an active unit. */
+async function rolesNow(tx: Tx, job: Job): Promise<string[]> {
+    const rows = await tx
+        .select({ role: roleAssignments.roleKey })
+        .from(roleAssignments)
+        .innerJoin(users, eq(users.id, roleAssignments.userId))
+        .innerJoin(orgUnits, eq(orgUnits.id, roleAssignments.unitId))
+        .where(
+            and(
+                eq(roleAssignments.userId, job.createdBy ?? ''),
+                eq(roleAssignments.unitId, job.unitId),
+                lte(roleAssignments.validFrom, new Date()),
+                or(isNull(roleAssignments.validTo), gt(roleAssignments.validTo, new Date())),
+                eq(users.active, true),
+                eq(orgUnits.active, true)
+            )
+        );
+    return rows.map((r) => r.role);
+}
+
+export async function runExport(system: SystemDatabase, deps: ExportDeps, exportId: string): Promise<void> {
+    const found = await system.systemContext(
+        'forms.run_export',
+        async (tx) => {
+            const [job] = await tx.select().from(submissionExports).where(eq(submissionExports.id, exportId));
+            return job && { job, held: await rolesNow(tx, job) };
+        },
+        { detail: { exportId } }
+    );
+    // done or failed already (a delivery again), or no one to make it for: nothing to do
+    if (!found || found.job.status === 'done' || found.job.status === 'failed' || !found.job.createdBy) return;
+    const { job } = found;
+    const ctx: DbContext = {
+        requestId: `export:${exportId}`,
+        userId: job.createdBy ?? undefined,
+        unitId: job.unitId,
+        regionId: job.regionId,
+        scopePath: job.orgPath
+    };
+    // what they asked with and still hold: a role revoked since narrows what the file holds
+    const roles = job.roles.filter((r) => found.held.includes(r));
+
+    /** Ends the job, on the version it has now (it may have moved since it was read). */
+    const end = (changes: Partial<typeof submissionExports.$inferInsert>) =>
+        deps.database.scoped(ctx, async (tx) => {
+            const [current] = await tx
+                .select()
+                .from(submissionExports)
+                .where(eq(submissionExports.id, exportId))
+                .for('update');
+            if (!current || current.status === 'done' || current.status === 'failed') return false;
+            await updateAudited(tx, submissionExports, exportId, current.rowVersion, changes);
+            return true;
+        });
+    const fail = (code: ExportFailure, detail: string) =>
+        end({ status: 'failed', errorCode: code, error: detail.slice(0, 500), finishedAt: new Date() });
+
+    if (!deps.permissionsOf(roles).has('submission:export')) {
+        await fail('not_permitted', 'You no longer hold the right to export in this office.');
+        return;
+    }
+    if (job.status === 'queued') await end({ status: 'running' });
+
+    let object: GeneratedObject | undefined;
+    let recorded = false;
+    try {
+        const input = submissionExportSchema.parse(job.request);
+        const table = await deps.database.scoped(ctx, (tx) =>
+            new SubmissionQueryService(new FormsService(), new SubmissionsService()).exportTable(
+                tx,
+                roles,
+                input,
+                job.language,
+                { maxRows: MAX_BACKGROUND_EXPORT_ROWS, budgetMs: BACKGROUND_BUDGET_MS }
+            )
+        );
+        const file = await render(table, deps.maxBytes ?? MAX_GENERATED_BYTES);
+        object = await putGeneratedObject(deps.store, job.regionId, {
+            contentType:
+                table.format === 'xlsx'
+                    ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                    : 'text/csv',
+            body: file.body
+        });
+        const made = object;
+        recorded = await deps.database.scoped(ctx, async (tx) => {
+            const [current] = await tx
+                .select()
+                .from(submissionExports)
+                .where(eq(submissionExports.id, exportId))
+                .for('update');
+            // another delivery finished it meanwhile
+            if (!current || current.status !== 'running') return false;
+            const stored = await recordGeneratedFile(tx, ctx, made, {
+                filename: table.filename,
+                documentType: 'submission_export',
+                keepUntil: new Date(Date.now() + EXPORT_KEEP_DAYS * 86_400_000)
+            });
+            await updateAudited(tx, submissionExports, exportId, current.rowVersion, {
+                status: 'done',
+                rows: table.rows.length,
+                fileId: stored.id,
+                finishedAt: new Date()
+            });
+            // the export itself, as a direct one is recorded: its size and the columns that left the system
+            await recordEvent(tx, {
+                type: 'submissions.exported',
+                table: submissionExports,
+                rowId: exportId,
+                data: {
+                    background: true,
+                    format: table.format,
+                    rows: table.rows.length,
+                    fieldKeys: table.keys,
+                    formId: job.formId
+                }
+            });
+            return true;
+        });
+    } catch (error) {
+        const refused =
+            error instanceof ExportRefused
+                ? error.reason
+                : error instanceof AppError && error.status < 500
+                  ? 'invalid_query'
+                  : undefined;
+        await fail(
+            refused ?? 'failed',
+            refused && error instanceof AppError
+                ? (error.detail ?? error.code)
+                : 'The export could not be made: ask for it again.'
+        ).catch(() => undefined);
+        if (!refused) throw error;
+    } finally {
+        if (object && !recorded) await removeGeneratedObject(deps.store, object);
+    }
+}

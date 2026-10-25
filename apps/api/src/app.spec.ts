@@ -25,6 +25,8 @@ describe('POSTs kept out of the idempotency records (@NotReplayable)', () => {
         // the slices are loaded by the import of SLICES above; each entry here is reviewed with its handler
         expect(SLICES.length).toBeGreaterThan(0);
         expect(notReplayableHandlers()).toEqual([
+            // a background export's download link: short-lived, never kept for a replay (each download is on record)
+            'ExportsController.download',
             // confirming an upload: checked against the object outside a transaction, and safe to repeat by its state
             'FilesController.confirm',
             // the duplicate check and the FIN/phone lookup: a sensitive value in the request
