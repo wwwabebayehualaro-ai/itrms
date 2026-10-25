@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type * as UI from '@itrms/ui';
 
-const client = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), request: vi.fn() }));
+const client = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), request: vi.fn() }));
 const notify = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warn: vi.fn(), info: vi.fn(), show: vi.fn() }));
 vi.mock('@itrms/ui', async (original) => ({
     ...(await original<typeof UI>()),
@@ -64,8 +64,23 @@ describe('FormDesigner', () => {
     it('adds a field from the palette, edits it, undoes, deletes with the keyboard and saves version 2', async () => {
         const user = userEvent.setup();
         client.get.mockResolvedValue({ data: [] });
-        client.put.mockImplementation((_url: string, body: any) =>
-            Promise.resolve({ data: { ...saved, ...body, row_version: 4 } })
+        // the forms API answers with the form as it now is (its wire shape)
+        client.patch.mockImplementation((_url: string, body: any) =>
+            Promise.resolve({
+                data: {
+                    id: 'tpl-1',
+                    version: 4,
+                    key: 'trip',
+                    name: { am: saved.name, en: saved.name },
+                    category: null,
+                    active: true,
+                    status: 'draft',
+                    ownerUnit: { id: 'u-1', code: 'Z', name: { en: 'Zone' } },
+                    publishedVersion: null,
+                    updatedAt: '2026-10-25T08:00:00.000Z',
+                    document: body.document
+                }
+            })
         );
         open(saved);
 
@@ -106,12 +121,13 @@ describe('FormDesigner', () => {
         expect(within(canvas).queryByText('Destination')).not.toBeInTheDocument();
 
         await user.click(screen.getByRole('button', { name: /^Save$/ }));
-        await waitFor(() => expect(client.put).toHaveBeenCalledTimes(1));
-        const [url, body] = client.put.mock.calls[0] ?? [];
-        expect(url).toContain('tpl-1');
-        expect(body.row_version).toBe(3);
-        expect(body.form_config.schemaVersion).toBe(2);
-        expect(body.form_config.fields.map((f: any) => [f.id, f.type, f.label])).toEqual([
+        await waitFor(() => expect(client.patch).toHaveBeenCalledTimes(1));
+        const [url, body, options] = client.patch.mock.calls[0] ?? [];
+        expect(url).toBe('v1/forms/tpl-1');
+        // the version it was based on goes as If-Match: a concurrent edit is refused, never overwritten
+        expect(options.headers['if-match']).toBe('"3"');
+        expect(body.document.schemaVersion).toBe(2);
+        expect(body.document.fields.map((f: any) => [f.id, f.type, f.label])).toEqual([
             ['budget', 'InputNumber', 'Budget']
         ]);
         await waitFor(() => expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument());

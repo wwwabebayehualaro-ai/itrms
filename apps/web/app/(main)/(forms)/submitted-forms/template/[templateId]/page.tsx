@@ -9,7 +9,8 @@ import {
     useSubmissionMutations,
     useTemplateList,
     useTemplateQuery,
-    type RowActionDetail
+    type RowActionDetail,
+    useCanChangeRequests
 } from '@itrms/form-engine/renderer';
 import { storedFieldsOf } from '@itrms/schemas';
 import { DataViewer, type ViewMode, type ViewRow } from '@itrms/form-engine/viewer';
@@ -28,8 +29,9 @@ export default function TemplateSubmissionsPage() {
     const { templateId } = useParams<{ templateId: string }>();
     const notify = useNotify();
     const canCreate = useCan('submission:create');
-    const canEdit = useCan('submission:update');
-    const canDelete = useCan('submission:delete');
+    // a request changes only through its case's workflow (task 0.19)
+    const canEdit = useCanChangeRequests();
+    const canDelete = canEdit;
 
     const { data: template, isPending: templateLoading, error: templateError } = useTemplateQuery(templateId);
     const { data: allTemplates } = useTemplateList();

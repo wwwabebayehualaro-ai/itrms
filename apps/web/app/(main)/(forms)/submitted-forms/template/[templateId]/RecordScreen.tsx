@@ -8,12 +8,11 @@ import {
     FormRenderer,
     useSubmissionMutations,
     useSubmissionQuery,
-    useTemplateQuery
+    useTemplateQuery,
+    useCanChangeRequests
 } from '@itrms/form-engine/renderer';
 import { storedFieldsOf } from '@itrms/schemas';
 import {
-    STATUSES,
-    StatusTag,
     titleOf,
     useLabeler,
     useRecordForm,
@@ -26,11 +25,6 @@ import {
     AlertDescription,
     Button,
     InlineStatus,
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
     Tabs,
     TabsContent,
     TabsList,
@@ -39,7 +33,6 @@ import {
     useNotify
 } from '@itrms/ui';
 import { getApiErrorMessage } from '@/lib/api/errors';
-import { useCan } from '@/lib/auth/authHooks';
 import { formatDateTime } from '@/lib/format';
 import { RequestEditorDialog } from './RequestEditorDialog';
 
@@ -55,8 +48,9 @@ export function RecordScreen({ templateId, submissionId }: { templateId: string;
     const router = useRouter();
     const from = useSearchParams().get('from');
     const notify = useNotify();
-    const canEdit = useCan('submission:update');
-    const canDelete = useCan('submission:delete');
+    // a request changes only through its case's workflow (task 0.19)
+    const canEdit = useCanChangeRequests();
+    const canDelete = canEdit;
     const back = `/submitted-forms/template/${templateId}${from ? `?${from}` : ''}`;
 
     const { data: template } = useTemplateQuery(templateId);
@@ -65,7 +59,7 @@ export function RecordScreen({ templateId, submissionId }: { templateId: string;
     const history = useRecordHistory(submissionId);
     const { data: schema } = useViewSchema(templateId);
     const labeler = useLabeler(schema);
-    const { setStatus, remove } = useSubmissionMutations();
+    const { remove } = useSubmissionMutations();
     const [editing, setEditing] = useState(false);
 
     if (isPending) return <InlineStatus loading />;
@@ -97,8 +91,6 @@ export function RecordScreen({ templateId, submissionId }: { templateId: string;
             }
         });
 
-    const show = (field: string, v: unknown) => (field === 'status' ? String(v ?? '—') : labeler.text(field, v));
-
     return (
         <div className="flex flex-col gap-4" data-record-page={submission.id as string}>
             <Link href={back} className="flex w-fit items-center gap-2 text-sm text-primary hover:underline">
@@ -109,13 +101,8 @@ export function RecordScreen({ templateId, submissionId }: { templateId: string;
                 <div className="flex flex-col gap-2">
                     <h1 className="text-2xl font-semibold">{title}</h1>
                     <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                        <StatusTag value={submission.status as string} />
-                        <span>
-                            Submitted by{' '}
-                            {(submission as any).submitted_by_name ??
-                                labeler.text('submitted_by', submission.submitted_by) ??
-                                '—'}
-                        </span>
+                        <span>Office {submission.handling_unit_name ?? '—'}</span>
+                        <span>Submitted by {submission.submitted_by_name ?? '—'}</span>
                         <span>{formatDateTime(submission.created_at)}</span>
                         {submission.updated_at && submission.updated_at !== submission.created_at && (
                             <span>updated {formatDateTime(submission.updated_at)}</span>
@@ -123,23 +110,6 @@ export function RecordScreen({ templateId, submissionId }: { templateId: string;
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    {canEdit && (
-                        <Select
-                            value={submission.status as string}
-                            onValueChange={(v) => setStatus.mutate({ id: submission.id as string, status: v })}
-                        >
-                            <SelectTrigger aria-label="Change status" className="w-40 capitalize">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {STATUSES.map((s) => (
-                                    <SelectItem key={s} value={s} className="capitalize">
-                                        {s}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    )}
                     {canEdit && (
                         <Button type="button" variant="outline" onClick={() => setEditing(true)}>
                             <Pencil />
@@ -184,7 +154,7 @@ export function RecordScreen({ templateId, submissionId }: { templateId: string;
                 <TabsContent value="request" className="pt-2">
                     {renderTemplate && record ? (
                         <FormRenderer
-                            key={`${submission.id}-${(submission as any).row_version}`}
+                            key={`${submission.id}-${submission.version}`}
                             bare
                             readOnly
                             fields={fields}
@@ -222,9 +192,6 @@ export function RecordScreen({ templateId, submissionId }: { templateId: string;
                                                 .map((c) => (
                                                     <span key={c.field} className="text-sm text-muted-foreground">
                                                         {labeler.field(c.field)?.label ?? c.field}
-                                                        {e.action === 'create'
-                                                            ? `: ${show(c.field, c.new)}`
-                                                            : `: ${show(c.field, c.old)} → ${show(c.field, c.new)}`}
                                                     </span>
                                                 ))}
                                         </div>

@@ -554,12 +554,12 @@
         {
           "id": "0.16c",
           "title": "Web switch-over to the forms API",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.16c-web-switch-over",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "The engine's API hooks map the forms API through one wire module (packages/form-engine/src/api/wire.ts): the screens keep their keys (created_at, submitted_by, handling_unit, page_size); changes send If-Match. A form is switched off, never deleted. The view schema now carries the built-ins' options (offices and submitters in the caller's submissions, RLS-bound), so the viewer needs no user directory. Rejecting a publication now requires a note (422 without). Requests are filed once: edit, delete, status and board moves wait for the workflow (useCanChangeRequests, 0.19). Exports over 5,000 rows, or refused as too big, go to the background export. The legacy status, recent-requests and waiting-requests screens were retired (the workflow inbox replaces them). Backend form_builder, form_submission and core_banking (a form server action) were removed."
         },
         {
           "id": "0.16f",
@@ -1877,6 +1877,31 @@
       "foundIn": "0.16e",
       "item": "Flaky under the full integration run's load (pass alone): files 'keeps what was checked' re-confirm answered 409, and parties 'moves the memberships' row order; make both deterministic",
       "movedTo": "0.26"
+    },
+    {
+      "foundIn": "0.16c",
+      "item": "Cross-form request lists by state (waiting, recent) and changing a request after it is filed: the case workflow and its inbox",
+      "movedTo": "0.20"
+    },
+    {
+      "foundIn": "0.16c",
+      "item": "Server actions on submit: the designer offers none until service configuration names module effects",
+      "movedTo": "0.21"
+    },
+    {
+      "foundIn": "0.16c",
+      "item": "The web still calls the legacy Backend platform routes (platform/modules, platform/flags, platform/sequences) and its schema.d.ts comes from contracts/openapi.json; legacy Backend tests that seed forms (test_feature_flags, test_postgres, test_tenancy_audit_features) no longer run (Backend is not in CI)",
+      "movedTo": "0.26"
+    },
+    {
+      "foundIn": "0.16c",
+      "item": "The legacy e2e journeys and scripts/e2e (seed-demo, data-viewer) still use the legacy routes and auth/directory",
+      "movedTo": "0.16f"
+    },
+    {
+      "foundIn": "0.16c",
+      "item": "A form's name is one string in the builder (sent as am and en alike) until the builder's translation table",
+      "movedTo": "0.17"
     }
   ]
 }

@@ -1,5 +1,5 @@
 import type { FormSubmission } from '@itrms/schemas';
-/** Contract of the data viewer. Mirrors Backend `submission_fields.describe` and `form_submission_query_schema`. */
+/** Contract of the data viewer, in the screens' keys: `api/wire.ts` maps the forms API's view schema and queries to it. */
 
 export type FieldKind =
     'text' | 'choice' | 'multi' | 'number' | 'date' | 'datetime' | 'boolean' | 'files' | 'rows' | 'person';
@@ -32,7 +32,7 @@ export interface ViewField {
     key: string;
     label: string;
     kind: FieldKind;
-    /** Stores a user id (directory-bound choice or built-in submitter): show the person's name. */
+    /** Stores a user id (the built-in submitter): its options carry the people's names. */
     person: boolean;
     builtin: boolean;
     ops: Op[];
@@ -42,6 +42,10 @@ export interface ViewField {
     options: ViewOption[];
     currency?: string | null;
     type?: string;
+    /** marked filterable by the form's author */
+    filterable?: boolean;
+    /** its filters run on the value table's indexes (fast on any number of requests) */
+    indexed?: boolean;
 }
 
 export interface ViewRoles {
@@ -102,6 +106,9 @@ export interface QueryRequest {
 
 export interface ViewRow extends FormSubmission {
     submitted_by_name?: string | null;
+    /** the office that handles the request, and its name */
+    handling_unit?: string;
+    handling_unit_name?: string;
 }
 
 export interface QueryResult {

@@ -171,7 +171,12 @@ export interface ViewSchemaField {
 }
 
 /** The view schema: the fields with what each supports, the parts they play, and the view modes that make sense. */
-export function describe(fields: ViewField[], indexedKeys: readonly string[]) {
+export function describe(
+    fields: ViewField[],
+    indexedKeys: readonly string[],
+    /** the built-ins' choices (the offices and the people in the caller's submissions) */
+    builtinOptions: Readonly<Record<string, { value: string; label: string }[]>> = {}
+) {
     const described: ViewSchemaField[] = [
         ...BUILTINS.map((b) => ({
             key: b.key,
@@ -182,7 +187,7 @@ export function describe(fields: ViewField[], indexedKeys: readonly string[]) {
             sortable: SORTABLE.has(b.kind),
             groupable: GROUPABLE.has(b.kind),
             aggregatable: false,
-            options: [],
+            options: builtinOptions[b.key] ?? [],
             currency: null,
             type: null,
             filterable: true,

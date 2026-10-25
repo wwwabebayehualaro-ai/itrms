@@ -93,7 +93,7 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
     const router = useRouter();
     const notify = useNotify();
     const builder = useBuilderActions();
-    const canPublish = useCan('template:publish');
+    const canPublish = useCan('form:publish');
     const { data: all = [], isPending, error, refetch } = useTemplateList();
     const { remove, publish } = useTemplateMutations();
     // people who start requests pick from forms; view templates (reports) are managed here, not filled in

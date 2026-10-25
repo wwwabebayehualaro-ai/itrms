@@ -30,6 +30,7 @@ import {
     formListQuerySchema,
     formUpdateSchema,
     publicationDecisionSchema,
+    publicationRejectionSchema,
     publicationListQuerySchema,
     publicationRequestSchema,
     savedViewCreateSchema,
@@ -52,6 +53,7 @@ class FormUpdateDto extends createZodDto(formUpdateSchema) {}
 class FormListDto extends createZodDto(formListQuerySchema) {}
 class PublicationRequestDto extends createZodDto(publicationRequestSchema) {}
 class PublicationDecisionDto extends createZodDto(publicationDecisionSchema) {}
+class PublicationRejectionDto extends createZodDto(publicationRejectionSchema) {}
 class PublicationListDto extends createZodDto(publicationListQuerySchema) {}
 class SubmissionCreateDto extends createZodDto(submissionCreateSchema) {}
 class SubmissionListDto extends createZodDto(submissionListQuerySchema) {}
@@ -114,7 +116,8 @@ export class FormsController {
     @Require('submission:read')
     view(@Param('id', ParseUUIDPipe) id: string) {
         const { roles } = currentPrincipal();
-        return this.db.scoped(requestDbContext(), (tx) => this.queries.view(tx, roles, id));
+        const language = currentContext()?.language ?? 'am';
+        return this.db.scoped(requestDbContext(), (tx) => this.queries.view(tx, roles, id, language));
     }
 
     /** The unit's shared views of the form's data and the caller's own. */
@@ -200,7 +203,7 @@ export class PublicationsController {
     reject(
         @Param('id', ParseUUIDPipe) id: string,
         @Headers('if-match') ifMatch: string | undefined,
-        @Body() body: PublicationDecisionDto
+        @Body() body: PublicationRejectionDto
     ) {
         const ctx = requestDbContext();
         const version = versionFrom(ifMatch);

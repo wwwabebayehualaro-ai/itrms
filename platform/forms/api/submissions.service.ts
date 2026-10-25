@@ -15,7 +15,7 @@ import type { z } from 'zod';
 
 import type { HistoryEntry, Submission, submissionCreateSchema, submissionListQuerySchema } from '../contracts';
 import { formDefinitions, formVersions, submissions } from './forms.table';
-import { unitOf } from './forms.service';
+import { namesOf, unitOf } from './forms.service';
 import { lockFormShared, valueRows, writeValues, type Owner } from './submission-values';
 import { fieldsFor, required, scopeFor } from './support';
 import { filterableKinds, MAX_INDEXED_CHOICES } from './view-fields';
@@ -144,7 +144,7 @@ export class SubmissionsService {
             .from(submissions)
             .where(
                 and(
-                    eq(submissions.formId, query.formId),
+                    query.formId ? eq(submissions.formId, query.formId) : undefined,
                     query.mine === 'true' ? eq(submissions.createdBy, required(ctx.userId)) : undefined,
                     query.before ? lt(submissions.id, query.before) : undefined
                 )
@@ -172,6 +172,10 @@ export class SubmissionsService {
             tx,
             rows.map((r) => r.handlingUnitId)
         );
+        const people = await namesOf(
+            tx,
+            rows.map((r) => r.createdBy)
+        );
         return rows.map((row) => {
             const version = byId.get(row.formVersionId);
             return {
@@ -183,6 +187,7 @@ export class SubmissionsService {
                 handlingUnit: unitOf(units, row.handlingUnitId),
                 answers: version ? knownValues(version.fields, row.answers) : {},
                 submittedBy: row.createdBy,
+                submittedByName: row.createdBy ? (people.get(row.createdBy) ?? null) : null,
                 createdAt: row.createdAt.toISOString(),
                 updatedAt: row.updatedAt.toISOString()
             };

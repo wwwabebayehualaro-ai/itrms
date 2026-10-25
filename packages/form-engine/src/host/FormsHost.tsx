@@ -42,6 +42,8 @@ export interface FormsHost {
     isReported?: (error: unknown) => boolean;
     /** Where the engine reports a failure it handled. */
     logError?: (message: string, error: unknown) => void;
+    /** The installation's role keys: what a field's "Only for roles" may name. */
+    roleKeys?: readonly string[];
 }
 
 const HostContext = createContext<FormsHost | null>(null);

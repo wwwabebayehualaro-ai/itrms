@@ -137,6 +137,9 @@ export const publicationRequestSchema = z.strictObject({
 
 export const publicationDecisionSchema = z.strictObject({ note: z.string().trim().min(1).max(500).optional() });
 
+/** A rejection says why: the person who asked needs it to fix the form. */
+export const publicationRejectionSchema = z.strictObject({ note: z.string().trim().min(1).max(500) });
+
 export const publicationListQuerySchema = z.strictObject({
     status: z.enum(PUBLICATION_STATUSES).default('pending'),
     formId: z.uuid().optional()
@@ -151,8 +154,14 @@ export const publicationSchema = z.object({
     status: z.enum(PUBLICATION_STATUSES),
     note: z.string().nullable(),
     requestedBy: z.uuid().nullable(),
+    requestedByName: z.string().nullable(),
     requestedAt: z.string(),
     decidedBy: z.uuid().nullable(),
+    decidedByName: z.string().nullable(),
+    /** the caller may approve or reject it (pending, and neither the requester nor the content's author) */
+    canDecide: z.boolean(),
+    /** the caller asked for it and may take it back */
+    canWithdraw: z.boolean(),
     decidedAt: z.string().nullable(),
     decisionNote: z.string().nullable()
 });
@@ -169,14 +178,17 @@ export const submissionCreateSchema = z.strictObject({
 
 export const submissionUpdateSchema = z.strictObject({ answers: answersSchema });
 
-export const submissionListQuerySchema = z.strictObject({
-    formId: z.uuid(),
-    /** only what the signed-in person submitted */
-    mine: z.enum(['true', 'false']).optional(),
-    /** the last id of the previous page: the next page starts after it (newest first) */
-    before: z.uuid().optional(),
-    limit: z.coerce.number().int().min(1).max(100).default(50)
-});
+export const submissionListQuerySchema = z
+    .strictObject({
+        /** one form's submissions; without it, only the caller's own across forms (`mine=true`) */
+        formId: z.uuid().optional(),
+        /** only what the signed-in person submitted */
+        mine: z.enum(['true', 'false']).optional(),
+        /** the last id of the previous page: the next page starts after it (newest first) */
+        before: z.uuid().optional(),
+        limit: z.coerce.number().int().min(1).max(100).default(50)
+    })
+    .refine((q) => q.formId !== undefined || q.mine === 'true', 'name a form, or ask for your own (mine=true)');
 
 export const submissionSchema = z.object({
     id: z.uuid(),
@@ -187,6 +199,7 @@ export const submissionSchema = z.object({
     handlingUnit: unitRefSchema,
     answers: z.record(z.string(), z.unknown()),
     submittedBy: z.uuid().nullable(),
+    submittedByName: z.string().nullable(),
     createdAt: z.string(),
     updatedAt: z.string()
 });

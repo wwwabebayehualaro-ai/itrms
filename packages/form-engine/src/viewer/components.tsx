@@ -1,34 +1,24 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { StatusBadge } from '@itrms/ui';
 import { formatDateTime } from '../host/format';
 import type { Labeler } from './labels';
 import { EMPTY } from './labels';
 import type { ViewField, ViewRow, ViewSchema } from './types';
 
-export const STATUSES = ['draft', 'submitted', 'processing', 'completed', 'failed'];
-export const humanize = (s: string) => s.replace(/[_-]+/g, ' ');
-
-export function StatusTag({ value }: { value?: string | null }) {
-    return value ? <StatusBadge value={value} /> : null;
-}
-
-/** The value of a field in a result row (template fields live in submission_data, built-ins on the row). */
+/** The value of a field in a result row (a form's fields live in submission_data, built-ins on the row). */
 export function valueOf(row: ViewRow, key: string): unknown {
     if (key === 'submitted_by') return row.submitted_by_name ?? row.submitted_by;
-    return key in row && ['status', 'created_at', 'updated_at'].includes(key)
-        ? (row as any)[key]
-        : (row.submission_data as any)?.[key];
+    if (key === 'handling_unit') return row.handling_unit_name ?? row.handling_unit;
+    return key === 'created_at' || key === 'updated_at' ? row[key] : (row.submission_data as any)?.[key];
 }
+
+/** Built-ins whose row value is already the name people read. */
+const NAMED = new Set(['submitted_by', 'handling_unit']);
 
 /** Text of a field of a row, ready to read. */
 export const textOf = (row: ViewRow, f: ViewField | undefined, labeler: Labeler) =>
-    f
-        ? f.key === 'submitted_by'
-            ? String(valueOf(row, f.key) ?? EMPTY)
-            : labeler.text(f.key, valueOf(row, f.key))
-        : EMPTY;
+    f ? (NAMED.has(f.key) ? String(valueOf(row, f.key) ?? EMPTY) : labeler.text(f.key, valueOf(row, f.key))) : EMPTY;
 
 const FACT_KINDS = new Set(['text', 'choice', 'number', 'date', 'datetime', 'boolean', 'person', 'multi']);
 
@@ -60,12 +50,10 @@ interface RecordCardProps {
     onOpen: (row: ViewRow) => void;
     actions?: ReactNode;
     facts?: number;
-    /** Hide the status tag (a board column already says it). */
-    hideStatus?: boolean;
 }
 
 /** One request as a card: title, subtitle, status, the key facts, who and when. Used by Cards, Board and Calendar. */
-export function RecordCard({ row, schema, labeler, onOpen, actions, facts = 3, hideStatus }: RecordCardProps) {
+export function RecordCard({ row, schema, labeler, onOpen, actions, facts = 3 }: RecordCardProps) {
     const sub = schema.roles.subtitle ? schema.fields.find((f) => f.key === schema.roles.subtitle) : undefined;
     return (
         <div
@@ -81,7 +69,6 @@ export function RecordCard({ row, schema, labeler, onOpen, actions, facts = 3, h
                 >
                     {titleOf(row, schema, labeler)}
                 </button>
-                {!hideStatus && <StatusTag value={row.status} />}
             </div>
             {sub && <span className="text-sm text-muted-foreground">{textOf(row, sub, labeler)}</span>}
             <dl className="m-0 grid gap-1 text-sm">

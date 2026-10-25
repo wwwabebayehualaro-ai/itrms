@@ -7,8 +7,7 @@
  * caller's subtree (RLS). The whole request has 10 s: each statement gets what is left (`statement_timeout`).
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { eq, inArray, sql, type SQL } from 'drizzle-orm';
-import { users } from '@itrms/kernel/tables';
+import { eq, sql, type SQL } from 'drizzle-orm';
 import type { Tx } from '@itrms/kernel/db';
 import { ConflictError, InvalidRequestError } from '@itrms/kernel/errors';
 
@@ -22,13 +21,17 @@ import {
 } from '../contracts';
 import { ExportRefused, formatValue, word, type ExportTable } from './export';
 import { MAX_GENERATED_BYTES } from '@itrms/kernel/files';
-import { FormsService } from './forms.service';
+import { unitRefs } from '@itrms/kernel/org';
+import { FormsService, namesOf } from './forms.service';
 import { formVersions, submissions } from './forms.table';
 import { QueryCompiler, type FieldSpec } from './query-compiler';
 import { SubmissionsService, type SubmissionRow } from './submissions.service';
 import { fieldsFor } from './support';
 import { readDocument } from '@itrms/form-engine/core';
 import { BUILTIN_KEYS, BUILTINS, describe, valueFields, type ViewField } from './view-fields';
+
+/** The most offices and people the view schema offers as the built-ins' choices. */
+const MAX_BUILTIN_OPTIONS = 200;
 
 /** The time one query request may take, all its statements together. */
 export const QUERY_BUDGET_MS = 10_000;
@@ -56,9 +59,30 @@ export class SubmissionQueryService {
     ) {}
 
     /** What the data viewer can do with the form's submissions. */
-    async view(tx: Tx, roles: readonly string[], formId: string) {
+    async view(tx: Tx, roles: readonly string[], formId: string, language: string) {
         const { fields, indexedKeys } = await this.fieldsOf(tx, roles, formId);
-        return describe(fields, indexedKeys);
+        return withBudget(tx, async (budget) => {
+            // the built-ins' choices, from the submissions the caller sees (RLS bounds them): no directory of the region
+            const distinct = async (column: SQL) => {
+                await budget();
+                const result = await tx.execute<{ v: string }>(
+                    sql`select distinct ${column} as v from ${submissions}
+                        where ${submissions.formId} = ${formId} and ${column} is not null limit ${MAX_BUILTIN_OPTIONS}`
+                );
+                return result.rows.map((r) => r.v);
+            };
+            const unitIds = await distinct(sql`${submissions.handlingUnitId}`);
+            const personIds = await distinct(sql`${submissions.createdBy}`);
+            const units = await unitRefs(tx, unitIds);
+            const people = await namesOf(tx, personIds);
+            const byLabel = (a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label);
+            return describe(fields, indexedKeys, {
+                handlingUnit: [...units.values()]
+                    .map((u) => ({ value: u.id, label: u.name[language] ?? u.name.en ?? u.code }))
+                    .sort(byLabel),
+                submittedBy: [...people].map(([value, label]) => ({ value, label })).sort(byLabel)
+            });
+        });
     }
 
     async query(tx: Tx, roles: readonly string[], q: SubmissionQuery): Promise<SubmissionQueryResult> {
@@ -323,17 +347,6 @@ async function withBudget<T>(
             if ((e as { code?: string }).code === '57014') throw tooLong(error);
         throw error;
     }
-}
-
-/** Staff names for a table (users are a regional record). */
-async function namesOf(tx: Tx, ids: readonly (string | null)[]): Promise<Map<string, string>> {
-    const wanted = [...new Set(ids.filter((id): id is string => Boolean(id)))];
-    if (wanted.length === 0) return new Map();
-    const rows = await tx
-        .select({ id: users.id, name: users.displayName })
-        .from(users)
-        .where(inArray(users.id, wanted));
-    return new Map(rows.map((r) => [r.id, r.name]));
 }
 
 /** An instant as read in Ethiopia: Addis Ababa time, to the minute (Gregorian here; Ethiopian dates come with 0.17). */

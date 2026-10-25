@@ -79,16 +79,9 @@ Then add `SPEC` to `INSTALLED_MODULES` (`app/modules/__init__.py`), import the m
 `foundation.db.rls.enable_rls_sql("invoices")`. Approvals, numbers and idempotency: see the table above and
 `app/foundation/README.md`. Decide first whether the feature should be code at all (`../features/README.md`).
 
-## Submitted data: query, record, views, export (`modules/form_submission`)
-* `POST /form/submissions/query` filters / searches / sorts / pages / groups (two dimensions) / aggregates / facets the submissions of one form;
-  `GET /form/submissions/query/schema` says what is possible (fields, operators, roles, view modes). `foundation/db/json_query.py` is the generic, allow-listed JSON query compiler
-  (PostgreSQL JSONB and SQLite); `modules/form_submission/services/submission_fields.py` maps builder field types to query kinds. 200k rows answer in < 170 ms on PostgreSQL.
-* A submission records the **form version** it was filled in on (`template_versions`, one row per distinct content). `GET /form/submissions/{id}/form` returns it (+ `current`), `GET .../history` the audit trail with per-field changes.
-* Requests are taken on the **published** version of a form (`409 form_not_published` before the first publish). Without the flag
-  `forms.require_approval` every save publishes at once; with it, `POST /template/forms/templates/{id}/publish` asks for approval
-  (policy `template.publish`, permission `template:approve`) and the approval publishes the requested version.
-* `/form/views`: saved views (private; shared and default need `template:update`). `POST /form/submissions/export`: CSV with names and labels, needs `submission:export` (admin, editor), audited, max 50,000 rows, formula-injection safe.
-* Not yet: field-level masking (per-role hiding of fields in query/export/history) and push updates (the viewer polls when "Live" is on).
+## Forms and submitted data
+Moved to the forms API, `@itrms/forms` (`platform/forms`, tasks 0.16a–0.16e); the web uses it since task 0.16c. The legacy
+`form_builder`, `form_submission` and `core_banking` modules were removed.
 
 ## Rules for feature code
 1. Use `Repository`/`CrudService`; never open your own engine/session or build tenant filters by hand.

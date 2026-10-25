@@ -7,19 +7,16 @@ import {
     CheckSquare,
     FilePlus2,
     FileText,
-    Inbox,
     LayoutTemplate,
     Send,
     User,
     type LucideIcon
 } from 'lucide-react';
 import { useSubmissionList, useVisibleTemplates } from '@itrms/form-engine/renderer';
-import { StatusTag } from '@itrms/form-engine/viewer';
 import { Button, Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle, Skeleton } from '@itrms/ui';
 import { useApprovals } from '@/lib/approval';
 import { useCan } from '@/lib/auth/authHooks';
 import { useAuthStore } from '@/lib/auth/authStore';
-import { useDirectory } from '@/lib/auth/directory';
 import { formatDateTime } from '@/lib/format';
 
 const greeting = (h: number) => (h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening');
@@ -29,16 +26,14 @@ export function DashboardScreen() {
     const user = useAuthStore((s) => s.user);
     const canRead = useCan('submission:read');
     const canStart = useCan('submission:create');
-    const canBuild = useCan('template:create');
+    const canBuild = useCan('form:create');
     const [hour] = useState(() => new Date().getHours());
 
     const forms = useVisibleTemplates();
     const published = useMemo(() => (forms.data ?? []).filter((t) => t.status === 'published'), [forms.data]);
-    const waiting = useSubmissionList({ status: 'submitted', page: 1, pageSize: 1 }, { enabled: canRead });
-    const mine = useSubmissionList({ mine: true, page: 1, pageSize: 1 }, { enabled: canRead });
-    const latest = useSubmissionList({ page: 1, pageSize: 6, sort: '-created_at' }, { enabled: canRead });
+    const mine = useSubmissionList({ mine: true, limit: 100 }, { enabled: canRead });
+    const latest = useSubmissionList({ mine: true, limit: 6 }, { enabled: canRead });
     const approvals = useApprovals({ scope: 'to_decide', status: 'pending', page_size: 1 });
-    const { names } = useDirectory();
     const formName = useMemo(() => new Map((forms.data ?? []).map((t) => [String(t.id), t.name])), [forms.data]);
 
     return (
@@ -83,20 +78,11 @@ export function DashboardScreen() {
                 />
                 {canRead && (
                     <Stat
-                        label="Waiting requests"
-                        icon={Inbox}
-                        href="/submitted-forms/status/submitted"
-                        value={waiting.data?.total}
-                        hint="status submitted, every form"
-                    />
-                )}
-                {canRead && (
-                    <Stat
                         label="My requests"
                         icon={User}
                         href="/submitted-forms/filter/my-submissions"
-                        value={mine.data?.total}
-                        hint="submitted by you"
+                        value={mine.data?.items.length}
+                        hint={mine.data?.next ? 'more than 100, submitted by you' : 'submitted by you'}
                     />
                 )}
                 <Stat
@@ -112,12 +98,12 @@ export function DashboardScreen() {
                 {canRead && (
                     <Card data-dashboard-latest>
                         <CardHeader>
-                            <CardTitle>Latest requests</CardTitle>
-                            <CardDescription>The newest requests of every form</CardDescription>
+                            <CardTitle>My latest requests</CardTitle>
+                            <CardDescription>The newest requests you submitted</CardDescription>
                             <CardAction>
                                 <Button asChild variant="ghost" size="sm">
-                                    <Link href="/submitted-forms/filter/recent">
-                                        All recent
+                                    <Link href="/submitted-forms/filter/my-submissions">
+                                        All mine
                                         <ArrowRight />
                                     </Link>
                                 </Button>
@@ -140,12 +126,9 @@ export function DashboardScreen() {
                                                         {formName.get(String(s.template_id)) ?? 'Form'}
                                                     </span>
                                                     <span className="truncate text-xs text-muted-foreground">
-                                                        {(s.submitted_by && names.get(String(s.submitted_by))) ||
-                                                            'Someone'}{' '}
-                                                        · {formatDateTime(s.created_at)}
+                                                        {s.handling_unit_name ?? '—'} · {formatDateTime(s.created_at)}
                                                     </span>
                                                 </span>
-                                                <StatusTag value={s.status} />
                                             </Link>
                                         </li>
                                     ))}

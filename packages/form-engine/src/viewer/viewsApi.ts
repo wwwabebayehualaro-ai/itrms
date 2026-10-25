@@ -3,6 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFormsClient } from '../host/FormsHost';
 import { createKeys } from '../host/client';
+import { ifMatch } from '../api/templates';
+import { FORMS_API, savedViewOf, toWireConfig, toWireVisibility, type WireSavedView } from '../api/wire';
 import type { FilterGroup, SortKey, ViewState } from './types';
 
 export const savedViewKeys = createKeys('saved-views');
@@ -55,7 +57,9 @@ export function useSavedViews(templateId?: string) {
     return useQuery({
         queryKey: savedViewKeys.list({ templateId }),
         queryFn: async ({ signal }) =>
-            (await client.get<SavedView[]>('form/views', { params: { template_id: templateId }, signal })).data,
+            (
+                await client.get<{ items: WireSavedView[] }>(`${FORMS_API.forms}/${templateId}/views`, { signal })
+            ).data.items.map(savedViewOf),
         enabled: !!templateId
     });
 }
@@ -64,6 +68,14 @@ export function useSavedViewMutations() {
     const client = useFormsClient();
     const qc = useQueryClient();
     const refresh = () => qc.invalidateQueries({ queryKey: savedViewKeys.all });
+    /** The version of a view the screen shows (a change based on an older one is refused, 409). */
+    const versionOf = (id: string) => {
+        for (const [, views] of qc.getQueriesData<SavedView[]>({ queryKey: savedViewKeys.lists() })) {
+            const found = views?.find((v) => v.id === id);
+            if (found) return found.row_version;
+        }
+        throw new Error('This view is no longer shown: refresh the page.');
+    };
     const create = useMutation({
         mutationFn: async (body: {
             template_id: string;
@@ -71,7 +83,17 @@ export function useSavedViewMutations() {
             visibility: 'private' | 'shared';
             is_default: boolean;
             config: ViewConfig;
-        }) => (await client.post<SavedView>('form/views', body)).data,
+        }) =>
+            savedViewOf(
+                (
+                    await client.post<WireSavedView>(`${FORMS_API.forms}/${body.template_id}/views`, {
+                        name: body.name,
+                        visibility: toWireVisibility(body.visibility),
+                        isDefault: body.is_default,
+                        config: toWireConfig(body.config)
+                    })
+                ).data
+            ),
         onSuccess: refresh,
         meta: { errorMessage: 'Failed to save the view' }
     });
@@ -85,13 +107,27 @@ export function useSavedViewMutations() {
             visibility?: 'private' | 'shared';
             is_default?: boolean;
             config?: ViewConfig;
-        }) => (await client.patch<SavedView>(`form/views/${id}`, body)).data,
+        }) =>
+            savedViewOf(
+                (
+                    await client.patch<WireSavedView>(
+                        `${FORMS_API.savedViews}/${id}`,
+                        {
+                            ...(body.name !== undefined ? { name: body.name } : {}),
+                            ...(body.visibility ? { visibility: toWireVisibility(body.visibility) } : {}),
+                            ...(body.is_default !== undefined ? { isDefault: body.is_default } : {}),
+                            ...(body.config ? { config: toWireConfig(body.config) } : {})
+                        },
+                        ifMatch(versionOf(id))
+                    )
+                ).data
+            ),
         onSuccess: refresh,
         meta: { errorMessage: 'Failed to change the view' }
     });
     const remove = useMutation({
         mutationFn: async (id: string) => {
-            await client.delete(`form/views/${id}`);
+            await client.delete(`${FORMS_API.savedViews}/${id}`, ifMatch(versionOf(id)));
             return id;
         },
         onSuccess: refresh,

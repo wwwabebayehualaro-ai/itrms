@@ -152,12 +152,7 @@ function ValueEditor({
             </ToggleGroup>
         );
 
-    if (
-        field.kind === 'date' ||
-        field.kind === 'datetime' ||
-        field.key === 'created_at' ||
-        field.key === 'updated_at'
-    ) {
+    if (field.kind === 'date' || field.kind === 'datetime' || field.key === 'created_at') {
         const cal = (v: unknown, set: (d: string | null) => void, ph: string) => (
             <DatePicker
                 value={parseYmd(v)}

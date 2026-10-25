@@ -27,13 +27,12 @@ import {
     cn
 } from '@itrms/ui';
 import { requestErrorMessage } from '../../host/client';
-import { useCan } from '../../host/FormsHost';
 import { formatCurrency } from '../../host/format';
 import { useSubmissionData } from '../api';
-import { RecordCard, STATUSES, humanize } from '../components';
+import { RecordCard } from '../components';
 import type { Labeler } from '../labels';
 import type { ViewModeProps } from '../registry';
-import { useSubmissionMutations } from '../../api/submissions';
+import { useCanChangeRequests, useSubmissionMutations } from '../../api/submissions';
 import type { Condition, FilterGroup, ViewField, ViewRow, ViewSchema } from '../types';
 
 const PAGE = 10;
@@ -56,10 +55,7 @@ function useColumns(templateId: string, schema: ViewSchema, labeler: Labeler, fi
         facets: [stage.key]
     });
     const columns = useMemo<Column[]>(() => {
-        const known: Column[] =
-            stage.key === 'status'
-                ? STATUSES.map((v) => ({ value: v, label: humanize(v) }))
-                : labeler.options(stage.key).map((o) => ({ value: String(o.value), label: o.label }));
+        const known: Column[] = labeler.options(stage.key).map((o) => ({ value: String(o.value), label: o.label }));
         const seen = facet.data?.facets[stage.key] ?? [];
         const extra = seen
             .filter((f) => f.value !== null && !known.some((k) => k.value === f.value))
@@ -196,7 +192,6 @@ function BoardColumn({
                         schema={schema}
                         labeler={labeler}
                         onOpen={onOpen}
-                        hideStatus={stage.key === 'status'}
                         facts={2}
                         actions={
                             <>
@@ -224,8 +219,8 @@ function BoardColumn({
 export default function BoardView(props: ViewModeProps) {
     const { templateId, schema, state, labeler } = props;
     const { stage, columns, isPending, error } = useColumns(templateId, schema, labeler, state.filter, state.search);
-    const canMove = useCan('submission:update');
-    const { update, setStatus } = useSubmissionMutations();
+    const canMove = useCanChangeRequests() && !stage.builtin;
+    const { update } = useSubmissionMutations();
     const [dragging, setDragging] = useState<ViewRow | null>(null);
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -234,7 +229,6 @@ export default function BoardView(props: ViewModeProps) {
 
     const move = (row: ViewRow, to: Column) => {
         const value = to.value === NONE ? null : to.value;
-        if (stage.key === 'status') return value ? setStatus.mutate({ id: row.id, status: value }) : undefined;
         return update.mutate({
             id: row.id,
             data: { submission_data: { ...row.submission_data, [stage.key]: value } }
@@ -245,7 +239,7 @@ export default function BoardView(props: ViewModeProps) {
         const row = e.active.data.current?.row as ViewRow | undefined;
         const to = e.over?.data.current?.column as Column | undefined;
         if (!row || !to) return;
-        const current = stage.key === 'status' ? row.status : (row.submission_data as any)?.[stage.key];
+        const current = (row.submission_data as any)?.[stage.key];
         if ((current ?? NONE) !== to.value) move(row, to);
     };
 
@@ -285,7 +279,6 @@ export default function BoardView(props: ViewModeProps) {
                                 schema={schema}
                                 labeler={labeler}
                                 onOpen={() => undefined}
-                                hideStatus={stage.key === 'status'}
                                 facts={2}
                             />
                         </div>

@@ -17,12 +17,19 @@ const MAX_DEFAULT_VALUE_COLUMNS = 5;
 
 /** Where a field's value sits in a result row. */
 const pathOf = (f: ViewField) =>
-    f.key === 'submitted_by' ? 'submitted_by_name' : f.builtin ? f.key : `submission_data.${f.key}`;
+    f.key === 'submitted_by'
+        ? 'submitted_by_name'
+        : f.key === 'handling_unit'
+          ? 'handling_unit_name'
+          : f.builtin
+            ? f.key
+            : `submission_data.${f.key}`;
 
 /** The cell definition the form engine's table renderer understands, from the server's description of the field. */
 export function columnOf(f: ViewField): TableColumn {
     const base = { field: pathOf(f), header: f.label };
-    if (f.key === 'status') return { ...base, type: 'tag' };
+    // the office and the submitter are shown by name (the row carries it)
+    if (f.key === 'handling_unit' || f.key === 'submitted_by') return { ...base, type: 'text' };
     switch (f.kind) {
         case 'number':
             return f.currency ? { ...base, type: 'currency', currency: f.currency } : { ...base, type: 'number' };
@@ -51,7 +58,7 @@ export function defaultColumns(schema: ViewSchema): string[] {
     return [
         ...(title ? [title] : []),
         ...own.slice(0, MAX_DEFAULT_VALUE_COLUMNS - (title ? 1 : 0)),
-        'status',
+        'handling_unit',
         'submitted_by',
         'created_at'
     ];

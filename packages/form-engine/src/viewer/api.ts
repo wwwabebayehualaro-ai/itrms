@@ -3,20 +3,18 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useFormsClient } from '../host/FormsHost';
 import { createKeys } from '../host/client';
-import type { QueryRequest, QueryResult, ViewSchema } from './types';
-
-const BASE = 'form/submissions';
+import { FORMS_API, queryOf, resultOf, viewSchemaOf, type WireQueryResult, type WireViewSchema } from '../api/wire';
+import type { QueryRequest } from './types';
 
 export const viewKeys = createKeys('submission-view');
 
-/** What the viewer can do with the data of one form (fields, operators, roles, modes). Derived by the server from the template. */
+/** What the viewer can do with the data of one form (fields, operators, roles, modes). Derived by the server from the published version. */
 export function useViewSchema(templateId?: string) {
     const client = useFormsClient();
     return useQuery({
         queryKey: [...viewKeys.all, 'schema', templateId ?? ''],
         queryFn: async ({ signal }) =>
-            (await client.get<ViewSchema>(`${BASE}/query/schema`, { params: { template_id: templateId }, signal }))
-                .data,
+            viewSchemaOf((await client.get<WireViewSchema>(`${FORMS_API.forms}/${templateId}/view`, { signal })).data),
         enabled: !!templateId,
         staleTime: 60_000
     });
@@ -27,7 +25,14 @@ export function useSubmissionData(req: QueryRequest | null) {
     const client = useFormsClient();
     return useQuery({
         queryKey: [...viewKeys.all, 'data', req],
-        queryFn: async ({ signal }) => (await client.post<QueryResult>(`${BASE}/query`, req, { signal })).data,
+        queryFn: async ({ signal }) =>
+            resultOf(
+                (
+                    await client.post<WireQueryResult>(`${FORMS_API.submissions}/query`, queryOf(req as QueryRequest), {
+                        signal
+                    })
+                ).data
+            ),
         enabled: !!req,
         placeholderData: keepPreviousData
     });
