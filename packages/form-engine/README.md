@@ -54,6 +54,26 @@ import { DataViewer } from '@itrms/form-engine/viewer';
 The builder: `import { TemplateBuilder } from '@itrms/form-engine/designer'` (routed at `/dynamic-template/builder`; a separate
 entry so runtime pages do not ship it). The gallery opens a form in it through the builder store (`useBuilderActions`).
 
+## Rules written as formulas, and the Ethiopian date
+
+Task 0.17b. A field's `behavior.validation` may hold `requiredWhen: { expression }` (required while it holds) and
+`validWhen: [{ expression, message }]` (each must hold; a message is a text in every language). Expressions are bare
+formulas (no `{{= }}`) that read `form.*` (the field's scope: its row, inside a section), `row.*`, `root.*` (the whole
+form) and `user.id` / `user.roles`: what the server has too. `checkDocument` refuses any other reference or an unknown
+function at save, so a rule never behaves differently in the API; at run time a formula that fails holds (never blocks).
+`days(a, b)` gives whole days between two dates (an instant counts on its Addis Ababa day).
+
+- **Order of checks** (`validateForm`, over the values with hidden fields pruned until stable): hidden or disabled
+  fields are skipped; every value field's basic type is checked by its kit type (`core/kinds.ts`, read-only computed
+  fields excepted); then, on validated fields, required (static or `requiredWhen`), the type rules, the choice, the
+  `validWhen` checks (not on a blank value) and the remote check. A section's own checks read its rows; Required means at
+  least one row; a section takes at most 1,000 rows.
+- **Computed fields:** `settledValues` recomputes read-only computed fields as a fixpoint, so a total over row totals is
+  right whatever the browser sent.
+- **`EthDate`:** a day picked on the Ethiopian calendar (`EthiopianDatePicker`), stored as the ISO Gregorian day
+  (`YYYY-MM-DD`, checked strictly), with `props.minDate` / `props.maxDate` as Gregorian days; `ethiopianDateText` writes
+  it for people (viewer, filters, exports).
+
 ## Texts in every language
 
 A field's label, help text, placeholder, option labels and custom messages are each a plain string (one text for every
