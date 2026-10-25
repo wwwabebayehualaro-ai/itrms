@@ -593,8 +593,28 @@
           "notes": "Journeys rewritten for the BFF sign-in and the forms API (apps/web/tests/e2e/forms): builder + maker-checker publishing, filling in, repeating rows with formulas, the data viewer's six modes and export. Each journey makes its own forms through the API from a signed-in page (CSRF header, Origin, Idempotency-Key, If-Match) as demo.zone.admin (writes), demo.zone.head (approves) and demo.damot.records (fills in), and switches them off afterwards; no demo seed needed. CI job e2e starts the dev stack, migrates and seeds the reference design, starts the worker, and runs the whole suite (9 journeys, also sign-in, shell, i18n, registry). ci:local has no e2e job (as perf): GitHub Actions runs it. Found and fixed: the BFF needs an Origin header on a change; a switched-off (deleted) form stayed in the gallery and the dashboard's forms (the list now asks for active forms). CI on PR #8 (head 4eea9e1): all 9 jobs pass; the e2e job ran 9 journeys, 9 passed (2.6m). Waiting for the task-verifier before in review. Task-verifier: the data viewer journey was thinner than the legacy scripts. Ported into it: pivot drill-down, the filter builder with the link and a reload keeping it, server sort on a column, a private saved view reopened from ?v=, the record page (read-only form, history, Back keeps the view). That found the saved-views menu checking legacy permission names (view:create, template:update): nobody could save or share a view; it now checks submission:read and submission-view:share. Phase entry's Do/Tests updated (reference design seeded, tests in tests/e2e/forms)."
         },
         {
-          "id": "0.17",
-          "title": "Form engine for ITRMS, part 1",
+          "id": "0.17a",
+          "title": "Form engine for ITRMS, part 1a: texts in every language",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.17b",
+          "title": "Form engine for ITRMS, part 1b: conditional rules and the Ethiopian date",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.17c",
+          "title": "Form engine for ITRMS, part 1c: print mode and the engine's own text",
           "status": "planned",
           "branch": null,
           "commits": [],
@@ -1466,7 +1486,7 @@
     {
       "foundIn": "0.5",
       "item": "Type the form engine's renderer, designer, viewer and api (stored templates as unknown + Zod) and remove the scoped any/no-unsafe lint override in packages/form-engine/eslint.config.js",
-      "movedTo": "0.17"
+      "movedTo": "0.17c"
     },
     {
       "foundIn": "0.6a",
@@ -1712,7 +1732,7 @@
     {
       "foundIn": "0.13",
       "item": "Ethiopic typing mode is shown only by a dashed border: announce it to screen readers (aria-description from the caller's catalogue) and keep the browser's undo across transliterated words",
-      "movedTo": "0.17"
+      "movedTo": "0.17c"
     },
     {
       "foundIn": "0.13",
@@ -1814,7 +1834,7 @@
     {
       "foundIn": "0.16a",
       "item": "Computed fields keep the client's value: recompute formulas on the server before validation and storage",
-      "movedTo": "0.17"
+      "movedTo": "0.17b"
     },
     {
       "foundIn": "0.16a",
@@ -1836,7 +1856,7 @@
     {
       "foundIn": "0.16a",
       "item": "A field the palette does not validate (no behavior.validation.supported) takes any JSON value: check every value-holding field's basic type on the server, by its kit type",
-      "movedTo": "0.17"
+      "movedTo": "0.17b"
     },
     {
       "foundIn": "0.16b",
@@ -1863,12 +1883,12 @@
     {
       "foundIn": "0.16d",
       "item": "Exports show dates Gregorian (Addis time for timestamps): give them the Ethiopian date columns of the EthDate field",
-      "movedTo": "0.17"
+      "movedTo": "0.17b"
     },
     {
       "foundIn": "0.16d",
       "item": "Field labels in exports and views are the form's plain labels: use the I18nText labels in the caller's language",
-      "movedTo": "0.17"
+      "movedTo": "0.17a"
     },
     {
       "foundIn": "0.16d",
@@ -1928,7 +1948,7 @@
     {
       "foundIn": "0.16c",
       "item": "A form's name is one string in the builder (sent as am and en alike) until the builder's translation table",
-      "movedTo": "0.17"
+      "movedTo": "0.17a"
     },
     {
       "foundIn": "0.16c",
@@ -1943,7 +1963,7 @@
     {
       "foundIn": "0.16c",
       "item": "Typed message keys for useText().t (a typo fails typecheck), and the engine's own UI text (designer, viewer: 'Filterable', 'Only for roles', …) is English outside the catalogues",
-      "movedTo": "0.17"
+      "movedTo": "0.17c"
     },
     {
       "foundIn": "0.16f",

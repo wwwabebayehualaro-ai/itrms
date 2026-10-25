@@ -31,7 +31,7 @@ taught in schools, so it **does not rely on `Intl`/ICU data for Wolaytta**. Rule
 | UI strings (buttons, menus, messages, errors) | `<slice>/messages/{am,en,wal-Latn}.json` per slice + `apps/web/messages` for the shell (next-intl, merged at build; code-structure.md §9), keys `<owner>.<area>.<key>` | developers write `en` + `am`; a Wolaytta translator does `wal-Latn` from one merged export per language | **CI fails** for `am` and `en`. For `wal-Latn`, CI reports and the UI falls back to `am` (Wolaytta keys are filled in batches) |
 | API error titles | the same catalogues (`<owner>.errors.<code>`, e.g. `kernel.errors.forbidden`) | as above | as above |
 | Data names set by the bureau (services, units, roles, document types, licence categories, options) | `I18nText` JSONB `{"am": "…", "en": "…", "wal-Latn": "…"}` | bureau or zone admins in the admin screens | fallback chain; admin screens show "missing" badges |
-| Form labels, help, options, messages | `I18nText` in the form definition | form authors in the builder's translation table (task 0.17) | fallback; the publish check warns, it does not block |
+| Form labels, help, options, messages | `I18nText` in the form definition | form authors in the builder's translation table (task 0.17a) | fallback; the publish check warns, it does not block |
 | Document templates (certificates, receipts) | per-template string tables per language | bureau | printing a language with missing strings is refused |
 | SMS texts | template per language, ≤ 160 GSM-7 characters for Latin; Ethiopic needs UCS-2 (≤ 70 characters per part) | bureau | falls back to `am` |
 | People's names | **not translated**: stored as typed in Ethiopic **and** Latin script (two columns) | data entry | Latin name optional |

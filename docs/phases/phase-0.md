@@ -348,7 +348,7 @@ Split on 2026-10-21 (scope too large for one session): the BFF sign-in moved to 
 - **Done (2026-10-22):** see [i18n-and-languages.md](../i18n-and-languages.md) §7. Preferences (language, calendar,
   favourites, recents) moved to the server (0.10b's follow-up). Region settings are a first, region-level
   `settings_values`; the inheritance down the tree is task 0.21. The forms keep the Gregorian `DatePicker` until the
-  form engine adopts the Ethiopian one (0.17).
+  form engine adopts the Ethiopian one (0.17b).
 
 ### 0.14 People and organisations register
 - **Do:**
@@ -422,7 +422,7 @@ is not available: the timing runs in CI on 10⁶ generated rows, as 0.14 did, an
   settles what nobody types (disabled fields at their default, read-only computed fields recomputed), prunes hidden
   values, then runs `@itrms/form-engine/core` (choices within their options). The 25 shared cases run in the engine and
   over HTTP. Answers enter the audit log as an HMAC. What the server cannot check yet (data sources, lookups, file
-  references, other computed fields) is in the follow-ups for 0.17, 0.18 and 0.18a.
+  references, other computed fields) is in the follow-ups for 0.17a–c, 0.18 and 0.18a.
 
 ### 0.16b Submission queries and filterable indexes
 Split on 2026-10-24 (product owner): saved views, exports and history moved to 0.16d. Indexes follow ADR-0035.
@@ -490,16 +490,39 @@ Split on 2026-10-25 (the e2e journeys in CI moved to 0.16f). Needs 0.16b, 0.16d 
 - **Done when:** the legacy engine e2e journeys (builder, fill, multi-row, data viewer modes) pass against NestJS in CI.
 - **Tests:** the e2e suite (`apps/web/tests/e2e/forms`, ported from `legacy/`).
 
-### 0.17 Form engine for ITRMS, part 1
+### 0.17a Form engine for ITRMS, part 1a: texts in every language
+Split on 2026-10-25 from 0.17 (one session each: 0.17a texts, 0.17b rules and the Ethiopian date, 0.17c print and the
+engine's own text). Needs 0.16f.
+- **Do:** `I18nText` labels, help texts, placeholders, options and custom messages in the document (a plain string still
+  reads as every language); the builder's translation table per language with "missing" hints; the form's own name in
+  each language; the API's view schema and exports label fields in the caller's language.
+- **Done when:** a form shows in Amharic and English with a fallback for missing translations; the builder lists what is
+  untranslated; an export's headers are in the caller's language.
+- **Tests:** core unit tests (both languages, the fallback), the translation table component test, an API test of the
+  view schema and export headers in `am` and `en`.
+
+### 0.17b Form engine for ITRMS, part 1b: conditional rules and the Ethiopian date
 - **Do:**
-  - `I18nText` labels/help/placeholders/options/messages with a builder translation table and "missing" hints.
-  - An `EthDate` field + `DatePicker` Ethiopian mode in `packages/ui` (stored ISO Gregorian).
   - `requiredWhen` and `validWhen` (formula + message) in core, so they run on both sides.
+  - An `EthDate` field on the `DatePicker`'s Ethiopian mode in `packages/ui` (stored ISO Gregorian); exports give its
+    Ethiopian date column.
+  - The server checks every value-holding field's basic type by its kit type, and recomputes formulas before it
+    validates and stores.
+- **Done when:** an EC date round-trips through submit and storage; a conditional-required rule is enforced by the API; a
+  computed value sent wrong is stored right.
+- **Tests:** core unit tests (rules), the calendar field component test, API 422 for `requiredWhen`, an API test of a
+  forged computed value.
+
+### 0.17c Form engine for ITRMS, part 1c: print mode and the engine's own text
+- **Do:**
   - **Print mode** of the renderer (no controls, page breaks, `FormArray` as tables, Ethiopian dates).
-- **Done when:** a form shows in Amharic and English with a fallback for missing translations; an EC date round-trips
-  through submit and storage; a conditional-required rule is enforced by the API; the print view matches a snapshot.
-- **Tests:** core unit tests (both languages, rules), the calendar field component test, a print snapshot, an API 422 for
-  `requiredWhen`.
+  - The engine's own UI text (designer, viewer, renderer) in the message catalogues, with typed message keys.
+  - Ethiopic typing mode announced to screen readers.
+  - The engine's renderer, designer, viewer and API hooks typed (stored documents as `unknown` + Zod), with no lint
+    override.
+- **Done when:** the print view matches a snapshot; the engine's screens show in Amharic; a mistyped message key fails
+  typecheck.
+- **Tests:** a print snapshot, the catalogue check, component tests of the screens in `am`.
 
 ### 0.18 Form engine for ITRMS, part 2
 - **Do:**
