@@ -485,9 +485,10 @@ Split on 2026-10-25 (the e2e journeys in CI moved to 0.16f). Needs 0.16b, 0.16d 
 
 ### 0.16f Engine e2e journeys on the forms API in CI
 - **Do:** port the legacy engine e2e journeys (`apps/web/tests/e2e/legacy`) to the BFF sign-in; a CI job that starts the
-  dev stack, the API, the worker and the web, seeds the demo, and runs them.
+  dev stack, the API, the worker and the web, seeds the reference design (org, demo users), and runs them. Each journey
+  makes its own forms through the forms API.
 - **Done when:** the legacy engine e2e journeys (builder, fill, multi-row, data viewer modes) pass against NestJS in CI.
-- **Tests:** the e2e suite (`apps/web/tests/e2e/legacy`, ported).
+- **Tests:** the e2e suite (`apps/web/tests/e2e/forms`, ported from `legacy/`).
 
 ### 0.17 Form engine for ITRMS, part 1
 - **Do:**

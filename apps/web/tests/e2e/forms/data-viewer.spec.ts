@@ -2,7 +2,10 @@
  * The data viewer's modes on the forms API (the legacy data-viewer scripts as a journey, task 0.16f): four requests of a
  * zone form, filed by a woreda's records officer, are shown by every mode as the API counts them: the table and its
  * search, the cards, the board's columns (the stage field's values), the calendar's month, the pivot's grand total and
- * the dashboard's tiles and drill-down; and they leave as a file.
+ * the dashboard's tiles and drill-down; the pivot drills down; the filter builder narrows them on the server and the link
+ * keeps it; a column sorts them; a private saved view opens from its link; a request opens as its page (the form
+ * read-only, its history, Back keeps the view); and they leave as a file. Moving a card on the board waits for the
+ * workflow (a filed request changes only through its case, task 0.19).
  */
 import { expect, test, type Page } from '@playwright/test';
 
@@ -52,8 +55,8 @@ async function show(page: Page, formId: string, mode: string) {
 }
 
 test('every mode of the data viewer shows the requests as the API counts them', async ({ browser }) => {
-    // three people sign in, and six modes load
-    test.setTimeout(300_000);
+    // three people sign in, six modes load, then filters, views and a record page
+    test.setTimeout(480_000);
     const authorPage = await signedIn(browser, PEOPLE.author);
     const approverPage = await signedIn(browser, PEOPLE.approver);
     const author = api(authorPage);
@@ -107,6 +110,62 @@ test('every mode of the data viewer shows the requests as the API counts them', 
         const count = Number(await bar.getAttribute('data-value'));
         await bar.click();
         await expect(page.locator('[data-viewer] tbody tr')).toHaveCount(count);
+
+        // pivot: a cell drills down to exactly its requests in the table
+        await show(page, formId, 'pivot');
+        const cell = page.locator('[data-pivot] [data-cell] button').first();
+        const inCell = Number((await cell.innerText()).trim());
+        await cell.click();
+        await expect(page.locator('[data-viewer] tbody tr')).toHaveCount(inCell);
+
+        // the filter builder: "Priority is Normal", asked of the server; the link keeps it, a reload too
+        await show(page, formId, 'table');
+        await expect(rows).toHaveCount(ROWS.length);
+        await page.getByRole('button', { name: 'Filter' }).click();
+        const builder = page.getByRole('dialog', { name: 'Filter requests' });
+        await builder.getByRole('button', { name: 'Add condition' }).click();
+        await builder.getByRole('combobox', { name: 'Field' }).click();
+        await page.getByRole('option', { name: 'Priority' }).click();
+        await builder.getByRole('combobox', { name: 'Priority value' }).click();
+        await page.getByRole('option', { name: 'Normal' }).click();
+        await builder.getByRole('button', { name: 'Apply' }).click();
+        await expect(rows).toHaveCount(2);
+        await expect(page).toHaveURL(/[?&]f=/);
+        await page.reload();
+        await expect(rows).toHaveCount(2);
+
+        // sorted by the server on a column: the amounts come in order
+        await page.locator('[data-viewer] thead').getByText('Amount', { exact: true }).click();
+        await expect(page).toHaveURL(/[?&]sort=/);
+        await expect
+            .poll(async () => (await rows.locator('td').allInnerTexts()).join(' '))
+            .toMatch(/2,300[\s\S]*8,500|8,500[\s\S]*2,300/);
+
+        // a private saved view of it, opened again from its link
+        await page.getByRole('button', { name: 'Views' }).click();
+        await page.getByRole('button', { name: 'Save current view…' }).click();
+        await page.locator('[data-save-view] #view-name').fill('Normal priority');
+        await page.locator('[data-save-view]').getByRole('button', { name: /^Save/ }).click();
+        await expect(page.getByRole('button', { name: 'Normal priority' })).toBeVisible();
+        const views = await filler.get<{ items: { id: string; name: string; visibility: string }[] }>(
+            `v1/forms/${formId}/views`
+        );
+        const saved = views.items.find((v) => v.name === 'Normal priority');
+        expect(saved?.visibility).toBe('private');
+        await page.goto(`/submitted-forms/template/${formId}?v=${saved?.id}`);
+        await expect(rows).toHaveCount(2);
+
+        // a request opens as its page: the form as filled in, read-only, its history; Back keeps the view
+        await rows.first().locator('[data-open]').click();
+        const record = page.locator('[data-record-page]');
+        await expect(record).toBeVisible();
+        await expect(record.getByLabel('Title')).toBeDisabled();
+        await expect(record).toContainText('Damot Gale Records Officer');
+        await record.getByRole('tab', { name: 'History' }).click();
+        await expect(page.locator('[data-history="insert"]')).toHaveCount(1);
+        // back: the link to the form, carrying the view the request was opened from
+        await record.locator('> a').first().click();
+        await expect(rows).toHaveCount(2);
 
         // export, a right of its own (the zone's head has it, a records officer not): the woreda's requests leave as a file
         await expect(page.getByRole('button', { name: 'Export' })).toHaveCount(0);
