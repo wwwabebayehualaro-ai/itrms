@@ -31,7 +31,10 @@ const {
 } = require('docx');
 
 const VERSION = '1.0';
-const DATE = 'ጥቅምት 15 ቀን 2019 ዓ.ም.';
+const DATE = 'ጥቅምት 16 ቀን 2019 ዓ.ም.';
+/** The company's reference number of the cover letter. */
+const OUR_REF = 'አሶማ03/001/19';
+const EMAIL = 'abanexustech@gmail.com';
 const LETTER = 'ቁጥር ወዞትመልመ/117 ቀን 09/02/2019 ዓ.ም.';
 const COMPANY = 'ABANEXUS SOFTWARE DEVELOPMENT PLC';
 const BRAND = 'ABA Nexus Technologies';
@@ -675,18 +678,18 @@ const titleBlock = [
         [
             ['ለ', 'ወላይታ ዞን ትራንስፖርትና መንገድ ልማት አስተዳደር መምሪያ'],
             ['ማጣቀሻ', `የመምሪያው ደብዳቤ ${LETTER}`],
-            ['ያዘጋጀው', `${BRAND} (${COMPANY})`],
+            ['ያዘጋጀው', COMPANY],
             ['ቀን', DATE],
             ['እትም', VERSION],
             ['ምላሽ የሚመለስበት ቀን', '__________________'],
-            ['ምላሹ የሚላክለት', CONTACT]
+            ['ምላሹ የሚላክለት', EMAIL]
         ]
     )
 ];
 
 const coverLetter = [
     pageBreak(),
-    new Paragraph({ alignment: AlignmentType.RIGHT, children: [run('ቁጥር፦ __________________')] }),
+    new Paragraph({ alignment: AlignmentType.RIGHT, children: [run(`ቁጥር፦ ${OUR_REF}`)] }),
     new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 240 }, children: [run(`ቀን፦ ${DATE}`)] }),
     para('ለወላይታ ዞን ትራንስፖርትና መንገድ ልማት አስተዳደር መምሪያ', { run: { bold: true } }),
     para('ወላይታ ሶዶ'),
@@ -710,13 +713,6 @@ const coverLetter = [
         'በመሆኑም ጥያቄዎቹ ለሚመለከታቸው የሥራ ክፍሎች ተመርተው፣ ምላሹ ከተጠየቁት ቅጾችና ሰነዶች ጋር በሰነዱ ፊት ለፊት በተጠቀሰው ቀን እንዲላክልን በአክብሮት እንጠይቃለን። "ከፍተኛ" ቅድሚያ የተሰጣቸው ጥያቄዎች (በማጠቃለያ ሠንጠረዡ ይመልከቱ) ቀድመው ቢመለሱ የመጀመሪያው ማሳያ በጊዜ እንዲዘጋጅ ያግዛል።'
     ),
     new Paragraph({ spacing: { before: 360, after: 120 }, children: [run('ከሠላምታ ጋር')] }),
-    para('ስም፦ ______________________________'),
-    para('ኃላፊነት፦ ___________________________'),
-    para('ፊርማና ማኅተም፦ ______________________'),
-    para(COMPANY, { run: { bold: true } }),
-    para(CONTACT),
-    new Paragraph({ spacing: { before: 360, after: 60 }, children: [run('ግልባጭ፦', { bold: true, underline: {} })] }),
-    bullet('ለፕሮጀክቱ መዝገብ')
 ];
 
 const intro = [
@@ -790,7 +786,7 @@ const annexes = [
     ),
     h1('6. ቀጣይ እርምጃ'),
     para(
-        `የተሞላው ሰነድ ከደረሰን በኋላ የቴክኒክ ቡድኑ ምላሾቹን በሥርዓቱ ንድፍ ውስጥ ያካትታል። ግልጽ ያልሆኑ ምላሾች ካሉ ከሚመለከታቸው ባለሙያዎች ጋር አጭር ውይይት ይደረጋል፤ የሥራ ሂደቱን በቦታው ለማየት ጉብኝትም ሊጠየቅ ይችላል። ስለዚህ ሰነድ ጥያቄ ካለዎት ${BRAND} ን በ ${CONTACT.replace(' · ', ' ወይም በ ')} ያነጋግሩ።`
+        `የተሞላው ሰነድ ከደረሰን በኋላ የቴክኒክ ቡድኑ ምላሾቹን በሥርዓቱ ንድፍ ውስጥ ያካትታል። ግልጽ ያልሆኑ ምላሾች ካሉ ከሚመለከታቸው ባለሙያዎች ጋር አጭር ውይይት ይደረጋል፤ የሥራ ሂደቱን በቦታው ለማየት ጉብኝትም ሊጠየቅ ይችላል። ስለዚህ ሰነድ ጥያቄ ካለዎት ${COMPANY} ን በ ${CONTACT.replace(' · ', ' ወይም በ ')} ያነጋግሩ።`
     ),
     para('እናመሰግናለን!', { run: { bold: true } })
 ];
