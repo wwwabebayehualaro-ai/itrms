@@ -696,10 +696,17 @@
         {
           "id": "0.18",
           "title": "Form engine for ITRMS, part 2",
-          "status": "in progress",
+          "status": "in review",
           "branch": "task/0.18-registry-lookup",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "c1c2f01"
+          ],
+          "evidence": [
+            "apps/api/test/integration/forms-lookups.int.spec.ts (CI run ): picking a person stores only the id with an audit row; a forged other-region id → 422 invalid_reference (Amharic message, no row); unknown/merged/malformed ids → 422; organisation lookups; row paths; a file uploaded as medical_certificate is stored with its tag and linked (expires_at null); wrong doc type / another user's / generated export file → 422 invalid_file; lookup filters eq/in/nin/empty",
+            "component tests: renderer/registryLookup.spec.tsx (search, facts, stored id, disabled view, inactive/not found), designer/lookupSettings.spec.tsx, fileDocType.spec.tsx, host/lookups.spec.tsx; engine 220+ tests; registered types = FIELD_TYPES (form:schema removed)",
+            "turbo lint+typecheck+test 63/63 locally; boundaries; i18n:check; OpenAPI regenerated; CI all 9 jobs pass",
+            "reviewer: no critical/high; four mediums and the lows fixed with tests; print labels moved to 0.23"
+          ],
           "blockers": [],
           "notes": "Definition of ready: the Fee field needs fee rules and their evaluator (0.22) and service configuration (0.21), neither built yet; moved to 0.22 in the phase file (2026-10-26). The rest is ready. Design (architect): a lookup provider registry in platform/forms (RegistryLookups; parties registers person and organisation providers through Nest DI, platform never imports modules), GET api/v1/registry-lookups endpoints, the stored value is the bare uuid ('ref' kind), the server resolves ids under RLS (another region's id → 422 invalid_reference); files resolved from the stored row, doc-type checked and finally linked to the submission (fixes unlinked attachments that expired after 7 days); DOCUMENT_TYPES fixed code list; form:schema removed (the API already validates with Zod). No migrations. Built in three batches: engine (RegistryLookup field, 'ref' kind, lookupRefs, print refs, FileField docType, provider/docType settings, host lookup hooks, viewer label cells, Combobox onSearchChange, form:schema removed — FIELD_TYPES hand-kept, registered-types spec); platform (RegistryLookups + controller, resolveFiles/checkReferences/linkFile on submit with per-path 422 codes, assertLookups on save/publish, 'ref' view kind, kernel documentType enum, loader lookup-owner check, OpenAPI); parties (person and organisation providers, never FIN/phone/birth date) + forms-lookups.int.spec.ts, app.spec lookup registration, existing int tests send real stored files. Local: turbo lint+typecheck+test 63/63, boundaries 988 modules, i18n complete. CI integration run 1: one failure — the unknown-provider save test expected the problem code invalid_form; the API follows the document check's convention (problem validation_failed, entry code invalid_form at the field path). Test corrected; pushed with the reviewer's fixes. Reviewer: no critical/high; mediums being fixed — ref filters compared text to uuid (500), a non-uuid id in an unchecked row reached resolve (500), file answers could take a generated export (kept forever once linked) or another person's upload, organisation resolve was N+1; lows: provider-permission audit data and a unit test, provider output parsed through the contract schemas, table labels fetched in chunks of 50. Print labels (refs) are for the PDF worker in 0.23. Review fixes in: ref filters compare lower(text) to a validated uuid; a non-uuid lookup id is refused before resolve (422, not 500) and ids are lowercased; file answers only from the submitter's own uploads (no generated exports); OrganisationsService.summaries (one query); assertMayLookUp with audit data + unit test; provider output parsed through the contract schemas with response DTOs; table labels in chunks of 50. New int tests for each."
         },
