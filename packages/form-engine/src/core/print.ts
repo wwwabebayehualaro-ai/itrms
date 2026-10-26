@@ -85,7 +85,7 @@ export interface PrintDocument {
     nodes: PrintNode[];
 }
 
-const PASSWORD_MASK = '••••••';
+const MASKED_TEXT = '••••••';
 const GROUPS = new Set(['Panel', 'Fieldset', 'Card', 'FormSection']);
 const MAX_TABLE_COLUMNS = 6;
 
@@ -139,7 +139,7 @@ export function printValueText(
     };
     switch (kind) {
         case 'text':
-            return field.type === 'Password' ? PASSWORD_MASK : String(value);
+            return field.type === 'Password' ? MASKED_TEXT : String(value);
         case 'number':
             return field.type === 'Rating'
                 ? `${numOf(value) ?? String(value)}/${numOf(props.stars) ?? 5}`

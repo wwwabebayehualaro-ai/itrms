@@ -32,6 +32,8 @@ import {
 } from './document';
 
 const HISTORY = 100;
+/** A suffix uniqueKey adds (`name2`): digits only. */
+const isDigits = (s: string): boolean => s.length > 0 && [...s].every((c) => c >= '0' && c <= '9');
 const COALESCE_MS = 1500;
 
 export interface DesignerState {
@@ -227,9 +229,8 @@ export function createDesignerStore(
                 let selectedId = id;
                 const base = keyFromLabel(keySourceOf(f.label));
                 const follows =
-                    // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- a fixed digits-only pattern (linear time)
                     !saved.byId[id] &&
-                    (following.has(id) || id === base || (id.startsWith(base) && /^\d+$/.test(id.slice(base.length))));
+                    (following.has(id) || id === base || (id.startsWith(base) && isDigits(id.slice(base.length))));
                 const source = keySourceOf(label);
                 if (follows && /[A-Za-z]/.test(source) && source !== keySourceOf(f.label)) {
                     const taken = new Set(Object.keys(doc.byId).filter((k) => k !== id));

@@ -641,7 +641,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Design (architect): print is a pure UI-free model (core printModel: one language, hidden and role-restricted fields left out, rows as tables or lists, Ethiopian dates; Calendar dates with the Gregorian day in brackets) plus a static, hook-free, CSP-safe view (renderer/print/PrintForm, renderToStaticMarkup in Node) that the 0.23 worker can use without the interactive renderer (api never imports ui). The remaining texts are one table (schemas TEXT_PROPS: panel/fieldset/card/section titles, divider text, row labels and buttons, upload button) plus options/rows empty messages and table column headers, all through fieldTexts. form_config.textLanguage stores the language plain strings are written in (default am; a new form takes the builder's language; shown read-only, decided): the untranslated count is the same for every builder. A per-session set of keys that still follow their label lets an Amharic-first label's key follow the English one. Designer part done (uncommitted, renderer agent still working): form_config.textLanguage in the design document (read on load: stored tag, else am for an existing form, else the builder's language; written on save; kept by key renames); plainAs replaced by it everywhere; a per-session set of keys that follow their label (an Amharic-first label's key follows the English one); text settings via textPropsOf; translation-aware options/rows empty messages and column headers; Translations labels for the new kinds and the form's text language shown read-only. Designer tests 30 (8 new)."
+          "notes": "Design (architect): print is a pure UI-free model (core printModel: one language, hidden and role-restricted fields left out, rows as tables or lists, Ethiopian dates; Calendar dates with the Gregorian day in brackets) plus a static, hook-free, CSP-safe view (renderer/print/PrintForm, renderToStaticMarkup in Node) that the 0.23 worker can use without the interactive renderer (api never imports ui). The remaining texts are one table (schemas TEXT_PROPS: panel/fieldset/card/section titles, divider text, row labels and buttons, upload button) plus options/rows empty messages and table column headers, all through fieldTexts. form_config.textLanguage stores the language plain strings are written in (default am; a new form takes the builder's language; shown read-only, decided): the untranslated count is the same for every builder. A per-session set of keys that still follow their label lets an Amharic-first label's key follow the English one. Designer part done (uncommitted, renderer agent still working): form_config.textLanguage in the design document (read on load: stored tag, else am for an existing form, else the builder's language; written on save; kept by key renames); plainAs replaced by it everywhere; a per-session set of keys that follow their label (an Amharic-first label's key follows the English one); text settings via textPropsOf; translation-aware options/rows empty messages and column headers; Translations labels for the new kinds and the form's text language shown read-only. Designer tests 30 (8 new). Gates on the branch: form-engine pnpm test 185 passed (+ check:engine, check:runtime, form:schema current); apps/web vitest 63 passed, tsc clean; eslint and format:check clean; boundaries clean (950 modules). PR #11."
         },
         {
           "id": "0.17d",
@@ -2060,6 +2060,11 @@
       "foundIn": "0.17c",
       "item": "Options from a data source print their stored value (the PDF worker has no network): print the labels once RegistryLookup stores its facts",
       "movedTo": "0.18"
+    },
+    {
+      "foundIn": "0.17c",
+      "item": "Print's own words (Yes/No/No rows/No./Item, PRINT_WORDS) are English literals passed by the host; move them to the engine's message catalogues",
+      "movedTo": "0.17d"
     }
   ]
 }

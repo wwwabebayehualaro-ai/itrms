@@ -28,7 +28,7 @@ const form = {
         inside('personal', F('married', 'Checkbox')),
         inside('personal', F('mode', 'Dropdown', { props: { options: [{ label: 'On', value: 'on' }] } })),
         inside('personal', {
-            ...F('secretNote', 'InputText'),
+            ...F('privateNote', 'InputText'),
             behavior: { visibilityConditions: [{ field: 'mode', operator: 'eq', value: 'off' }] }
         }),
         C('items', 'FormArray', { itemLabel: L('ዕቃ', 'Thing'), printBreakBefore: true }),
@@ -45,7 +45,7 @@ const values = {
     kind: 1,
     married: true,
     mode: 'on',
-    secretNote: 'must not print',
+    privateNote: 'must not print',
     items: [
         { what: 'small', qty: 2 },
         { what: 'big', qty: 10 }

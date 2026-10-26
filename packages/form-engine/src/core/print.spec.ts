@@ -25,7 +25,7 @@ const form = {
         C('personal', 'Card', { title: L('የግል', 'Personal'), subTitle: 'Sub', footer: 'Foot', printBreakBefore: true }),
         inside('personal', F('name', 'InputText', { props: { span: 6 } })),
         inside('personal', F('notes', 'InputTextarea')),
-        inside('personal', F('secret', 'Password')),
+        inside('personal', F('pin', 'Password')),
         inside('personal', F('married', 'Checkbox')),
         inside('personal', F('kind', 'Dropdown', { props: { options: [{ label: L('አንድ', 'One'), value: 1 }] } })),
         inside(
@@ -69,7 +69,7 @@ const form = {
 const values = {
     name: 'Abebe Sample',
     notes: 'line one\nline two',
-    secret: 'hunter2',
+    pin: '4321',
     married: false,
     kind: 1,
     tags: ['b', 'c', 'zz'],
@@ -138,7 +138,7 @@ describe('printModel', () => {
     it('prints values by kind', () => {
         expect(text(nodes, 'name')).toBe('Abebe Sample');
         expect(text(nodes, 'notes')).toBe('line one\nline two');
-        expect(text(nodes, 'secret')).toBe('••••••');
+        expect(text(nodes, 'pin')).toBe('••••••');
         expect(text(nodes, 'married')).toBe('No');
         expect(text(nodes, 'kind')).toBe('One');
         expect(text(nodes, 'tags')).toBe('Beta, Gamma, zz');
