@@ -713,7 +713,7 @@
         },
         {
           "id": "0.18a",
-          "title": "Form governance: contracts, stability, checks, tests",
+          "title": "Form governance: stability, checks, tests",
           "status": "ready",
           "branch": null,
           "commits": [],
@@ -744,6 +744,16 @@
         {
           "id": "0.21",
           "title": "Service catalogue and configuration inheritance",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.21a",
+          "title": "Form governance, part 2: effect contracts and form tiers",
           "status": "planned",
           "branch": null,
           "commits": [],

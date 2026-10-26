@@ -551,11 +551,11 @@ Split on 2026-10-26 (0.17c print and texts, 0.17d the engine's own text, 0.17e t
   422; a file is stored with its doc-type tag.
 - **Tests:** component tests for the lookup field; API tests for lookup scope.
 
-### 0.18a Form governance: contracts, stability, checks, tests
+### 0.18a Form governance: stability, checks, tests
+Split on 2026-10-26: effect contracts, the service-version mapping, overlay tiers and the impact on cases, effects and
+overlays need cases (0.19) and service versions and overlays (0.21); they moved to **0.21a**. The fee in test cases waits
+for 0.22.
 - **Do** ([form-platform.md](../platform/form-platform.md) §2–§4):
-  - **Effect input contracts** in module manifests (Zod), a service-version mapping from contract paths to form keys,
-    contract fields locked in the builder (key, type, required), and publish failing when a contract is unmet. This
-    generalises the legacy server-action input model and `register_check`.
   - **Key stability:** keys immutable after the first publish; "remove" hides the field in new versions and keeps its data.
   - **Lint rules:**
     - unreachable fields and circular formulas;
@@ -564,19 +564,15 @@ Split on 2026-10-26 (0.17c print and texts, 0.17d the engine's own text, 0.17e t
     - duplicate option values;
     - field count;
     - data-source allow-list.
-  - **Form test cases:** stored sample submissions with expected validity, messages and fee, run in the API on publish.
-  - **Impact analysis** on publish: open cases per version; saved views, reports and widgets using changed keys; bound
-    effects; overlay conflicts.
+  - **Form test cases:** stored sample submissions with expected validity and messages, run in the API on publish.
+  - **Impact analysis** on publish: saved views using changed keys.
   - Version history with a **diff**; rollback by republishing an earlier version; maker-checker publish.
-  - Three form tiers (bureau, overlay, unit-local) enforced by permissions.
 - **Done when:**
-  - removing a contract field from the licence application fails to publish, with a clear Amharic/English message;
   - renaming a published key is impossible;
   - a failing test case blocks publishing;
-  - the impact report lists a saved view that uses a changed field;
-  - a zone overlay can add a field but can't touch a locked one.
-- **Tests:** contract checker unit tests; lint rule tests; test-case runner tests; an e2e of an author changing a form,
-  seeing the diff and the impact, and getting it approved.
+  - the impact report lists a saved view that uses a changed field.
+- **Tests:** lint rule tests; test-case runner tests; an e2e of an author changing a form, seeing the diff and the impact,
+  and getting it approved.
 
 ### 0.19 Workflow engine, part 1: definitions, cases, transitions
 - **Do:**
@@ -629,6 +625,20 @@ Split on 2026-10-26 (0.17c print and texts, 0.17d the engine's own text, 0.17e t
   a disallowed key is refused; publishing a new bureau version re-applies overlays and reports conflicts; open cases keep
   their frozen config.
 - **Tests:** resolution unit tests (precedence, disallowed keys, overlay conflicts) and integration tests across sibling units (Damot Gale, Boditi) and Test Zone B.
+
+### 0.21a Form governance, part 2: effect contracts and form tiers
+Moved from 0.18a on 2026-10-26 (it needs cases, service versions and overlays). Needs 0.21.
+- **Do** ([form-platform.md](../platform/form-platform.md) §2–§4):
+  - **Effect input contracts** in module manifests (Zod), a service-version mapping from contract paths to form keys,
+    contract fields locked in the builder (key, type, required), and publish failing when a contract is unmet. This
+    generalises the legacy server-action input model and `register_check`.
+  - **Impact analysis** on publish, completed: open cases per version; reports and widgets using changed keys; bound
+    effects; overlay conflicts.
+  - Three form tiers (bureau, overlay, unit-local) enforced by permissions.
+- **Done when:**
+  - removing a contract field from the licence application fails to publish, with a clear Amharic/English message;
+  - a zone overlay can add a field but can't touch a locked one.
+- **Tests:** contract checker unit tests; overlay tier tests.
 
 ### 0.22 Fees, payment orders, cashier, receipts
 - **Do:**
