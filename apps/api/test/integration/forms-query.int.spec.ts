@@ -192,7 +192,20 @@ beforeAll(async () => {
     ] as const) {
         const form = await createAndPublish(`requests-${name}`, fieldsOf(filterable));
         forms[name] = form.id;
-        for (const row of ROWS) await submit(as.damot(), form.id, form.versionId, row);
+        // an answer of another kind ('n/a' in a number) cannot come through the API any more (task 0.17b), but stored
+        // answers may hold one (older data): it is written into the stored answers, as such data would be
+        for (const row of ROWS)
+            await submit(
+                as.damot(),
+                form.id,
+                form.versionId,
+                Object.fromEntries(Object.entries(row).filter(([, v]) => v !== 'n/a'))
+            );
+        await api.owner.query(
+            `update forms.submissions set answers = jsonb_set(answers, '{amount}', '"n/a"')
+              where form_id = $1 and answers->>'title' = 'delta'`,
+            [form.id]
+        );
         // another office's request, which Damot Gale never sees
         await submit(as.boditi(), form.id, form.versionId, { title: 'Boditi only', dept: 'sales', amount: 1 });
     }
