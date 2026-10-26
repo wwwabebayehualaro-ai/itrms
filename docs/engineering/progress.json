@@ -635,7 +635,27 @@
         },
         {
           "id": "0.17c",
-          "title": "Form engine for ITRMS, part 1c: print mode and the engine's own text",
+          "title": "Form engine for ITRMS, part 1c: print mode and the remaining texts",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.17d",
+          "title": "Form engine for ITRMS, part 1d: the engine's own text",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.17e",
+          "title": "Form engine for ITRMS, part 1e: the engine's types",
           "status": "planned",
           "branch": null,
           "commits": [],
@@ -1507,7 +1527,7 @@
     {
       "foundIn": "0.5",
       "item": "Type the form engine's renderer, designer, viewer and api (stored templates as unknown + Zod) and remove the scoped any/no-unsafe lint override in packages/form-engine/eslint.config.js",
-      "movedTo": "0.17c"
+      "movedTo": "0.17e"
     },
     {
       "foundIn": "0.6a",
@@ -1753,7 +1773,7 @@
     {
       "foundIn": "0.13",
       "item": "Ethiopic typing mode is shown only by a dashed border: announce it to screen readers (aria-description from the caller's catalogue) and keep the browser's undo across transliterated words",
-      "movedTo": "0.17c"
+      "movedTo": "0.17d"
     },
     {
       "foundIn": "0.13",
@@ -1984,7 +2004,7 @@
     {
       "foundIn": "0.16c",
       "item": "Typed message keys for useText().t (a typo fails typecheck), and the engine's own UI text (designer, viewer: 'Filterable', 'Only for roles', …) is English outside the catalogues",
-      "movedTo": "0.17c"
+      "movedTo": "0.17d"
     },
     {
       "foundIn": "0.16f",

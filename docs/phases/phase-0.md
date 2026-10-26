@@ -513,16 +513,31 @@ engine's own text). Needs 0.16f.
 - **Tests:** core unit tests (rules), the calendar field component test, API 422 for `requiredWhen`, an API test of a
   forged computed value.
 
-### 0.17c Form engine for ITRMS, part 1c: print mode and the engine's own text
+### 0.17c Form engine for ITRMS, part 1c: print mode and the remaining texts
+Split on 2026-10-26 (0.17c print and texts, 0.17d the engine's own text, 0.17e the engine's types). Needs 0.17b.
 - **Do:**
   - **Print mode** of the renderer (no controls, page breaks, `FormArray` as tables, Ethiopian dates).
-  - The engine's own UI text (designer, viewer, renderer) in the message catalogues, with typed message keys.
+  - The remaining texts of a form in every language: row add/remove button texts, the upload button, the options'
+    empty message, panel and section titles, data table column headers.
+  - The builder's authoring language stored with the form (a plain string's language is the form's, not the viewer's),
+    and a new field's key following its English label when the label was first written in Amharic.
+- **Done when:** the print view matches a snapshot; a panel title and a row button show in Amharic and English; the
+  untranslated count is the same for every builder.
+- **Tests:** a print snapshot, core tests of the new texts, designer tests of the authoring language and the key.
+
+### 0.17d Form engine for ITRMS, part 1d: the engine's own text
+- **Do:**
+  - The engine's own UI text (designer, viewer, renderer) in the message catalogues, with typed message keys (a
+    mistyped key fails typecheck).
   - Ethiopic typing mode announced to screen readers.
-  - The engine's renderer, designer, viewer and API hooks typed (stored documents as `unknown` + Zod), with no lint
-    override.
-- **Done when:** the print view matches a snapshot; the engine's screens show in Amharic; a mistyped message key fails
-  typecheck.
-- **Tests:** a print snapshot, the catalogue check, component tests of the screens in `am`.
+- **Done when:** the engine's screens show in Amharic; a mistyped message key fails typecheck.
+- **Tests:** the catalogue check, component tests of the screens in `am`.
+
+### 0.17e Form engine for ITRMS, part 1e: the engine's types
+- **Do:** the engine's renderer, designer, viewer and API hooks typed (stored documents as `unknown` + Zod), with no lint
+  override.
+- **Done when:** `packages/form-engine/eslint.config.js` has no `any`/`no-unsafe` override and the engine lints clean.
+- **Tests:** the existing suites, unchanged in behaviour.
 
 ### 0.18 Form engine for ITRMS, part 2
 - **Do:**
