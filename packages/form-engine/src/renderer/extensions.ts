@@ -7,16 +7,16 @@
 // ---- custom actions -------------------------------------------------------------------------------
 export interface ActionContext {
     /** Static config saved on the action in the template (`action.payload`). */
-    payload: any;
-    formValues: Record<string, any>;
+    payload: unknown;
+    formValues: Record<string, unknown>;
     /** `data`, `user`, `route`, `variables`, plus `eventData`/`fieldId`. */
-    context: Record<string, any>;
-    setFieldValue?: (field: string, value: any) => void;
+    context: Record<string, unknown>;
+    setFieldValue?: (field: string, value: unknown) => void;
     /** Run a template data source through the authenticated client. */
-    runApi?: (dataSourceId: string, body?: unknown) => Promise<any>;
+    runApi?: (dataSourceId: string, body?: unknown) => Promise<unknown>;
     refetch?: (dataSourceId?: string) => Promise<void>;
 }
-export type ActionHandler = (ctx: ActionContext) => unknown | Promise<unknown>;
+export type ActionHandler = (ctx: ActionContext) => unknown;
 
 const actionHandlers = new Map<string, ActionHandler>();
 

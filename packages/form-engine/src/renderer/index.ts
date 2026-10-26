@@ -28,6 +28,7 @@ export type {
 
 // ---- render a saved template as a working form ------------------------------------------------------
 export { default as FormRenderer } from './FormRenderer';
+export type { EngineSubmission } from './EngineForm';
 // fill in a form: the published version, never the builder's working copy
 export { PublishedFormRenderer } from './PublishedFormRenderer';
 export { TemplateStatusTag } from './TemplateStatusTag';

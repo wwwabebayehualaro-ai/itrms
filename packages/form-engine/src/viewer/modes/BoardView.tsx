@@ -34,7 +34,7 @@ import { RecordCard } from '../components';
 import type { Labeler } from '../labels';
 import type { ViewModeProps } from '../registry';
 import { useCanChangeRequests, useSubmissionMutations } from '../../api/submissions';
-import type { Condition, FilterGroup, ViewField, ViewRow, ViewSchema } from '../types';
+import type { Condition, FilterGroup, ViewField, ViewRow } from '../types';
 
 const PAGE = 10;
 const MAX_CARDS = 100;
@@ -46,9 +46,8 @@ interface Column {
 }
 
 /** The columns of a board: every value the stage field can take, plus any value that exists in the data, plus "No value". */
-function useColumns(templateId: string, schema: ViewSchema, labeler: Labeler, filter: FilterGroup, search: string) {
+function useColumns(templateId: string, stage: ViewField, labeler: Labeler, filter: FilterGroup, search: string) {
     const { t } = useEngineText();
-    const stage = schema.fields.find((f) => f.key === schema.roles.stage)!;
     const facet = useSubmissionData({
         template_id: templateId,
         filter,
@@ -69,7 +68,7 @@ function useColumns(templateId: string, schema: ViewSchema, labeler: Labeler, fi
             ...(hasNone || !known.length ? [{ value: NONE, label: t('form-engine.viewer.board.noValue') }] : [])
         ];
     }, [stage, labeler, facet.data, t]);
-    return { stage, columns, isPending: facet.isPending, error: facet.error };
+    return { columns, isPending: facet.isPending, error: facet.error };
 }
 
 function DraggableCard({ row, disabled, children }: { row: ViewRow; disabled: boolean; children: React.ReactNode }) {
@@ -229,9 +228,14 @@ function BoardColumn({
 }
 
 export default function BoardView(props: ViewModeProps) {
-    const { templateId, schema, state, labeler } = props;
+    const stage = props.schema.fields.find((f) => f.key === props.schema.roles.stage);
+    return stage ? <Board {...props} stage={stage} /> : null;
+}
+
+function Board(props: ViewModeProps & { stage: ViewField }) {
+    const { templateId, schema, stage, state, labeler } = props;
     const { t } = useEngineText();
-    const { stage, columns, isPending, error } = useColumns(templateId, schema, labeler, state.filter, state.search);
+    const { columns, isPending, error } = useColumns(templateId, stage, labeler, state.filter, state.search);
     const canMove = useCanChangeRequests() && !stage.builtin;
     const { update } = useSubmissionMutations();
     const [dragging, setDragging] = useState<ViewRow | null>(null);
@@ -252,7 +256,7 @@ export default function BoardView(props: ViewModeProps) {
         const row = e.active.data.current?.row as ViewRow | undefined;
         const to = e.over?.data.current?.column as Column | undefined;
         if (!row || !to) return;
-        const current = (row.submission_data as any)?.[stage.key];
+        const current = row.submission_data?.[stage.key];
         if ((current ?? NONE) !== to.value) move(row, to);
     };
 

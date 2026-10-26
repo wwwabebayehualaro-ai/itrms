@@ -1,4 +1,4 @@
-import type { FormSubmission } from '@itrms/schemas';
+import type { FormField, FormSubmission, TemplateRuntimeConfig } from '@itrms/schemas';
 /** Contract of the data viewer, in the screens' keys: `api/wire.ts` maps the forms API's view schema and queries to it. */
 
 export type FieldKind =
@@ -142,7 +142,7 @@ export interface ViewState {
 export interface RecordForm {
     template_id: string;
     name: string;
-    form_config: { fields?: any[]; runtime?: any } | any[];
+    form_config: { fields?: FormField[]; runtime?: TemplateRuntimeConfig } | FormField[];
     /** false: made before versions were recorded, shown with the current form */
     versioned: boolean;
     /** false: the form changed since this request was filled in */

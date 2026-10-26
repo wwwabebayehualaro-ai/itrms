@@ -678,12 +678,12 @@
         {
           "id": "0.17e",
           "title": "Form engine for ITRMS, part 1e: the engine's types",
-          "status": "ready",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.17e-engine-types",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "The scoped override (no-explicit-any, no-unsafe-*, no-base-to-string, no-non-null-assertion, restrict-template-expressions, no-redundant-type-constituents) removed from packages/form-engine/eslint.config.js; 299 errors fixed in three batches (designer 88, renderer 105, viewer+scripts 104) with no new 'as unknown as' or eslint-disable. Public types tightened: EngineForm onFormSubmit(EngineSubmission) (exported), ActionContext fields unknown, RowActionDetail<Row> generic, RecordForm.form_config typed; field kit generic over the value type. Board/Dashboard render nothing instead of crashing if their field is missing (they are offered only when it exists). Engine 204, ui 73, web 63, api 10; turbo lint+typecheck+test 15/15; boundaries 976 modules."
         },
         {
           "id": "0.18",

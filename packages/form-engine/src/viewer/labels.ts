@@ -10,6 +10,14 @@ import type { ViewField, ViewOption, ViewSchema } from './types';
 
 export const EMPTY = '—';
 
+/** A stored value as plain text (objects as JSON, never "[object Object]"). */
+export const plain = (v: unknown): string =>
+    typeof v === 'string'
+        ? v
+        : typeof v === 'number' || typeof v === 'boolean' || typeof v === 'bigint'
+          ? String(v)
+          : (JSON.stringify(v) ?? String(undefined));
+
 export interface Labeler {
     field: (key: string) => ViewField | undefined;
     /** Choices of a field (the built-ins' are the offices and people in the data, from the server). */
@@ -46,7 +54,7 @@ export function useLabeler(schema?: ViewSchema): Labeler {
         };
         const one = (f: ViewField | undefined, v: unknown): string => {
             if (v === null || v === undefined || v === '') return EMPTY;
-            if (!f) return String(v);
+            if (!f) return plain(v);
             switch (f.kind) {
                 case 'boolean':
                     return t(v ? 'form-engine.core.print.yes' : 'form-engine.core.print.no');
@@ -62,9 +70,9 @@ export function useLabeler(schema?: ViewSchema): Labeler {
                         ? formatCurrency(Number(v), f.currency)
                         : Number.isFinite(Number(v))
                           ? Number(v).toLocaleString('en-US', { maximumFractionDigits: 6 })
-                          : String(v);
+                          : plain(v);
                 default:
-                    return lookup(f.key).get(String(v)) ?? String(v);
+                    return lookup(f.key).get(plain(v)) ?? plain(v);
             }
         };
         const text = (key: string, value: unknown) => {

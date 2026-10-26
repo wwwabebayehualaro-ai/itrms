@@ -99,9 +99,9 @@ interface BaseDef {
     /** Offered in the form builder (v2) when present. */
     design?: DesignMeta;
 }
-export interface ValueFieldDef extends BaseDef {
+export interface ValueFieldDef<T = unknown> extends BaseDef {
     kind: 'value';
-    Render: ComponentType<ValueFieldProps<any>>;
+    Render: ComponentType<ValueFieldProps<T>>;
     /** `inline`: the control prints its own label beside it (checkbox, switch). Default `top`. */
     label?: 'top' | 'inline';
 }
@@ -117,13 +117,14 @@ export interface DisplayFieldDef extends BaseDef {
 export interface SectionFieldDef extends BaseDef {
     kind: 'section';
 }
-export type FieldTypeDef = ValueFieldDef | ContainerFieldDef | DisplayFieldDef | SectionFieldDef;
+export type FieldTypeDef<T = unknown> = ValueFieldDef<T> | ContainerFieldDef | DisplayFieldDef | SectionFieldDef;
 
 const kit = new Map<string, FieldTypeDef>();
 
 /** Add or replace a field type (feature teams can register their own types the same way). */
-export function defineFieldType(def: FieldTypeDef): void {
-    kit.set(def.type, def);
+// the registry holds every value type under `unknown`: each field type reads and writes its own value type, checked here at the call
+export function defineFieldType<T = unknown>(def: FieldTypeDef<T>): void {
+    kit.set(def.type, def as FieldTypeDef);
 }
 
 export const getFieldType = (type: string): FieldTypeDef | undefined => kit.get(type);

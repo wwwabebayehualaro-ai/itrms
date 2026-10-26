@@ -1,5 +1,4 @@
-import type { FormField } from '@itrms/schemas';
-import type { TemplateRuntimeConfig } from '@itrms/schemas';
+import type { FormField, TemplateRuntimeConfig, VisibilityCondition } from '@itrms/schemas';
 import type { EngineMessageKey } from '../core/messages';
 
 /**
@@ -52,7 +51,11 @@ const renameInValue = (value: unknown, oldKey: string, newKey: string): unknown 
 const renameInFormula = (formula: string, oldKey: string, newKey: string) =>
     formula.replace(refPattern(oldKey), `$1${newKey}`);
 
-const renameConditions = (conds: any[] | undefined, oldKey: string, newKey: string): any[] | undefined =>
+const renameConditions = (
+    conds: VisibilityCondition[] | undefined,
+    oldKey: string,
+    newKey: string
+): VisibilityCondition[] | undefined =>
     conds?.map((c) => ({
         ...c,
         field:
@@ -89,7 +92,10 @@ export function renameFieldKey(fields: FormField[], oldKey: string, newKey: stri
             };
         }
         if (f.data?.computed)
-            next.data = { ...next.data, computed: renameInValue(f.data.computed, oldKey, newKey) as any };
+            next.data = {
+                ...next.data,
+                computed: renameInValue(f.data.computed, oldKey, newKey) as NonNullable<FormField['data']>['computed']
+            };
         const validation = f.behavior?.validation;
         if (validation?.requiredWhen || validation?.validWhen) {
             next.behavior = {

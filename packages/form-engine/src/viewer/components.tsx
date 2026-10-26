@@ -3,14 +3,14 @@
 import type { ReactNode } from 'react';
 import { formatDateTime } from '../host/format';
 import type { Labeler } from './labels';
-import { EMPTY } from './labels';
+import { EMPTY, plain } from './labels';
 import type { ViewField, ViewRow, ViewSchema } from './types';
 
 /** The value of a field in a result row (a form's fields live in submission_data, built-ins on the row). */
 export function valueOf(row: ViewRow, key: string): unknown {
     if (key === 'submitted_by') return row.submitted_by_name ?? row.submitted_by;
     if (key === 'handling_unit') return row.handling_unit_name ?? row.handling_unit;
-    return key === 'created_at' || key === 'updated_at' ? row[key] : (row.submission_data as any)?.[key];
+    return key === 'created_at' || key === 'updated_at' ? row[key] : row.submission_data?.[key];
 }
 
 /** Built-ins whose row value is already the name people read. */
@@ -18,7 +18,7 @@ const NAMED = new Set(['submitted_by', 'handling_unit']);
 
 /** Text of a field of a row, ready to read. */
 export const textOf = (row: ViewRow, f: ViewField | undefined, labeler: Labeler) =>
-    f ? (NAMED.has(f.key) ? String(valueOf(row, f.key) ?? EMPTY) : labeler.text(f.key, valueOf(row, f.key))) : EMPTY;
+    f ? (NAMED.has(f.key) ? plain(valueOf(row, f.key) ?? EMPTY) : labeler.text(f.key, valueOf(row, f.key))) : EMPTY;
 
 const FACT_KINDS = new Set(['text', 'choice', 'number', 'date', 'datetime', 'boolean', 'person', 'multi']);
 

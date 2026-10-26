@@ -65,6 +65,8 @@ export default function CalendarView({ templateId, schema, state, patch, labeler
     const dateFields = schema.fields.filter((f) => f.kind === 'date' || f.kind === 'datetime');
     const dateKey = (state.options.dateField as string) || schema.roles.date || dateFields[0]?.key;
     const endKey = dateKey === schema.roles.date ? schema.roles.dateEnd : null;
+    // only read while a date field exists (the queries below are off without one)
+    const dateColumn = dateKey ?? '';
     const [shownMonth, setShownMonth] = useState<string>((state.options.month as string) || monthKey(new Date()));
     const [expanded, setExpanded] = useState<string | null>(null);
     const setMonth = (m: string) => {
@@ -85,17 +87,17 @@ export default function CalendarView({ templateId, schema, state, patch, labeler
         ? {
               op: 'or',
               items: [
-                  { field: dateKey!, op: 'between', value: [firstKey, lastKey] },
+                  { field: dateColumn, op: 'between', value: [firstKey, lastKey] },
                   {
                       op: 'and',
                       items: [
-                          { field: dateKey!, op: 'lte', value: lastKey },
+                          { field: dateColumn, op: 'lte', value: lastKey },
                           { field: endKey, op: 'gte', value: firstKey }
                       ]
                   }
               ]
           }
-        : { field: dateKey!, op: 'between', value: [firstKey, lastKey] };
+        : { field: dateColumn, op: 'between', value: [firstKey, lastKey] };
     const filter: FilterGroup = { op: 'and', items: [...(state.filter.items.length ? [state.filter] : []), inMonth] };
     const { data, isPending, error } = useSubmissionData(
         dateKey
@@ -126,7 +128,7 @@ export default function CalendarView({ templateId, schema, state, patch, labeler
     const byDay = useMemo(() => {
         const map = new Map<string, ViewRow[]>();
         for (const row of data?.items ?? []) {
-            const start = dayOf(valueOf(row, dateKey!));
+            const start = dayOf(valueOf(row, dateColumn));
             if (!start) continue;
             const end = endKey ? dayOf(valueOf(row, endKey)) : null;
             const last = end && end >= start ? end : start;
@@ -136,7 +138,7 @@ export default function CalendarView({ templateId, schema, state, patch, labeler
             }
         }
         return map;
-    }, [data, dateKey, endKey, gridStart, days]);
+    }, [data, dateColumn, endKey, gridStart, days]);
 
     if (!dateKey) return <InlineStatus error={t('form-engine.viewer.calendar.noDateField')} />;
     const today = ymd(new Date());

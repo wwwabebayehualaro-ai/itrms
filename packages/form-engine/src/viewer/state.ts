@@ -18,7 +18,7 @@ const b64 = {
     decode: <T>(s: string | null, fallback: T): T => {
         if (!s) return fallback;
         try {
-            return JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
+            return JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/'))))) as T;
         } catch {
             return fallback; // a hand-edited / truncated link never breaks the page
         }

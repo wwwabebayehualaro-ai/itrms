@@ -42,14 +42,17 @@ assert.ok(
     'a described type is offered in the palette'
 );
 
-const created = createField(EMPTY_DOC, 'Iban', { am: 'የሂሳብ IBAN', en: 'Account IBAN' })!;
+const created = createField(EMPTY_DOC, 'Iban', { am: 'የሂሳብ IBAN', en: 'Account IBAN' });
+assert.ok(created, 'the builder creates the field');
 assert.equal(created.id, 'accountIban', 'the key comes from the label');
 assert.deepEqual(created.props, { country: 'DE' }, 'starting settings');
 assert.equal(created.category, 'Input');
 assert.equal(created.behavior?.validation?.supported, true, 'a value type is validated');
 assert.equal(readDocument({ fields: [created] }).invalid.length, 0, 'what the builder creates is a valid stored field');
 
-const specs = settingsOf(designableTypes().find((d) => d.type === 'Iban')!.design.settings);
+const iban = designableTypes().find((d) => d.type === 'Iban');
+assert.ok(iban, 'the described type is offered');
+const specs = settingsOf(iban.design.settings);
 assert.deepEqual(
     specs.map((s) => [s.key, s.kind, s.meta.title ? wordIn('en', s.meta.title) : undefined]),
     [
@@ -62,7 +65,8 @@ assert.deepEqual(specs[0]?.options, ['DE', 'FR']);
 
 // every built-in type creates a field the engine reads and draws
 for (const d of designableTypes()) {
-    const f = createField(EMPTY_DOC, d.type, d.design.label)!;
+    const f = createField(EMPTY_DOC, d.type, d.design.label);
+    assert.ok(f, `${d.type}: the builder creates it`);
     const read = readDocument({ fields: [f] });
     assert.equal(read.invalid.length, 0, `${d.type}: valid stored field`);
     assert.equal(unsupportedFields(read.fields).length, 0, `${d.type}: drawable`);
@@ -71,14 +75,21 @@ for (const d of designableTypes()) {
 // ---- a custom action -------------------------------------------------------------------------------------------------
 let seen: unknown = null;
 registerAction('stamp', ({ payload, formValues, setFieldValue }) => {
-    seen = { payload, total: formValues.total };
+    const given: unknown = payload;
+    const total: unknown = formValues.total;
+    seen = { payload: given, total };
     setFieldValue?.('stamped', true);
     return 'done';
 });
 const set: Record<string, unknown> = {};
 const result = await runAction(
     { type: 'custom', target: 'stamp', payload: { by: 'check' } },
-    { formValues: { total: 3 }, setFieldValue: (k, v) => (set[k] = v) }
+    {
+        formValues: { total: 3 },
+        setFieldValue: (k, v) => {
+            set[k] = v;
+        }
+    }
 );
 assert.equal(result, 'done');
 assert.deepEqual(seen, { payload: { by: 'check' }, total: 3 });
@@ -95,12 +106,22 @@ await runAction(
         payload: { field: 'a', value: '{{form.total}}' },
         conditions: [{ field: 'total', operator: 'gt', value: 5 }]
     },
-    { formValues: { total: 3 }, setFieldValue: (k, v) => (set[k] = v) }
+    {
+        formValues: { total: 3 },
+        setFieldValue: (k, v) => {
+            set[k] = v;
+        }
+    }
 );
 assert.equal(set.a, undefined);
 await runAction(
     { type: 'setValue', payload: { field: 'a', value: '{{form.total}}' } },
-    { formValues: { total: 3 }, setFieldValue: (k, v) => (set[k] = v) }
+    {
+        formValues: { total: 3 },
+        setFieldValue: (k, v) => {
+            set[k] = v;
+        }
+    }
 );
 assert.equal(set.a, 3);
 

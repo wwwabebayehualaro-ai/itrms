@@ -23,6 +23,7 @@ import {
     type EngineField
 } from '../core';
 import { getByPath, resolveString } from '../core/runtime/expression';
+import { str } from '../core/runtime/path';
 import { useEngineText } from '../host/text';
 import { runAction } from './actions';
 import { spanWidth, validSpan } from './span';
@@ -39,7 +40,11 @@ interface TreeContext {
 }
 const TreeCtx = createContext<TreeContext | null>(null);
 export const TreeProvider = TreeCtx.Provider;
-const useTree = () => useContext(TreeCtx)!;
+const useTree = () => {
+    const tree = useContext(TreeCtx);
+    if (!tree) throw new Error('The field tree needs a TreeProvider');
+    return tree;
+};
 
 /** Where a field's values live: the form (`rowPath` '') or one row of a section (`items[2]`), and the section that row belongs to. */
 interface Scope {
@@ -62,7 +67,7 @@ export function widthOf(
     // Semgrep reports from the line that reads the input, so the suppression sits here: the two patterns below are fixed
     // and have no nested quantifiers (linear time).
     // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos
-    const cls = String(field.props.className ?? '');
+    const cls = str(field.props.className ?? '');
     const col = /(?:^|\s)col-(\d{1,2})(?:\s|$)/.exec(cls);
     const frac = /(?:^|\s)w-(\d)\/(\d)(?:\s|$)/.exec(cls);
     const legacy = col
@@ -208,7 +213,7 @@ function ValueField({
         if (!list?.length) return;
         for (const action of list) {
             void runAction(action, {
-                formValues: valuesAt(form.state.values, scope.rowPath),
+                formValues: valuesAt(form.state.values as Values, scope.rowPath),
                 context: { ...store.get().scope, root: form.state.values, eventData, fieldId: field.id },
                 runApi: runtimeApi.run,
                 setFieldValue: (k, v) => form.setFieldValue(scope.rowPath ? `${scope.rowPath}.${k}` : k, v),
@@ -233,7 +238,7 @@ function ValueField({
             <Render
                 field={field}
                 id={domId}
-                value={api.state.value}
+                value={api.state.value as unknown}
                 disabled={disabled}
                 invalid={!!error}
                 describedBy={describedBy}
@@ -296,7 +301,7 @@ function Section({ field, scope, disabled }: { field: EngineField; scope: Scope;
     const error = useShownError(api.state.meta);
     const rows = Array.isArray(api.state.value) ? (api.state.value as unknown[]) : [];
     const { minItems: min, maxItems: max } = field.rules;
-    const noun = String(field.props.itemLabel || t('form-engine.renderer.rows.item'));
+    const noun = str(field.props.itemLabel || t('form-engine.renderer.rows.item'));
     const locked = readOnly || disabled;
 
     return (
@@ -309,7 +314,7 @@ function Section({ field, scope, disabled }: { field: EngineField; scope: Scope;
             {field.label && <div className="text-sm font-medium">{field.label}</div>}
             {rows.length === 0 && (
                 <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
-                    {String(
+                    {str(
                         field.props.emptyMessage || t('form-engine.renderer.rows.empty', { item: noun.toLowerCase() })
                     )}
                 </div>
@@ -336,7 +341,7 @@ function Section({ field, scope, disabled }: { field: EngineField; scope: Scope;
                                 title={
                                     rows.length <= min
                                         ? t('form-engine.renderer.rows.atLeast', { min: String(min) })
-                                        : String(field.props.removeButtonLabel || t('form-engine.renderer.rows.remove'))
+                                        : str(field.props.removeButtonLabel || t('form-engine.renderer.rows.remove'))
                                 }
                                 aria-label={t('form-engine.renderer.rows.removeRow', {
                                     item: noun,
@@ -367,7 +372,7 @@ function Section({ field, scope, disabled }: { field: EngineField; scope: Scope;
                         onClick={() => api.pushValue(emptyRow(field, doc.fields))}
                     >
                         <Plus />
-                        {String(field.props.addButtonLabel || t('form-engine.renderer.rows.add'))}
+                        {str(field.props.addButtonLabel || t('form-engine.renderer.rows.add'))}
                     </Button>
                     {Number.isFinite(max) && (
                         <span className="text-sm text-muted-foreground">

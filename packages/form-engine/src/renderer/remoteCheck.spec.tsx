@@ -12,7 +12,8 @@ vi.mock('@itrms/ui', async (original) => ({
 }));
 
 import { readDocument, remotePendingText, validateForm as validate } from '../core';
-import { EngineForm } from './EngineForm';
+import type { FormField, FormTemplate, TemplateRuntimeConfig } from '@itrms/schemas';
+import { EngineForm, type EngineSubmission } from './EngineForm';
 import { hostRenderer, requestError } from '../test-utils';
 
 // these cases are written with the engine's English messages
@@ -33,7 +34,13 @@ const renderWithQuery = hostRenderer({
     }
 });
 
-const field = (type: string, id: string, extra: Record<string, any> = {}) => ({
+interface FieldExtra {
+    label?: string;
+    props?: Record<string, unknown>;
+    data?: FormField['data'];
+    validation?: Record<string, unknown>;
+}
+const field = (type: string, id: string, extra: FieldExtra = {}) => ({
     id,
     type,
     label: extra.label ?? id,
@@ -44,7 +51,7 @@ const field = (type: string, id: string, extra: Record<string, any> = {}) => ({
 });
 
 // the cash form in small: an account number checked by a lookup, the holder's name filled from it, an amount
-const fields: any[] = [
+const fields: FormField[] = [
     field('InputText', 'accountNumber', {
         label: 'Account number',
         props: { required: true },
@@ -57,7 +64,7 @@ const fields: any[] = [
     }),
     field('InputNumber', 'amount', { label: 'Amount', props: { required: true } })
 ];
-const runtime: any = {
+const runtime: TemplateRuntimeConfig = {
     dataSources: [
         {
             id: 'account',
@@ -76,7 +83,7 @@ const runtime: any = {
         successMessage: '{{response.submission_data.postingStatus}}: {{response.submission_data.reference}}'
     }
 };
-const template = { id: 'tpl-cash', name: 'Cash', form_config: { fields, runtime } } as any;
+const template = { id: 'tpl-cash', name: 'Cash', slug: 'cash', form_config: { fields, runtime } } as FormTemplate;
 
 client.request.mockImplementation((req: { url: string }) => {
     if (req.url.endsWith('/1000000000001'))
@@ -109,7 +116,7 @@ describe('a field checked by a data source', () => {
     it('fills from the lookup, shows its error on the field and blocks the submit', async () => {
         const user = userEvent.setup();
         const onFormSubmit = vi
-            .fn()
+            .fn<(submission: EngineSubmission) => Promise<unknown>>()
             .mockResolvedValue({ submission_data: { reference: 'TXN-2026-000001', postingStatus: 'Posted' } });
         renderWithQuery(<EngineForm fields={fields} template={template} onFormSubmit={onFormSubmit} />);
 
@@ -142,7 +149,7 @@ describe('a field checked by a data source', () => {
             detail: 'Exceeds the available balance',
             errors: [{ field: 'amount', message: 'Exceeds the available balance (500.00 USD)' }]
         });
-        const onFormSubmit = vi.fn().mockRejectedValue(refused);
+        const onFormSubmit = vi.fn<(submission: EngineSubmission) => Promise<unknown>>().mockRejectedValue(refused);
         renderWithQuery(<EngineForm fields={fields} template={template} onFormSubmit={onFormSubmit} />);
 
         await user.type(screen.getByLabelText(/Account number/), '1000000000001');

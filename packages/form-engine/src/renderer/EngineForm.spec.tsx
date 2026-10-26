@@ -11,8 +11,9 @@ vi.mock('@itrms/ui', async (original) => ({
     useNotify: () => notify
 }));
 
+import type { FormField, FormTemplate, TemplateRuntimeConfig } from '@itrms/schemas';
 import { readDocument } from '../core';
-import { EngineForm, canRenderWithEngine } from './EngineForm';
+import { EngineForm, canRenderWithEngine, type EngineSubmission } from './EngineForm';
 import FormRenderer from './FormRenderer';
 import { amText, enText, hostRenderer } from '../test-utils';
 
@@ -31,7 +32,14 @@ const renderWithQuery = hostRenderer({
     }
 });
 
-const field = (type: string, id: string, extra: Record<string, any> = {}) => ({
+interface FieldExtra {
+    label?: string;
+    category?: string;
+    parentId?: string;
+    props?: Record<string, unknown>;
+    behavior?: FormField['behavior'];
+}
+const field = (type: string, id: string, extra: FieldExtra = {}) => ({
     id,
     type,
     label: extra.label ?? id,
@@ -43,7 +51,7 @@ const field = (type: string, id: string, extra: Record<string, any> = {}) => ({
     layout: { options: { isContainer: type === 'FormArray' || type === 'Panel' } }
 });
 
-const fields: any[] = [
+const fields: FormField[] = [
     field('InputText', 'title', { label: 'Title', props: { required: true } }),
     field('InputNumber', 'amount', { label: 'Amount', props: { required: true } }),
     field('InputText', 'reason', {
@@ -58,12 +66,13 @@ const fields: any[] = [
     }),
     field('InputText', 'what', { label: 'What', parentId: 'lines', props: { required: true } })
 ];
-const template = { id: 'tpl-1', name: 'Expense', form_config: { fields } } as any;
+const template = { id: 'tpl-1', name: 'Expense', slug: 'expense', form_config: { fields } } as FormTemplate;
+const submitSpy = () => vi.fn<(submission: EngineSubmission) => Promise<unknown>>().mockResolvedValue(undefined);
 
 describe('EngineForm', () => {
     it('blocks a submit with errors, then submits the visible values', async () => {
         const user = userEvent.setup();
-        const onFormSubmit = vi.fn().mockResolvedValue(undefined);
+        const onFormSubmit = submitSpy();
         renderWithQuery(<EngineForm fields={fields} template={template} onFormSubmit={onFormSubmit} />);
 
         await user.click(screen.getByRole('button', { name: 'Submit' }));
@@ -98,7 +107,7 @@ describe('EngineForm', () => {
 
     it('does not submit the value of a field that became hidden', async () => {
         const user = userEvent.setup();
-        const onFormSubmit = vi.fn().mockResolvedValue(undefined);
+        const onFormSubmit = submitSpy();
         renderWithQuery(
             <EngineForm
                 fields={fields}
@@ -165,7 +174,7 @@ describe('EngineForm', () => {
             ...field('Dropdown', 'approver', { label: 'Approver', props: { required: true } }),
             data: { defaultProps: {}, optionsBinding: { dataSourceId: 'directory' } }
         };
-        const runtime = {
+        const runtime: TemplateRuntimeConfig = {
             dataSources: [
                 {
                     id: 'directory',
@@ -173,8 +182,8 @@ describe('EngineForm', () => {
                     responseMapping: { options: { labelPath: 'full_name', valuePath: 'id' } }
                 }
             ]
-        } as any;
-        const onFormSubmit = vi.fn().mockResolvedValue(undefined);
+        };
+        const onFormSubmit = submitSpy();
         renderWithQuery(
             <EngineForm
                 fields={[approver]}
