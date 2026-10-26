@@ -859,6 +859,7 @@ describe('the shared validation cases (packages/form-engine/test/cases.json)', (
         language: string;
         cases: {
             name: string;
+            language?: string;
             fields: unknown[];
             values: Record<string, unknown>;
             errors: Record<string, string>;
@@ -875,7 +876,7 @@ describe('the shared validation cases (packages/form-engine/test/cases.json)', (
             '/api/v1/submissions',
             as.damot(),
             { formId: form.id, formVersionId: versionId, answers: c.values },
-            { 'accept-language': language }
+            { 'accept-language': c.language ?? language }
         );
         if (Object.keys(c.errors).length === 0) {
             expect(res.statusCode, res.body).toBe(201);

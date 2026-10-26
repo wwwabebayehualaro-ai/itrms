@@ -8,24 +8,24 @@ import { IntlMessageFormat } from 'intl-messageformat';
 
 import { fallbackChain, textIn, type I18nText } from '@itrms/schemas';
 
-import coreAm from '../../messages/core/am.json';
-import coreEn from '../../messages/core/en.json';
-import coreWal from '../../messages/core/wal-Latn.json';
-import designerAm from '../../messages/designer/am.json';
-import designerEn from '../../messages/designer/en.json';
-import designerWal from '../../messages/designer/wal-Latn.json';
-import paletteAm from '../../messages/palette/am.json';
-import paletteEn from '../../messages/palette/en.json';
-import paletteWal from '../../messages/palette/wal-Latn.json';
-import rendererAm from '../../messages/renderer/am.json';
-import rendererEn from '../../messages/renderer/en.json';
-import rendererWal from '../../messages/renderer/wal-Latn.json';
-import settingsAm from '../../messages/settings/am.json';
-import settingsEn from '../../messages/settings/en.json';
-import settingsWal from '../../messages/settings/wal-Latn.json';
-import viewerAm from '../../messages/viewer/am.json';
-import viewerEn from '../../messages/viewer/en.json';
-import viewerWal from '../../messages/viewer/wal-Latn.json';
+import coreAm from '../../messages/core/am.json' with { type: 'json' };
+import coreEn from '../../messages/core/en.json' with { type: 'json' };
+import coreWal from '../../messages/core/wal-Latn.json' with { type: 'json' };
+import designerAm from '../../messages/designer/am.json' with { type: 'json' };
+import designerEn from '../../messages/designer/en.json' with { type: 'json' };
+import designerWal from '../../messages/designer/wal-Latn.json' with { type: 'json' };
+import paletteAm from '../../messages/palette/am.json' with { type: 'json' };
+import paletteEn from '../../messages/palette/en.json' with { type: 'json' };
+import paletteWal from '../../messages/palette/wal-Latn.json' with { type: 'json' };
+import rendererAm from '../../messages/renderer/am.json' with { type: 'json' };
+import rendererEn from '../../messages/renderer/en.json' with { type: 'json' };
+import rendererWal from '../../messages/renderer/wal-Latn.json' with { type: 'json' };
+import settingsAm from '../../messages/settings/am.json' with { type: 'json' };
+import settingsEn from '../../messages/settings/en.json' with { type: 'json' };
+import settingsWal from '../../messages/settings/wal-Latn.json' with { type: 'json' };
+import viewerAm from '../../messages/viewer/am.json' with { type: 'json' };
+import viewerEn from '../../messages/viewer/en.json' with { type: 'json' };
+import viewerWal from '../../messages/viewer/wal-Latn.json' with { type: 'json' };
 
 /** A key of the engine's catalogues (the English catalogue is the list). */
 export type EngineMessageKey =
