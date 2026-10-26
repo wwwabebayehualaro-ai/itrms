@@ -636,10 +636,11 @@
         {
           "id": "0.17c",
           "title": "Form engine for ITRMS, part 1c: print mode and the remaining texts",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.17c-print-texts",
           "commits": [
-            "fe77c02"
+            "fe77c02",
+            "dbaea22"
           ],
           "evidence": [
             "packages/form-engine pnpm test → 188 passed (print, texts, designer key-follow, Translations), check:engine, check:runtime, form_config contract current",
@@ -656,7 +657,7 @@
         {
           "id": "0.17d",
           "title": "Form engine for ITRMS, part 1d: the engine's own text",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
