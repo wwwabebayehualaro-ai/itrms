@@ -21,9 +21,10 @@ const field = (id: string, extra: Record<string, unknown> = {}) => ({
     ...extra
 });
 
-const setup = () => {
+const setup = (extra: Record<string, unknown>[] = []) => {
     const { doc } = fromStored({
         fields: [
+            ...extra,
             field('name', { label: { am: 'ስም', en: 'Name' } }),
             field('city', { label: { am: 'ከተማ' }, props: { helpText: 'Where you live' } }),
             field('kind', {
@@ -48,6 +49,45 @@ const setup = () => {
 };
 
 const rowKeys = () => [...document.querySelectorAll('[data-text-row]')].map((r) => r.getAttribute('data-text-row'));
+
+describe('Translations: settings and columns', () => {
+    it('lists the panel title, the row buttons and a column header, and keeps the other language when editing', () => {
+        const store = setup([
+            field('box', { type: 'Panel', label: { am: 'ሳጥን', en: 'Box' }, props: { header: { am: 'ርዕስ' } } }),
+            field('rows', {
+                type: 'FormArray',
+                label: { am: 'ረድፎች', en: 'Rows' },
+                props: { addButtonLabel: { am: 'ጨምር', en: 'Add' }, removeButtonLabel: 'አስወግድ' }
+            }),
+            field('table', {
+                type: 'DataTable',
+                label: { am: 'ሰንጠረዥ', en: 'Table' },
+                props: { columns: [{ header: { am: 'ስም' }, field: 'name' }] }
+            })
+        ]);
+        expect(rowKeys()).toEqual(
+            expect.arrayContaining(['box:props.header', 'rows:props.removeButtonLabel', 'table:props.columns.0.header'])
+        );
+        expect(screen.getByLabelText('ሳጥን, Title, አማርኛ')).toBeInTheDocument();
+        expect(screen.getByLabelText('ረድፎች, Remove-row button, English')).toBeInTheDocument();
+        fireEvent.change(screen.getByLabelText('ሰንጠረዥ, Column 1, English'), { target: { value: 'Name' } });
+        const column = (store.getState().doc.byId.table?.props.columns as Record<string, unknown>[])[0];
+        expect(column?.header).toEqual({ am: 'ስም', en: 'Name' });
+        expect(column?.field).toBe('name');
+    });
+
+    it('writes an add-row button in English and keeps Amharic', () => {
+        const store = setup([
+            field('rows', {
+                type: 'FormArray',
+                label: { am: 'ረድፎች', en: 'Rows' },
+                props: { addButtonLabel: { am: 'ጨምር' } }
+            })
+        ]);
+        fireEvent.change(screen.getByLabelText('ረድፎች, Add-row button, English'), { target: { value: 'Add' } });
+        expect(store.getState().doc.byId.rows?.props.addButtonLabel).toEqual({ am: 'ጨምር', en: 'Add' });
+    });
+});
 
 describe('Translations', () => {
     it('lists the untranslated texts: Missing in am/en, Not translated in an optional language', () => {

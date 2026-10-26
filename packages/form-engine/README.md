@@ -91,6 +91,30 @@ path; resolving, the save-time contract check, the builder's translation table a
 - **Untranslated:** `untranslatedTexts(fields, plainAs)` lists the texts with nothing of their own in Amharic or
   English (other languages are reported, not counted). The builder's Translations sheet shows them; publishing warns,
   it does not block.
+- **The form's text language (0.17c):** `form_config.textLanguage` says which language the plain strings of the form are
+  written in (default `am`; a new form takes the builder's language). `untranslatedInDocument(formConfig)` uses it, so
+  publishing warns about the right texts.
+- **More texts (0.17c):** panel, group, card and section titles, subtitle and footer, the row buttons and the empty
+  message of a repeatable section, the upload button, column headers of data tables and the empty message of a data
+  binding are texts per language too, read in the reader's language.
+
+## Print
+
+`printModel(form, values, { language, roles?, omitBlank?, gregorian?, ... })` (core, UI-free) turns a form and its
+answers into a tree of nodes (value, group, divider, rows) with every text and value already worded in one language and
+dates Ethiopian. Hidden fields, fields the reader's roles do not see, display fields and unknown values are left out.
+`<PrintForm form values language title? options? />` (`@itrms/form-engine/renderer`) lays the tree out as plain semantic
+HTML.
+
+- **What prints how:** values in a 12-column grid (`span`); Panel, Group, Card and Section as titled sections (heading
+  level by depth); a divider as a rule or a line with text; a repeatable section as a table (up to 6 columns, no nested
+  section) or one block per row (`printLayout`: `auto`, `table`, `rows`); no rows print the empty message.
+- **Page breaks:** `printBreakBefore` on a container starts a new page (`data-break-before`); rows and items do not
+  split, table headings repeat on every page.
+- **Safe to render anywhere:** no hooks, host, design system or inline styles, so it works with `renderToStaticMarkup` in
+  Node and under a strict CSP. Values are escaped by React. Load the layout with `@itrms/form-engine/print.css` (the web
+  app does in `globals.css`); the page size and margins belong to the document template.
+- **Used by** the PDF worker of task 0.23 for application copies.
 
 ## Extend it
 

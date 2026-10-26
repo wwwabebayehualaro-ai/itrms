@@ -6,7 +6,7 @@
  * children, siblings in their order) with `schemaVersion: 2`. Every key of a field the builder does not know is kept as it was.
  */
 import type { Draft } from 'immer';
-import { formTextIn, setTextIn, type FormField, type FormText } from '@itrms/schemas';
+import { formTextIn, setTextIn, textLanguageOf, textPropsOf, type FormField, type FormText } from '@itrms/schemas';
 import { getFieldType } from '../renderer/kit';
 import { keyFromLabel, renameFieldKey, renameInRuntime } from './fieldKeys';
 import { SCHEMA_VERSION } from '../core';
@@ -34,6 +34,8 @@ export interface DesignDoc {
     /** Ordered child ids per container id (`ROOT` for the top level). */
     children: Record<string, string[]>;
     runtime: TemplateRuntimeConfig;
+    /** The language the form's plain-string texts are written in (stored with the form, fixed for its life). */
+    textLanguage: string;
 }
 
 // a type, not an interface: it is a `form_config` (a Record), which an interface is not assignable to
@@ -41,9 +43,10 @@ export type StoredDocument = {
     schemaVersion: number;
     fields: FormField[];
     runtime: TemplateRuntimeConfig;
+    textLanguage: string;
 };
 
-export const EMPTY_DOC: DesignDoc = { byId: {}, children: { [ROOT]: [] }, runtime: EMPTY_RUNTIME };
+export const EMPTY_DOC: DesignDoc = { byId: {}, children: { [ROOT]: [] }, runtime: EMPTY_RUNTIME, textLanguage: 'am' };
 
 const isRuntime = (r: unknown): r is TemplateRuntimeConfig =>
     !!r && typeof r === 'object' && Array.isArray((r as TemplateRuntimeConfig).dataSources);
@@ -107,7 +110,7 @@ export function fromStored(
         }
         (children[parent] ??= []).push(id);
     }
-    return { doc: { byId, children, runtime }, problems };
+    return { doc: { byId, children, runtime, textLanguage: textLanguageOf(config) }, problems };
 }
 
 /** The builder's document -> what is stored (`form_config`). */
@@ -121,7 +124,7 @@ export function toStored(doc: DesignDoc): StoredDocument {
             visit(id);
         });
     visit(ROOT);
-    return { schemaVersion: SCHEMA_VERSION, fields, runtime: doc.runtime };
+    return { schemaVersion: SCHEMA_VERSION, fields, runtime: doc.runtime, textLanguage: doc.textLanguage };
 }
 
 // ---- queries ----------------------------------------------------------------------------------------------------------
@@ -168,26 +171,37 @@ export function uniqueKey(
  * the engine needs to place it (`category`: a value, a container or data; `layout.options.isContainer`). Choices start with two
  * options whose stored values follow their labels.
  */
-export function createField(doc: DesignDoc, type: string, label: string): FormField | null {
+export function createField(
+    doc: DesignDoc,
+    type: string,
+    label: string,
+    language: string = doc.textLanguage
+): FormField | null {
     const def = getFieldType(type);
     if (!def?.design) return null;
+    // the palette's texts are in the builder's language: plain on a form edited in its own language, else a map
+    const asText = (text: string): FormText | undefined => setTextIn(undefined, language, text, doc.textLanguage);
     const id = uniqueKey(doc, label);
     const isContainer = (def.kind === 'container' || def.kind === 'section') && !def.design.leaf;
     const field: FormField = {
         id,
         type,
-        label,
+        label: asText(label) ?? label,
         category: def.kind === 'value' ? 'Input' : def.kind === 'display' ? 'Data' : 'Layout',
         props: { ...(def.design.defaults ?? {}) },
         data: { defaultProps: {} },
         behavior: def.kind === 'value' ? { validation: { supported: true } } : {},
         layout: { options: { isContainer } }
     };
+    for (const key of textPropsOf(type)) {
+        const value = field.props[key];
+        if (typeof value === 'string') field.props[key] = asText(value);
+    }
     if (def.design.options)
         field.data!.dataSource = {
             staticData: [
-                { label: 'Option 1', value: 'option_1' },
-                { label: 'Option 2', value: 'option_2' }
+                { label: asText('Option 1'), value: 'option_1' },
+                { label: asText('Option 2'), value: 'option_2' }
             ]
         };
     return field;
@@ -296,7 +310,11 @@ export function renameKey(doc: DesignDoc, oldKey: string, newKey: string): Desig
               }
             : f
     );
-    return fromStored({ fields }, renameInRuntime(doc.runtime, oldKey, newKey)).doc;
+    const renamed = fromStored(
+        { fields, textLanguage: doc.textLanguage },
+        renameInRuntime(doc.runtime, oldKey, newKey)
+    );
+    return renamed.doc;
 }
 
 /** Set (or, with `undefined`, remove) the value at a dotted path inside a field draft, creating objects on the way. */

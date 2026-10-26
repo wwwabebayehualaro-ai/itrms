@@ -46,8 +46,11 @@ export interface DesignerState {
     template: FormTemplate;
     /** The language the builder writes texts in. Not part of the document: switching it is not an undo step. */
     language: string;
-    /** The language a plain-string text was written in (the page's language the session started in): fixed. */
-    plainAs: string;
+    /**
+     * The fields whose key follows their English label: the ones added in this session, and those whose key it renamed.
+     * Per session: not in the document, not undone with it.
+     */
+    following: ReadonlySet<string>;
 }
 
 export interface DesignerActions {
@@ -117,12 +120,13 @@ export function createDesignerStore(
                     lastEdit: null,
                     selected: null,
                     selection: s.selection + 1,
-                    template: t
+                    template: t,
+                    following: new Set<string>()
                 })),
             edit: (recipe, key) => edit(recipe, key),
             add: (type, label, target) => {
                 const { doc, selected } = get();
-                const field = createField(doc, type, label);
+                const field = createField(doc, type, label, get().language);
                 if (!field) return null;
                 // where: the given place, else into the selected container, else after the selected field, else at the end
                 let where = target;
@@ -147,6 +151,7 @@ export function createDesignerStore(
                             p.layout.options.acceptsChildren.includes(type)));
                 const final = allowed ? where : { parent: ROOT, index: (doc.children[ROOT] ?? []).length };
                 edit((d) => insertField(d, field, final.parent, final.index), undefined, field.id);
+                set((s) => ({ following: new Set(s.following).add(field.id) }));
                 return field.id;
             },
             move: (id, parent, index) => {
@@ -199,13 +204,20 @@ export function createDesignerStore(
                 const { doc } = get();
                 if (!doc.byId[id] || id === newKey) return;
                 commit(renameKey(doc, id, newKey), undefined, newKey, true);
+                // a key renamed by hand stops following the label
+                set((s) => {
+                    const following = new Set(s.following);
+                    following.delete(id);
+                    following.delete(newKey);
+                    return { following };
+                });
             },
             relabel: (id, text, lang) => {
-                const { doc, saved, plainAs } = get();
+                const { doc, saved, following } = get();
                 const language = lang ?? get().language;
                 const f = doc.byId[id];
                 if (!f) return;
-                const label = setTextIn(f.label, language, text, plainAs);
+                const label = setTextIn(f.label, language, text, doc.textLanguage);
                 let next = produce(doc, (d) => {
                     const draft = d.byId[id];
                     if (!draft) return;
@@ -216,7 +228,8 @@ export function createDesignerStore(
                 const base = keyFromLabel(keySourceOf(f.label));
                 const follows =
                     // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- a fixed digits-only pattern (linear time)
-                    !saved.byId[id] && (id === base || (id.startsWith(base) && /^\d+$/.test(id.slice(base.length))));
+                    !saved.byId[id] &&
+                    (following.has(id) || id === base || (id.startsWith(base) && /^\d+$/.test(id.slice(base.length))));
                 const source = keySourceOf(label);
                 if (follows && /[A-Za-z]/.test(source) && source !== keySourceOf(f.label)) {
                     const taken = new Set(Object.keys(doc.byId).filter((k) => k !== id));
@@ -224,6 +237,8 @@ export function createDesignerStore(
                     if (key !== id) {
                         next = renameKey(next, id, key);
                         selectedId = key;
+                        // the old key stays so that an undo back to it still follows
+                        set((s) => ({ following: new Set(s.following).add(key) }));
                     }
                 }
                 // typing one label is one undo step, even while its key follows along
@@ -265,7 +280,8 @@ export function createDesignerStore(
                     selection: s.selection + 1
                 });
             },
-            markSaved: (t, sent) => set((s) => ({ saved: sent ?? s.doc, template: t, lastEdit: null }))
+            markSaved: (t, sent) =>
+                set((s) => ({ saved: sent ?? s.doc, template: t, lastEdit: null, following: new Set<string>() }))
         };
         return {
             doc,
@@ -277,7 +293,7 @@ export function createDesignerStore(
             selection: 0,
             template,
             language,
-            plainAs: language,
+            following: new Set<string>(),
             actions
         };
     });

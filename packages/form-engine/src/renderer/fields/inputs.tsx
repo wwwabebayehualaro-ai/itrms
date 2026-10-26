@@ -30,7 +30,7 @@ import { CALENDAR_LANGUAGES, type CalendarLanguage } from '@itrms/ethiopian-cale
 import { useFormsLanguages } from '../../host/FormsHost';
 import { useFileActions } from '../../host/files';
 import { formatBytes } from '../../host/format';
-import { parseDate, type EngineField } from '../../core';
+import { numberFormatOf, parseDate, type EngineField } from '../../core';
 import { defineFieldType, type ValueFieldProps } from '../kit';
 import { indexOfValue, sameValue, useClearInvalid, useOptions, type OptionsState } from './options';
 
@@ -98,23 +98,6 @@ const num = (v: unknown) =>
     v === undefined || v === null || v === '' || !Number.isFinite(Number(v)) ? undefined : Number(v);
 
 // ---- number: formatted while not editing (grouping, currency, fraction digits), plain while typing ---------------------
-function numberFormat(field: EngineField) {
-    const currency = p<string | undefined>(field, 'currency');
-    const minFd = num(p(field, 'minFractionDigits'));
-    const maxFd = num(p(field, 'maxFractionDigits'));
-    try {
-        return new Intl.NumberFormat(str(p(field, 'locale')) || undefined, {
-            style: p(field, 'mode') === 'currency' && currency ? 'currency' : 'decimal',
-            currency: currency || undefined,
-            minimumFractionDigits: minFd,
-            maximumFractionDigits: maxFd !== undefined ? Math.max(maxFd, minFd ?? 0) : undefined,
-            useGrouping: field.props.useGrouping !== false
-        });
-    } catch {
-        return new Intl.NumberFormat();
-    }
-}
-
 function NumberField({
     field,
     id,
@@ -129,7 +112,7 @@ function NumberField({
     const n = typeof value === 'number' && Number.isFinite(value) ? value : undefined;
     const prefix = str(p(field, 'prefix'));
     const suffix = str(p(field, 'suffix'));
-    const shown = editing ?? (n === undefined ? '' : `${prefix}${numberFormat(field).format(n)}${suffix}`);
+    const shown = editing ?? (n === undefined ? '' : `${prefix}${numberFormatOf(field.props).format(n)}${suffix}`);
     return (
         <Input
             id={id}

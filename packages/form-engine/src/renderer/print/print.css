@@ -1,0 +1,115 @@
+/* The printed form (PrintForm): a 12-column grid and page-break rules. Page size and margins belong to the document template. */
+.fe-print {
+    font-family: var(--font-sans, 'Noto Sans Ethiopic', 'Noto Sans', sans-serif);
+    line-height: 1.4;
+}
+
+.fe-print-grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 0.5em 1em;
+    margin: 0 0 1em;
+}
+
+.fe-print-item {
+    grid-column: span 12;
+    break-inside: avoid;
+}
+
+.fe-print-item[data-span='1'] {
+    grid-column: span 1;
+}
+.fe-print-item[data-span='2'] {
+    grid-column: span 2;
+}
+.fe-print-item[data-span='3'] {
+    grid-column: span 3;
+}
+.fe-print-item[data-span='4'] {
+    grid-column: span 4;
+}
+.fe-print-item[data-span='5'] {
+    grid-column: span 5;
+}
+.fe-print-item[data-span='6'] {
+    grid-column: span 6;
+}
+.fe-print-item[data-span='7'] {
+    grid-column: span 7;
+}
+.fe-print-item[data-span='8'] {
+    grid-column: span 8;
+}
+.fe-print-item[data-span='9'] {
+    grid-column: span 9;
+}
+.fe-print-item[data-span='10'] {
+    grid-column: span 10;
+}
+.fe-print-item[data-span='11'] {
+    grid-column: span 11;
+}
+.fe-print-item[data-span='12'] {
+    grid-column: span 12;
+}
+
+.fe-print dt {
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.fe-print dd {
+    margin: 0;
+}
+
+.fe-print-multiline {
+    white-space: pre-line;
+}
+
+.fe-print h1,
+.fe-print h2,
+.fe-print h3,
+.fe-print h4,
+.fe-print h5,
+.fe-print h6 {
+    break-after: avoid;
+}
+
+.fe-print table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 1em;
+}
+
+.fe-print th,
+.fe-print td {
+    border: 1px solid currentColor;
+    padding: 0.25em 0.5em;
+    text-align: start;
+    vertical-align: top;
+}
+
+.fe-print thead {
+    display: table-header-group;
+}
+
+.fe-print tr {
+    break-inside: avoid;
+}
+
+.fe-print-row {
+    break-inside: avoid;
+    margin: 0 0 1em;
+}
+
+.fe-print-divider {
+    text-align: center;
+}
+
+.fe-print-empty {
+    font-style: italic;
+}
+
+.fe-print [data-break-before] {
+    break-before: page;
+}

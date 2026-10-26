@@ -91,7 +91,7 @@ import {
     useDesignerApi,
     type DesignerStore
 } from './store';
-import type { FormTemplate } from '@itrms/schemas';
+import { LANGUAGE_TAG, type FormTemplate } from '@itrms/schemas';
 
 import { useFormsHost, useFormsLanguages, useFormsLocation } from '../host/FormsHost';
 
@@ -104,7 +104,15 @@ export function FormDesigner() {
     const notify = useNotify();
     const { language } = useFormsLanguages();
     const [{ store, problems }] = useState(() => {
-        const { doc, problems } = fromStored({ fields }, runtime ?? EMPTY_RUNTIME);
+        // the stored text language; an existing form without one was written in Amharic, a new form in the builder's language
+        const stored = (template.form_config as { textLanguage?: unknown } | null | undefined)?.textLanguage;
+        const textLanguage =
+            typeof stored === 'string' && LANGUAGE_TAG.test(stored)
+                ? stored
+                : template.id || fields.length
+                  ? 'am'
+                  : language;
+        const { doc, problems } = fromStored({ fields, textLanguage }, runtime ?? EMPTY_RUNTIME);
         return { store: createDesignerStore(doc, template, language), problems };
     });
     const told = useRef(false);
@@ -135,8 +143,8 @@ function DesignerScreen() {
     const canRedo = useDesigner((s) => s.future.length > 0);
     const empty = useDesigner((s) => Object.keys(s.doc.byId).length === 0);
     const language = useDesigner((s) => s.language);
-    const plainAs = useDesigner((s) => s.plainAs);
     const doc = useDesigner((s) => s.doc);
+    const plainAs = doc.textLanguage;
     const { languages } = useFormsLanguages();
     const untranslated = useMemo(() => untranslatedTexts(toStored(doc).fields, plainAs).length, [doc, plainAs]);
     const [translationsOpen, setTranslationsOpen] = useState(false);
@@ -243,7 +251,7 @@ function DesignerScreen() {
                 legacy.setTemplate(blank);
                 legacy.setFields([]);
                 legacy.setRuntime(EMPTY_RUNTIME);
-                actions.load(EMPTY_DOC, blank);
+                actions.load({ ...EMPTY_DOC, textLanguage: language }, blank);
             }
         });
 

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import '../renderer/fields/registerAll';
-import { readDocument } from '../core';
-import { ROOT, fromStored, toStored } from './document';
+import { readDocument, untranslatedTexts } from '../core';
+import { EMPTY_DOC, ROOT, fromStored, renameKey, toStored } from './document';
 import { createDesignerStore } from './store';
 
 const f = (id: string, type: string, extra: Record<string, any> = {}) => ({
@@ -174,7 +174,8 @@ describe('designer store: texts in a language', () => {
         expect(store.getState().doc.byId.fullName?.label).toEqual({ en: 'Full name', am: 'ሙሉ ስም' });
         expect(store.getState().selected).toBe('fullName'); // an Amharic label never renames the key
         a.undo();
-        expect(store.getState().doc.byId.fullName?.label).toBe('Full name');
+        // the palette text and the typed one are in the builder's language, on a form written in Amharic
+        expect(store.getState().doc.byId.fullName?.label).toEqual({ en: 'Full name' });
     });
 
     it('does not rename the key of a new field from an Ethiopic label (it used to become f, f2)', () => {
@@ -202,5 +203,70 @@ describe('designer store: texts in a language', () => {
         a.update('title', (f) => void (f.label = { am: 'ርዕስ', en: 'Title' }));
         const copy = a.duplicate('title')!;
         expect(store.getState().doc.byId[copy]?.label).toEqual({ am: 'ርዕስ (copy)', en: 'Title (copy)' });
+    });
+
+    it('gives a field labelled in Amharic first its key from the English label typed later', () => {
+        const store = open('am');
+        const a = store.getState().actions;
+        const id = a.add('InputText', 'Text')!;
+        for (const label of ['ሙ', 'ሙሉ', 'ሙሉ ስም']) a.relabel(id, label);
+        expect(store.getState().selected).toBe('text');
+        a.setLanguage('en');
+        for (const label of ['F', 'Full', 'Full name']) a.relabel(store.getState().selected!, label);
+        expect(store.getState().selected).toBe('fullName');
+        expect(store.getState().doc.byId.fullName?.label).toEqual({ am: 'ሙሉ ስም', en: 'Full name' });
+        expect(store.getState().past).toHaveLength(3); // adding, the Amharic typing, the English typing
+    });
+
+    it('does not follow once the key was renamed by hand, nor on a saved field', () => {
+        const store = open('en');
+        const a = store.getState().actions;
+        const id = a.add('InputText', 'Text')!;
+        a.rename(id, 'myKey');
+        a.relabel('myKey', 'Full name');
+        expect(store.getState().selected).toBe('myKey');
+        expect(store.getState().doc.byId.fullName).toBeUndefined();
+        a.relabel('title', 'Heading');
+        expect(store.getState().doc.byId.title?.label).toEqual({ am: 'title', en: 'Heading' });
+        expect(store.getState().doc.byId.heading).toBeUndefined();
+    });
+
+    it('reads the same form the same way whatever the builder language is', () => {
+        const form = {
+            textLanguage: 'en',
+            fields: [
+                { ...stored[0], label: 'Title' },
+                { ...stored[5], label: { en: 'Note' } }
+            ]
+        };
+        const counts = ['am', 'en'].map((language) => {
+            const store = createDesignerStore(undefined, undefined, language);
+            store.getState().actions.load(fromStored(form).doc, { name: 'T', slug: 't', form_config: {} });
+            const { doc } = store.getState();
+            return [doc.textLanguage, untranslatedTexts(toStored(doc).fields, doc.textLanguage).length];
+        });
+        expect(counts[0]).toEqual(counts[1]);
+        expect(counts[0]?.[0]).toBe('en');
+        expect(counts[0]?.[1]).toBeGreaterThan(0);
+    });
+
+    it('keeps the text language through a rename and writes it', () => {
+        const { doc } = fromStored({ fields: stored, textLanguage: 'en' });
+        const renamed = renameKey(doc, 'note', 'remark');
+        expect(renamed.textLanguage).toBe('en');
+        expect(toStored(renamed).textLanguage).toBe('en');
+        expect(toStored(EMPTY_DOC).textLanguage).toBe('am');
+    });
+
+    it('writes the palette text in the form language on a new form of the builder language', () => {
+        const store = createDesignerStore({ ...EMPTY_DOC, textLanguage: 'en' }, undefined, 'en');
+        const id = store.getState().actions.add('InputText', 'Text')!;
+        expect(store.getState().doc.byId[id]?.label).toBe('Text');
+        expect(store.getState().doc.textLanguage).toBe('en');
+        store.getState().actions.setLanguage('am');
+        const second = store.getState().actions.add('FormArray', 'Rows')!;
+        const props = store.getState().doc.byId[second]?.props;
+        expect(store.getState().doc.byId[second]?.label).toEqual({ am: 'Rows' });
+        expect(props?.addButtonLabel).toEqual({ am: 'Add row' });
     });
 });
