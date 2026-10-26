@@ -657,10 +657,11 @@
         {
           "id": "0.17d",
           "title": "Form engine for ITRMS, part 1d: the engine's own text",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.17d-engine-text",
           "commits": [
-            "33174a0"
+            "33174a0",
+            "fd08d19"
           ],
           "evidence": [
             "packages/form-engine pnpm test → 204 passed (catalogue.spec palette/settings/inspector in am, DataViewer.spec in am, texts.spec, EngineForm.spec, print am snapshot), check:engine, check:runtime, form_config contract current",
@@ -677,7 +678,7 @@
         {
           "id": "0.17e",
           "title": "Form engine for ITRMS, part 1e: the engine's types",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
