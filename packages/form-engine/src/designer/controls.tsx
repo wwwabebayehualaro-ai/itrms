@@ -188,6 +188,7 @@ export const valueFromLabel = (label: string) =>
  * a new option gets `option_<n>`, a placeholder that follows the first label with letters written in the authoring
  * language; an option with a value of its own keeps it. Editing a label changes that language's text only.
  */
+const hasLatinLetter = (v: string): boolean => [...v].some((c) => c >= 'a' && c <= 'z');
 /** `option_<n>`: the value an option gets while its label gives none. */
 const isPlaceholderValue = (v: string): boolean => {
     const n = v.startsWith('option_') ? v.slice('option_'.length) : '';
@@ -223,7 +224,8 @@ export function OptionsEditor({
         const before = keySourceOf(r.label);
         // a translation never changes what an answer stores: the value follows the label only while it is written in
         // the authoring language (and still equals the value made from it), or while the option has none
-        const placeholder = valueFromLabel(before) === '' && isPlaceholderValue(String(r.value));
+        // a label without Latin letters (Amharic, perhaps with a number) gives no value of its own
+        const placeholder = !hasLatinLetter(valueFromLabel(before)) && isPlaceholderValue(String(r.value));
         const follows =
             r.value === undefined ||
             r.value === '' ||

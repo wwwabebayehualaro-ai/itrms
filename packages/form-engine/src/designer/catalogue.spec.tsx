@@ -1,5 +1,5 @@
 import { DndContext } from '@dnd-kit/core';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -97,8 +97,8 @@ describe('an option value in an Amharic session (task 0.17d)', () => {
         };
         hostRenderer({ language: 'am' })(<Host />);
         const second = screen.getByLabelText(amText('form-engine.settings.controls.options.label', { n: '2' }));
-        await user.clear(second);
-        await user.type(second, 'Town');
+        // replaced in one change, as a paste or a test's fill does: the old label "አማራጭ 2" leaves only a digit
+        fireEvent.change(second, { target: { value: 'Town' } });
         expect(latest[1]).toEqual({ label: 'Town', value: 'town' });
         // a translation or an Amharic label never changes it again once it has one of its own
         await user.clear(second);
