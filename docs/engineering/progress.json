@@ -657,10 +657,20 @@
         {
           "id": "0.17d",
           "title": "Form engine for ITRMS, part 1d: the engine's own text",
-          "status": "in progress",
+          "status": "in review",
           "branch": "task/0.17d-engine-text",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "33174a0"
+          ],
+          "evidence": [
+            "packages/form-engine pnpm test → 204 passed (catalogue.spec palette/settings/inspector in am, DataViewer.spec in am, texts.spec, EngineForm.spec, print am snapshot), check:engine, check:runtime, form_config contract current",
+            "typed keys: core/messages.spec.ts @ts-expect-error on a mistyped key and a bare string (typecheck fails otherwise)",
+            "pnpm i18n:check → complete in am and en (17 folders, package areas); tools/i18n/check.test.mjs 4 passed",
+            "packages/ui 73 passed (F9 announced in a polite live region with the app's words); apps/web 63; apps/api unit 10 (externals: intl-messageformat declared)",
+            "apps/api/test/integration/forms.int.spec.ts: the engine's default 422 message in am/en/wal-Latn; shared cases per language",
+            "CI run 40324321470 on PR #12: lint/typecheck/test/build/boundaries, dev stack (integration), e2e journeys in Amharic, stories+axe, performance, Semgrep, Trivy, gitleaks all pass",
+            "reviewer: one high (API externals) fixed, lows fixed or moved to 0.18; task-verifier: done-when met"
+          ],
           "blockers": [],
           "notes": "Design (architect): the engine resolves its own catalogues (packages/form-engine/messages/<area>, keys form-engine.<area>.*) with intl-messageformat in core, typed keys from the en catalogues, useEngineText/EngineTextLanguage on screen; ADR-0036. Foundation done: core/messages.ts, host/text.tsx, i18n:check covers package areas (+ fixture test), core's validation and print words per language (validateForm opts.language, default am; API passes the caller's; cases.json carries language en; int test for an Amharic default 422 message), Ethiopic F9 announced through a polite live region with EthiopicTypingProvider labels from shell.ethiopic.*. Out of scope (ADR-0036): formula/pattern/document-check diagnostics stay English until they get error codes. Batches: palette+settings (339 keys), renderer+viewer (258 + pager/grid 16), designer (204), core 33, e2e journeys look engine words up in Amharic. Reviewer: one high (API bundle missing intl-messageformat; caught by externals.spec, fixed by declaring it in apps/api), lows fixed (data-source failure texts per language, counts written the same in am and en with {count}, README extension example with I18nText + setting()); two lows moved to 0.18. CI fixes: catalogue JSON imported with { type: 'json' } (Playwright's Node ESM), shared cases carry their own language. Engine 203 tests, ui 73, web 63, api unit 10, i18n:check + fixtures 4, boundaries 976 modules, API and web builds."
         },
