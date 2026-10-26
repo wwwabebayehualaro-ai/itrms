@@ -11,6 +11,9 @@
 /* Fonts, tokens, themes, densities and the Ethiopic typography rules (ADR-0029). */
 @import '@itrms/ui/styles.css';
 
+/* The printed form (PrintForm): grid, page breaks. */
+@import '@itrms/form-engine/print.css';
+
 /*
  * Recharts default strokes inside design-system charts (the shadcn chart sets these with attribute-selector utilities, which
  * Tailwind prints unquoted and Turbopack's CSS parser rejects; written here instead).

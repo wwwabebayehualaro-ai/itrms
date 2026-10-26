@@ -37,10 +37,10 @@ import {
     cn,
     useNotify
 } from '@itrms/ui';
-import { formTextIn, ownText, type FormField } from '@itrms/schemas';
+import { formTextIn, ownText, textPropsOf, type FormField, type StoredTableColumn } from '@itrms/schemas';
 import { KEY_PATTERN } from './fieldKeys';
 import { checkFormula, checkRuleFormula } from '../core/runtime/formula';
-import type { FieldOptionsBinding, TableColumn } from '@itrms/schemas';
+import type { FieldOptionsBinding } from '@itrms/schemas';
 import { holdsValue, parseDate, storedFieldSchema, toEngineField, type EngineField, type StoredField } from '../core';
 import { getFieldType, type DesignMeta } from '../renderer/kit';
 import {
@@ -127,9 +127,9 @@ const Section = ({ title, children }: { title: string; children: ReactNode }) =>
 /** Edit helpers for one field: a dotted path in the stored field, each change one (coalesced) undo step. */
 function useFieldEdit(id: string) {
     const actions = useDesignerActions();
-    // the builder's language, and the one a plain-string text was written in
+    // the builder's language, and the one a plain-string text was written in (the form's text language)
     const language = useDesigner((s) => s.language);
-    const plainAs = useDesigner((s) => s.plainAs);
+    const plainAs = useDesigner((s) => s.doc.textLanguage);
     return {
         language,
         plainAs,
@@ -289,21 +289,20 @@ function FieldTab({ stored, field, design }: { stored: FormField; field: EngineF
     );
 }
 
-/** The settings that are texts in the form's languages. */
-const TEXT_SETTINGS = new Set(['placeholder', 'helpText']);
-
 function SettingsTab({ stored, design }: { stored: FormField; design?: DesignMeta }) {
     const { set, text, language, plainAs } = useFieldEdit(stored.id);
     const raw = (k: string) => stored.props?.[k] ?? stored.data?.defaultProps?.[k];
+    // the settings that are texts in the form's languages
+    const textSettings = new Set(textPropsOf(stored.type));
     return (
         <SettingsForm
             schema={design?.settings}
             idPrefix={`insp-${stored.id}`}
-            value={(k) => (TEXT_SETTINGS.has(k) ? ownText(raw(k), language, plainAs) : raw(k))}
-            fallback={(k) => (TEXT_SETTINGS.has(k) ? formTextIn(raw(k), language) || undefined : undefined)}
+            value={(k) => (textSettings.has(k) ? ownText(raw(k), language, plainAs) : raw(k))}
+            fallback={(k) => (textSettings.has(k) ? formTextIn(raw(k), language) || undefined : undefined)}
             own={() => true}
             onChange={(k, v) =>
-                TEXT_SETTINGS.has(k)
+                textSettings.has(k)
                     ? text(`props.${k}`, String(v ?? ''))
                     : set(`props.${k}`, v === '' && stored.data?.defaultProps?.[k] === undefined ? undefined : v)
             }
@@ -323,7 +322,7 @@ function useGetSources() {
 }
 
 function OptionsTab({ stored }: { stored: FormField }) {
-    const { set, language, plainAs } = useFieldEdit(stored.id);
+    const { set, apply, language, plainAs } = useFieldEdit(stored.id);
     const sources = useGetSources();
     const binding = stored.data?.optionsBinding;
     // the stored list as it is (the engine leaves blank rows out; here a new blank row must stay to be filled in)
@@ -419,10 +418,17 @@ function OptionsTab({ stored }: { stored: FormField }) {
                         </Row>
                     </div>
                     <Row id="insp-emptymsg" label="Text when there are none">
-                        <Input
+                        <LangInput
                             id="insp-emptymsg"
-                            value={binding.emptyMessage ?? ''}
-                            onChange={(e) => setBinding({ emptyMessage: e.target.value || undefined })}
+                            text={binding.emptyMessage}
+                            language={language}
+                            plainAs={plainAs}
+                            onText={(v) =>
+                                apply(
+                                    (f) => void writeText(f, 'data.optionsBinding.emptyMessage', language, v, plainAs),
+                                    `data.optionsBinding.emptyMessage:${language}`
+                                )
+                            }
                         />
                     </Row>
                     <SwitchRow
@@ -438,8 +444,8 @@ function OptionsTab({ stored }: { stored: FormField }) {
     );
 }
 
-function RowsTab({ stored, field }: { stored: FormField; field: EngineField }) {
-    const { set } = useFieldEdit(stored.id);
+function RowsTab({ stored }: { stored: FormField }) {
+    const { set, apply, language, plainAs } = useFieldEdit(stored.id);
     const sources = useGetSources();
     const binding = stored.data?.rowsBinding;
     return (
@@ -471,9 +477,29 @@ function RowsTab({ stored, field }: { stored: FormField; field: EngineField }) {
                     />
                 </Row>
             )}
+            {binding && (
+                <Row id="insp-rowsempty" label="Text when there are no rows">
+                    <LangInput
+                        id="insp-rowsempty"
+                        text={binding.emptyMessage}
+                        language={language}
+                        plainAs={plainAs}
+                        onText={(v) =>
+                            apply(
+                                (f) => void writeText(f, 'data.rowsBinding.emptyMessage', language, v, plainAs),
+                                `data.rowsBinding.emptyMessage:${language}`
+                            )
+                        }
+                    />
+                </Row>
+            )}
             <Section title="Columns">
                 <ColumnsEditor
-                    value={field.props.columns as TableColumn[] | undefined}
+                    value={
+                        (stored.props?.columns ?? stored.data?.defaultProps?.columns) as StoredTableColumn[] | undefined
+                    }
+                    language={language}
+                    plainAs={plainAs}
                     sources={sources}
                     onChange={(cols) => set('props.columns', cols)}
                 />
@@ -484,7 +510,7 @@ function RowsTab({ stored, field }: { stored: FormField; field: EngineField }) {
 
 /** The most checks a field holds (the document contract's limit). */
 const MAX_CHECKS = 10;
-/** The Ethiopian picker's labels in the builder until the engine's own text is in the catalogues (task 0.17c). */
+/** The Ethiopian picker's labels in the builder until the engine's own text is in the catalogues (task 0.17d). */
 const ETH_LABELS = {
     placeholder: 'Any day',
     previousMonth: 'Previous month',
@@ -1020,9 +1046,7 @@ export function Inspector() {
             ? [{ id: 'settings', label: 'Settings', body: <SettingsTab stored={stored} design={design} /> }]
             : []),
         ...(design?.options ? [{ id: 'options', label: 'Options', body: <OptionsTab stored={stored} /> }] : []),
-        ...(field.type === 'DataTable'
-            ? [{ id: 'rows', label: 'Rows', body: <RowsTab stored={stored} field={field} /> }]
-            : []),
+        ...(field.type === 'DataTable' ? [{ id: 'rows', label: 'Rows', body: <RowsTab stored={stored} /> }] : []),
         ...(holdsValue(field) || design?.rules?.length
             ? [{ id: 'rules', label: 'Rules', body: <RulesTab stored={stored} field={field} design={design} /> }]
             : []),

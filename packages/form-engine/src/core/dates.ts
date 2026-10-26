@@ -44,3 +44,20 @@ export function ethiopianDateText(iso: unknown, opts: { language?: string; long?
     const date = toEthiopian(greg);
     return opts.long ? formatEthiopianLong(date, options) : formatEthiopian(date, SHORT_PATTERN, options);
 }
+
+const ADDIS_OFFSET_MS = 3 * 3_600_000;
+
+/**
+ * An instant on the Addis Ababa clock (UTC+3, no daylight saving): its day and time. A time without an offset is already
+ * Addis wall time, and a bare day has no time (''), whatever the process's own time zone. Null when it is neither.
+ */
+export function addisDayTime(iso: unknown): { day: string; time: string } | null {
+    if (typeof iso !== 'string') return null;
+    if (isIsoDay(iso)) return { day: iso, time: '' };
+    const wall = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?$/.exec(iso);
+    if (wall) return { day: wall[1] ?? '', time: wall[2] ?? '' };
+    const t = Date.parse(iso);
+    if (Number.isNaN(t)) return null;
+    const local = new Date(t + ADDIS_OFFSET_MS).toISOString();
+    return { day: local.slice(0, 10), time: local.slice(11, 16) };
+}

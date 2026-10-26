@@ -285,6 +285,7 @@ describeFieldType('FileUpload', {
 });
 
 // ---- layout -----------------------------------------------------------------------------------------------------------
+const printBreak = { printBreakBefore: flag('Start a new page when printed', { advanced: true }) };
 const collapsible = { toggleable: flag('Can be collapsed'), collapsed: flag('Starts collapsed') };
 describeFieldType('Panel', {
     label: 'Panel',
@@ -294,7 +295,8 @@ describeFieldType('Panel', {
     keywords: ['container', 'box', 'group'],
     settings: z.object({
         header: text('Title', { description: 'Shown instead of the label when set.' }),
-        ...collapsible
+        ...collapsible,
+        ...printBreak
     })
 });
 describeFieldType('Fieldset', {
@@ -305,7 +307,8 @@ describeFieldType('Fieldset', {
     keywords: ['fieldset', 'group', 'container'],
     settings: z.object({
         legend: text('Title', { description: 'Shown instead of the label when set.' }),
-        ...collapsible
+        ...collapsible,
+        ...printBreak
     })
 });
 describeFieldType('Card', {
@@ -317,7 +320,8 @@ describeFieldType('Card', {
     settings: z.object({
         title: text('Title', { description: 'Shown instead of the label when set.' }),
         subTitle: text('Subtitle'),
-        footer: text('Footer text')
+        footer: text('Footer text'),
+        ...printBreak
     })
 });
 describeFieldType('FormSection', {
@@ -328,7 +332,8 @@ describeFieldType('FormSection', {
     keywords: ['section', 'heading'],
     settings: z.object({
         title: text('Heading', { description: 'Shown instead of the label when set.' }),
-        description: text('Description', { multiline: true })
+        description: text('Description', { multiline: true }),
+        ...printBreak
     })
 });
 describeFieldType('Divider', {
@@ -358,7 +363,16 @@ describeFieldType('FormArray', {
         itemLabel: text('A row is called', { placeholder: 'Item' }),
         addButtonLabel: text('Add button text', { placeholder: 'Add row' }),
         removeButtonLabel: text('Remove button tooltip', { placeholder: 'Remove', advanced: true }),
-        emptyMessage: text('Text when there are no rows', { advanced: true })
+        emptyMessage: text('Text when there are no rows', { advanced: true }),
+        printLayout: z
+            .enum(['auto', 'table', 'rows'])
+            .optional()
+            .meta({
+                title: 'Printed as',
+                labels: { auto: 'Automatic', table: 'Table', rows: 'One block per row' },
+                advanced: true
+            }),
+        ...printBreak
     })
 });
 

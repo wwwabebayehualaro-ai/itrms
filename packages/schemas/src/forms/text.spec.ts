@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
-import { fieldTexts, formTextIn, formTextSchema, missingIn, ownText, setTextIn } from './text';
+import { formConfigSchema } from './contract';
+import { textLanguageOf } from './stored';
+import {
+    DEFAULT_FORM_TEXT_LANGUAGE,
+    TEXT_PROPS,
+    textPropsOf,
+    fieldTexts,
+    formTextIn,
+    formTextSchema,
+    missingIn,
+    ownText,
+    setTextIn
+} from './text';
 
 describe('formTextSchema', () => {
     it('accepts a plain string and a map by language', () => {
@@ -162,5 +174,89 @@ describe('fieldTexts', () => {
             ['props.options.2.items.1.label', '3.2']
         ]);
         expect(fieldTexts(null)).toEqual([]);
+    });
+});
+
+describe('the texts of a type (task 0.17c)', () => {
+    const pairs = (field: object) => fieldTexts(field).map((t) => [t.path, t.kind, t.ref]);
+
+    it('names the own text props of each type', () => {
+        expect(textPropsOf('Card')).toEqual(['helpText', 'placeholder', ...TEXT_PROPS.Card]);
+        expect(textPropsOf('InputText')).toEqual(['helpText', 'placeholder']);
+        expect(textPropsOf('constructor')).toEqual(['helpText', 'placeholder']);
+        expect(textPropsOf('toString')).toEqual(['helpText', 'placeholder']);
+        expect(fieldTexts({ type: 'constructor', label: 'L', props: { header: 'x' } }).map((t) => t.path)).toEqual([
+            'label'
+        ]);
+    });
+
+    it('lists every new path in order, with the defaults fallback and the columns where they are', () => {
+        const texts = pairs({
+            type: 'FormArray',
+            label: 'L',
+            props: {
+                itemLabel: 'Item',
+                emptyMessage: { am: 'ባዶ' },
+                columns: [{ header: 'A' }, { field: 'x' }, { header: 'C' }]
+            },
+            data: {
+                defaultProps: { addButtonLabel: 'Add', removeButtonLabel: 'Del', itemLabel: 'ignored' },
+                optionsBinding: { dataSourceId: 'd', emptyMessage: 'none' },
+                rowsBinding: { dataSourceId: 'd', emptyMessage: 'no rows' }
+            },
+            behavior: { validation: { errorMessages: { required: 'R' } } }
+        });
+        expect(texts).toEqual([
+            ['label', 'label', undefined],
+            ['props.itemLabel', 'setting', 'itemLabel'],
+            ['props.addButtonLabel', 'setting', 'addButtonLabel'],
+            ['props.removeButtonLabel', 'setting', 'removeButtonLabel'],
+            ['props.emptyMessage', 'setting', 'emptyMessage'],
+            ['data.optionsBinding.emptyMessage', 'setting', 'optionsEmpty'],
+            ['props.columns.0.header', 'column', '1'],
+            ['props.columns.2.header', 'column', '3'],
+            ['data.rowsBinding.emptyMessage', 'setting', 'rowsEmpty'],
+            ['behavior.validation.errorMessages.required', 'message', 'required']
+        ]);
+    });
+
+    it('reads columns from data.defaultProps when props has none', () => {
+        expect(pairs({ type: 'DataTable', data: { defaultProps: { columns: [{ header: 'H' }] } } }).slice(1)).toEqual([
+            ['data.defaultProps.columns.0.header', 'column', '1']
+        ]);
+    });
+
+    it('lists nothing extra for a type without that text prop', () => {
+        expect(pairs({ type: 'InputText', label: 'L', props: { title: 'T', header: 'H' } })).toEqual([
+            ['label', 'label', undefined]
+        ]);
+    });
+});
+
+describe('the contract on the new texts', () => {
+    const contract = formConfigSchema(['InputText', 'FormArray']);
+    const issues = (config: unknown) => {
+        const r = contract.safeParse(config);
+        return r.success ? [] : r.error.issues.map((i) => i.path.join('.'));
+    };
+
+    it('refuses a bad map in props.addButtonLabel with its path', () => {
+        const fields = [{ id: 'a', type: 'FormArray', props: { addButtonLabel: { 'bad tag': 'x' } } }];
+        expect(issues({ fields }).some((p) => p.startsWith('fields.0.props.addButtonLabel'))).toBe(true);
+    });
+
+    it('checks textLanguage', () => {
+        expect(issues({ fields: [], textLanguage: 'x y' })).toContain('textLanguage');
+        expect(issues({ fields: [], textLanguage: 'wal-Latn' })).toEqual([]);
+    });
+});
+
+describe('textLanguageOf', () => {
+    it('is the document language when it is a tag, else Amharic', () => {
+        expect(textLanguageOf({ textLanguage: 'en' })).toBe('en');
+        expect(textLanguageOf({ textLanguage: 'wal-Latn' })).toBe('wal-Latn');
+        for (const bad of [{ textLanguage: 'x y' }, { textLanguage: 5 }, {}, [], null, undefined, 'x'])
+            expect(textLanguageOf(bad)).toBe(DEFAULT_FORM_TEXT_LANGUAGE);
+        expect(DEFAULT_FORM_TEXT_LANGUAGE).toBe('am');
     });
 });

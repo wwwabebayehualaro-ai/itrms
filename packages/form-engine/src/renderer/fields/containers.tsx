@@ -15,18 +15,8 @@ import {
     Separator,
     cn
 } from '@itrms/ui';
-import type { EngineField } from '../../core';
+import { containerTitle, type EngineField } from '../../core';
 import { defineFieldType, type ContainerFieldProps } from '../kit';
-
-// the palette's placeholder titles are never shown to people: the field's own label is used instead
-const PLACEHOLDER_TITLES = new Set(['Panel Header', 'Card Title', 'Group Title', 'Section Title']);
-const titleOf = (f: EngineField, ...keys: string[]) => {
-    for (const k of keys) {
-        const v = f.props[k];
-        if (typeof v === 'string' && v && !PLACEHOLDER_TITLES.has(v)) return v;
-    }
-    return f.label;
-};
 
 /** A titled box whose body can be collapsed (`toggleable`, starting closed with `collapsed`). */
 function Collapsable({
@@ -84,7 +74,7 @@ function PanelField({ field, children }: ContainerFieldProps) {
     return (
         <Collapsable
             field={field}
-            title={titleOf(field, 'header')}
+            title={containerTitle(field)}
             framed="rounded-lg border bg-card text-card-foreground"
         >
             {children}
@@ -94,12 +84,7 @@ function PanelField({ field, children }: ContainerFieldProps) {
 
 function FieldsetField({ field, children }: ContainerFieldProps) {
     return (
-        <Collapsable
-            field={field}
-            title={titleOf(field, 'legend', 'header')}
-            framed="rounded-lg border px-3 pb-1"
-            legend
-        >
+        <Collapsable field={field} title={containerTitle(field)} framed="rounded-lg border px-3 pb-1" legend>
             {children}
         </Collapsable>
     );
@@ -111,7 +96,7 @@ function CardField({ field, children }: ContainerFieldProps) {
     return (
         <Card className="gap-4 py-4" data-field-container="Card">
             <CardHeader className="px-4">
-                <CardTitle>{titleOf(field, 'title', 'header')}</CardTitle>
+                <CardTitle>{containerTitle(field)}</CardTitle>
                 {sub && <CardDescription>{sub}</CardDescription>}
             </CardHeader>
             <CardContent className="px-4">{children}</CardContent>
@@ -125,11 +110,11 @@ function SectionField({ field, children }: ContainerFieldProps) {
     return (
         <section
             className="rounded-lg border p-4"
-            aria-label={titleOf(field, 'title')}
+            aria-label={containerTitle(field)}
             data-field-container="FormSection"
         >
             <h3 className="mb-1 text-base font-semibold">
-                {titleOf(field, 'title')}
+                {containerTitle(field)}
                 {Boolean(field.props.required) && <span className="ml-1 text-destructive">*</span>}
             </h3>
             {description && <p className="mb-3 text-sm text-muted-foreground">{description}</p>}

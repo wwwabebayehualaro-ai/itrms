@@ -8,6 +8,7 @@ export {
     readDocument,
     toEngineField,
     DEFAULT_TEXT_LANGUAGE,
+    containerTitle,
     childrenOf,
     isFormArray,
     isRequiredIn,
@@ -15,8 +16,11 @@ export {
 } from './model';
 export { evalCondition, checkRuleFormula } from './runtime/formula';
 export { valueKindOf, shapeError, type ValueKind } from './kinds';
-export { ethiopianDateText, isIsoDay } from './dates';
-export { untranslatedTexts, type UntranslatedText } from './text';
+export { ethiopianDateText, isIsoDay, addisDayTime } from './dates';
+export { numberFormatOf } from './format';
+export { printModel, printValueText, PRINT_WORDS } from './print';
+export type { PrintDocument, PrintNode, PrintOptions, PrintWords } from './print';
+export { untranslatedTexts, untranslatedInDocument, type UntranslatedText } from './text';
 export {
     fieldTexts,
     formTextIn,
@@ -24,6 +28,9 @@ export {
     ownText,
     setTextIn,
     REQUIRED_TEXT_LANGUAGES,
+    TEXT_PROPS,
+    textLanguageOf,
+    textPropsOf,
     type FieldText,
     type FormText
 } from '@itrms/schemas';

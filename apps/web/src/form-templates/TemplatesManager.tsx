@@ -57,14 +57,13 @@ import {
     PublishedFormRenderer,
     TemplateStatusTag,
     getRuntimeConfig,
-    useFormsLanguages,
     isViewTemplate,
     useTemplateList,
     useTemplateLoader,
     useTemplateMutations
 } from '@itrms/form-engine/renderer';
 import { fileRelationsOf, storedFieldsOf } from '@itrms/schemas';
-import { untranslatedTexts } from '@itrms/form-engine/core';
+import { untranslatedInDocument } from '@itrms/form-engine/core';
 import { useBuilderActions } from '@itrms/form-engine/designer';
 import { useCan } from '@/lib/auth/authHooks';
 import { getApiErrorMessage } from '@/lib/api/errors';
@@ -100,7 +99,6 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
     const { data: all = [], isPending, error, refetch } = useTemplateList();
     const { remove, publish } = useTemplateMutations();
     const loadTemplate = useTemplateLoader();
-    const { language } = useFormsLanguages();
     // people who start requests pick from forms; view templates (reports) are managed here, not filled in
     const templates = useMemo(() => (mode === 'start' ? all.filter((t) => !isViewTemplate(t)) : all), [all, mode]);
 
@@ -186,7 +184,7 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
         let missing = 0;
         try {
             const full = await loadTemplate(String(t.id));
-            missing = untranslatedTexts(storedFieldsOf(full.form_config), language).length;
+            missing = untranslatedInDocument(full.form_config).length;
         } catch (e) {
             notify.error(getApiErrorMessage(e, 'Could not open the form'));
             return;

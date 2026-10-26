@@ -9,12 +9,12 @@ Rules: [code-structure.md](../../docs/platform/code-structure.md) §3 and §7.
 
 ## Entry points
 
-| Entry | What | Runs in |
-|---|---|---|
-| `@itrms/form-engine/core` | document model, conditions, values, validation, bindings and formulas | browser **and** API (no React, no DOM) |
-| `@itrms/form-engine/renderer` | `FormsHostProvider`, `FormRenderer`, `PublishedFormRenderer`, API hooks, extension points | browser |
-| `@itrms/form-engine/designer` | the form builder (`TemplateBuilder`) and its store | browser |
-| `@itrms/form-engine/viewer` | the data viewer of submitted data (see `src/viewer/README.md`) | browser |
+| Entry                         | What                                                                                      | Runs in                                |
+| ----------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------- |
+| `@itrms/form-engine/core`     | document model, conditions, values, validation, bindings and formulas                     | browser **and** API (no React, no DOM) |
+| `@itrms/form-engine/renderer` | `FormsHostProvider`, `FormRenderer`, `PublishedFormRenderer`, API hooks, extension points | browser                                |
+| `@itrms/form-engine/designer` | the form builder (`TemplateBuilder`) and its store                                        | browser                                |
+| `@itrms/form-engine/viewer`   | the data viewer of submitted data (see `src/viewer/README.md`)                            | browser                                |
 
 `core` stays UI-free: dependency-cruiser (`form-engine-core-is-ui-free`) and the shared ESLint config (no DOM globals, no
 JSX, no React/Next.js/design-system imports in `src/core`) enforce it, and `src/core/node.spec.ts` runs it in plain Node.
@@ -27,16 +27,16 @@ The engine imports nothing of an app. The app wraps its screens once in a `Forms
 import { FormsHostProvider, type FormsHost } from '@itrms/form-engine/renderer';
 
 const host: FormsHost = {
-    client,                          // a FormsClient: the app's HTTP client (token, refresh, Idempotency-Key, sign-in)
-    useUser: useAuthUser,            // hook: the signed-in person ({{user.*}}, permission hints)
-    useLocation,                     // hook: pathname, search, params, push, replace (Next.js in the web app)
+    client, // a FormsClient: the app's HTTP client (token, refresh, Idempotency-Key, sign-in)
+    useUser: useAuthUser, // hook: the signed-in person ({{user.*}}, permission hints)
+    useLocation, // hook: pathname, search, params, push, replace (Next.js in the web app)
     templatesHref: '/dynamic-template/saved-templates',
-    isReported,                      // optional: errors the app has already shown
+    isReported, // optional: errors the app has already shown
     logError: (message, error) => logger.error({ err: error }, message),
-    roleKeys: ROLE_KEYS,             // optional: the installation's role keys ("Only for roles" in the builder)
-    useLanguages                     // optional hook: { language, languages } (forms are drawn in `language`)
+    roleKeys: ROLE_KEYS, // optional: the installation's role keys ("Only for roles" in the builder)
+    useLanguages // optional hook: { language, languages } (forms are drawn in `language`)
 };
-<FormsHostProvider host={host}>{children}</FormsHostProvider>
+<FormsHostProvider host={host}>{children}</FormsHostProvider>;
 ```
 
 The web app's host is `apps/web/src/providers/forms/FormsHost.tsx`. Tests use `src/test-utils.tsx` (`hostRenderer`, a fake
@@ -51,6 +51,7 @@ import { DataViewer } from '@itrms/form-engine/viewer';
 <PublishedFormRenderer template={template} onFormSubmit={save} />          // fill in the published version
 <FormRenderer fields={fields} template={template} readOnly initialValues={v} /> // show a saved request
 ```
+
 The builder: `import { TemplateBuilder } from '@itrms/form-engine/designer'` (routed at `/dynamic-template/builder`; a separate
 entry so runtime pages do not ship it). The gallery opens a form in it through the builder store (`useBuilderActions`).
 
@@ -91,6 +92,30 @@ path; resolving, the save-time contract check, the builder's translation table a
 - **Untranslated:** `untranslatedTexts(fields, plainAs)` lists the texts with nothing of their own in Amharic or
   English (other languages are reported, not counted). The builder's Translations sheet shows them; publishing warns,
   it does not block.
+- **The form's text language (0.17c):** `form_config.textLanguage` says which language the plain strings of the form are
+  written in (default `am`; a new form takes the builder's language). `untranslatedInDocument(formConfig)` uses it, so
+  publishing warns about the right texts.
+- **More texts (0.17c):** panel, group, card and section titles, subtitle and footer, the row buttons and the empty
+  message of a repeatable section, the upload button, column headers of data tables and the empty message of a data
+  binding are texts per language too, read in the reader's language.
+
+## Print
+
+`printModel(form, values, { language, roles?, omitBlank?, gregorian?, ... })` (core, UI-free) turns a form and its
+answers into a tree of nodes (value, group, divider, rows) with every text and value already worded in one language and
+dates Ethiopian. Hidden fields, fields the reader's roles do not see, display fields and unknown values are left out.
+`<PrintForm form values language title? options? />` (`@itrms/form-engine/print`, React and core only; also re-exported by
+`renderer`) lays the tree out as plain semantic HTML.
+
+- **What prints how:** values in a 12-column grid (`span`); Panel, Group, Card and Section as titled sections (heading
+  level by depth); a divider as a rule or a line with text; a repeatable section as a table (up to 6 columns, no nested
+  section: one with a nested section always prints by row) or one block per row (`printLayout`: `auto`, `table`, `rows`); no rows print the empty message.
+- **Page breaks:** `printBreakBefore` on a container starts a new page (`data-break-before`); rows and items do not
+  split, table headings repeat on every page.
+- **Safe to render anywhere:** no hooks, host, design system or inline styles, so it works with `renderToStaticMarkup` in
+  Node and under a strict CSP. Values are escaped by React. Load the layout with `@itrms/form-engine/print.css` (the web
+  app does in `globals.css`); the page size and margins belong to the document template.
+- **Used by** the PDF worker of task 0.23 for application copies.
 
 ## Extend it
 
@@ -109,19 +134,21 @@ describeFieldType('Iban', {
 // templates call it by name: { "type": "custom", "target": "exportPdf", "payload": { ... } } (a template never carries code)
 registerAction('exportPdf', async ({ payload, formValues, context, setFieldValue, runApi, refetch }) => { ... });
 ```
+
 Register once at app start (module scope of a client component or provider). A new type also needs `form:schema` (the backend
 accepts only types the contract lists). `check:engine` exercises all three.
 
 ## How it is built
-* `src/core/` — UI-free. `readDocument` reads every stored version into resolved fields (`props` over the older palette's
+
+- `src/core/` — UI-free. `readDocument` reads every stored version into resolved fields (`props` over the older palette's
   `defaultProps`); conditions (`and`/`or`/`xor`/`not`; a hidden container hides its children); initial values; pruning of
   hidden values; validation compiled to Zod (`validateForm` → `{ 'items[2].qty': 'message' }`). `core/runtime/`: `{{...}}`
   bindings, formulas, response mapping (no code evaluation).
-* `src/renderer/` — `EngineForm` on TanStack Form (each field subscribes to what it reads) and the field kit (`kit.ts`: one
+- `src/renderer/` — `EngineForm` on TanStack Form (each field subscribes to what it reads) and the field kit (`kit.ts`: one
   definition per stored type name; built-ins in `fields/`, their builder descriptions in `fields/design.ts`); field actions
   (`actions.ts`); `runtime/` (data sources through the host's client, see `runtime/README.md`). `FormRenderer` is the public
   wrapper: a field whose type the kit does not have is left out and named.
-* `src/designer/` — the builder. `document.ts` (UI-free): fields by id + ordered children per container; `fromStored` /
+- `src/designer/` — the builder. `document.ts` (UI-free): fields by id + ordered children per container; `fromStored` /
   `toStored` keep the stored contract and add `schemaVersion: 2`; edits are immer recipes (insert, move — never into itself —,
   remove with the inside, duplicate with new keys, rename a key everywhere). `store.ts`: one Zustand store per builder with
   100-step undo/redo (a run of edits with the same key < 1.5 s is one step, e.g. typing a label); unsaved = `doc !== saved`.
@@ -129,9 +156,9 @@ accepts only types the contract lists). `check:engine` exercises all three.
   the pointer; `Palette.tsx`; `Inspector.tsx` (Field, Settings, Options/Rows, Rules, Logic, JSON); `SettingsForm.tsx` (the
   Settings tab from the type's Zod schema); `DataSources.tsx` (the runtime block). New fields get a key from their label that
   follows it until the form is saved. Keyboard: Ctrl+Z / Ctrl+Shift+Z, Del, Ctrl+D, Alt+↑/↓, Esc, Ctrl+S.
-* `src/viewer/` — the data viewer for the submitted data of any form.
-* `src/api/` — TanStack Query hooks for templates, submissions, server actions, attachment previews.
-* `src/host/` — the `FormsHost` contract, the `FormsClient` and its error helpers, file and directory hooks.
+- `src/viewer/` — the data viewer for the submitted data of any form.
+- `src/api/` — TanStack Query hooks for templates, submissions, server actions, attachment previews.
+- `src/host/` — the `FormsHost` contract, the `FormsClient` and its error helpers, file and directory hooks.
 
 The renderer, designer and viewer came from the web app (task 0.5), which had no typed linting: their `any` is allowed by a
 scoped override in `eslint.config.js` until tasks 0.17–0.18 type them. `core/` and `host/` follow the full rules.
@@ -139,10 +166,11 @@ scoped override in `eslint.config.js` until tasks 0.17–0.18 type them. `core/`
 ## Checks
 
 `pnpm --filter @itrms/form-engine test` runs all of these:
-* the unit and component tests (`src/**/*.spec.ts(x)`; core's run in Node);
-* `check:engine` — extension points (a custom type end to end, every built-in type creates a valid, drawable field, actions);
-* `check:runtime` — bindings, mapping, requests, formulas;
-* `form:schema --check` — the backend contract is up to date with the kit.
+
+- the unit and component tests (`src/**/*.spec.ts(x)`; core's run in Node);
+- `check:engine` — extension points (a custom type end to end, every built-in type creates a valid, drawable field, actions);
+- `check:runtime` — bindings, mapping, requests, formulas;
+- `form:schema --check` — the backend contract is up to date with the kit.
 
 `check:roundtrip <fixtures.json>` checks that the builder opens and saves real forms unchanged (fixtures:
 `{ versions: [{ id, name, form_config }] }`, exported from a database). The e2e journeys are in the web app

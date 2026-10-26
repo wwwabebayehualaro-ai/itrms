@@ -24,3 +24,6 @@ packages/api-client/openapi.json
 packages/api-client/src/schema.d.ts
 # drizzle-kit writes its snapshots itself (pnpm --filter @itrms/api db:generate)
 apps/api/drizzle/meta/
+
+# file snapshots compare exact markup (task 0.17c print view)
+**/__snapshots__/*.html

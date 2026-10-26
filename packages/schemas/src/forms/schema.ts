@@ -100,6 +100,8 @@ export const formDocumentSchema = z
     .object({
         schemaVersion: z.number().int().optional(),
         fields: z.array(z.unknown()).default([]),
-        runtime: z.unknown().optional()
+        runtime: z.unknown().optional(),
+        /** the language plain-string texts are written in (forms/text.ts); lenient here, checked by the contract */
+        textLanguage: z.string().optional()
     })
     .loose();

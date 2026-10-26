@@ -101,9 +101,11 @@ describe('FormDesigner', () => {
 
         // typing the label was one step: one undo brings back "Number", a second removes the field
         await user.click(screen.getByRole('button', { name: 'Undo' }));
-        expect(within(inspector).getByLabelText('Label')).toHaveValue('Number');
+        // (the English label gave the new field the key "budget"; the undo goes back to "number", so the selection is gone)
+        expect(within(canvas).getByText('Number')).toBeInTheDocument();
         expect(within(canvas).queryByText('Budget')).not.toBeInTheDocument();
         await user.click(screen.getByRole('button', { name: 'Redo' }));
+        await user.click(within(canvas).getByText('Budget'));
         expect(within(inspector).getByLabelText('Label')).toHaveValue('Budget');
 
         // a key that is already used is refused
@@ -209,5 +211,49 @@ describe('FormDesigner', () => {
         expect(url).toBe('v1/forms');
         expect(body.name).toEqual({ am: 'የጉዞ ጥያቄ', en: 'Trip request' });
         expect(body.key).toBe('trip-request');
+    });
+
+    it('counts the same untranslated texts whatever language the builder is opened in', async () => {
+        client.get.mockResolvedValue({ data: [] });
+        const form = {
+            ...saved,
+            status: 'published' as const,
+            form_config: {
+                fields: [field('destination', 'InputText', 'Destination'), field('city', 'InputText', 'City')],
+                runtime: { dataSources: [] }
+            }
+        };
+        const counts: (string | null)[] = [];
+        for (const language of ['am', 'en']) {
+            const view = hostRenderer({
+                client,
+                language,
+                user: {
+                    id: 'u1',
+                    email: 'e@example.org',
+                    full_name: 'Editor',
+                    roles: ['editor'],
+                    tenant_id: 't1',
+                    permissions: ALL
+                }
+            });
+            const { result } = renderHook(() => useBuilderActions());
+            act(() => {
+                result.current.setTemplate(form);
+                result.current.setFields(form.form_config.fields);
+                result.current.setRuntime({ dataSources: [] });
+            });
+            const { unmount } = view(<FormDesigner />);
+            counts.push(
+                (
+                    await screen
+                        .findAllByText('Destination')
+                        .then(() => document.querySelector('[data-untranslated-badge]'))
+                )?.textContent ?? null
+            );
+            unmount();
+        }
+        expect(counts[0]).toBe(counts[1]);
+        expect(counts[0]).toBe('2');
     });
 });

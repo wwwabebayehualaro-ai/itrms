@@ -26,7 +26,7 @@ import {
     type VisibilityCondition
 } from '@itrms/schemas';
 import { keySourceOf } from './document';
-import type { ColumnType, TableColumn } from '@itrms/schemas';
+import type { ColumnType, StoredTableColumn } from '@itrms/schemas';
 
 // ---- number -------------------------------------------------------------------------------------------------------------
 /** A number box that keeps what is typed until it is a number ("1." on the way to "1.5"); empty means "not set". */
@@ -564,25 +564,32 @@ const COLUMN_TYPES: Array<{ value: ColumnType; label: string }> = [
 export function ColumnsEditor({
     value,
     onChange,
-    sources
+    sources,
+    language,
+    plainAs
 }: {
-    value?: TableColumn[];
-    onChange: (cols: TableColumn[]) => void;
+    value?: StoredTableColumn[];
+    onChange: (cols: StoredTableColumn[]) => void;
     sources: Array<{ label: string; value: string }>;
+    language: string;
+    plainAs: string;
 }) {
     const cols = value ?? [];
-    const set = (i: number, patch: Partial<TableColumn>) =>
+    const set = (i: number, patch: Partial<StoredTableColumn>) =>
         onChange(cols.map((c, j) => (j === i ? { ...c, ...patch } : c)));
     return (
         <div className="flex flex-col gap-2" data-columns-editor>
             {cols.map((c, i) => (
                 <div key={i} className="flex flex-col gap-2 rounded-md border p-2">
                     <div className="flex items-center gap-2">
-                        <Input
-                            value={c.header}
+                        <LangInput
+                            text={c.header}
+                            language={language}
+                            plainAs={plainAs}
                             placeholder="Header"
+                            hint={false}
                             aria-label={`Column ${i + 1} header`}
-                            onChange={(e) => set(i, { header: e.target.value })}
+                            onText={(v) => set(i, { header: setTextIn(c.header, language, v, plainAs) ?? '' })}
                         />
                         <RowButtons
                             i={i}

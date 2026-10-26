@@ -51,16 +51,44 @@ export function endonym(tag: string): string {
 
 const isRequired = (tag: string) => (REQUIRED_TEXT_LANGUAGES as readonly string[]).includes(tag);
 
-const KIND: Record<FieldText['kind'], string> = {
+const KIND = {
     label: 'Label',
     helpText: 'Help text',
-    placeholder: 'Placeholder',
-    option: 'Option',
-    message: 'Message'
+    placeholder: 'Placeholder'
+} as const;
+
+/** The builder's name of a setting text, by the setting (or binding) it is stored under. */
+const SETTING: Record<string, string> = {
+    header: 'Title',
+    legend: 'Title',
+    title: 'Title',
+    subTitle: 'Subtitle',
+    footer: 'Footer',
+    description: 'Description',
+    content: 'Divider text',
+    itemLabel: 'Row name',
+    addButtonLabel: 'Add-row button',
+    removeButtonLabel: 'Remove-row button',
+    emptyMessage: 'No-rows message',
+    chooseLabel: 'Upload button',
+    optionsEmpty: 'No-options message',
+    rowsEmpty: 'No-rows message'
 };
 
-const kindOf = (t: FieldText) =>
-    t.kind === 'option' ? `Option ${t.ref ?? ''}` : t.kind === 'message' ? `Message: ${t.ref ?? ''}` : KIND[t.kind];
+const kindOf = (t: FieldText) => {
+    switch (t.kind) {
+        case 'option':
+            return `Option ${t.ref ?? ''}`;
+        case 'message':
+            return `Message: ${t.ref ?? ''}`;
+        case 'column':
+            return `Column ${t.ref ?? ''}`;
+        case 'setting':
+            return SETTING[t.ref ?? ''] ?? t.ref ?? 'Setting';
+        default:
+            return KIND[t.kind];
+    }
+};
 
 interface Row extends FieldText {
     /** unique in the form */
@@ -71,6 +99,7 @@ interface Row extends FieldText {
 
 /** The translation table of the form being built, in a side sheet. */
 export function TranslationsSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+    const textLanguage = useDesigner((s) => s.doc.textLanguage);
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-6xl" data-translations>
@@ -78,7 +107,10 @@ export function TranslationsSheet({ open, onOpenChange }: { open: boolean; onOpe
                     <SheetTitle>Translations</SheetTitle>
                     <SheetDescription>
                         Every text of the form in each language. Amharic and English are required; a text missing in
-                        another language is shown in the language it falls back to.
+                        another language is shown in the language it falls back to.{' '}
+                        <span data-text-language={textLanguage}>
+                            Plain texts of this form count as {endonym(textLanguage)}.
+                        </span>
                     </SheetDescription>
                 </SheetHeader>
                 <div className="px-4 pb-4">{open && <Translations />}</div>
@@ -89,7 +121,7 @@ export function TranslationsSheet({ open, onOpenChange }: { open: boolean; onOpe
 
 export function Translations() {
     const doc = useDesigner((s) => s.doc);
-    const plainAs = useDesigner((s) => s.plainAs);
+    const plainAs = doc.textLanguage;
     const actions = useDesignerActions();
     const { language: pageLanguage, languages } = useFormsLanguages();
     const fields = useMemo(() => toStored(doc).fields, [doc]);

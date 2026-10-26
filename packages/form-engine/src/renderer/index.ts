@@ -96,3 +96,8 @@ export type { FieldRowsBinding, TableColumn, ColumnType } from '@itrms/schemas';
 
 // ---- state of the template in use -------------------------------------------------------------------
 export { useTemplate } from './store/formStore';
+
+// ---- print: a filled-in form as plain HTML (SSR-safe, no host); also its own entry, '@itrms/form-engine/print' ----
+export { PrintForm } from '../print';
+export type { PrintFormProps } from '../print';
+export type { PrintDocument, PrintNode, PrintOptions, PrintWords } from '../core';
