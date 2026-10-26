@@ -2,7 +2,9 @@
 
 import { useMemo } from 'react';
 import { formatCurrency, formatDate, formatDateTime } from '../host/format';
+import type { EngineTranslate } from '../core/messages';
 import { useFormsLanguages } from '../host/FormsHost';
+import { useEngineText } from '../host/text';
 import { ethiopianDateText } from '../core/dates';
 import type { ViewField, ViewOption, ViewSchema } from './types';
 
@@ -17,11 +19,14 @@ export interface Labeler {
     /** A stored value as text: people by name, options by label, dates and money formatted. */
     text: (key: string, value: unknown) => string;
     loading: boolean;
+    /** The engine's words in the screen's language. */
+    t: EngineTranslate;
 }
 
 /** Turns stored values into what people read. One place, used by every view mode, filter chip and export. */
 export function useLabeler(schema?: ViewSchema): Labeler {
     const { language } = useFormsLanguages();
+    const { t } = useEngineText();
     return useMemo(() => {
         const fields = new Map((schema?.fields ?? []).map((f) => [f.key, f]));
         const field = (key: string) => fields.get(key);
@@ -44,7 +49,7 @@ export function useLabeler(schema?: ViewSchema): Labeler {
             if (!f) return String(v);
             switch (f.kind) {
                 case 'boolean':
-                    return v ? 'Yes' : 'No';
+                    return t(v ? 'form-engine.core.print.yes' : 'form-engine.core.print.no');
                 case 'date':
                     // a day picked on the Ethiopian calendar is read in it, in the screens' language
                     return f.type === 'EthDate' && typeof v === 'string'
@@ -67,6 +72,6 @@ export function useLabeler(schema?: ViewSchema): Labeler {
             if (Array.isArray(value)) return value.length ? value.map((x) => one(f, x)).join(', ') : EMPTY;
             return one(f, value);
         };
-        return { field, options, lookup, text, loading: false };
-    }, [schema, language]);
+        return { field, options, lookup, text, loading: false, t };
+    }, [schema, language, t]);
 }

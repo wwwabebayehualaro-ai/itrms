@@ -3,9 +3,14 @@
  * expense lines; each line's total and the report's total calculate themselves; a receipt number is asked for only on a
  * line above 500 Birr, and its absence stops the submit; the request is filed with the rows as the queries read them.
  */
+import { engineTranslator } from '@itrms/form-engine/core';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { PEOPLE, api, field, publishedForm, runName, signedIn, switchOff } from './support';
+
+// the page runs in Amharic, so the engine's own words are looked up in its Amharic catalogue
+const am = engineTranslator('am');
+const SUBMIT = am('form-engine.renderer.submit.label');
 
 const EXPENSES = [
     field('InputText', 'title', 'Report title', { props: { required: true } }),
@@ -76,7 +81,9 @@ test('expense lines calculate, ask for what they need, and are filed as rows', a
         await form.getByLabel('Report title').fill(title);
 
         // line 1: 400 Birr + 15 % -> 460; no receipt asked at or below 500
-        const line1 = form.getByRole('group', { name: 'Expense 1' });
+        const line1 = form.getByRole('group', {
+            name: am('form-engine.renderer.rows.title', { item: 'Expense', number: '1' })
+        });
         await line1.getByRole('button', { name: /Date/ }).click();
         await page.getByRole('gridcell').filter({ hasText: /^10$/ }).first().click();
         await pick(page, line1.getByRole('combobox', { name: 'Category' }), 'Fuel');
@@ -89,7 +96,9 @@ test('expense lines calculate, ask for what they need, and are filed as rows', a
 
         // line 2: 1,200 Birr -> a receipt is required
         await form.getByRole('button', { name: 'Add expense' }).click();
-        const line2 = form.getByRole('group', { name: 'Expense 2' });
+        const line2 = form.getByRole('group', {
+            name: am('form-engine.renderer.rows.title', { item: 'Expense', number: '2' })
+        });
         await line2.getByRole('button', { name: /Date/ }).click();
         await page.getByRole('gridcell').filter({ hasText: /^12$/ }).first().click();
         await pick(page, line2.getByRole('combobox', { name: 'Category' }), 'Spare parts');
@@ -100,10 +109,10 @@ test('expense lines calculate, ask for what they need, and are filed as rows', a
         await expect(form.getByLabel('Total (Birr)')).toHaveValue(/^1,?660(\.00)?$/);
 
         // the missing receipt stops the submit and says so
-        await form.getByRole('button', { name: /Submit/ }).click();
-        await expect(form.getByText(/Please fix 1 field before submitting/)).toBeVisible();
+        await form.getByRole('button', { name: SUBMIT }).click();
+        await expect(form.getByText(am('form-engine.renderer.submit.fixFields', { count: 1 }))).toBeVisible();
         await line2.getByLabel('Receipt no.').fill('R-2041');
-        await form.getByRole('button', { name: /Submit/ }).click();
+        await form.getByRole('button', { name: SUBMIT }).click();
         await expect(page.getByRole('dialog')).toBeHidden();
 
         const mine = await api(page).get<{ items: Submission[] }>(`v1/submissions?formId=${formId}&mine=true`);

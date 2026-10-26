@@ -1,4 +1,5 @@
 import type { ComponentType, ReactNode } from 'react';
+import type { EngineMessageKey } from '../core/messages';
 import type { Labeler } from './labels';
 import type { ViewRow, ViewSchema, ViewState } from './types';
 
@@ -18,7 +19,10 @@ export interface ViewModeProps {
 
 export interface ViewMode {
     id: string;
-    label: string;
+    /** The mode's name when it is a screen's own (already in the screen's language); built-ins use `labelKey`. */
+    label?: string;
+    /** The mode's name from the engine's catalogues (wins over `label`). */
+    labelKey?: EngineMessageKey;
     /** A lucide icon component. */
     icon: ComponentType<{ className?: string }>;
     order?: number;

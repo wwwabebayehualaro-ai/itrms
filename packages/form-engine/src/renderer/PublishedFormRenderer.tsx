@@ -6,6 +6,8 @@ import { Alert, AlertDescription, AlertTitle, InlineStatus } from '@itrms/ui';
 import { requestErrorMessage } from '../host/client';
 import FormRenderer from './FormRenderer';
 import { usePublishedTemplate } from '../api/templates';
+import { useFormsLanguages } from '../host/FormsHost';
+import { engineTranslator } from '../core/messages';
 import type { FormField, FormTemplate } from '@itrms/schemas';
 
 type RendererProps = Omit<React.ComponentProps<typeof FormRenderer>, 'fields' | 'template'>;
@@ -16,6 +18,8 @@ type RendererProps = Omit<React.ComponentProps<typeof FormRenderer>, 'fields' | 
  */
 export function PublishedFormRenderer({ template, ...props }: RendererProps & { template: FormTemplate }) {
     const { data, isPending, error } = usePublishedTemplate(template.id);
+    const { language: shown } = useFormsLanguages();
+    const t = engineTranslator(props.language ?? shown);
     if (isPending) return <InlineStatus loading className="p-4" />;
     if (error) {
         const notPublished =
@@ -24,12 +28,16 @@ export function PublishedFormRenderer({ template, ...props }: RendererProps & { 
             <div data-slot="notice">
                 <Alert>
                     <AlertTitle>
-                        {notPublished ? 'This form is not published yet' : 'This form could not be loaded'}
+                        {t(
+                            notPublished
+                                ? 'form-engine.renderer.published.notYet'
+                                : 'form-engine.renderer.published.loadFailed'
+                        )}
                     </AlertTitle>
                     <AlertDescription>
                         {notPublished
-                            ? 'It can be filled in once it has been published (and approved, where approval is required).'
-                            : requestErrorMessage(error)}
+                            ? t('form-engine.renderer.published.notYetBody')
+                            : requestErrorMessage(error, undefined, t)}
                     </AlertDescription>
                 </Alert>
             </div>

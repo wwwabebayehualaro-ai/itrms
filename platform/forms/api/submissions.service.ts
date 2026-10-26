@@ -20,6 +20,13 @@ import { lockFormShared, valueRows, writeValues, type Owner } from './submission
 import { fieldsFor, required, scopeFor } from './support';
 import { filterableKinds, MAX_INDEXED_CHOICES } from './view-fields';
 
+import am from '../messages/am.json';
+import en from '../messages/en.json';
+
+/** The 422 message of a field with more choices than the filterable values keep, in the caller's language. */
+const tooManyChoices = (language: string): string =>
+    (language === 'en' ? en : am)['forms.validation.tooManyChoices'].replace('{max}', String(MAX_INDEXED_CHOICES));
+
 export type SubmissionRow = typeof submissions.$inferSelect;
 
 @Injectable()
@@ -52,12 +59,12 @@ export class SubmissionsService {
         const fields = fieldsFor(version.document, roles, language);
         const scope = scopeFor(ctx, roles);
         const answers = submittedValues(fields, input.answers, scope);
-        const errors = validateForm(fields, answers, scope);
+        const errors = validateForm(fields, answers, scope, { language });
         // the filterable fields' values (ADR-0035), from the version's fields nobody is restricted from
         const open = fieldsFor(version.document, []);
         const values = (owner: Owner) => valueRows(open, filterableKinds(open), answers, owner);
         for (const key of values({ submissionId: '', formId: '', regionId: '', handlingUnitId: '' }).overflow)
-            errors[key] ??= `At most ${MAX_INDEXED_CHOICES} choices`;
+            errors[key] ??= tooManyChoices(language);
         if (Object.keys(errors).length)
             throw new ValidationError('validation_failed', {
                 detail: 'Some answers are not valid.',

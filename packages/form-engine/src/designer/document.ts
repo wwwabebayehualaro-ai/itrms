@@ -8,6 +8,7 @@
 import type { Draft } from 'immer';
 import { formTextIn, setTextIn, textLanguageOf, textPropsOf, type FormField, type FormText } from '@itrms/schemas';
 import { getFieldType } from '../renderer/kit';
+import { wordIn, type EngineWord } from '../core/messages';
 import { keyFromLabel, renameFieldKey, renameInRuntime } from './fieldKeys';
 import { SCHEMA_VERSION } from '../core';
 import { EMPTY_RUNTIME, type TemplateRuntimeConfig } from '@itrms/schemas';
@@ -174,19 +175,21 @@ export function uniqueKey(
 export function createField(
     doc: DesignDoc,
     type: string,
-    label: string,
+    label: EngineWord,
     language: string = doc.textLanguage
 ): FormField | null {
     const def = getFieldType(type);
     if (!def?.design) return null;
     // the palette's texts are in the builder's language: plain on a form edited in its own language, else a map
     const asText = (text: string): FormText | undefined => setTextIn(undefined, language, text, doc.textLanguage);
-    const id = uniqueKey(doc, label);
+    const shown = wordIn(language, label);
+    // a key is English even when the builder writes Amharic
+    const id = uniqueKey(doc, wordIn('en', label));
     const isContainer = (def.kind === 'container' || def.kind === 'section') && !def.design.leaf;
     const field: FormField = {
         id,
         type,
-        label: asText(label) ?? label,
+        label: asText(shown) ?? shown,
         category: def.kind === 'value' ? 'Input' : def.kind === 'display' ? 'Data' : 'Layout',
         props: { ...(def.design.defaults ?? {}) },
         data: { defaultProps: {} },
@@ -200,8 +203,14 @@ export function createField(
     if (def.design.options)
         field.data!.dataSource = {
             staticData: [
-                { label: asText('Option 1'), value: 'option_1' },
-                { label: asText('Option 2'), value: 'option_2' }
+                {
+                    label: asText(wordIn(language, 'form-engine.palette.defaults.option', { n: '1' })),
+                    value: 'option_1'
+                },
+                {
+                    label: asText(wordIn(language, 'form-engine.palette.defaults.option', { n: '2' })),
+                    value: 'option_2'
+                }
             ]
         };
     return field;

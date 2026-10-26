@@ -11,12 +11,17 @@ vi.mock('@itrms/ui', async (original) => ({
     useNotify: () => notify
 }));
 
-import { REMOTE_PENDING, readDocument, validateForm } from '../core';
+import { readDocument, remotePendingText, validateForm as validate } from '../core';
 import { EngineForm } from './EngineForm';
 import { hostRenderer, requestError } from '../test-utils';
 
+// these cases are written with the engine's English messages
+const validateForm = (...[fields, values, scope]: Parameters<typeof validate>) =>
+    validate(fields, values, scope, { language: 'en' });
+
 const ALL = ['form:create', 'form:update', 'form:publish', 'submission:create', 'submission:read', 'submission:export'];
 const renderWithQuery = hostRenderer({
+    language: 'en',
     client,
     user: {
         id: 'u1',
@@ -88,7 +93,7 @@ describe('a field checked by a data source', () => {
         const doc = readDocument({ fields });
         const values = { accountNumber: '1000000000001', holder: 'A', amount: 5 };
         expect(validateForm(doc.fields, values, { status: { account: { state: 'loading' } } }).accountNumber).toBe(
-            REMOTE_PENDING
+            remotePendingText('en')
         );
         expect(
             validateForm(doc.fields, values, { status: { account: { state: 'error', error: 'Account not found' } } })

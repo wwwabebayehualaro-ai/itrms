@@ -13,30 +13,34 @@ vi.mock('@itrms/ui', async (original) => ({
 
 import { FormDesigner } from './';
 import { useBuilderActions } from './';
-import { hostRenderer } from '../test-utils';
+import { amText, hostRenderer } from '../test-utils';
 
 const ALL = ['form:create', 'form:update', 'form:publish', 'submission:create', 'submission:read', 'submission:export'];
+const asUser = {
+    id: 'u1',
+    email: 'e@example.org',
+    full_name: 'Editor',
+    roles: ['editor'],
+    tenant_id: 't1',
+    permissions: ALL
+};
+const amHost = hostRenderer({ client, language: 'am', user: asUser });
+// the English behaviour of the builder; the Amharic words have their own test below
 const renderWithQuery = hostRenderer({
     client,
-    user: {
-        id: 'u1',
-        email: 'e@example.org',
-        full_name: 'Editor',
-        roles: ['editor'],
-        tenant_id: 't1',
-        permissions: ALL
-    }
+    language: 'en',
+    user: asUser
 });
 
 /** Puts a saved form in the builder store, as the gallery's "Edit" does, then opens the builder. */
-function open(template: any) {
+function open(template: any, render = renderWithQuery) {
     const { result } = renderHook(() => useBuilderActions());
     act(() => {
         result.current.setTemplate(template);
         result.current.setFields(template.form_config.fields);
         result.current.setRuntime(template.form_config.runtime ?? { dataSources: [] });
     });
-    return renderWithQuery(<FormDesigner />);
+    return render(<FormDesigner />);
 }
 
 const field = (id: string, type: string, label: string, extra: Record<string, any> = {}) => ({
@@ -130,7 +134,7 @@ describe('FormDesigner', () => {
         expect(options.headers['if-match']).toBe('"3"');
         expect(body.document.schemaVersion).toBe(2);
         expect(body.document.fields.map((f: any) => [f.id, f.type, f.label])).toEqual([
-            ['budget', 'InputNumber', 'Budget']
+            ['budget', 'InputNumber', { en: 'Budget' }] // typed in English into an Amharic form: an English text
         ]);
         await waitFor(() => expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument());
     });
@@ -149,30 +153,37 @@ describe('FormDesigner', () => {
     it('switches the language the texts are shown and edited in: canvas, inspector and preview follow', async () => {
         const user = userEvent.setup();
         client.get.mockResolvedValue({ data: [] });
-        open({
-            ...saved,
-            form_config: {
-                fields: [field('destination', 'InputText', { am: 'መድረሻ', en: 'Destination' } as never)],
-                runtime: { dataSources: [] }
-            }
-        });
+        open(
+            {
+                ...saved,
+                form_config: {
+                    fields: [field('destination', 'InputText', { am: 'መድረሻ', en: 'Destination' } as never)],
+                    runtime: { dataSources: [] }
+                }
+            },
+            amHost
+        );
         const canvas = screen.getByRole('main');
         expect(within(canvas).getByText('መድረሻ')).toBeInTheDocument();
 
-        await user.click(screen.getByRole('combobox', { name: 'Texts in' }));
+        await user.click(screen.getByRole('combobox', { name: amText('form-engine.designer.toolbar.textsIn') }));
         await user.click(await screen.findByRole('option', { name: 'English' }));
         expect(within(canvas).getByText('Destination')).toBeInTheDocument();
         // switching is no edit
-        expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument();
+        expect(screen.queryByText(amText('form-engine.designer.toolbar.unsaved'))).not.toBeInTheDocument();
 
         // editing writes English only; Amharic stays
         await user.click(canvas.querySelector('[data-design-field="destination"]') as HTMLElement);
-        const label = within(screen.getByRole('complementary', { name: 'Field settings' })).getByLabelText('Label');
+        const label = within(
+            screen.getByRole('complementary', { name: amText('form-engine.designer.toolbar.fieldSettings') })
+        ).getByLabelText(amText('form-engine.settings.inspector.field.label'));
         expect(label).toHaveValue('Destination');
         await user.type(label, 's');
         expect(within(canvas).getByText('Destinations')).toBeInTheDocument();
 
-        await user.click(screen.getByRole('radio', { name: /Preview/ }));
+        await user.click(
+            screen.getByRole('radio', { name: new RegExp(amText('form-engine.designer.toolbar.preview')) })
+        );
         expect(await screen.findByLabelText('Destinations')).toBeInTheDocument();
     });
 
@@ -211,6 +222,29 @@ describe('FormDesigner', () => {
         expect(url).toBe('v1/forms');
         expect(body.name).toEqual({ am: 'የጉዞ ጥያቄ', en: 'Trip request' });
         expect(body.key).toBe('trip-request');
+    });
+
+    it('says the toolbar, the palette and the settings in Amharic when the host speaks Amharic', async () => {
+        const user = userEvent.setup();
+        client.get.mockResolvedValue({ data: [] });
+        open(saved, amHost);
+        expect(screen.getByRole('button', { name: amText('form-engine.designer.toolbar.save') })).toBeDisabled();
+        expect(screen.getByRole('button', { name: amText('form-engine.designer.toolbar.undo') })).toBeDisabled();
+        expect(
+            screen.getByRole('button', { name: new RegExp(amText('form-engine.designer.toolbar.translations')) })
+        ).toBeVisible();
+        expect(screen.getByRole('button', { name: amText('form-engine.designer.toolbar.dataSources') })).toBeVisible();
+        await user.click(
+            screen.getByRole('button', {
+                name: amText('form-engine.palette.ui.add', {
+                    label: amText('form-engine.palette.type.InputNumber.label')
+                })
+            })
+        );
+        expect(
+            screen.getByRole('complementary', { name: amText('form-engine.designer.toolbar.fieldSettings') })
+        ).toBeInTheDocument();
+        expect(screen.getByText(amText('form-engine.designer.toolbar.unsaved'))).toBeInTheDocument();
     });
 
     it('counts the same untranslated texts whatever language the builder is opened in', async () => {

@@ -9,6 +9,7 @@
 import type { ComponentType, ReactNode } from 'react';
 import type { z } from 'zod';
 import type { EngineField } from '../core';
+import type { EngineMessageKey, EngineWord } from '../core/messages';
 
 /** Props of a value field (an input). The renderer owns label, help text, error message, visibility and layout. */
 export interface ValueFieldProps<T = unknown> {
@@ -36,9 +37,37 @@ export interface DisplayFieldProps {
     field: EngineField;
 }
 
-/** Groups of the builder's palette, in the order they are shown. */
-export const PALETTE_GROUPS = ['Text & numbers', 'Choices', 'Date & time', 'Files & media', 'Layout', 'Data'] as const;
+/** Groups of the builder's palette, in the order they are shown (ids; the names are catalogue words). */
+export const PALETTE_GROUPS = ['text', 'choices', 'dates', 'files', 'layout', 'data'] as const;
 export type PaletteGroup = (typeof PALETTE_GROUPS)[number];
+export const PALETTE_GROUP_WORDS: Record<PaletteGroup, EngineMessageKey> = {
+    text: 'form-engine.palette.group.text',
+    choices: 'form-engine.palette.group.choices',
+    dates: 'form-engine.palette.group.dates',
+    files: 'form-engine.palette.group.files',
+    layout: 'form-engine.palette.group.layout',
+    data: 'form-engine.palette.group.data'
+};
+
+/** What the inspector reads from a setting's `.meta()`; words are catalogue keys (or a text in every language). */
+export interface SettingMeta {
+    title: EngineWord;
+    description?: EngineWord;
+    /** Enum value -> label. */
+    labels?: Record<string, EngineWord>;
+    /** A sample, not a word (`USD`, `mm/dd/yy`). */
+    placeholder?: string;
+    /** A placeholder that is a word (the default text of a button). */
+    placeholderWord?: EngineWord;
+    multiline?: boolean;
+    /** Shown under "More settings". */
+    advanced?: boolean;
+}
+
+/** Describe a setting for the inspector: `schema.meta(meta)`, with the words typed. */
+export function setting<S extends z.ZodType>(schema: S, meta: SettingMeta): S {
+    return schema.meta(meta as z.core.GlobalMeta);
+}
 
 /**
  * How the form builder offers a type: its palette entry and its settings. `settings` is a Zod object over the field's stored
@@ -46,11 +75,11 @@ export type PaletteGroup = (typeof PALETTE_GROUPS)[number];
  * builder's inspector is generated from it (see `designer/SettingsForm.tsx` for the supported metadata).
  */
 export interface DesignMeta {
-    label: string;
+    label: EngineWord;
     icon: ComponentType<{ className?: string }>;
     group: PaletteGroup;
     /** One line for the palette tooltip. */
-    hint?: string;
+    hint?: EngineWord;
     keywords?: string[];
     settings?: z.ZodObject;
     /** Which rule editors the inspector offers (validation lives in `behavior.validation.rules` / props). */

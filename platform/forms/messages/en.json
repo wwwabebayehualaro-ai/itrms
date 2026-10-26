@@ -12,5 +12,6 @@
   "forms.export.failed.too_large": "The file would be too large: narrow the filter or choose fewer fields.",
   "forms.export.failed.invalid_query": "The export cannot be made as asked (a field or filter is no longer there).",
   "forms.export.failed.not_permitted": "You no longer hold the right to export in this office.",
-  "forms.export.failed.failed": "The export could not be made: ask for it again."
+  "forms.export.failed.failed": "The export could not be made: ask for it again.",
+  "forms.validation.tooManyChoices": "At most {max} choices"
 }

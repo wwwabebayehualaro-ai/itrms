@@ -9,6 +9,7 @@ import { vi } from 'vitest';
 
 import { ServerErrorsProvider, TooltipProvider } from '@itrms/ui';
 
+import { engineTranslator } from './core/messages';
 import { serverFormErrors, type FormsClient, type FormsRequestError, type FormsResponse } from './host/client';
 import { FormsHostProvider, type FormsHost, type FormsLocation, type FormsUser } from './host/FormsHost';
 
@@ -55,6 +56,10 @@ export function testHost({
         templatesHref: '/templates'
     };
 }
+
+/** The engine's words as a test reads them: `amText('form-engine.renderer.submit.label')`. */
+export const amText = engineTranslator('am');
+export const enText = engineTranslator('en');
 
 /** A renderer bound to one host: `const renderWithQuery = hostRenderer({ client, user })`. */
 export function hostRenderer(options: TestHostOptions = {}) {

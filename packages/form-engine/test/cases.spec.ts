@@ -12,6 +12,6 @@ describe('shared validation cases', () => {
         expect(invalid).toEqual([]);
         const stored = submittedValues(fields, c.values);
         expect(stored).toEqual(c.stored);
-        expect(validateForm(fields, stored)).toEqual(c.errors);
+        expect(validateForm(fields, stored, {}, { language: cases.language })).toEqual(c.errors);
     });
 });

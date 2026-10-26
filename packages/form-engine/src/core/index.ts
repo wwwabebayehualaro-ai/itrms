@@ -18,7 +18,9 @@ export { evalCondition, checkRuleFormula } from './runtime/formula';
 export { valueKindOf, shapeError, type ValueKind } from './kinds';
 export { ethiopianDateText, isIsoDay, addisDayTime } from './dates';
 export { numberFormatOf } from './format';
-export { printModel, printValueText, PRINT_WORDS } from './print';
+export { engineText, engineTranslator, wordIn } from './messages';
+export type { EngineMessageKey, EngineTranslate, EngineValues, EngineWord } from './messages';
+export { printModel, printValueText, printWords, PRINT_BLANK } from './print';
 export type { PrintDocument, PrintNode, PrintOptions, PrintWords } from './print';
 export { untranslatedTexts, untranslatedInDocument, type UntranslatedText } from './text';
 export {
@@ -51,7 +53,7 @@ export {
     isVisibleIn,
     isEnabledIn
 } from './values';
-export { validateForm, fieldSchema, parseDate, REMOTE_PENDING } from './validate';
+export { validateForm, fieldSchema, parseDate, remotePendingText } from './validate';
 export type { FieldErrors } from './validate';
 export { checkDocument, MAX_PROBLEMS } from './document';
 export type { DocumentProblem } from './document';

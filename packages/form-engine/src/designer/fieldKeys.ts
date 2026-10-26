@@ -1,5 +1,6 @@
 import type { FormField } from '@itrms/schemas';
 import type { TemplateRuntimeConfig } from '@itrms/schemas';
+import type { EngineMessageKey } from '../core/messages';
 
 /**
  * Field keys. A field's `id` is its *key* in submitted data and in bindings/formulas (`{{form.amount}}`, `row.qty`),
@@ -7,11 +8,11 @@ import type { TemplateRuntimeConfig } from '@itrms/schemas';
  */
 export const KEY_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
 
-/** Returns an error message, or null when `key` can be used for `fieldId`. */
-export function validateFieldKey(key: string, fieldId: string, fields: FormField[]): string | null {
+/** Returns the catalogue key of the error message, or null when `key` can be used for `fieldId`. */
+export function validateFieldKey(key: string, fieldId: string, fields: FormField[]): EngineMessageKey | null {
     // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- KEY_PATTERN is a fixed, anchored pattern without nested quantifiers (linear time)
-    if (!KEY_PATTERN.test(key)) return 'Start with a letter; use letters, digits and _ only (max 64)';
-    if (fields.some((f) => f.id === key && f.id !== fieldId)) return 'Another field already uses this key';
+    if (!KEY_PATTERN.test(key)) return 'form-engine.designer.keys.pattern';
+    if (fields.some((f) => f.id === key && f.id !== fieldId)) return 'form-engine.designer.keys.taken';
     return null;
 }
 

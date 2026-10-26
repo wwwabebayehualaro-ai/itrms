@@ -12,6 +12,7 @@ import { shapeError } from './kinds';
 import { isFormArray, isRequiredIn, type EngineField, type FieldOption } from './model';
 import { evalCondition } from './runtime/formula';
 import { str } from './runtime/path';
+import { engineTranslator, type EngineTranslate } from './messages';
 import { compilePattern } from './safePattern';
 import { MAX_ROWS, holdsValue, isEnabledIn, isListField, isVisibleIn, pruneHidden, scopeFields } from './values';
 
@@ -35,11 +36,15 @@ const STRING_TYPES = new Set([
 const NUMBER_TYPES = new Set(['InputNumber', 'Rating', 'Knob']);
 const BOOLEAN_TYPES = new Set(['Checkbox', 'InputSwitch']);
 
-/** The Zod schema for one field's value. Built per validation run (cheap) because `required` etc. never change mid-form. */
-export function fieldSchema(f: EngineField): z.ZodType<unknown> {
+/**
+ * The Zod schema for one field's value. Built per validation run (cheap) because `required` etc. never change mid-form. The
+ * author's messages are the field's own; the defaults are the engine's words in `language` (default Amharic).
+ */
+export function fieldSchema(f: EngineField, language = 'am'): z.ZodType<unknown> {
     const m = f.messages;
     const r = f.rules;
-    const requiredMsg = m.required || 'This field is required';
+    const t = engineTranslator(language);
+    const requiredMsg = m.required || t('form-engine.core.validation.required');
 
     if (f.type === 'FileUpload') {
         const maxSize = r.maxFileSize ?? 2_000_000;
@@ -51,11 +56,16 @@ export function fieldSchema(f: EngineField): z.ZodType<unknown> {
             const files = Array.isArray(value) ? (value as Array<Record<string, unknown>>) : [];
             if (r.required && files.length === 0) return void ctx.addIssue({ code: 'custom', message: requiredMsg });
             if (files.some((file) => !file || typeof file.name !== 'string' || !(Number(file.size) > 0)))
-                return void ctx.addIssue({ code: 'custom', message: m.fileType || 'Invalid file' });
+                return void ctx.addIssue({
+                    code: 'custom',
+                    message: m.fileType || t('form-engine.core.validation.invalidFile')
+                });
             if (files.some((file) => Number(file.size) > maxSize))
                 return void ctx.addIssue({
                     code: 'custom',
-                    message: m.fileSize || `File must be smaller than ${maxSize / 1_000_000}MB`
+                    message:
+                        m.fileSize ||
+                        t('form-engine.core.validation.fileTooLarge', { size: String(maxSize / 1_000_000) })
                 });
             if (
                 exts?.length &&
@@ -68,7 +78,10 @@ export function fieldSchema(f: EngineField): z.ZodType<unknown> {
                         )
                 )
             )
-                ctx.addIssue({ code: 'custom', message: m.fileType || 'Invalid file type' });
+                ctx.addIssue({
+                    code: 'custom',
+                    message: m.fileType || t('form-engine.core.validation.invalidFileType')
+                });
         });
     }
 
@@ -81,14 +94,20 @@ export function fieldSchema(f: EngineField): z.ZodType<unknown> {
             .superRefine((list, ctx) => {
                 if (r.required && list.length === 0) ctx.addIssue({ code: 'custom', message: requiredMsg });
                 else if (list.some((x) => x === undefined))
-                    ctx.addIssue({ code: 'custom', message: m.type || 'Please check your selection' });
+                    ctx.addIssue({
+                        code: 'custom',
+                        message: m.type || t('form-engine.core.validation.checkSelection')
+                    });
             });
     }
 
     if (BOOLEAN_TYPES.has(f.type)) {
         return z.unknown().superRefine((v, ctx) => {
             if (!isBlank(v) && typeof v !== 'boolean')
-                return void ctx.addIssue({ code: 'custom', message: m.type || 'Please choose yes or no' });
+                return void ctx.addIssue({
+                    code: 'custom',
+                    message: m.type || t('form-engine.core.validation.yesOrNo')
+                });
             // a required checkbox must be ticked (an agreement); a required switch only needs an answer
             if (r.required && (f.type === 'Checkbox' ? v !== true : isBlank(v)))
                 ctx.addIssue({ code: 'custom', message: requiredMsg });
@@ -103,16 +122,23 @@ export function fieldSchema(f: EngineField): z.ZodType<unknown> {
         return z.unknown().superRefine((v, ctx) => {
             if (isBlank(v)) return void (r.required && ctx.addIssue({ code: 'custom', message: requiredMsg }));
             if (!isIsoDay(v))
-                return void ctx.addIssue({ code: 'custom', message: m.type || 'Please enter a valid date' });
+                return void ctx.addIssue({
+                    code: 'custom',
+                    message: m.type || t('form-engine.core.validation.invalidDate')
+                });
             if (min && v < min)
                 return void ctx.addIssue({
                     code: 'custom',
-                    message: fill(m.minDate || 'Date is too early', { min: ethiopianDateText(min) })
+                    message: fill(m.minDate || t('form-engine.core.validation.tooEarly'), {
+                        min: ethiopianDateText(min, { language })
+                    })
                 });
             if (max && v > max)
                 ctx.addIssue({
                     code: 'custom',
-                    message: fill(m.maxDate || 'Date is too late', { max: ethiopianDateText(max) })
+                    message: fill(m.maxDate || t('form-engine.core.validation.tooLate'), {
+                        max: ethiopianDateText(max, { language })
+                    })
                 });
         });
     }
@@ -123,13 +149,19 @@ export function fieldSchema(f: EngineField): z.ZodType<unknown> {
                 return void (r.required && ctx.addIssue({ code: 'custom', message: requiredMsg }));
             const dates = (Array.isArray(v) ? v : [v]).map(parseDate);
             if (dates.some((d) => d === null))
-                return void ctx.addIssue({ code: 'custom', message: m.type || 'Please enter a valid date' });
+                return void ctx.addIssue({
+                    code: 'custom',
+                    message: m.type || t('form-engine.core.validation.invalidDate')
+                });
             const min = parseDate(r.minDate);
             const max = parseDate(r.maxDate);
             if (min && dates.some((d) => d !== null && d < min))
-                return void ctx.addIssue({ code: 'custom', message: m.minDate || 'Date is too early' });
+                return void ctx.addIssue({
+                    code: 'custom',
+                    message: m.minDate || t('form-engine.core.validation.tooEarly')
+                });
             if (max && dates.some((d) => d !== null && d > max))
-                ctx.addIssue({ code: 'custom', message: m.maxDate || 'Date is too late' });
+                ctx.addIssue({ code: 'custom', message: m.maxDate || t('form-engine.core.validation.tooLate') });
         });
     }
 
@@ -138,16 +170,19 @@ export function fieldSchema(f: EngineField): z.ZodType<unknown> {
             if (isBlank(v)) return void (r.required && ctx.addIssue({ code: 'custom', message: requiredMsg }));
             const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN;
             if (!Number.isFinite(n))
-                return void ctx.addIssue({ code: 'custom', message: m.type || 'Please enter a valid number' });
+                return void ctx.addIssue({
+                    code: 'custom',
+                    message: m.type || t('form-engine.core.validation.invalidNumber')
+                });
             if (r.min !== undefined && n < r.min)
                 return void ctx.addIssue({
                     code: 'custom',
-                    message: fill(m.min || `Must be at least ${r.min}`, { min: r.min })
+                    message: fill(m.min || t('form-engine.core.validation.min', { min: String(r.min) }), { min: r.min })
                 });
             if (r.max !== undefined && n > r.max)
                 ctx.addIssue({
                     code: 'custom',
-                    message: fill(m.max || `Cannot be more than ${r.max}`, { max: r.max })
+                    message: fill(m.max || t('form-engine.core.validation.max', { max: String(r.max) }), { max: r.max })
                 });
         });
     }
@@ -160,30 +195,33 @@ export function fieldSchema(f: EngineField): z.ZodType<unknown> {
         return z.unknown().superRefine((v, ctx) => {
             if (isBlank(v)) return void (r.required && ctx.addIssue({ code: 'custom', message: requiredMsg }));
             if (typeof v !== 'string' && typeof v !== 'number')
-                return void ctx.addIssue({ code: 'custom', message: m.type || 'Please enter text' });
+                return void ctx.addIssue({
+                    code: 'custom',
+                    message: m.type || t('form-engine.core.validation.enterText')
+                });
             const s = String(v);
             const add = (message: string) => ctx.addIssue({ code: 'custom', message });
             if (email && !z.email().safeParse(s).success)
-                return void add(m.email || 'Please enter a valid email address');
+                return void add(m.email || t('form-engine.core.validation.email'));
             if (r.typeMinLength !== undefined && s.length < r.typeMinLength)
                 return void add(
-                    fill(m.minLength || `Must be at least ${r.typeMinLength} characters`, {
+                    fill(m.minLength || t('form-engine.core.validation.minLength', { min: String(r.typeMinLength) }), {
                         minLength: r.typeMinLength,
                         min: r.typeMinLength
                     })
                 );
             if (r.typeMaxLength !== undefined && s.length > r.typeMaxLength)
                 return void add(
-                    fill(m.maxLength || `Cannot exceed ${r.typeMaxLength} characters`, {
+                    fill(m.maxLength || t('form-engine.core.validation.maxLength', { max: String(r.typeMaxLength) }), {
                         maxLength: r.typeMaxLength,
                         max: r.typeMaxLength
                     })
                 );
             if (r.minLength !== undefined && r.minLength > 0 && s.length < r.minLength)
-                return void add(`Must be at least ${r.minLength} characters`);
+                return void add(t('form-engine.core.validation.minLength', { min: String(r.minLength) }));
             if (r.maxLength !== undefined && r.maxLength > 0 && s.length > r.maxLength)
-                return void add(`Cannot be longer than ${r.maxLength} characters`);
-            if (pattern && !pattern(s)) add(r.patternMessage || 'Please check the format');
+                return void add(t('form-engine.core.validation.longerThan', { max: String(r.maxLength) }));
+            if (pattern && !pattern(s)) add(r.patternMessage || t('form-engine.core.validation.format'));
         });
     }
 
@@ -200,7 +238,7 @@ const CHOICE_TYPES = new Set(['Dropdown', 'MultiSelect', 'RadioButton', 'Checkbo
  * A choice is one of the field's own options (in option groups too). Not checked when the options come from a data source
  * or the field takes free text (`editable`): those are checked where the data is.
  */
-function choiceError(f: EngineField, value: unknown): string | undefined {
+function choiceError(f: EngineField, value: unknown, t: EngineTranslate): string | undefined {
     if (!CHOICE_TYPES.has(f.type) || f.optionsBinding || f.props.editable || f.options.length === 0) return undefined;
     if (isBlank(value) || (Array.isArray(value) && value.length === 0)) return undefined;
     const allowed = new Set<string>();
@@ -210,35 +248,39 @@ function choiceError(f: EngineField, value: unknown): string | undefined {
     const picked = Array.isArray(value) ? (value as unknown[]) : [value];
     return picked.every((v) => allowed.has(JSON.stringify(v)))
         ? undefined
-        : f.messages.type || 'Please choose one of the options';
+        : f.messages.type || t('form-engine.core.validation.chooseOption');
 }
 
-/** Shown while a remote check runs (the renderer shows it as progress, not as a mistake). */
-export const REMOTE_PENDING = 'Checking…';
+/** The message shown while a remote check runs (the renderer shows it as progress, not as a mistake). */
+export const remotePendingText = (language: string): string =>
+    engineTranslator(language)('form-engine.core.validation.checking');
 
 /** The message of a field checked by a data source (`behavior.validation.remote`), from `scope.status.<id>`. */
-function remoteError(f: EngineField, scope: Scope): string | undefined {
+function remoteError(f: EngineField, scope: Scope, t: EngineTranslate): string | undefined {
     const remote = f.remote;
     if (!remote) return undefined;
     const st = (scope.status as Record<string, { state?: string; error?: string | null }> | undefined)?.[
         remote.dataSourceId
     ];
-    if (st?.state === 'loading') return REMOTE_PENDING;
-    if (st?.state === 'error') return st.error || remote.message || 'Could not be verified';
+    if (st?.state === 'loading') return t('form-engine.core.validation.checking');
+    if (st?.state === 'error') return st.error || remote.message || t('form-engine.core.validation.notVerified');
     return undefined;
 }
 
-function rowCountMessage(f: EngineField, rows: number, needsRow: boolean): string | undefined {
+function rowCountMessage(f: EngineField, rows: number, needsRow: boolean, t: EngineTranslate): string | undefined {
     const { minItems } = f.rules;
     const max = Math.min(f.rules.maxItems, MAX_ROWS);
     const min = needsRow ? Math.max(1, minItems) : minItems;
-    const label = f.label || 'This section';
+    const label = f.label || t('form-engine.core.validation.thisSection');
     if (needsRow && rows === 0 && minItems === 0 && f.messages.required) return f.messages.required;
     if (rows < min)
-        return fill(f.messages.minItems ?? `${label}: at least ${min} row${min === 1 ? '' : 's'} required`, {
+        return fill(f.messages.minItems ?? t('form-engine.core.validation.minItems', { label, count: min }), {
             minItems: min
         });
-    if (rows > max) return fill(f.messages.maxItems ?? `${label}: at most ${max} rows allowed`, { maxItems: max });
+    if (rows > max)
+        return fill(f.messages.maxItems ?? t('form-engine.core.validation.maxItems', { label, max: String(max) }), {
+            maxItems: max
+        });
     return undefined;
 }
 
@@ -256,21 +298,29 @@ function validWhenError(
     value: unknown,
     scope: Scope,
     current: Record<string, unknown>,
-    root: Record<string, unknown>
+    root: Record<string, unknown>,
+    t: EngineTranslate
 ): string | undefined {
     if (isBlank(value) || (Array.isArray(value) && value.length === 0)) return undefined;
     const failed = f.rules.validWhen.find(
         (rule) => evalCondition(rule.expression, ruleScope(scope, current, root)) === false
     );
-    return failed ? failed.message || 'This value is not valid' : undefined;
+    return failed ? failed.message || t('form-engine.core.validation.notValid') : undefined;
 }
 
 /**
  * Validate `values` (the whole form). `scope` is the runtime context (`data`, `user`, `route`, `variables`) that conditions may
  * read. Returns `{}` when everything is fine. Values of hidden fields are dropped first, so the browser and the server agree
- * on what a rule reads.
+ * on what a rule reads. The engine's own messages are in `opts.language` (default Amharic); the author's are the fields'.
  */
-export function validateForm(fields: EngineField[], values: Record<string, unknown>, scope: Scope = {}): FieldErrors {
+export function validateForm(
+    fields: EngineField[],
+    values: Record<string, unknown>,
+    scope: Scope = {},
+    opts: { language?: string } = {}
+): FieldErrors {
+    const language = opts.language ?? 'am';
+    const t = engineTranslator(language);
     const byId = new Map(fields.map((f) => [f.id, f]));
     const errors: FieldErrors = {};
     const root = pruneHidden(fields, values, scope);
@@ -284,19 +334,19 @@ export function validateForm(fields: EngineField[], values: Record<string, unkno
             if (isFormArray(f)) {
                 const rows = Array.isArray(current[f.id]) ? (current[f.id] as Record<string, unknown>[]) : [];
                 const needsRow = f.validated && isRequiredIn(f, current, root, { user: scope.user });
-                const count = rowCountMessage(f, rows.length, needsRow);
+                const count = rowCountMessage(f, rows.length, needsRow, t);
                 if (count) {
                     errors[path] = count;
                     continue;
                 }
                 // the section's own checks read its rows (count(form.lines) <= 5), then each row is checked
-                const check = f.validated ? validWhenError(f, rows, scope, current, root) : undefined;
+                const check = f.validated ? validWhenError(f, rows, scope, current, root, t) : undefined;
                 if (check) errors[path] = check;
                 rows.forEach((row, i) => run(f.id, row ?? {}, `${path}[${i}].`));
                 continue;
             }
             if (holdsValue(f) && !f.computed?.readOnly) {
-                const shape = shapeError(f, current[f.id]);
+                const shape = shapeError(f, current[f.id], language);
                 if (shape) {
                     errors[path] = shape;
                     continue;
@@ -305,16 +355,18 @@ export function validateForm(fields: EngineField[], values: Record<string, unkno
             if (!f.validated) continue;
             const required = isRequiredIn(f, current, root, { user: scope.user });
             const result = fieldSchema(
-                required && !f.rules.required ? { ...f, rules: { ...f.rules, required } } : f
+                required && !f.rules.required ? { ...f, rules: { ...f.rules, required } } : f,
+                language
             ).safeParse(current[f.id]);
             if (!result.success) {
-                errors[path] = result.error.issues[0]?.message ?? 'Invalid value';
+                errors[path] = result.error.issues[0]?.message ?? t('form-engine.core.validation.invalidValue');
                 continue;
             }
-            const message = choiceError(f, current[f.id]) ?? validWhenError(f, current[f.id], scope, current, root);
+            const message =
+                choiceError(f, current[f.id], t) ?? validWhenError(f, current[f.id], scope, current, root, t);
             if (message) errors[path] = message;
             else if (f.remote && !isBlank(current[f.id])) {
-                const remote = remoteError(f, scope);
+                const remote = remoteError(f, scope, t);
                 if (remote) errors[path] = remote;
             }
         }

@@ -13,6 +13,7 @@ import {
     type ChartConfig
 } from '@itrms/ui';
 import { requestErrorMessage } from '../../host/client';
+import { useEngineText } from '../../host/text';
 import { formatCurrency } from '../../host/format';
 import { useSubmissionData } from '../api';
 import { EmptyBox } from '../components';
@@ -26,7 +27,7 @@ const compact = (n: number) =>
         : n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 
 // one series in the validated categorical colour; text (labels, ticks, values) stays in the text tokens
-const CONFIG = { value: { label: 'Requests', color: 'var(--chart-1)' } } satisfies ChartConfig;
+const chartConfig = (label: string) => ({ value: { label, color: 'var(--chart-1)' } }) satisfies ChartConfig;
 
 interface Datum {
     key: string | null;
@@ -50,6 +51,7 @@ function ChartCard({
     onPick: (d: Datum) => void;
     wide?: boolean;
 }) {
+    const { t } = useEngineText();
     const [asTable, setAsTable] = useState(false);
     return (
         <section
@@ -62,8 +64,10 @@ function ChartCard({
                     {subtitle && <span className="text-sm text-muted-foreground">{subtitle}</span>}
                 </div>
                 <IconButton
-                    label={asTable ? 'Show chart' : 'Show as table'}
-                    tooltip={asTable ? 'Chart' : 'Table'}
+                    label={t(
+                        asTable ? 'form-engine.viewer.dashboard.showChart' : 'form-engine.viewer.dashboard.showTable'
+                    )}
+                    tooltip={t(asTable ? 'form-engine.viewer.dashboard.chart' : 'form-engine.viewer.dashboard.table')}
                     side="left"
                     onClick={() => setAsTable(!asTable)}
                 >
@@ -80,7 +84,10 @@ function ChartCard({
                                         type="button"
                                         className="text-left hover:underline focus-visible:underline focus-visible:outline-none"
                                         onClick={() => onPick(d)}
-                                        aria-label={`${d.label}: ${compact(d.value)}. Show these requests`}
+                                        aria-label={t('form-engine.viewer.dashboard.pick', {
+                                            label: d.label,
+                                            value: compact(d.value)
+                                        })}
                                     >
                                         {d.label}
                                     </button>
@@ -126,9 +133,10 @@ function HookedBar(props: {
 }
 
 function Bars({ data, onPick }: { data: Datum[]; onPick: (d: Datum) => void }) {
+    const { t } = useEngineText();
     return (
         <ChartContainer
-            config={CONFIG}
+            config={chartConfig(t('form-engine.viewer.dashboard.requests'))}
             className="aspect-auto w-full"
             style={{ height: data.length * 36 + 8 }}
             initialDimension={{ width: 480, height: data.length * 36 + 8 }}
@@ -172,9 +180,10 @@ function Bars({ data, onPick }: { data: Datum[]; onPick: (d: Datum) => void }) {
 }
 
 function Columns({ data, onPick }: { data: Datum[]; onPick: (d: Datum) => void }) {
+    const { t } = useEngineText();
     return (
         <ChartContainer
-            config={CONFIG}
+            config={chartConfig(t('form-engine.viewer.dashboard.requests'))}
             className="aspect-auto h-56 w-full"
             initialDimension={{ width: 800, height: 224 }}
         >
@@ -235,6 +244,7 @@ const MAX_BARS = 8;
 const MAX_MONTHS = 12;
 
 export default function DashboardView({ templateId, schema, state, patch, labeler }: ViewModeProps) {
+    const { t } = useEngineText();
     const stage = schema.fields.find((f) => f.key === schema.roles.stage)!;
     const measures = schema.fields.filter((f) => f.aggregatable).slice(0, 2);
     const dateField =
@@ -269,12 +279,12 @@ export default function DashboardView({ templateId, schema, state, patch, labele
     const byBreakdown = useSubmissionData(breakdown ? { ...common, group_by: { field: breakdown.key } } : null);
 
     const error = summary.error ?? byStage.error ?? byTime.error ?? byBreakdown.error;
-    if (error) return <InlineStatus error={requestErrorMessage(error)} />;
+    if (error) return <InlineStatus error={requestErrorMessage(error, undefined, t)} />;
     if (summary.isPending) return <InlineStatus loading />;
 
     const n = summary.data?.aggregates.n ?? 0;
     const data = (r: QueryResult | undefined, f: ViewField, b?: Bucket): Datum[] =>
-        (r?.groups ?? []).map((g) => ({ key: g.key, label: groupLabel(f, g.key, b, labeler.text), value: g.count }));
+        (r?.groups ?? []).map((g) => ({ key: g.key, label: groupLabel(f, g.key, b, labeler.text, t), value: g.count }));
     const stageData = data(byStage.data, stage);
     const timeData = data(byTime.data, dateField, bucket)
         .filter((d) => d.key !== null)
@@ -294,26 +304,30 @@ export default function DashboardView({ templateId, schema, state, patch, labele
     if (n === 0)
         return (
             <EmptyBox>
-                {state.search || state.filter.items.length ? 'No requests match these filters.' : 'No requests yet.'}
+                {state.search || state.filter.items.length
+                    ? t('form-engine.viewer.noMatch')
+                    : t('form-engine.viewer.noRequests')}
             </EmptyBox>
         );
 
     return (
         <div className="flex flex-col gap-3" data-dashboard>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-                <Tile hero label="Requests" value={n.toLocaleString('en-US')} />
+                <Tile hero label={t('form-engine.viewer.dashboard.requests')} value={n.toLocaleString('en-US')} />
                 {measures.map((m) => (
                     <Tile
                         key={m.key}
-                        label={`Sum of ${m.label}`}
+                        label={t('form-engine.viewer.dashboard.sumOf', { measure: m.label })}
                         value={money(m, summary.data?.aggregates[`sum_${m.key}`])}
-                        hint={`Average ${money(m, summary.data?.aggregates[`avg_${m.key}`])}`}
+                        hint={t('form-engine.viewer.dashboard.average', {
+                            value: money(m, summary.data?.aggregates[`avg_${m.key}`])
+                        })}
                     />
                 ))}
             </div>
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 <ChartCard
-                    title={`Requests by ${stage.label.toLowerCase()}`}
+                    title={t('form-engine.viewer.dashboard.byField', { field: stage.label.toLowerCase() })}
                     data={stageData}
                     onPick={(d) => drill(stage, d)}
                 >
@@ -321,8 +335,12 @@ export default function DashboardView({ templateId, schema, state, patch, labele
                 </ChartCard>
                 {breakdown && breakdownData.length > 0 && (
                     <ChartCard
-                        title={`Requests by ${breakdown.label.toLowerCase()}`}
-                        subtitle={(byBreakdown.data?.groups.length ?? 0) > MAX_BARS ? `Top ${MAX_BARS}` : undefined}
+                        title={t('form-engine.viewer.dashboard.byField', { field: breakdown.label.toLowerCase() })}
+                        subtitle={
+                            (byBreakdown.data?.groups.length ?? 0) > MAX_BARS
+                                ? t('form-engine.viewer.dashboard.top', { count: String(MAX_BARS) })
+                                : undefined
+                        }
                         data={breakdownData}
                         onPick={(d) => drill(breakdown, d)}
                     >
@@ -332,7 +350,7 @@ export default function DashboardView({ templateId, schema, state, patch, labele
                 {timeData.length > 0 && (
                     <ChartCard
                         wide
-                        title={`Requests by month of ${dateField.label.toLowerCase()}`}
+                        title={t('form-engine.viewer.dashboard.byMonth', { field: dateField.label.toLowerCase() })}
                         data={timeData}
                         onPick={(d) => drill(dateField, d, bucket)}
                     >

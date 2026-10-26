@@ -36,6 +36,7 @@ import {
 } from '@itrms/ui';
 import { executeDataSource, getDependencies } from '../renderer/runtime/dataSourceClient';
 import { useFormsClient } from '../host/FormsHost';
+import { useEngineText } from '../host/text';
 import { toOptions } from '../core/runtime/mapping';
 import type { DataSourceDefinition, HttpMethod, RuntimeContext, TemplateRuntimeConfig } from '@itrms/schemas';
 import { holdsValue, toEngineField, type StoredField } from '../core';
@@ -115,6 +116,7 @@ function Part({ title, open: initial = false, children }: { title: string; open?
 
 function TestPanel({ ds }: { ds: DataSourceDefinition }) {
     const client = useFormsClient();
+    const { t } = useEngineText();
     const [sample, setSample] = useState<unknown>({});
     const [state, setState] = useState<{ loading: boolean; error?: string; data?: unknown; count?: number }>({
         loading: false
@@ -122,9 +124,7 @@ function TestPanel({ ds }: { ds: DataSourceDefinition }) {
     if (ds.request.method !== 'GET')
         return (
             <Alert>
-                <AlertDescription>
-                    Only GET data sources can be tried here. The others run when the form is submitted.
-                </AlertDescription>
+                <AlertDescription>{t('form-engine.designer.sources.testOnlyGet')}</AlertDescription>
             </Alert>
         );
     const run = async () => {
@@ -145,13 +145,16 @@ function TestPanel({ ds }: { ds: DataSourceDefinition }) {
     };
     return (
         <div className="flex flex-col gap-3">
-            <Row label="Sample form values (JSON)" help="Used for {{form.*}} in the request.">
+            <Row
+                label={t('form-engine.designer.sources.testSample')}
+                help={t('form-engine.designer.sources.testSampleHelp', { example: '{{form.*}}' })}
+            >
                 <JsonEditor
                     value={sample}
                     onChange={setSample}
                     rows={3}
                     placeholder='{ "branchId": "1" }'
-                    aria-label="Sample form values"
+                    aria-label={t('form-engine.designer.sources.testSampleLabel')}
                 />
             </Row>
             <Button
@@ -163,13 +166,15 @@ function TestPanel({ ds }: { ds: DataSourceDefinition }) {
                 disabled={state.loading}
             >
                 {state.loading ? <Spinner /> : <Play />}
-                Try the request
+                {t('form-engine.designer.sources.testRun')}
             </Button>
             {state.error && <p className="text-sm text-destructive">{state.error}</p>}
             {state.data !== undefined && (
                 <>
                     <span className="text-sm text-muted-foreground">
-                        {state.count ? `${state.count} options found` : 'Answered (no options found with the mapping)'}
+                        {state.count
+                            ? t('form-engine.designer.sources.testFound', { count: String(state.count) })
+                            : t('form-engine.designer.sources.testAnswered')}
                     </span>
                     <pre className="max-h-52 overflow-auto rounded-md bg-muted p-2 text-xs">
                         {JSON.stringify(state.data, null, 2)?.slice(0, 4000)}
@@ -191,6 +196,7 @@ function SourceEditor({
     allIds: string[];
     subjects: ConditionSubject[];
 }) {
+    const { t } = useEngineText();
     const set = (patch: Partial<DataSourceDefinition>) => onChange({ ...ds, ...patch });
     const setReq = (patch: Partial<DataSourceDefinition['request']>) => set({ request: { ...ds.request, ...patch } });
     const setMap = (patch: Partial<NonNullable<DataSourceDefinition['responseMapping']>>) =>
@@ -198,9 +204,9 @@ function SourceEditor({
     const setOpt = (patch: Record<string, string | undefined>) =>
         setMap({ options: { ...ds.responseMapping?.options, ...patch } });
     const idError = !ID_RE.test(ds.id)
-        ? 'Letters, digits, - or _, starting with a letter.'
+        ? t('form-engine.designer.sources.idFormat')
         : allIds.filter((i) => i === ds.id).length > 1
-          ? 'Another data source has this id.'
+          ? t('form-engine.designer.sources.idTaken')
           : null;
     const isGet = ds.request.method === 'GET';
     const waits = getDependencies(ds);
@@ -208,7 +214,12 @@ function SourceEditor({
     return (
         <div className="flex flex-col gap-4" data-source-editor={ds.id}>
             <div className="grid gap-3 sm:grid-cols-[1fr_2fr]">
-                <Row id={`${p}-id`} label="Id" help="Used as {{data.<id>}}" error={idError}>
+                <Row
+                    id={`${p}-id`}
+                    label={t('form-engine.designer.sources.id')}
+                    help={t('form-engine.designer.sources.idHelp', { example: '{{data.<id>}}' })}
+                    error={idError}
+                >
                     <Input
                         id={`${p}-id`}
                         value={ds.id}
@@ -216,7 +227,7 @@ function SourceEditor({
                         onChange={(e) => set({ id: e.target.value })}
                     />
                 </Row>
-                <Row id={`${p}-name`} label="Name">
+                <Row id={`${p}-name`} label={t('form-engine.designer.sources.name')}>
                     <Input
                         id={`${p}-name`}
                         value={ds.name ?? ''}
@@ -225,7 +236,7 @@ function SourceEditor({
                 </Row>
             </div>
             <div className="grid gap-3 sm:grid-cols-[8rem_1fr]">
-                <Row id={`${p}-method`} label="Method">
+                <Row id={`${p}-method`} label={t('form-engine.designer.sources.method')}>
                     <Select value={ds.request.method} onValueChange={(v) => setReq({ method: v as HttpMethod })}>
                         <SelectTrigger id={`${p}-method`} className="w-full">
                             <SelectValue />
@@ -241,8 +252,10 @@ function SourceEditor({
                 </Row>
                 <Row
                     id={`${p}-url`}
-                    label="Address (relative to the backend)"
-                    help="e.g. /branches, /customers/{customerId}, /customers?branchId={{form.branchId}}"
+                    label={t('form-engine.designer.sources.address')}
+                    help={t('form-engine.designer.sources.addressHelp', {
+                        examples: '/branches, /customers/{customerId}, /customers?branchId={{form.branchId}}'
+                    })}
                 >
                     <Input
                         id={`${p}-url`}
@@ -253,40 +266,48 @@ function SourceEditor({
                 </Row>
             </div>
             {waits.length > 0 && (
-                <p className="text-xs text-muted-foreground">Waits for: {waits.map((d) => `{{${d}}}`).join(', ')}</p>
+                <p className="text-xs text-muted-foreground">
+                    {t('form-engine.designer.sources.waitsFor', { list: waits.map((d) => `{{${d}}}`).join(', ') })}
+                </p>
             )}
 
-            <Part title="Request" open>
-                <Row label="Path parameters" help="Replace {name} in the address.">
+            <Part title={t('form-engine.designer.sources.partRequest')} open>
+                <Row
+                    label={t('form-engine.designer.sources.pathParams')}
+                    help={t('form-engine.designer.sources.pathParamsHelp', { example: '{name}' })}
+                >
                     <KeyValueEditor
                         value={ds.request.pathParams}
                         onChange={(v) => setReq({ pathParams: v })}
                         keyPlaceholder="customerId"
-                        aria-label="Path parameter"
+                        aria-label={t('form-engine.designer.sources.pathParam')}
                     />
                 </Row>
-                <Row label="Query parameters" help="Empty values are left out.">
+                <Row
+                    label={t('form-engine.designer.sources.queryParams')}
+                    help={t('form-engine.designer.sources.queryParamsHelp')}
+                >
                     <KeyValueEditor
                         value={ds.request.query}
                         onChange={(v) => setReq({ query: v })}
                         keyPlaceholder="branchId"
-                        aria-label="Query parameter"
+                        aria-label={t('form-engine.designer.sources.queryParam')}
                     />
                 </Row>
                 <Row
-                    label="Headers"
-                    help="Authorization and cookies are ignored: the application client adds the session."
+                    label={t('form-engine.designer.sources.headers')}
+                    help={t('form-engine.designer.sources.headersHelp')}
                 >
                     <KeyValueEditor
                         value={ds.request.headers}
                         onChange={(v) => setReq({ headers: v })}
                         keyPlaceholder="X-Custom"
-                        aria-label="Header"
+                        aria-label={t('form-engine.designer.sources.header')}
                     />
                 </Row>
                 {!isGet && (
                     <>
-                        <Row id={`${p}-ctype`} label="Content type">
+                        <Row id={`${p}-ctype`} label={t('form-engine.designer.sources.contentType')}>
                             <Select
                                 value={ds.request.contentType ?? 'application/json'}
                                 onValueChange={(v) =>
@@ -310,32 +331,34 @@ function SourceEditor({
                             </Select>
                         </Row>
                         <Row
-                            label="Body (JSON)"
-                            help='Bindings allowed, e.g. { "query": "{{form.search}}" }. Empty sends the submitted values.'
+                            label={t('form-engine.designer.sources.body')}
+                            help={t('form-engine.designer.sources.bodyHelp', {
+                                example: '{ "query": "{{form.search}}" }'
+                            })}
                         >
                             <JsonEditor
                                 key={`${ds.id}-body`}
                                 value={ds.request.body}
                                 onChange={(v) => setReq({ body: v })}
                                 rows={6}
-                                aria-label="Body"
+                                aria-label={t('form-engine.designer.sources.bodyLabel')}
                             />
                         </Row>
                     </>
                 )}
                 <div className="grid gap-3 sm:grid-cols-2">
-                    <Row id={`${p}-auth`} label="Sign-in">
+                    <Row id={`${p}-auth`} label={t('form-engine.designer.sources.signIn')}>
                         <Select value={ds.auth ?? 'app'} onValueChange={(v) => set({ auth: v as 'app' | 'none' })}>
                             <SelectTrigger id={`${p}-auth`} className="w-full">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="app">The person&apos;s session</SelectItem>
-                                <SelectItem value="none">None (public)</SelectItem>
+                                <SelectItem value="app">{t('form-engine.designer.sources.authApp')}</SelectItem>
+                                <SelectItem value="none">{t('form-engine.designer.sources.authNone')}</SelectItem>
                             </SelectContent>
                         </Select>
                     </Row>
-                    <Row id={`${p}-timeout`} label="Give up after (ms)">
+                    <Row id={`${p}-timeout`} label={t('form-engine.designer.sources.timeout')}>
                         <NumberInput
                             id={`${p}-timeout`}
                             value={ds.timeoutMs ?? 15000}
@@ -344,7 +367,7 @@ function SourceEditor({
                     </Row>
                     {isGet && (
                         <>
-                            <Row id={`${p}-retries`} label="Attempts">
+                            <Row id={`${p}-retries`} label={t('form-engine.designer.sources.attempts')}>
                                 <NumberInput
                                     id={`${p}-retries`}
                                     value={ds.retry?.attempts ?? 1}
@@ -360,7 +383,7 @@ function SourceEditor({
                                     }
                                 />
                             </Row>
-                            <Row id={`${p}-delay`} label="Wait between attempts (ms)">
+                            <Row id={`${p}-delay`} label={t('form-engine.designer.sources.delay')}>
                                 <NumberInput
                                     id={`${p}-delay`}
                                     value={ds.retry?.delayMs ?? 500}
@@ -372,37 +395,37 @@ function SourceEditor({
                 </div>
             </Part>
 
-            <Part title="When it runs">
+            <Part title={t('form-engine.designer.sources.partWhen')}>
                 <Row
-                    label="Also wait for these references"
-                    help="The request waits until each has a value. References in the address, query and body are found automatically."
+                    label={t('form-engine.designer.sources.waitRefs')}
+                    help={t('form-engine.designer.sources.waitRefsHelp')}
                 >
                     <TagsInput
                         value={ds.dependsOn ?? []}
                         onChange={(v) => set({ dependsOn: v.length ? v : undefined })}
                         placeholder="form.branchId"
-                        aria-label="Wait for"
+                        aria-label={t('form-engine.designer.sources.waitFor')}
                     />
                 </Row>
-                <Row label="Only when">
+                <Row label={t('form-engine.designer.sources.onlyWhen')}>
                     <ConditionsEditor
                         value={ds.enabledWhen}
                         subjects={subjects}
                         onChange={(v) => set({ enabledWhen: v })}
-                        emptyText="Always."
+                        emptyText={t('form-engine.designer.sources.always')}
                     />
                 </Row>
                 {isGet && (
                     <>
                         <div className="grid gap-3 sm:grid-cols-2">
-                            <Row id={`${p}-stale`} label="Fresh for (ms)">
+                            <Row id={`${p}-stale`} label={t('form-engine.designer.sources.fresh')}>
                                 <NumberInput
                                     id={`${p}-stale`}
                                     value={ds.cache?.staleTimeMs ?? 30000}
                                     onChange={(n) => set({ cache: { ...ds.cache, staleTimeMs: n ?? 0 } })}
                                 />
                             </Row>
-                            <Row id={`${p}-poll`} label="Ask again every (ms, empty = never)">
+                            <Row id={`${p}-poll`} label={t('form-engine.designer.sources.poll')}>
                                 <NumberInput
                                     id={`${p}-poll`}
                                     value={ds.refetch?.intervalMs}
@@ -412,13 +435,13 @@ function SourceEditor({
                         </div>
                         <Toggle
                             id={`${p}-focus`}
-                            label="Ask again when the person comes back to the window"
+                            label={t('form-engine.designer.sources.onFocus')}
                             checked={ds.refetch?.onWindowFocus ?? false}
                             onChange={(v) => set({ refetch: { ...ds.refetch, onWindowFocus: v } })}
                         />
                         <Toggle
                             id={`${p}-load`}
-                            label="Fill the form with the answer (once, when it opens)"
+                            label={t('form-engine.designer.sources.loadIntoForm')}
                             checked={ds.loadIntoForm ?? false}
                             onChange={(v) => set({ loadIntoForm: v })}
                         />
@@ -426,9 +449,13 @@ function SourceEditor({
                 )}
             </Part>
 
-            <Part title="Reading the answer">
+            <Part title={t('form-engine.designer.sources.partReading')}>
                 <div className="grid gap-3 sm:grid-cols-2">
-                    <Row id={`${p}-path`} label="Payload path" help="Where the data is in the answer, e.g. data">
+                    <Row
+                        id={`${p}-path`}
+                        label={t('form-engine.designer.sources.payloadPath')}
+                        help={t('form-engine.designer.sources.payloadPathHelp')}
+                    >
                         <Input
                             id={`${p}-path`}
                             value={ds.responseMapping?.path ?? ''}
@@ -436,7 +463,11 @@ function SourceEditor({
                             onChange={(e) => setMap({ path: e.target.value || undefined })}
                         />
                     </Row>
-                    <Row id={`${p}-items`} label="List of options" help="The list inside the payload, e.g. items">
+                    <Row
+                        id={`${p}-items`}
+                        label={t('form-engine.designer.sources.itemsPath')}
+                        help={t('form-engine.designer.sources.itemsPathHelp')}
+                    >
                         <Input
                             id={`${p}-items`}
                             value={ds.responseMapping?.options?.itemsPath ?? ''}
@@ -444,7 +475,7 @@ function SourceEditor({
                             onChange={(e) => setOpt({ itemsPath: e.target.value || undefined })}
                         />
                     </Row>
-                    <Row id={`${p}-label`} label="Option label from">
+                    <Row id={`${p}-label`} label={t('form-engine.designer.sources.optionLabel')}>
                         <Input
                             id={`${p}-label`}
                             value={ds.responseMapping?.options?.labelPath ?? ''}
@@ -453,7 +484,7 @@ function SourceEditor({
                             onChange={(e) => setOpt({ labelPath: e.target.value || undefined })}
                         />
                     </Row>
-                    <Row id={`${p}-value`} label="Option value from">
+                    <Row id={`${p}-value`} label={t('form-engine.designer.sources.optionValue')}>
                         <Input
                             id={`${p}-value`}
                             value={ds.responseMapping?.options?.valuePath ?? ''}
@@ -464,20 +495,22 @@ function SourceEditor({
                     </Row>
                 </div>
                 <Row
-                    label="Into form fields"
-                    help="field key → path in the payload. Used with “Fill the form” and after a successful send."
+                    label={t('form-engine.designer.sources.intoFields')}
+                    help={t('form-engine.designer.sources.intoFieldsHelp')}
                 >
                     <KeyValueEditor
                         value={ds.responseMapping?.toForm}
                         onChange={(v) => setMap({ toForm: v })}
-                        keyPlaceholder="field key"
+                        keyPlaceholder={t('form-engine.designer.sources.fieldKey')}
                         valuePlaceholder="response.path"
-                        aria-label="Into field"
+                        aria-label={t('form-engine.designer.sources.intoField')}
                     />
                 </Row>
                 <Row
-                    label="Transforms (JSON)"
-                    help='Declarative only, e.g. [{"op":"filter","path":"","where":{"field":"active","operator":"eq","value":true}}]'
+                    label={t('form-engine.designer.sources.transforms')}
+                    help={t('form-engine.designer.sources.transformsHelp', {
+                        example: '[{"op":"filter","path":"","where":{"field":"active","operator":"eq","value":true}}]'
+                    })}
                 >
                     <JsonEditor
                         key={`${ds.id}-tf`}
@@ -488,14 +521,14 @@ function SourceEditor({
                             })
                         }
                         rows={4}
-                        aria-label="Transforms"
+                        aria-label={t('form-engine.designer.sources.transformsLabel')}
                     />
                 </Row>
             </Part>
 
-            <Part title="When it fails">
+            <Part title={t('form-engine.designer.sources.partFails')}>
                 <div className="grid gap-3 sm:grid-cols-2">
-                    <Row id={`${p}-msgpath`} label="Message in the error answer">
+                    <Row id={`${p}-msgpath`} label={t('form-engine.designer.sources.errorMessagePath')}>
                         <Input
                             id={`${p}-msgpath`}
                             value={ds.errorMapping?.messagePath ?? ''}
@@ -506,7 +539,7 @@ function SourceEditor({
                             }
                         />
                     </Row>
-                    <Row id={`${p}-msg`} label="Otherwise say">
+                    <Row id={`${p}-msg`} label={t('form-engine.designer.sources.errorOtherwise')}>
                         <Input
                             id={`${p}-msg`}
                             value={ds.errorMapping?.message ?? ''}
@@ -516,18 +549,18 @@ function SourceEditor({
                         />
                     </Row>
                 </div>
-                <Row label="Message by HTTP status">
+                <Row label={t('form-engine.designer.sources.errorByStatus')}>
                     <KeyValueEditor
                         value={ds.errorMapping?.statusMessages}
                         onChange={(v) => set({ errorMapping: { ...ds.errorMapping, statusMessages: v } })}
                         keyPlaceholder="404"
-                        valuePlaceholder="Not found"
-                        aria-label="Status message"
+                        valuePlaceholder={t('form-engine.designer.sources.errorStatusExample')}
+                        aria-label={t('form-engine.designer.sources.errorStatus')}
                     />
                 </Row>
             </Part>
 
-            <Part title="Try it">
+            <Part title={t('form-engine.designer.sources.partTry')}>
                 <TestPanel ds={ds} />
             </Part>
         </div>
@@ -540,6 +573,7 @@ export function DataSources() {
     const byId = useDesigner((s) => s.doc.byId);
     const language = useDesigner((s) => s.language);
     const actions = useDesignerActions();
+    const { t } = useEngineText();
     const [selected, setSelected] = useState(0);
     const sources = runtime.dataSources;
     const current = sources[Math.min(selected, sources.length - 1)];
@@ -574,7 +608,7 @@ export function DataSources() {
     return (
         <div className="grid gap-4 md:grid-cols-[15rem_minmax(0,1fr)]" data-data-sources>
             <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1" role="list" aria-label="Data sources">
+                <div className="flex flex-col gap-1" role="list" aria-label={t('form-engine.designer.sources.list')}>
                     {sources.map((s, i) => (
                         <div
                             key={i}
@@ -594,7 +628,7 @@ export function DataSources() {
                                 </span>
                             </button>
                             <IconButton
-                                label={`Delete ${s.name || s.id}`}
+                                label={t('form-engine.designer.sources.delete', { name: s.name || s.id })}
                                 className="text-destructive hover:text-destructive"
                                 onClick={() => {
                                     setSelected(0);
@@ -616,12 +650,12 @@ export function DataSources() {
                         }}
                     >
                         <Plus />
-                        Add data source
+                        {t('form-engine.designer.sources.add')}
                     </Button>
                 </div>
 
                 <section className="flex flex-col gap-2">
-                    <h3 className="text-sm font-semibold">Variables</h3>
+                    <h3 className="text-sm font-semibold">{t('form-engine.designer.sources.variables')}</h3>
                     <KeyValueEditor
                         value={Object.fromEntries(
                             (runtime.variables ?? []).map((v) => [
@@ -632,16 +666,21 @@ export function DataSources() {
                         onChange={(v) =>
                             commit({ variables: Object.entries(v ?? {}).map(([name, value]) => ({ name, value })) })
                         }
-                        keyPlaceholder="name"
+                        keyPlaceholder={t('form-engine.designer.sources.variableName')}
                         valuePlaceholder="{{user.id}}"
-                        aria-label="Variable"
+                        aria-label={t('form-engine.designer.sources.variable')}
                     />
-                    <p className="text-xs text-muted-foreground">Used as {'{{variables.name}}'}</p>
+                    <p className="text-xs text-muted-foreground">
+                        {t('form-engine.designer.sources.variablesHelp', { example: '{{variables.name}}' })}
+                    </p>
                 </section>
 
                 <section className="flex flex-col gap-2">
-                    <h3 className="text-sm font-semibold">On submit</h3>
-                    <Row label="Also send to" help="Runs before the request is stored.">
+                    <h3 className="text-sm font-semibold">{t('form-engine.designer.sources.onSubmit')}</h3>
+                    <Row
+                        label={t('form-engine.designer.sources.alsoSend')}
+                        help={t('form-engine.designer.sources.alsoSendHelp')}
+                    >
                         <Combobox
                             options={mutations.map((m) => ({ label: m.name || m.id, value: m.id }))}
                             value={runtime.submit?.dataSourceId ?? null}
@@ -651,64 +690,74 @@ export function DataSources() {
                                     ...(v ? {} : { skipDefaultSubmission: undefined, refetch: undefined })
                                 })
                             }
-                            placeholder={mutations.length ? 'Nothing else' : 'Add a POST/PUT data source first'}
+                            placeholder={
+                                mutations.length
+                                    ? t('form-engine.designer.sources.nothingElse')
+                                    : t('form-engine.designer.sources.addMutationFirst')
+                            }
                             clearable
-                            aria-label="Also send to"
+                            aria-label={t('form-engine.designer.sources.alsoSend')}
                         />
                     </Row>
                     {runtime.submit?.dataSourceId && (
                         <>
                             <Toggle
                                 id="submit-skip"
-                                label="Do not store the request (only send it)"
+                                label={t('form-engine.designer.sources.skipStore')}
                                 checked={runtime.submit.skipDefaultSubmission ?? false}
                                 onChange={(v) => setSubmit({ skipDefaultSubmission: v || undefined })}
                             />
                             <Toggle
                                 id="submit-reset"
-                                label="Empty the form afterwards"
+                                label={t('form-engine.designer.sources.resetAfter')}
                                 checked={runtime.submit.resetOnSuccess ?? false}
                                 onChange={(v) => setSubmit({ resetOnSuccess: v || undefined })}
                             />
-                            <Row label="Then ask again">
+                            <Row label={t('form-engine.designer.sources.thenAskAgain')}>
                                 <TagsInput
                                     value={runtime.submit.refetch ?? []}
                                     onChange={(v) => setSubmit({ refetch: v.length ? v : undefined })}
-                                    placeholder="source id"
-                                    aria-label="Then ask again"
+                                    placeholder={t('form-engine.designer.sources.sourceIdPlaceholder')}
+                                    aria-label={t('form-engine.designer.sources.thenAskAgain')}
                                 />
                             </Row>
                         </>
                     )}
                     <Row
-                        label="Server action"
+                        label={t('form-engine.designer.sources.serverAction')}
                         help={
-                            serverAction
-                                ? serverAction.description
-                                : 'Coded work the system does with the request, saved together with it (e.g. posting a transaction).'
+                            serverAction ? serverAction.description : t('form-engine.designer.sources.serverActionHelp')
                         }
                         error={
-                            missingFields.length ? `This form needs the field(s): ${missingFields.join(', ')}` : null
+                            missingFields.length
+                                ? t('form-engine.designer.sources.missingFields', { fields: missingFields.join(', ') })
+                                : null
                         }
                     >
                         <Combobox
                             options={serverActions.map((a) => ({ label: a.title, value: a.key }))}
                             value={runtime.submit?.serverAction ?? null}
                             onChange={(v) => setSubmit({ serverAction: (v as string) || undefined })}
-                            placeholder={serverActions.length ? 'None' : 'No server actions in this system'}
+                            placeholder={
+                                serverActions.length
+                                    ? t('form-engine.designer.sources.none')
+                                    : t('form-engine.designer.sources.noServerActions')
+                            }
                             clearable
-                            aria-label="Server action"
+                            aria-label={t('form-engine.designer.sources.serverAction')}
                         />
                     </Row>
                     <Row
-                        label="Message after submitting"
-                        help={'May show what the server did: {{response.submission_data.reference}}'}
+                        label={t('form-engine.designer.sources.afterMessage')}
+                        help={t('form-engine.designer.sources.afterMessageHelp', {
+                            example: '{{response.submission_data.reference}}'
+                        })}
                     >
                         <Input
                             value={runtime.submit?.successMessage ?? ''}
                             onChange={(e) => setSubmit({ successMessage: e.target.value })}
-                            placeholder="Submitted successfully"
-                            aria-label="Message after submitting"
+                            placeholder={t('form-engine.designer.sources.afterMessagePlaceholder')}
+                            aria-label={t('form-engine.designer.sources.afterMessage')}
                         />
                     </Row>
                 </section>
@@ -731,10 +780,7 @@ export function DataSources() {
                     />
                 ) : (
                     <Alert>
-                        <AlertDescription>
-                            No data sources yet. Add one to load options, fill fields or send the form to your APIs.
-                            Requests use the application&apos;s signed-in client.
-                        </AlertDescription>
+                        <AlertDescription>{t('form-engine.designer.sources.empty')}</AlertDescription>
                     </Alert>
                 )}
             </div>

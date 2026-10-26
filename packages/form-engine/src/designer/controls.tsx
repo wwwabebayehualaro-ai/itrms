@@ -17,6 +17,8 @@ import {
     ToggleGroupItem
 } from '@itrms/ui';
 import { explainPattern } from '../core/safePattern';
+import type { EngineMessageKey } from '../core/messages';
+import { useEngineText } from '../host/text';
 import {
     REQUIRED_TEXT_LANGUAGES,
     formTextIn,
@@ -90,16 +92,27 @@ function RowButtons({
     onRemove: () => void;
     what: string;
 }) {
+    const { t } = useEngineText();
     return (
         <span className="flex shrink-0">
-            <IconButton label={`Move ${what} up`} size="icon-xs" disabled={i === 0} onClick={() => onMove(-1)}>
+            <IconButton
+                label={t('form-engine.settings.controls.row.moveUp', { what })}
+                size="icon-xs"
+                disabled={i === 0}
+                onClick={() => onMove(-1)}
+            >
                 <ArrowUp />
             </IconButton>
-            <IconButton label={`Move ${what} down`} size="icon-xs" disabled={i === count - 1} onClick={() => onMove(1)}>
+            <IconButton
+                label={t('form-engine.settings.controls.row.moveDown', { what })}
+                size="icon-xs"
+                disabled={i === count - 1}
+                onClick={() => onMove(1)}
+            >
                 <ArrowDown />
             </IconButton>
             <IconButton
-                label={`Remove ${what}`}
+                label={t('form-engine.settings.controls.row.remove', { what })}
                 size="icon-xs"
                 className="text-destructive hover:text-destructive"
                 onClick={onRemove}
@@ -132,6 +145,7 @@ export function LangInput({
     placeholder?: string;
     hint?: boolean;
 } & Omit<ComponentProps<typeof Input>, 'value' | 'onChange' | 'placeholder'>) {
+    const { t } = useEngineText();
     const own = ownText(text, language, plainAs);
     const fallback = formTextIn(text, language);
     const missing = own === '' && !!fallback && (REQUIRED_TEXT_LANGUAGES as readonly string[]).includes(language);
@@ -145,7 +159,7 @@ export function LangInput({
             />
             {hint && missing && (
                 <p className="text-xs text-status-warning-fg" data-missing>
-                    Missing
+                    {t('form-engine.settings.controls.missing')}
                 </p>
             )}
         </>
@@ -193,6 +207,7 @@ export function OptionsEditor({
     language?: string;
     plainAs?: string;
 }) {
+    const { t } = useEngineText();
     const rows = value ?? [];
     const set = (i: number, patch: Partial<OptionRow>) =>
         onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
@@ -219,8 +234,8 @@ export function OptionsEditor({
         <div className="flex flex-col gap-2" data-options-editor>
             {rows.length > 0 && (
                 <div className="grid grid-cols-[1fr_1fr_auto] gap-2 text-xs font-medium text-muted-foreground">
-                    <span>Shown as</span>
-                    <span>Stored as</span>
+                    <span>{t('form-engine.settings.controls.options.shownAs')}</span>
+                    <span>{t('form-engine.settings.controls.options.storedAs')}</span>
                     <span className="w-[4.5rem]" />
                 </div>
             )}
@@ -231,7 +246,7 @@ export function OptionsEditor({
                             text={r.label}
                             language={language}
                             plainAs={plainAs}
-                            aria-label={`Option ${i + 1} label`}
+                            aria-label={t('form-engine.settings.controls.options.label', { n: String(i + 1) })}
                             onText={(typed) => edit(i, r, typed)}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' && i === rows.length - 1) {
@@ -244,14 +259,14 @@ export function OptionsEditor({
                     </div>
                     <Input
                         value={String(r.value ?? '')}
-                        aria-label={`Option ${i + 1} value`}
+                        aria-label={t('form-engine.settings.controls.options.value', { n: String(i + 1) })}
                         className="font-mono text-xs"
                         onChange={(e) => set(i, { value: e.target.value })}
                     />
                     <RowButtons
                         i={i}
                         count={rows.length}
-                        what={`option ${i + 1}`}
+                        what={t('form-engine.settings.controls.what.option', { n: String(i + 1) })}
                         onMove={(by) => onChange(move(rows, i, by))}
                         onRemove={() => onChange(rows.filter((_, j) => j !== i))}
                     />
@@ -265,28 +280,28 @@ export function OptionsEditor({
                 onClick={() => onChange([...rows, { label: '', value: '' }])}
             >
                 <Plus />
-                Add option
+                {t('form-engine.settings.controls.options.add')}
             </Button>
         </div>
     );
 }
 
 // ---- conditions ---------------------------------------------------------------------------------------------------------
-const OPS: Array<{ value: string; label: string }> = [
-    { value: 'eq', label: 'is' },
-    { value: 'neq', label: 'is not' },
-    { value: 'gt', label: 'greater than' },
-    { value: 'gte', label: 'at least' },
-    { value: 'lt', label: 'less than' },
-    { value: 'lte', label: 'at most' },
-    { value: 'contains', label: 'contains' },
-    { value: 'startsWith', label: 'starts with' },
-    { value: 'endsWith', label: 'ends with' },
-    { value: 'empty', label: 'is empty' },
-    { value: 'notEmpty', label: 'is filled in' },
-    { value: 'in', label: 'is one of' },
-    { value: 'notIn', label: 'is none of' },
-    { value: 'regex', label: 'matches pattern' }
+const OPS: Array<{ value: string; label: EngineMessageKey }> = [
+    { value: 'eq', label: 'form-engine.settings.controls.op.eq' },
+    { value: 'neq', label: 'form-engine.settings.controls.op.neq' },
+    { value: 'gt', label: 'form-engine.settings.controls.op.gt' },
+    { value: 'gte', label: 'form-engine.settings.controls.op.gte' },
+    { value: 'lt', label: 'form-engine.settings.controls.op.lt' },
+    { value: 'lte', label: 'form-engine.settings.controls.op.lte' },
+    { value: 'contains', label: 'form-engine.settings.controls.op.contains' },
+    { value: 'startsWith', label: 'form-engine.settings.controls.op.startsWith' },
+    { value: 'endsWith', label: 'form-engine.settings.controls.op.endsWith' },
+    { value: 'empty', label: 'form-engine.settings.controls.op.empty' },
+    { value: 'notEmpty', label: 'form-engine.settings.controls.op.notEmpty' },
+    { value: 'in', label: 'form-engine.settings.controls.op.in' },
+    { value: 'notIn', label: 'form-engine.settings.controls.op.notIn' },
+    { value: 'regex', label: 'form-engine.settings.controls.op.regex' }
 ];
 const NO_VALUE = new Set(['empty', 'notEmpty']);
 const LIST_OPS = new Set(['in', 'notIn']);
@@ -322,6 +337,7 @@ function ConditionValue({
     subject?: ConditionSubject;
     onChange: (v: unknown) => void;
 }) {
+    const { t } = useEngineText();
     if (NO_VALUE.has(c.operator)) return null;
     const list = LIST_OPS.has(c.operator);
     if (subject?.kind === 'choice' && subject.options?.length) {
@@ -332,8 +348,8 @@ function ConditionValue({
                 options={opts}
                 value={Array.isArray(c.value) ? c.value : []}
                 onChange={onChange}
-                aria-label="Value"
-                placeholder="Choose…"
+                aria-label={t('form-engine.settings.controls.value')}
+                placeholder={t('form-engine.settings.controls.choose')}
                 className="min-w-40 flex-1"
             />
         ) : (
@@ -341,8 +357,8 @@ function ConditionValue({
                 options={opts}
                 value={c.value ?? null}
                 onChange={onChange}
-                aria-label="Value"
-                placeholder="Choose…"
+                aria-label={t('form-engine.settings.controls.value')}
+                placeholder={t('form-engine.settings.controls.choose')}
                 className="min-w-40 flex-1"
             />
         );
@@ -355,13 +371,13 @@ function ConditionValue({
                 size="sm"
                 value={c.value === true ? 'yes' : c.value === false ? 'no' : ''}
                 onValueChange={(v) => v && onChange(v === 'yes')}
-                aria-label="Value"
+                aria-label={t('form-engine.settings.controls.value')}
             >
                 <ToggleGroupItem value="yes" className="px-3">
-                    Yes
+                    {t('form-engine.settings.controls.yes')}
                 </ToggleGroupItem>
                 <ToggleGroupItem value="no" className="px-3">
-                    No
+                    {t('form-engine.settings.controls.no')}
                 </ToggleGroupItem>
             </ToggleGroup>
         );
@@ -370,8 +386,8 @@ function ConditionValue({
             <NumberInput
                 value={typeof c.value === 'number' ? c.value : undefined}
                 onChange={(n) => onChange(n)}
-                aria-label="Value"
-                placeholder="Number"
+                aria-label={t('form-engine.settings.controls.value')}
+                placeholder={t('form-engine.settings.controls.number')}
                 className="w-32"
             />
         );
@@ -384,14 +400,14 @@ function ConditionValue({
                 <Input
                     value={pattern}
                     onChange={(e) => onChange(e.target.value)}
-                    aria-label="Pattern"
+                    aria-label={t('form-engine.settings.controls.pattern')}
                     aria-invalid={!!problem}
                     placeholder="^[A-Z]{3}"
                     className="font-mono"
                 />
                 {problem && (
                     <p role="alert" className="text-xs text-destructive">
-                        {problem} The condition never holds.
+                        {t('form-engine.settings.controls.neverHolds', { problem })}
                     </p>
                 )}
             </div>
@@ -401,8 +417,10 @@ function ConditionValue({
         <Input
             value={showTyped(c.value)}
             onChange={(e) => onChange(parseTyped(e.target.value))}
-            aria-label="Value"
-            placeholder={list ? '["a", "b"]' : 'value or {{binding}}'}
+            aria-label={t('form-engine.settings.controls.value')}
+            placeholder={
+                list ? '["a", "b"]' : t('form-engine.settings.controls.valueOrBinding', { binding: '{{binding}}' })
+            }
             className="min-w-40 flex-1"
         />
     );
@@ -423,36 +441,37 @@ export function ConditionsEditor({
     subjects: ConditionSubject[];
     emptyText: string;
 }) {
+    const { t } = useEngineText();
     const list = value ?? [];
     const commit = (next: VisibilityCondition[]) => onChange(next.length ? next : undefined);
     const patch = (i: number, p: Partial<VisibilityCondition>) =>
         commit(list.map((c, j) => (j === i ? { ...c, ...p } : c)));
     const fieldOptions = [
         ...subjects.map((s) => ({ label: s.label || s.id, value: s.id })),
-        { label: 'Other value (data., user., route.)…', value: REF }
+        { label: t('form-engine.settings.controls.otherValue'), value: REF }
     ];
     return (
         <div className="flex flex-col gap-2" data-conditions>
             {list.length === 0 && <p className="text-sm text-muted-foreground">{emptyText}</p>}
             {list.length > 1 && (
                 <div className="flex items-center gap-2 text-sm">
-                    <span>Match</span>
+                    <span>{t('form-engine.settings.controls.match')}</span>
                     <ToggleGroup
                         type="single"
                         variant="outline"
                         size="sm"
                         value={list[0]?.logic === 'or' ? 'or' : 'and'}
                         onValueChange={(v) => v && patch(0, { logic: v as 'and' | 'or' })}
-                        aria-label="Match all or any"
+                        aria-label={t('form-engine.settings.controls.matchAllOrAny')}
                     >
                         <ToggleGroupItem value="and" className="px-3">
-                            all
+                            {t('form-engine.settings.controls.all')}
                         </ToggleGroupItem>
                         <ToggleGroupItem value="or" className="px-3">
-                            any
+                            {t('form-engine.settings.controls.any')}
                         </ToggleGroupItem>
                     </ToggleGroup>
-                    <span>of these</span>
+                    <span>{t('form-engine.settings.controls.ofThese')}</span>
                 </div>
             )}
             {list.map((c, i) => {
@@ -462,11 +481,11 @@ export function ConditionsEditor({
                             key={i}
                             className="flex items-center justify-between rounded-md border border-dashed p-2 text-sm text-muted-foreground"
                         >
-                            A group of {c.conditions.length} conditions (edit it in the field&apos;s JSON)
+                            {t('form-engine.settings.controls.group', { count: String(c.conditions.length) })}
                             <RowButtons
                                 i={i}
                                 count={list.length}
-                                what="condition"
+                                what={t('form-engine.settings.controls.what.condition')}
                                 onMove={(by) => commit(move(list, i, by))}
                                 onRemove={() => commit(list.filter((_, j) => j !== i))}
                             />
@@ -483,15 +502,15 @@ export function ConditionsEditor({
                                 onChange={(v) =>
                                     patch(i, { field: v === REF ? 'data.' : String(v ?? ''), value: undefined })
                                 }
-                                aria-label="When"
-                                placeholder="Choose a field"
+                                aria-label={t('form-engine.settings.controls.when')}
+                                placeholder={t('form-engine.settings.controls.chooseField')}
                                 searchable
                                 className="min-w-0 flex-1"
                             />
                             <RowButtons
                                 i={i}
                                 count={list.length}
-                                what="condition"
+                                what={t('form-engine.settings.controls.what.condition')}
                                 onMove={(by) => commit(move(list, i, by))}
                                 onRemove={() => commit(list.filter((_, j) => j !== i))}
                             />
@@ -500,7 +519,7 @@ export function ConditionsEditor({
                             <Input
                                 value={c.field}
                                 onChange={(e) => patch(i, { field: e.target.value })}
-                                aria-label="Reference"
+                                aria-label={t('form-engine.settings.controls.reference')}
                                 placeholder="data.customer.type"
                                 className="font-mono text-xs"
                             />
@@ -515,13 +534,17 @@ export function ConditionsEditor({
                                     })
                                 }
                             >
-                                <SelectTrigger size="sm" aria-label="Comparison" className="w-36">
+                                <SelectTrigger
+                                    size="sm"
+                                    aria-label={t('form-engine.settings.controls.comparison')}
+                                    className="w-36"
+                                >
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {OPS.map((o) => (
                                         <SelectItem key={o.value} value={o.value}>
-                                            {o.label}
+                                            {t(o.label)}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -539,25 +562,25 @@ export function ConditionsEditor({
                 onClick={() => commit([...list, { field: '', operator: 'eq', value: '' }])}
             >
                 <Plus />
-                Add condition
+                {t('form-engine.settings.controls.addCondition')}
             </Button>
         </div>
     );
 }
 
 // ---- table columns ------------------------------------------------------------------------------------------------------
-const COLUMN_TYPES: Array<{ value: ColumnType; label: string }> = [
-    { value: 'text', label: 'Text' },
-    { value: 'number', label: 'Number' },
-    { value: 'currency', label: 'Money' },
-    { value: 'date', label: 'Date' },
-    { value: 'datetime', label: 'Date and time' },
-    { value: 'boolean', label: 'Yes / no' },
-    { value: 'tag', label: 'Status' },
-    { value: 'tags', label: 'List' },
-    { value: 'lookup', label: 'Name from a data source' },
-    { value: 'count', label: 'Count' },
-    { value: 'files', label: 'Files' }
+const COLUMN_TYPES: Array<{ value: ColumnType; label: EngineMessageKey }> = [
+    { value: 'text', label: 'form-engine.settings.controls.columnType.text' },
+    { value: 'number', label: 'form-engine.settings.controls.columnType.number' },
+    { value: 'currency', label: 'form-engine.settings.controls.columnType.currency' },
+    { value: 'date', label: 'form-engine.settings.controls.columnType.date' },
+    { value: 'datetime', label: 'form-engine.settings.controls.columnType.datetime' },
+    { value: 'boolean', label: 'form-engine.settings.controls.columnType.boolean' },
+    { value: 'tag', label: 'form-engine.settings.controls.columnType.tag' },
+    { value: 'tags', label: 'form-engine.settings.controls.columnType.tags' },
+    { value: 'lookup', label: 'form-engine.settings.controls.columnType.lookup' },
+    { value: 'count', label: 'form-engine.settings.controls.columnType.count' },
+    { value: 'files', label: 'form-engine.settings.controls.columnType.files' }
 ];
 
 /** The columns of a table field: header, where the value is in a row, how it is shown. */
@@ -574,6 +597,7 @@ export function ColumnsEditor({
     language: string;
     plainAs: string;
 }) {
+    const { t } = useEngineText();
     const cols = value ?? [];
     const set = (i: number, patch: Partial<StoredTableColumn>) =>
         onChange(cols.map((c, j) => (j === i ? { ...c, ...patch } : c)));
@@ -586,15 +610,15 @@ export function ColumnsEditor({
                             text={c.header}
                             language={language}
                             plainAs={plainAs}
-                            placeholder="Header"
+                            placeholder={t('form-engine.settings.controls.columns.header')}
                             hint={false}
-                            aria-label={`Column ${i + 1} header`}
+                            aria-label={t('form-engine.settings.controls.columns.headerOf', { n: String(i + 1) })}
                             onText={(v) => set(i, { header: setTextIn(c.header, language, v, plainAs) ?? '' })}
                         />
                         <RowButtons
                             i={i}
                             count={cols.length}
-                            what={`column ${i + 1}`}
+                            what={t('form-engine.settings.controls.what.column', { n: String(i + 1) })}
                             onMove={(by) => onChange(move(cols, i, by))}
                             onRemove={() => onChange(cols.filter((_, j) => j !== i))}
                         />
@@ -602,19 +626,23 @@ export function ColumnsEditor({
                     <div className="grid grid-cols-2 gap-2">
                         <Input
                             value={c.field}
-                            placeholder="Value path, e.g. created_at"
-                            aria-label={`Column ${i + 1} value path`}
+                            placeholder={t('form-engine.settings.controls.columns.valuePath')}
+                            aria-label={t('form-engine.settings.controls.columns.valuePathOf', { n: String(i + 1) })}
                             className="font-mono text-xs"
                             onChange={(e) => set(i, { field: e.target.value })}
                         />
                         <Select value={c.type ?? 'text'} onValueChange={(v) => set(i, { type: v as ColumnType })}>
-                            <SelectTrigger size="sm" aria-label={`Column ${i + 1} shows`} className="w-full">
+                            <SelectTrigger
+                                size="sm"
+                                aria-label={t('form-engine.settings.controls.columns.showsOf', { n: String(i + 1) })}
+                                className="w-full"
+                            >
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                {COLUMN_TYPES.map((t) => (
-                                    <SelectItem key={t.value} value={t.value}>
-                                        {t.label}
+                                {COLUMN_TYPES.map((ct) => (
+                                    <SelectItem key={ct.value} value={ct.value}>
+                                        {t(ct.label)}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -623,8 +651,8 @@ export function ColumnsEditor({
                     {c.type === 'currency' && (
                         <Input
                             value={c.currency ?? ''}
-                            placeholder="Currency, e.g. USD"
-                            aria-label={`Column ${i + 1} currency`}
+                            placeholder={t('form-engine.settings.controls.columns.currency')}
+                            aria-label={t('form-engine.settings.controls.columns.currencyOf', { n: String(i + 1) })}
                             onChange={(e) => set(i, { currency: e.target.value || undefined })}
                         />
                     )}
@@ -633,8 +661,8 @@ export function ColumnsEditor({
                             options={sources}
                             value={c.lookupSource ?? null}
                             onChange={(v) => set(i, { lookupSource: v ?? undefined })}
-                            placeholder="Names from…"
-                            aria-label={`Column ${i + 1} names from`}
+                            placeholder={t('form-engine.settings.controls.columns.namesFrom')}
+                            aria-label={t('form-engine.settings.controls.columns.namesFromOf', { n: String(i + 1) })}
                             clearable
                         />
                     )}
@@ -648,7 +676,7 @@ export function ColumnsEditor({
                 onClick={() => onChange([...cols, { header: '', field: '', type: 'text' }])}
             >
                 <Plus />
-                Add column
+                {t('form-engine.settings.controls.columns.add')}
             </Button>
         </div>
     );

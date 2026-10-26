@@ -3,6 +3,9 @@ import '../renderer/fields/registerAll';
 import { readDocument, untranslatedTexts } from '../core';
 import { EMPTY_DOC, ROOT, fromStored, renameKey, toStored } from './document';
 import { createDesignerStore } from './store';
+import { amText } from '../test-utils';
+
+const TEXT = 'form-engine.palette.type.InputText.label';
 
 const f = (id: string, type: string, extra: Record<string, any> = {}) => ({
     id,
@@ -63,12 +66,12 @@ describe('designer store', () => {
         const store = load();
         const a = store.getState().actions;
         a.select('amount');
-        const id = a.add('InputText', 'Text');
+        const id = a.add('InputText', TEXT);
         expect(id).toBe('text');
         expect(store.getState().doc.children.box).toEqual(['amount', 'text', 'lines']);
         expect(store.getState().selected).toBe('text');
         a.select('lines');
-        expect(a.add('InputText', 'Text')).toBe('text2');
+        expect(a.add('InputText', TEXT)).toBe('text2');
         expect(store.getState().doc.children.lines).toEqual(['qty', 'text2']);
         expect(store.getState().doc.byId.text2?.parentId).toBe('lines');
     });
@@ -116,13 +119,13 @@ describe('designer store', () => {
     it('lets the key of a new field follow its label, never the key of a saved one', () => {
         const store = load();
         const a = store.getState().actions;
-        const id = a.add('InputText', 'Text')!;
+        const id = a.add('InputText', TEXT)!;
         for (const label of ['F', 'Fu', 'Full name']) a.relabel(store.getState().selected!, label);
         expect(store.getState().selected).toBe('fullName');
         expect(store.getState().doc.byId.fullName?.label).toBe('Full name');
         expect(store.getState().doc.byId[id]).toBeUndefined();
         a.undo(); // the whole typing was one step
-        expect(store.getState().doc.byId.text?.label).toBe('Text');
+        expect(store.getState().doc.byId.text?.label).toBe(amText(TEXT)); // the builder writes Amharic, the key is English
         a.relabel('title', 'Trip title'); // saved with the form: its key stays
         expect(store.getState().doc.byId.title?.label).toBe('Trip title');
         a.select('note');
@@ -133,8 +136,8 @@ describe('designer store', () => {
     it('lets a numbered key follow its label (text2 becomes phone)', () => {
         const store = load();
         const a = store.getState().actions;
-        a.add('InputText', 'Text');
-        const second = a.add('InputText', 'Text') ?? '';
+        a.add('InputText', TEXT);
+        const second = a.add('InputText', TEXT) ?? '';
         expect(second).toMatch(/^text\d+$/);
         a.relabel(second, 'Phone');
         expect(store.getState().doc.byId.phone?.label).toBe('Phone');
@@ -165,7 +168,7 @@ describe('designer store: texts in a language', () => {
     it('writes the label in the builder language and keeps the other languages', () => {
         const store = open('en');
         const a = store.getState().actions;
-        const id = a.add('InputText', 'Text')!;
+        const id = a.add('InputText', TEXT)!;
         a.relabel(id, 'Full name');
         expect(store.getState().selected).toBe('fullName');
         a.setLanguage('am');
@@ -181,7 +184,7 @@ describe('designer store: texts in a language', () => {
     it('does not rename the key of a new field from an Ethiopic label (it used to become f, f2)', () => {
         const store = open('am');
         const a = store.getState().actions;
-        const id = a.add('InputText', 'Text')!;
+        const id = a.add('InputText', TEXT)!;
         for (const label of ['ሙ', 'ሙሉ', 'ሙሉ ስም']) a.relabel(id, label);
         expect(store.getState().selected).toBe('text');
         expect(store.getState().doc.byId.text?.label).toBe('ሙሉ ስም');
@@ -208,7 +211,7 @@ describe('designer store: texts in a language', () => {
     it('gives a field labelled in Amharic first its key from the English label typed later', () => {
         const store = open('am');
         const a = store.getState().actions;
-        const id = a.add('InputText', 'Text')!;
+        const id = a.add('InputText', TEXT)!;
         for (const label of ['ሙ', 'ሙሉ', 'ሙሉ ስም']) a.relabel(id, label);
         expect(store.getState().selected).toBe('text');
         a.setLanguage('en');
@@ -221,7 +224,7 @@ describe('designer store: texts in a language', () => {
     it('does not follow once the key was renamed by hand, nor on a saved field', () => {
         const store = open('en');
         const a = store.getState().actions;
-        const id = a.add('InputText', 'Text')!;
+        const id = a.add('InputText', TEXT)!;
         a.rename(id, 'myKey');
         a.relabel('myKey', 'Full name');
         expect(store.getState().selected).toBe('myKey');
@@ -260,13 +263,16 @@ describe('designer store: texts in a language', () => {
 
     it('writes the palette text in the form language on a new form of the builder language', () => {
         const store = createDesignerStore({ ...EMPTY_DOC, textLanguage: 'en' }, undefined, 'en');
-        const id = store.getState().actions.add('InputText', 'Text')!;
+        const id = store.getState().actions.add('InputText', TEXT)!;
         expect(store.getState().doc.byId[id]?.label).toBe('Text');
         expect(store.getState().doc.textLanguage).toBe('en');
         store.getState().actions.setLanguage('am');
-        const second = store.getState().actions.add('FormArray', 'Rows')!;
+        const second = store.getState().actions.add('FormArray', 'form-engine.palette.type.FormArray.label')!;
         const props = store.getState().doc.byId[second]?.props;
-        expect(store.getState().doc.byId[second]?.label).toEqual({ am: 'Rows' });
-        expect(props?.addButtonLabel).toEqual({ am: 'Add row' });
+        expect(store.getState().doc.byId[second]?.label).toEqual({
+            am: amText('form-engine.palette.type.FormArray.label')
+        });
+        // the row and button names are worded per reader, not stored
+        expect(props).toEqual({ minItems: 1 });
     });
 });

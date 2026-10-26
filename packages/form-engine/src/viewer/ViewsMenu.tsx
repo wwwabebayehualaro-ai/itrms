@@ -24,6 +24,7 @@ import {
     useNotify
 } from '@itrms/ui';
 import { useCan } from '../host/FormsHost';
+import { useEngineText } from '../host/text';
 import type { SavedView } from './viewsApi';
 import { configOf, stateOf, useSavedViewMutations, useSavedViews } from './viewsApi';
 import type { ViewState } from './types';
@@ -37,6 +38,7 @@ interface Props {
 
 /** Saved views of a form: pick one, save the current view (private, or shared with everyone), update, delete, set the default. */
 export function ViewsMenu({ templateId, state, defaultMode, patch }: Props) {
+    const { t } = useEngineText();
     const [open, setOpen] = useState(false);
     const notify = useNotify();
     // the forms API's rights: whoever reads the data keeps views of it; sharing one with the office is a right of its own
@@ -76,7 +78,7 @@ export function ViewsMenu({ templateId, state, defaultMode, patch }: Props) {
         });
         setSaving(false);
         patch({ viewId: saved.id, page: state.page });
-        notify.success(`View “${saved.name}” saved`);
+        notify.success(t('form-engine.viewer.views.saved', { name: saved.name }));
     };
     const section = (title: string, list: SavedView[]) =>
         list.length > 0 && (
@@ -93,15 +95,18 @@ export function ViewsMenu({ templateId, state, defaultMode, patch }: Props) {
                         >
                             {v.name}
                             {v.is_default && (
-                                <Star className="size-3 fill-current" aria-label="Default view of this form" />
+                                <Star
+                                    className="size-3 fill-current"
+                                    aria-label={t('form-engine.viewer.views.defaultOfForm')}
+                                />
                             )}
                         </Button>
                         {v.can_edit && (
                             <>
                                 {canShare && v.visibility === 'shared' && !v.is_default && (
                                     <IconButton
-                                        label={`Make ${v.name} the default`}
-                                        tooltip="Make default"
+                                        label={t('form-engine.viewer.views.makeDefaultNamed', { name: v.name })}
+                                        tooltip={t('form-engine.viewer.views.makeDefault')}
                                         side="left"
                                         onClick={() => update.mutate({ id: v.id, is_default: true })}
                                     >
@@ -109,20 +114,20 @@ export function ViewsMenu({ templateId, state, defaultMode, patch }: Props) {
                                     </IconButton>
                                 )}
                                 <IconButton
-                                    label={`Delete ${v.name}`}
-                                    tooltip="Delete"
+                                    label={t('form-engine.viewer.views.deleteNamed', { name: v.name })}
+                                    tooltip={t('form-engine.viewer.views.delete')}
                                     side="left"
                                     className="text-destructive hover:text-destructive"
                                     onClick={() => {
                                         setOpen(false); // the confirmation opens on its own, not under this menu
                                         void confirmAction({
-                                            header: `Delete “${v.name}”?`,
+                                            header: t('form-engine.viewer.views.deleteHeader', { name: v.name }),
                                             message:
                                                 v.visibility === 'shared'
-                                                    ? 'It disappears for everyone.'
-                                                    : 'This cannot be undone.',
-                                            acceptLabel: 'Delete',
-                                            rejectLabel: 'Cancel',
+                                                    ? t('form-engine.viewer.views.deleteShared')
+                                                    : t('form-engine.viewer.views.deletePrivate'),
+                                            acceptLabel: t('form-engine.viewer.views.delete'),
+                                            rejectLabel: t('form-engine.viewer.views.cancel'),
                                             danger: true,
                                             onAccept: async () => {
                                                 await remove.mutateAsync(v.id);
@@ -146,10 +151,14 @@ export function ViewsMenu({ templateId, state, defaultMode, patch }: Props) {
                 <PopoverTrigger asChild>
                     <Button type="button" variant={active ? 'secondary' : 'outline'} aria-haspopup="dialog">
                         <Bookmark />
-                        {active ? active.name : 'Views'}
+                        {active ? active.name : t('form-engine.viewer.views.button')}
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent align="start" className="w-[min(92vw,22rem)] p-2" aria-label="Saved views">
+                <PopoverContent
+                    align="start"
+                    className="w-[min(92vw,22rem)] p-2"
+                    aria-label={t('form-engine.viewer.views.title')}
+                >
                     <div className="flex flex-col gap-2">
                         <Button
                             type="button"
@@ -158,14 +167,14 @@ export function ViewsMenu({ templateId, state, defaultMode, patch }: Props) {
                             className={cn('justify-start', !state.viewId && 'font-semibold')}
                             onClick={() => choose(null)}
                         >
-                            All requests
+                            {t('form-engine.viewer.views.all')}
                         </Button>
                         {section(
-                            'Shared',
+                            t('form-engine.viewer.views.shared'),
                             views.filter((v) => v.visibility === 'shared')
                         )}
                         {section(
-                            'Mine',
+                            t('form-engine.viewer.views.mine'),
                             views.filter((v) => v.visibility === 'private')
                         )}
                         {(canCreate || active?.can_edit) && <Separator />}
@@ -184,7 +193,7 @@ export function ViewsMenu({ templateId, state, defaultMode, patch }: Props) {
                                 }}
                             >
                                 <Plus />
-                                Save current view…
+                                {t('form-engine.viewer.views.saveCurrent')}
                             </Button>
                         )}
                         {active?.can_edit && (
@@ -197,12 +206,12 @@ export function ViewsMenu({ templateId, state, defaultMode, patch }: Props) {
                                     void (async () => {
                                         await update.mutateAsync({ id: active.id, config: configOf(state) });
                                         setOpen(false);
-                                        notify.success(`View “${active.name}” updated`);
+                                        notify.success(t('form-engine.viewer.views.updated', { name: active.name }));
                                     })()
                                 }
                             >
                                 <Save />
-                                Update “{active.name}”
+                                {t('form-engine.viewer.views.update', { name: active.name })}
                             </Button>
                         )}
                     </div>
@@ -211,10 +220,8 @@ export function ViewsMenu({ templateId, state, defaultMode, patch }: Props) {
             <Dialog open={saving} onOpenChange={setSaving}>
                 <DialogContent className="sm:max-w-md" data-save-view>
                     <DialogHeader>
-                        <DialogTitle>Save this view</DialogTitle>
-                        <DialogDescription>
-                            Saves the current mode, search, filters, sort and columns.
-                        </DialogDescription>
+                        <DialogTitle>{t('form-engine.viewer.views.saveTitle')}</DialogTitle>
+                        <DialogDescription>{t('form-engine.viewer.views.saveHelp')}</DialogDescription>
                     </DialogHeader>
                     <form
                         className="flex flex-col gap-4"
@@ -224,7 +231,7 @@ export function ViewsMenu({ templateId, state, defaultMode, patch }: Props) {
                         }}
                     >
                         <div className="flex flex-col gap-2">
-                            <Label htmlFor="view-name">Name</Label>
+                            <Label htmlFor="view-name">{t('form-engine.viewer.views.name')}</Label>
                             <Input
                                 id="view-name"
                                 value={name}
@@ -242,7 +249,7 @@ export function ViewsMenu({ templateId, state, defaultMode, patch }: Props) {
                                         disabled={isDefault}
                                         onCheckedChange={(c) => setShared(c === true)}
                                     />
-                                    Share with everyone who can see this form
+                                    {t('form-engine.viewer.views.share')}
                                 </Label>
                                 <Label className="font-normal">
                                     <Checkbox
@@ -250,17 +257,17 @@ export function ViewsMenu({ templateId, state, defaultMode, patch }: Props) {
                                         checked={isDefault}
                                         onCheckedChange={(c) => setIsDefault(c === true)}
                                     />
-                                    Open this view first for everyone
+                                    {t('form-engine.viewer.views.makeFirst')}
                                 </Label>
                             </>
                         )}
                         <DialogFooter>
                             <Button type="button" variant="ghost" onClick={() => setSaving(false)}>
-                                Cancel
+                                {t('form-engine.viewer.views.cancel')}
                             </Button>
                             <Button type="submit" disabled={!name.trim() || create.isPending}>
                                 {create.isPending ? <Spinner /> : <Check />}
-                                Save view
+                                {t('form-engine.viewer.views.save')}
                             </Button>
                         </DialogFooter>
                     </form>

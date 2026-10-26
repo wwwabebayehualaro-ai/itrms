@@ -47,5 +47,7 @@
   "shell.languages.save": "አስቀምጥ",
   "shell.languages.saved": "የክልሉ ቋንቋዎች ተቀምጠዋል።",
   "shell.languages.failed": "ቋንቋዎቹን ማስቀመጥ አልተቻለም።",
-  "shell.languages.changed": "ሌላ አስተዳዳሪ በዚህ መሀል ቋንቋዎቹን ቀይሯል። ያረጋግጡና እንደገና ያስቀምጡ።"
+  "shell.languages.changed": "ሌላ አስተዳዳሪ በዚህ መሀል ቋንቋዎቹን ቀይሯል። ያረጋግጡና እንደገና ያስቀምጡ።",
+  "shell.ethiopic.on": "የግዕዝ መጻፊያ በርቷል (ለማጥፋት {key})",
+  "shell.ethiopic.off": "የግዕዝ መጻፊያ ጠፍቷል (ለማብራት {key})"
 }

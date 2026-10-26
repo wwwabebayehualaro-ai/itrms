@@ -6,7 +6,7 @@ import { TooltipProvider } from '@itrms/ui';
 
 import '../renderer/fields/registerAll';
 import { FormsHostProvider } from '../host/FormsHost';
-import { testHost } from '../test-utils';
+import { amText, testHost } from '../test-utils';
 import { fromStored } from './document';
 import { OptionsEditor } from './controls';
 import { Translations } from './Translations';
@@ -21,7 +21,7 @@ const field = (id: string, extra: Record<string, unknown> = {}) => ({
     ...extra
 });
 
-const setup = (extra: Record<string, unknown>[] = []) => {
+const setup = (extra: Record<string, unknown>[] = [], language = 'am') => {
     const { doc } = fromStored({
         fields: [
             ...extra,
@@ -35,7 +35,7 @@ const setup = (extra: Record<string, unknown>[] = []) => {
         ]
     });
     const store = createDesignerStore(doc, { name: 'T', slug: 't', form_config: {} }, 'am');
-    const host = testHost({ language: 'am', languages: ['am', 'en', 'wal-Latn'] });
+    const host = testHost({ language, languages: ['am', 'en', 'wal-Latn'] });
     render(
         <FormsHostProvider host={host}>
             <TooltipProvider>
@@ -47,6 +47,10 @@ const setup = (extra: Record<string, unknown>[] = []) => {
     );
     return store;
 };
+
+/** The accessible name of a cell, in Amharic: `cell('ሳጥን', 'setting.title', 'አማርኛ')`. */
+const cell = (fieldLabel: string, kind: string, language: string) =>
+    amText('form-engine.designer.translations.cellLabel', { field: fieldLabel, kind, language });
 
 const rowKeys = () => [...document.querySelectorAll('[data-text-row]')].map((r) => r.getAttribute('data-text-row'));
 
@@ -68,9 +72,20 @@ describe('Translations: settings and columns', () => {
         expect(rowKeys()).toEqual(
             expect.arrayContaining(['box:props.header', 'rows:props.removeButtonLabel', 'table:props.columns.0.header'])
         );
-        expect(screen.getByLabelText('ሳጥን, Title, አማርኛ')).toBeInTheDocument();
-        expect(screen.getByLabelText('ረድፎች, Remove-row button, English')).toBeInTheDocument();
-        fireEvent.change(screen.getByLabelText('ሰንጠረዥ, Column 1, English'), { target: { value: 'Name' } });
+        expect(
+            screen.getByLabelText(cell('ሳጥን', amText('form-engine.designer.translations.setting.title'), 'አማርኛ'))
+        ).toBeInTheDocument();
+        expect(
+            screen.getByLabelText(
+                cell('ረድፎች', amText('form-engine.designer.translations.setting.removeRowButton'), 'English')
+            )
+        ).toBeInTheDocument();
+        fireEvent.change(
+            screen.getByLabelText(
+                cell('ሰንጠረዥ', amText('form-engine.designer.translations.kind.column', { ref: '1' }), 'English')
+            ),
+            { target: { value: 'Name' } }
+        );
         const column = (store.getState().doc.byId.table?.props.columns as Record<string, unknown>[])[0];
         expect(column?.header).toEqual({ am: 'ስም', en: 'Name' });
         expect(column?.field).toBe('name');
@@ -84,7 +99,12 @@ describe('Translations: settings and columns', () => {
                 props: { addButtonLabel: { am: 'ጨምር' } }
             })
         ]);
-        fireEvent.change(screen.getByLabelText('ረድፎች, Add-row button, English'), { target: { value: 'Add' } });
+        fireEvent.change(
+            screen.getByLabelText(
+                cell('ረድፎች', amText('form-engine.designer.translations.setting.addRowButton'), 'English')
+            ),
+            { target: { value: 'Add' } }
+        );
         expect(store.getState().doc.byId.rows?.props.addButtonLabel).toEqual({ am: 'ጨምር', en: 'Add' });
     });
 });
@@ -95,32 +115,55 @@ describe('Translations', () => {
         // city: the label has no English; the help text is a plain string (Amharic's), so English is missing too
         expect(rowKeys()).toEqual(['city:label', 'city:props.helpText']);
         const label = document.querySelector('[data-text-row="city:label"]') as HTMLElement;
-        expect(within(label).getAllByText('Missing')).toHaveLength(1);
-        expect(within(label).getAllByText('Not translated')).toHaveLength(1);
+        expect(within(label).getAllByText(amText('form-engine.designer.translations.missing'))).toHaveLength(1);
+        expect(within(label).getAllByText(amText('form-engine.designer.translations.notTranslated'))).toHaveLength(1);
         expect(screen.getByText('Wolayttatto')).toBeInTheDocument();
-        expect(screen.getByText('2 to translate')).toBeInTheDocument();
+        expect(
+            screen.getByText(amText('form-engine.designer.translations.toTranslate', { count: '2' }))
+        ).toBeInTheDocument();
     });
 
     it('writes the English cell into the document, drops the count, and undoes', () => {
         const store = setup();
-        fireEvent.change(screen.getByLabelText('ከተማ, Label, English'), { target: { value: 'City' } });
+        fireEvent.change(
+            screen.getByLabelText(cell('ከተማ', amText('form-engine.designer.translations.kind.label'), 'English')),
+            { target: { value: 'City' } }
+        );
         expect(store.getState().doc.byId.city?.label).toEqual({ am: 'ከተማ', en: 'City' });
         // the row stays while the person types in it
         expect(rowKeys()).toContain('city:label');
-        expect(screen.getByText('1 to translate')).toBeInTheDocument();
-        fireEvent.change(screen.getByLabelText('ከተማ, Help text, English'), { target: { value: 'Town' } });
+        expect(
+            screen.getByText(amText('form-engine.designer.translations.toTranslate', { count: '1' }))
+        ).toBeInTheDocument();
+        fireEvent.change(
+            screen.getByLabelText(cell('ከተማ', amText('form-engine.designer.translations.kind.helpText'), 'English')),
+            { target: { value: 'Town' } }
+        );
         expect(store.getState().doc.byId.city?.props.helpText).toEqual({ am: 'Where you live', en: 'Town' });
-        expect(screen.getByText('All translated')).toBeInTheDocument();
+        expect(screen.getByText(amText('form-engine.designer.translations.allTranslated'))).toBeInTheDocument();
         store.getState().actions.undo();
         expect(store.getState().doc.byId.city?.props.helpText).toBe('Where you live');
     });
 
     it('filters: all texts with the switch off, and by search', () => {
         setup();
-        fireEvent.click(screen.getByRole('switch', { name: 'Only untranslated' }));
+        fireEvent.click(
+            screen.getByRole('switch', { name: amText('form-engine.designer.translations.onlyUntranslated') })
+        );
         expect(rowKeys()).toHaveLength(5); // 3 labels, the help text, the option
-        fireEvent.change(screen.getByLabelText('Search the texts'), { target: { value: 'kind' } });
+        fireEvent.change(screen.getByLabelText(amText('form-engine.designer.translations.searchLabel')), {
+            target: { value: 'kind' }
+        });
         expect(rowKeys()).toEqual(['kind:label', 'kind:props.options.0.label']);
+    });
+});
+
+describe('Translations in English', () => {
+    it('says the table words in the host language', () => {
+        setup([], 'en');
+        expect(screen.getByLabelText('Search the texts')).toBeInTheDocument();
+        expect(screen.getByRole('switch', { name: 'Only untranslated' })).toBeInTheDocument();
+        expect(screen.getAllByText('Missing').length).toBeGreaterThan(0);
     });
 });
 
@@ -137,7 +180,9 @@ describe('OptionsEditor', () => {
                 onChange={(rows) => seen.push(rows)}
             />
         );
-        fireEvent.change(screen.getByLabelText('Option 1 label'), { target: { value: 'Single' } });
+        fireEvent.change(screen.getByLabelText(amText('form-engine.settings.controls.options.label', { n: '1' })), {
+            target: { value: 'Single' }
+        });
         // a translation never changes what answers store (published answers keep matching)
         expect(seen[0]).toEqual([{ label: { am: 'አንድ', en: 'Single' }, value: 'one', disabled: true, items: [] }]);
     });
@@ -147,7 +192,9 @@ describe('OptionsEditor', () => {
         renderEditor(
             <OptionsEditor language="am" value={[{ label: '', value: '' }]} onChange={(rows) => seen.push(rows)} />
         );
-        fireEvent.change(screen.getByLabelText('Option 1 label'), { target: { value: 'አንድ' } });
+        fireEvent.change(screen.getByLabelText(amText('form-engine.settings.controls.options.label', { n: '1' })), {
+            target: { value: 'አንድ' }
+        });
         expect(seen[0]).toEqual([{ label: 'አንድ', value: 'option_1' }]);
     });
 });

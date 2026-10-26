@@ -657,12 +657,12 @@
         {
           "id": "0.17d",
           "title": "Form engine for ITRMS, part 1d: the engine's own text",
-          "status": "ready",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.17d-engine-text",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Design (architect): the engine resolves its own catalogues (packages/form-engine/messages/<area>, keys form-engine.<area>.*) with intl-messageformat in core, typed keys from the en catalogues, useEngineText/EngineTextLanguage on screen; ADR-0036. Foundation done: core/messages.ts, host/text.tsx, i18n:check covers package areas (+ fixture test), core's validation and print words per language (validateForm opts.language, default am; API passes the caller's; cases.json carries language en; int test for an Amharic default 422 message), Ethiopic F9 announced through a polite live region with EthiopicTypingProvider labels from shell.ethiopic.*. Out of scope (ADR-0036): formula/pattern/document-check diagnostics stay English until they get error codes."
         },
         {
           "id": "0.17e",

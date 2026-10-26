@@ -40,5 +40,6 @@ one, write a new ADR that supersedes it. Format: context, decision, consequences
 | [0033](0033-security-baseline.md) | Security baseline: ASVS 5.0 (L3 for auth, sessions, authorization, crypto, money, audit), INSA CMCSRS alignment, one security standard with rule ids | accepted (2026-10-19) |
 | [0034](0034-local-linux-ci.md) | Local Linux CI (`pnpm ci:local`) is the CI record while GitHub-hosted runners are unavailable (amends 0009) | accepted (2026-10-19) |
 | [0035](0035-filterable-fields-value-table.md) | Filterable form fields are indexed in a typed value table, never by runtime DDL (amends 0031 §17) | accepted (2026-10-24) |
+| [0036](0036-form-engine-own-catalogues.md) | The form engine resolves its own words from its own catalogues (intl-messageformat), in the browser, the API and print | accepted (2026-10-26) |
 
 All tool choices and the answers to the technical open questions: [`../tech-stack.md`](../tech-stack.md).

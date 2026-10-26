@@ -14,7 +14,6 @@ import { CircleCheck, Plus, Trash2 } from 'lucide-react';
 import { useField, useSelector, type AnyFormApi } from '@tanstack/react-form';
 import { Button, FieldDescription, FieldError, Field as FieldShell, FieldLabel, Spinner, cn } from '@itrms/ui';
 import {
-    REMOTE_PENDING,
     childrenOf,
     emptyRow,
     isEnabledIn,
@@ -24,6 +23,7 @@ import {
     type EngineField
 } from '../core';
 import { getByPath, resolveString } from '../core/runtime/expression';
+import { useEngineText } from '../host/text';
 import { runAction } from './actions';
 import { spanWidth, validSpan } from './span';
 import { getFieldType, type ValueFieldDef } from './kit';
@@ -188,8 +188,10 @@ function ValueField({
     const api = useField({ form, name });
     const required = useRequired(field, scope);
     const shown = useShownError(api.state.meta);
+    const { t } = useEngineText();
+    const pending = t('form-engine.core.validation.checking');
     // a remote check (`behavior.validation.remote`) in progress is shown as progress, not as a mistake
-    const checking = shown === REMOTE_PENDING;
+    const checking = shown === pending;
     const error = checking ? undefined : shown;
     const remote = useDataSource(field.remote?.dataSourceId);
     const verified =
@@ -249,12 +251,12 @@ function ValueField({
             />
             {checking && (
                 <FieldDescription className="flex items-center gap-1.5" data-remote="checking">
-                    <Spinner className="size-3.5" /> {REMOTE_PENDING}
+                    <Spinner className="size-3.5" /> {pending}
                 </FieldDescription>
             )}
             {verified && (
                 <FieldDescription className="flex items-center gap-1.5 text-success" data-remote="verified">
-                    <CircleCheck className="size-3.5" aria-hidden="true" /> Verified
+                    <CircleCheck className="size-3.5" aria-hidden="true" /> {t('form-engine.renderer.field.verified')}
                 </FieldDescription>
             )}
             {field.helpText && <FieldDescription id={error ? undefined : helpId}>{field.helpText}</FieldDescription>}
@@ -288,25 +290,28 @@ function useComputed(field: EngineField, scope: Scope, readOnly: boolean) {
 /** Repeatable section: one row per entry, each row the section's child fields with its own values, rules and errors. */
 function Section({ field, scope, disabled }: { field: EngineField; scope: Scope; disabled: boolean }) {
     const { form, doc, readOnly } = useTree();
+    const { t } = useEngineText();
     const name = pathOf(scope, field.id);
     const api = useField({ form, name, mode: 'array' });
     const error = useShownError(api.state.meta);
     const rows = Array.isArray(api.state.value) ? (api.state.value as unknown[]) : [];
     const { minItems: min, maxItems: max } = field.rules;
-    const noun = String(field.props.itemLabel || 'Item');
+    const noun = String(field.props.itemLabel || t('form-engine.renderer.rows.item'));
     const locked = readOnly || disabled;
 
     return (
         <div
             className="flex flex-col gap-3"
             role="group"
-            aria-label={field.label || 'Repeatable section'}
+            aria-label={field.label || t('form-engine.renderer.rows.section')}
             data-formarray={field.id}
         >
             {field.label && <div className="text-sm font-medium">{field.label}</div>}
             {rows.length === 0 && (
                 <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
-                    {String(field.props.emptyMessage || `No ${noun.toLowerCase()}s yet`)}
+                    {String(
+                        field.props.emptyMessage || t('form-engine.renderer.rows.empty', { item: noun.toLowerCase() })
+                    )}
                 </div>
             )}
             {rows.map((_, index) => (
@@ -314,11 +319,13 @@ function Section({ field, scope, disabled }: { field: EngineField; scope: Scope;
                     key={index}
                     className="rounded-lg border bg-card p-4"
                     role="group"
-                    aria-label={`${noun} ${index + 1}`}
+                    aria-label={t('form-engine.renderer.rows.title', { item: noun, number: String(index + 1) })}
                     data-row={index}
                 >
                     <div className="mb-3 flex items-center justify-between">
-                        <h5 className="text-sm font-semibold">{`${noun} ${index + 1}`}</h5>
+                        <h5 className="text-sm font-semibold">
+                            {t('form-engine.renderer.rows.title', { item: noun, number: String(index + 1) })}
+                        </h5>
                         {!locked && (
                             <Button
                                 type="button"
@@ -328,10 +335,13 @@ function Section({ field, scope, disabled }: { field: EngineField; scope: Scope;
                                 disabled={rows.length <= min}
                                 title={
                                     rows.length <= min
-                                        ? `At least ${min} required`
-                                        : String(field.props.removeButtonLabel || 'Remove')
+                                        ? t('form-engine.renderer.rows.atLeast', { min: String(min) })
+                                        : String(field.props.removeButtonLabel || t('form-engine.renderer.rows.remove'))
                                 }
-                                aria-label={`Remove ${noun} ${index + 1}`}
+                                aria-label={t('form-engine.renderer.rows.removeRow', {
+                                    item: noun,
+                                    number: String(index + 1)
+                                })}
                                 onClick={() => api.removeValue(index)}
                             >
                                 <Trash2 />
@@ -357,11 +367,11 @@ function Section({ field, scope, disabled }: { field: EngineField; scope: Scope;
                         onClick={() => api.pushValue(emptyRow(field, doc.fields))}
                     >
                         <Plus />
-                        {String(field.props.addButtonLabel || 'Add row')}
+                        {String(field.props.addButtonLabel || t('form-engine.renderer.rows.add'))}
                     </Button>
                     {Number.isFinite(max) && (
                         <span className="text-sm text-muted-foreground">
-                            {rows.length} of {max}
+                            {t('form-engine.renderer.rows.count', { count: String(rows.length), max: String(max) })}
                         </span>
                     )}
                 </div>

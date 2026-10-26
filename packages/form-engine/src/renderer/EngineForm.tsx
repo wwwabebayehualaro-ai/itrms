@@ -10,6 +10,7 @@ import { useForm, useSelector, type AnyFormApi } from '@tanstack/react-form';
 import { Button, Card, Spinner, cn, useNotify } from '@itrms/ui';
 import { serverFormErrors } from '../host/client';
 import { useFormsHost, useFormsLanguages, useFormsUser } from '../host/FormsHost';
+import { EngineTextLanguage, useEngineText } from '../host/text';
 import type { FormField, FormTemplate } from '@itrms/schemas';
 import { initialValues, pruneHidden, readDocument, validateForm, type EngineDocument, type FieldErrors } from '../core';
 import { RuntimeProvider } from './runtime/RuntimeProvider';
@@ -65,12 +66,15 @@ export function EngineForm(props: EngineFormProps) {
     const [resetKey, setResetKey] = useState(0);
     const valuesKey = props.submissionId ? JSON.stringify(props.initialValues ?? {}) : '';
     return (
-        <EngineFormBody
-            key={`${resetKey}:${valuesKey}`}
-            {...props}
-            doc={doc}
-            remount={() => setResetKey((k) => k + 1)}
-        />
+        // the engine's own words (buttons, messages) follow the language the form is drawn in
+        <EngineTextLanguage language={language}>
+            <EngineFormBody
+                key={`${resetKey}:${valuesKey}`}
+                {...props}
+                doc={doc}
+                remount={() => setResetKey((k) => k + 1)}
+            />
+        </EngineTextLanguage>
     );
 }
 
@@ -92,6 +96,7 @@ function EngineFormBody({
     remount
 }: EngineFormProps & { doc: EngineDocument; remount: () => void }) {
     const notify = useNotify();
+    const words = useEngineText();
     const host = useFormsHost();
     const authUser = useFormsUser();
     const builderTemplate = useTemplate();
@@ -155,7 +160,11 @@ function EngineFormBody({
                           ''
                   )
                 : '';
-            if (!silent) notify.success(message.trim() || (submissionId ? 'Changes saved' : 'Submitted successfully'));
+            if (!silent)
+                notify.success(
+                    message.trim() ||
+                        words.t(submissionId ? 'form-engine.renderer.submit.saved' : 'form-engine.renderer.submit.done')
+                );
             onSuccess?.(undefined);
             if (!submissionId && submitCfg?.resetOnSuccess !== false) remount();
             else if (submitCfg?.resetOnSuccess) form.reset();
@@ -179,7 +188,7 @@ function EngineFormBody({
                     err?.response?.data?.detail ||
                         err?.response?.data?.message ||
                         err?.message ||
-                        'Failed to submit form. Please try again.'
+                        words.t('form-engine.renderer.submit.failed')
                 );
         }
     };
@@ -188,8 +197,12 @@ function EngineFormBody({
         defaultValues: defaults,
         canSubmitWhenInvalid: true,
         validators: {
-            onChange: ({ value }) => toFormErrors(validateForm(doc.fields, value as Values, store.get().scope)),
-            onSubmit: ({ value }) => toFormErrors(validateForm(doc.fields, value as Values, store.get().scope))
+            onChange: ({ value }) =>
+                toFormErrors(
+                    validateForm(doc.fields, value as Values, store.get().scope, { language: words.language })
+                ),
+            onSubmit: ({ value }) =>
+                toFormErrors(validateForm(doc.fields, value as Values, store.get().scope, { language: words.language }))
         },
         onSubmit: ({ value, formApi }) => submit(value as Values, formApi as AnyFormApi)
     });
@@ -226,7 +239,14 @@ function EngineFormBody({
             {!view && !readOnly && (
                 <FormFooter
                     form={form}
-                    submitLabel={submitLabel ?? (submissionId ? 'Save changes' : 'Submit')}
+                    submitLabel={
+                        submitLabel ??
+                        words.t(
+                            submissionId
+                                ? 'form-engine.renderer.submit.saveChanges'
+                                : 'form-engine.renderer.submit.label'
+                        )
+                    }
                     showRefresh={showRefresh}
                 />
             )}
@@ -283,6 +303,7 @@ function FormFooter({
     submitLabel: string;
     showRefresh?: boolean;
 }) {
+    const { t } = useEngineText();
     const api = useRuntimeApi();
     const hasSources = useRuntimeSelector((s) => Object.keys(s.states).length > 0);
     const busy = useRuntimeSelector((s) => Object.values(s.states).some((x) => x.isFetching));
@@ -300,7 +321,7 @@ function FormFooter({
                         onClick={() => void api.refetch()}
                     >
                         {busy ? <Spinner /> : <RefreshCw />}
-                        Refresh data
+                        {t('form-engine.renderer.submit.refresh')}
                     </Button>
                 )}
                 <Button
@@ -313,7 +334,7 @@ function FormFooter({
                     }}
                 >
                     <RotateCcw />
-                    Clear form
+                    {t('form-engine.renderer.submit.clear')}
                 </Button>
                 <Button type="submit" disabled={submitting}>
                     {submitting ? <Spinner /> : <Check />}
@@ -329,6 +350,7 @@ function FormFooter({
  * (a long form otherwise looks as if nothing happened).
  */
 function ErrorSummary({ form }: { form: AnyFormApi }) {
+    const { t } = useEngineText();
     const attempts = useSelector(form.store, (s: { submissionAttempts: number }) => s.submissionAttempts);
     const count = useSelector(
         form.store,
@@ -352,7 +374,7 @@ function ErrorSummary({ form }: { form: AnyFormApi }) {
             className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm"
         >
             <CircleAlert className="size-4 text-destructive" aria-hidden="true" />
-            {count === 1 ? 'Please fix 1 field before submitting.' : `Please fix ${count} fields before submitting.`}
+            {t('form-engine.renderer.submit.fixFields', { count })}
         </div>
     );
 }

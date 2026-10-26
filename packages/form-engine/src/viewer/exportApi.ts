@@ -2,7 +2,9 @@
 
 import { useEffect, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import type { EngineTranslate } from '../core/messages';
 import { useFormsClient } from '../host/FormsHost';
+import { useEngineText } from '../host/text';
 import { saveBlob } from '@itrms/ui';
 
 import { filenameFromDisposition } from '../host/files';
@@ -34,13 +36,18 @@ function openLink(url: string) {
 /** Looks at a job this many times in a row without an answer before it gives up (the network, not the export). */
 const MAX_MISSES = 3;
 
-async function inBackground(client: FormsClient, body: object, alive: () => boolean): Promise<number> {
+async function inBackground(
+    client: FormsClient,
+    body: object,
+    alive: () => boolean,
+    t: EngineTranslate
+): Promise<number> {
     let job = (await client.post<ExportJob>('v1/submission-exports', body)).data;
     const until = Date.now() + POLL_FOR_MS;
     let misses = 0;
     while (job.status === 'queued' || job.status === 'running') {
-        if (!alive()) throw new Error('The export goes on without this page: ask for it again to download it.');
-        if (Date.now() > until) throw new Error('The export is still being made: ask for it again later.');
+        if (!alive()) throw new Error(t('form-engine.viewer.export.leftPage'));
+        if (Date.now() > until) throw new Error(t('form-engine.viewer.export.stillMaking'));
         await pause(POLL_MS);
         try {
             job = (await client.get<ExportJob>(`v1/submission-exports/${job.id}`)).data;
@@ -51,7 +58,7 @@ async function inBackground(client: FormsClient, body: object, alive: () => bool
             if (++misses >= MAX_MISSES) throw error;
         }
     }
-    if (job.status !== 'done') throw new Error(job.error ?? 'The export could not be made: ask for it again.');
+    if (job.status !== 'done') throw new Error(job.error ?? t('form-engine.viewer.export.notMade'));
     openLink((await client.post<{ url: string }>(`v1/submission-exports/${job.id}/download`, {})).data.url);
     return job.rows ?? 0;
 }
@@ -62,6 +69,7 @@ async function inBackground(client: FormsClient, body: object, alive: () => bool
  */
 export function useExportRequests() {
     const client = useFormsClient();
+    const { t } = useEngineText();
     // a background export is no longer followed once the viewer is left
     const mounted = useRef(true);
     useEffect(() => {
@@ -89,20 +97,20 @@ export function useExportRequests() {
                         rows: false
                     })
                 ).data.total;
-            if ((await count()) > DIRECT_EXPORT_ROWS) return inBackground(client, body, alive);
+            if ((await count()) > DIRECT_EXPORT_ROWS) return inBackground(client, body, alive, t);
             let res: FormsResponse<Blob>;
             try {
                 res = await client.post<Blob>(`${FORMS_API.submissions}/export`, body, { responseType: 'blob' });
             } catch (error) {
                 // refused because more rows came since the count: made in the background; any other refusal is shown
                 if (isRequestError(error) && error.response?.status === 400 && (await count()) > DIRECT_EXPORT_ROWS)
-                    return inBackground(client, body, alive);
+                    return inBackground(client, body, alive, t);
                 throw error;
             }
             saveBlob(res.data, filenameFromDisposition(res.headers['content-disposition'], 'requests.csv'));
             return Number(res.headers['x-row-count'] ?? 0);
         },
         // a failed export arrives as a blob: say what the server said, not "Failed"
-        meta: { errorMessage: 'Export failed' }
+        meta: { errorMessage: t('form-engine.viewer.export.failed') }
     });
 }

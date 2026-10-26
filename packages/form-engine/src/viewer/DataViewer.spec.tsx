@@ -1,7 +1,9 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { Pager, TooltipProvider } from '@itrms/ui';
+import { NotifyProvider, Pager } from '@itrms/ui';
+import { amText, enText, hostRenderer } from '../test-utils';
+import { DataViewer } from './DataViewer';
 import { FilterBuilder, describeCondition } from './FilterBuilder';
 import type { Labeler } from './labels';
 import type { ViewField, ViewSchema } from './types';
@@ -53,9 +55,10 @@ const labeler: Labeler = {
         k === 'total'
             ? `$${v}`
             : (schema.fields.find((x) => x.key === k)?.options.find((o) => o.value === v)?.label ?? String(v)),
-    loading: false
+    loading: false,
+    t: enText
 };
-const wrap = (ui: React.ReactElement) => render(<TooltipProvider>{ui}</TooltipProvider>);
+const wrap = hostRenderer({ language: 'en' });
 
 describe('FilterBuilder', () => {
     it('builds conditions from the form fields and applies only complete ones', async () => {
@@ -115,6 +118,81 @@ describe('FilterBuilder', () => {
             'Kind is any of Travel, Meals'
         );
         expect(describeCondition({ field: 'urgent', op: 'eq', value: true }, schema, labeler)).toBe('Urgent is Yes');
+    });
+});
+
+describe('in Amharic', () => {
+    it('says the filter editor’s words in the screens’ language', async () => {
+        const user = userEvent.setup();
+        hostRenderer({ language: 'am' })(
+            <FilterBuilder
+                schema={schema}
+                labeler={{ ...labeler, t: amText }}
+                value={{ op: 'and', items: [] }}
+                onApply={vi.fn()}
+            />
+        );
+        await user.click(screen.getByRole('button', { name: amText('form-engine.viewer.filters.button') }));
+        expect(screen.getByRole('button', { name: amText('form-engine.viewer.filters.add') })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: amText('form-engine.viewer.filters.apply') })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
+    });
+
+    it('describes a condition in Amharic', () => {
+        const am: Labeler = { ...labeler, t: amText };
+        expect(describeCondition({ field: 'urgent', op: 'eq', value: true }, schema, am)).toBe(
+            `Urgent ${amText('form-engine.viewer.op.eq')} ${amText('form-engine.core.print.yes')}`
+        );
+    });
+
+    it('says an empty data viewer in Amharic', async () => {
+        const wireSchema = {
+            fields: [
+                {
+                    key: 'status',
+                    label: 'Status',
+                    kind: 'choice',
+                    builtin: false,
+                    ops: ['eq'],
+                    sortable: true,
+                    groupable: true,
+                    aggregatable: false,
+                    options: [],
+                    currency: null,
+                    type: null,
+                    filterable: true,
+                    indexed: true
+                }
+            ],
+            roles: {
+                title: null,
+                subtitle: null,
+                stage: 'status',
+                date: null,
+                dateEnd: null,
+                measures: [],
+                people: [],
+                files: [],
+                rows: []
+            },
+            modes: ['table']
+        };
+        const client = { get: vi.fn(), post: vi.fn() };
+        client.get.mockImplementation((url: string) =>
+            Promise.resolve({ data: url.endsWith('/view') ? wireSchema : { items: [] } })
+        );
+        client.post.mockResolvedValue({
+            data: { items: [], total: 0, page: 1, pageSize: 20, aggregates: {}, groups: [], facets: {} }
+        });
+        const user = { id: 'u1', email: 'a@example.org', full_name: 'A', roles: [], tenant_id: 't1', permissions: [] };
+        hostRenderer({ language: 'am', client, user })(
+            <NotifyProvider>
+                <DataViewer templateId="t1" onOpen={vi.fn()} />
+            </NotifyProvider>
+        );
+        await waitFor(() => expect(screen.getByText(amText('form-engine.viewer.noRequests'))).toBeInTheDocument());
+        expect(screen.getByRole('button', { name: amText('form-engine.viewer.filters.button') })).toBeInTheDocument();
+        expect(screen.queryByText('No requests yet.')).not.toBeInTheDocument();
     });
 });
 

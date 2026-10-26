@@ -26,15 +26,10 @@ import {
     cn
 } from '@itrms/ui';
 import { NumberInput } from './controls';
+import type { SettingMeta } from '../renderer/kit';
+import { useEngineText } from '../host/text';
 
-interface Meta {
-    title?: string;
-    description?: string;
-    placeholder?: string;
-    labels?: Record<string, string>;
-    multiline?: boolean;
-    advanced?: boolean;
-}
+type Meta = Partial<SettingMeta>;
 
 export interface SettingSpec {
     key: string;
@@ -55,10 +50,10 @@ export function settingsOf(schema: z.ZodObject | undefined): SettingSpec[] {
     if (!schema) return [];
     return Object.entries(schema.shape).flatMap(([key, raw]) => {
         let s = raw as unknown as AnySchema;
-        const meta: Meta = { ...(s.meta() ?? {}) };
+        const meta: Meta = { ...((s.meta() ?? {}) as Meta) };
         while ((s.def.type === 'optional' || s.def.type === 'default' || s.def.type === 'nullable') && s.unwrap) {
             s = s.unwrap();
-            Object.assign(meta, { ...(s.meta() ?? {}), ...meta });
+            Object.assign(meta, { ...((s.meta() ?? {}) as Meta), ...meta });
         }
         const kind = s.def.type;
         if (kind !== 'string' && kind !== 'number' && kind !== 'boolean' && kind !== 'enum') return [];
@@ -81,9 +76,10 @@ interface Props {
 }
 
 export function SettingsForm({ schema, value, own, onChange, fallback, idPrefix }: Props) {
+    const { t } = useEngineText();
     const specs = settingsOf(schema);
     const [more, setMore] = useState(false);
-    if (!specs.length) return <p className="text-sm text-muted-foreground">This field has no settings of its own.</p>;
+    if (!specs.length) return <p className="text-sm text-muted-foreground">{t('form-engine.settings.form.none')}</p>;
     const main = specs.filter((s) => !s.meta.advanced);
     const advanced = specs.filter((s) => s.meta.advanced);
     const render = (s: SettingSpec) => (
@@ -104,7 +100,7 @@ export function SettingsForm({ schema, value, own, onChange, fallback, idPrefix 
                 <Collapsible open={more} onOpenChange={setMore}>
                     <CollapsibleTrigger className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground">
                         <ChevronDown className={cn('size-4 transition-transform', !more && '-rotate-90')} />
-                        More settings
+                        {t('form-engine.settings.form.more')}
                     </CollapsibleTrigger>
                     <CollapsibleContent className="mt-3 flex flex-col gap-4">{advanced.map(render)}</CollapsibleContent>
                 </Collapsible>
@@ -158,39 +154,43 @@ function SettingControl({
     fallback?: string;
     onChange: (v: unknown) => void;
 }) {
-    const title = spec.meta.title ?? humanize(spec.key);
+    const { t, word } = useEngineText();
+    const title = spec.meta.title ? word(spec.meta.title) : humanize(spec.key);
+    const description = spec.meta.description ? word(spec.meta.description) : undefined;
+    // a sample (`USD`) as it is; a button's default text in the language of the screen
+    const sample = spec.meta.placeholderWord ? word(spec.meta.placeholderWord) : spec.meta.placeholder;
     switch (spec.kind) {
         case 'boolean':
             return (
-                <Labelled id={id} title={title} description={spec.meta.description} inline>
+                <Labelled id={id} title={title} description={description} inline>
                     <Switch id={id} checked={value === true} onCheckedChange={(c) => onChange(c)} />
                 </Labelled>
             );
         case 'number':
             return (
-                <Labelled id={id} title={title} description={spec.meta.description}>
+                <Labelled id={id} title={title} description={description}>
                     <NumberInput
                         id={id}
                         value={typeof value === 'number' ? value : undefined}
                         onChange={(n) => onChange(n)}
-                        placeholder={spec.meta.placeholder}
+                        placeholder={sample}
                     />
                 </Labelled>
             );
         case 'enum':
             return (
-                <Labelled id={id} title={title} description={spec.meta.description}>
+                <Labelled id={id} title={title} description={description}>
                     <Select
                         value={typeof value === 'string' && spec.options?.includes(value) ? value : ''}
                         onValueChange={(v) => onChange(v)}
                     >
                         <SelectTrigger id={id} className="w-full">
-                            <SelectValue placeholder="Default" />
+                            <SelectValue placeholder={t('form-engine.settings.form.default')} />
                         </SelectTrigger>
                         <SelectContent>
                             {spec.options?.map((o) => (
                                 <SelectItem key={o} value={o}>
-                                    {spec.meta.labels?.[o] ?? o}
+                                    {spec.meta.labels?.[o] ? word(spec.meta.labels[o]) : o}
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -202,12 +202,12 @@ function SettingControl({
             const props = {
                 id,
                 value: text,
-                placeholder: text === '' ? (fallback ?? spec.meta.placeholder) : spec.meta.placeholder,
+                placeholder: text === '' ? (fallback ?? sample) : sample,
                 onChange: (e: { target: { value: string } }) => onChange(e.target.value),
                 className: own ? undefined : 'text-muted-foreground'
             };
             return (
-                <Labelled id={id} title={title} description={spec.meta.description}>
+                <Labelled id={id} title={title} description={description}>
                     {spec.meta.multiline ? <Textarea rows={3} {...props} /> : <Input {...props} />}
                 </Labelled>
             );

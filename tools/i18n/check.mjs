@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // The catalogue check (task 0.13, i18n-and-languages.md; CLAUDE.md: keys are required in am and en, CI fails). Walks the
-// shell's catalogue (apps/web/messages) and every slice's (platform/*/messages, modules/*/messages):
+// shell's catalogue (apps/web/messages), every slice's (platform/*/messages, modules/*/messages) and every package
+// area's (packages/<pkg>/messages/<area>: the form engine's own words, owned as `<pkg>.<area>.`):
 //   - every key in Amharic and English, with a text;
 //   - keys are the owner's: `<slice>.<area>.<key>`, the shell's `shell.` or `common.`;
 //   - no key is also another's prefix (the web app nests them: `a.b` and `a.b.c` cannot both be texts);
@@ -33,6 +34,15 @@ export function catalogueFolders(root) {
             if (existsSync(dir)) folders.push({ dir, owners: [slice.name] });
         }
     }
+    const packages = join(root, 'packages');
+    if (existsSync(packages))
+        for (const pkg of readdirSync(packages, { withFileTypes: true })) {
+            const base = join(packages, pkg.name, 'messages');
+            if (!pkg.isDirectory() || !existsSync(base)) continue;
+            for (const area of readdirSync(base, { withFileTypes: true }))
+                if (area.isDirectory())
+                    folders.push({ dir: join(base, area.name), owners: [`${pkg.name}.${area.name}`] });
+        }
     return folders;
 }
 

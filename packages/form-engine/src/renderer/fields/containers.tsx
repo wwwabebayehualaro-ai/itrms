@@ -16,6 +16,7 @@ import {
     cn
 } from '@itrms/ui';
 import { containerTitle, type EngineField } from '../../core';
+import { useEngineText } from '../../host/text';
 import { defineFieldType, type ContainerFieldProps } from '../kit';
 
 /** A titled box whose body can be collapsed (`toggleable`, starting closed with `collapsed`). */
@@ -32,6 +33,7 @@ function Collapsable({
     framed: string;
     legend?: boolean;
 }) {
+    const { t } = useEngineText();
     const toggleable = Boolean(field.props.toggleable);
     const [open, setOpen] = useState(!field.props.collapsed);
     const Heading = legend ? 'legend' : 'div';
@@ -55,7 +57,12 @@ function Collapsable({
                 {toggleable ? (
                     <CollapsibleTrigger
                         className="w-full cursor-pointer rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        aria-label={`${open ? 'Collapse' : 'Expand'} ${title}`}
+                        aria-label={t(
+                            open ? 'form-engine.renderer.container.collapse' : 'form-engine.renderer.container.expand',
+                            {
+                                title
+                            }
+                        )}
                     >
                         {head}
                     </CollapsibleTrigger>

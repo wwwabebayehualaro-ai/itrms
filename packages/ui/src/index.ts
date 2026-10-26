@@ -32,7 +32,9 @@ export * from './primitives/dialog';
 export * from './primitives/dropdown-menu';
 export * from './primitives/field';
 export * from './primitives/input';
-export { ETHIOPIC_TOGGLE_KEY, useEthiopicTyping } from './ethiopic/useEthiopicTyping';
+export { ETHIOPIC_TOGGLE_KEY, EthiopicTypingProvider, useEthiopicTyping } from './ethiopic/useEthiopicTyping';
+export type { EthiopicTypingLabels } from './ethiopic/useEthiopicTyping';
+export { announce } from './ethiopic/announce';
 export { transliterate } from './ethiopic/transliterate';
 export * from './primitives/label';
 export * from './primitives/popover';
@@ -63,6 +65,7 @@ export type { EthiopianDatePickerLabels, EthiopianDatePickerProps } from './cont
 export type { DatePickerProps } from './controls/DatePicker';
 export { TagsInput } from './controls/TagsInput';
 export { Pager } from './controls/Pager';
+export type { PagerLabels } from './controls/Pager';
 export { IconButton } from './controls/IconButton';
 export { StatusBadge, toneOf } from './controls/StatusBadge';
 export type { Tone } from './controls/StatusBadge';

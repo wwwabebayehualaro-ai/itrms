@@ -99,6 +99,29 @@ path; resolving, the save-time contract check, the builder's translation table a
   message of a repeatable section, the upload button, column headers of data tables and the empty message of a data
   binding are texts per language too, read in the reader's language.
 
+## The engine's own words
+
+Every word the engine itself shows (the builder's palette, settings and screens, the renderer's buttons and messages,
+the data viewer, print, and core's default validation messages) comes from its catalogues,
+`messages/<area>/{am,en,wal-Latn}.json` (areas `core`, `palette`, `settings`, `designer`, `renderer`, `viewer`; keys
+`form-engine.<area>.…`; task 0.17d, ADR-0036). `pnpm i18n:check` checks them like a slice's.
+
+- **Core:** `engineText(language, key, values?)`, `engineTranslator(language)` and `wordIn(language, word)` (ICU messages
+  through intl-messageformat; fallback `wal-Latn → am → en`). Keys are typed from the English catalogues: a mistyped key
+  fails typecheck. The same words reach the browser, the API's 422 (`validateForm(…, { language })`, default Amharic;
+  the API passes the caller's) and the print worker (`printWords(language)`).
+- **On screen:** `useEngineText()` → `{ language, t, word }`. A form's words follow the language it is drawn in
+  (`EngineForm` sets `<EngineTextLanguage>`); the builder's and viewer's follow the host's (`FormsHost.useLanguages`).
+- **Palette and settings:** a field type's `label` and `hint` and its settings' `title`, `description` and `labels` are
+  words (`EngineWord`: a catalogue key, or `{ am, en }` for an extension's own type). `createField` stores the palette
+  label in the builder's text language and takes the key from its English word.
+- **The design system's words** the engine uses (the grid and pager) come in as labels (`useGridLabels`); the app gives
+  the Ethiopic typing announcement's (`EthiopicTypingProvider`, `shell.ethiopic.*`).
+- **Still English:** form-author diagnostics (formula parse errors, unsupported patterns, document checks) until they get
+  error codes, and developer errors.
+- **Tests:** the test host's language is Amharic; specs say engine words with `amText(key)` / `enText(key)` from
+  `src/test-utils.tsx`.
+
 ## Print
 
 `printModel(form, values, { language, roles?, omitBlank?, gregorian?, ... })` (core, UI-free) turns a form and its

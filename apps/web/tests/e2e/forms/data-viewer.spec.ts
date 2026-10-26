@@ -7,9 +7,13 @@
  * read-only, its history, Back keeps the view); and they leave as a file. Moving a card on the board waits for the
  * workflow (a filed request changes only through its case, task 0.19).
  */
+import { engineTranslator } from '@itrms/form-engine/core';
 import { expect, test, type Page } from '@playwright/test';
 
 import { PEOPLE, api, field, publishedForm, runName, signedIn, switchOff, type Api } from './support';
+
+// the page runs in Amharic, so the engine's own words are looked up in its Amharic catalogue
+const am = engineTranslator('am');
 
 const REQUESTS = [
     field('InputText', 'title', 'Title', { props: { required: true }, filterable: true }),
@@ -72,7 +76,7 @@ test('every mode of the data viewer shows the requests as the API counts them', 
         await show(page, formId, 'table');
         const rows = page.locator('[data-viewer] tbody tr');
         await expect(rows).toHaveCount(ROWS.length);
-        await page.getByLabel('Search requests').fill('Culvert');
+        await page.getByLabel(am('form-engine.viewer.search')).fill('Culvert');
         await expect(rows).toHaveCount(1);
         await expect(rows.first()).toContainText('Culvert cement');
 
@@ -105,7 +109,9 @@ test('every mode of the data viewer shows the requests as the API counts them', 
 
         // dashboard: the requests tile, and a bar drills down to its requests in the table
         await show(page, formId, 'dashboard');
-        await expect(page.locator('[data-dashboard] [data-tile="Requests"]')).toContainText(String(ROWS.length));
+        await expect(
+            page.locator(`[data-dashboard] [data-tile="${am('form-engine.viewer.dashboard.requests')}"]`)
+        ).toContainText(String(ROWS.length));
         const bar = page.locator('[data-dashboard] [data-bar]').first();
         const count = Number(await bar.getAttribute('data-value'));
         await bar.click();
@@ -121,14 +127,16 @@ test('every mode of the data viewer shows the requests as the API counts them', 
         // the filter builder: "Priority is Normal", asked of the server; the link keeps it, a reload too
         await show(page, formId, 'table');
         await expect(rows).toHaveCount(ROWS.length);
-        await page.getByRole('button', { name: 'Filter' }).click();
-        const builder = page.getByRole('dialog', { name: 'Filter requests' });
-        await builder.getByRole('button', { name: 'Add condition' }).click();
-        await builder.getByRole('combobox', { name: 'Field' }).click();
+        await page.getByRole('button', { name: am('form-engine.viewer.filters.button') }).click();
+        const builder = page.getByRole('dialog', { name: am('form-engine.viewer.filters.title') });
+        await builder.getByRole('button', { name: am('form-engine.viewer.filters.add') }).click();
+        await builder.getByRole('combobox', { name: am('form-engine.viewer.filters.field') }).click();
         await page.getByRole('option', { name: 'Priority' }).click();
-        await builder.getByRole('combobox', { name: 'Priority value' }).click();
+        await builder
+            .getByRole('combobox', { name: am('form-engine.viewer.filters.valueOf', { label: 'Priority' }) })
+            .click();
         await page.getByRole('option', { name: 'Normal' }).click();
-        await builder.getByRole('button', { name: 'Apply' }).click();
+        await builder.getByRole('button', { name: am('form-engine.viewer.filters.apply') }).click();
         await expect(rows).toHaveCount(2);
         await expect(page).toHaveURL(/[?&]f=/);
         await page.reload();
@@ -142,10 +150,13 @@ test('every mode of the data viewer shows the requests as the API counts them', 
             .toMatch(/2,300[\s\S]*8,500|8,500[\s\S]*2,300/);
 
         // a private saved view of it, opened again from its link
-        await page.getByRole('button', { name: 'Views' }).click();
-        await page.getByRole('button', { name: 'Save current view…' }).click();
+        await page.getByRole('button', { name: am('form-engine.viewer.views.button') }).click();
+        await page.getByRole('button', { name: am('form-engine.viewer.views.saveCurrent') }).click();
         await page.locator('[data-save-view] #view-name').fill('Normal priority');
-        await page.locator('[data-save-view]').getByRole('button', { name: /^Save/ }).click();
+        await page
+            .locator('[data-save-view]')
+            .getByRole('button', { name: am('form-engine.viewer.views.save') })
+            .click();
         await expect(page.getByRole('button', { name: 'Normal priority' })).toBeVisible();
         const views = await filler.get<{ items: { id: string; name: string; visibility: string }[] }>(
             `v1/forms/${formId}/views`
@@ -168,11 +179,11 @@ test('every mode of the data viewer shows the requests as the API counts them', 
         await expect(rows).toHaveCount(2);
 
         // export, a right of its own (the zone's head has it, a records officer not): the woreda's requests leave as a file
-        await expect(page.getByRole('button', { name: 'Export' })).toHaveCount(0);
+        await expect(page.getByRole('button', { name: am('form-engine.viewer.export.label') })).toHaveCount(0);
         await show(approverPage, formId, 'table');
         await expect(approverPage.locator('[data-viewer] tbody tr')).toHaveCount(ROWS.length);
         const download = approverPage.waitForEvent('download');
-        await approverPage.getByRole('button', { name: 'Export' }).click();
+        await approverPage.getByRole('button', { name: am('form-engine.viewer.export.label') }).click();
         expect((await download).suggestedFilename()).toMatch(/\.csv$/);
     } finally {
         await switchOff(author, formId);

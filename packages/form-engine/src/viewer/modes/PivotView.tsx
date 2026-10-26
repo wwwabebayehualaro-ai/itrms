@@ -2,7 +2,9 @@
 
 import { useMemo } from 'react';
 import { InlineStatus, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@itrms/ui';
+import type { EngineMessageKey } from '../../core/messages';
 import { requestErrorMessage } from '../../host/client';
+import { useEngineText } from '../../host/text';
 import { formatCurrency } from '../../host/format';
 import { useSubmissionData } from '../api';
 import { EmptyBox } from '../components';
@@ -11,12 +13,12 @@ import type { ViewModeProps } from '../registry';
 import type { AggFn, Bucket, ViewField } from '../types';
 
 const MAX_COLUMNS = 12;
-const FN_LABEL: Record<AggFn, string> = {
-    count: 'Count',
-    sum: 'Sum of',
-    avg: 'Average of',
-    min: 'Smallest',
-    max: 'Largest'
+const FN_LABEL: Record<AggFn, EngineMessageKey> = {
+    count: 'form-engine.viewer.pivot.fn.count',
+    sum: 'form-engine.viewer.pivot.fn.sum',
+    avg: 'form-engine.viewer.pivot.fn.avg',
+    min: 'form-engine.viewer.pivot.fn.min',
+    max: 'form-engine.viewer.pivot.fn.max'
 };
 const NONE = '__none__';
 
@@ -56,6 +58,7 @@ function Setting({
 }
 
 export default function PivotView({ templateId, schema, state, patch, labeler }: ViewModeProps) {
+    const { t } = useEngineText();
     const groupable = schema.fields.filter((f) => f.groupable);
     const o = state.options as { rows?: string; cols?: string; fn?: AggFn; measure?: string; bucket?: Bucket };
     const rowsKey =
@@ -125,15 +128,15 @@ export default function PivotView({ templateId, schema, state, patch, labeler }:
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [cells.data, rowTotals.data, colTotals.data, colField, fn]);
 
-    if (!rowField) return <InlineStatus error="This form has no field to group requests by." />;
+    if (!rowField) return <InlineStatus error={t('form-engine.viewer.pivot.noField')} />;
     const loading = cells.isPending || (!!colField && (rowTotals.isPending || colTotals.isPending));
     const error = cells.error ?? rowTotals.error ?? colTotals.error;
     const fieldOptions = groupable.map((f) => ({ label: f.label, value: f.key }));
     const valueOptions = [
-        { label: 'Count of requests', value: 'count' },
+        { label: t('form-engine.viewer.pivot.countRequests'), value: 'count' },
         ...measures.flatMap((m) =>
             (['sum', 'avg', 'min', 'max'] as const).map((f) => ({
-                label: `${FN_LABEL[f]} ${m.label}`,
+                label: t(FN_LABEL[f], { measure: m.label }),
                 value: `${f}:${m.key}`
             }))
         )
@@ -161,15 +164,23 @@ export default function PivotView({ templateId, schema, state, patch, labeler }:
     return (
         <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-end gap-3">
-                <Setting label="Rows" value={rowsKey!} options={fieldOptions} onChange={(v) => set({ rows: v })} />
                 <Setting
-                    label="Columns"
+                    label={t('form-engine.viewer.pivot.rows')}
+                    value={rowsKey!}
+                    options={fieldOptions}
+                    onChange={(v) => set({ rows: v })}
+                />
+                <Setting
+                    label={t('form-engine.viewer.pivot.columns')}
                     value={colsKey ?? NONE}
-                    options={[{ label: 'None', value: NONE }, ...fieldOptions.filter((f) => f.value !== rowsKey)]}
+                    options={[
+                        { label: t('form-engine.viewer.pivot.none'), value: NONE },
+                        ...fieldOptions.filter((f) => f.value !== rowsKey)
+                    ]}
                     onChange={(v) => set({ cols: v === NONE ? undefined : v })}
                 />
                 <Setting
-                    label="Value"
+                    label={t('form-engine.viewer.pivot.value')}
                     value={fn === 'count' || !measure ? 'count' : `${fn}:${measure.key}`}
                     options={valueOptions}
                     onChange={(v) =>
@@ -179,12 +190,12 @@ export default function PivotView({ templateId, schema, state, patch, labeler }:
                 />
                 {(isDate(rowField) || isDate(colField)) && (
                     <Setting
-                        label="Dates by"
+                        label={t('form-engine.viewer.pivot.datesBy')}
                         value={bucket}
                         options={[
-                            { label: 'Month', value: 'month' },
-                            { label: 'Year', value: 'year' },
-                            { label: 'Day', value: 'day' }
+                            { label: t('form-engine.viewer.pivot.month'), value: 'month' },
+                            { label: t('form-engine.viewer.pivot.year'), value: 'year' },
+                            { label: t('form-engine.viewer.pivot.day'), value: 'day' }
                         ]}
                         onChange={(v) => set({ bucket: v })}
                         width="w-32"
@@ -193,17 +204,29 @@ export default function PivotView({ templateId, schema, state, patch, labeler }:
             </div>
 
             {error ? (
-                <InlineStatus error={requestErrorMessage(error)} />
+                <InlineStatus error={requestErrorMessage(error, undefined, t)} />
             ) : loading || !model ? (
                 <InlineStatus loading />
             ) : model.rowOrder.length === 0 ? (
-                <EmptyBox>No requests match.</EmptyBox>
+                <EmptyBox>{t('form-engine.viewer.pivot.noMatch')}</EmptyBox>
             ) : (
                 <div className="overflow-x-auto rounded-lg border">
                     <table className="w-full border-collapse" data-pivot>
                         <caption className="sr-only">
-                            {FN_LABEL[fn]} {measure?.label ?? 'requests'} by {rowField.label}
-                            {colField ? ` and ${colField.label}` : ''}
+                            {colField
+                                ? t('form-engine.viewer.pivot.captionCols', {
+                                      what: t(FN_LABEL[fn], {
+                                          measure: measure?.label ?? t('form-engine.viewer.requests')
+                                      }),
+                                      rows: rowField.label,
+                                      cols: colField.label
+                                  })
+                                : t('form-engine.viewer.pivot.caption', {
+                                      what: t(FN_LABEL[fn], {
+                                          measure: measure?.label ?? t('form-engine.viewer.requests')
+                                      }),
+                                      rows: rowField.label
+                                  })}
                         </caption>
                         <thead className="bg-muted/60">
                             <tr>
@@ -213,17 +236,19 @@ export default function PivotView({ templateId, schema, state, patch, labeler }:
                                 {colField ? (
                                     model.cols.map((c) => (
                                         <th key={String(c)} scope="col" className={`${th} text-right`}>
-                                            {groupLabel(colField, c, bucket, labeler.text)}
+                                            {groupLabel(colField, c, bucket, labeler.text, t)}
                                         </th>
                                     ))
                                 ) : (
                                     <th scope="col" className={`${th} text-right`}>
-                                        {fn === 'count' ? 'Requests' : `${FN_LABEL[fn]} ${measure?.label}`}
+                                        {fn === 'count'
+                                            ? t('form-engine.viewer.pivot.requests')
+                                            : t(FN_LABEL[fn], { measure: measure?.label ?? '' })}
                                     </th>
                                 )}
                                 {colField && (
                                     <th scope="col" className={`${th} text-right`}>
-                                        Total
+                                        {t('form-engine.viewer.pivot.total')}
                                     </th>
                                 )}
                             </tr>
@@ -232,7 +257,7 @@ export default function PivotView({ templateId, schema, state, patch, labeler }:
                             {model.rowOrder.map((r) => (
                                 <tr key={String(r)} className="border-t">
                                     <th scope="row" className={`${th} text-left`}>
-                                        {groupLabel(rowField, r, bucket, labeler.text)}
+                                        {groupLabel(rowField, r, bucket, labeler.text, t)}
                                     </th>
                                     {colField ? (
                                         model.cols.map((c) => {
@@ -251,7 +276,9 @@ export default function PivotView({ templateId, schema, state, patch, labeler }:
                                                             type="button"
                                                             className={drillButton}
                                                             onClick={() => drill(r, c)}
-                                                            aria-label={`${show(v)}: show these requests`}
+                                                            aria-label={t('form-engine.viewer.pivot.drill', {
+                                                                value: show(v)
+                                                            })}
                                                         >
                                                             {show(v)}
                                                         </button>
@@ -269,7 +296,9 @@ export default function PivotView({ templateId, schema, state, patch, labeler }:
                                                 type="button"
                                                 className={drillButton}
                                                 onClick={() => drill(r)}
-                                                aria-label={`${show(model.rowTotal.get(r) ?? null)}: show these requests`}
+                                                aria-label={t('form-engine.viewer.pivot.drill', {
+                                                    value: show(model.rowTotal.get(r) ?? null)
+                                                })}
                                             >
                                                 {show(model.rowTotal.get(r) ?? null)}
                                             </button>
@@ -286,7 +315,7 @@ export default function PivotView({ templateId, schema, state, patch, labeler }:
                         <tfoot>
                             <tr className="border-t-2 bg-muted/30">
                                 <th scope="row" className={`${th} text-left`}>
-                                    Total
+                                    {t('form-engine.viewer.pivot.total')}
                                 </th>
                                 {colField &&
                                     model.cols.map((c) => (
@@ -302,7 +331,10 @@ export default function PivotView({ templateId, schema, state, patch, labeler }:
                     </table>
                     {model.hidden > 0 && (
                         <p className="border-t p-2 text-sm text-muted-foreground">
-                            Showing {MAX_COLUMNS} of {MAX_COLUMNS + model.hidden} columns. Filter to narrow it down.
+                            {t('form-engine.viewer.pivot.hidden', {
+                                max: String(MAX_COLUMNS),
+                                total: String(MAX_COLUMNS + model.hidden)
+                            })}
                         </p>
                     )}
                 </div>

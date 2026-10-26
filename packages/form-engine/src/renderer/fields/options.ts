@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from 'react';
 import isEqual from 'lodash/isEqual.js';
 import type { EngineField, FieldOption } from '../../core';
+import { useEngineText } from '../../host/text';
 import { flattenOptions, toOptions, type SelectOption } from '../../core/runtime/mapping';
 import { useDataSource, useRuntimeApi } from '../runtimeScope';
 
@@ -19,6 +20,7 @@ export interface OptionsState {
 
 /** Options of a choice field: the static list, or the rows of the data source it is bound to (`data.optionsBinding`). */
 export function useOptions(field: EngineField): OptionsState {
+    const { t } = useEngineText();
     const binding = field.optionsBinding;
     const state = useDataSource(binding?.dataSourceId);
     const api = useRuntimeApi();
@@ -36,7 +38,7 @@ export function useOptions(field: EngineField): OptionsState {
             loading: false,
             settled: true,
             error: null,
-            emptyMessage: 'No options available',
+            emptyMessage: t('form-engine.renderer.options.none'),
             retry: () => undefined
         };
     return {
@@ -46,7 +48,7 @@ export function useOptions(field: EngineField): OptionsState {
         loading: !state || state.isLoading || (state.status === 'loading' && state.data === undefined),
         settled: state?.status === 'success' && !state.isFetching,
         error: state?.error ?? null,
-        emptyMessage: binding.emptyMessage || 'No options available',
+        emptyMessage: binding.emptyMessage || t('form-engine.renderer.options.none'),
         retry: () => void state?.refetch()
     };
 }

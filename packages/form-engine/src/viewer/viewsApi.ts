@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFormsClient } from '../host/FormsHost';
+import { useEngineText } from '../host/text';
 import { createKeys } from '../host/client';
 import { FORMS_API, ifMatch, savedViewOf, toWireConfig, toWireVisibility, type WireSavedView } from '../api/wire';
 import type { SavedView, ViewConfig, ViewState } from './types';
@@ -44,6 +45,7 @@ export function useSavedViews(templateId?: string) {
 
 export function useSavedViewMutations() {
     const client = useFormsClient();
+    const { t } = useEngineText();
     const qc = useQueryClient();
     const refresh = () => qc.invalidateQueries({ queryKey: savedViewKeys.all });
     /** The version of a view the screen shows (a change based on an older one is refused, 409). */
@@ -52,7 +54,7 @@ export function useSavedViewMutations() {
             const found = views?.find((v) => v.id === id);
             if (found) return found.row_version;
         }
-        throw new Error('This view is no longer shown: refresh the page.');
+        throw new Error(t('form-engine.viewer.views.gone'));
     };
     const create = useMutation({
         mutationFn: async (body: {
@@ -73,7 +75,7 @@ export function useSavedViewMutations() {
                 ).data
             ),
         onSuccess: refresh,
-        meta: { errorMessage: 'Failed to save the view' }
+        meta: { errorMessage: t('form-engine.viewer.views.saveFailed') }
     });
     const update = useMutation({
         mutationFn: async ({
@@ -101,7 +103,7 @@ export function useSavedViewMutations() {
                 ).data
             ),
         onSuccess: refresh,
-        meta: { errorMessage: 'Failed to change the view' }
+        meta: { errorMessage: t('form-engine.viewer.views.changeFailed') }
     });
     const remove = useMutation({
         mutationFn: async (id: string) => {
@@ -109,7 +111,7 @@ export function useSavedViewMutations() {
             return id;
         },
         onSuccess: refresh,
-        meta: { errorMessage: 'Failed to delete the view' }
+        meta: { errorMessage: t('form-engine.viewer.views.deleteFailed') }
     });
     return { create, update, remove };
 }
