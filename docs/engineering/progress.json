@@ -678,10 +678,17 @@
         {
           "id": "0.17e",
           "title": "Form engine for ITRMS, part 1e: the engine's types",
-          "status": "in progress",
+          "status": "in review",
           "branch": "task/0.17e-engine-types",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "c40c64e"
+          ],
+          "evidence": [
+            "packages/form-engine/eslint.config.js has no any/no-unsafe override (grep count 0); npx eslint . in packages/form-engine → 0 problems",
+            "existing suites unchanged in behaviour: engine 204 passed (+ check:engine, check:runtime, form_config contract current), ui 73, web 63, api 10; turbo lint+typecheck+test 15/15; boundaries 976 modules",
+            "CI run 40360893728 on PR #13: all 9 jobs pass (incl. integration and e2e)",
+            "reviewer: nothing high or medium; three lows fixed, one kept with reason; done-when verified by the lead (task-verifier skipped after the usage limit was hit)"
+          ],
           "blockers": [],
           "notes": "The scoped override (no-explicit-any, no-unsafe-*, no-base-to-string, no-non-null-assertion, restrict-template-expressions, no-redundant-type-constituents) removed from packages/form-engine/eslint.config.js; 299 errors fixed in three batches (designer 88, renderer 105, viewer+scripts 104) with no new 'as unknown as' or eslint-disable. Public types tightened: EngineForm onFormSubmit(EngineSubmission) (exported), ActionContext fields unknown, RowActionDetail<Row> generic, RecordForm.form_config typed; field kit generic over the value type. Board/Dashboard render nothing instead of crashing if their field is missing (they are offered only when it exists). Engine 204, ui 73, web 63, api 10; turbo lint+typecheck+test 15/15; boundaries 976 modules. Reviewer (nothing high or medium): a list value reads as before (items joined by commas) in the viewer's text; the submit toast takes the first text message, else the catalogue word; the board and dashboard say why they cannot show (new viewer keys) instead of an empty pane; RecordForm.form_config is cast from unvalidated JSON but every use goes through readDocument (Zod), kept."
         },
