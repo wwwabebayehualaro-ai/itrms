@@ -218,4 +218,51 @@ describe('printModel', () => {
         expect(find(print({ roles: ['clerk'] }).nodes, 'staff')).toBeDefined();
         expect(find(print({}).nodes, 'staff')).toBeDefined();
     });
+
+    it('drops a row column inside a container the reader roles do not see', () => {
+        const restricted = {
+            fields: [
+                C('lines', 'FormArray', {}),
+                inside('lines', F('item', 'InputText')),
+                inside('lines', C('money', 'Panel', {}, { visibleToRoles: ['finance'] })),
+                inside('money', F('salary', 'InputNumber'))
+            ]
+        };
+        const data = { lines: [{ item: 'a', salary: 9000 }] };
+        const of = (roles: string[]) => rows(printModel(restricted, data, { language: 'en', roles }).nodes, 'lines');
+        expect(of(['clerk']).columns.map((c) => c.id)).toEqual(['item']);
+        expect(of(['clerk']).rows[0]?.cells).toEqual(['a']);
+        expect(of(['finance']).columns.map((c) => c.id)).toEqual(['item', 'salary']);
+    });
+
+    it('prints a section holding a nested section by row, even when set to a table', () => {
+        const nested = {
+            fields: [
+                C('outer', 'FormArray', { printLayout: 'table' }),
+                inside('outer', F('label', 'InputText')),
+                inside('outer', C('inner', 'FormArray', {})),
+                inside('inner', F('part', 'InputText'))
+            ]
+        };
+        const outer = rows(
+            printModel(nested, { outer: [{ label: 'x', inner: [{ part: 'p' }] }] }, { language: 'en' }).nodes,
+            'outer'
+        );
+        expect(outer.layout).toBe('list');
+        expect(outer.rows[0]?.children).toMatchObject([
+            { id: 'label', text: 'x' },
+            { kind: 'rows', id: 'inner', rows: [{ cells: ['p'] }] }
+        ]);
+    });
+
+    it('reads a time without an offset as Addis wall time, and a day stored with a time on its Addis day', () => {
+        expect(addisDayTime('2026-10-25T10:00')).toEqual({ day: '2026-10-25', time: '10:00' });
+        expect(addisDayTime('2026-10-25')).toEqual({ day: '2026-10-25', time: '' });
+        const day = { fields: [F('on', 'Calendar'), F('at', 'Calendar', { props: { showTime: true } })] };
+        const out = printModel(day, { on: '2026-10-25T21:00:00.000Z', at: '2026-10-25' }, { language: 'en' });
+        expect(text(out.nodes, 'on')).toBe(
+            `${ethiopianDateText('2026-10-26', { language: 'en', long: true })} (2026-10-26)`
+        );
+        expect(text(out.nodes, 'at')).toBe(ethiopianDateText('2026-10-25', { language: 'en', long: true }));
+    });
 });

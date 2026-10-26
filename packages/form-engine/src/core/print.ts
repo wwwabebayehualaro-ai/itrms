@@ -117,8 +117,10 @@ function choiceText(v: unknown, options: FieldOption[]): string {
 }
 
 function dayText(v: unknown, language: string): string {
-    const text = ethiopianDateText(v, { language, long: true });
-    return text ? `${text} (${String(v).slice(0, 10)})` : String(v);
+    // a day holding an instant counts on its Addis Ababa day, as the screen shows it
+    const day = typeof v === 'string' && v.includes('T') ? (addisDayTime(v)?.day ?? v) : v;
+    const text = ethiopianDateText(day, { language, long: true });
+    return text ? `${text} (${String(day).slice(0, 10)})` : String(v);
 }
 
 /** The words a value prints as (the blank word when there is none). */
@@ -166,7 +168,7 @@ export function printValueText(
             const at = addisDayTime(value);
             if (!at) return String(value);
             const text = ethiopianDateText(at.day, { language, long: true });
-            return text ? `${text} ${at.time}` : String(value);
+            return text ? [text, at.time].filter(Boolean).join(' ') : String(value);
         }
         case 'files':
             return (Array.isArray(value) ? value : [])
@@ -190,8 +192,14 @@ export function printModel(form: unknown, values: Record<string, unknown>, opts:
     const ctx = { ...scope, root };
     const printOpts = { language: opts.language, words, gregorian: opts.gregorian };
 
-    const allowed = (f: EngineField) =>
+    const ownRoles = (f: EngineField) =>
         !opts.roles || !f.visibleToRoles?.length || f.visibleToRoles.some((r) => opts.roles?.includes(r));
+    // a field inside a container the reader's roles do not see is not seen either (table columns skip the containers)
+    const allowed = (f: EngineField): boolean => {
+        for (let p: EngineField | undefined = f; p; p = p.parentId ? byId.get(p.parentId) : undefined)
+            if (!ownRoles(p)) return false;
+        return true;
+    };
     const shown = (f: EngineField, current: Record<string, unknown>, sectionId: string | null) =>
         allowed(f) && isVisibleIn(f, byId, current, ctx, sectionId);
     // the repeatable section a field sits in (its rules' scope ends there), null at the top level
@@ -256,9 +264,10 @@ export function printModel(form: unknown, values: Record<string, unknown>, opts:
         const data = (Array.isArray(raw) ? raw : []).filter(isRecord);
         const members = scopeFields(fields, f.id).filter(holdsValue).filter(allowed);
         const layoutProp = f.props.printLayout;
+        // a nested section has no cell in a table, so a section holding one prints by row whatever its setting
         const table =
-            layoutProp === 'table' ||
-            (layoutProp !== 'rows' && !members.some(isFormArray) && members.length <= maxColumns);
+            !members.some(isFormArray) &&
+            (layoutProp === 'table' || (layoutProp !== 'rows' && members.length <= maxColumns));
         const itemLabel = nonEmpty(f.props.itemLabel) ?? words.item;
         const head = { kind: 'rows' as const, id: f.id, title: containerTitle(f), breakBefore };
         const empty = data.length ? undefined : (nonEmpty(f.props.emptyMessage) ?? words.noRows);
@@ -270,10 +279,7 @@ export function printModel(form: unknown, values: Record<string, unknown>, opts:
                 rows: data.map((row, i) => ({ title: `${itemLabel} ${i + 1}`, cells: [], children: walk(f.id, row) })),
                 empty
             };
-        // a nested section has no cell in a table
-        const columns = members
-            .filter((c) => !isFormArray(c))
-            .filter((c) => !data.length || data.some((row) => shown(c, row, f.id)));
+        const columns = members.filter((c) => !data.length || data.some((row) => shown(c, row, f.id)));
         return {
             ...head,
             layout: 'table',

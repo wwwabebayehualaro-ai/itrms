@@ -9,7 +9,8 @@
     "./renderer": "./src/renderer/index.ts",
     "./designer": "./src/designer/index.ts",
     "./viewer": "./src/viewer/index.ts",
-    "./print.css": "./src/renderer/print/print.css"
+    "./print": "./src/print/index.ts",
+    "./print.css": "./src/print/print.css"
   },
   "imports": {
     "#*": "./src/*.ts"

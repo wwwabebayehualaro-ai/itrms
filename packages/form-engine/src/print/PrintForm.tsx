@@ -5,7 +5,7 @@
  * layout comes from `print.css` (`@itrms/form-engine/print.css`).
  */
 import { createElement, type ReactNode } from 'react';
-import { printModel, type PrintNode, type PrintOptions, type PrintWords } from '../../core';
+import { printModel, type PrintNode, type PrintOptions, type PrintWords } from '../core';
 
 export interface PrintFormProps {
     /** a stored `form_config` (any version) */
