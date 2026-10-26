@@ -11,6 +11,7 @@ export const FIELD_TYPES: readonly string[] = [
     'DataTable',
     'Divider',
     'Dropdown',
+    'EthDate',
     'Fieldset',
     'FileUpload',
     'FormArray',

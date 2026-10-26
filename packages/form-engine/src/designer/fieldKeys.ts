@@ -47,6 +47,10 @@ const renameInValue = (value: unknown, oldKey: string, newKey: string): unknown 
     return value;
 };
 
+/** A bare formula (a rule's, without `{{= }}`): every reference renamed. */
+const renameInFormula = (formula: string, oldKey: string, newKey: string) =>
+    formula.replace(refPattern(oldKey), `$1${newKey}`);
+
 const renameConditions = (conds: any[] | undefined, oldKey: string, newKey: string): any[] | undefined =>
     conds?.map((c) => ({
         ...c,
@@ -85,6 +89,27 @@ export function renameFieldKey(fields: FormField[], oldKey: string, newKey: stri
         }
         if (f.data?.computed)
             next.data = { ...next.data, computed: renameInValue(f.data.computed, oldKey, newKey) as any };
+        const validation = f.behavior?.validation;
+        if (validation?.requiredWhen || validation?.validWhen) {
+            next.behavior = {
+                ...next.behavior,
+                validation: {
+                    ...validation,
+                    ...(validation.requiredWhen && {
+                        requiredWhen: {
+                            ...validation.requiredWhen,
+                            expression: renameInFormula(validation.requiredWhen.expression, oldKey, newKey)
+                        }
+                    }),
+                    ...(validation.validWhen && {
+                        validWhen: validation.validWhen.map((check) => ({
+                            ...check,
+                            expression: renameInFormula(check.expression, oldKey, newKey)
+                        }))
+                    })
+                }
+            };
+        }
         return next;
     });
 }

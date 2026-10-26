@@ -1003,6 +1003,534 @@
           }
         ]
       }
+    },
+    {
+      "name": "a field required when its formula holds gives the author's message",
+      "fields": [
+        {
+          "id": "kind",
+          "type": "RadioButton",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true
+            }
+          }
+        },
+        {
+          "id": "doc",
+          "type": "InputText",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true,
+              "requiredWhen": {
+                "expression": "form.kind == 'other'"
+              },
+              "errorMessages": {
+                "required": {
+                  "am": "ሰነድ ያስፈልጋል",
+                  "en": "A document is required"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "values": {
+        "kind": "other"
+      },
+      "errors": {
+        "doc": "ሰነድ ያስፈልጋል"
+      },
+      "stored": {
+        "kind": "other"
+      }
+    },
+    {
+      "name": "a field required when its formula holds is optional when it does not",
+      "fields": [
+        {
+          "id": "kind",
+          "type": "RadioButton",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true
+            }
+          }
+        },
+        {
+          "id": "doc",
+          "type": "InputText",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true,
+              "requiredWhen": {
+                "expression": "form.kind == 'other'"
+              },
+              "errorMessages": {
+                "required": {
+                  "am": "ሰነድ ያስፈልጋል",
+                  "en": "A document is required"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "values": {
+        "kind": "plain"
+      },
+      "errors": {},
+      "stored": {
+        "kind": "plain"
+      }
+    },
+    {
+      "name": "a hidden field is not required by its formula",
+      "fields": [
+        {
+          "id": "kind",
+          "type": "RadioButton",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true
+            }
+          }
+        },
+        {
+          "id": "doc",
+          "type": "InputText",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true,
+              "requiredWhen": {
+                "expression": "true"
+              },
+              "errorMessages": {
+                "required": {
+                  "am": "ሰነድ ያስፈልጋል",
+                  "en": "A document is required"
+                }
+              }
+            },
+            "visibilityConditions": [
+              {
+                "field": "kind",
+                "operator": "eq",
+                "value": "other"
+              }
+            ]
+          }
+        }
+      ],
+      "values": {
+        "kind": "plain"
+      },
+      "errors": {},
+      "stored": {
+        "kind": "plain"
+      }
+    },
+    {
+      "name": "a formula inside a row reads that row",
+      "fields": [
+        {
+          "id": "items",
+          "type": "FormArray",
+          "props": {},
+          "category": "Layout",
+          "layout": {
+            "options": {
+              "isContainer": true
+            }
+          }
+        },
+        {
+          "id": "qty",
+          "type": "InputNumber",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true
+            }
+          },
+          "parentId": "items"
+        },
+        {
+          "id": "doc",
+          "type": "InputText",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true,
+              "requiredWhen": {
+                "expression": "row.qty > 0"
+              }
+            }
+          },
+          "parentId": "items"
+        }
+      ],
+      "values": {
+        "items": [
+          {
+            "qty": 0
+          },
+          {
+            "qty": 3
+          }
+        ]
+      },
+      "errors": {
+        "items[1].doc": "This field is required"
+      },
+      "stored": {
+        "items": [
+          {
+            "qty": 0
+          },
+          {
+            "qty": 3
+          }
+        ]
+      }
+    },
+    {
+      "name": "a valid-when formula with days() fails with its message",
+      "fields": [
+        {
+          "id": "start",
+          "type": "Calendar",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true
+            }
+          }
+        },
+        {
+          "id": "end",
+          "type": "Calendar",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true,
+              "validWhen": [
+                {
+                  "expression": "days(form.start, form.end) >= 0",
+                  "message": {
+                    "am": "መጨረሻው ከመጀመሪያው በኋላ መሆን አለበት",
+                    "en": "The end is before the start"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "values": {
+        "start": "2026-09-10",
+        "end": "2026-09-01"
+      },
+      "errors": {
+        "end": "መጨረሻው ከመጀመሪያው በኋላ መሆን አለበት"
+      },
+      "stored": {
+        "start": "2026-09-10",
+        "end": "2026-09-01"
+      }
+    },
+    {
+      "name": "a valid-when formula holds",
+      "fields": [
+        {
+          "id": "start",
+          "type": "Calendar",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true
+            }
+          }
+        },
+        {
+          "id": "end",
+          "type": "Calendar",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true,
+              "validWhen": [
+                {
+                  "expression": "days(form.start, form.end) >= 0",
+                  "message": {
+                    "am": "መጨረሻው ከመጀመሪያው በኋላ መሆን አለበት",
+                    "en": "The end is before the start"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "values": {
+        "start": "2026-09-01",
+        "end": "2026-09-10"
+      },
+      "errors": {},
+      "stored": {
+        "start": "2026-09-01",
+        "end": "2026-09-10"
+      }
+    },
+    {
+      "name": "a valid-when formula is skipped on a blank value",
+      "fields": [
+        {
+          "id": "start",
+          "type": "Calendar",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true
+            }
+          }
+        },
+        {
+          "id": "end",
+          "type": "Calendar",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true,
+              "validWhen": [
+                {
+                  "expression": "days(form.start, form.end) >= 0",
+                  "message": {
+                    "am": "መጨረሻው ከመጀመሪያው በኋላ መሆን አለበት",
+                    "en": "The end is before the start"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "values": {
+        "start": "2026-09-10"
+      },
+      "errors": {},
+      "stored": {
+        "start": "2026-09-10"
+      }
+    },
+    {
+      "name": "a value of the wrong shape is refused even where the field has no rules",
+      "fields": [
+        {
+          "id": "note",
+          "type": "InputText",
+          "props": {}
+        },
+        {
+          "id": "qty",
+          "type": "InputNumber",
+          "props": {}
+        },
+        {
+          "id": "agree",
+          "type": "Checkbox",
+          "props": {}
+        },
+        {
+          "id": "file",
+          "type": "FileUpload",
+          "props": {}
+        }
+      ],
+      "values": {
+        "note": {},
+        "qty": {},
+        "agree": "yes",
+        "file": "x"
+      },
+      "errors": {
+        "note": "Please enter text",
+        "qty": "Please enter a valid number",
+        "agree": "Please choose yes or no",
+        "file": "Invalid file"
+      },
+      "stored": {
+        "note": {},
+        "qty": {},
+        "agree": "yes",
+        "file": "x"
+      }
+    },
+    {
+      "name": "forged row totals and a forged grand total are computed again",
+      "fields": [
+        {
+          "id": "lines",
+          "type": "FormArray",
+          "props": {},
+          "category": "Layout",
+          "layout": {
+            "options": {
+              "isContainer": true
+            }
+          }
+        },
+        {
+          "id": "qty",
+          "type": "InputNumber",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true
+            }
+          },
+          "parentId": "lines"
+        },
+        {
+          "id": "price",
+          "type": "InputNumber",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true
+            }
+          },
+          "parentId": "lines"
+        },
+        {
+          "id": "lineTotal",
+          "type": "InputNumber",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true
+            }
+          },
+          "parentId": "lines",
+          "data": {
+            "computed": {
+              "expression": "{{= row.qty * row.price }}",
+              "readOnly": true
+            }
+          }
+        },
+        {
+          "id": "total",
+          "type": "InputNumber",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true
+            }
+          },
+          "data": {
+            "computed": {
+              "expression": "{{= sum(root.lines, 'lineTotal') }}",
+              "readOnly": true
+            }
+          }
+        }
+      ],
+      "values": {
+        "lines": [
+          {
+            "qty": 2,
+            "price": 100,
+            "lineTotal": 1
+          },
+          {
+            "qty": 1,
+            "price": 50,
+            "lineTotal": 9
+          }
+        ],
+        "total": 5
+      },
+      "errors": {},
+      "stored": {
+        "lines": [
+          {
+            "qty": 2,
+            "price": 100,
+            "lineTotal": 200
+          },
+          {
+            "qty": 1,
+            "price": 50,
+            "lineTotal": 50
+          }
+        ],
+        "total": 250
+      }
+    },
+    {
+      "name": "a computed field that reads one stored after it",
+      "fields": [
+        {
+          "id": "qty",
+          "type": "InputNumber",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true
+            }
+          }
+        },
+        {
+          "id": "quad",
+          "type": "InputNumber",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true
+            }
+          },
+          "data": {
+            "computed": {
+              "expression": "{{= form.double * 2 }}",
+              "readOnly": true
+            }
+          }
+        },
+        {
+          "id": "double",
+          "type": "InputNumber",
+          "props": {},
+          "behavior": {
+            "validation": {
+              "supported": true
+            }
+          },
+          "data": {
+            "computed": {
+              "expression": "{{= form.qty * 2 }}",
+              "readOnly": true
+            }
+          }
+        }
+      ],
+      "values": {
+        "qty": 3,
+        "quad": 0,
+        "double": 0
+      },
+      "errors": {},
+      "stored": {
+        "qty": 3,
+        "quad": 12,
+        "double": 6
+      }
     }
   ]
 }

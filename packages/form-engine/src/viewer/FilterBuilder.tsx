@@ -7,6 +7,7 @@ import {
     Button,
     Combobox,
     DatePicker,
+    EthiopianDatePicker,
     IconButton,
     Input,
     Popover,
@@ -51,6 +52,16 @@ const NO_VALUE: Op[] = ['empty', 'notempty'];
 const LIST_OPS: Op[] = ['in', 'nin', 'hasany'];
 
 /** Fields the filter can use: everything with at least one operator. */
+/** The Ethiopian picker's labels in the filter until the engine's own text is in the catalogues (task 0.17c). */
+const ETH_FILTER_LABELS = {
+    placeholder: 'Date',
+    previousMonth: 'Previous month',
+    nextMonth: 'Next month',
+    clear: 'Clear',
+    month: 'Month',
+    year: 'Year'
+};
+
 export const filterableFields = (schema: ViewSchema) => schema.fields.filter((f) => f.ops.length > 0);
 
 const ymd = (d: Date) =>
@@ -153,15 +164,25 @@ function ValueEditor({
         );
 
     if (field.kind === 'date' || field.kind === 'datetime' || field.key === 'created_at') {
-        const cal = (v: unknown, set: (d: string | null) => void, ph: string) => (
-            <DatePicker
-                value={parseYmd(v)}
-                onChange={(d) => set(d ? ymd(d) : null)}
-                placeholder={ph}
-                aria-label={`${field.label} ${ph}`}
-                className="w-40"
-            />
-        );
+        const ethiopian = field.type === 'EthDate';
+        const cal = (v: unknown, set: (d: string | null) => void, ph: string) =>
+            ethiopian ? (
+                <EthiopianDatePicker
+                    value={typeof v === 'string' ? v : null}
+                    onChange={set}
+                    labels={{ ...ETH_FILTER_LABELS, placeholder: ph }}
+                    aria-label={`${field.label} ${ph}`}
+                    className="w-44"
+                />
+            ) : (
+                <DatePicker
+                    value={parseYmd(v)}
+                    onChange={(d) => set(d ? ymd(d) : null)}
+                    placeholder={ph}
+                    aria-label={`${field.label} ${ph}`}
+                    className="w-40"
+                />
+            );
         if (op === 'between') {
             const pair = Array.isArray(value) ? value : [null, null];
             return (

@@ -618,6 +618,9 @@ importers:
       '@dnd-kit/core':
         specifier: 6.3.1
         version: 6.3.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@itrms/ethiopian-calendar':
+        specifier: workspace:*
+        version: link:../ethiopian-calendar
       '@itrms/schemas':
         specifier: workspace:*
         version: link:../schemas

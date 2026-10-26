@@ -103,7 +103,8 @@ draft ─► automatic checks ─► test cases ─► review (maker ≠ checker
 |---|---|---|
 | Text and numbers | text, textarea, number, masked input, email | have |
 | Choices | dropdown, multi-select, radio, checkbox group, switch, tags, autocomplete | have |
-| Dates | `EthDate`, `EthDateRange` (Ethiopian entry/display, Gregorian storage, fiscal-year helpers), time | **new** (0.17) |
+| Dates | `EthDate` (Ethiopian entry/display, Gregorian storage, min/max) | have (0.17b) |
+| Dates (more) | `EthDateRange`, fiscal-year helpers in rules, time | **new** (later) |
 | Structure | panel, section, fieldset, card, divider, **step** (wizard), `FormArray` (repeating rows), data table | have; step **new** (Phase 1) |
 | Money and quantities | `Money` (santim, Birr formatting), `Quantity` (decimal, with unit), `Fee` (server-computed preview) | **new** (0.18) |
 | Registries | `RegistryLookup` for person, organisation, vehicle, licence, association, road project; `OrgUnitPicker` | **new** (0.18) |

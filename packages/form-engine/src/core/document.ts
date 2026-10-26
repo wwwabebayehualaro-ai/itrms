@@ -8,6 +8,12 @@
 import { formConfigSchema } from '@itrms/schemas';
 
 import { FIELD_TYPES } from './fieldTypes';
+import { checkRuleFormula } from './runtime/formula';
+
+type StoredValidation = {
+    requiredWhen?: { expression: string } | null;
+    validWhen?: { expression: string }[] | null;
+};
 
 export interface DocumentProblem {
     /** where, from the document's root: `fields[2].parentId` */
@@ -89,7 +95,23 @@ export function checkDocument(raw: unknown): DocumentProblem[] {
             })
             .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
             .slice(0, MAX_PROBLEMS);
-    return structure(parsed.data.fields).slice(0, MAX_PROBLEMS);
+    return [...structure(parsed.data.fields), ...ruleProblems(parsed.data.fields)].slice(0, MAX_PROBLEMS);
+}
+
+/** A rule's formula (requiredWhen, validWhen) must parse, call known functions and read only what the server has too. */
+function ruleProblems(fields: readonly { behavior?: unknown }[]): DocumentProblem[] {
+    const problems: DocumentProblem[] = [];
+    fields.forEach((f, i) => {
+        const validation = (f.behavior as { validation?: StoredValidation | null } | null | undefined)?.validation;
+        const base = `fields[${i}].behavior.validation`;
+        const check = (expression: string | undefined, path: string) => {
+            const message = expression === undefined ? null : checkRuleFormula(expression);
+            if (message) problems.push({ path, message });
+        };
+        check(validation?.requiredWhen?.expression, `${base}.requiredWhen.expression`);
+        validation?.validWhen?.forEach((rule, j) => check(rule.expression, `${base}.validWhen[${j}].expression`));
+    });
+    return problems;
 }
 
 function valueAt(doc: unknown, path: readonly PropertyKey[]): unknown {

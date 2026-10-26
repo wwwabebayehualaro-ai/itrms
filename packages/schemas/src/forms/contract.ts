@@ -12,6 +12,9 @@ import { SCHEMA_VERSION, storedFieldSchema } from './schema';
 
 /** Limits of one form (the backend refuses bigger ones). */
 export const MAX_FIELDS = 1000;
+/** A rule's formula (requiredWhen, validWhen) and how many validWhen rules one field has. */
+export const MAX_RULE_EXPRESSION = 500;
+export const MAX_VALID_WHEN = 10;
 
 const dataSourceSchema = z
     .object({
@@ -46,6 +49,25 @@ export function formConfigSchema(types: string[]) {
                                             message: issue.message
                                         });
                             }
+                            const validation = field.behavior?.validation;
+                            const tooLong = (path: (string | number)[]) =>
+                                ctx.addIssue({
+                                    code: 'custom',
+                                    path: ['behavior', 'validation', ...path, 'expression'],
+                                    message: `at most ${MAX_RULE_EXPRESSION} characters`
+                                });
+                            if ((validation?.requiredWhen?.expression.length ?? 0) > MAX_RULE_EXPRESSION)
+                                tooLong(['requiredWhen']);
+                            const rules = validation?.validWhen ?? [];
+                            if (rules.length > MAX_VALID_WHEN)
+                                ctx.addIssue({
+                                    code: 'custom',
+                                    path: ['behavior', 'validation', 'validWhen'],
+                                    message: `at most ${MAX_VALID_WHEN} rules`
+                                });
+                            rules.forEach((rule, i) => {
+                                if (rule.expression.length > MAX_RULE_EXPRESSION) tooLong(['validWhen', i]);
+                            });
                         })
                 )
                 .max(MAX_FIELDS),

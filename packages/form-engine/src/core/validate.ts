@@ -7,10 +7,13 @@
  */
 import { z } from 'zod';
 import type { Scope } from './conditions';
-import { isFormArray, type EngineField, type FieldOption } from './model';
+import { ethiopianDateText, isIsoDay, parseDate } from './dates';
+import { shapeError } from './kinds';
+import { isFormArray, isRequiredIn, type EngineField, type FieldOption } from './model';
+import { evalCondition } from './runtime/formula';
 import { str } from './runtime/path';
 import { compilePattern } from './safePattern';
-import { isEnabledIn, isListField, isVisibleIn, scopeFields } from './values';
+import { MAX_ROWS, holdsValue, isEnabledIn, isListField, isVisibleIn, pruneHidden, scopeFields } from './values';
 
 export type FieldErrors = Record<string, string>;
 
@@ -18,14 +21,7 @@ const fill = (message: string, vars: Record<string, unknown>) =>
     message.replace(/\{(\w+)\}/g, (m: string, k: string) => (k in vars ? str(vars[k]) : m));
 const isBlank = (v: unknown) => v === undefined || v === null || v === '';
 
-/** "YYYY-MM-DD" is the day the person picked (stored without a time zone); anything else is parsed as an instant. */
-export function parseDate(v: unknown): Date | null {
-    if (isBlank(v)) return null;
-    if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v;
-    const day = typeof v === 'string' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(v) : null;
-    const d = day ? new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3])) : new Date(v as string);
-    return Number.isNaN(d.getTime()) ? null : d;
-}
+export { parseDate };
 
 const STRING_TYPES = new Set([
     'InputText',
@@ -96,6 +92,28 @@ export function fieldSchema(f: EngineField): z.ZodType<unknown> {
             // a required checkbox must be ticked (an agreement); a required switch only needs an answer
             if (r.required && (f.type === 'Checkbox' ? v !== true : isBlank(v)))
                 ctx.addIssue({ code: 'custom', message: requiredMsg });
+        });
+    }
+
+    if (f.type === 'EthDate') {
+        // the day is stored as an ISO Gregorian date, so the limits are too and compare as text; they are worded Ethiopian
+        const limit = (v: unknown) => (typeof v === 'string' && isIsoDay(v) ? v : undefined);
+        const min = limit(r.minDate);
+        const max = limit(r.maxDate);
+        return z.unknown().superRefine((v, ctx) => {
+            if (isBlank(v)) return void (r.required && ctx.addIssue({ code: 'custom', message: requiredMsg }));
+            if (!isIsoDay(v))
+                return void ctx.addIssue({ code: 'custom', message: m.type || 'Please enter a valid date' });
+            if (min && v < min)
+                return void ctx.addIssue({
+                    code: 'custom',
+                    message: fill(m.minDate || 'Date is too early', { min: ethiopianDateText(min) })
+                });
+            if (max && v > max)
+                ctx.addIssue({
+                    code: 'custom',
+                    message: fill(m.maxDate || 'Date is too late', { max: ethiopianDateText(max) })
+                });
         });
     }
 
@@ -210,9 +228,12 @@ function remoteError(f: EngineField, scope: Scope): string | undefined {
     return undefined;
 }
 
-function rowCountMessage(f: EngineField, rows: number): string | undefined {
-    const { minItems: min, maxItems: max } = f.rules;
+function rowCountMessage(f: EngineField, rows: number, needsRow: boolean): string | undefined {
+    const { minItems } = f.rules;
+    const max = Math.min(f.rules.maxItems, MAX_ROWS);
+    const min = needsRow ? Math.max(1, minItems) : minItems;
     const label = f.label || 'This section';
+    if (needsRow && rows === 0 && minItems === 0 && f.messages.required) return f.messages.required;
     if (rows < min)
         return fill(f.messages.minItems ?? `${label}: at least ${min} row${min === 1 ? '' : 's'} required`, {
             minItems: min
@@ -221,39 +242,83 @@ function rowCountMessage(f: EngineField, rows: number): string | undefined {
     return undefined;
 }
 
+/** What a rule's formula may read on the server too: the form, its row, the whole form and the user. */
+const ruleScope = (scope: Scope, current: Record<string, unknown>, root: Record<string, unknown>) => ({
+    user: scope.user,
+    form: current,
+    row: current,
+    root
+});
+
+/** The message of the first `validWhen` rule of a filled value that does not hold (a rule that cannot run holds). */
+function validWhenError(
+    f: EngineField,
+    value: unknown,
+    scope: Scope,
+    current: Record<string, unknown>,
+    root: Record<string, unknown>
+): string | undefined {
+    if (isBlank(value) || (Array.isArray(value) && value.length === 0)) return undefined;
+    const failed = f.rules.validWhen.find(
+        (rule) => evalCondition(rule.expression, ruleScope(scope, current, root)) === false
+    );
+    return failed ? failed.message || 'This value is not valid' : undefined;
+}
+
 /**
  * Validate `values` (the whole form). `scope` is the runtime context (`data`, `user`, `route`, `variables`) that conditions may
- * read. Returns `{}` when everything is fine.
+ * read. Returns `{}` when everything is fine. Values of hidden fields are dropped first, so the browser and the server agree
+ * on what a rule reads.
  */
 export function validateForm(fields: EngineField[], values: Record<string, unknown>, scope: Scope = {}): FieldErrors {
     const byId = new Map(fields.map((f) => [f.id, f]));
     const errors: FieldErrors = {};
-    const root = values;
+    const root = pruneHidden(fields, values, scope);
 
     const run = (parentId: string | null, current: Record<string, unknown>, prefix: string) => {
         const ctx = { ...scope, root };
         for (const f of scopeFields(fields, parentId)) {
-            if (!f.validated && !isFormArray(f)) continue;
             if (!isVisibleIn(f, byId, current, ctx, parentId) || !isEnabledIn(f, byId, current, ctx, parentId))
                 continue;
             const path = `${prefix}${f.id}`;
             if (isFormArray(f)) {
                 const rows = Array.isArray(current[f.id]) ? (current[f.id] as Record<string, unknown>[]) : [];
-                const count = rowCountMessage(f, rows.length);
-                if (count) errors[path] = count;
-                else rows.forEach((row, i) => run(f.id, row ?? {}, `${path}[${i}].`));
+                const needsRow = f.validated && isRequiredIn(f, current, root, { user: scope.user });
+                const count = rowCountMessage(f, rows.length, needsRow);
+                if (count) {
+                    errors[path] = count;
+                    continue;
+                }
+                // the section's own checks read its rows (count(form.lines) <= 5), then each row is checked
+                const check = f.validated ? validWhenError(f, rows, scope, current, root) : undefined;
+                if (check) errors[path] = check;
+                rows.forEach((row, i) => run(f.id, row ?? {}, `${path}[${i}].`));
                 continue;
             }
-            const result = fieldSchema(f).safeParse(current[f.id]);
-            const choice = result.success ? choiceError(f, current[f.id]) : undefined;
-            if (!result.success) errors[path] = result.error.issues[0]?.message ?? 'Invalid value';
-            else if (choice) errors[path] = choice;
+            if (holdsValue(f) && !f.computed?.readOnly) {
+                const shape = shapeError(f, current[f.id]);
+                if (shape) {
+                    errors[path] = shape;
+                    continue;
+                }
+            }
+            if (!f.validated) continue;
+            const required = isRequiredIn(f, current, root, { user: scope.user });
+            const result = fieldSchema(
+                required && !f.rules.required ? { ...f, rules: { ...f.rules, required } } : f
+            ).safeParse(current[f.id]);
+            if (!result.success) {
+                errors[path] = result.error.issues[0]?.message ?? 'Invalid value';
+                continue;
+            }
+            const message = choiceError(f, current[f.id]) ?? validWhenError(f, current[f.id], scope, current, root);
+            if (message) errors[path] = message;
             else if (f.remote && !isBlank(current[f.id])) {
                 const remote = remoteError(f, scope);
                 if (remote) errors[path] = remote;
             }
         }
     };
-    run(null, values, '');
+    run(null, root, '');
     return errors;
 }

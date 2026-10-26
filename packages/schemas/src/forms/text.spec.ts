@@ -101,6 +101,25 @@ describe('fieldTexts', () => {
         ]);
     });
 
+    it('lists the message of each validWhen rule that has one, numbered from 1', () => {
+        const texts = fieldTexts({
+            label: 'L',
+            behavior: {
+                validation: {
+                    validWhen: [
+                        { expression: 'a' },
+                        { expression: 'b', message: { am: 'ሀ' } },
+                        { expression: 'c', message: 'C' }
+                    ]
+                }
+            }
+        });
+        expect(texts.filter((t) => t.kind === 'message').map((t) => [t.path, t.ref, t.value])).toEqual([
+            ['behavior.validation.validWhen.1.message', 'validWhen.2', { am: 'ሀ' }],
+            ['behavior.validation.validWhen.2.message', 'validWhen.3', 'C']
+        ]);
+    });
+
     it('takes the options from staticData, then props.options, then data.defaultProps.options', () => {
         const label = (v: string) => ({ label: v, value: v });
         const paths = (field: object) => fieldTexts(field).map((t) => t.path);

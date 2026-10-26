@@ -927,3 +927,142 @@ describe('texts in every language', () => {
         expect(paths).toContain('document.fields[1].label');
     });
 });
+
+describe('conditional rules, the Ethiopian date and recomputed values (task 0.17b)', () => {
+    const num = (id: string, extra: Record<string, unknown> = {}) => text(id, { type: 'InputNumber', ...extra });
+    const submitTo = async (formId: string, versionId: string, answers: Record<string, unknown>) =>
+        call('POST', '/api/v1/submissions', as.damot(), { formId, formVersionId: versionId, answers });
+
+    it('enforces a conditional-required rule (422 with the field and the message), and files it when not met', async () => {
+        const form = await createForm(as.bureau(), 'rules-required-when', {
+            fields: [
+                num('grade'),
+                text('medicalCertificate', {
+                    behavior: {
+                        validation: {
+                            supported: true,
+                            requiredWhen: { expression: 'form.grade >= 3' },
+                            errorMessages: {
+                                required: { am: 'የሕክምና ማስረጃ ያስፈልጋል', en: 'A medical certificate is required' }
+                            }
+                        }
+                    }
+                })
+            ]
+        });
+        const versionId = (await publish(form.id, as.bureau(), as.bureau2())).formVersion.id;
+        const refused = await call(
+            'POST',
+            '/api/v1/submissions',
+            as.damot(),
+            { formId: form.id, formVersionId: versionId, answers: { grade: 4 } },
+            { 'accept-language': 'en' }
+        );
+        expect(refused.statusCode, refused.body).toBe(422);
+        expect(refused.json<Problem>().errors).toEqual([
+            expect.objectContaining({
+                path: 'medicalCertificate',
+                message: 'A medical certificate is required'
+            })
+        ]);
+        expect((await submitTo(form.id, versionId, { grade: 2 })).statusCode).toBe(201);
+        expect((await submitTo(form.id, versionId, { grade: 4, medicalCertificate: 'MC-1' })).statusCode).toBe(201);
+    });
+
+    it('stores what the formulas give, not the computed values a client sends', async () => {
+        const form = await createForm(as.bureau(), 'rules-recompute', {
+            fields: [
+                text('lines', { type: 'FormArray', props: {}, layout: { options: { isContainer: true } } }),
+                num('amount', { parentId: 'lines' }),
+                num('lineTotal', {
+                    parentId: 'lines',
+                    data: { defaultProps: {}, computed: { expression: '{{= row.amount * 2 }}', readOnly: true } }
+                }),
+                num('total', {
+                    data: {
+                        defaultProps: {},
+                        computed: { expression: "{{= sum(root.lines, 'lineTotal') }}", readOnly: true }
+                    }
+                })
+            ]
+        });
+        const versionId = (await publish(form.id, as.bureau(), as.bureau2())).formVersion.id;
+        // a forged line total and a forged grand total
+        const res = await submitTo(form.id, versionId, {
+            lines: [
+                { amount: 100, lineTotal: 1 },
+                { amount: 50, lineTotal: 999 }
+            ],
+            total: 7
+        });
+        expect(res.statusCode, res.body).toBe(201);
+        expect(res.json<SubmissionOut>().answers).toEqual({
+            lines: [
+                { amount: 100, lineTotal: 200 },
+                { amount: 50, lineTotal: 100 }
+            ],
+            total: 300
+        });
+    });
+
+    it('takes a day picked on the Ethiopian calendar as the Gregorian date, and exports it in both calendars', async () => {
+        const form = await createForm(as.bureau(), 'rules-ethdate', {
+            fields: [
+                text('issued', {
+                    type: 'EthDate',
+                    label: { am: 'የተሰጠበት ቀን', en: 'Issued on' },
+                    props: { minDate: '2020-01-01' },
+                    behavior: { validation: { supported: true } }
+                })
+            ]
+        });
+        const versionId = (await publish(form.id, as.bureau(), as.bureau2())).formVersion.id;
+        // Meskerem 1, 2019 E.C.
+        const filed = await submitTo(form.id, versionId, { issued: '2026-09-11' });
+        expect(filed.statusCode, filed.body).toBe(201);
+        const id = filed.json<SubmissionOut>().id;
+        expect((await get<SubmissionOut>(`/api/v1/submissions/${id}`, as.damot())).answers).toEqual({
+            issued: '2026-09-11'
+        });
+        // a day that does not exist, and one before the earliest allowed, are refused
+        expect((await submitTo(form.id, versionId, { issued: '2026-02-30' })).statusCode).toBe(422);
+        expect((await submitTo(form.id, versionId, { issued: '2019-12-31' })).statusCode).toBe(422);
+
+        const exported = await call(
+            'POST',
+            '/api/v1/submissions/export',
+            as.zoneHead(),
+            { formId: form.id, fields: ['issued'] },
+            { 'accept-language': 'en' }
+        );
+        expect(exported.statusCode, exported.body).toBe(200);
+        const [header, row] = exported.rawPayload
+            .toString('utf8')
+            .replace(/^\uFEFF/, '')
+            .trim()
+            .split(/\r?\n/);
+        expect(header).toBe('"Issued on (E.C.)","Issued on (G.C.)"');
+        expect(row).toBe('"01/01/2019","2026-09-11"');
+    });
+
+    it('refuses a rule formula the server cannot evaluate when the form is saved', async () => {
+        const res = await call('POST', '/api/v1/forms', as.bureau(), {
+            key: 'rules-bad-formula',
+            name: { am: 'ቅጽ', en: 'Form' },
+            document: {
+                fields: [
+                    num('grade'),
+                    text('note', {
+                        behavior: {
+                            validation: { supported: true, requiredWhen: { expression: 'data.users.length > 0' } }
+                        }
+                    })
+                ]
+            }
+        });
+        expect(res.statusCode, res.body).toBe(422);
+        expect(res.json<Problem>().errors.map((e) => e.path)).toContain(
+            'document.fields[1].behavior.validation.requiredWhen.expression'
+        );
+    });
+});

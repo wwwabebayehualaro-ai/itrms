@@ -173,7 +173,7 @@ describe('validation and submitted values', () => {
             agree: false,
             tags: '',
             when: '2025-12-31',
-            doc: [{ name: 'a.png', size: 5, type: 'image/png' }]
+            doc: [{ file_id: 'f1', name: 'a.png', size: 5, type: 'image/png' }]
         });
         expect(errors).toEqual({
             email: 'Please enter a valid email address',

@@ -7,7 +7,10 @@ Task 0.16a: definitions (`forms.form_definitions`, a working copy owned by a uni
 (`forms.submissions`, pinned to the version they were filled on). A submission is checked on the server with
 `@itrms/form-engine/core`, the engine the browser runs: unknown keys and hidden fields' values are dropped, then the rules run
 (422 `validation_failed`, `errors[{ path, code, message }]` with row paths such as `items[2].qty`). The browser and the server
-share one case file, `packages/form-engine/test/cases.json`. Queries, saved views and exports come in 0.16b.
+share one case file, `packages/form-engine/test/cases.json`. Task 0.17b: every value field's basic type is checked by
+its kit type, read-only computed fields are recomputed (as a fixpoint, so totals over row totals are right) before the
+rules run, `requiredWhen`/`validWhen` rules are enforced, and a section takes at most 1,000 rows; an Ethiopian date
+(`EthDate`) exports as two columns, the E.C. date and the stored G.C. day. Queries, saved views and exports come in 0.16b.
 
 | Route                                                              | Permission                                      |
 | ------------------------------------------------------------------ | ----------------------------------------------- |

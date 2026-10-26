@@ -4,7 +4,18 @@
  */
 export { SCHEMA_VERSION, storedFieldSchema, formDocumentSchema } from '@itrms/schemas';
 export type { StoredField } from '@itrms/schemas';
-export { readDocument, toEngineField, DEFAULT_TEXT_LANGUAGE, childrenOf, isFormArray, rowScopedIds } from './model';
+export {
+    readDocument,
+    toEngineField,
+    DEFAULT_TEXT_LANGUAGE,
+    childrenOf,
+    isFormArray,
+    isRequiredIn,
+    rowScopedIds
+} from './model';
+export { evalCondition, checkRuleFormula } from './runtime/formula';
+export { valueKindOf, shapeError, type ValueKind } from './kinds';
+export { ethiopianDateText, isIsoDay } from './dates';
 export { untranslatedTexts, type UntranslatedText } from './text';
 export {
     fieldTexts,

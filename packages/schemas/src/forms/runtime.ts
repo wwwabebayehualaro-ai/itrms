@@ -126,7 +126,18 @@ export interface FieldRowsBinding {
 }
 
 export type ColumnType =
-    'text' | 'date' | 'datetime' | 'currency' | 'number' | 'boolean' | 'tag' | 'tags' | 'lookup' | 'count' | 'files';
+    | 'text'
+    | 'date'
+    | 'ethdate'
+    | 'datetime'
+    | 'currency'
+    | 'number'
+    | 'boolean'
+    | 'tag'
+    | 'tags'
+    | 'lookup'
+    | 'count'
+    | 'files';
 
 /** One column of a data-driven table. `field` is a dotted path into the row, e.g. `submission_data.manager`. */
 export interface TableColumn {

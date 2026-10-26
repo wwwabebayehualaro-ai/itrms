@@ -64,6 +64,12 @@ export const storedFieldSchema = z
                             .object({ dataSourceId: z.string(), message: z.unknown().optional() })
                             .loose()
                             .optional()
+                            .nullable(),
+                        // rules written as formulas (task 0.17b): required when it holds, valid while it holds
+                        requiredWhen: z.object({ expression: z.string() }).loose().optional().nullable(),
+                        validWhen: z
+                            .array(z.object({ expression: z.string(), message: z.unknown().optional() }).loose())
+                            .optional()
                             .nullable()
                     })
                     .loose()

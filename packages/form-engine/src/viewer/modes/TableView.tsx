@@ -34,7 +34,7 @@ export function columnOf(f: ViewField): TableColumn {
         case 'number':
             return f.currency ? { ...base, type: 'currency', currency: f.currency } : { ...base, type: 'number' };
         case 'date':
-            return { ...base, type: 'date' };
+            return { ...base, type: f.type === 'EthDate' ? 'ethdate' : 'date' };
         case 'datetime':
             return { ...base, type: 'datetime' };
         case 'boolean':
