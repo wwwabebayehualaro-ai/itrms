@@ -17,7 +17,7 @@ import type {
     SortingState
 } from '@tanstack/react-table';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
-import { Pager } from '../controls/Pager';
+import { Pager, type PagerLabels } from '../controls/Pager';
 import { Button } from '../primitives/button';
 import { Checkbox } from '../primitives/checkbox';
 import { Spinner } from '../primitives/spinner';
@@ -33,6 +33,8 @@ export interface DataGridLabels {
     clearSelection: string;
     /** `{column}` is the column's header. */
     resizeColumn: string;
+    /** The pager's words under the grid (English when left out). */
+    pager?: PagerLabels;
 }
 
 // English until the shell's message catalogues arrive (task 0.13); callers pass translated labels.
@@ -503,6 +505,7 @@ export function DataGrid<T>({
                 pageSize={pagination.pageSize}
                 total={total}
                 pageSizes={pageSizes}
+                labels={labels.pager}
                 onChange={({ page, pageSize }) =>
                     onPaginationChange(
                         pageSize !== pagination.pageSize

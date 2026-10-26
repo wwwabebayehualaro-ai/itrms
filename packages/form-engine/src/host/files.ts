@@ -12,8 +12,10 @@ import { queryOptions, useMutation, useQuery } from '@tanstack/react-query';
 import type { UploadedFile } from '@itrms/schemas';
 import { saveBlob } from '@itrms/ui';
 
+import { engineTranslator, type EngineTranslate } from '../core/messages';
 import { createKeys, type FormsClient } from './client';
 import { useFormsClient } from './FormsHost';
+import { useEngineText } from './text';
 
 const BASE = 'v1/files';
 
@@ -40,20 +42,24 @@ async function sha256Of(file: Blob): Promise<string> {
 }
 
 /** Sends the bytes where the ticket says; the ETag of each part, for the confirmation. */
-async function send(ticket: UploadTicket, file: File): Promise<{ partNumber: number; etag: string }[] | undefined> {
+async function send(
+    ticket: UploadTicket,
+    file: File,
+    t: EngineTranslate
+): Promise<{ partNumber: number; etag: string }[] | undefined> {
     if (ticket.upload.kind === 'post') {
         const form = new FormData();
         for (const [k, v] of Object.entries(ticket.upload.fields)) form.append(k, v);
         form.append('file', file);
         const res = await fetch(ticket.upload.url, { method: 'POST', body: form });
-        if (!res.ok) throw new Error('The file could not be uploaded');
+        if (!res.ok) throw new Error(t('form-engine.renderer.files.uploadFailed'));
         return undefined;
     }
     const parts: { partNumber: number; etag: string }[] = [];
     let offset = 0;
     for (const part of ticket.upload.parts) {
         const res = await fetch(part.url, { method: 'PUT', body: file.slice(offset, offset + part.size) });
-        if (!res.ok) throw new Error('The file could not be uploaded');
+        if (!res.ok) throw new Error(t('form-engine.renderer.files.uploadFailed'));
         parts.push({ partNumber: part.partNumber, etag: res.headers.get('etag') ?? '' });
         offset += part.size;
     }
@@ -104,12 +110,12 @@ export function filenameFromDisposition(header: string | undefined, fallback: st
 }
 
 /** A stored file never changes (new content gets a new id), so its preview is cached for the session. */
-export const filePreviewOptions = (client: FormsClient, fileId: string) =>
+export const filePreviewOptions = (client: FormsClient, fileId: string, t: EngineTranslate = engineTranslator('en')) =>
     queryOptions({
         queryKey: [...fileKeys.detail(fileId), 'preview'] as const,
         queryFn: async ({ signal }): Promise<FilePreview> => {
             const res = await fetch(await downloadUrl(client, fileId, signal), { signal });
-            if (!res.ok) throw new Error('The file could not be loaded');
+            if (!res.ok) throw new Error(t('form-engine.renderer.files.loadFailed'));
             const blob = await res.blob();
             return {
                 blob,
@@ -124,11 +130,13 @@ export const filePreviewOptions = (client: FormsClient, fileId: string) =>
 /** Preview of an uploaded file. Pass `undefined` while the id is not known yet. */
 export function useFilePreview(fileId?: string | null) {
     const client = useFormsClient();
-    return useQuery({ ...filePreviewOptions(client, fileId ?? ''), enabled: !!fileId });
+    const { t } = useEngineText();
+    return useQuery({ ...filePreviewOptions(client, fileId ?? '', t), enabled: !!fileId });
 }
 
 export function useFileActions() {
     const client = useFormsClient();
+    const { t } = useEngineText();
     const upload = useMutation({
         mutationFn: async ({ file, documentType }: { file: File; documentType?: string }) => {
             const ticket = (
@@ -140,22 +148,22 @@ export function useFileActions() {
                     documentType
                 })
             ).data;
-            const parts = await send(ticket, file);
+            const parts = await send(ticket, file, t);
             return uploaded((await client.post<StoredFile>(`${BASE}/${ticket.file.id}/confirm`, { parts })).data);
         },
-        meta: { errorMessage: 'File upload failed' }
+        meta: { errorMessage: t('form-engine.renderer.files.uploadFailedToast') }
     });
     const download = useMutation({
         mutationFn: async (fileId: string) => {
             const res = await fetch(await downloadUrl(client, fileId));
-            if (!res.ok) throw new Error('Download failed');
+            if (!res.ok) throw new Error(t('form-engine.renderer.files.downloadFailed'));
             saveBlob(
                 await res.blob(),
                 filenameFromDisposition(res.headers.get('content-disposition') ?? undefined, fileId)
             );
             return true;
         },
-        meta: { errorMessage: 'Download failed' }
+        meta: { errorMessage: t('form-engine.renderer.files.downloadFailed') }
     });
     return { uploadFile: upload.mutateAsync, downloadFile: download.mutateAsync };
 }

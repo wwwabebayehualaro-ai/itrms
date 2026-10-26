@@ -43,6 +43,8 @@ import { checkFormula, checkRuleFormula } from '../core/runtime/formula';
 import type { FieldOptionsBinding } from '@itrms/schemas';
 import { holdsValue, parseDate, storedFieldSchema, toEngineField, type EngineField, type StoredField } from '../core';
 import { getFieldType, type DesignMeta } from '../renderer/kit';
+import type { EngineMessageKey, EngineTranslate } from '../core/messages';
+import { useEngineText } from '../host/text';
 import {
     ColumnsEditor,
     ConditionsEditor,
@@ -58,13 +60,13 @@ import { SettingsForm } from './SettingsForm';
 import { useDesigner, useDesignerActions } from './store';
 import { useFormsHost } from '../host/FormsHost';
 
-const WIDTHS = [
-    { value: '12', label: 'Full width' },
-    { value: '9', label: 'Three quarters' },
-    { value: '8', label: 'Two thirds' },
-    { value: '6', label: 'Half' },
-    { value: '4', label: 'One third' },
-    { value: '3', label: 'One quarter' }
+const WIDTHS: Array<{ value: string; label: EngineMessageKey }> = [
+    { value: '12', label: 'form-engine.settings.inspector.width.full' },
+    { value: '9', label: 'form-engine.settings.inspector.width.threeQuarters' },
+    { value: '8', label: 'form-engine.settings.inspector.width.twoThirds' },
+    { value: '6', label: 'form-engine.settings.inspector.width.half' },
+    { value: '4', label: 'form-engine.settings.inspector.width.oneThird' },
+    { value: '3', label: 'form-engine.settings.inspector.width.oneQuarter' }
 ];
 const NUMBERS = new Set(['InputNumber', 'Slider', 'Rating']);
 const BOOLEANS = new Set(['Checkbox', 'InputSwitch']);
@@ -160,14 +162,15 @@ function FieldTab({ stored, field, design }: { stored: FormField; field: EngineF
     const roles = (stored as FormField & { visibleToRoles?: string[] }).visibleToRoles ?? [];
     // a key the installation has no role for hides the field from everyone
     const unknownRoles = roleKeys.length ? roles.filter((r) => !roleKeys.includes(r)) : [];
+    const { t, word } = useEngineText();
     const actions = useDesignerActions();
     const keys = useDesigner((s) => s.doc.byId);
     const [key, setKey] = useState<string | null>(null);
     const draftKey = key ?? stored.id;
     const keyError = !KEY_PATTERN.test(draftKey)
-        ? 'Start with a letter; letters, digits and _ only (max 64).'
+        ? t('form-engine.settings.inspector.field.keyInvalid')
         : draftKey !== stored.id && keys[draftKey]
-          ? 'Another field already uses this key.'
+          ? t('form-engine.settings.inspector.field.keyTaken')
           : null;
     const commitKey = () => {
         if (key !== null && !keyError && key !== stored.id) actions.rename(stored.id, key);
@@ -177,7 +180,14 @@ function FieldTab({ stored, field, design }: { stored: FormField; field: EngineF
     const span = String(field.props.span ?? '12');
     return (
         <div className="flex flex-col gap-4">
-            <Row id="insp-label" label={field.isContainer ? 'Title' : 'Label'}>
+            <Row
+                id="insp-label"
+                label={
+                    field.isContainer
+                        ? t('form-engine.settings.inspector.field.title')
+                        : t('form-engine.settings.inspector.field.label')
+                }
+            >
                 <LangInput
                     id="insp-label"
                     text={stored.label}
@@ -189,8 +199,8 @@ function FieldTab({ stored, field, design }: { stored: FormField; field: EngineF
             {value && (
                 <Row
                     id="insp-key"
-                    label="Key"
-                    help="Name of the value in submitted data, filters and formulas. Renaming updates every rule and formula that uses it."
+                    label={t('form-engine.settings.inspector.field.key')}
+                    help={t('form-engine.settings.inspector.field.keyHelp')}
                     error={keyError}
                 >
                     <Input
@@ -207,7 +217,11 @@ function FieldTab({ stored, field, design }: { stored: FormField; field: EngineF
                 </Row>
             )}
             {value && (
-                <Row id="insp-help" label="Help text" help="A line under the field.">
+                <Row
+                    id="insp-help"
+                    label={t('form-engine.settings.inspector.field.helpText')}
+                    help={t('form-engine.settings.inspector.field.helpTextHelp')}
+                >
                     <LangInput
                         id="insp-help"
                         text={stored.props?.helpText ?? stored.data?.defaultProps?.helpText}
@@ -219,8 +233,8 @@ function FieldTab({ stored, field, design }: { stored: FormField; field: EngineF
             )}
             <Row
                 id="insp-width"
-                label="Width"
-                help="Fields narrower than the row sit side by side (on phones everything stacks)."
+                label={t('form-engine.settings.inspector.field.width')}
+                help={t('form-engine.settings.inspector.field.widthHelp')}
             >
                 <Select
                     value={WIDTHS.some((w) => w.value === span) ? span : '12'}
@@ -232,7 +246,7 @@ function FieldTab({ stored, field, design }: { stored: FormField; field: EngineF
                     <SelectContent>
                         {WIDTHS.map((w) => (
                             <SelectItem key={w.value} value={w.value}>
-                                {w.label}
+                                {t(w.label)}
                             </SelectItem>
                         ))}
                     </SelectContent>
@@ -241,8 +255,8 @@ function FieldTab({ stored, field, design }: { stored: FormField; field: EngineF
             {value && (
                 <SwitchRow
                     id="insp-required"
-                    label="Required"
-                    help="The request cannot be sent without it."
+                    label={t('form-engine.settings.inspector.field.required')}
+                    help={t('form-engine.settings.inspector.field.requiredHelp')}
                     checked={field.rules.required}
                     onChange={(v) =>
                         actions.update(stored.id, (f) => {
@@ -255,36 +269,48 @@ function FieldTab({ stored, field, design }: { stored: FormField; field: EngineF
             {value && (
                 <SwitchRow
                     id="insp-filterable"
-                    label="Filterable"
-                    help="The data viewer filters by it fast, on any number of requests (its answers are indexed when the form is published)."
+                    label={t('form-engine.settings.inspector.field.filterable')}
+                    help={t('form-engine.settings.inspector.field.filterableHelp')}
                     checked={stored.filterable === true}
                     onChange={(v) => set('filterable', v || undefined)}
                 />
             )}
             <SwitchRow
                 id="insp-disabled"
-                label="Read-only"
-                help="Shown, but cannot be changed."
+                label={t('form-engine.settings.inspector.field.readOnly')}
+                help={t('form-engine.settings.inspector.field.readOnlyHelp')}
                 checked={field.props.disabled === true}
                 onChange={(v) => set('props.disabled', v || undefined)}
             />
             <Row
                 id="insp-roles"
-                label="Only for roles"
-                help={`Leave empty for everyone. Hidden from other roles, on screen and in exports.${
-                    roleKeys.length ? ` Roles: ${roleKeys.join(', ')}.` : ''
-                }`}
-                error={unknownRoles.length ? `Not a role of this installation: ${unknownRoles.join(', ')}` : null}
+                label={t('form-engine.settings.inspector.field.roles')}
+                help={
+                    roleKeys.length
+                        ? t('form-engine.settings.inspector.field.rolesHelpList', { roles: roleKeys.join(', ') })
+                        : t('form-engine.settings.inspector.field.rolesHelp')
+                }
+                error={
+                    unknownRoles.length
+                        ? t('form-engine.settings.inspector.field.unknownRoles', { roles: unknownRoles.join(', ') })
+                        : null
+                }
             >
                 <TagsInput
                     id="insp-roles"
                     value={roles}
                     onChange={(v) => set('visibleToRoles', v.length ? v : undefined)}
-                    placeholder={roleKeys.length ? `e.g. ${roleKeys.slice(0, 2).join(', ')}` : 'e.g. unit_head'}
+                    placeholder={
+                        roleKeys.length
+                            ? t('form-engine.settings.inspector.field.rolesExample', {
+                                  roles: roleKeys.slice(0, 2).join(', ')
+                              })
+                            : t('form-engine.settings.inspector.field.rolesExampleNone')
+                    }
                     invalid={unknownRoles.length > 0}
                 />
             </Row>
-            {design && <p className="text-xs text-muted-foreground">{design.hint}</p>}
+            {design?.hint && <p className="text-xs text-muted-foreground">{word(design.hint)}</p>}
         </div>
     );
 }
@@ -322,6 +348,7 @@ function useGetSources() {
 }
 
 function OptionsTab({ stored }: { stored: FormField }) {
+    const { t } = useEngineText();
     const { set, apply, language, plainAs } = useFieldEdit(stored.id);
     const sources = useGetSources();
     const binding = stored.data?.optionsBinding;
@@ -348,14 +375,14 @@ function OptionsTab({ stored }: { stored: FormField }) {
                         ? setBinding(undefined)
                         : v === 'api' && setBinding({ dataSourceId: sources[0]?.value ?? '' })
                 }
-                aria-label="Where the options come from"
+                aria-label={t('form-engine.settings.inspector.options.source')}
                 className="w-full"
             >
                 <ToggleGroupItem value="static" className="flex-1">
-                    A fixed list
+                    {t('form-engine.settings.inspector.options.fixed')}
                 </ToggleGroupItem>
                 <ToggleGroupItem value="api" className="flex-1">
-                    A data source
+                    {t('form-engine.settings.inspector.options.dataSource')}
                 </ToggleGroupItem>
             </ToggleGroup>
             {!binding ? (
@@ -368,23 +395,27 @@ function OptionsTab({ stored }: { stored: FormField }) {
             ) : (
                 <>
                     <Row
-                        label="Data source"
+                        label={t('form-engine.settings.inspector.options.dataSourceRow')}
                         help={
                             sources.length
-                                ? 'Fetched when the form opens.'
-                                : 'Add a data source first (Data sources, at the top).'
+                                ? t('form-engine.settings.inspector.options.fetched')
+                                : t('form-engine.settings.inspector.options.addSourceFirst')
                         }
                     >
                         <Combobox
                             options={sources}
                             value={binding.dataSourceId || null}
                             onChange={(v) => setBinding({ dataSourceId: v ?? '' })}
-                            placeholder="Choose a data source"
-                            aria-label="Data source"
+                            placeholder={t('form-engine.settings.inspector.options.chooseSource')}
+                            aria-label={t('form-engine.settings.inspector.options.dataSourceRow')}
                         />
                     </Row>
                     <div className="grid grid-cols-2 gap-3">
-                        <Row id="insp-labelpath" label="Label from" help="Path in each record">
+                        <Row
+                            id="insp-labelpath"
+                            label={t('form-engine.settings.inspector.options.labelFrom')}
+                            help={t('form-engine.settings.inspector.options.labelFromHelp')}
+                        >
                             <Input
                                 id="insp-labelpath"
                                 value={binding.mapping?.labelPath ?? ''}
@@ -400,7 +431,11 @@ function OptionsTab({ stored }: { stored: FormField }) {
                                 }
                             />
                         </Row>
-                        <Row id="insp-valuepath" label="Value from" help="What is stored">
+                        <Row
+                            id="insp-valuepath"
+                            label={t('form-engine.settings.inspector.options.valueFrom')}
+                            help={t('form-engine.settings.inspector.options.valueFromHelp')}
+                        >
                             <Input
                                 id="insp-valuepath"
                                 value={binding.mapping?.valuePath ?? ''}
@@ -417,7 +452,7 @@ function OptionsTab({ stored }: { stored: FormField }) {
                             />
                         </Row>
                     </div>
-                    <Row id="insp-emptymsg" label="Text when there are none">
+                    <Row id="insp-emptymsg" label={t('form-engine.settings.inspector.options.emptyMessage')}>
                         <LangInput
                             id="insp-emptymsg"
                             text={binding.emptyMessage}
@@ -433,8 +468,8 @@ function OptionsTab({ stored }: { stored: FormField }) {
                     </Row>
                     <SwitchRow
                         id="insp-clear"
-                        label="Drop a choice that is no longer offered"
-                        help="For cascading choices (a city that depends on a country)."
+                        label={t('form-engine.settings.inspector.options.clearOnInvalid')}
+                        help={t('form-engine.settings.inspector.options.clearOnInvalidHelp')}
                         checked={binding.clearOnInvalid !== false}
                         onChange={(v) => setBinding({ clearOnInvalid: v })}
                     />
@@ -445,27 +480,31 @@ function OptionsTab({ stored }: { stored: FormField }) {
 }
 
 function RowsTab({ stored }: { stored: FormField }) {
+    const { t } = useEngineText();
     const { set, apply, language, plainAs } = useFieldEdit(stored.id);
     const sources = useGetSources();
     const binding = stored.data?.rowsBinding;
     return (
         <div className="flex flex-col gap-4">
-            <Row label="Rows from" help="Each record the data source returns is one row.">
+            <Row
+                label={t('form-engine.settings.inspector.rows.from')}
+                help={t('form-engine.settings.inspector.rows.fromHelp')}
+            >
                 <Combobox
                     options={sources}
                     value={binding?.dataSourceId ?? null}
                     onChange={(v) => set('data.rowsBinding', v ? { ...binding, dataSourceId: v } : undefined)}
-                    placeholder="Fixed rows"
-                    aria-label="Rows from"
+                    placeholder={t('form-engine.settings.inspector.rows.fixed')}
+                    aria-label={t('form-engine.settings.inspector.rows.from')}
                     clearable
-                    clearLabel="Use fixed rows"
+                    clearLabel={t('form-engine.settings.inspector.rows.useFixed')}
                 />
             </Row>
             {binding && (
                 <Row
                     id="insp-items"
-                    label="List inside the response"
-                    help="e.g. items. Empty when the source returns a list."
+                    label={t('form-engine.settings.inspector.rows.items')}
+                    help={t('form-engine.settings.inspector.rows.itemsHelp')}
                 >
                     <Input
                         id="insp-items"
@@ -478,7 +517,7 @@ function RowsTab({ stored }: { stored: FormField }) {
                 </Row>
             )}
             {binding && (
-                <Row id="insp-rowsempty" label="Text when there are no rows">
+                <Row id="insp-rowsempty" label={t('form-engine.settings.inspector.rows.emptyMessage')}>
                     <LangInput
                         id="insp-rowsempty"
                         text={binding.emptyMessage}
@@ -493,7 +532,7 @@ function RowsTab({ stored }: { stored: FormField }) {
                     />
                 </Row>
             )}
-            <Section title="Columns">
+            <Section title={t('form-engine.settings.inspector.rows.columns')}>
                 <ColumnsEditor
                     value={
                         (stored.props?.columns ?? stored.data?.defaultProps?.columns) as StoredTableColumn[] | undefined
@@ -510,17 +549,18 @@ function RowsTab({ stored }: { stored: FormField }) {
 
 /** The most checks a field holds (the document contract's limit). */
 const MAX_CHECKS = 10;
-/** The Ethiopian picker's labels in the builder until the engine's own text is in the catalogues (task 0.17d). */
-const ETH_LABELS = {
-    placeholder: 'Any day',
-    previousMonth: 'Previous month',
-    nextMonth: 'Next month',
-    clear: 'Clear',
-    month: 'Month',
-    year: 'Year'
-};
+/** The Ethiopian picker's labels, in the screen's language. */
+const ethLabels = (t: EngineTranslate) => ({
+    placeholder: t('form-engine.settings.inspector.rules.anyDay'),
+    previousMonth: t('form-engine.settings.inspector.eth.previousMonth'),
+    nextMonth: t('form-engine.settings.inspector.eth.nextMonth'),
+    clear: t('form-engine.settings.inspector.eth.clear'),
+    month: t('form-engine.settings.inspector.eth.month'),
+    year: t('form-engine.settings.inspector.eth.year')
+});
 
 function RulesTab({ stored, field, design }: { stored: FormField; field: EngineField; design?: DesignMeta }) {
+    const { t } = useEngineText();
     const { apply, text, language, plainAs } = useFieldEdit(stored.id);
     const rules = design?.rules ?? [];
     const rule = (name: string) => getPath(stored, `behavior.validation.rules.${name}`);
@@ -539,18 +579,18 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
     return (
         <div className="flex flex-col gap-5">
             {holdsValue(field) && (
-                <Section title="Required">
+                <Section title={t('form-engine.settings.inspector.rules.required')}>
                     <SwitchRow
                         id="insp-req2"
-                        label="Required"
+                        label={t('form-engine.settings.inspector.field.required')}
                         checked={field.rules.required}
                         onChange={(v) => setRule('props.required', v)}
                     />
                     {!field.rules.required && (
                         <Row
                             id="insp-reqwhen"
-                            label="Required only when"
-                            help="A formula, e.g. form.grade >= 3 (in a repeated row, row.* is that row). Leave empty: never."
+                            label={t('form-engine.settings.inspector.rules.requiredWhen')}
+                            help={t('form-engine.settings.inspector.rules.requiredWhenHelp')}
                             error={requiredWhen ? checkRuleFormula(requiredWhen) : null}
                         >
                             <Input
@@ -568,13 +608,13 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                         </Row>
                     )}
                     {(field.rules.required || !!requiredWhen) && (
-                        <Row id="insp-reqmsg" label="Message when empty">
+                        <Row id="insp-reqmsg" label={t('form-engine.settings.inspector.rules.messageEmpty')}>
                             <LangInput
                                 id="insp-reqmsg"
                                 text={stored.behavior?.validation?.errorMessages?.required}
                                 language={language}
                                 plainAs={plainAs}
-                                placeholder="This field is required"
+                                placeholder={t('form-engine.settings.inspector.rules.requiredDefault')}
                                 onText={(v) => text('behavior.validation.errorMessages.required', v, true)}
                             />
                         </Row>
@@ -582,13 +622,13 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                 </Section>
             )}
             {holdsValue(field) && (
-                <Section title="Must hold">
+                <Section title={t('form-engine.settings.inspector.rules.mustHold')}>
                     {checks.map((check, i) => (
                         <div key={i} className="flex flex-col gap-2 rounded-md border p-2" data-check={i}>
                             <Row
                                 id={`insp-check-${i}`}
-                                label={`Check ${i + 1}`}
-                                help="A formula that must be true, e.g. days(form.issued, form.expires) > 0. Not checked while the field is empty."
+                                label={t('form-engine.settings.inspector.rules.check', { n: String(i + 1) })}
+                                help={t('form-engine.settings.inspector.rules.checkHelp')}
                                 error={check.expression ? checkRuleFormula(check.expression) : null}
                             >
                                 <Input
@@ -600,13 +640,16 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                                     }
                                 />
                             </Row>
-                            <Row id={`insp-check-msg-${i}`} label="Message when it does not hold">
+                            <Row
+                                id={`insp-check-msg-${i}`}
+                                label={t('form-engine.settings.inspector.rules.checkMessage')}
+                            >
                                 <LangInput
                                     id={`insp-check-msg-${i}`}
                                     text={check.message}
                                     language={language}
                                     plainAs={plainAs}
-                                    placeholder="This value is not valid"
+                                    placeholder={t('form-engine.settings.inspector.rules.checkDefault')}
                                     onText={(v) => text(`behavior.validation.validWhen.${i}.message`, v, true)}
                                 />
                             </Row>
@@ -622,7 +665,7 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                                     )
                                 }
                             >
-                                Remove check {i + 1}
+                                {t('form-engine.settings.inspector.rules.removeCheck', { n: String(i + 1) })}
                             </Button>
                         </div>
                     ))}
@@ -634,19 +677,21 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                             className="self-start"
                             onClick={() => setRule('behavior.validation.validWhen', [...checks, { expression: '' }])}
                         >
-                            Add a check
+                            {t('form-engine.settings.inspector.rules.addCheck')}
                         </Button>
                     )}
                 </Section>
             )}
             {holdsValue(field) && !field.computed && (
-                <Section title="Checked by a data source">
+                <Section title={t('form-engine.settings.inspector.rules.remote')}>
                     <Row
-                        label="Valid when this lookup succeeds"
+                        label={t('form-engine.settings.inspector.rules.remoteLookup')}
                         help={
                             sources.length
-                                ? 'The lookup reads this field (e.g. /accounts/{{form.accountNumber}}); its error is shown here and stops submitting.'
-                                : 'Add a GET data source first (Data sources, at the top).'
+                                ? t('form-engine.settings.inspector.rules.remoteHelp', {
+                                      example: '/accounts/{{form.accountNumber}}'
+                                  })
+                                : t('form-engine.settings.inspector.rules.addGetSource')
                         }
                     >
                         <Combobox
@@ -655,23 +700,23 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                             onChange={(v) =>
                                 setRule('behavior.validation.remote', v ? { ...remote, dataSourceId: v } : undefined)
                             }
-                            placeholder="Not checked"
+                            placeholder={t('form-engine.settings.inspector.rules.notChecked')}
                             clearable
-                            aria-label="Checked by data source"
+                            aria-label={t('form-engine.settings.inspector.rules.remoteAria')}
                         />
                     </Row>
                     {remote?.dataSourceId && (
                         <Row
                             id="insp-remotemsg"
-                            label="Message when the lookup fails"
-                            help="Used when the data source gives no message of its own."
+                            label={t('form-engine.settings.inspector.rules.remoteMessage')}
+                            help={t('form-engine.settings.inspector.rules.remoteMessageHelp')}
                         >
                             <LangInput
                                 id="insp-remotemsg"
                                 text={remote.message}
                                 language={language}
                                 plainAs={plainAs}
-                                placeholder="Could not be verified"
+                                placeholder={t('form-engine.settings.inspector.rules.remoteDefault')}
                                 onText={(v) => text('behavior.validation.remote.message', v, true)}
                             />
                         </Row>
@@ -679,16 +724,16 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                 </Section>
             )}
             {rules.includes('length') && (
-                <Section title="Length">
+                <Section title={t('form-engine.settings.inspector.rules.length')}>
                     <div className="grid grid-cols-2 gap-3">
-                        <Row id="insp-minlen" label="At least (characters)">
+                        <Row id="insp-minlen" label={t('form-engine.settings.inspector.rules.atLeastChars')}>
                             <NumberInput
                                 id="insp-minlen"
                                 value={num(rule('minLength'))}
                                 onChange={(n) => setRule('behavior.validation.rules.minLength', n)}
                             />
                         </Row>
-                        <Row id="insp-maxlen" label="At most">
+                        <Row id="insp-maxlen" label={t('form-engine.settings.inspector.rules.atMost')}>
                             <NumberInput
                                 id="insp-maxlen"
                                 value={num(rule('maxLength'))}
@@ -699,14 +744,17 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                 </Section>
             )}
             {rules.includes('pattern') && (
-                <Section title="Pattern">
+                <Section title={t('form-engine.settings.inspector.rules.pattern')}>
                     <Row
                         id="insp-pattern"
-                        label="Regular expression"
+                        label={t('form-engine.settings.inspector.rules.regex')}
                         help={
                             patternProblem
-                                ? `${patternProblem} The rule is ignored until it is fixed.`
-                                : 'The whole value must match, e.g. ^[A-Z]{3}-\\d{4}$ (Ethiopic: [\\u1200-\\u137F])'
+                                ? t('form-engine.settings.inspector.rules.patternIgnored', { problem: patternProblem })
+                                : t('form-engine.settings.inspector.rules.patternHelp', {
+                                      example: '^[A-Z]{3}-\\d{4}$',
+                                      ethiopic: '[\\u1200-\\u137F]'
+                                  })
                         }
                     >
                         <Input
@@ -717,29 +765,29 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                             onChange={(e) => setRule('behavior.validation.rules.pattern', e.target.value || undefined)}
                         />
                     </Row>
-                    <Row id="insp-patmsg" label="Message when it does not match">
+                    <Row id="insp-patmsg" label={t('form-engine.settings.inspector.rules.patternMessage')}>
                         <LangInput
                             id="insp-patmsg"
                             text={rule('patternMessage')}
                             language={language}
                             plainAs={plainAs}
-                            placeholder="Invalid format"
+                            placeholder={t('form-engine.settings.inspector.rules.patternDefault')}
                             onText={(v) => text('behavior.validation.rules.patternMessage', v, true)}
                         />
                     </Row>
                 </Section>
             )}
             {rules.includes('range') && (
-                <Section title="Range">
+                <Section title={t('form-engine.settings.inspector.rules.range')}>
                     <div className="grid grid-cols-2 gap-3">
-                        <Row id="insp-min" label="Smallest">
+                        <Row id="insp-min" label={t('form-engine.settings.inspector.rules.smallest')}>
                             <NumberInput
                                 id="insp-min"
                                 value={num(rule('min'))}
                                 onChange={(n) => setRule('behavior.validation.rules.min', n)}
                             />
                         </Row>
-                        <Row id="insp-max" label="Largest">
+                        <Row id="insp-max" label={t('form-engine.settings.inspector.rules.largest')}>
                             <NumberInput
                                 id="insp-max"
                                 value={num(rule('max'))}
@@ -750,55 +798,59 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                 </Section>
             )}
             {rules.includes('dates') && (
-                <Section title="Dates">
-                    <Row label="Not before">
+                <Section title={t('form-engine.settings.inspector.rules.dates')}>
+                    <Row label={t('form-engine.settings.inspector.rules.notBefore')}>
                         <DatePicker
                             value={parseDate(stored.props?.minDate)}
                             onChange={(d) => setRule('props.minDate', d ? day(d) : undefined)}
-                            placeholder="Any day"
-                            aria-label="Not before"
+                            placeholder={t('form-engine.settings.inspector.rules.anyDay')}
+                            aria-label={t('form-engine.settings.inspector.rules.notBefore')}
                         />
                     </Row>
-                    <Row label="Not after">
+                    <Row label={t('form-engine.settings.inspector.rules.notAfter')}>
                         <DatePicker
                             value={parseDate(stored.props?.maxDate)}
                             onChange={(d) => setRule('props.maxDate', d ? day(d) : undefined)}
-                            placeholder="Any day"
-                            aria-label="Not after"
+                            placeholder={t('form-engine.settings.inspector.rules.anyDay')}
+                            aria-label={t('form-engine.settings.inspector.rules.notAfter')}
                         />
                     </Row>
                 </Section>
             )}
             {rules.includes('ethDates') && (
-                <Section title="Dates">
-                    <Row label="Not before">
+                <Section title={t('form-engine.settings.inspector.rules.dates')}>
+                    <Row label={t('form-engine.settings.inspector.rules.notBefore')}>
                         <EthiopianDatePicker
                             value={typeof stored.props?.minDate === 'string' ? stored.props.minDate : null}
                             onChange={(v) => setRule('props.minDate', v ?? undefined)}
-                            labels={ETH_LABELS}
-                            aria-label="Not before"
+                            labels={ethLabels(t)}
+                            aria-label={t('form-engine.settings.inspector.rules.notBefore')}
                         />
                     </Row>
-                    <Row label="Not after">
+                    <Row label={t('form-engine.settings.inspector.rules.notAfter')}>
                         <EthiopianDatePicker
                             value={typeof stored.props?.maxDate === 'string' ? stored.props.maxDate : null}
                             onChange={(v) => setRule('props.maxDate', v ?? undefined)}
-                            labels={ETH_LABELS}
-                            aria-label="Not after"
+                            labels={ethLabels(t)}
+                            aria-label={t('form-engine.settings.inspector.rules.notAfter')}
                         />
                     </Row>
                 </Section>
             )}
             {rules.includes('files') && (
-                <Section title="Files">
-                    <Row id="insp-accept" label="Allowed types" help="File endings or types, e.g. .pdf,image/*">
+                <Section title={t('form-engine.settings.inspector.rules.files')}>
+                    <Row
+                        id="insp-accept"
+                        label={t('form-engine.settings.inspector.rules.allowedTypes')}
+                        help={t('form-engine.settings.inspector.rules.allowedTypesHelp')}
+                    >
                         <Input
                             id="insp-accept"
                             value={String(stored.props?.accept ?? '')}
                             onChange={(e) => setRule('props.accept', e.target.value || undefined)}
                         />
                     </Row>
-                    <Row id="insp-size" label="Largest file (MB)">
+                    <Row id="insp-size" label={t('form-engine.settings.inspector.rules.largestFile')}>
                         <NumberInput
                             id="insp-size"
                             value={
@@ -814,16 +866,16 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                 </Section>
             )}
             {rules.includes('items') && (
-                <Section title="Rows">
+                <Section title={t('form-engine.settings.inspector.rules.rows')}>
                     <div className="grid grid-cols-2 gap-3">
-                        <Row id="insp-minitems" label="At least">
+                        <Row id="insp-minitems" label={t('form-engine.settings.inspector.rules.atLeast')}>
                             <NumberInput
                                 id="insp-minitems"
                                 value={num(stored.props?.minItems)}
                                 onChange={(n) => setRule('props.minItems', n)}
                             />
                         </Row>
-                        <Row id="insp-maxitems" label="At most">
+                        <Row id="insp-maxitems" label={t('form-engine.settings.inspector.rules.atMost')}>
                             <NumberInput
                                 id="insp-maxitems"
                                 value={num(stored.props?.maxItems)}
@@ -834,13 +886,14 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                 </Section>
             )}
             {!holdsValue(field) && !rules.length && (
-                <p className="text-sm text-muted-foreground">Nothing to check: this field holds no value.</p>
+                <p className="text-sm text-muted-foreground">{t('form-engine.settings.inspector.rules.nothing')}</p>
             )}
         </div>
     );
 }
 
 function LogicTab({ stored, field }: { stored: FormField; field: EngineField }) {
+    const { t } = useEngineText();
     const { set, language } = useFieldEdit(stored.id);
     const byId = useDesigner((s) => s.doc.byId);
     const subjects = useMemo<ConditionSubject[]>(
@@ -868,29 +921,36 @@ function LogicTab({ stored, field }: { stored: FormField; field: EngineField }) 
     const formulaError = m ? checkFormula(m[1] ?? '') : null;
     return (
         <div className="flex flex-col gap-5">
-            <Section title="Show only when">
+            <Section title={t('form-engine.settings.inspector.logic.showWhen')}>
                 <ConditionsEditor
                     value={field.visibleWhen}
                     subjects={subjects}
                     onChange={(v) => set('behavior.visibilityConditions', v)}
-                    emptyText="Always shown."
+                    emptyText={t('form-engine.settings.inspector.logic.alwaysShown')}
                 />
             </Section>
-            <Section title="Can be changed only when">
+            <Section title={t('form-engine.settings.inspector.logic.enabledWhen')}>
                 <ConditionsEditor
                     value={field.enabledWhen}
                     subjects={subjects}
                     onChange={(v) => set('behavior.enabledConditions', v)}
-                    emptyText="Always editable."
+                    emptyText={t('form-engine.settings.inspector.logic.alwaysEditable')}
                 />
             </Section>
             {holdsValue(field) && (
-                <Section title="Calculated value">
+                <Section title={t('form-engine.settings.inspector.logic.calculated')}>
                     <Row
                         id="insp-formula"
-                        label="Formula or binding"
-                        help="{{= row.qty * row.price }}, {{= round(sum(root.lines, 'total'), 2) }}, {{user.name}}. In a repeated row, row.* is that row and root.* the whole form."
-                        error={formulaError ? `Formula error: ${formulaError}` : null}
+                        label={t('form-engine.settings.inspector.logic.formula')}
+                        help={t('form-engine.settings.inspector.logic.formulaHelp', {
+                            examples:
+                                "{{= row.qty * row.price }}, {{= round(sum(root.lines, 'total'), 2) }}, {{user.name}}"
+                        })}
+                        error={
+                            formulaError
+                                ? t('form-engine.settings.inspector.logic.formulaError', { error: formulaError })
+                                : null
+                        }
                     >
                         <Textarea
                             id="insp-formula"
@@ -908,7 +968,7 @@ function LogicTab({ stored, field }: { stored: FormField; field: EngineField }) 
                     {computed && (
                         <SwitchRow
                             id="insp-computed-ro"
-                            label="Cannot be overwritten"
+                            label={t('form-engine.settings.inspector.logic.readOnly')}
                             checked={computed.readOnly === true}
                             onChange={(v) => set('data.computed', { ...computed, readOnly: v })}
                         />
@@ -920,6 +980,7 @@ function LogicTab({ stored, field }: { stored: FormField; field: EngineField }) 
 }
 
 function JsonTab({ stored }: { stored: FormField }) {
+    const { t } = useEngineText();
     const actions = useDesignerActions();
     const notify = useNotify();
     const original = useMemo(() => JSON.stringify(stored, null, 2), [stored]);
@@ -928,10 +989,11 @@ function JsonTab({ stored }: { stored: FormField }) {
     const apply = () => {
         try {
             const parsed = storedFieldSchema.safeParse(JSON.parse(text ?? original));
-            if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? 'Not a field');
+            if (!parsed.success)
+                throw new Error(parsed.error.issues[0]?.message ?? t('form-engine.settings.inspector.json.notField'));
             const next = parsed.data as unknown as FormField;
-            if (next.id !== stored.id) throw new Error('Change the key in the Field tab, not here');
-            if (next.parentId !== stored.parentId) throw new Error('Move the field on the canvas, not here');
+            if (next.id !== stored.id) throw new Error(t('form-engine.settings.inspector.json.changeKey'));
+            if (next.parentId !== stored.parentId) throw new Error(t('form-engine.settings.inspector.json.moveField'));
             actions.update(
                 stored.id,
                 (f) => {
@@ -942,18 +1004,16 @@ function JsonTab({ stored }: { stored: FormField }) {
             );
             setText(null);
             setError(null);
-            notify.success('Field updated');
+            notify.success(t('form-engine.settings.inspector.json.updated'));
         } catch (e) {
             setError((e as Error).message);
         }
     };
     return (
         <div className="flex flex-col gap-3">
-            <p className="text-sm text-muted-foreground">
-                Everything stored for this field. For settings the other tabs do not offer.
-            </p>
+            <p className="text-sm text-muted-foreground">{t('form-engine.settings.inspector.json.intro')}</p>
             <Textarea
-                aria-label="Field JSON"
+                aria-label={t('form-engine.settings.inspector.json.aria')}
                 rows={18}
                 spellCheck={false}
                 className="font-mono text-xs"
@@ -963,7 +1023,7 @@ function JsonTab({ stored }: { stored: FormField }) {
             {error && <FieldError>{error}</FieldError>}
             <div className="flex gap-2">
                 <Button type="button" size="sm" disabled={text === null || text === original} onClick={apply}>
-                    Apply
+                    {t('form-engine.settings.inspector.json.apply')}
                 </Button>
                 <Button
                     type="button"
@@ -972,7 +1032,7 @@ function JsonTab({ stored }: { stored: FormField }) {
                     disabled={text === null}
                     onClick={() => (setText(null), setError(null))}
                 >
-                    Discard
+                    {t('form-engine.settings.inspector.json.discard')}
                 </Button>
             </div>
         </div>
@@ -981,6 +1041,7 @@ function JsonTab({ stored }: { stored: FormField }) {
 
 // ---- outline (nothing selected) ---------------------------------------------------------------------------------------------
 function Outline() {
+    const { t, word } = useEngineText();
     const doc = useDesigner((s) => s.doc);
     const language = useDesigner((s) => s.language);
     const actions = useDesignerActions();
@@ -988,7 +1049,8 @@ function Outline() {
     const item = (id: string, depth: number): ReactNode => {
         const f = doc.byId[id];
         if (!f) return null;
-        const label = getFieldType(f.type)?.design?.label ?? f.type;
+        const design = getFieldType(f.type)?.design;
+        const label = design ? word(design.label) : f.type;
         return (
             <li key={id}>
                 <button
@@ -1012,23 +1074,23 @@ function Outline() {
     return (
         <div className="flex flex-col gap-3">
             <div>
-                <h3 className="text-sm font-semibold">Form outline</h3>
+                <h3 className="text-sm font-semibold">{t('form-engine.settings.inspector.outline.title')}</h3>
                 <p className="text-sm text-muted-foreground">
                     {count === 0
-                        ? 'No fields yet.'
-                        : `${count} field${count === 1 ? '' : 's'}. Select one to change it.`}
+                        ? t('form-engine.settings.inspector.outline.none')
+                        : t('form-engine.settings.inspector.outline.count', { count })}
                 </p>
             </div>
-            <ul aria-label="Form outline">{(doc.children[ROOT] ?? []).map((id) => item(id, 0))}</ul>
-            <p className="text-xs text-muted-foreground">
-                Shortcuts: Ctrl+Z undo · Ctrl+Shift+Z redo · Del delete · Ctrl+D duplicate · Alt+↑/↓ move · Esc deselect
-                · Ctrl+S save
-            </p>
+            <ul aria-label={t('form-engine.settings.inspector.outline.title')}>
+                {(doc.children[ROOT] ?? []).map((id) => item(id, 0))}
+            </ul>
+            <p className="text-xs text-muted-foreground">{t('form-engine.settings.inspector.outline.shortcuts')}</p>
         </div>
     );
 }
 
 export function Inspector() {
+    const { t } = useEngineText();
     const selected = useDesigner((s) => s.selected);
     const selection = useDesigner((s) => s.selection);
     const stored = useDesigner((s) => (s.selected ? s.doc.byId[s.selected] : undefined));
@@ -1041,19 +1103,49 @@ export function Inspector() {
     if (!selected || !stored || !field) return <Outline />;
     const design = getFieldType(field.type)?.design;
     const tabs: Array<{ id: string; label: string; body: ReactNode }> = [
-        { id: 'field', label: 'Field', body: <FieldTab stored={stored} field={field} design={design} /> },
+        {
+            id: 'field',
+            label: t('form-engine.settings.inspector.tabs.field'),
+            body: <FieldTab stored={stored} field={field} design={design} />
+        },
         ...(design?.settings
-            ? [{ id: 'settings', label: 'Settings', body: <SettingsTab stored={stored} design={design} /> }]
+            ? [
+                  {
+                      id: 'settings',
+                      label: t('form-engine.settings.inspector.tabs.settings'),
+                      body: <SettingsTab stored={stored} design={design} />
+                  }
+              ]
             : []),
-        ...(design?.options ? [{ id: 'options', label: 'Options', body: <OptionsTab stored={stored} /> }] : []),
-        ...(field.type === 'DataTable' ? [{ id: 'rows', label: 'Rows', body: <RowsTab stored={stored} /> }] : []),
+        ...(design?.options
+            ? [
+                  {
+                      id: 'options',
+                      label: t('form-engine.settings.inspector.tabs.options'),
+                      body: <OptionsTab stored={stored} />
+                  }
+              ]
+            : []),
+        ...(field.type === 'DataTable'
+            ? [{ id: 'rows', label: t('form-engine.settings.inspector.tabs.rows'), body: <RowsTab stored={stored} /> }]
+            : []),
         ...(holdsValue(field) || design?.rules?.length
-            ? [{ id: 'rules', label: 'Rules', body: <RulesTab stored={stored} field={field} design={design} /> }]
+            ? [
+                  {
+                      id: 'rules',
+                      label: t('form-engine.settings.inspector.tabs.rules'),
+                      body: <RulesTab stored={stored} field={field} design={design} />
+                  }
+              ]
             : []),
-        { id: 'logic', label: 'Logic', body: <LogicTab stored={stored} field={field} /> },
-        { id: 'json', label: 'JSON', body: <JsonTab stored={stored} /> }
+        {
+            id: 'logic',
+            label: t('form-engine.settings.inspector.tabs.logic'),
+            body: <LogicTab stored={stored} field={field} />
+        },
+        { id: 'json', label: t('form-engine.settings.inspector.tabs.json'), body: <JsonTab stored={stored} /> }
     ];
-    const current = tabs.some((t) => t.id === tab) ? tab : 'field';
+    const current = tabs.some((x) => x.id === tab) ? tab : 'field';
     const Icon = design?.icon;
     return (
         <div className="flex flex-col gap-3" data-inspector={stored.id}>
@@ -1066,16 +1158,16 @@ export function Inspector() {
             </div>
             <Tabs value={current} onValueChange={setTab}>
                 <TabsList className="h-auto w-full flex-wrap justify-start">
-                    {tabs.map((t) => (
-                        <TabsTrigger key={t.id} value={t.id} className="flex-none">
-                            {t.label}
+                    {tabs.map((x) => (
+                        <TabsTrigger key={x.id} value={x.id} className="flex-none">
+                            {x.label}
                         </TabsTrigger>
                     ))}
                 </TabsList>
-                {tabs.map((t) => (
-                    <TabsContent key={t.id} value={t.id} className="pt-3">
+                {tabs.map((x) => (
+                    <TabsContent key={x.id} value={x.id} className="pt-3">
                         {/* a fresh tab per field: local drafts (key, JSON) never leak to the next selection */}
-                        <div key={selection}>{t.body}</div>
+                        <div key={selection}>{x.body}</div>
                     </TabsContent>
                 ))}
             </Tabs>

@@ -27,6 +27,7 @@ import {
     cn
 } from '@itrms/ui';
 import { requestErrorMessage } from '../../host/client';
+import { useEngineText } from '../../host/text';
 import { formatCurrency } from '../../host/format';
 import { useSubmissionData } from '../api';
 import { RecordCard } from '../components';
@@ -46,6 +47,7 @@ interface Column {
 
 /** The columns of a board: every value the stage field can take, plus any value that exists in the data, plus "No value". */
 function useColumns(templateId: string, schema: ViewSchema, labeler: Labeler, filter: FilterGroup, search: string) {
+    const { t } = useEngineText();
     const stage = schema.fields.find((f) => f.key === schema.roles.stage)!;
     const facet = useSubmissionData({
         template_id: templateId,
@@ -61,8 +63,12 @@ function useColumns(templateId: string, schema: ViewSchema, labeler: Labeler, fi
             .filter((f) => f.value !== null && !known.some((k) => k.value === f.value))
             .map((f) => ({ value: f.value as string, label: labeler.text(stage.key, f.value) }));
         const hasNone = seen.some((f) => f.value === null);
-        return [...known, ...extra, ...(hasNone || !known.length ? [{ value: NONE, label: 'No value' }] : [])];
-    }, [stage, labeler, facet.data]);
+        return [
+            ...known,
+            ...extra,
+            ...(hasNone || !known.length ? [{ value: NONE, label: t('form-engine.viewer.board.noValue') }] : [])
+        ];
+    }, [stage, labeler, facet.data, t]);
     return { stage, columns, isPending: facet.isPending, error: facet.error };
 }
 
@@ -98,6 +104,7 @@ function MoveMenu({
     columns: Column[];
     onMove: (row: ViewRow, to: Column) => void;
 }) {
+    const { t } = useEngineText();
     return (
         <DropdownMenu>
             <Tooltip>
@@ -107,7 +114,7 @@ function MoveMenu({
                             type="button"
                             variant="ghost"
                             size="icon-xs"
-                            aria-label={`Move ${row.id}`}
+                            aria-label={t('form-engine.viewer.board.move', { id: row.id })}
                             onPointerDown={(e) => e.stopPropagation()}
                             onKeyDown={(e) => e.stopPropagation()}
                         >
@@ -115,10 +122,10 @@ function MoveMenu({
                         </Button>
                     </DropdownMenuTrigger>
                 </TooltipTrigger>
-                <TooltipContent>Move to…</TooltipContent>
+                <TooltipContent>{t('form-engine.viewer.board.moveTo')}</TooltipContent>
             </Tooltip>
             <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Move to</DropdownMenuLabel>
+                <DropdownMenuLabel>{t('form-engine.viewer.board.moveToLabel')}</DropdownMenuLabel>
                 {columns
                     .filter((c) => c.value !== column.value)
                     .map((c) => (
@@ -147,6 +154,7 @@ function BoardColumn({
     onMove: (row: ViewRow, to: Column) => void;
 }) {
     const { templateId, schema, state, labeler, onOpen, rowActions } = props;
+    const { t } = useEngineText();
     const [limit, setLimit] = useState(PAGE);
     const measure = schema.roles.measures[0];
     const here: Condition =
@@ -172,7 +180,7 @@ function BoardColumn({
                 'flex min-h-32 w-72 shrink-0 flex-col gap-2 rounded-lg p-2 transition-colors',
                 isOver ? 'bg-primary/10 ring-2 ring-primary/40' : 'bg-muted/60'
             )}
-            aria-label={`${column.label} column`}
+            aria-label={t('form-engine.viewer.board.column', { label: column.label })}
             data-column={column.value}
         >
             <header className="flex items-baseline justify-between px-1">
@@ -184,7 +192,11 @@ function BoardColumn({
                         : ''}
                 </span>
             </header>
-            {isPending ? <InlineStatus loading /> : error ? <InlineStatus error={requestErrorMessage(error)} /> : null}
+            {isPending ? (
+                <InlineStatus loading />
+            ) : error ? (
+                <InlineStatus error={requestErrorMessage(error, undefined, t)} />
+            ) : null}
             {data?.items.map((row) => (
                 <DraggableCard key={row.id} row={row} disabled={!canMove}>
                     <RecordCard
@@ -204,12 +216,12 @@ function BoardColumn({
             ))}
             {data && data.items.length < data.total && limit < MAX_CARDS && (
                 <Button type="button" variant="ghost" size="sm" onClick={() => setLimit(limit + PAGE)}>
-                    Show more ({data.total - data.items.length})
+                    {t('form-engine.viewer.board.showMore', { count: String(data.total - data.items.length) })}
                 </Button>
             )}
             {data && data.total > MAX_CARDS && limit >= MAX_CARDS && (
                 <span className="px-1 text-xs text-muted-foreground">
-                    Showing the newest {MAX_CARDS}. Narrow the filter to see the rest.
+                    {t('form-engine.viewer.board.newest', { count: String(MAX_CARDS) })}
                 </span>
             )}
         </section>
@@ -218,6 +230,7 @@ function BoardColumn({
 
 export default function BoardView(props: ViewModeProps) {
     const { templateId, schema, state, labeler } = props;
+    const { t } = useEngineText();
     const { stage, columns, isPending, error } = useColumns(templateId, schema, labeler, state.filter, state.search);
     const canMove = useCanChangeRequests() && !stage.builtin;
     const { update } = useSubmissionMutations();
@@ -244,13 +257,14 @@ export default function BoardView(props: ViewModeProps) {
     };
 
     if (isPending) return <InlineStatus loading />;
-    if (error) return <InlineStatus error={requestErrorMessage(error)} />;
+    if (error) return <InlineStatus error={requestErrorMessage(error, undefined, t)} />;
 
     return (
         <div className="flex flex-col gap-2">
             <span className="text-sm text-muted-foreground">
-                Columns: <strong className="text-foreground">{stage.label}</strong>
-                {canMove ? '. Drag a card to another column, or use the arrows button on it, to change it.' : '.'}
+                {t(canMove ? 'form-engine.viewer.board.columnsMovable' : 'form-engine.viewer.board.columns', {
+                    label: stage.label
+                })}
             </span>
             <DndContext
                 sensors={sensors}

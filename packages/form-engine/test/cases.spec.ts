@@ -8,10 +8,12 @@ import cases from './cases.json' with { type: 'json' };
 
 describe('shared validation cases', () => {
     it.each(cases.cases.map((c) => [c.name, c] as const))('%s', (_name, c) => {
-        const { fields, invalid } = readDocument({ fields: c.fields });
+        // a case's language (its texts and the engine's messages), else the file's
+        const language = ('language' in c && typeof c.language === 'string' ? c.language : undefined) ?? cases.language;
+        const { fields, invalid } = readDocument({ fields: c.fields }, { language });
         expect(invalid).toEqual([]);
         const stored = submittedValues(fields, c.values);
         expect(stored).toEqual(c.stored);
-        expect(validateForm(fields, stored)).toEqual(c.errors);
+        expect(validateForm(fields, stored, {}, { language })).toEqual(c.errors);
     });
 });

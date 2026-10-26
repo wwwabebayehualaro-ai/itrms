@@ -13,6 +13,7 @@ import { useDraggable, useDroppable, type Over } from '@dnd-kit/core';
 import { ArrowDown, ArrowUp, Copy, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { Badge, Button, FieldDescription, Field as FieldShell, FieldLabel, IconButton, cn } from '@itrms/ui';
 import { initialValueOf, toEngineField, type EngineField, type StoredField } from '../core';
+import { useEngineText } from '../host/text';
 import { getFieldType, type ValueFieldDef } from '../renderer/kit';
 import { widthOf } from '../renderer/FieldTree';
 import { ROOT, parentOf, type DesignDoc } from './document';
@@ -68,6 +69,7 @@ export function DesignList({
     inRow?: boolean;
     emptyText?: string;
 }) {
+    const { t } = useEngineText();
     const ids = useDesigner((s) => s.doc.children[parent]);
     const { activeId, target } = useContext(DragCtx);
     const { setNodeRef, isOver } = useDroppable({ id: `${LIST_PREFIX}${parent}` });
@@ -91,7 +93,7 @@ export function DesignList({
                 )}
                 data-drop-zone={parent || 'form'}
             >
-                {empty && (emptyText ?? 'Drop fields here')}
+                {empty && (emptyText ?? t('form-engine.designer.canvas.dropHere'))}
             </div>
         </div>
     );
@@ -112,6 +114,7 @@ const DesignNode = memo(function DesignNode({ id, inRow }: { id: string; inRow: 
     const actions = useDesignerActions();
     const { activeId } = useContext(DragCtx);
     const language = useDesigner((s) => s.language);
+    const { word } = useEngineText();
     const field = useMemo(
         () => (stored ? toEngineField(stored as unknown as StoredField, language) : null),
         [stored, language]
@@ -151,7 +154,7 @@ const DesignNode = memo(function DesignNode({ id, inRow }: { id: string; inRow: 
             {...drag.listeners}
             tabIndex={0}
             aria-current={selected || undefined}
-            aria-label={`${field.label || field.id} (${def?.design?.label ?? field.type})`}
+            aria-label={`${field.label || field.id} (${def?.design ? word(def.design.label) : field.type})`}
             onClick={(e) => {
                 e.stopPropagation();
                 actions.select(id);
@@ -177,7 +180,7 @@ const DesignNode = memo(function DesignNode({ id, inRow }: { id: string; inRow: 
             data-selected={selected || undefined}
             data-field-type={field.type}
         >
-            {selected && <Toolbar id={id} label={def?.design?.label ?? field.type} />}
+            {selected && <Toolbar id={id} label={def?.design ? word(def.design.label) : field.type} />}
             {body}
         </div>
     );
@@ -186,6 +189,7 @@ const DesignNode = memo(function DesignNode({ id, inRow }: { id: string; inRow: 
 /** Actions of the selected field, on its top edge. */
 function Toolbar({ id, label }: { id: string; label: string }) {
     const actions = useDesignerActions();
+    const { t } = useEngineText();
     const stop = {
         onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
         onClick: (e: React.MouseEvent) => e.stopPropagation()
@@ -199,28 +203,33 @@ function Toolbar({ id, label }: { id: string; label: string }) {
             <Badge variant="secondary" className="mr-1 h-5 px-1.5">
                 {label}
             </Badge>
-            <IconButton label="Move up" tooltip="Move up (Alt+↑)" size="icon-xs" onClick={() => actions.nudge(id, -1)}>
+            <IconButton
+                label={t('form-engine.designer.canvas.moveUp')}
+                tooltip={t('form-engine.designer.canvas.moveUpTip')}
+                size="icon-xs"
+                onClick={() => actions.nudge(id, -1)}
+            >
                 <ArrowUp />
             </IconButton>
             <IconButton
-                label="Move down"
-                tooltip="Move down (Alt+↓)"
+                label={t('form-engine.designer.canvas.moveDown')}
+                tooltip={t('form-engine.designer.canvas.moveDownTip')}
                 size="icon-xs"
                 onClick={() => actions.nudge(id, 1)}
             >
                 <ArrowDown />
             </IconButton>
             <IconButton
-                label="Duplicate"
-                tooltip="Duplicate (Ctrl+D)"
+                label={t('form-engine.designer.canvas.duplicate')}
+                tooltip={t('form-engine.designer.canvas.duplicateTip')}
                 size="icon-xs"
                 onClick={() => actions.duplicate(id)}
             >
                 <Copy />
             </IconButton>
             <IconButton
-                label="Delete"
-                tooltip="Delete (Del)"
+                label={t('form-engine.designer.canvas.delete')}
+                tooltip={t('form-engine.designer.canvas.deleteTip')}
                 size="icon-xs"
                 className="text-destructive hover:text-destructive"
                 onClick={() => actions.remove(id)}
@@ -241,6 +250,7 @@ function DesignValue({
     inline: boolean;
     Render: ValueFieldDef['Render'];
 }) {
+    const { t } = useEngineText();
     const domId = `design-${real.id}`;
     const sources = useDesigner((s) => s.doc.runtime.dataSources);
     // the builder never calls data sources: a field fed by one says which, instead of "Loading…"
@@ -251,14 +261,21 @@ function DesignValue({
             ...real,
             optionsBinding: undefined,
             options: [],
-            props: { ...real.props, placeholder: `Options from ${ds?.name || ds?.id || 'a data source'}` }
+            props: {
+                ...real.props,
+                placeholder: t('form-engine.designer.canvas.optionsFrom', {
+                    source: ds?.name || ds?.id || t('form-engine.designer.canvas.aDataSource')
+                })
+            }
         };
-    }, [real, sources]);
+    }, [real, sources, t]);
     return (
         <FieldShell>
             {!inline && (
                 <FieldLabel htmlFor={domId} className="pointer-events-none">
-                    {field.label || <span className="text-muted-foreground italic">No label</span>}
+                    {field.label || (
+                        <span className="text-muted-foreground italic">{t('form-engine.designer.canvas.noLabel')}</span>
+                    )}
                     {field.rules.required && <span className="text-destructive">*</span>}
                 </FieldLabel>
             )}
@@ -276,8 +293,10 @@ function DesignValue({
             {field.helpText && <FieldDescription>{field.helpText}</FieldDescription>}
             {(field.computed || field.visibleWhen.length > 0) && (
                 <div className="flex gap-1">
-                    {field.visibleWhen.length > 0 && <Badge variant="outline">Shown when…</Badge>}
-                    {field.computed && <Badge variant="outline">Calculated</Badge>}
+                    {field.visibleWhen.length > 0 && (
+                        <Badge variant="outline">{t('form-engine.designer.canvas.shownWhen')}</Badge>
+                    )}
+                    {field.computed && <Badge variant="outline">{t('form-engine.designer.canvas.calculated')}</Badge>}
                 </div>
             )}
         </FieldShell>
@@ -286,20 +305,27 @@ function DesignValue({
 
 /** Repeating rows in design mode: the fields of one row, and the (inactive) add button. */
 function DesignRows({ field }: { field: EngineField }) {
-    const noun = String(field.props.itemLabel || 'Item');
+    const { t } = useEngineText();
+    const noun = String(field.props.itemLabel || t('form-engine.renderer.rows.item'));
     return (
         <div className="flex flex-col gap-3" data-formarray={field.id}>
             <div className="flex items-center gap-2 text-sm font-medium">
-                {field.label || 'Repeating rows'}
-                <Badge variant="outline">one {noun.toLowerCase()} per row</Badge>
+                {field.label || t('form-engine.designer.canvas.repeatingRows')}
+                <Badge variant="outline">
+                    {t('form-engine.designer.canvas.onePerRow', { noun: noun.toLowerCase() })}
+                </Badge>
             </div>
             <div className="rounded-lg border border-dashed bg-muted/30 p-3">
-                <DesignList parent={field.id} inRow emptyText={`Drop the fields of one ${noun.toLowerCase()} here`} />
+                <DesignList
+                    parent={field.id}
+                    inRow
+                    emptyText={t('form-engine.designer.canvas.dropRow', { noun: noun.toLowerCase() })}
+                />
             </div>
             <div inert>
                 <Button type="button" variant="outline" size="sm">
                     <Plus />
-                    {String(field.props.addButtonLabel || 'Add row')}
+                    {String(field.props.addButtonLabel || t('form-engine.renderer.rows.add'))}
                 </Button>
             </div>
         </div>
@@ -307,10 +333,11 @@ function DesignRows({ field }: { field: EngineField }) {
 }
 
 function Unknown({ field }: { field: EngineField }) {
+    const { t } = useEngineText();
     return (
         <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-            <strong className="text-foreground">{field.label || field.id}</strong> — a “{field.type}” field. This
-            builder cannot draw it yet; it can still be moved, deleted or edited as JSON.
+            <strong className="text-foreground">{field.label || field.id}</strong>{' '}
+            {t('form-engine.designer.canvas.unknown', { type: field.type })}
         </div>
     );
 }
@@ -319,16 +346,14 @@ function Unknown({ field }: { field: EngineField }) {
 export function Canvas() {
     const actions = useDesignerActions();
     const count = useDesigner((s) => (s.doc.children[ROOT] ?? []).length);
+    const { t } = useEngineText();
     return (
         <div
             className="min-h-[60vh] rounded-xl border bg-card p-6 shadow-xs"
             onClick={() => actions.select(null)}
             data-canvas
         >
-            <DesignList
-                parent={ROOT}
-                emptyText={count === 0 ? 'Drag fields here from the left, or click one to add it.' : undefined}
-            />
+            <DesignList parent={ROOT} emptyText={count === 0 ? t('form-engine.designer.canvas.empty') : undefined} />
         </div>
     );
 }

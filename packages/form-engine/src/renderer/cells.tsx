@@ -4,6 +4,7 @@ import { Badge, StatusBadge } from '@itrms/ui';
 import { cellText, EMPTY, type LookupMaps } from './runtime/cellText';
 import { getByPath } from '../core/runtime/expression';
 import type { TableColumn } from '@itrms/schemas';
+import { useEngineText } from '../host/text';
 
 const blank = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
 
@@ -12,19 +13,20 @@ const blank = (v: unknown) => v === undefined || v === null || v === '' || (Arra
  * badges, lists and files as badges. Used by the DataTable field and the data viewer's table.
  */
 export function CellValue({ col, row, lookups }: { col: TableColumn; row: unknown; lookups: LookupMaps }) {
+    const { t: say } = useEngineText();
     const v = getByPath(row, col.field);
     if (blank(v) && col.type !== 'boolean' && col.type !== 'count')
         return <span className="text-muted-foreground">{EMPTY}</span>;
     if (col.type === 'tag')
-        return <StatusBadge value={String(v)} label={cellText(col, row, lookups).replace(/[_-]+/g, ' ')} />;
+        return <StatusBadge value={String(v)} label={cellText(col, row, lookups, say).replace(/[_-]+/g, ' ')} />;
     if (col.type === 'boolean' || col.type === 'count')
         return (
             <Badge variant={v && (!Array.isArray(v) || v.length) ? 'secondary' : 'outline'}>
-                {cellText(col, row, lookups)}
+                {cellText(col, row, lookups, say)}
             </Badge>
         );
     if (col.type === 'tags' || col.type === 'files' || (col.type === 'lookup' && Array.isArray(v) && v.length > 1)) {
-        const items = cellText(col, row, lookups).split(', ');
+        const items = cellText(col, row, lookups, say).split(', ');
         return (
             <span className="inline-flex flex-wrap gap-1">
                 {items.slice(0, 3).map((t, i) => (
@@ -36,7 +38,7 @@ export function CellValue({ col, row, lookups }: { col: TableColumn; row: unknow
             </span>
         );
     }
-    const text = cellText(col, row, lookups);
+    const text = cellText(col, row, lookups, say);
     return col.width ? (
         <div className="truncate" style={{ maxWidth: col.width }} title={text}>
             {text}

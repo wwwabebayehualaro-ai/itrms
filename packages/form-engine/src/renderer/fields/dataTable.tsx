@@ -8,6 +8,7 @@ import { useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Download, Eye, Pencil, Search, Trash2 } from 'lucide-react';
 import { Button, Input, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@itrms/ui';
 import { useCan, useFormsLanguages } from '../../host/FormsHost';
+import { useEngineText } from '../../host/text';
 import { formTextIn } from '@itrms/schemas';
 import { saveBlob } from '@itrms/ui';
 import { cellText, type LookupMaps } from '../runtime/cellText';
@@ -20,6 +21,7 @@ import { defineFieldType, type DisplayFieldProps } from '../kit';
 import { useRuntimeApi, useRuntimeSelector } from '../runtimeScope';
 
 function DataTableView({ field }: DisplayFieldProps) {
+    const { t } = useEngineText();
     const api = useRuntimeApi();
     const binding = field.rowsBinding;
     const columns: TableColumn[] = useMemo(
@@ -84,14 +86,14 @@ function DataTableView({ field }: DisplayFieldProps) {
     const shown = useMemo(() => {
         const q = search.trim().toLowerCase();
         let list = q
-            ? rows.filter((r) => columns.some((c) => cellText(c, r, lookups).toLowerCase().includes(q)))
+            ? rows.filter((r) => columns.some((c) => cellText(c, r, lookups, t).toLowerCase().includes(q)))
             : rows;
         if (sort) {
             const col = columns.find((c) => c.field === sort.field);
             if (col) {
                 const key = (r: unknown) => {
                     const v = getByPath(r, col.field);
-                    return typeof v === 'number' ? v : cellText(col, r, lookups).toLowerCase();
+                    return typeof v === 'number' ? v : cellText(col, r, lookups, t).toLowerCase();
                 };
                 list = [...list].sort((a, b) => {
                     const x = key(a);
@@ -101,7 +103,7 @@ function DataTableView({ field }: DisplayFieldProps) {
             }
         }
         return list;
-    }, [rows, columns, lookups, search, sort]);
+    }, [rows, columns, lookups, search, sort, t]);
     const pages = paged ? Math.max(1, Math.ceil(shown.length / pageSize)) : 1;
     const current = Math.min(page, pages - 1);
     const visible = paged ? shown.slice(current * pageSize, current * pageSize + pageSize) : shown;
@@ -110,7 +112,7 @@ function DataTableView({ field }: DisplayFieldProps) {
         const cell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
         const lines = [
             columns.map((c) => cell(c.header || c.field)).join(','),
-            ...shown.map((r) => columns.map((c) => cell(cellText(c, r, lookups))).join(','))
+            ...shown.map((r) => columns.map((c) => cell(cellText(c, r, lookups, t))).join(','))
         ];
         saveBlob(
             new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }),
@@ -134,7 +136,9 @@ function DataTableView({ field }: DisplayFieldProps) {
         lookupStates[col.lookupSource]?.data === undefined;
     const empty =
         state?.error ??
-        (search && rows.length > 0 ? `Nothing matches “${search}”` : (binding?.emptyMessage ?? 'No records'));
+        (search && rows.length > 0
+            ? t('form-engine.renderer.table.noMatch', { search })
+            : (binding?.emptyMessage ?? t('form-engine.renderer.table.noRecords')));
 
     return (
         <div className="flex flex-col gap-2" data-field-table={field.id}>
@@ -149,8 +153,8 @@ function DataTableView({ field }: DisplayFieldProps) {
                                     setSearch(e.target.value);
                                     setPage(0);
                                 }}
-                                placeholder="Search…"
-                                aria-label="Search the table"
+                                placeholder={t('form-engine.renderer.table.searchPlaceholder')}
+                                aria-label={t('form-engine.renderer.table.search')}
                                 className="pl-8"
                             />
                         </div>
@@ -166,7 +170,7 @@ function DataTableView({ field }: DisplayFieldProps) {
                             disabled={shown.length === 0}
                         >
                             <Download />
-                            Export CSV
+                            {t('form-engine.renderer.table.exportCsv')}
                         </Button>
                     )}
                 </div>
@@ -216,7 +220,9 @@ function DataTableView({ field }: DisplayFieldProps) {
                                     )}
                                 </TableHead>
                             ))}
-                            {(showView || showEdit || showDelete) && <TableHead className="w-px">Actions</TableHead>}
+                            {(showView || showEdit || showDelete) && (
+                                <TableHead className="w-px">{t('form-engine.renderer.table.actions')}</TableHead>
+                            )}
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -251,7 +257,7 @@ function DataTableView({ field }: DisplayFieldProps) {
                                                       onClick={() => emit('view', row)}
                                                   >
                                                       <Eye />
-                                                      View
+                                                      {t('form-engine.renderer.table.view')}
                                                   </Button>
                                               )}
                                               {showEdit && (
@@ -262,7 +268,7 @@ function DataTableView({ field }: DisplayFieldProps) {
                                                       onClick={() => emit('edit', row)}
                                                   >
                                                       <Pencil />
-                                                      Edit
+                                                      {t('form-engine.renderer.table.edit')}
                                                   </Button>
                                               )}
                                               {showDelete && (
@@ -274,7 +280,7 @@ function DataTableView({ field }: DisplayFieldProps) {
                                                       onClick={() => emit('delete', row)}
                                                   >
                                                       <Trash2 />
-                                                      Delete
+                                                      {t('form-engine.renderer.table.delete')}
                                                   </Button>
                                               )}
                                           </TableCell>
@@ -297,13 +303,17 @@ function DataTableView({ field }: DisplayFieldProps) {
             {paged && shown.length > pageSize && (
                 <div className="flex items-center justify-end gap-2 text-sm">
                     <span className="text-muted-foreground">
-                        {current * pageSize + 1}–{Math.min(shown.length, (current + 1) * pageSize)} of {shown.length}
+                        {t('form-engine.renderer.table.range', {
+                            from: String(current * pageSize + 1),
+                            to: String(Math.min(shown.length, (current + 1) * pageSize)),
+                            total: String(shown.length)
+                        })}
                     </span>
                     <Button
                         type="button"
                         variant="outline"
                         size="icon-sm"
-                        aria-label="Previous page"
+                        aria-label={t('form-engine.renderer.table.previousPage')}
                         disabled={current === 0}
                         onClick={() => setPage(current - 1)}
                     >
@@ -313,7 +323,7 @@ function DataTableView({ field }: DisplayFieldProps) {
                         type="button"
                         variant="outline"
                         size="icon-sm"
-                        aria-label="Next page"
+                        aria-label={t('form-engine.renderer.table.nextPage')}
                         disabled={current >= pages - 1}
                         onClick={() => setPage(current + 1)}
                     >

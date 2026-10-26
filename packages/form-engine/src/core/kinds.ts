@@ -4,6 +4,7 @@
  */
 import { isIsoDay, parseDate } from './dates';
 import { isFormArray, type EngineField } from './model';
+import { engineTranslator, type EngineMessageKey } from './messages';
 
 export type ValueKind =
     'text' | 'number' | 'boolean' | 'date' | 'datetime' | 'ethdate' | 'choice' | 'multi' | 'range' | 'files' | 'rows';
@@ -59,38 +60,41 @@ function isFile(v: unknown): boolean {
  * rule). The author's `messages.type` replaces the default text. Nothing is coerced: "12" is a number to a number box
  * only as the text a browser sends, and the stored value stays what was sent.
  */
-export function shapeError(f: EngineField, v: unknown): string | undefined {
+export function shapeError(f: EngineField, v: unknown, language = 'am'): string | undefined {
     const kind = valueKindOf(f);
     if (!kind || kind === 'rows' || isBlank(v)) return undefined;
-    const bad = (fallback: string) => f.messages.type || fallback;
+    const t = engineTranslator(language);
+    const bad = (fallback: EngineMessageKey) => f.messages.type || t(fallback);
     switch (kind) {
         case 'text':
             return typeof v === 'string' || (typeof v === 'number' && Number.isFinite(v))
                 ? undefined
-                : bad('Please enter text');
+                : bad('form-engine.core.validation.enterText');
         case 'number':
-            return isNumeric(v) ? undefined : bad('Please enter a valid number');
+            return isNumeric(v) ? undefined : bad('form-engine.core.validation.invalidNumber');
         case 'boolean':
-            return typeof v === 'boolean' ? undefined : bad('Please choose yes or no');
+            return typeof v === 'boolean' ? undefined : bad('form-engine.core.validation.yesOrNo');
         case 'date':
             return (Array.isArray(v) ? v : [v]).every((d) => parseDate(d) !== null)
                 ? undefined
-                : bad('Please enter a valid date');
+                : bad('form-engine.core.validation.invalidDate');
         case 'datetime':
-            return isInstant(v) ? undefined : bad('Please enter a valid date');
+            return isInstant(v) ? undefined : bad('form-engine.core.validation.invalidDate');
         case 'ethdate':
-            return isIsoDay(v) ? undefined : bad('Please enter a valid date');
+            return isIsoDay(v) ? undefined : bad('form-engine.core.validation.invalidDate');
         case 'choice':
-            return isOption(v) ? undefined : bad('Please check your selection');
+            return isOption(v) ? undefined : bad('form-engine.core.validation.checkSelection');
         case 'multi':
-            return Array.isArray(v) && v.every(isOption) ? undefined : bad('Please check your selection');
+            return Array.isArray(v) && v.every(isOption)
+                ? undefined
+                : bad('form-engine.core.validation.checkSelection');
         case 'range':
             // an untouched range slider still holds the scalar default of a plain slider: nothing chosen yet
             if (typeof v === 'number') return undefined;
             return Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === 'number' && Number.isFinite(n))
                 ? undefined
-                : bad('Please check your selection');
+                : bad('form-engine.core.validation.checkSelection');
         case 'files':
-            return Array.isArray(v) && v.every(isFile) ? undefined : bad('Invalid file');
+            return Array.isArray(v) && v.every(isFile) ? undefined : bad('form-engine.core.validation.invalidFile');
     }
 }

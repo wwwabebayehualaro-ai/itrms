@@ -13,6 +13,7 @@ import { produce, type Draft } from 'immer';
 import { createStore, useStore, type StoreApi } from 'zustand';
 import { setTextIn, type FormField, type FormTemplate } from '@itrms/schemas';
 import type { TemplateRuntimeConfig } from '@itrms/schemas';
+import type { EngineWord } from '../core/messages';
 import { keyFromLabel } from './fieldKeys';
 import {
     EMPTY_DOC,
@@ -60,7 +61,7 @@ export interface DesignerActions {
     load: (doc: DesignDoc, template: FormTemplate) => void;
     /** One edit of the document. Edits with the same `key` in quick succession are one undo step. */
     edit: (recipe: (d: Draft<DesignDoc>) => void, key?: string) => void;
-    add: (type: string, label: string, target?: { parent: string; index: number }) => string | null;
+    add: (type: string, label: EngineWord, target?: { parent: string; index: number }) => string | null;
     move: (id: string, parent: string, index: number) => boolean;
     /** One place up / down among its siblings. */
     nudge: (id: string, by: -1 | 1) => void;

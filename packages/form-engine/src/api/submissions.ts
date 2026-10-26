@@ -3,6 +3,7 @@
 import { keepPreviousData, queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createKeys, type FormsClient } from '../host/client';
 import { useFormsClient } from '../host/FormsHost';
+import { useEngineText } from '../host/text';
 import { viewKeys } from '../viewer/api';
 import { recordKeys } from '../viewer/recordApi';
 import type { FormSubmissionInput } from '@itrms/schemas';
@@ -92,6 +93,7 @@ export function useCanChangeRequests(): boolean {
 
 export function useSubmissionMutations() {
     const client = useFormsClient();
+    const { t } = useEngineText();
     const qc = useQueryClient();
     // also refresh builder-made tables (data sources of a template are cached under 'runtime-ds') wherever they are shown
     const refresh = () =>
@@ -119,22 +121,22 @@ export function useSubmissionMutations() {
             );
         },
         onSuccess: refresh,
-        meta: { errorMessage: 'Failed to submit form' }
+        meta: { errorMessage: t('form-engine.renderer.api.submitFailed') }
     });
 
     const update = useMutation<ScreenSubmission, Error, { id: string; data: Partial<FormSubmissionInput> }>({
         mutationFn: refuse('Changing a request'),
-        meta: { errorMessage: 'Failed to update submission' }
+        meta: { errorMessage: t('form-engine.renderer.api.updateFailed') }
     });
 
     const setStatus = useMutation<ScreenSubmission, Error, { id: string; status: string }>({
         mutationFn: refuse('Changing the status of a request'),
-        meta: { errorMessage: 'Failed to change the status' }
+        meta: { errorMessage: t('form-engine.renderer.api.statusFailed') }
     });
 
     const remove = useMutation<string, Error, string>({
         mutationFn: refuse('Deleting a request'),
-        meta: { errorMessage: 'Failed to delete submission' }
+        meta: { errorMessage: t('form-engine.renderer.api.deleteFailed') }
     });
 
     return { create, update, setStatus, remove };

@@ -16,6 +16,8 @@ import {
     type Tone
 } from '@itrms/ui';
 import { requestErrorMessage } from '../../host/client';
+import { useEngineText } from '../../host/text';
+import type { EngineMessageKey } from '../../core/messages';
 import { useSubmissionData } from '../api';
 import { titleOf, valueOf } from '../components';
 import type { ViewModeProps } from '../registry';
@@ -23,7 +25,15 @@ import type { Condition, FilterGroup, ViewRow } from '../types';
 
 const MAX_ROWS = 100;
 const SHOWN_PER_DAY = 3;
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKDAYS: EngineMessageKey[] = [
+    'form-engine.viewer.calendar.sun',
+    'form-engine.viewer.calendar.mon',
+    'form-engine.viewer.calendar.tue',
+    'form-engine.viewer.calendar.wed',
+    'form-engine.viewer.calendar.thu',
+    'form-engine.viewer.calendar.fri',
+    'form-engine.viewer.calendar.sat'
+];
 /** The left edge of an event says its status (the text says it too, in the tooltip). */
 const EDGE: Record<Tone, string> = {
     neutral: 'border-l-status-neutral',
@@ -51,6 +61,7 @@ const addDays = (key: string, n: number) => {
 };
 
 export default function CalendarView({ templateId, schema, state, patch, labeler, onOpen }: ViewModeProps) {
+    const { t, language } = useEngineText();
     const dateFields = schema.fields.filter((f) => f.kind === 'date' || f.kind === 'datetime');
     const dateKey = (state.options.dateField as string) || schema.roles.date || dateFields[0]?.key;
     const endKey = dateKey === schema.roles.date ? schema.roles.dateEnd : null;
@@ -127,25 +138,26 @@ export default function CalendarView({ templateId, schema, state, patch, labeler
         return map;
     }, [data, dateKey, endKey, gridStart, days]);
 
-    if (!dateKey) return <InlineStatus error="This form has no date field to place requests on a calendar." />;
+    if (!dateKey) return <InlineStatus error={t('form-engine.viewer.calendar.noDateField')} />;
     const today = ymd(new Date());
-    const title = first.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    // the month in the screen's language (Gregorian: the grid is laid out by Gregorian month)
+    const title = first.toLocaleDateString(language === 'en' ? 'en-US' : 'am-ET', { month: 'long', year: 'numeric' });
     const step = (n: number) => setMonth(monthKey(new Date(year, month - 1 + n, 1)));
 
     return (
         <div className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2">
-                <IconButton label="Previous month" onClick={() => step(-1)}>
+                <IconButton label={t('form-engine.viewer.calendar.previous')} onClick={() => step(-1)}>
                     <ChevronLeft />
                 </IconButton>
                 <h2 className="min-w-44 text-center text-xl font-semibold" aria-live="polite" data-month={shownMonth}>
                     {title}
                 </h2>
-                <IconButton label="Next month" onClick={() => step(1)}>
+                <IconButton label={t('form-engine.viewer.calendar.next')} onClick={() => step(1)}>
                     <ChevronRight />
                 </IconButton>
                 <Button type="button" variant="outline" size="sm" onClick={() => setMonth(monthKey(new Date()))}>
-                    Today
+                    {t('form-engine.viewer.calendar.today')}
                 </Button>
                 {dateFields.length > 1 && (
                     <Select
@@ -154,7 +166,7 @@ export default function CalendarView({ templateId, schema, state, patch, labeler
                             patch({ options: { ...state.options, dateField: v, month: shownMonth }, page: 1 })
                         }
                     >
-                        <SelectTrigger size="sm" aria-label="Date field">
+                        <SelectTrigger size="sm" aria-label={t('form-engine.viewer.calendar.dateField')}>
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -167,14 +179,19 @@ export default function CalendarView({ templateId, schema, state, patch, labeler
                     </Select>
                 )}
                 <span className="ml-auto text-sm text-muted-foreground">
-                    {data?.total ?? 0} request{data?.total === 1 ? '' : 's'} this month
-                    {(undated.data?.total ?? 0) > 0 && ` · ${undated.data?.total} without a date`}
+                    {t('form-engine.viewer.calendar.thisMonth', { count: data?.total ?? 0 })}
+                    {(undated.data?.total ?? 0) > 0 &&
+                        ` · ${t('form-engine.viewer.calendar.undated', { count: String(undated.data?.total) })}`}
                 </span>
             </div>
-            {error ? <InlineStatus error={requestErrorMessage(error)} /> : isPending ? <InlineStatus loading /> : null}
+            {error ? (
+                <InlineStatus error={requestErrorMessage(error, undefined, t)} />
+            ) : isPending ? (
+                <InlineStatus loading />
+            ) : null}
             {data && data.total > MAX_ROWS && (
                 <span className="text-sm text-destructive">
-                    Showing the first {MAX_ROWS} of {data.total}. Narrow the filter to see the rest.
+                    {t('form-engine.viewer.calendar.firstOf', { max: String(MAX_ROWS), total: String(data.total) })}
                 </span>
             )}
             <div className="overflow-x-auto">
@@ -186,7 +203,7 @@ export default function CalendarView({ templateId, schema, state, patch, labeler
                 >
                     {WEEKDAYS.map((w) => (
                         <div key={w} role="columnheader" className="bg-muted/60 p-2 text-center text-sm font-semibold">
-                            {w}
+                            {t(w)}
                         </div>
                     ))}
                     {days.map((d) => {
@@ -233,7 +250,11 @@ export default function CalendarView({ templateId, schema, state, patch, labeler
                                         className="text-left text-xs text-primary hover:underline"
                                         onClick={() => setExpanded(open ? null : d)}
                                     >
-                                        {open ? 'Show less' : `+${events.length - SHOWN_PER_DAY} more`}
+                                        {open
+                                            ? t('form-engine.viewer.calendar.showLess')
+                                            : t('form-engine.viewer.calendar.more', {
+                                                  count: String(events.length - SHOWN_PER_DAY)
+                                              })}
                                     </button>
                                 )}
                             </div>

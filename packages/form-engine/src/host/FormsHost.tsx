@@ -80,6 +80,13 @@ export function useFormsLanguages(): FormsLanguages {
     return useLanguages();
 }
 
+/** The language the screens are shown in, also outside a host (a field drawn on its own: the page's language). */
+export function useScreenLanguage(): string {
+    const host = useContext(HostContext);
+    const { useLanguages = noLanguages } = host ?? {};
+    return useLanguages().language;
+}
+
 export function useFormsUser(): FormsUser | null {
     const { useUser } = useFormsHost();
     return useUser();

@@ -38,6 +38,8 @@ import {
 } from '@itrms/schemas';
 import { untranslatedTexts } from '../core';
 import { useFormsLanguages } from '../host/FormsHost';
+import { useEngineText } from '../host/text';
+import type { EngineMessageKey, EngineTranslate } from '../core/messages';
 import { toStored, writeText } from './document';
 import { useDesigner, useDesignerActions } from './store';
 
@@ -52,41 +54,43 @@ export function endonym(tag: string): string {
 const isRequired = (tag: string) => (REQUIRED_TEXT_LANGUAGES as readonly string[]).includes(tag);
 
 const KIND = {
-    label: 'Label',
-    helpText: 'Help text',
-    placeholder: 'Placeholder'
+    label: 'form-engine.designer.translations.kind.label',
+    helpText: 'form-engine.designer.translations.kind.helpText',
+    placeholder: 'form-engine.designer.translations.kind.placeholder'
 } as const;
 
 /** The builder's name of a setting text, by the setting (or binding) it is stored under. */
-const SETTING: Record<string, string> = {
-    header: 'Title',
-    legend: 'Title',
-    title: 'Title',
-    subTitle: 'Subtitle',
-    footer: 'Footer',
-    description: 'Description',
-    content: 'Divider text',
-    itemLabel: 'Row name',
-    addButtonLabel: 'Add-row button',
-    removeButtonLabel: 'Remove-row button',
-    emptyMessage: 'No-rows message',
-    chooseLabel: 'Upload button',
-    optionsEmpty: 'No-options message',
-    rowsEmpty: 'No-rows message'
+const SETTING: Record<string, EngineMessageKey> = {
+    header: 'form-engine.designer.translations.setting.title',
+    legend: 'form-engine.designer.translations.setting.title',
+    title: 'form-engine.designer.translations.setting.title',
+    subTitle: 'form-engine.designer.translations.setting.subtitle',
+    footer: 'form-engine.designer.translations.setting.footer',
+    description: 'form-engine.designer.translations.setting.description',
+    content: 'form-engine.designer.translations.setting.dividerText',
+    itemLabel: 'form-engine.designer.translations.setting.rowName',
+    addButtonLabel: 'form-engine.designer.translations.setting.addRowButton',
+    removeButtonLabel: 'form-engine.designer.translations.setting.removeRowButton',
+    emptyMessage: 'form-engine.designer.translations.setting.noRows',
+    chooseLabel: 'form-engine.designer.translations.setting.uploadButton',
+    optionsEmpty: 'form-engine.designer.translations.setting.noOptions',
+    rowsEmpty: 'form-engine.designer.translations.setting.noRows'
 };
 
-const kindOf = (t: FieldText) => {
-    switch (t.kind) {
+const kindOf = (t: EngineTranslate, text: FieldText) => {
+    switch (text.kind) {
         case 'option':
-            return `Option ${t.ref ?? ''}`;
+            return t('form-engine.designer.translations.kind.option', { ref: text.ref ?? '' });
         case 'message':
-            return `Message: ${t.ref ?? ''}`;
+            return t('form-engine.designer.translations.kind.message', { ref: text.ref ?? '' });
         case 'column':
-            return `Column ${t.ref ?? ''}`;
-        case 'setting':
-            return SETTING[t.ref ?? ''] ?? t.ref ?? 'Setting';
+            return t('form-engine.designer.translations.kind.column', { ref: text.ref ?? '' });
+        case 'setting': {
+            const named = SETTING[text.ref ?? ''];
+            return named ? t(named) : (text.ref ?? t('form-engine.designer.translations.kind.setting'));
+        }
         default:
-            return KIND[t.kind];
+            return t(KIND[text.kind]);
     }
 };
 
@@ -100,16 +104,16 @@ interface Row extends FieldText {
 /** The translation table of the form being built, in a side sheet. */
 export function TranslationsSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
     const textLanguage = useDesigner((s) => s.doc.textLanguage);
+    const { t } = useEngineText();
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-6xl" data-translations>
                 <SheetHeader>
-                    <SheetTitle>Translations</SheetTitle>
+                    <SheetTitle>{t('form-engine.designer.toolbar.translations')}</SheetTitle>
                     <SheetDescription>
-                        Every text of the form in each language. Amharic and English are required; a text missing in
-                        another language is shown in the language it falls back to.{' '}
+                        {t('form-engine.designer.translations.intro')}{' '}
                         <span data-text-language={textLanguage}>
-                            Plain texts of this form count as {endonym(textLanguage)}.
+                            {t('form-engine.designer.translations.plainAs', { language: endonym(textLanguage) })}
                         </span>
                     </SheetDescription>
                 </SheetHeader>
@@ -120,6 +124,7 @@ export function TranslationsSheet({ open, onOpenChange }: { open: boolean; onOpe
 }
 
 export function Translations() {
+    const { t } = useEngineText();
     const doc = useDesigner((s) => s.doc);
     const plainAs = doc.textLanguage;
     const actions = useDesignerActions();
@@ -185,8 +190,8 @@ export function Translations() {
                 <div className="relative min-w-48 flex-1">
                     <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
                     <Input
-                        aria-label="Search the texts"
-                        placeholder="Search by field or text"
+                        aria-label={t('form-engine.designer.translations.searchLabel')}
+                        placeholder={t('form-engine.designer.translations.searchPlaceholder')}
                         className="pl-8"
                         value={search}
                         onChange={(e) => (setSearch(e.target.value), setPage(0))}
@@ -198,18 +203,20 @@ export function Translations() {
                         checked={only}
                         onCheckedChange={(v) => (setOnly(v), setPinned(missingNow()), setPage(0))}
                     />
-                    <Label htmlFor="only-untranslated">Only untranslated</Label>
+                    <Label htmlFor="only-untranslated">{t('form-engine.designer.translations.onlyUntranslated')}</Label>
                 </div>
                 <Badge variant="outline" data-untranslated-count>
                     <Languages />
-                    {untranslated === 0 ? 'All translated' : `${untranslated} to translate`}
+                    {untranslated === 0
+                        ? t('form-engine.designer.translations.allTranslated')
+                        : t('form-engine.designer.translations.toTranslate', { count: String(untranslated) })}
                 </Badge>
             </div>
 
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="min-w-44">Text</TableHead>
+                        <TableHead className="min-w-44">{t('form-engine.designer.translations.text')}</TableHead>
                         {languages.map((tag) => {
                             const missing = missingCount(tag);
                             return (
@@ -217,11 +224,20 @@ export function Translations() {
                                     <div className="flex flex-col gap-0.5 py-1">
                                         <span className="text-sm font-medium text-foreground">{endonym(tag)}</span>
                                         <span className="text-xs font-normal text-muted-foreground">
-                                            {isRequired(tag) ? 'required' : 'optional'}
+                                            {isRequired(tag)
+                                                ? t('form-engine.designer.translations.required')
+                                                : t('form-engine.designer.translations.optional')}
                                             {missing > 0 && (
                                                 <span className={isRequired(tag) ? ' text-status-warning-fg' : ''}>
                                                     {' · '}
-                                                    {missing} {isRequired(tag) ? 'missing' : 'not translated'}
+                                                    {t(
+                                                        isRequired(tag)
+                                                            ? 'form-engine.designer.translations.missingRequired'
+                                                            : 'form-engine.designer.translations.missingOptional',
+                                                        {
+                                                            count: String(missing)
+                                                        }
+                                                    )}
                                                 </span>
                                             )}
                                         </span>
@@ -238,7 +254,7 @@ export function Translations() {
                                 <div className="flex flex-col gap-0.5">
                                     <span className="text-sm font-medium">{row.fieldLabel}</span>
                                     <span className="font-mono text-xs text-muted-foreground">{row.fieldId}</span>
-                                    <span className="text-xs text-muted-foreground">{kindOf(row)}</span>
+                                    <span className="text-xs text-muted-foreground">{kindOf(t, row)}</span>
                                 </div>
                             </TableCell>
                             {languages.map((tag) => {
@@ -249,7 +265,11 @@ export function Translations() {
                                     <TableCell key={tag} className="align-top">
                                         <div className="flex flex-col gap-0.5">
                                             <Input
-                                                aria-label={`${row.fieldLabel}, ${kindOf(row)}, ${endonym(tag)}`}
+                                                aria-label={t('form-engine.designer.translations.cellLabel', {
+                                                    field: row.fieldLabel,
+                                                    kind: kindOf(t, row),
+                                                    language: endonym(tag)
+                                                })}
                                                 value={own}
                                                 placeholder={own === '' ? fallback : undefined}
                                                 onChange={(e) => write(row, tag, e.target.value)}
@@ -257,11 +277,11 @@ export function Translations() {
                                             {own === '' &&
                                                 (required ? (
                                                     <span className="text-xs text-status-warning-fg" data-missing>
-                                                        Missing
+                                                        {t('form-engine.designer.translations.missing')}
                                                     </span>
                                                 ) : (
                                                     <span className="text-xs text-muted-foreground" data-not-translated>
-                                                        Not translated
+                                                        {t('form-engine.designer.translations.notTranslated')}
                                                     </span>
                                                 ))}
                                         </div>
@@ -273,7 +293,9 @@ export function Translations() {
                     {visible.length === 0 && (
                         <TableRow>
                             <TableCell colSpan={languages.length + 1} className="text-center text-muted-foreground">
-                                {rows.length === 0 ? 'The form has no texts yet.' : 'No text matches.'}
+                                {rows.length === 0
+                                    ? t('form-engine.designer.translations.noTexts')
+                                    : t('form-engine.designer.translations.noMatch')}
                             </TableCell>
                         </TableRow>
                     )}
@@ -290,10 +312,13 @@ export function Translations() {
                         onClick={() => setPage(current - 1)}
                     >
                         <ChevronLeft />
-                        Previous
+                        {t('form-engine.designer.translations.previous')}
                     </Button>
                     <span>
-                        Page {current + 1} of {pages}
+                        {t('form-engine.designer.translations.page', {
+                            current: String(current + 1),
+                            pages: String(pages)
+                        })}
                     </span>
                     <Button
                         type="button"
@@ -302,7 +327,7 @@ export function Translations() {
                         disabled={current >= pages - 1}
                         onClick={() => setPage(current + 1)}
                     >
-                        Next
+                        {t('form-engine.designer.translations.next')}
                         <ChevronRight />
                     </Button>
                 </div>

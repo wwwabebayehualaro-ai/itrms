@@ -12,5 +12,6 @@
   "forms.export.failed.too_large": "ፋይሉ በጣም ትልቅ ይሆናል፤ ማጣሪያውን ያጥብቡ ወይም ጥቂት መስኮችን ይምረጡ።",
   "forms.export.failed.invalid_query": "እንደተጠየቀው ሊዘጋጅ አይችልም (መስክ ወይም ማጣሪያ የለም)።",
   "forms.export.failed.not_permitted": "በዚህ ጽሕፈት ቤት የማውጣት መብት የለዎትም።",
-  "forms.export.failed.failed": "ማውጣቱ ሊዘጋጅ አልቻለም፤ እንደገና ይጠይቁ።"
+  "forms.export.failed.failed": "ማውጣቱ ሊዘጋጅ አልቻለም፤ እንደገና ይጠይቁ።",
+  "forms.validation.tooManyChoices": "ቢበዛ {max} ምርጫዎች"
 }

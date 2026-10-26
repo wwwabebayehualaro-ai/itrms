@@ -17,6 +17,7 @@ import {
     useNotify
 } from '@itrms/ui';
 import { useCan } from '../host/FormsHost';
+import { useEngineText } from '../host/text';
 import { requestErrorMessage } from '../host/client';
 import { viewKeys, useViewSchema } from './api';
 import { useExportRequests } from './exportApi';
@@ -48,13 +49,14 @@ export function ModeIcon({ icon: Icon, className }: { icon: ViewMode['icon']; cl
 
 /** A removable chip of the active filters. */
 function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+    const { t } = useEngineText();
     return (
         <Badge variant="secondary" className="h-7 gap-1 pr-1 text-sm font-normal">
             {label}
             <button
                 type="button"
                 className="rounded-full p-0.5 hover:bg-background/60"
-                aria-label={`Remove ${label}`}
+                aria-label={t('form-engine.viewer.chip.remove', { label })}
                 onClick={onRemove}
             >
                 <X className="size-3.5" />
@@ -76,6 +78,7 @@ export function DataViewer({
     customViews,
     emptyMessage
 }: DataViewerProps) {
+    const { t } = useEngineText();
     const { data: schema, isPending, error } = useViewSchema(templateId);
     const labeler = useLabeler(schema);
     const qc = useQueryClient();
@@ -100,10 +103,10 @@ export function DataViewer({
     const [live, setLive] = useState(false);
     useEffect(() => {
         if (!live) return;
-        const t = setInterval(() => {
+        const timer = setInterval(() => {
             if (document.visibilityState === 'visible') void qc.invalidateQueries({ queryKey: viewKeys.all });
         }, 20_000);
-        return () => clearInterval(t);
+        return () => clearInterval(timer);
     }, [live, qc]);
 
     // debounced search box
@@ -116,12 +119,13 @@ export function DataViewer({
     }
     useEffect(() => {
         if (q === state.search) return;
-        const t = setTimeout(() => patch({ search: q }), 300);
-        return () => clearTimeout(t);
+        const timer = setTimeout(() => patch({ search: q }), 300);
+        return () => clearTimeout(timer);
     }, [q, state.search, patch]);
 
     if (isPending) return <InlineStatus loading />;
-    if (error || !schema) return <InlineStatus error={requestErrorMessage(error, 'Could not load this form’s data')} />;
+    if (error || !schema)
+        return <InlineStatus error={requestErrorMessage(error, t('form-engine.viewer.loadFailed'), t)} />;
 
     const mode = modes.find((m) => m.id === state.mode) ?? modes[0];
     if (!mode) return null; // never: the table is always a mode
@@ -136,21 +140,24 @@ export function DataViewer({
                     variant="outline"
                     value={mode.id}
                     onValueChange={(v) => v && patch({ mode: v, page: 1, options: {} })}
-                    aria-label="View"
+                    aria-label={t('form-engine.viewer.modes')}
                     data-modes
                 >
-                    {modes.map((m) => (
-                        <ToggleGroupItem
-                            key={m.id}
-                            value={m.id}
-                            aria-label={m.label}
-                            title={m.label}
-                            className="gap-2 px-3"
-                        >
-                            <ModeIcon icon={m.icon} className="size-4" />
-                            <span className="hidden md:inline">{m.label}</span>
-                        </ToggleGroupItem>
-                    ))}
+                    {modes.map((m) => {
+                        const name = m.labelKey ? t(m.labelKey) : (m.label ?? m.id);
+                        return (
+                            <ToggleGroupItem
+                                key={m.id}
+                                value={m.id}
+                                aria-label={name}
+                                title={name}
+                                className="gap-2 px-3"
+                            >
+                                <ModeIcon icon={m.icon} className="size-4" />
+                                <span className="hidden md:inline">{name}</span>
+                            </ToggleGroupItem>
+                        );
+                    })}
                 </ToggleGroup>
                 <div className="relative min-w-40 max-w-sm flex-1">
                     <Search
@@ -161,9 +168,9 @@ export function DataViewer({
                         type="search"
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
-                        placeholder="Search requests"
+                        placeholder={t('form-engine.viewer.search')}
                         className="pl-8"
-                        aria-label="Search requests"
+                        aria-label={t('form-engine.viewer.search')}
                     />
                 </div>
                 <FilterBuilder
@@ -181,21 +188,31 @@ export function DataViewer({
                         onClick={() =>
                             void (async () =>
                                 notify.success(
-                                    `Exported ${await exporter.mutateAsync({ template_id: templateId, filter: state.filter, search: state.search || undefined, sort: state.sort })} requests`
+                                    t('form-engine.viewer.export.done', {
+                                        count: await exporter.mutateAsync({
+                                            template_id: templateId,
+                                            filter: state.filter,
+                                            search: state.search || undefined,
+                                            sort: state.sort
+                                        })
+                                    })
                                 ))()
                         }
-                        title="Download these requests as CSV"
+                        title={t('form-engine.viewer.export.title')}
                     >
                         {exporter.isPending ? <Spinner /> : <Download />}
-                        Export
+                        {t('form-engine.viewer.export.label')}
                     </Button>
                 )}
-                <IconButton label="Refresh" onClick={() => void qc.invalidateQueries({ queryKey: viewKeys.all })}>
+                <IconButton
+                    label={t('form-engine.viewer.refresh.label')}
+                    onClick={() => void qc.invalidateQueries({ queryKey: viewKeys.all })}
+                >
                     <RefreshCw />
                 </IconButton>
                 <IconButton
-                    label="Refresh automatically"
-                    tooltip={live ? 'Live: refreshing every 20 s' : 'Refresh automatically'}
+                    label={t('form-engine.viewer.refresh.auto')}
+                    tooltip={live ? t('form-engine.viewer.refresh.live') : t('form-engine.viewer.refresh.auto')}
                     aria-pressed={live}
                     variant={live ? 'secondary' : 'ghost'}
                     onClick={() => setLive(!live)}
@@ -206,9 +223,12 @@ export function DataViewer({
             </div>
 
             {(conditions.length > 0 || state.search) && (
-                <div className="flex flex-wrap items-center gap-2" aria-label="Active filters">
+                <div className="flex flex-wrap items-center gap-2" aria-label={t('form-engine.viewer.filters.active')}>
                     {state.search && (
-                        <FilterChip label={`Search: “${state.search}”`} onRemove={() => patch({ search: '' })} />
+                        <FilterChip
+                            label={t('form-engine.viewer.filters.search', { search: state.search })}
+                            onRemove={() => patch({ search: '' })}
+                        />
                     )}
                     {conditions.map((c, i) => (
                         <FilterChip
@@ -225,7 +245,7 @@ export function DataViewer({
                         size="sm"
                         onClick={() => patch({ search: '', filter: EMPTY_FILTER })}
                     >
-                        Clear all
+                        {t('form-engine.viewer.filters.clearAll')}
                     </Button>
                 </div>
             )}

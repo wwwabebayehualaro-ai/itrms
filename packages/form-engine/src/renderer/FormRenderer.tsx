@@ -3,6 +3,7 @@
 import { memo, useMemo } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@itrms/ui';
 import { readDocument } from '../core';
+import { engineTranslator } from '../core/messages';
 import { useFormsLanguages } from '../host/FormsHost';
 import { EngineForm, type EngineFormProps } from './EngineForm';
 import { unsupportedFields } from './kit';
@@ -17,21 +18,24 @@ export type FormRendererProps = EngineFormProps;
 function FormRenderer(props: FormRendererProps) {
     const { language: shown } = useFormsLanguages();
     const language = props.language ?? shown;
+    const t = useMemo(() => engineTranslator(language), [language]);
     const missing = useMemo(() => {
         const doc = readDocument({ fields: props.fields }, { language });
         return [
             ...unsupportedFields(doc.fields).map((f) => f.label || f.id),
-            ...doc.invalid.map((i) => `field ${i.index + 1} (${i.message})`)
+            ...doc.invalid.map((i) =>
+                t('form-engine.renderer.notice.invalidField', { number: String(i.index + 1), message: i.message })
+            )
         ];
-    }, [props.fields, language]);
+    }, [props.fields, language, t]);
     return (
         <>
             {missing.length > 0 && (
                 <div className="mb-3" data-slot="notice">
                     <Alert>
-                        <AlertTitle>Part of this form cannot be shown</AlertTitle>
+                        <AlertTitle>{t('form-engine.renderer.notice.title')}</AlertTitle>
                         <AlertDescription>
-                            Not shown: {missing.join(', ')}. Open the form in the builder to replace these fields.
+                            {t('form-engine.renderer.notice.body', { fields: missing.join(', ') })}
                         </AlertDescription>
                     </Alert>
                 </div>

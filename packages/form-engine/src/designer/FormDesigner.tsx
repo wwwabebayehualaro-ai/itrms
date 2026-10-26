@@ -94,6 +94,7 @@ import {
 import { LANGUAGE_TAG, type FormTemplate } from '@itrms/schemas';
 
 import { useFormsHost, useFormsLanguages, useFormsLocation } from '../host/FormsHost';
+import { useEngineText } from '../host/text';
 
 const area = (r?: { width: number; height: number } | null) => (r ? r.width * r.height : Infinity);
 
@@ -102,6 +103,7 @@ export function FormDesigner() {
     const fields = useFields();
     const runtime = useRuntimeConfig();
     const notify = useNotify();
+    const { t } = useEngineText();
     const { language } = useFormsLanguages();
     const [{ store, problems }] = useState(() => {
         // the stored text language; an existing form without one was written in Amharic, a new form in the builder's language
@@ -120,9 +122,9 @@ export function FormDesigner() {
         if (told.current || !problems.length) return;
         told.current = true;
         notify.warn(
-            `${problems.length} thing${problems.length === 1 ? '' : 's'} in this form needed fixing when it was opened: ${problems.slice(0, 3).join('; ')}`
+            t('form-engine.designer.notice.fixed', { count: problems.length, list: problems.slice(0, 3).join('; ') })
         );
-    }, [problems, notify]);
+    }, [problems, notify, t]);
     return (
         <DesignerProvider value={store}>
             <DesignerScreen />
@@ -134,6 +136,7 @@ function DesignerScreen() {
     const store = useDesignerApi();
     const actions = useDesignerActions();
     const notify = useNotify();
+    const { t, word } = useEngineText();
     const { templatesHref } = useFormsHost();
     const { push } = useFormsLocation();
     const legacy = useFormActions();
@@ -163,28 +166,27 @@ function DesignerScreen() {
         legacy.setTemplate(saved);
         legacy.setFields(stored.fields);
         legacy.setRuntime(stored.runtime);
-        notify.success(`“${saved.name}” saved`);
+        notify.success(t('form-engine.designer.notice.saved', { name: saved.name }));
     };
     const save = async (force = false) => {
-        const { doc, template: t } = store.getState();
-        if (!t.id) return setNaming(true);
+        const { doc, template: current } = store.getState();
+        if (!current.id) return setNaming(true);
         try {
             const saved = await update.mutateAsync({
-                id: t.id,
+                id: current.id,
                 data: {
                     form_config: toStored(doc),
-                    ...(force ? {} : { row_version: (t as FormTemplate & { row_version?: number }).row_version })
+                    ...(force ? {} : { row_version: (current as FormTemplate & { row_version?: number }).row_version })
                 }
             });
             afterSave(saved, doc);
         } catch (e: any) {
             if (e?.response?.status === 409)
                 void confirmAction({
-                    header: 'This form was changed by someone else',
-                    message:
-                        'Another person saved this form after you opened it. Reload to see their version (your unsaved changes are lost), or save anyway and replace their changes.',
-                    acceptLabel: 'Save anyway',
-                    rejectLabel: 'Reload',
+                    header: t('form-engine.designer.conflict.header'),
+                    message: t('form-engine.designer.conflict.message'),
+                    acceptLabel: t('form-engine.designer.conflict.accept'),
+                    rejectLabel: t('form-engine.designer.conflict.reject'),
                     danger: true,
                     onAccept: () => save(true),
                     onReject: () => window.location.reload()
@@ -207,8 +209,8 @@ function DesignerScreen() {
             afterSave(saved, doc);
             setNaming(false);
         } catch (e) {
-            if (requestErrorMessage(e, '').toLowerCase().includes('slug'))
-                notify.error('A form with this name already exists. Choose another name.');
+            if (requestErrorMessage(e, '', t).toLowerCase().includes('slug'))
+                notify.error(t('form-engine.designer.notice.nameTaken'));
         }
     };
     const saveRef = useRef(save);
@@ -229,22 +231,22 @@ function DesignerScreen() {
     const leave = () =>
         dirty
             ? void confirmAction({
-                  header: 'Leave without saving?',
-                  message: 'You have unsaved changes in this form.',
-                  acceptLabel: 'Leave',
-                  rejectLabel: 'Stay',
+                  header: t('form-engine.designer.leave.header'),
+                  message: t('form-engine.designer.leave.message'),
+                  acceptLabel: t('form-engine.designer.leave.accept'),
+                  rejectLabel: t('form-engine.designer.leave.reject'),
                   danger: true,
                   onAccept: () => push(templatesHref)
               })
             : push(templatesHref);
     const startNew = () =>
         void confirmAction({
-            header: 'Start a new form?',
+            header: t('form-engine.designer.startNew.header'),
             message: dirty
-                ? 'Your unsaved changes to this form are lost.'
-                : 'The canvas is emptied. The saved form is not changed.',
-            acceptLabel: 'Start new',
-            rejectLabel: 'Keep editing',
+                ? t('form-engine.designer.startNew.messageDirty')
+                : t('form-engine.designer.startNew.messageClean'),
+            acceptLabel: t('form-engine.designer.startNew.accept'),
+            rejectLabel: t('form-engine.designer.startNew.reject'),
             danger: dirty,
             onAccept: () => {
                 const blank: FormTemplate = { name: '', slug: '', form_config: {} };
@@ -338,7 +340,7 @@ function DesignerScreen() {
         setDrag({
             activeId: id,
             target: null,
-            label: entry?.label ?? formTextIn(f?.label, store.getState().language) ?? f?.id
+            label: entry ? word(entry.label) : (formTextIn(f?.label, store.getState().language) ?? f?.id)
         });
     };
     const onDragMove = (e: DragMoveEvent) => {
@@ -355,29 +357,42 @@ function DesignerScreen() {
         if (id.startsWith(PALETTE_PREFIX)) {
             const entry = e.active.data.current?.entry as PaletteEntry | undefined;
             if (entry) actions.add(entry.type, entry.label, target);
-        } else if (!actions.move(id, target.parent, target.index)) notify.warn('The field cannot go there.');
+        } else if (!actions.move(id, target.parent, target.index))
+            notify.warn(t('form-engine.designer.notice.cannotMove'));
         else actions.select(id);
     };
 
     return (
         <div className="@container flex flex-col gap-3" data-designer>
             <header className="flex flex-wrap items-center gap-2 rounded-xl border bg-card px-3 py-2 shadow-xs">
-                <IconButton label="Back to the forms" onClick={leave}>
+                <IconButton label={t('form-engine.designer.toolbar.back')} onClick={leave}>
                     <ArrowLeft />
                 </IconButton>
                 <div className="flex min-w-0 flex-1 basis-56 items-center gap-2">
-                    <h1 className="truncate text-lg font-semibold">{template.name || 'New form'}</h1>
+                    <h1 className="truncate text-lg font-semibold">
+                        {template.name || t('form-engine.designer.toolbar.newForm')}
+                    </h1>
                     {template.id && <TemplateStatusTag template={template} />}
                     {dirty && (
                         <Badge variant="outline" className="text-muted-foreground" data-unsaved>
-                            Unsaved changes
+                            {t('form-engine.designer.toolbar.unsaved')}
                         </Badge>
                     )}
                 </div>
-                <IconButton label="Undo" tooltip="Undo (Ctrl+Z)" disabled={!canUndo} onClick={actions.undo}>
+                <IconButton
+                    label={t('form-engine.designer.toolbar.undo')}
+                    tooltip={t('form-engine.designer.toolbar.undoTip')}
+                    disabled={!canUndo}
+                    onClick={actions.undo}
+                >
                     <Undo2 />
                 </IconButton>
-                <IconButton label="Redo" tooltip="Redo (Ctrl+Shift+Z)" disabled={!canRedo} onClick={actions.redo}>
+                <IconButton
+                    label={t('form-engine.designer.toolbar.redo')}
+                    tooltip={t('form-engine.designer.toolbar.redoTip')}
+                    disabled={!canRedo}
+                    onClick={actions.redo}
+                >
                     <Redo2 />
                 </IconButton>
                 <ToggleGroup
@@ -386,23 +401,23 @@ function DesignerScreen() {
                     size="sm"
                     value={mode}
                     onValueChange={(v) => v && setMode(v as 'design' | 'preview')}
-                    aria-label="Mode"
+                    aria-label={t('form-engine.designer.toolbar.mode')}
                 >
                     <ToggleGroupItem value="design" className="gap-1.5 px-3">
                         <PencilRuler />
-                        Design
+                        {t('form-engine.designer.toolbar.design')}
                     </ToggleGroupItem>
                     <ToggleGroupItem value="preview" className="gap-1.5 px-3">
                         <Eye />
-                        Preview
+                        {t('form-engine.designer.toolbar.preview')}
                     </ToggleGroupItem>
                 </ToggleGroup>
                 <div className="flex items-center gap-1.5">
                     <Label htmlFor="texts-in" className="text-xs text-muted-foreground">
-                        Texts in
+                        {t('form-engine.designer.toolbar.textsIn')}
                     </Label>
                     <Select value={language} onValueChange={actions.setLanguage}>
-                        <SelectTrigger id="texts-in" size="sm" aria-label="Texts in">
+                        <SelectTrigger id="texts-in" size="sm" aria-label={t('form-engine.designer.toolbar.textsIn')}>
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -416,7 +431,7 @@ function DesignerScreen() {
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={() => setTranslationsOpen(true)}>
                     <Languages />
-                    Translations
+                    {t('form-engine.designer.toolbar.translations')}
                     {untranslated > 0 && (
                         <Badge className="bg-status-warning-bg text-status-warning-fg" data-untranslated-badge>
                             {untranslated}
@@ -425,22 +440,27 @@ function DesignerScreen() {
                 </Button>
                 <Button type="button" variant="outline" size="sm" onClick={() => setSourcesOpen(true)}>
                     <Database />
-                    Data sources
+                    {t('form-engine.designer.toolbar.dataSources')}
                 </Button>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button type="button" variant="ghost" size="icon-sm" aria-label="More">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={t('form-engine.designer.toolbar.more')}
+                        >
                             <MoreHorizontal />
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                         <DropdownMenuItem onSelect={() => setJsonOpen(true)}>
                             <Braces />
-                            View the form as JSON
+                            {t('form-engine.designer.toolbar.viewJson')}
                         </DropdownMenuItem>
                         <DropdownMenuItem onSelect={startNew}>
                             <FilePlus2 />
-                            Start a new form
+                            {t('form-engine.designer.toolbar.startNew')}
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -449,10 +469,10 @@ function DesignerScreen() {
                     size="sm"
                     disabled={saving || empty || (!dirty && !!template.id)}
                     onClick={() => void save()}
-                    title="Save (Ctrl+S)"
+                    title={t('form-engine.designer.toolbar.saveTip')}
                 >
                     {saving ? <Spinner /> : <Save />}
-                    {template.id ? 'Save' : 'Save as…'}
+                    {template.id ? t('form-engine.designer.toolbar.save') : t('form-engine.designer.toolbar.saveAs')}
                 </Button>
             </header>
 
@@ -478,7 +498,7 @@ function DesignerScreen() {
                             </main>
                             <aside
                                 className="order-3 rounded-xl border bg-card p-4 shadow-xs @4xl:order-none @4xl:sticky @4xl:top-18 @4xl:max-h-[calc(100vh-5.5rem)] @4xl:overflow-y-auto"
-                                aria-label="Field settings"
+                                aria-label={t('form-engine.designer.toolbar.fieldSettings')}
                             >
                                 <Inspector />
                             </aside>
@@ -487,7 +507,7 @@ function DesignerScreen() {
                     <DragOverlay dropAnimation={null}>
                         {drag.activeId ? (
                             <div className="rounded-md border bg-background px-3 py-2 text-sm font-medium shadow-lg">
-                                {drag.label || 'Field'}
+                                {drag.label || t('form-engine.designer.toolbar.dragField')}
                             </div>
                         ) : null}
                     </DragOverlay>
@@ -510,6 +530,7 @@ function DesignerScreen() {
 
 /** The form as people will fill it in, on the real renderer, with the canvas's current state. Nothing is sent. */
 function Preview() {
+    const { t } = useEngineText();
     const doc = useDesigner((s) => s.doc);
     const template = useDesigner((s) => s.template);
     const language = useDesigner((s) => s.language);
@@ -520,14 +541,12 @@ function Preview() {
     const runtime = useMemo<TemplateRuntimeConfig>(() => ({ ...stored.runtime, submit: undefined }), [stored.runtime]);
     return (
         <div className="mx-auto grid w-full max-w-5xl gap-3">
-            <p className="text-sm text-muted-foreground">
-                This is the form as people will see it. Fill it in to try the rules; submitting shows what would be
-                stored and sends nothing.
-            </p>
+            <p className="text-sm text-muted-foreground">{t('form-engine.designer.preview.intro')}</p>
             {unsupported.length > 0 && (
                 <p className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
-                    Not shown here: {unsupported.map((f) => f.label || f.id).join(', ')} (a field type this renderer
-                    does not draw yet).
+                    {t('form-engine.designer.preview.unsupported', {
+                        fields: unsupported.map((f) => f.label || f.id).join(', ')
+                    })}
                 </p>
             )}
             <EngineForm
@@ -540,7 +559,7 @@ function Preview() {
             />
             {result && (
                 <Card className="p-4">
-                    <h3 className="mb-2 text-sm font-semibold">What would be stored</h3>
+                    <h3 className="mb-2 text-sm font-semibold">{t('form-engine.designer.preview.stored')}</h3>
                     <pre className="overflow-x-auto text-xs" data-preview-result>
                         {JSON.stringify(result, null, 2)}
                     </pre>
@@ -563,6 +582,7 @@ function SaveAsDialog({
     languages: readonly string[];
     onSave: (names: Record<string, string>, category: string) => void;
 }) {
+    const { t } = useEngineText();
     const [names, setNames] = useState<Record<string, string>>({});
     const [category, setCategory] = useState('');
     const { data: all } = useTemplateList();
@@ -577,8 +597,8 @@ function SaveAsDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md" data-save-form>
                 <DialogHeader>
-                    <DialogTitle>Save the new form</DialogTitle>
-                    <DialogDescription>People find it by this name. It can be renamed later.</DialogDescription>
+                    <DialogTitle>{t('form-engine.designer.saveAs.title')}</DialogTitle>
+                    <DialogDescription>{t('form-engine.designer.saveAs.description')}</DialogDescription>
                 </DialogHeader>
                 <form
                     className="flex flex-col gap-4"
@@ -598,8 +618,14 @@ function SaveAsDialog({
                     {languages.map((tag, i) => (
                         <div key={tag} className="flex flex-col gap-2">
                             <Label htmlFor={`form-name-${tag}`}>
-                                Name in {endonym(tag)}
-                                {required(tag) ? '' : ' (optional)'}
+                                {t(
+                                    required(tag)
+                                        ? 'form-engine.designer.saveAs.nameIn'
+                                        : 'form-engine.designer.saveAs.nameInOptional',
+                                    {
+                                        language: endonym(tag)
+                                    }
+                                )}
                             </Label>
                             <Input
                                 id={`form-name-${tag}`}
@@ -611,7 +637,7 @@ function SaveAsDialog({
                         </div>
                     ))}
                     <div className="flex flex-col gap-2">
-                        <Label htmlFor="form-category">Category (optional)</Label>
+                        <Label htmlFor="form-category">{t('form-engine.designer.saveAs.category')}</Label>
                         <Input
                             id="form-category"
                             value={category}
@@ -627,11 +653,11 @@ function SaveAsDialog({
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-                            Cancel
+                            {t('form-engine.designer.saveAs.cancel')}
                         </Button>
                         <Button type="submit" disabled={!complete || saving}>
                             {saving ? <Spinner /> : <Check />}
-                            Save form
+                            {t('form-engine.designer.saveAs.submit')}
                         </Button>
                     </DialogFooter>
                 </form>
@@ -650,15 +676,14 @@ function JsonDialog({
     store: DesignerStore;
 }) {
     const notify = useNotify();
+    const { t } = useEngineText();
     const text = open ? JSON.stringify(toStored(store.getState().doc), null, 2) : '';
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-3xl">
                 <DialogHeader>
-                    <DialogTitle>The form as JSON</DialogTitle>
-                    <DialogDescription>
-                        What is stored as the form&apos;s configuration (form_config).
-                    </DialogDescription>
+                    <DialogTitle>{t('form-engine.designer.json.title')}</DialogTitle>
+                    <DialogDescription>{t('form-engine.designer.json.description')}</DialogDescription>
                 </DialogHeader>
                 <pre className="max-h-[60vh] overflow-auto rounded-md bg-muted p-3 text-xs">{text}</pre>
                 <DialogFooter>
@@ -668,11 +693,11 @@ function JsonDialog({
                         onClick={() =>
                             void (async () => {
                                 await navigator.clipboard?.writeText(text);
-                                notify.success('Copied');
+                                notify.success(t('form-engine.designer.notice.copied'));
                             })()
                         }
                     >
-                        Copy
+                        {t('form-engine.designer.json.copy')}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -682,15 +707,13 @@ function JsonDialog({
 
 /** The form's data sources, variables and submit settings (part of the document: undoable). */
 function DataSourcesSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+    const { t } = useEngineText();
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-4xl">
                 <SheetHeader>
-                    <SheetTitle>Data sources</SheetTitle>
-                    <SheetDescription>
-                        APIs the form reads from (options, tables, prefilled values) or sends to. Changes here are part
-                        of the form and can be undone.
-                    </SheetDescription>
+                    <SheetTitle>{t('form-engine.designer.toolbar.dataSources')}</SheetTitle>
+                    <SheetDescription>{t('form-engine.designer.sheet.description')}</SheetDescription>
                 </SheetHeader>
                 <div className="px-4 pb-4">{open && <DataSources />}</div>
             </SheetContent>

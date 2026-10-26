@@ -3,9 +3,17 @@
  * in the zone's leave request; an empty submit is stopped and says why; the request is filed with the stored value
  * shapes (an option's value, "YYYY-MM-DD", a number, a boolean); its page shows the form read-only with those values.
  */
+import { engineTranslator } from '@itrms/form-engine/core';
 import { expect, test } from '@playwright/test';
 
 import { PEOPLE, api, field, publishedForm, runName, signedIn, switchOff } from './support';
+
+// the page runs in Amharic, so the engine's own words are looked up in its Amharic catalogue
+const am = engineTranslator('am');
+// the request dialog names its own submit button (the app's label, not the engine's)
+const SUBMIT = 'Submit request';
+// any number of fields: the plural's "other" form with a number pattern in place of its count
+const FIX_FIELDS = new RegExp(am('form-engine.renderer.submit.fixFields', { count: 7 }).replace('7', '\\d+'));
 
 const LEAVE = [
     field('InputText', 'employee', 'Employee', { props: { required: true } }),
@@ -46,8 +54,8 @@ test('a request filled in is filed with its value shapes and shown read-only', a
         await expect(dialog.locator('[data-engine="v2"]')).toBeVisible();
 
         // a submit with nothing filled in is stopped and says why
-        await dialog.getByRole('button', { name: /Submit/ }).click();
-        await expect(dialog.getByText(/Please fix \d+ fields? before submitting/)).toBeVisible();
+        await dialog.getByRole('button', { name: SUBMIT }).click();
+        await expect(dialog.getByText(FIX_FIELDS)).toBeVisible();
 
         await dialog.getByLabel('Employee').fill('Almaz Tesfaye');
         await dialog.getByRole('combobox', { name: 'Leave type' }).click();
@@ -59,7 +67,7 @@ test('a request filled in is filed with its value shapes and shown read-only', a
         await dialog.getByLabel('Reason').fill(reason);
         await dialog.getByRole('button', { name: /Return day/ }).click();
         await page.locator('[role="grid"] [data-day="5"]').click();
-        await dialog.getByRole('button', { name: /Submit/ }).click();
+        await dialog.getByRole('button', { name: SUBMIT }).click();
         await expect(dialog).toBeHidden();
 
         // filed on the office that filled it in, with the value shapes the queries read
@@ -84,7 +92,7 @@ test('a request filled in is filed with its value shapes and shown read-only', a
         await expect(form.getByLabel('Employee')).toHaveValue('Almaz Tesfaye');
         await expect(form.getByLabel('Employee')).toBeDisabled();
         await expect(form.getByRole('combobox', { name: 'Leave type' })).toContainText('Sick leave');
-        await expect(form.getByRole('button', { name: /Submit/ })).toHaveCount(0);
+        await expect(form.getByRole('button', { name: SUBMIT })).toHaveCount(0);
     } finally {
         await switchOff(author, formId);
     }

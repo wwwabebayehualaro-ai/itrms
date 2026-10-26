@@ -15,6 +15,7 @@ import {
 import { requestErrorMessage } from '../../host/client';
 import { useSubmissionData } from '../api';
 import { EmptyBox, RecordCard } from '../components';
+import { useGridLabels } from '../gridLabels';
 import type { ViewModeProps } from '../registry';
 
 const PAGE_SIZES = [12, 24, 48];
@@ -29,6 +30,8 @@ export default function CardsView({
     rowActions,
     emptyMessage
 }: ViewModeProps) {
+    const { t } = labeler;
+    const labels = useGridLabels();
     const pageSize = PAGE_SIZES.includes(state.pageSize) ? state.pageSize : (PAGE_SIZES[0] ?? state.pageSize);
     const sort = state.sort[0] ?? { field: 'created_at', desc: true };
     const { data, isPending, isFetching, error } = useSubmissionData({
@@ -44,9 +47,9 @@ export default function CardsView({
     return (
         <div className="flex flex-col gap-3">
             <div className="flex items-center justify-end gap-2">
-                <span className="text-sm text-muted-foreground">Sort by</span>
+                <span className="text-sm text-muted-foreground">{t('form-engine.viewer.sort.by')}</span>
                 <Select value={sort.field} onValueChange={(v) => patch({ sort: [{ field: v, desc: sort.desc }] })}>
-                    <SelectTrigger size="sm" aria-label="Sort by">
+                    <SelectTrigger size="sm" aria-label={t('form-engine.viewer.sort.by')}>
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -58,7 +61,7 @@ export default function CardsView({
                     </SelectContent>
                 </Select>
                 <IconButton
-                    label={sort.desc ? 'Descending' : 'Ascending'}
+                    label={t(sort.desc ? 'form-engine.viewer.sort.descending' : 'form-engine.viewer.sort.ascending')}
                     onClick={() => patch({ sort: [{ field: sort.field, desc: !sort.desc }] })}
                 >
                     {sort.desc ? <ArrowDownWideNarrow /> : <ArrowUpNarrowWide />}
@@ -68,12 +71,12 @@ export default function CardsView({
             {isPending ? (
                 <InlineStatus loading />
             ) : error ? (
-                <InlineStatus error={requestErrorMessage(error)} />
+                <InlineStatus error={requestErrorMessage(error, undefined, t)} />
             ) : data && data.items.length === 0 ? (
                 <EmptyBox>
                     {state.search || state.filter.items.length
-                        ? 'No requests match these filters.'
-                        : (emptyMessage ?? 'No requests yet.')}
+                        ? t('form-engine.viewer.noMatch')
+                        : (emptyMessage ?? t('form-engine.viewer.noRequests'))}
                 </EmptyBox>
             ) : (
                 <div
@@ -100,7 +103,8 @@ export default function CardsView({
                 pageSize={pageSize}
                 total={data?.total ?? 0}
                 pageSizes={PAGE_SIZES}
-                noun="requests"
+                noun={t('form-engine.viewer.requests')}
+                labels={labels.pager}
                 onChange={(n) =>
                     patch(n.pageSize !== pageSize ? { pageSize: n.pageSize, page: 1 } : { page: n.page, pageSize })
                 }

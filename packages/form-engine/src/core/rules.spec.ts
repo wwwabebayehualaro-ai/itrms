@@ -11,9 +11,13 @@ import {
     isRequiredIn,
     readDocument,
     settledValues,
-    validateForm
+    validateForm as validate
 } from './';
 import { evalFormula } from './runtime/formula';
+
+// these cases are written with the engine's English messages
+const validateForm = (...[fields, values, scope]: Parameters<typeof validate>) =>
+    validate(fields, values, scope, { language: 'en' });
 
 const V = (extra: Record<string, unknown> = {}) => ({ supported: true, ...extra });
 const F = (id: string, type: string, extra: Record<string, unknown> = {}) => ({ id, type, props: {}, ...extra });

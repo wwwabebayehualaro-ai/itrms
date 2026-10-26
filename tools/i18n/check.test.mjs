@@ -82,3 +82,20 @@ test('every language names the same placeholders as Amharic', () => {
         rmSync(root, { recursive: true, force: true });
     }
 });
+
+test('a package area owns its own prefix', () => {
+    const root = tree({
+        'packages/form-engine/messages/core/am.json': { 'form-engine.core.print.yes': 'አዎ' },
+        'packages/form-engine/messages/core/en.json': { 'form-engine.core.print.yes': 'Yes' },
+        'packages/form-engine/messages/viewer/am.json': { 'form-engine.core.print.no': 'አይደለም' },
+        'packages/form-engine/messages/viewer/en.json': { 'form-engine.core.print.no': 'No' }
+    });
+    try {
+        const { problems } = checkCatalogues(root);
+        assert.deepEqual(problems, [
+            'packages/form-engine/messages/viewer: "form-engine.core.print.no" belongs to another owner (expected form-engine.viewer.)'
+        ]);
+    } finally {
+        rmSync(root, { recursive: true, force: true });
+    }
+});

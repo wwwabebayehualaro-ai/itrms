@@ -8,7 +8,9 @@ import assert from 'node:assert/strict';
 import { z } from 'zod';
 
 await import('../src/renderer/fields/registerAll');
-const { defineFieldType, describeFieldType, unsupportedFields, designableTypes } = await import('../src/renderer/kit');
+const { defineFieldType, describeFieldType, setting, unsupportedFields, designableTypes } =
+    await import('../src/renderer/kit');
+const { wordIn } = await import('../src/core/messages');
 const { registerAction } = await import('../src/renderer/extensions');
 const { runAction } = await import('../src/renderer/actions');
 const { readDocument } = await import('../src/core');
@@ -21,17 +23,17 @@ assert.equal(unsupportedFields(doc('Iban').fields).length, 1, 'an unknown type i
 
 defineFieldType({ kind: 'value', type: 'Iban', Render: () => null });
 describeFieldType('Iban', {
-    label: 'IBAN',
+    label: { am: 'IBAN', en: 'IBAN' },
     icon: () => null,
-    group: 'Text & numbers',
+    group: 'text',
     rules: ['pattern'],
     defaults: { country: 'DE' },
     settings: z.object({
-        country: z
-            .enum(['DE', 'FR'])
-            .optional()
-            .meta({ title: 'Country', labels: { DE: 'Germany', FR: 'France' } }),
-        grouped: z.boolean().optional().meta({ title: 'Grouped in fours' })
+        country: setting(z.enum(['DE', 'FR']).optional(), {
+            title: { am: 'ሀገር', en: 'Country' },
+            labels: { DE: { am: 'ጀርመን', en: 'Germany' }, FR: { am: 'ፈረንሳይ', en: 'France' } }
+        }),
+        grouped: setting(z.boolean().optional(), { title: { am: 'በአራት የተቧደነ', en: 'Grouped in fours' } })
     })
 });
 assert.equal(unsupportedFields(doc('Iban').fields).length, 0, 'a defined type renders');
@@ -40,7 +42,7 @@ assert.ok(
     'a described type is offered in the palette'
 );
 
-const created = createField(EMPTY_DOC, 'Iban', 'Account IBAN')!;
+const created = createField(EMPTY_DOC, 'Iban', { am: 'የሂሳብ IBAN', en: 'Account IBAN' })!;
 assert.equal(created.id, 'accountIban', 'the key comes from the label');
 assert.deepEqual(created.props, { country: 'DE' }, 'starting settings');
 assert.equal(created.category, 'Input');
@@ -49,7 +51,7 @@ assert.equal(readDocument({ fields: [created] }).invalid.length, 0, 'what the bu
 
 const specs = settingsOf(designableTypes().find((d) => d.type === 'Iban')!.design.settings);
 assert.deepEqual(
-    specs.map((s) => [s.key, s.kind, s.meta.title]),
+    specs.map((s) => [s.key, s.kind, s.meta.title ? wordIn('en', s.meta.title) : undefined]),
     [
         ['country', 'enum', 'Country'],
         ['grouped', 'boolean', 'Grouped in fours']

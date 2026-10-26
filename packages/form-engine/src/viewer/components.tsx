@@ -33,7 +33,7 @@ export function factFields(schema: ViewSchema, count: number): ViewField[] {
 
 export function titleOf(row: ViewRow, schema: ViewSchema, labeler: Labeler): string {
     const t = schema.roles.title ? labeler.text(schema.roles.title, valueOf(row, schema.roles.title)) : EMPTY;
-    return t && t !== EMPTY ? t : `Request ${String(row.id).slice(0, 8)}`;
+    return t && t !== EMPTY ? t : labeler.t('form-engine.viewer.record.untitled', { id: String(row.id).slice(0, 8) });
 }
 
 /** An empty result, said in a box where the content would be. */

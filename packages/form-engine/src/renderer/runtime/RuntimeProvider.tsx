@@ -22,6 +22,7 @@ import {
 } from '@itrms/schemas';
 
 import { useFormsClient, useFormsLocation } from '../../host/FormsHost';
+import { useEngineText } from '../../host/text';
 
 export interface DataSourceState {
     data: any;
@@ -68,6 +69,7 @@ interface ProviderProps {
 export function RuntimeProvider({ config = EMPTY_RUNTIME, formValues, user, onPatchForm, children }: ProviderProps) {
     const queryClient = useQueryClient();
     const client = useFormsClient();
+    const { language } = useEngineText();
     const { params, search } = useFormsLocation();
     const [data, setData] = useState<Record<string, any>>({});
 
@@ -106,7 +108,8 @@ export function RuntimeProvider({ config = EMPTY_RUNTIME, formValues, user, onPa
             return {
                 queryKey: key,
                 enabled,
-                queryFn: ({ signal }: { signal: AbortSignal }) => executeDataSource(client, ds, ctx, { signal }),
+                queryFn: ({ signal }: { signal: AbortSignal }) =>
+                    executeDataSource(client, ds, ctx, { signal, language }),
                 staleTime: ds.cache?.staleTimeMs ?? 30_000,
                 gcTime: ds.cache?.gcTimeMs ?? 5 * 60_000,
                 refetchOnMount: ds.refetch?.onMount === false ? (false as const) : (true as const),
@@ -200,9 +203,9 @@ export function RuntimeProvider({ config = EMPTY_RUNTIME, formValues, user, onPa
         async (id: string, bodyOverride?: unknown) => {
             const ds = config.dataSources.find((d) => d.id === id);
             if (!ds) throw new DataSourceError(`Unknown data source "${id}"`);
-            return executeDataSource(client, ds, ctxRef.current, { bodyOverride });
+            return executeDataSource(client, ds, ctxRef.current, { bodyOverride, language });
         },
-        [client, config.dataSources]
+        [client, config.dataSources, language]
     );
 
     const value = useMemo<RuntimeValue>(

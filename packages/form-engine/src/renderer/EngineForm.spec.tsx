@@ -14,10 +14,12 @@ vi.mock('@itrms/ui', async (original) => ({
 import { readDocument } from '../core';
 import { EngineForm, canRenderWithEngine } from './EngineForm';
 import FormRenderer from './FormRenderer';
-import { hostRenderer } from '../test-utils';
+import { amText, enText, hostRenderer } from '../test-utils';
 
 const ALL = ['form:create', 'form:update', 'form:publish', 'submission:create', 'submission:read', 'submission:export'];
+// the specs read the engine's words in English; the Amharic ones say so (`renderInAmharic`)
 const renderWithQuery = hostRenderer({
+    language: 'en',
     client,
     user: {
         id: 'u1',
@@ -194,5 +196,18 @@ describe('EngineForm', () => {
         await userEvent.setup().click(screen.getByRole('button', { name: 'Save changes' }));
         await waitFor(() => expect(onFormSubmit).toHaveBeenCalledTimes(1));
         expect(onFormSubmit.mock.calls[0]?.[0].submission_data).toEqual({ approver: 'u2' });
+    });
+    it('says its own words in the form’s language, Amharic by default for the screens', () => {
+        const renderInAmharic = hostRenderer({ language: 'am' });
+        renderInAmharic(<EngineForm fields={fields} template={template} onFormSubmit={vi.fn()} />);
+        expect(screen.getByRole('button', { name: amText('form-engine.renderer.submit.label') })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: amText('form-engine.renderer.submit.clear') })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Submit' })).not.toBeInTheDocument();
+    });
+
+    it('draws the form’s own language, whatever language the screens are in', () => {
+        const renderInAmharic = hostRenderer({ language: 'am' });
+        renderInAmharic(<EngineForm fields={fields} template={template} onFormSubmit={vi.fn()} language="en" />);
+        expect(screen.getByRole('button', { name: enText('form-engine.renderer.submit.label') })).toBeInTheDocument();
     });
 });

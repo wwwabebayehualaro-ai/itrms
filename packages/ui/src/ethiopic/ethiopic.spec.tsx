@@ -1,9 +1,10 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as React from 'react';
 import { describe, expect, it } from 'vitest';
 
 import { Input } from '../primitives/input';
 import { transliterate } from './transliterate';
+import { EthiopicTypingProvider } from './useEthiopicTyping';
 
 describe('phonetic Latin → Ethiopic', () => {
     it('writes the seven orders, the labialised form and the digraphs', () => {
@@ -89,6 +90,24 @@ describe('Ethiopic typing in the base Input', () => {
         typeKey(field, ' ');
         typeKey(field, 'b');
         expect(field.value).toBe('xላ ');
+    });
+
+    it('tells a screen reader when F9 turns it on and off, in the words the app gives (task 0.17d)', async () => {
+        render(
+            <EthiopicTypingProvider labels={{ on: 'የግዕዝ መጻፊያ በርቷል', off: 'የግዕዝ መጻፊያ ጠፍቷል' }}>
+                <Controlled />
+            </EthiopicTypingProvider>
+        );
+        const field = screen.getByRole<HTMLInputElement>('textbox', { name: 'name' });
+        field.focus();
+        typeKey(field, 'F9');
+        const region = await screen.findByRole('status');
+        expect(region).toHaveAttribute('aria-live', 'polite');
+        await waitFor(() => expect(region).toHaveTextContent('የግዕዝ መጻፊያ በርቷል'));
+        typeKey(field, 'F9');
+        await waitFor(() => expect(region).toHaveTextContent('የግዕዝ መጻፊያ ጠፍቷል'));
+        // the focus stays in the field
+        expect(document.activeElement).toBe(field);
     });
 
     it('is not offered where the field is not free text', () => {

@@ -5,6 +5,8 @@
  */
 import { problemFieldErrors, problemMessage } from '@itrms/schemas';
 
+import { engineTranslator, type EngineTranslate } from '../core/messages';
+
 export interface FormsRequestOptions {
     /** Query parameters: undefined and null are left out, arrays become repeated keys. */
     params?: object;
@@ -50,13 +52,21 @@ export interface FormsRequestError extends Error {
 export const isRequestError = (error: unknown): error is FormsRequestError =>
     !!error && typeof error === 'object' && (error as { isApiError?: unknown }).isApiError === true;
 
-/** Anything a call threw, as a message for the person: the error body's own message first. */
-export function requestErrorMessage(error: unknown, fallback = 'Something went wrong. Please try again.'): string {
+/**
+ * Anything a call threw, as a message for the person: the error body's own message first. The engine's own words
+ * (`fallback` unless given, timeout, no connection) are said by `t` (a screen passes `useEngineText().t`; English if none).
+ */
+export function requestErrorMessage(
+    error: unknown,
+    fallback?: string,
+    t: EngineTranslate = engineTranslator('en')
+): string {
+    fallback ??= t('form-engine.renderer.api.wentWrong');
     if (isRequestError(error)) {
         const message = problemMessage(error.response?.data);
         if (message) return message;
-        if (error.code === 'ECONNABORTED') return 'The request timed out';
-        if (!error.response) return 'Cannot reach the server';
+        if (error.code === 'ECONNABORTED') return t('form-engine.renderer.api.timedOut');
+        if (!error.response) return t('form-engine.renderer.api.offline');
         return error.message || fallback;
     }
     if (error instanceof Error && error.message) return error.message;
@@ -71,10 +81,10 @@ export interface ServerFormErrors {
 }
 
 /** A failed submit split into per-field messages (fields the form knows) and a message for the form. */
-export function serverFormErrors(error: unknown, known?: Iterable<string>): ServerFormErrors {
+export function serverFormErrors(error: unknown, known?: Iterable<string>, t?: EngineTranslate): ServerFormErrors {
     const split = isRequestError(error) ? problemFieldErrors(error.response?.data, known) : undefined;
     if (split) return { fields: split.fields, form: split.rest.length ? split.rest.join('; ') : undefined };
-    return { fields: {}, form: requestErrorMessage(error) };
+    return { fields: {}, form: requestErrorMessage(error, undefined, t) };
 }
 
 /**

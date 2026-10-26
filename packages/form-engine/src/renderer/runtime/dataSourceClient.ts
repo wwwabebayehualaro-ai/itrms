@@ -138,7 +138,7 @@ export async function executeDataSource(
     client: FormsClient,
     ds: DataSourceDefinition,
     ctx: RuntimeContext,
-    opts: { signal?: AbortSignal; bodyOverride?: unknown } = {}
+    opts: { signal?: AbortSignal; bodyOverride?: unknown; language?: string } = {}
 ) {
     const { config } = prepareRequest(ds, ctx, opts.bodyOverride);
     const attempts = Math.max(1, ds.retry?.attempts ?? 1);
@@ -153,7 +153,7 @@ export async function executeDataSource(
             if (opts.signal?.aborted || (err instanceof DOMException && err.name === 'AbortError')) throw err;
             const e = err as FormsRequestError;
             if (attempt >= attempts || !isRetryable(e, config.method ?? 'GET')) {
-                throw new DataSourceError(mapError(e, ds.errorMapping), e.response?.status, err);
+                throw new DataSourceError(mapError(e, ds.errorMapping, opts.language), e.response?.status, err);
             }
             await sleep(delay);
             delay *= ds.retry?.backoffFactor ?? 2;

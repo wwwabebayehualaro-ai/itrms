@@ -3,6 +3,7 @@ import type { ErrorMapping, OptionMapping, ResponseMapping, VisibilityCondition 
 import { evaluateAll, type Scope } from '../conditions';
 import { getByPath, parsePath } from './expression';
 import { str } from './path';
+import { engineTranslator } from '../messages';
 
 export interface SelectOption {
     label: string;
@@ -113,7 +114,7 @@ interface FailedCall {
     message?: unknown;
 }
 
-export function mapError(error: unknown, mapping?: ErrorMapping): string {
+export function mapError(error: unknown, mapping?: ErrorMapping, language = 'am'): string {
     const e: FailedCall = isObject(error) ? error : {};
     const status = e.response?.status;
     const byStatus = status !== undefined ? mapping?.statusMessages?.[String(status)] : undefined;
@@ -125,8 +126,9 @@ export function mapError(error: unknown, mapping?: ErrorMapping): string {
         : (body?.detail ?? body?.error ?? body?.message);
     if (typeof fromBody === 'string' && fromBody) return fromBody;
     if (mapping?.message) return mapping.message;
-    if (e.code === 'ECONNABORTED') return 'The request timed out';
-    return typeof e.message === 'string' && e.message ? e.message : 'Request failed';
+    const t = engineTranslator(language);
+    if (e.code === 'ECONNABORTED') return t('form-engine.core.dataSource.timedOut');
+    return typeof e.message === 'string' && e.message ? e.message : t('form-engine.core.dataSource.failed');
 }
 
 /** Build a { fieldId: value } patch from a mapped response. */

@@ -2,7 +2,11 @@
 // core runs in the API too: these tests run without a DOM.
 import { describe, expect, it } from 'vitest';
 
-import { evaluateAll, initialValues, pruneHidden, readDocument, validateForm } from './';
+import { evaluateAll, initialValues, pruneHidden, readDocument, validateForm as validate } from './';
+
+// these cases are written with the engine's English messages
+const validateForm = (...[fields, values, scope]: Parameters<typeof validate>) =>
+    validate(fields, values, scope, { language: 'en' });
 
 type Settings = Record<string, unknown>;
 interface Extra {

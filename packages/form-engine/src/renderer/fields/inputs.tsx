@@ -27,7 +27,7 @@ import {
     useNotify
 } from '@itrms/ui';
 import { CALENDAR_LANGUAGES, type CalendarLanguage } from '@itrms/ethiopian-calendar';
-import { useFormsLanguages } from '../../host/FormsHost';
+import { useEngineText } from '../../host/text';
 import { useFileActions } from '../../host/files';
 import { formatBytes } from '../../host/format';
 import { numberFormatOf, parseDate, type EngineField } from '../../core';
@@ -36,15 +36,17 @@ import { indexOfValue, sameValue, useClearInvalid, useOptions, type OptionsState
 
 const str = (v: unknown) => (v === undefined || v === null ? '' : String(v));
 const p = <T,>(field: EngineField, name: string, fallback?: T): T => (field.props[name] ?? fallback) as T;
-const OptionsStatus = ({ state }: { state: OptionsState }) =>
-    state.isApi && state.error ? (
+function OptionsStatus({ state }: { state: OptionsState }) {
+    const { t } = useEngineText();
+    return state.isApi && state.error ? (
         <p className="mt-1 flex items-center gap-2 text-xs text-destructive">
             {state.error}
             <Button type="button" variant="link" size="xs" onClick={state.retry}>
-                Retry
+                {t('form-engine.renderer.options.retry')}
             </Button>
         </p>
     ) : null;
+}
 
 // ---- text ----------------------------------------------------------------------------------------------------------
 function TextField({ field, id, value, onChange, onBlur, disabled, invalid, describedBy }: ValueFieldProps<string>) {
@@ -177,16 +179,23 @@ function MaskField({ field, id, value, onChange, onBlur, disabled, invalid, desc
 // ---- choices --------------------------------------------------------------------------------------------------------
 /** One searchable picker for single and multiple choices (Dropdown, MultiSelect, AutoComplete). */
 function ChoiceField({ field, id, value, onChange, onBlur, disabled, invalid, describedBy }: ValueFieldProps<unknown>) {
+    const { t } = useEngineText();
     const state = useOptions(field);
     const multiple = field.type === 'MultiSelect' || (field.type === 'Dropdown' && Boolean(p(field, 'multiple')));
     useClearInvalid(field, state, value, onChange, multiple, disabled);
     const common = {
         id,
         options: state.options,
-        placeholder: str(p(field, 'placeholder')) || undefined,
+        placeholder:
+            str(p(field, 'placeholder')) ||
+            t(multiple ? 'form-engine.renderer.choice.selectMany' : 'form-engine.renderer.choice.selectOne'),
+        loadingLabel: t('form-engine.renderer.choice.loading'),
+        searchPlaceholder: t('form-engine.renderer.choice.search'),
         searchable: Boolean(p(field, 'filter')) || state.options.length > 7 || field.type === 'AutoComplete',
         clearable: Boolean(p(field, 'showClear')) || !field.rules.required,
-        clearLabel: `Clear ${field.label || 'selection'}`,
+        clearLabel: t('form-engine.renderer.field.clear', {
+            label: field.label || t('form-engine.renderer.field.selection')
+        }),
         loading: state.loading,
         disabled,
         invalid,
@@ -364,6 +373,7 @@ const dayString = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 function DateField({ field, id, value, onChange, onBlur, disabled, invalid, describedBy }: ValueFieldProps<unknown>) {
+    const { t } = useEngineText();
     const withTime = Boolean(p(field, 'showTime'));
     const fmt = toDateFnsFormat(str(p(field, 'dateFormat')) || 'mm/dd/yy');
     const timeFmt = p(field, 'hourFormat') === '12' ? 'h:mm a' : 'HH:mm';
@@ -376,7 +386,8 @@ function DateField({ field, id, value, onChange, onBlur, disabled, invalid, desc
             min={parseDate(field.rules.minDate)}
             max={parseDate(field.rules.maxDate)}
             formatLabel={(d) => formatDateFns(d, fmt) + (withTime ? ` ${formatDateFns(d, timeFmt)}` : '')}
-            placeholder={str(p(field, 'placeholder')) || undefined}
+            placeholder={str(p(field, 'placeholder')) || t('form-engine.renderer.date.placeholder')}
+            timeLabel={t('form-engine.renderer.date.time')}
             disabled={disabled}
             invalid={invalid}
             aria-describedby={describedBy}
@@ -384,26 +395,6 @@ function DateField({ field, id, value, onChange, onBlur, disabled, invalid, desc
         />
     );
 }
-
-/** Picker labels until the engine's own text is in the catalogues (task 0.17c). */
-const ETH_DATE_LABELS = {
-    am: {
-        placeholder: 'ቀን ይምረጡ',
-        previousMonth: 'ያለፈው ወር',
-        nextMonth: 'የሚቀጥለው ወር',
-        clear: 'አጽዳ',
-        month: 'ወር',
-        year: 'ዓመት'
-    },
-    en: {
-        placeholder: 'Pick a date',
-        previousMonth: 'Previous month',
-        nextMonth: 'Next month',
-        clear: 'Clear',
-        month: 'Month',
-        year: 'Year'
-    }
-} as const;
 
 /** A day picked on the Ethiopian calendar, stored as the Gregorian `YYYY-MM-DD` (task 0.17b). */
 function EthDateField({
@@ -416,11 +407,18 @@ function EthDateField({
     invalid,
     describedBy
 }: ValueFieldProps<unknown>) {
-    const { language } = useFormsLanguages();
+    const { language, t } = useEngineText();
     const calendar: CalendarLanguage = (CALENDAR_LANGUAGES as readonly string[]).includes(language)
         ? (language as CalendarLanguage)
         : 'am';
-    const labels = ETH_DATE_LABELS[calendar === 'en' ? 'en' : 'am'];
+    const labels = {
+        placeholder: t('form-engine.renderer.ethDate.placeholder'),
+        previousMonth: t('form-engine.renderer.ethDate.previousMonth'),
+        nextMonth: t('form-engine.renderer.ethDate.nextMonth'),
+        clear: t('form-engine.renderer.ethDate.clear'),
+        month: t('form-engine.renderer.ethDate.month'),
+        year: t('form-engine.renderer.ethDate.year')
+    };
     const placeholder = str(p(field, 'placeholder'));
     return (
         <EthiopianDatePicker
@@ -474,6 +472,7 @@ function SliderField({
 }
 
 function RatingField({ field, id, value, onChange, onBlur, disabled, describedBy }: ValueFieldProps<number | null>) {
+    const { t } = useEngineText();
     const stars = num(p(field, 'stars')) ?? 5;
     const current = typeof value === 'number' ? value : 0;
     return (
@@ -490,7 +489,7 @@ function RatingField({ field, id, value, onChange, onBlur, disabled, describedBy
                     type="button"
                     role="radio"
                     aria-checked={current === n}
-                    aria-label={`${n} of ${stars}`}
+                    aria-label={t('form-engine.renderer.rating.value', { number: String(n), total: String(stars) })}
                     disabled={disabled}
                     onClick={() => onChange(n === current && p(field, 'cancel') === true ? null : n)}
                     className="rounded-sm p-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
@@ -508,7 +507,7 @@ function RatingField({ field, id, value, onChange, onBlur, disabled, describedBy
                     type="button"
                     variant="ghost"
                     size="icon-xs"
-                    aria-label="Clear rating"
+                    aria-label={t('form-engine.renderer.rating.clear')}
                     onClick={() => onChange(null)}
                 >
                     <X />
@@ -519,6 +518,7 @@ function RatingField({ field, id, value, onChange, onBlur, disabled, describedBy
 }
 
 function ChipsField({ field, id, value, onChange, onBlur, disabled, invalid, describedBy }: ValueFieldProps<string[]>) {
+    const { t } = useEngineText();
     return (
         <TagsInput
             id={id}
@@ -526,7 +526,7 @@ function ChipsField({ field, id, value, onChange, onBlur, disabled, invalid, des
             onChange={onChange}
             onBlur={onBlur}
             separator={str(p(field, 'separator')) || ','}
-            placeholder={str(p(field, 'placeholder')) || undefined}
+            placeholder={str(p(field, 'placeholder')) || t('form-engine.renderer.chips.placeholder')}
             disabled={disabled}
             invalid={invalid}
             aria-describedby={describedBy}
@@ -570,6 +570,7 @@ function FileField({
     describedBy
 }: ValueFieldProps<StoredFileRef[]>) {
     const { uploadFile, downloadFile } = useFileActions();
+    const { t } = useEngineText();
     const notify = useNotify();
     const input = useRef<HTMLInputElement>(null);
     const [busy, setBusy] = useState(false);
@@ -582,7 +583,13 @@ function FileField({
 
     const upload = async (chosen: File[]) => {
         const tooBig = chosen.filter((f) => f.size > maxSize);
-        if (tooBig.length) notify.error(`${tooBig.map((f) => f.name).join(', ')}: larger than ${formatBytes(maxSize)}`);
+        if (tooBig.length)
+            notify.error(
+                t('form-engine.renderer.files.tooLarge', {
+                    names: tooBig.map((f) => f.name).join(', '),
+                    size: formatBytes(maxSize)
+                })
+            );
         const ok = chosen.filter((f) => f.size <= maxSize);
         if (!ok.length) return;
         setBusy(true);
@@ -629,12 +636,17 @@ function FileField({
                         onClick={() => input.current?.click()}
                     >
                         {busy ? <Spinner /> : <Paperclip />}
-                        {busy ? 'Uploading…' : str(p(field, 'chooseLabel')) || 'Select File'}
+                        {busy
+                            ? t('form-engine.renderer.files.uploading')
+                            : str(p(field, 'chooseLabel')) || t('form-engine.renderer.files.select')}
                     </Button>
                 </div>
             )}
             {files.length > 0 ? (
-                <ul className="flex flex-col gap-1" aria-label={`${field.label || field.id} files`}>
+                <ul
+                    className="flex flex-col gap-1"
+                    aria-label={t('form-engine.renderer.files.listLabel', { label: field.label || field.id })}
+                >
                     {files.map((f) => (
                         <li key={f.file_id} className="flex items-center gap-2 text-sm">
                             <Paperclip className="size-4 text-muted-foreground" aria-hidden="true" />
@@ -644,7 +656,7 @@ function FileField({
                                 type="button"
                                 variant="ghost"
                                 size="icon-xs"
-                                aria-label={`Download ${f.name}`}
+                                aria-label={t('form-engine.renderer.files.download', { name: f.name })}
                                 onClick={() => void downloadFile(f.file_id)}
                             >
                                 <Download />
@@ -654,7 +666,7 @@ function FileField({
                                     type="button"
                                     variant="ghost"
                                     size="icon-xs"
-                                    aria-label={`Remove ${f.name}`}
+                                    aria-label={t('form-engine.renderer.files.remove', { name: f.name })}
                                     onClick={() => onChange(files.filter((x) => x.file_id !== f.file_id))}
                                 >
                                     <X />
@@ -664,7 +676,9 @@ function FileField({
                     ))}
                 </ul>
             ) : (
-                disabled && <span className="text-sm text-muted-foreground">No files</span>
+                disabled && (
+                    <span className="text-sm text-muted-foreground">{t('form-engine.renderer.files.none')}</span>
+                )
             )}
         </div>
     );

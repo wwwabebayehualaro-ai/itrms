@@ -2,6 +2,7 @@
 import { formatCurrency, formatDate, formatDateTime } from '../../host/format';
 import { getByPath } from '../../core/runtime/expression';
 import { ethiopianDateText } from '../../core/dates';
+import type { EngineTranslate } from '../../core/messages';
 import type { TableColumn } from '@itrms/schemas';
 
 export const EMPTY = '—';
@@ -17,7 +18,7 @@ export const fileName = (f: any) => (typeof f === 'string' ? f : (f?.name ?? f?.
 export const humanize = (s: string) => s.replace(/[_-]+/g, ' ');
 
 /** Plain text of a cell (tooltips, sorting). */
-export function cellText(col: TableColumn, row: unknown, lookups: LookupMaps): string {
+export function cellText(col: TableColumn, row: unknown, lookups: LookupMaps, t: EngineTranslate): string {
     const v = getByPath(row, col.field);
     if (isBlank(v) && col.type !== 'boolean' && col.type !== 'count') return EMPTY;
     switch (col.type) {
@@ -35,7 +36,7 @@ export function cellText(col: TableColumn, row: unknown, lookups: LookupMaps): s
                 ? Number(v).toLocaleString('en-US', { maximumFractionDigits: 6 })
                 : String(v);
         case 'boolean':
-            return v ? 'Yes' : 'No';
+            return t(v ? 'form-engine.core.print.yes' : 'form-engine.core.print.no');
         case 'count':
             return String(Array.isArray(v) ? v.length : 0);
         case 'files':

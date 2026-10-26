@@ -4,6 +4,7 @@ import { useCallback, useRef } from 'react';
 import { keepPreviousData, queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createKeys, type FormsClient } from '../host/client';
 import { useFormsClient } from '../host/FormsHost';
+import { useEngineText } from '../host/text';
 import type { FormTemplate, PublishedForm } from '@itrms/schemas';
 import {
     FORMS_API,
@@ -117,6 +118,7 @@ interface WirePublication {
 
 export function useTemplateMutations() {
     const client = useFormsClient();
+    const { t } = useEngineText();
     const qc = useQueryClient();
     const refresh = () => qc.invalidateQueries({ queryKey: templateKeys.all });
     /** The version a change is based on: the one the screen holds, or (an overwrite, or none held) the current one. */
@@ -134,7 +136,7 @@ export function useTemplateMutations() {
             return templateOf((await client.post<WireForm>(FORMS_API.forms, body)).data);
         },
         onSuccess: refresh,
-        meta: { errorMessage: 'Failed to create template' }
+        meta: { errorMessage: t('form-engine.renderer.api.templateCreateFailed') }
     });
 
     const update = useMutation({
@@ -148,7 +150,7 @@ export function useTemplateMutations() {
             qc.setQueryData(templateKeys.detail(saved.id as string), saved);
             return refresh();
         },
-        meta: { errorMessage: 'Failed to update template' }
+        meta: { errorMessage: t('form-engine.renderer.api.templateUpdateFailed') }
     });
 
     // A form is never deleted (its submissions keep naming it): it is switched off. Optimistic: the card goes at once.
@@ -175,7 +177,7 @@ export function useTemplateMutations() {
             if (ctx?.previous) qc.setQueryData(templateKeys.list(), ctx.previous);
         },
         onSettled: refresh,
-        meta: { errorMessage: 'Failed to delete template' }
+        meta: { errorMessage: t('form-engine.renderer.api.templateDeleteFailed') }
     });
 
     // Publishing asks for a publication: a second person approves it in the approvals inbox (SEC-AC-6).
@@ -189,7 +191,7 @@ export function useTemplateMutations() {
             return { status: p.status === 'approved' ? ('published' as const) : ('pending_approval' as const) };
         },
         onSuccess: () => Promise.all([refresh(), qc.invalidateQueries({ queryKey: APPROVALS })]),
-        meta: { errorMessage: 'Could not publish the form' }
+        meta: { errorMessage: t('form-engine.renderer.api.publishFailed') }
     });
 
     return { create, update, remove, publish };

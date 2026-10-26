@@ -60,14 +60,15 @@ export { usePreview as useAttachmentPreview } from '../api/usePreview';
 export { registerAction } from './extensions';
 export type { ActionContext, ActionHandler } from './extensions';
 // field types: how a type renders (`defineFieldType`) and how the builder offers it (`describeFieldType`)
-export { defineFieldType, describeFieldType, PALETTE_GROUPS } from './kit';
+export { defineFieldType, describeFieldType, setting, PALETTE_GROUPS, PALETTE_GROUP_WORDS } from './kit';
 export type {
     FieldTypeDef,
     ValueFieldProps,
     ContainerFieldProps,
     DisplayFieldProps,
     DesignMeta,
-    PaletteGroup
+    PaletteGroup,
+    SettingMeta
 } from './kit';
 
 // ---- template model (what is persisted in form_config) ----------------------------------------------

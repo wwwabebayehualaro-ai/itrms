@@ -75,6 +75,9 @@ language on or off. Turning one off never deletes its translations.
   in `apps/web/src/i18n/messages.ts`, a missing text falling back `wal-Latn → am → en`. The language is not in the URL:
   it is the person's preference, kept on the server (`PUT /api/v1/me/preferences`) and mirrored in the `itrms_lang`
   cookie so the server renders in it. `<html lang>` follows it.
+* **The form engine's words** (task 0.17d, ADR-0036): `packages/form-engine/messages/<area>/*.json`, keys
+  `form-engine.<area>.…`, resolved by the engine itself (intl-messageformat, the same fallback), so they also reach the
+  API's 422 messages and the print worker. Typed keys: a mistyped key fails typecheck.
 * **Check:** `pnpm i18n:check` (CI) fails on a key missing in `am` or `en`, an empty text, a key of another owner, or a
   key that is also another's prefix; missing optional-language keys are reported.
 * **Region languages:** `PUT /api/v1/settings/i18n.languages` (a bureau administrator; Amharic and English always on),
@@ -82,7 +85,8 @@ language on or off. Turning one off never deletes its translations.
 * **Errors:** the API's problem titles in the request's `Accept-Language`, which the web client sends.
 * **Formats:** `apps/web/src/lib/format.ts`: money in Birr from santim (bigint, never a float), dates Ethiopian by
   default (`@itrms/ethiopian-calendar`) with the Gregorian choice.
-* **Typing:** F9 turns on phonetic Ethiopic typing in any free-text `Input` or `Textarea` (`selam` → ሰላም); the
+* **Typing:** F9 turns on phonetic Ethiopic typing in any free-text `Input` or `Textarea` (`selam` → ሰላም), announced to
+  screen readers through a polite live region in the person's language (`shell.ethiopic.on|off`, task 0.17d); the
   `EthiopianDatePicker` picks dates on the Ethiopian calendar and stores them Gregorian.
 * **Search:** `foldForSearch` (`@itrms/schemas`) folds Ethiopic homophones and Wolaytta's apostrophe spellings.
 

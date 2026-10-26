@@ -2,7 +2,7 @@
 // Task 0.17c: the printable tree of a form and its answers (generated fixture, no real people).
 import { describe, expect, it } from 'vitest';
 
-import { addisDayTime, ethiopianDateText, printModel, PRINT_WORDS, type PrintNode } from './';
+import { addisDayTime, ethiopianDateText, printModel, PRINT_BLANK, type PrintNode } from './';
 
 const L = (am: string, en: string) => ({ am, en });
 const F = (id: string, type: string, extra: Record<string, unknown> = {}) => ({
@@ -171,7 +171,7 @@ describe('printModel', () => {
         const some = print({ words: { blank: 'n/a', yes: 'Ja' } }, { married: true });
         expect(text(some.nodes, 'name')).toBe('n/a');
         expect(text(some.nodes, 'married')).toBe('Ja');
-        expect(text(print({}, {}).nodes, 'name')).toBe(PRINT_WORDS.blank);
+        expect(text(print({}, {}).nodes, 'name')).toBe(PRINT_BLANK);
         const omitted = print({ omitBlank: true }, { name: 'x' });
         expect(find(omitted.nodes, 'notes')).toBeUndefined();
         expect(find(omitted.nodes, 'name')).toBeDefined();

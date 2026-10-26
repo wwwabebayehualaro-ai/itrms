@@ -8,7 +8,9 @@ import { useMemo, useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { Search } from 'lucide-react';
 import { Input, Tooltip, TooltipContent, TooltipTrigger, cn } from '@itrms/ui';
-import { PALETTE_GROUPS, designableTypes, type DesignMeta } from '../renderer/kit';
+import { PALETTE_GROUPS, PALETTE_GROUP_WORDS, designableTypes, type DesignMeta } from '../renderer/kit';
+import { wordIn } from '../core/messages';
+import { useEngineText } from '../host/text';
 import { PALETTE_PREFIX } from './Canvas';
 import { useDesignerActions } from './store';
 
@@ -23,11 +25,13 @@ export function paletteEntries(): PaletteEntry[] {
 
 function Item({ entry }: { entry: PaletteEntry }) {
     const actions = useDesignerActions();
+    const { t, word } = useEngineText();
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
         id: `${PALETTE_PREFIX}${entry.type}`,
         data: { entry }
     });
     const Icon = entry.icon;
+    const label = word(entry.label);
     return (
         <Tooltip>
             <TooltipTrigger asChild>
@@ -42,15 +46,15 @@ function Item({ entry }: { entry: PaletteEntry }) {
                         isDragging && 'opacity-50'
                     )}
                     data-palette={entry.type}
-                    aria-label={`Add ${entry.label}`}
+                    aria-label={t('form-engine.palette.ui.add', { label })}
                 >
                     <Icon className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="truncate">{entry.label}</span>
+                    <span className="truncate">{label}</span>
                 </button>
             </TooltipTrigger>
             {entry.hint && (
                 <TooltipContent side="right" className="max-w-64">
-                    {entry.hint}
+                    {word(entry.hint)}
                 </TooltipContent>
             )}
         </Tooltip>
@@ -59,17 +63,25 @@ function Item({ entry }: { entry: PaletteEntry }) {
 
 export function Palette() {
     const [q, setQ] = useState('');
+    const { t, language } = useEngineText();
     const entries = useMemo(() => paletteEntries(), []);
     const shown = useMemo(() => {
         const s = q.trim().toLowerCase();
-        return s
-            ? entries.filter((e) =>
-                  [e.label, e.type, e.hint ?? '', ...(e.keywords ?? [])].some((t) => t.toLowerCase().includes(s))
-              )
-            : entries;
-    }, [entries, q]);
+        if (!s) return entries;
+        // what is shown (the label and hint in the screen's language), the English ones and the keywords
+        return entries.filter((e) =>
+            [
+                wordIn(language, e.label),
+                wordIn('en', e.label),
+                e.type,
+                e.hint ? wordIn(language, e.hint) : '',
+                e.hint ? wordIn('en', e.hint) : '',
+                ...(e.keywords ?? [])
+            ].some((text) => text.toLowerCase().includes(s))
+        );
+    }, [entries, q, language]);
     return (
-        <nav className="flex flex-col gap-3" aria-label="Fields to add">
+        <nav className="flex flex-col gap-3" aria-label={t('form-engine.palette.ui.fieldsToAdd')}>
             <div className="relative">
                 <Search
                     className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
@@ -79,18 +91,19 @@ export function Palette() {
                     type="search"
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
-                    placeholder="Find a field"
-                    aria-label="Find a field"
+                    placeholder={t('form-engine.palette.ui.find')}
+                    aria-label={t('form-engine.palette.ui.find')}
                     className="pl-8"
                 />
             </div>
             {PALETTE_GROUPS.map((group) => {
                 const items = shown.filter((e) => e.group === group);
                 if (!items.length) return null;
+                const name = t(PALETTE_GROUP_WORDS[group]);
                 return (
-                    <section key={group} className="flex flex-col gap-0.5" aria-label={group}>
+                    <section key={group} className="flex flex-col gap-0.5" aria-label={name}>
                         <h3 className="px-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                            {group}
+                            {name}
                         </h3>
                         <div className="flex flex-col">
                             {items.map((e) => (
@@ -100,7 +113,9 @@ export function Palette() {
                     </section>
                 );
             })}
-            {shown.length === 0 && <p className="text-sm text-muted-foreground">No field matches “{q}”.</p>}
+            {shown.length === 0 && (
+                <p className="text-sm text-muted-foreground">{t('form-engine.palette.ui.noMatch', { query: q })}</p>
+            )}
         </nav>
     );
 }

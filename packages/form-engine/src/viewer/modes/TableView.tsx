@@ -10,6 +10,7 @@ import { CellValue } from '../../renderer/cells';
 import { getByPath } from '../../core/runtime/expression';
 import type { TableColumn } from '@itrms/schemas';
 import { useSubmissionData } from '../api';
+import { useGridLabels } from '../gridLabels';
 import type { ViewModeProps } from '../registry';
 import type { ViewField, ViewSchema, ViewRow } from '../types';
 
@@ -77,6 +78,8 @@ export default function TableView({
     rowActions,
     emptyMessage
 }: ViewModeProps) {
+    const { t } = labeler;
+    const labels = useGridLabels();
     const keys = useMemo(() => {
         const chosen = state.columns.filter((k) => schema.fields.some((f) => f.key === k));
         return chosen.length ? chosen : defaultColumns(schema);
@@ -112,7 +115,7 @@ export default function TableView({
                                 data-open
                                 className="text-left font-semibold hover:underline focus-visible:underline focus-visible:outline-none"
                                 onClick={() => onOpen(row.original)}
-                                title={cellText(col, row.original, lookups)}
+                                title={cellText(col, row.original, lookups, t)}
                             >
                                 <CellValue col={col} row={row.original} lookups={lookups} />
                             </button>
@@ -128,7 +131,7 @@ export default function TableView({
             enableSorting: false,
             cell: ({ row }) => (
                 <div className="flex justify-end gap-1">
-                    <IconButton label="View" onClick={() => onOpen(row.original)}>
+                    <IconButton label={t('form-engine.viewer.table.view')} onClick={() => onOpen(row.original)}>
                         <Eye />
                     </IconButton>
                     {rowActions?.(row.original)}
@@ -136,7 +139,7 @@ export default function TableView({
             )
         });
         return cols;
-    }, [keys, schema, labeler, onOpen, rowActions]);
+    }, [keys, schema, labeler, onOpen, rowActions, t]);
 
     const pagination: PaginationState = { pageIndex: state.page - 1, pageSize: state.pageSize };
     const onPaginationChange: OnChangeFn<PaginationState> = (change) => {
@@ -160,10 +163,14 @@ export default function TableView({
                     <PopoverTrigger asChild>
                         <Button type="button" variant="ghost" size="sm">
                             <Columns3 />
-                            Columns
+                            {t('form-engine.viewer.table.columns')}
                         </Button>
                     </PopoverTrigger>
-                    <PopoverContent align="end" className="w-60 p-2" aria-label="Choose columns">
+                    <PopoverContent
+                        align="end"
+                        className="w-60 p-2"
+                        aria-label={t('form-engine.viewer.table.chooseColumns')}
+                    >
                         <div className="flex max-h-[60vh] flex-col gap-1 overflow-y-auto">
                             {schema.fields.map((f) => (
                                 <Label
@@ -192,13 +199,14 @@ export default function TableView({
                             className="mt-1"
                             onClick={() => patch({ columns: [], page: state.page })}
                         >
-                            Reset columns
+                            {t('form-engine.viewer.table.resetColumns')}
                         </Button>
                     </PopoverContent>
                 </Popover>
             </div>
             <DataGrid
-                caption="Requests"
+                caption={t('form-engine.viewer.table.caption')}
+                labels={labels.grid}
                 data={data?.items ?? []}
                 columns={columns}
                 total={data?.total ?? 0}
@@ -209,11 +217,11 @@ export default function TableView({
                 onSortingChange={onSortingChange}
                 loading={isPending}
                 fetching={isFetching}
-                error={error ? requestErrorMessage(error) : null}
+                error={error ? requestErrorMessage(error, undefined, t) : null}
                 emptyMessage={
                     state.search || state.filter.items.length
-                        ? 'No requests match these filters.'
-                        : (emptyMessage ?? 'No requests yet.')
+                        ? t('form-engine.viewer.noMatch')
+                        : (emptyMessage ?? t('form-engine.viewer.noRequests'))
                 }
             />
         </div>

@@ -67,12 +67,13 @@ module.exports = {
         },
         {
             name: 'form-engine-core-is-ui-free',
-            comment: 'form-engine/core runs in the API: only schemas, ethiopian-calendar and itself; no React or DOM.',
+            comment:
+                'form-engine/core runs in the API: only schemas, ethiopian-calendar, its own catalogues and itself; no React or DOM.',
             severity: 'error',
             from: { path: '^packages/form-engine/src/core/' },
             to: {
                 path: '^(apps|platform|modules|packages)/|(^|/)node_modules/(react|react-dom|@radix-ui)/|^(react|react-dom)($|/)',
-                pathNot: '^packages/(schemas|ethiopian-calendar)/|^packages/form-engine/src/core/'
+                pathNot: '^packages/(schemas|ethiopian-calendar)/|^packages/form-engine/(src/core|messages)/'
             }
         },
         {

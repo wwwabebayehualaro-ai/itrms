@@ -1,5 +1,6 @@
 {
-  "$comment": "The shared validation cases (form-platform.md G1, task 0.16a): run by the engine's tests (src/core/cases.spec.ts) and by the API's (apps/api/test/integration/forms.int.spec.ts), so the browser and the server answer every case the same. `errors`: path → message (empty: valid). `stored`: what a submission keeps (submittedValues).",
+  "language": "en",
+  "$comment": "The shared validation cases (form-platform.md G1, task 0.16a): run by the engine's tests (src/core/cases.spec.ts) and by the API's (apps/api/test/integration/forms.int.spec.ts), so the browser and the server answer every case the same. `errors`: path → message (empty: valid). `stored`: what a submission keeps (submittedValues). `language`: the language the messages are written in (a case may set its own).",
   "cases": [
     {
       "name": "a required text left empty",
@@ -54,6 +55,7 @@
     },
     {
       "name": "the author's message in every language: the default language is Amharic",
+      "language": "am",
       "fields": [
         {
           "id": "name",
@@ -1006,6 +1008,7 @@
     },
     {
       "name": "a field required when its formula holds gives the author's message",
+      "language": "am",
       "fields": [
         {
           "id": "kind",
@@ -1202,6 +1205,7 @@
     },
     {
       "name": "a valid-when formula with days() fails with its message",
+      "language": "am",
       "fields": [
         {
           "id": "start",

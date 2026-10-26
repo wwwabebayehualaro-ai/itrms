@@ -7,6 +7,7 @@
  */
 import * as React from 'react';
 
+import { announce } from './announce';
 import { isLatinWordChar, PUNCTUATION, transliterate } from './transliterate';
 
 type Field = HTMLInputElement | HTMLTextAreaElement;
@@ -43,6 +44,28 @@ function replace(field: Field, from: number, to: number, text: string): boolean 
     return true;
 }
 
+/** What a screen reader hears when F9 turns Ethiopic typing on or off (the app gives them in the person's language). */
+export interface EthiopicTypingLabels {
+    on: string;
+    off: string;
+}
+
+const ENGLISH_LABELS: EthiopicTypingLabels = {
+    on: `Ethiopic typing on (${ETHIOPIC_TOGGLE_KEY} turns it off)`,
+    off: `Ethiopic typing off (${ETHIOPIC_TOGGLE_KEY} turns it on)`
+};
+const LabelsContext = React.createContext<EthiopicTypingLabels>(ENGLISH_LABELS);
+
+export function EthiopicTypingProvider({
+    labels,
+    children
+}: {
+    labels: EthiopicTypingLabels;
+    children: React.ReactNode;
+}) {
+    return React.createElement(LabelsContext.Provider, { value: labels }, children);
+}
+
 export interface EthiopicTyping<T extends Field> {
     on: boolean;
     /** Attach to the field (merged with the caller's ref). */
@@ -52,6 +75,11 @@ export interface EthiopicTyping<T extends Field> {
 /** `enabled`: the field takes free text (not a number, an e-mail, a password). `initial`: on from the start. */
 export function useEthiopicTyping<T extends Field>(enabled: boolean, initial = false): EthiopicTyping<T> {
     const [on, setOn] = React.useState(initial);
+    const labels = React.useContext(LabelsContext);
+    const labelsRef = React.useRef(labels);
+    React.useEffect(() => {
+        labelsRef.current = labels;
+    }, [labels]);
     // the native listeners read the mode from here (they are attached once per field)
     const onRef = React.useRef(on);
     React.useEffect(() => {
@@ -70,7 +98,11 @@ export function useEthiopicTyping<T extends Field>(enabled: boolean, initial = f
                 if (e.key === ETHIOPIC_TOGGLE_KEY) {
                     e.preventDefault();
                     composing.current = null;
-                    setOn((value) => !value);
+                    const next = !onRef.current;
+                    onRef.current = next;
+                    setOn(next);
+                    // the dashed edge shows the mode; a screen reader is told
+                    announce(next ? labelsRef.current.on : labelsRef.current.off);
                 } else if (ENDS_WORD.has(e.key)) composing.current = null;
             };
             const beforeinput = (e: InputEvent) => {

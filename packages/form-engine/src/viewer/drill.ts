@@ -1,3 +1,4 @@
+import type { EngineMessageKey, EngineTranslate } from '../core/messages';
 import type { Bucket, Condition, FilterGroup, ViewField } from './types';
 
 /** "2026-09" (month bucket) -> first and last day. */
@@ -22,19 +23,34 @@ export function andFilter(current: FilterGroup, ...extra: Condition[]): FilterGr
     return { op: 'and', items: [...(current.items.length ? [current] : []), ...extra] };
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTHS: EngineMessageKey[] = [
+    'form-engine.viewer.month.jan',
+    'form-engine.viewer.month.feb',
+    'form-engine.viewer.month.mar',
+    'form-engine.viewer.month.apr',
+    'form-engine.viewer.month.may',
+    'form-engine.viewer.month.jun',
+    'form-engine.viewer.month.jul',
+    'form-engine.viewer.month.aug',
+    'form-engine.viewer.month.sep',
+    'form-engine.viewer.month.oct',
+    'form-engine.viewer.month.nov',
+    'form-engine.viewer.month.dec'
+];
 /** A group key as people read it. */
 export function groupLabel(
     field: ViewField,
     key: string | null,
     bucket: Bucket | undefined,
-    text: (key: string, value: unknown) => string
+    text: (key: string, value: unknown) => string,
+    t: EngineTranslate
 ): string {
-    if (key === null) return '(none)';
+    if (key === null) return t('form-engine.viewer.group.none');
     if (field.kind === 'date' || field.kind === 'datetime') {
         const b = bucket ?? 'month';
-        return b === 'month' ? `${MONTHS[Number(key.slice(5, 7)) - 1]} ${key.slice(0, 4)}` : key;
+        const month = MONTHS[Number(key.slice(5, 7)) - 1];
+        return b === 'month' && month ? t(month, { year: key.slice(0, 4) }) : key;
     }
-    if (field.kind === 'boolean') return key === 'true' ? 'Yes' : 'No';
+    if (field.kind === 'boolean') return t(key === 'true' ? 'form-engine.core.print.yes' : 'form-engine.core.print.no');
     return text(field.key, key);
 }

@@ -6,6 +6,7 @@
  */
 import type { Scope } from './conditions';
 import { addisDayTime, ethiopianDateText } from './dates';
+import { engineTranslator } from './messages';
 import { numberFormatOf } from './format';
 import { valueKindOf, type ValueKind } from './kinds';
 import { containerTitle, isFormArray, readDocument, type EngineField, type FieldOption } from './model';
@@ -21,14 +22,21 @@ export interface PrintWords {
     item: string;
 }
 
-export const PRINT_WORDS: PrintWords = {
-    yes: 'Yes',
-    no: 'No',
-    blank: '—',
-    noRows: 'No rows',
-    rowNumber: 'No.',
-    item: 'Item'
-};
+/** What a blank answer prints in every language. */
+export const PRINT_BLANK = '—';
+
+/** The words a printout uses, in a language (the engine's catalogues). */
+export function printWords(language: string): PrintWords {
+    const t = engineTranslator(language);
+    return {
+        yes: t('form-engine.core.print.yes'),
+        no: t('form-engine.core.print.no'),
+        blank: PRINT_BLANK,
+        noRows: t('form-engine.core.print.noRows'),
+        rowNumber: t('form-engine.core.print.rowNumber'),
+        item: t('form-engine.core.print.item')
+    };
+}
 
 export type PrintNode =
     | {
@@ -129,7 +137,7 @@ export function printValueText(
     value: unknown,
     opts: Pick<PrintOptions, 'language' | 'words' | 'gregorian'>
 ): string {
-    const words = { ...PRINT_WORDS, ...opts.words };
+    const words = { ...printWords(opts.language), ...opts.words };
     const kind = valueKindOf(field);
     if (!kind || kind === 'rows' || isBlankValue(field, value)) return words.blank;
     const { language } = opts;
@@ -184,7 +192,7 @@ export function printValueText(
  */
 export function printModel(form: unknown, values: Record<string, unknown>, opts: PrintOptions): PrintDocument {
     const { fields } = readDocument(form, { language: opts.language });
-    const words: PrintWords = { ...PRINT_WORDS, ...opts.words };
+    const words: PrintWords = { ...printWords(opts.language), ...opts.words };
     const scope = opts.scope ?? {};
     const maxColumns = opts.maxTableColumns ?? MAX_TABLE_COLUMNS;
     const byId = new Map(fields.map((f) => [f.id, f]));
