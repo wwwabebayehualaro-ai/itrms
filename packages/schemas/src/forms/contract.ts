@@ -6,6 +6,7 @@
  */
 import { z } from 'zod';
 
+import { LANGUAGE_TAG } from '../i18n';
 import { fieldTexts, formTextSchema } from './text';
 
 import { SCHEMA_VERSION, storedFieldSchema } from './schema';
@@ -29,6 +30,7 @@ export function formConfigSchema(types: string[]) {
     return z
         .object({
             schemaVersion: z.number().int().min(1).max(SCHEMA_VERSION).optional(),
+            textLanguage: z.string().regex(LANGUAGE_TAG, 'is not a language tag').optional(),
             fields: z
                 .array(
                     storedFieldSchema

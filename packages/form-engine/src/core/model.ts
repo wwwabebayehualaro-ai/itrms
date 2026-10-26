@@ -11,9 +11,12 @@
  * engine renderer reads them.
  */
 import {
+    DEFAULT_FORM_TEXT_LANGUAGE,
     formDocumentSchema,
     formTextIn,
     storedFieldSchema,
+    textLanguageOf,
+    textPropsOf,
     type Action,
     type FieldOptionsBinding,
     type FieldRowsBinding,
@@ -59,6 +62,9 @@ export interface FieldRules {
     validWhen: { expression: string; message?: string }[];
 }
 
+/** A binding with its empty message resolved to one language. */
+export type Resolved<T> = Omit<T, 'emptyMessage'> & { emptyMessage?: string };
+
 export interface EngineField {
     id: string;
     type: string;
@@ -82,8 +88,8 @@ export interface EngineField {
     remote?: { dataSourceId: string; message?: string };
     /** Static options (API-bound options come from `optionsBinding` at run time). */
     options: FieldOption[];
-    optionsBinding?: FieldOptionsBinding;
-    rowsBinding?: FieldRowsBinding;
+    optionsBinding?: Resolved<FieldOptionsBinding>;
+    rowsBinding?: Resolved<FieldRowsBinding>;
     actions: Record<string, Action[]>;
     visibleToRoles?: string[];
     /** indexed for the data viewer (ADR-0035) */
@@ -97,6 +103,8 @@ export interface EngineDocument {
     storedVersion: number;
     fields: EngineField[];
     runtime?: TemplateRuntimeConfig;
+    /** The language the form's plain-string texts are written in (`textLanguage`, else Amharic). */
+    textLanguage: string;
     /** Stored fields that could not be read (kept out of rendering, reported by the builder). */
     invalid: Array<{ index: number; message: string }>;
 }
@@ -141,7 +149,15 @@ function messagesIn(raw: Record<string, unknown> | null | undefined, language: s
 }
 
 /** Texts are read in Amharic when no language is given (the installation's default). */
-export const DEFAULT_TEXT_LANGUAGE = 'am';
+export const DEFAULT_TEXT_LANGUAGE = DEFAULT_FORM_TEXT_LANGUAGE;
+
+/** A binding with its empty message in one language (left out when it has none). */
+function bindingIn<T extends { emptyMessage?: unknown }>(binding: T | null | undefined, language: string) {
+    if (!binding) return undefined;
+    const { emptyMessage, ...rest } = binding;
+    const text = formTextIn(emptyMessage, language);
+    return (text ? { ...rest, emptyMessage: text } : rest) as Resolved<T>;
+}
 
 /**
  * One stored field → the engine's view of it, its texts in `language` (forms/text.ts: the language, then Amharic, then
@@ -150,9 +166,16 @@ export const DEFAULT_TEXT_LANGUAGE = 'am';
 export function toEngineField(stored: StoredField, language: string = DEFAULT_TEXT_LANGUAGE): EngineField {
     const defaults = stored.data?.defaultProps ?? {};
     const props: Record<string, unknown> = { ...defaults, ...(stored.props ?? {}) };
-    for (const key of ['helpText', 'placeholder'] as const)
+    for (const key of textPropsOf(stored.type))
         if (props[key] !== undefined && props[key] !== null && typeof props[key] !== 'string')
             props[key] = formTextIn(props[key], language);
+    // a table's column headers (DataTable): texts in one language, as `TableColumn.header`
+    if (Array.isArray(props.columns))
+        props.columns = props.columns.map((c: unknown) =>
+            c && typeof c === 'object'
+                ? { ...c, header: formTextIn((c as { header?: unknown }).header, language) ?? '' }
+                : c
+        );
     const v = stored.behavior?.validation;
     const types = v?.types ?? [];
     const rules = v?.rules ?? {};
@@ -213,8 +236,8 @@ export function toEngineField(stored: StoredField, language: string = DEFAULT_TE
             ? { dataSourceId: v.remote.dataSourceId, message: formTextIn(v.remote.message, language) || undefined }
             : undefined,
         options: staticOptions(stored, props, language),
-        optionsBinding: stored.data?.optionsBinding ?? undefined,
-        rowsBinding: stored.data?.rowsBinding ?? undefined,
+        optionsBinding: bindingIn(stored.data?.optionsBinding as FieldOptionsBinding | undefined, language),
+        rowsBinding: bindingIn(stored.data?.rowsBinding as FieldRowsBinding | undefined, language),
         actions: (stored.behavior?.actions ?? {}) as Record<string, Action[]>,
         visibleToRoles: stored.visibleToRoles ?? undefined,
         filterable: stored.filterable === true,
@@ -248,7 +271,13 @@ export function readDocument(raw: unknown, opts: { language?: string } = {}): En
         seen.add(r.data.id);
         fields.push(toEngineField(r.data, language));
     });
-    return { storedVersion: base.schemaVersion ?? 1, fields, runtime: runtimeOf(base.runtime), invalid };
+    return {
+        storedVersion: base.schemaVersion ?? 1,
+        fields,
+        runtime: runtimeOf(base.runtime),
+        textLanguage: textLanguageOf(doc),
+        invalid
+    };
 }
 
 /** Fields directly inside `parentId` (null = top level), in stored order. */
@@ -287,4 +316,22 @@ export function isRequiredIn(
     if (f.rules.required) return true;
     const when = f.rules.requiredWhen;
     return when ? evalCondition(when, { ...scope, form: current, row: current, root }) === true : false;
+}
+
+// the palette's placeholder titles are never shown to people: the field's own label is used instead
+const PLACEHOLDER_TITLES = new Set(['Panel Header', 'Card Title', 'Group Title', 'Section Title']);
+
+/** The title a container shows: the first of its title settings that is real text, else its label. */
+export function containerTitle(f: Pick<EngineField, 'type' | 'props' | 'label'>): string {
+    const keys: Record<string, string[]> = {
+        Panel: ['header'],
+        Fieldset: ['legend', 'header'],
+        Card: ['title', 'header'],
+        FormSection: ['title']
+    };
+    for (const k of Object.hasOwn(keys, f.type) ? (keys[f.type] ?? []) : []) {
+        const v = f.props[k];
+        if (typeof v === 'string' && v && !PLACEHOLDER_TITLES.has(v)) return v;
+    }
+    return f.label;
 }

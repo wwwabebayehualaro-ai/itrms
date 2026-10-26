@@ -1,4 +1,5 @@
 import type { VisibilityCondition } from './conditions';
+import type { FormText } from './text';
 
 /**
  * Declarative, JSON-serialisable runtime model persisted in `form_config.runtime`.
@@ -114,7 +115,7 @@ export interface FieldOptionsBinding {
     mapping?: OptionMapping;
     /** Clear the field value when it is no longer among the fetched options. */
     clearOnInvalid?: boolean;
-    emptyMessage?: string;
+    emptyMessage?: FormText;
 }
 
 /** Rows for a display field (DataTable) come from a template-level data source. */
@@ -122,7 +123,7 @@ export interface FieldRowsBinding {
     dataSourceId: string;
     /** Array inside the response. Default: the response itself when it is an array, otherwise its `items`. */
     itemsPath?: string;
-    emptyMessage?: string;
+    emptyMessage?: FormText;
 }
 
 export type ColumnType =
@@ -152,6 +153,9 @@ export interface TableColumn {
     /** Max width of the cell (CSS), long text is cut with an ellipsis. */
     width?: string;
 }
+
+/** A column as stored: its header is a text in one or more languages (the engine resolves it to a `TableColumn`). */
+export type StoredTableColumn = Omit<TableColumn, 'header'> & { header: FormText };
 
 export interface RuntimeContext {
     form: Record<string, unknown>;

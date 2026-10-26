@@ -3,7 +3,14 @@
  * English). The builder's translation table and the publish warning count them; a missing optional language is
  * reported per column but not counted (i18n-and-languages.md: the publish check warns, it does not block).
  */
-import { REQUIRED_TEXT_LANGUAGES, fieldTexts, missingIn, type FieldText } from '@itrms/schemas';
+import {
+    REQUIRED_TEXT_LANGUAGES,
+    fieldTexts,
+    missingIn,
+    storedFieldsOf,
+    textLanguageOf,
+    type FieldText
+} from '@itrms/schemas';
 
 export interface UntranslatedText extends FieldText {
     fieldId: string;
@@ -32,3 +39,7 @@ export function untranslatedTexts(
     }
     return out;
 }
+
+/** The untranslated texts of a stored `form_config`, plain strings counted as written in the form's own `textLanguage`. */
+export const untranslatedInDocument = (formConfig: unknown): UntranslatedText[] =>
+    untranslatedTexts(storedFieldsOf(formConfig), textLanguageOf(formConfig));

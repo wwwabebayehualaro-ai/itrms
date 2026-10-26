@@ -79,7 +79,27 @@ export function setTextIn(text: unknown, language: string, value: string, plainA
     return Object.keys(next).length ? next : undefined;
 }
 
-export type FieldTextKind = 'label' | 'helpText' | 'placeholder' | 'option' | 'message';
+export type FieldTextKind = 'label' | 'helpText' | 'placeholder' | 'option' | 'message' | 'setting' | 'column';
+
+/** Texts are read in Amharic when no language is given (the installation's default). */
+export const DEFAULT_FORM_TEXT_LANGUAGE = 'am';
+
+/** The translatable settings of each type beyond help text and placeholder (task 0.17c). */
+export const TEXT_PROPS = {
+    Panel: ['header'],
+    Fieldset: ['legend', 'header'],
+    Card: ['title', 'header', 'subTitle', 'footer'],
+    FormSection: ['title', 'description'],
+    Divider: ['content'],
+    FormArray: ['itemLabel', 'addButtonLabel', 'removeButtonLabel', 'emptyMessage'],
+    FileUpload: ['chooseLabel']
+} as const;
+
+/** Every translatable setting of a type: help text, placeholder, then its own. */
+export function textPropsOf(type: string): string[] {
+    const own: readonly string[] = Object.hasOwn(TEXT_PROPS, type) ? TEXT_PROPS[type as keyof typeof TEXT_PROPS] : [];
+    return ['helpText', 'placeholder', ...own];
+}
 
 export interface FieldText {
     /** Where it is stored, dotted from the field (`props.helpText`, `props.options.1.label`). */
@@ -110,16 +130,19 @@ export function fieldTexts(field: unknown): FieldText[] {
     const f = obj(field);
     if (!f) return [];
     const props = obj(f.props);
-    const defaults = obj(obj(f.data)?.defaultProps);
+    const data = obj(f.data);
+    const defaults = obj(data?.defaultProps);
     const validation = obj(obj(f.behavior)?.validation);
     const texts: FieldText[] = [{ path: 'label', kind: 'label', value: f.label }];
-    for (const kind of ['helpText', 'placeholder'] as const) {
-        const own = props?.[kind];
-        const inherited = defaults?.[kind];
-        if (own !== undefined && own !== null) texts.push({ path: `props.${kind}`, kind, value: own });
-        else if (inherited !== undefined && inherited !== null)
-            // read from the palette's defaults; a change is written to props (props win over them)
-            texts.push({ path: `props.${kind}`, kind, value: inherited });
+    const type = typeof f.type === 'string' ? f.type : '';
+    for (const key of textPropsOf(type)) {
+        const own = props?.[key];
+        const inherited = defaults?.[key];
+        const value = own !== undefined && own !== null ? own : inherited;
+        if (value === undefined || value === null) continue;
+        // a default is read from the palette's defaults; a change is written to props (props win over them)
+        if (key === 'helpText' || key === 'placeholder') texts.push({ path: `props.${key}`, kind: key, value });
+        else texts.push({ path: `props.${key}`, kind: 'setting', ref: key, value });
     }
     const list = optionList(f);
     const walk = (items: unknown[], path: string, prefix: string) =>
@@ -132,6 +155,28 @@ export function fieldTexts(field: unknown): FieldText[] {
             if (Array.isArray(option.items)) walk(option.items, `${path}.${i}.items`, `${ref}.`);
         });
     if (list) walk(list.items, list.path, '');
+    const optionsEmpty = obj(data?.optionsBinding)?.emptyMessage;
+    if (optionsEmpty !== undefined && optionsEmpty !== null)
+        texts.push({
+            path: 'data.optionsBinding.emptyMessage',
+            kind: 'setting',
+            ref: 'optionsEmpty',
+            value: optionsEmpty
+        });
+    // the table's columns: where props has them, else the palette's defaults
+    const columns = Array.isArray(props?.columns)
+        ? { path: 'props.columns', items: props.columns }
+        : Array.isArray(defaults?.columns)
+          ? { path: 'data.defaultProps.columns', items: defaults.columns }
+          : undefined;
+    columns?.items.forEach((c, i) => {
+        const header = obj(c)?.header;
+        if (header !== undefined && header !== null)
+            texts.push({ path: `${columns.path}.${i}.header`, kind: 'column', ref: String(i + 1), value: header });
+    });
+    const rowsEmpty = obj(data?.rowsBinding)?.emptyMessage;
+    if (rowsEmpty !== undefined && rowsEmpty !== null)
+        texts.push({ path: 'data.rowsBinding.emptyMessage', kind: 'setting', ref: 'rowsEmpty', value: rowsEmpty });
     const messages = obj(validation?.errorMessages);
     for (const rule of Object.keys(messages ?? {}))
         texts.push({

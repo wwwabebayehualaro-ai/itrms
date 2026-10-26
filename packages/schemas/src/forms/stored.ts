@@ -5,7 +5,8 @@
  */
 import type { VisibilityCondition } from './conditions';
 import type { FieldOptionsBinding, FieldRowsBinding } from './runtime';
-import type { FormText } from './text';
+import { LANGUAGE_TAG } from '../i18n';
+import { DEFAULT_FORM_TEXT_LANGUAGE, type FormText } from './text';
 
 /** Something a field does on an event (see the form engine's renderer/actions.ts). */
 export type Action = {
@@ -87,3 +88,11 @@ export function storedFieldsOf(formConfig: unknown): FormField[] {
 
 /** A template's attached files (`file_relations`), a list; anything else holds none. */
 export const fileRelationsOf = (relations: unknown): unknown[] => (Array.isArray(relations) ? relations : []);
+
+/** The language the form's plain-string texts are written in: its `textLanguage`, else Amharic. */
+export function textLanguageOf(formConfig: unknown): string {
+    const tag = Array.isArray(formConfig)
+        ? undefined
+        : (formConfig as { textLanguage?: unknown } | null | undefined)?.textLanguage;
+    return typeof tag === 'string' && LANGUAGE_TAG.test(tag) ? tag : DEFAULT_FORM_TEXT_LANGUAGE;
+}
