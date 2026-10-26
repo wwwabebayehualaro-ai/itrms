@@ -96,6 +96,12 @@ import { LANGUAGE_TAG, type FormTemplate } from '@itrms/schemas';
 import { useFormsHost, useFormsLanguages, useFormsLocation } from '../host/FormsHost';
 import { useEngineText } from '../host/text';
 
+/** A save refused because someone else saved first (HTTP 409). */
+const conflictOf = (e: unknown): boolean =>
+    typeof e === 'object' && e !== null && 'response' in e
+        ? typeof e.response === 'object' && e.response !== null && 'status' in e.response && e.response.status === 409
+        : false;
+
 const area = (r?: { width: number; height: number } | null) => (r ? r.width * r.height : Infinity);
 
 export function FormDesigner() {
@@ -180,8 +186,8 @@ function DesignerScreen() {
                 }
             });
             afterSave(saved, doc);
-        } catch (e: any) {
-            if (e?.response?.status === 409)
+        } catch (e: unknown) {
+            if (conflictOf(e))
                 void confirmAction({
                     header: t('form-engine.designer.conflict.header'),
                     message: t('form-engine.designer.conflict.message'),

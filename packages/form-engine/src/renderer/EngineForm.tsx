@@ -16,6 +16,7 @@ import { initialValues, pruneHidden, readDocument, validateForm, type EngineDocu
 import { RuntimeProvider } from './runtime/RuntimeProvider';
 import { mapToForm } from '../core/runtime/mapping';
 import { resolveBindings, resolveString } from '../core/runtime/expression';
+import { text } from '../core/runtime/path';
 import type { TemplateRuntimeConfig } from '@itrms/schemas';
 import { useTemplate } from './store/formStore';
 import { unsupportedFields } from './kit';
@@ -25,18 +26,27 @@ import './fields/registerAll';
 
 type Values = Record<string, unknown>;
 
+/** What a submit hands to `onFormSubmit`: the answers (hidden fields pruned) and how they were given. */
+export interface EngineSubmission {
+    template_id: string;
+    form_version_id?: string;
+    submission_data: Values;
+    status: 'submitted';
+    form_metadata: { submitted_via: 'web'; user_agent: string; submission_type: 'update' | 'new' };
+}
+
 export interface EngineFormProps {
     fields: FormField[];
     template?: FormTemplate;
     /** Saves the request; what it resolves with (the saved request) is `{{response.*}}` in the submit success message. */
-    onFormSubmit?: (values: any) => void | Promise<unknown>;
+    onFormSubmit?: (submission: EngineSubmission) => void | Promise<unknown>;
     submissionId?: string | null;
-    initialValues?: Record<string, any>;
-    onSuccess?: (submission: any) => void;
+    initialValues?: Values;
+    onSuccess?: (submission: unknown) => void;
     /** Overrides `template.form_config.runtime`. */
     runtime?: TemplateRuntimeConfig;
     /** Authenticated user context for `{{user.*}}` bindings, supplied by the host app. */
-    user?: Record<string, any>;
+    user?: Values;
     /** Display-only template (a table, a summary…): no card, no buttons. */
     view?: boolean;
     /** No card around the form (the host, e.g. a dialog, already is the container). */
@@ -124,7 +134,7 @@ function EngineFormBody({
             if (!template?.id) throw new Error('Template ID is required');
             const scope = store.get().scope;
             const pruned = pruneHidden(doc.fields, values, scope);
-            const submission = {
+            const submission: EngineSubmission = {
                 template_id: template.id,
                 ...(template.published_version_id ? { form_version_id: template.published_version_id } : {}),
                 submission_data: pruned,
@@ -155,10 +165,7 @@ function EngineFormBody({
 
             // the message may show what the server did, e.g. "Posted {{response.submission_data.reference}}"
             const message = submitCfg?.successMessage
-                ? String(
-                      resolveString(submitCfg.successMessage, { ...scope, form: pruned, response: response ?? {} }) ??
-                          ''
-                  )
+                ? text(resolveString(submitCfg.successMessage, { ...scope, form: pruned, response: response ?? {} }))
                 : '';
             if (!silent)
                 notify.success(
@@ -168,8 +175,11 @@ function EngineFormBody({
             onSuccess?.(undefined);
             if (!submissionId && submitCfg?.resetOnSuccess !== false) remount();
             else if (submitCfg?.resetOnSuccess) form.reset();
-        } catch (err: any) {
+        } catch (err) {
             host.logError?.('Form submission failed:', err);
+            // whatever was thrown (an API error, an Error): read the message it may carry
+            const failure = err as
+                { response?: { data?: { detail?: unknown; message?: unknown } }; message?: unknown } | null | undefined;
             // the server's verdict on single fields (422 `errors[{field, message}]`) is shown on those fields
             const server = serverFormErrors(
                 err,
@@ -185,10 +195,9 @@ function EngineFormBody({
             // mutations already toasted their failure (QueryProvider); only report what nobody has told the person about
             if (!host.isReported?.(err))
                 notify.error(
-                    err?.response?.data?.detail ||
-                        err?.response?.data?.message ||
-                        err?.message ||
-                        words.t('form-engine.renderer.submit.failed')
+                    [failure?.response?.data?.detail, failure?.response?.data?.message, failure?.message].find(
+                        (m): m is string => typeof m === 'string' && m !== ''
+                    ) ?? words.t('form-engine.renderer.submit.failed')
                 );
         }
     };
@@ -274,7 +283,7 @@ function RuntimeHost({
 }: {
     form: AnyFormApi;
     config?: TemplateRuntimeConfig;
-    user?: Record<string, any>;
+    user?: Values;
     store: RuntimeStore;
     children: ReactNode;
 }) {
@@ -285,7 +294,7 @@ function RuntimeHost({
             formValues={values}
             user={user}
             onPatchForm={(patch) =>
-                Object.entries(patch).forEach(([k, v]) => form.setFieldValue(k, v as never, { dontValidate: true }))
+                Object.entries(patch).forEach(([k, v]) => form.setFieldValue(k, v, { dontValidate: true }))
             }
         >
             <RuntimeBridge store={store} />

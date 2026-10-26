@@ -53,7 +53,7 @@ const labeler: Labeler = {
     lookup: () => new Map(),
     text: (k, v) =>
         k === 'total'
-            ? `$${v}`
+            ? `$${String(v)}`
             : (schema.fields.find((x) => x.key === k)?.options.find((o) => o.value === v)?.label ?? String(v)),
     loading: false,
     t: enText

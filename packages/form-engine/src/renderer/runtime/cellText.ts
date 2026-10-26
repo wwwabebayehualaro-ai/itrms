@@ -1,6 +1,7 @@
 /** Plain-text formatting of table cells (no UI): shared by every table renderer. */
 import { formatCurrency, formatDate, formatDateTime } from '../../host/format';
 import { getByPath } from '../../core/runtime/expression';
+import { str, text } from '../../core/runtime/path';
 import { ethiopianDateText } from '../../core/dates';
 import type { EngineTranslate } from '../../core/messages';
 import type { TableColumn } from '@itrms/schemas';
@@ -14,7 +15,12 @@ export const isBlank = (v: unknown) =>
     v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
 export const label = (col: TableColumn, v: unknown, lookups: LookupMaps) =>
     lookups[col.field]?.get(String(v)) ?? String(v);
-export const fileName = (f: any) => (typeof f === 'string' ? f : (f?.name ?? f?.filename ?? ''));
+export const fileName = (f: unknown): string => {
+    if (typeof f === 'string') return f;
+    if (!f || typeof f !== 'object') return '';
+    const ref = f as { name?: unknown; filename?: unknown };
+    return text(ref.name ?? ref.filename ?? '');
+};
 export const humanize = (s: string) => s.replace(/[_-]+/g, ' ');
 
 /** Plain text of a cell (tooltips, sorting). */
@@ -46,6 +52,6 @@ export function cellText(col: TableColumn, row: unknown, lookups: LookupMaps, t:
         case 'tag':
             return (Array.isArray(v) ? v : [v]).map((x) => label(col, x, lookups)).join(', ');
         default:
-            return typeof v === 'object' ? JSON.stringify(v) : String(v);
+            return typeof v === 'object' ? JSON.stringify(v) : str(v);
     }
 }

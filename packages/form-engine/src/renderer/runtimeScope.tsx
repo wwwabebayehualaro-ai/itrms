@@ -74,10 +74,14 @@ export function RuntimeBridge({ store }: { store: RuntimeStore }) {
     const rtRef = useRef(rt);
     useLayoutEffect(() => {
         rtRef.current = rt;
+        const current = () => {
+            if (!rtRef.current) throw new Error('The runtime is not available');
+            return rtRef.current;
+        };
         store.setApi({
-            run: (id, body) => rtRef.current!.run(id, body),
-            refetch: (id) => rtRef.current!.refetch(id),
-            reload: () => rtRef.current!.reload(),
+            run: (id, body) => current().run(id, body),
+            refetch: (id) => current().refetch(id),
+            reload: () => current().reload(),
             getDataSource: (id) => rtRef.current?.getDataSource(id),
             hasDataSources: (rt?.config.dataSources.length ?? 0) > 0
         });

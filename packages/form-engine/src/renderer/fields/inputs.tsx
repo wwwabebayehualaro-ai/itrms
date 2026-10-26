@@ -30,11 +30,11 @@ import { CALENDAR_LANGUAGES, type CalendarLanguage } from '@itrms/ethiopian-cale
 import { useEngineText } from '../../host/text';
 import { useFileActions } from '../../host/files';
 import { formatBytes } from '../../host/format';
+import { text as str } from '../../core/runtime/path';
 import { numberFormatOf, parseDate, type EngineField } from '../../core';
 import { defineFieldType, type ValueFieldProps } from '../kit';
 import { indexOfValue, sameValue, useClearInvalid, useOptions, type OptionsState } from './options';
 
-const str = (v: unknown) => (v === undefined || v === null ? '' : String(v));
 const p = <T,>(field: EngineField, name: string, fallback?: T): T => (field.props[name] ?? fallback) as T;
 function OptionsStatus({ state }: { state: OptionsState }) {
     const { t } = useEngineText();

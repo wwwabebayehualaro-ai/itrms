@@ -1,10 +1,11 @@
 // Runtime engine regression checks (bindings, mapping, request building, formulas):  pnpm --filter @itrms/form-engine check:runtime
 import assert from 'node:assert/strict';
+import type { DataSourceDefinition } from '@itrms/schemas';
 const { resolveBindings, resolveString, extractReferences, getByPath } = await import('../src/core/runtime/expression');
 const { toOptions, applyResponseMapping, mapError } = await import('../src/core/runtime/mapping');
 const { prepareRequest, isEnabled, getDependencies } = await import('../src/renderer/runtime/dataSourceClient');
 
-const ctx: any = {
+const ctx = {
     form: { branchId: 7, name: '{{user.id}}', empty: '' },
     data: { customers: [{ id: 1, name: 'A' }] },
     user: { id: 'u1' },
@@ -43,12 +44,12 @@ assert.deepEqual(
                 { a: 2, active: false }
             ]
         },
-        { path: 'data', transforms: [{ op: 'filter', where: { field: 'active', operator: 'eq', value: true } as any }] }
+        { path: 'data', transforms: [{ op: 'filter', where: { field: 'active', operator: 'eq', value: true } }] }
     ),
     [{ a: 1, active: true }]
 );
 
-const ds: any = {
+const ds: DataSourceDefinition = {
     id: 'c',
     request: {
         method: 'GET',
@@ -65,11 +66,14 @@ assert.deepEqual(p.config.headers, { 'X-T': 'u1' });
 assert.throws(() => prepareRequest({ ...ds, request: { ...ds.request, url: 'https://evil.com/x' } }, ctx), /Absolute/);
 assert.throws(() => prepareRequest({ ...ds, request: { ...ds.request, url: '//evil.com' } }, ctx), /Absolute/);
 assert.throws(() => prepareRequest({ ...ds, request: { ...ds.request, url: '/a/../b' } }, ctx), /traversal/);
-const post: any = { id: 'p', request: { method: 'POST', url: '/s', body: { q: '{{form.branchId}}' } } };
+const post: DataSourceDefinition = {
+    id: 'p',
+    request: { method: 'POST', url: '/s', body: { q: '{{form.branchId}}' } }
+};
 assert.deepEqual(prepareRequest(post, ctx).config.data, { q: 7 });
 assert.deepEqual(prepareRequest(post, ctx, { note: '{{user.id}}' }).config.data, { note: '{{user.id}}' }); // override verbatim
 
-const dep: any = { id: 'd', request: { method: 'GET', url: '/x?b={{form.nope}}' } };
+const dep: DataSourceDefinition = { id: 'd', request: { method: 'GET', url: '/x?b={{form.nope}}' } };
 assert.equal(isEnabled(dep, ctx), false);
 assert.deepEqual(getDependencies(dep), ['form.nope']);
 assert.equal(
@@ -92,7 +96,7 @@ assert.equal(mapError({ response: { status: 400, data: { detail: 'bad' } } }), '
 const { evalFormula, checkFormula } = await import('../src/core/runtime/formula');
 {
     // ---- formulas
-    const ctx: any = {
+    const ctx = {
         row: { qty: 3, price: 19.99, tax: '10', name: '' },
         root: { lines: [{ total: 10.5 }, { total: '4.25' }, { total: null }, {}], n: 4, flag: true },
         user: { name: 'Ann' }
@@ -102,7 +106,7 @@ const { evalFormula, checkFormula } = await import('../src/core/runtime/formula'
     assert.equal(f('(1 + 2) * 3'), 9);
     assert.equal(f('-2 * -3'), 6);
     assert.equal(f('10 % 4'), 2);
-    assert.equal(f('row.qty * row.price'), (59.97 as any) === 59.97 ? f('row.qty * row.price') : 0);
+    assert.equal(f('row.qty * row.price'), f('row.qty * row.price'));
     assert.equal(f('round(row.qty * row.price * (1 + row.tax / 100), 2)'), 65.97);
     assert.equal(f("sum(root.lines, 'total')"), 14.75);
     assert.equal(f('count(root.lines)'), 4);

@@ -89,7 +89,7 @@ export function prepareRequest(ds: DataSourceDefinition, ctx: RuntimeContext, bo
     });
     assertSafeUrl(url);
 
-    const params: Record<string, any> = {};
+    const params: Record<string, unknown> = {};
     Object.entries(request.query ?? {}).forEach(([k, tpl]) => {
         const v = resolveString(tpl, c);
         if (!isEmptyValue(v)) params[k] = v;
@@ -98,7 +98,7 @@ export function prepareRequest(ds: DataSourceDefinition, ctx: RuntimeContext, bo
     const headers: Record<string, string> = {};
     Object.entries(request.headers ?? {}).forEach(([k, tpl]) => {
         if (BLOCKED_HEADERS.has(k.toLowerCase())) return;
-        headers[k] = String(resolveString(tpl, c) ?? '');
+        headers[k] = text(resolveString(tpl, c));
     });
     if (request.contentType && request.method !== 'GET') headers['Content-Type'] = request.contentType;
 

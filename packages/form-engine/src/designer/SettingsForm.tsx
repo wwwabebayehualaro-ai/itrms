@@ -25,6 +25,7 @@ import {
     Textarea,
     cn
 } from '@itrms/ui';
+import { text as plainText } from '../core/runtime/path';
 import { NumberInput } from './controls';
 import type { SettingMeta } from '../renderer/kit';
 import { useEngineText } from '../host/text';
@@ -198,7 +199,7 @@ function SettingControl({
                 </Labelled>
             );
         default: {
-            const text = typeof value === 'string' ? value : value === undefined || value === null ? '' : String(value);
+            const text = plainText(value);
             const props = {
                 id,
                 value: text,

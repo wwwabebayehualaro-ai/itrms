@@ -199,7 +199,7 @@ function ValueEditor({
                 />
             );
         if (op === 'between') {
-            const pair = Array.isArray(value) ? value : [null, null];
+            const pair: unknown[] = Array.isArray(value) ? value : [null, null];
             return (
                 <span className="flex items-center gap-2">
                     {cal(pair[0], (d) => onChange([d, pair[1] ?? null]), 'form-engine.viewer.filters.from')}
@@ -212,7 +212,7 @@ function ValueEditor({
 
     if (field.kind === 'number') {
         if (op === 'between') {
-            const pair = Array.isArray(value) ? value : [null, null];
+            const pair: unknown[] = Array.isArray(value) ? value : [null, null];
             return (
                 <span className="flex items-center gap-2">
                     <NumberBox

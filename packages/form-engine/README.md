@@ -189,8 +189,8 @@ accepts only types the contract lists). `check:engine` exercises all three.
 - `src/api/` — TanStack Query hooks for templates, submissions, server actions, attachment previews.
 - `src/host/` — the `FormsHost` contract, the `FormsClient` and its error helpers, file and directory hooks.
 
-The renderer, designer and viewer came from the web app (task 0.5), which had no typed linting: their `any` is allowed by a
-scoped override in `eslint.config.js` until tasks 0.17–0.18 type them. `core/` and `host/` follow the full rules.
+Every part follows the full typed lint rules (task 0.17e): no `any`, no unsafe access, no non-null assertions. Stored
+documents and other loose JSON come in as `unknown` and are narrowed with Zod (`@itrms/schemas`) or a type guard.
 
 ## Checks
 

@@ -25,7 +25,7 @@ import { useFormsClient, useFormsLocation } from '../../host/FormsHost';
 import { useEngineText } from '../../host/text';
 
 export interface DataSourceState {
-    data: any;
+    data: unknown;
     status: 'idle' | 'loading' | 'success' | 'error';
     isLoading: boolean;
     isFetching: boolean;
@@ -40,7 +40,7 @@ interface RuntimeValue {
     getDataSource: (id: string) => DataSourceDefinition | undefined;
     refetch: (id?: string) => Promise<void>;
     /** Run a (mutation) data source with the current context. */
-    run: (id: string, bodyOverride?: unknown) => Promise<any>;
+    run: (id: string, bodyOverride?: unknown) => Promise<unknown>;
     /** Re-apply `loadIntoForm` data and refetch all sources (used by form reset / refresh). */
     reload: () => Promise<void>;
 }
@@ -57,11 +57,11 @@ const IDLE: DataSourceState = {
 
 interface ProviderProps {
     config?: TemplateRuntimeConfig;
-    formValues: Record<string, any>;
+    formValues: Record<string, unknown>;
     /** Authenticated user info supplied by the host app (never read from the template). */
-    user?: Record<string, any>;
+    user?: Record<string, unknown>;
     /** Applies `loadIntoForm` results. */
-    onPatchForm?: (patch: Record<string, any>) => void;
+    onPatchForm?: (patch: Record<string, unknown>) => void;
     /** Mutations never auto-run; only GET sources are queried. */
     children: React.ReactNode;
 }
@@ -71,7 +71,7 @@ export function RuntimeProvider({ config = EMPTY_RUNTIME, formValues, user, onPa
     const client = useFormsClient();
     const { language } = useEngineText();
     const { params, search } = useFormsLocation();
-    const [data, setData] = useState<Record<string, any>>({});
+    const [data, setData] = useState<Record<string, unknown>>({});
 
     const route = useMemo(
         () => ({ ...Object.fromEntries(search?.entries() ?? []), ...(params ?? {}) }),
@@ -85,7 +85,7 @@ export function RuntimeProvider({ config = EMPTY_RUNTIME, formValues, user, onPa
 
     // Variables may reference form/data/user/route and earlier variables.
     const ctx: RuntimeContext = useMemo(() => {
-        const variables: Record<string, any> = {};
+        const variables: Record<string, unknown> = {};
         (config.variables ?? []).forEach((v) => {
             variables[v.name] = resolveBindings(v.value, { ...baseCtx, variables });
         });
@@ -128,7 +128,7 @@ export function RuntimeProvider({ config = EMPTY_RUNTIME, formValues, user, onPa
     const [seen, setSeen] = useState('');
     if (seen !== signature) {
         setSeen(signature);
-        const next: Record<string, any> = {};
+        const next: Record<string, unknown> = {};
         results.forEach((r, i) => {
             const ds = sources[i];
             if (ds && r.data !== undefined) next[ds.id] = r.data;

@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useState } from 'react';
-import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis, type BarShapeProps } from 'recharts';
 import { ChartColumn, Table2 } from 'lucide-react';
 import {
     ChartContainer,
@@ -112,7 +112,6 @@ function HookedBar(props: {
     height?: number;
     fill?: string;
     payload?: Datum;
-    radius?: number[];
     hook: string;
 }) {
     const { x = 0, y = 0, width = 0, height = 0, fill, payload, hook } = props;
@@ -163,14 +162,14 @@ function Bars({ data, onPick }: { data: Datum[]; onPick: (d: Datum) => void }) {
                     fill="var(--color-value)"
                     minPointSize={2}
                     isAnimationActive={false}
-                    shape={(p: any) => <HookedBar {...p} hook="bar" />}
-                    onClick={(e: any) => e?.payload && onPick(e.payload as Datum)}
+                    shape={(p: BarShapeProps) => <HookedBar {...p} hook="bar" />}
+                    onClick={(e: { payload?: Datum }) => e.payload && onPick(e.payload)}
                 >
                     <LabelList
                         dataKey="value"
                         position="right"
                         className="fill-foreground font-semibold"
-                        formatter={(v: any) => compact(Number(v))}
+                        formatter={(v: unknown) => compact(Number(v))}
                         fontSize={12}
                     />
                 </Bar>
@@ -205,14 +204,14 @@ function Columns({ data, onPick }: { data: Datum[]; onPick: (d: Datum) => void }
                     maxBarSize={28}
                     minPointSize={2}
                     isAnimationActive={false}
-                    shape={(p: any) => <HookedBar {...p} hook="col" />}
-                    onClick={(e: any) => e?.payload && onPick(e.payload as Datum)}
+                    shape={(p: BarShapeProps) => <HookedBar {...p} hook="col" />}
+                    onClick={(e: { payload?: Datum }) => e.payload && onPick(e.payload)}
                 >
                     <LabelList
                         dataKey="value"
                         position="top"
                         className="fill-foreground"
-                        formatter={(v: any) => compact(Number(v))}
+                        formatter={(v: unknown) => compact(Number(v))}
                         fontSize={11}
                     />
                 </Bar>
@@ -243,12 +242,29 @@ function Tile({ label, value, hint, hero }: { label: string; value: string; hint
 const MAX_BARS = 8;
 const MAX_MONTHS = 12;
 
-export default function DashboardView({ templateId, schema, state, patch, labeler }: ViewModeProps) {
-    const { t } = useEngineText();
-    const stage = schema.fields.find((f) => f.key === schema.roles.stage)!;
-    const measures = schema.fields.filter((f) => f.aggregatable).slice(0, 2);
+export default function DashboardView(props: ViewModeProps) {
+    const { schema } = props;
+    const stage = schema.fields.find((f) => f.key === schema.roles.stage);
     const dateField =
-        schema.fields.find((f) => f.key === schema.roles.date) ?? schema.fields.find((f) => f.key === 'created_at')!;
+        schema.fields.find((f) => f.key === schema.roles.date) ?? schema.fields.find((f) => f.key === 'created_at');
+    return stage && dateField ? (
+        <Dashboard {...props} stage={stage} dateField={dateField} />
+    ) : (
+        <InlineStatus error={props.labeler.t('form-engine.viewer.dashboard.noFields')} />
+    );
+}
+
+function Dashboard({
+    templateId,
+    schema,
+    state,
+    patch,
+    labeler,
+    stage,
+    dateField
+}: ViewModeProps & { stage: ViewField; dateField: ViewField }) {
+    const { t } = useEngineText();
+    const measures = schema.fields.filter((f) => f.aggregatable).slice(0, 2);
     const breakdown: ViewField | undefined =
         schema.fields.find((f) => !f.builtin && f.person && f.key !== stage.key) ??
         schema.fields.find(

@@ -6,17 +6,18 @@
 import type { Action } from '@itrms/schemas';
 import { getActionHandler } from './extensions';
 import { resolveBindings, resolveString } from '../core/runtime/expression';
+import { text } from '../core/runtime/path';
 import { evaluateAll } from '../core';
 
 export interface ActionOptions {
-    formValues: Record<string, any>;
+    formValues: Record<string, unknown>;
     /** `data`, `user`, `route`, `variables`, `root`, plus `eventData` / `fieldId`. */
-    context?: Record<string, any>;
+    context?: Record<string, unknown>;
     /** Runs a template data source by id through the shared authenticated client. */
-    runApi?: (dataSourceId: string, bodyOverride?: unknown) => Promise<any>;
-    setFieldValue?: (field: string, value: any) => void;
+    runApi?: (dataSourceId: string, bodyOverride?: unknown) => Promise<unknown>;
+    setFieldValue?: (field: string, value: unknown) => void;
     refetch?: (dataSourceId?: string) => Promise<void>;
-    onSuccess?: (result: any) => void;
+    onSuccess?: (result: unknown) => void;
     onError?: (error: Error) => void;
 }
 
@@ -41,14 +42,14 @@ function setValues(action: Action, o: ActionOptions) {
     Object.entries(values).forEach(([field, value]) => o.setFieldValue?.(field, resolveBindings(value, scope)));
 }
 
-export async function runAction(action: Action, o: ActionOptions): Promise<any> {
+export async function runAction(action: Action, o: ActionOptions): Promise<unknown> {
     const context = o.context ?? {};
     if (action.conditions?.length && !evaluateAll(action.conditions, o.formValues, context)) return undefined;
     try {
-        let result: any;
+        let result: unknown;
         switch (action.type) {
             case 'navigate': {
-                const url = String(resolveString(action.target || '#', scopeOf(o)) ?? '');
+                const url = text(resolveString(action.target || '#', scopeOf(o)));
                 if (/^\s*(javascript|data|vbscript):/i.test(url)) throw new Error('Unsafe navigation target');
                 if (action.meta?.newTab) window.open(url, '_blank', 'noopener,noreferrer');
                 else window.location.href = url;

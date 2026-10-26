@@ -13,6 +13,7 @@ import { formTextIn } from '@itrms/schemas';
 import { saveBlob } from '@itrms/ui';
 import { cellText, type LookupMaps } from '../runtime/cellText';
 import { getByPath } from '../../core/runtime/expression';
+import { str } from '../../core/runtime/path';
 import { toOptions } from '../../core/runtime/mapping';
 import type { TableColumn } from '@itrms/schemas';
 import { ROW_ACTION_EVENT, type RowActionDetail } from '../runtime/rowActions';
@@ -53,15 +54,17 @@ function DataTableView({ field }: DisplayFieldProps) {
         const out: LookupMaps = {};
         for (const col of columns) {
             if (!col.lookupSource) continue;
-            const data = (lookupStates[col.lookupSource]?.data ?? runtimeData?.[col.lookupSource]) as
-                Record<string, any> | undefined;
-            const fields =
-                data?.form_config?.fields ?? (Array.isArray(data?.form_config) ? data.form_config : undefined);
+            const data: unknown = lookupStates[col.lookupSource]?.data ?? runtimeData?.[col.lookupSource];
+            const formConfig = getByPath(data, 'form_config');
+            const fields = getByPath(formConfig, 'fields') ?? (Array.isArray(formConfig) ? formConfig : undefined);
             if (Array.isArray(fields)) {
                 // the lookup source is a form template: the options of the field this column shows (last part of the path)
-                const f = fields.find((x: any) => x.id === col.field.split('.').pop());
+                const f: unknown = fields.find((x: unknown) => getByPath(x, 'id') === col.field.split('.').pop());
                 const opts = (
-                    (f?.data?.dataSource?.staticData ?? f?.props?.options ?? []) as { label: unknown; value: unknown }[]
+                    (getByPath(f, 'data.dataSource.staticData') ?? getByPath(f, 'props.options') ?? []) as {
+                        label: unknown;
+                        value: unknown;
+                    }[]
                 ).filter(Boolean);
                 // a label in the screens' language (forms/text.ts)
                 out[col.field] = new Map(opts.map((o) => [String(o.value), formTextIn(o.label, language) ?? '']));
@@ -124,8 +127,8 @@ function DataTableView({ field }: DisplayFieldProps) {
             new CustomEvent<RowActionDetail>(ROW_ACTION_EVENT, { detail: { action, row, fieldId: field.id } })
         );
     // a button is shown only to people the backend would let use it (defaults are the submission permissions; override per table)
-    const canEdit = useCan(String(field.props.editPermission || 'submission:update'));
-    const canDelete = useCan(String(field.props.deletePermission || 'submission:delete'));
+    const canEdit = useCan(str(field.props.editPermission || 'submission:update'));
+    const canDelete = useCan(str(field.props.deletePermission || 'submission:delete'));
     const showView = Boolean(field.props.showView);
     const showEdit = Boolean(field.props.showEdit) && canEdit;
     const showDelete = Boolean(field.props.showDelete) && canDelete;
@@ -179,7 +182,7 @@ function DataTableView({ field }: DisplayFieldProps) {
                 className="overflow-x-auto rounded-md border"
                 style={
                     field.props.scrollable && field.props.scrollHeight
-                        ? { maxHeight: String(field.props.scrollHeight), overflowY: 'auto' }
+                        ? { maxHeight: str(field.props.scrollHeight), overflowY: 'auto' }
                         : undefined
                 }
             >
@@ -237,7 +240,7 @@ function DataTableView({ field }: DisplayFieldProps) {
                                   </TableRow>
                               ))
                             : visible.map((row, i) => (
-                                  <TableRow key={String((row as { id?: unknown })?.id ?? i)}>
+                                  <TableRow key={str((row as { id?: unknown })?.id ?? i)}>
                                       {columns.map((col) => (
                                           <TableCell key={col.field}>
                                               {lookupLoading(col) ? (

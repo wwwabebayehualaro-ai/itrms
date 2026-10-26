@@ -166,7 +166,7 @@ export default function PivotView({ templateId, schema, state, patch, labeler }:
             <div className="flex flex-wrap items-end gap-3">
                 <Setting
                     label={t('form-engine.viewer.pivot.rows')}
-                    value={rowsKey!}
+                    value={rowsKey ?? ''}
                     options={fieldOptions}
                     onChange={(v) => set({ rows: v })}
                 />

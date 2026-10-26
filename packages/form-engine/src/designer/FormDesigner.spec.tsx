@@ -2,9 +2,16 @@ import { act, renderHook, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { FormField, FormTemplate, TemplateRuntimeConfig } from '@itrms/schemas';
 import type * as UI from '@itrms/ui';
 
-const client = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), request: vi.fn() }));
+const client = vi.hoisted(() => ({
+    get: vi.fn<(url: string, options?: FormsRequestOptions) => Promise<FormsResponse>>(),
+    post: vi.fn<(url: string, data?: unknown, options?: FormsRequestOptions) => Promise<FormsResponse>>(),
+    put: vi.fn<(url: string, data?: unknown, options?: FormsRequestOptions) => Promise<FormsResponse>>(),
+    patch: vi.fn<(url: string, data?: unknown, options?: FormsRequestOptions) => Promise<FormsResponse>>(),
+    request: vi.fn<(config: FormsRequest) => Promise<FormsResponse>>()
+}));
 const notify = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warn: vi.fn(), info: vi.fn(), show: vi.fn() }));
 vi.mock('@itrms/ui', async (original) => ({
     ...(await original<typeof UI>()),
@@ -13,7 +20,16 @@ vi.mock('@itrms/ui', async (original) => ({
 
 import { FormDesigner } from './';
 import { useBuilderActions } from './';
+import type { FormsClient, FormsRequest, FormsRequestOptions, FormsResponse } from '../host/client';
 import { amText, hostRenderer } from '../test-utils';
+
+type Template = FormTemplate & { form_config: { fields: FormField[]; runtime?: TemplateRuntimeConfig } };
+
+// the mocks answer with `unknown` data; the client's methods are generic over it
+const fakeClient = client as Partial<FormsClient>;
+const answer = (data: unknown): FormsResponse => ({ data, status: 200, headers: {} });
+const record = (v: unknown): Record<string, unknown> =>
+    typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {};
 
 const ALL = ['form:create', 'form:update', 'form:publish', 'submission:create', 'submission:read', 'submission:export'];
 const asUser = {
@@ -24,16 +40,16 @@ const asUser = {
     tenant_id: 't1',
     permissions: ALL
 };
-const amHost = hostRenderer({ client, language: 'am', user: asUser });
+const amHost = hostRenderer({ client: fakeClient, language: 'am', user: asUser });
 // the English behaviour of the builder; the Amharic words have their own test below
 const renderWithQuery = hostRenderer({
-    client,
+    client: fakeClient,
     language: 'en',
     user: asUser
 });
 
 /** Puts a saved form in the builder store, as the gallery's "Edit" does, then opens the builder. */
-function open(template: any, render = renderWithQuery) {
+function open(template: Template, render = renderWithQuery) {
     const { result } = renderHook(() => useBuilderActions());
     act(() => {
         result.current.setTemplate(template);
@@ -43,7 +59,7 @@ function open(template: any, render = renderWithQuery) {
     return render(<FormDesigner />);
 }
 
-const field = (id: string, type: string, label: string, extra: Record<string, any> = {}) => ({
+const field = (id: string, type: string, label: string, extra: Record<string, unknown> = {}): FormField => ({
     id,
     type,
     label,
@@ -54,7 +70,7 @@ const field = (id: string, type: string, label: string, extra: Record<string, an
     layout: { options: { isContainer: false } },
     ...extra
 });
-const saved = {
+const saved: Template = {
     id: 'tpl-1',
     name: 'Trip',
     slug: 'trip',
@@ -67,11 +83,11 @@ const saved = {
 describe('FormDesigner', () => {
     it('adds a field from the palette, edits it, undoes, deletes with the keyboard and saves version 2', async () => {
         const user = userEvent.setup();
-        client.get.mockResolvedValue({ data: [] });
+        client.get.mockResolvedValue(answer([]));
         // the forms API answers with the form as it now is (its wire shape)
-        client.patch.mockImplementation((_url: string, body: any) =>
-            Promise.resolve({
-                data: {
+        client.patch.mockImplementation((_url, body) =>
+            Promise.resolve(
+                answer({
                     id: 'tpl-1',
                     version: 4,
                     key: 'trip',
@@ -82,9 +98,9 @@ describe('FormDesigner', () => {
                     ownerUnit: { id: 'u-1', code: 'Z', name: { en: 'Zone' } },
                     publishedVersion: null,
                     updatedAt: '2026-10-25T08:00:00.000Z',
-                    document: body.document
-                }
-            })
+                    document: record(body).document
+                })
+            )
         );
         open(saved);
 
@@ -129,11 +145,12 @@ describe('FormDesigner', () => {
         await user.click(screen.getByRole('button', { name: /^Save$/ }));
         await waitFor(() => expect(client.patch).toHaveBeenCalledTimes(1));
         const [url, body, options] = client.patch.mock.calls[0] ?? [];
+        const sent = record(record(body).document);
         expect(url).toBe('v1/forms/tpl-1');
         // the version it was based on goes as If-Match: a concurrent edit is refused, never overwritten
-        expect(options.headers['if-match']).toBe('"3"');
-        expect(body.document.schemaVersion).toBe(2);
-        expect(body.document.fields.map((f: any) => [f.id, f.type, f.label])).toEqual([
+        expect(options?.headers?.['if-match']).toBe('"3"');
+        expect(sent.schemaVersion).toBe(2);
+        expect((sent.fields as FormField[]).map((f) => [f.id, f.type, f.label])).toEqual([
             ['budget', 'InputNumber', { en: 'Budget' }] // typed in English into an Amharic form: an English text
         ]);
         await waitFor(() => expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument());
@@ -141,7 +158,7 @@ describe('FormDesigner', () => {
 
     it('previews the form on the real renderer and shows what would be stored', async () => {
         const user = userEvent.setup();
-        client.get.mockResolvedValue({ data: [] });
+        client.get.mockResolvedValue(answer([]));
         open(saved);
         await user.click(screen.getByRole('radio', { name: /Preview/ }));
         await user.type(screen.getByLabelText('Destination'), 'Lisbon');
@@ -152,7 +169,7 @@ describe('FormDesigner', () => {
 
     it('switches the language the texts are shown and edited in: canvas, inspector and preview follow', async () => {
         const user = userEvent.setup();
-        client.get.mockResolvedValue({ data: [] });
+        client.get.mockResolvedValue(answer([]));
         open(
             {
                 ...saved,
@@ -189,23 +206,23 @@ describe('FormDesigner', () => {
 
     it('saves a new form with its name in Amharic and English (both required) and the key from the English one', async () => {
         const user = userEvent.setup();
-        client.get.mockResolvedValue({ data: [] });
-        client.post.mockImplementation((_url: string, body: any) =>
-            Promise.resolve({
-                data: {
+        client.get.mockResolvedValue(answer([]));
+        client.post.mockImplementation((_url, body) =>
+            Promise.resolve(
+                answer({
                     id: 'tpl-9',
                     version: 1,
-                    key: body.key,
-                    name: body.name,
+                    key: record(body).key,
+                    name: record(body).name,
                     category: null,
                     active: true,
                     status: 'draft',
                     ownerUnit: { id: 'u-1', code: 'Z', name: { en: 'Zone' } },
                     publishedVersion: null,
                     updatedAt: '2026-10-25T08:00:00.000Z',
-                    document: body.document
-                }
-            })
+                    document: record(body).document
+                })
+            )
         );
         open({ name: '', slug: '', form_config: { fields: saved.form_config.fields, runtime: { dataSources: [] } } });
         await user.click(screen.getByRole('button', { name: /Save as/ }));
@@ -220,13 +237,13 @@ describe('FormDesigner', () => {
         await waitFor(() => expect(client.post).toHaveBeenCalledTimes(1));
         const [url, body] = client.post.mock.calls[0] ?? [];
         expect(url).toBe('v1/forms');
-        expect(body.name).toEqual({ am: 'የጉዞ ጥያቄ', en: 'Trip request' });
-        expect(body.key).toBe('trip-request');
+        expect(record(body).name).toEqual({ am: 'የጉዞ ጥያቄ', en: 'Trip request' });
+        expect(record(body).key).toBe('trip-request');
     });
 
     it('says the toolbar, the palette and the settings in Amharic when the host speaks Amharic', async () => {
         const user = userEvent.setup();
-        client.get.mockResolvedValue({ data: [] });
+        client.get.mockResolvedValue(answer([]));
         open(saved, amHost);
         expect(screen.getByRole('button', { name: amText('form-engine.designer.toolbar.save') })).toBeDisabled();
         expect(screen.getByRole('button', { name: amText('form-engine.designer.toolbar.undo') })).toBeDisabled();
@@ -248,7 +265,7 @@ describe('FormDesigner', () => {
     });
 
     it('counts the same untranslated texts whatever language the builder is opened in', async () => {
-        client.get.mockResolvedValue({ data: [] });
+        client.get.mockResolvedValue(answer([]));
         const form = {
             ...saved,
             status: 'published' as const,
@@ -260,7 +277,7 @@ describe('FormDesigner', () => {
         const counts: (string | null)[] = [];
         for (const language of ['am', 'en']) {
             const view = hostRenderer({
-                client,
+                client: fakeClient,
                 language,
                 user: {
                     id: 'u1',

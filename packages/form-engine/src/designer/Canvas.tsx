@@ -13,6 +13,7 @@ import { useDraggable, useDroppable, type Over } from '@dnd-kit/core';
 import { ArrowDown, ArrowUp, Copy, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { Badge, Button, FieldDescription, Field as FieldShell, FieldLabel, IconButton, cn } from '@itrms/ui';
 import { initialValueOf, toEngineField, type EngineField, type StoredField } from '../core';
+import { text as plainText } from '../core/runtime/path';
 import { useEngineText } from '../host/text';
 import { getFieldType, type ValueFieldDef } from '../renderer/kit';
 import { widthOf } from '../renderer/FieldTree';
@@ -306,7 +307,7 @@ function DesignValue({
 /** Repeating rows in design mode: the fields of one row, and the (inactive) add button. */
 function DesignRows({ field }: { field: EngineField }) {
     const { t } = useEngineText();
-    const noun = String(field.props.itemLabel || t('form-engine.renderer.rows.item'));
+    const noun = plainText(field.props.itemLabel || t('form-engine.renderer.rows.item'));
     return (
         <div className="flex flex-col gap-3" data-formarray={field.id}>
             <div className="flex items-center gap-2 text-sm font-medium">
@@ -325,7 +326,7 @@ function DesignRows({ field }: { field: EngineField }) {
             <div inert>
                 <Button type="button" variant="outline" size="sm">
                     <Plus />
-                    {String(field.props.addButtonLabel || t('form-engine.renderer.rows.add'))}
+                    {plainText(field.props.addButtonLabel || t('form-engine.renderer.rows.add'))}
                 </Button>
             </div>
         </div>

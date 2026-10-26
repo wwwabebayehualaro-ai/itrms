@@ -17,20 +17,22 @@ const { fromStored, toStored } = await import('../src/designer/document');
 const { readDocument } = await import('../src/core');
 const { unsupportedFields } = await import('../src/renderer/kit');
 
+type Loose = Record<string, unknown>;
+const isRecord = (v: unknown): v is Loose => !!v && typeof v === 'object' && !Array.isArray(v);
+// ids are strings or numbers in old forms
+const text = (v: unknown) => (typeof v === 'string' ? v : (JSON.stringify(v) ?? ''));
 const { versions } = JSON.parse(readFileSync(file, 'utf8')) as {
-    versions: { id: string; name: string; form_config: any }[];
+    versions: { id: string; name: string; form_config: unknown }[];
 };
 const stable = (v: unknown) =>
-    JSON.stringify(v, (_k, x) =>
-        x && typeof x === 'object' && !Array.isArray(x)
-            ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => a.localeCompare(b)))
-            : x
+    JSON.stringify(v, (_k, x: unknown) =>
+        isRecord(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => a.localeCompare(b))) : x
     );
-const siblings = (fields: any[]) => {
+const siblings = (fields: Loose[]) => {
     const m = new Map<string, string[]>();
     for (const f of fields) {
-        const p = f.parentId === undefined || f.parentId === null || f.parentId === '' ? '' : String(f.parentId);
-        m.set(p, [...(m.get(p) ?? []), String(f.id)]);
+        const p = f.parentId === undefined || f.parentId === null || f.parentId === '' ? '' : text(f.parentId);
+        m.set(p, [...(m.get(p) ?? []), text(f.id)]);
     }
     return stable(Object.fromEntries(m));
 };
@@ -40,15 +42,16 @@ const issues: string[] = [];
 const undrawable = new Map<string, number>();
 for (const v of versions) {
     const where = `${v.name} (${v.id.slice(0, 8)})`;
-    const before: any[] = Array.isArray(v.form_config) ? v.form_config : (v.form_config?.fields ?? []);
+    const stored = isRecord(v.form_config) ? v.form_config.fields : v.form_config;
+    const before = (Array.isArray(stored) ? stored : []).filter(isRecord);
     const { doc, problems } = fromStored(v.form_config);
     const after = toStored(doc);
     fields += before.length;
     if (problems.length) issues.push(`${where}: ${problems.join('; ')}`);
-    const byId = new Map(after.fields.map((f) => [String(f.id), f]));
+    const byId = new Map(after.fields.map((f) => [text(f.id), f]));
     for (const f of before)
-        if (stable(byId.get(String(f.id))) !== stable({ ...f, id: String(f.id) }))
-            issues.push(`${where}: field ${f.id} changed`);
+        if (stable(byId.get(text(f.id))) !== stable({ ...f, id: text(f.id) }))
+            issues.push(`${where}: field ${text(f.id)} changed`);
     if (after.fields.length !== before.length)
         issues.push(`${where}: ${before.length} fields before, ${after.fields.length} after`);
     if (siblings(before) !== siblings(after.fields))

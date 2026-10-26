@@ -98,7 +98,7 @@ export default function TemplateSubmissionsPage() {
     // View / Edit / Delete buttons of the table report back through a window event
     useEffect(() => {
         const onRowAction = (e: Event) => {
-            const { action, row } = (e as CustomEvent<RowActionDetail>).detail;
+            const { action, row } = (e as CustomEvent<RowActionDetail<IFormSubmission>>).detail;
             if (action === 'view') open(row);
             if (action === 'edit' && canEdit) setEditor(row);
             if (action === 'delete' && canDelete) confirmDelete(row);

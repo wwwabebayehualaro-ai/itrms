@@ -9,6 +9,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 import type { Draft } from 'immer';
+import { text as plainText } from '../core/runtime/path';
 import {
     Badge,
     Button,
@@ -135,8 +136,7 @@ function useFieldEdit(id: string) {
     return {
         language,
         plainAs,
-        set: (path: string, value: unknown) =>
-            actions.update(id, (f) => setPath(f as Record<string, any>, path, value), `${id}:${path}`),
+        set: (path: string, value: unknown) => actions.update(id, (f) => setPath(f, path, value), `${id}:${path}`),
         apply: (recipe: (f: Draft<FormField>) => void, key: string) => actions.update(id, recipe, `${id}:${key}`),
         /**
          * Write one text in the builder's language: the other languages' texts stay. A text left empty is removed (but
@@ -147,8 +147,7 @@ function useFieldEdit(id: string) {
                 id,
                 (f) => {
                     const next = writeText(f, path, language, value, plainAs);
-                    if (validated && next !== undefined)
-                        setPath(f as Record<string, any>, 'behavior.validation.supported', true);
+                    if (validated && next !== undefined) setPath(f, 'behavior.validation.supported', true);
                 },
                 `${id}:${path}:${language}`
             )
@@ -177,7 +176,7 @@ function FieldTab({ stored, field, design }: { stored: FormField; field: EngineF
         setKey(null);
     };
     const value = holdsValue(field);
-    const span = String(field.props.span ?? '12');
+    const span = plainText(field.props.span ?? '12');
     return (
         <div className="flex flex-col gap-4">
             <Row
@@ -260,8 +259,8 @@ function FieldTab({ stored, field, design }: { stored: FormField; field: EngineF
                     checked={field.rules.required}
                     onChange={(v) =>
                         actions.update(stored.id, (f) => {
-                            setPath(f as Record<string, any>, 'props.required', v);
-                            setPath(f as Record<string, any>, 'behavior.validation.supported', true); // a rule counts only on a validated field
+                            setPath(f, 'props.required', v);
+                            setPath(f, 'behavior.validation.supported', true); // a rule counts only on a validated field
                         })
                     }
                 />
@@ -329,7 +328,7 @@ function SettingsTab({ stored, design }: { stored: FormField; design?: DesignMet
             own={() => true}
             onChange={(k, v) =>
                 textSettings.has(k)
-                    ? text(`props.${k}`, String(v ?? ''))
+                    ? text(`props.${k}`, plainText(v))
                     : set(`props.${k}`, v === '' && stored.data?.defaultProps?.[k] === undefined ? undefined : v)
             }
         />
@@ -564,14 +563,15 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
     const { apply, text, language, plainAs } = useFieldEdit(stored.id);
     const rules = design?.rules ?? [];
     const rule = (name: string) => getPath(stored, `behavior.validation.rules.${name}`);
-    const patternProblem = rule('pattern') ? explainPattern(String(rule('pattern'))) : null;
+    const patternProblem = rule('pattern') ? explainPattern(plainText(rule('pattern'))) : null;
     // a rule only counts when the field is validated: turning one on turns validation on
     const setRule = (path: string, value: unknown) =>
         apply((f) => {
-            setPath(f as Record<string, any>, path, value);
-            if (value !== undefined) setPath(f as Record<string, any>, 'behavior.validation.supported', true);
+            setPath(f, path, value);
+            if (value !== undefined) setPath(f, 'behavior.validation.supported', true);
         }, path);
     const num = (v: unknown) => (typeof v === 'number' ? v : undefined);
+    const maxFileSize = num(stored.props?.maxFileSize);
     const sources = useGetSources();
     const remote = stored.behavior?.validation?.remote;
     const requiredWhen = stored.behavior?.validation?.requiredWhen?.expression ?? '';
@@ -759,7 +759,7 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                     >
                         <Input
                             id="insp-pattern"
-                            value={String(rule('pattern') ?? '')}
+                            value={plainText(rule('pattern'))}
                             aria-invalid={!!patternProblem}
                             className="font-mono text-xs"
                             onChange={(e) => setRule('behavior.validation.rules.pattern', e.target.value || undefined)}
@@ -846,7 +846,7 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                     >
                         <Input
                             id="insp-accept"
-                            value={String(stored.props?.accept ?? '')}
+                            value={plainText(stored.props?.accept)}
                             onChange={(e) => setRule('props.accept', e.target.value || undefined)}
                         />
                     </Row>
@@ -854,9 +854,7 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                         <NumberInput
                             id="insp-size"
                             value={
-                                num(stored.props?.maxFileSize) !== undefined
-                                    ? Math.round((num(stored.props?.maxFileSize)! / 1048576) * 100) / 100
-                                    : undefined
+                                maxFileSize === undefined ? undefined : Math.round((maxFileSize / 1048576) * 100) / 100
                             }
                             onChange={(n) =>
                                 setRule('props.maxFileSize', n === undefined ? undefined : Math.round(n * 1048576))

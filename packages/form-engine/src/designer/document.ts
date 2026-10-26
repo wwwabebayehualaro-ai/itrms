@@ -49,6 +49,8 @@ export type StoredDocument = {
 
 export const EMPTY_DOC: DesignDoc = { byId: {}, children: { [ROOT]: [] }, runtime: EMPTY_RUNTIME, textLanguage: 'am' };
 
+const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object';
+
 const isRuntime = (r: unknown): r is TemplateRuntimeConfig =>
     !!r && typeof r === 'object' && Array.isArray((r as TemplateRuntimeConfig).dataSources);
 
@@ -73,13 +75,8 @@ export function fromStored(
     const problems: string[] = [];
     const byId: Record<string, FormField> = {};
     const order: string[] = [];
-    (Array.isArray(raw) ? raw : []).forEach((f, i) => {
-        if (
-            !f ||
-            typeof f !== 'object' ||
-            (typeof f.id !== 'string' && typeof f.id !== 'number') ||
-            typeof f.type !== 'string'
-        )
+    (Array.isArray(raw) ? (raw as unknown[]) : []).forEach((f, i) => {
+        if (!isRecord(f) || (typeof f.id !== 'string' && typeof f.id !== 'number') || typeof f.type !== 'string')
             return problems.push(`Field ${i + 1} cannot be read and was left out`);
         const id = String(f.id);
         if (byId[id]) return problems.push(`A second field with the key "${id}" was left out`);
@@ -94,7 +91,7 @@ export function fromStored(
         // a parent chain that loops back is cut at the top level
         for (let cur: string | undefined = pid, guard = 0; cur && guard < 1000; guard++) {
             if (cur === id) return ROOT;
-            const up: unknown = byId[cur]?.parentId;
+            const up: FormField['parentId'] = byId[cur]?.parentId;
             cur = up === undefined || up === null || up === '' ? undefined : String(up);
         }
         return pid;
@@ -201,17 +198,20 @@ export function createField(
         if (typeof value === 'string') field.props[key] = asText(value);
     }
     if (def.design.options)
-        field.data!.dataSource = {
-            staticData: [
-                {
-                    label: asText(wordIn(language, 'form-engine.palette.defaults.option', { n: '1' })),
-                    value: 'option_1'
-                },
-                {
-                    label: asText(wordIn(language, 'form-engine.palette.defaults.option', { n: '2' })),
-                    value: 'option_2'
-                }
-            ]
+        field.data = {
+            ...field.data,
+            dataSource: {
+                staticData: [
+                    {
+                        label: asText(wordIn(language, 'form-engine.palette.defaults.option', { n: '1' })),
+                        value: 'option_1'
+                    },
+                    {
+                        label: asText(wordIn(language, 'form-engine.palette.defaults.option', { n: '2' })),
+                        value: 'option_2'
+                    }
+                ]
+            }
         };
     return field;
 }
@@ -280,7 +280,7 @@ export function duplicateField(d: D, id: string): string | null {
     const map = new Map(ids.map((x) => [x, uniqueKey(doc, `${x} copy`, taken)]));
     const copy = (x: string): FormField => {
         const src = JSON.parse(JSON.stringify(doc.byId[x])) as FormField;
-        const nid = map.get(x)!;
+        const nid = map.get(x) ?? x;
         return {
             ...src,
             id: nid,
@@ -295,10 +295,10 @@ export function duplicateField(d: D, id: string): string | null {
     const { parent, at } = { parent: parentOf(doc, id), at: siblingsOf(doc, id).indexOf(id) };
     const place = (x: string, into: string, index: number) => {
         insertField(d, copy(x), into, index);
-        (doc.children[x] ?? []).forEach((c, i) => place(c, map.get(x)!, i));
+        (doc.children[x] ?? []).forEach((c, i) => place(c, map.get(x) ?? x, i));
     };
     place(id, parent, at + 1);
-    return map.get(id)!;
+    return map.get(id) ?? id;
 }
 
 /** Rename a field's key everywhere it is used (children, conditions, formulas, bindings, data sources). */
@@ -327,12 +327,13 @@ export function renameKey(doc: DesignDoc, oldKey: string, newKey: string): Desig
 }
 
 /** Set (or, with `undefined`, remove) the value at a dotted path inside a field draft, creating objects on the way. */
-export function setPath(target: Record<string, any>, path: string, value: unknown) {
+export function setPath(target: Record<string, unknown>, path: string, value: unknown) {
     const keys = path.split('.');
     let o = target;
     for (const k of keys.slice(0, -1)) {
-        if (!o[k] || typeof o[k] !== 'object') o[k] = {};
-        o = o[k];
+        let next = o[k];
+        if (!isRecord(next)) o[k] = next = {};
+        o = next as Record<string, unknown>;
     }
     const last = keys[keys.length - 1] ?? '';
     if (value === undefined) delete o[last];
@@ -340,7 +341,7 @@ export function setPath(target: Record<string, any>, path: string, value: unknow
 }
 
 export const getPath = (target: unknown, path: string): unknown =>
-    path.split('.').reduce<any>((o, k) => (o == null ? undefined : o[k]), target);
+    path.split('.').reduce<unknown>((o, k) => (o == null ? undefined : (o as Record<string, unknown>)[k]), target);
 
 /**
  * Write one text of a field draft (a dotted path) in a language; the other languages' texts stay. A text left empty is
@@ -353,7 +354,7 @@ export function writeText(
     value: string,
     plainAs: string
 ): FormText | undefined {
-    const target = field as Record<string, any>;
+    const target: Record<string, unknown> = field;
     const inherited = path.startsWith('props.') ? field.data?.defaultProps?.[path.slice(6)] : undefined;
     const next = setTextIn(getPath(target, path) ?? inherited, language, value, plainAs);
     setPath(target, path, next === undefined && inherited !== undefined ? '' : next);
