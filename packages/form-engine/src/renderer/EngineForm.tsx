@@ -16,7 +16,7 @@ import { initialValues, pruneHidden, readDocument, validateForm, type EngineDocu
 import { RuntimeProvider } from './runtime/RuntimeProvider';
 import { mapToForm } from '../core/runtime/mapping';
 import { resolveBindings, resolveString } from '../core/runtime/expression';
-import { str, text } from '../core/runtime/path';
+import { text } from '../core/runtime/path';
 import type { TemplateRuntimeConfig } from '@itrms/schemas';
 import { useTemplate } from './store/formStore';
 import { unsupportedFields } from './kit';
@@ -195,12 +195,9 @@ function EngineFormBody({
             // mutations already toasted their failure (QueryProvider); only report what nobody has told the person about
             if (!host.isReported?.(err))
                 notify.error(
-                    str(
-                        failure?.response?.data?.detail ||
-                            failure?.response?.data?.message ||
-                            failure?.message ||
-                            words.t('form-engine.renderer.submit.failed')
-                    )
+                    [failure?.response?.data?.detail, failure?.response?.data?.message, failure?.message].find(
+                        (m): m is string => typeof m === 'string' && m !== ''
+                    ) ?? words.t('form-engine.renderer.submit.failed')
                 );
         }
     };

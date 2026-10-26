@@ -10,13 +10,15 @@ import type { ViewField, ViewOption, ViewSchema } from './types';
 
 export const EMPTY = '—';
 
-/** A stored value as plain text (objects as JSON, never "[object Object]"). */
+/** A stored value as plain text: a list joined by commas as before, an object as JSON (never "[object Object]"). */
 export const plain = (v: unknown): string =>
     typeof v === 'string'
         ? v
         : typeof v === 'number' || typeof v === 'boolean' || typeof v === 'bigint'
           ? String(v)
-          : (JSON.stringify(v) ?? String(undefined));
+          : Array.isArray(v)
+            ? v.map((x) => (x === null || x === undefined ? '' : plain(x))).join(',')
+            : (JSON.stringify(v) ?? String(undefined));
 
 export interface Labeler {
     field: (key: string) => ViewField | undefined;

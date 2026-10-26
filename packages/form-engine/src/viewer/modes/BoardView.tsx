@@ -229,7 +229,11 @@ function BoardColumn({
 
 export default function BoardView(props: ViewModeProps) {
     const stage = props.schema.fields.find((f) => f.key === props.schema.roles.stage);
-    return stage ? <Board {...props} stage={stage} /> : null;
+    return stage ? (
+        <Board {...props} stage={stage} />
+    ) : (
+        <InlineStatus error={props.labeler.t('form-engine.viewer.board.noStageField')} />
+    );
 }
 
 function Board(props: ViewModeProps & { stage: ViewField }) {

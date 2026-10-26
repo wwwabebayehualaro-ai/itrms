@@ -247,7 +247,11 @@ export default function DashboardView(props: ViewModeProps) {
     const stage = schema.fields.find((f) => f.key === schema.roles.stage);
     const dateField =
         schema.fields.find((f) => f.key === schema.roles.date) ?? schema.fields.find((f) => f.key === 'created_at');
-    return stage && dateField ? <Dashboard {...props} stage={stage} dateField={dateField} /> : null;
+    return stage && dateField ? (
+        <Dashboard {...props} stage={stage} dateField={dateField} />
+    ) : (
+        <InlineStatus error={props.labeler.t('form-engine.viewer.dashboard.noFields')} />
+    );
 }
 
 function Dashboard({
