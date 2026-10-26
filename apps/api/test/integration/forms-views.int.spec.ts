@@ -5,6 +5,8 @@
  * every cell neutralised (SEC-IN-8), audited with its size, and refused above the direct limit. A submission's history
  * names who did what, never the answers' values.
  */
+import { randomUUID } from 'node:crypto';
+
 import ExcelJS from 'exceljs';
 import { sheetNameOf } from '@itrms/forms/api';
 import { MAX_DIRECT_EXPORT_ROWS } from '@itrms/forms/contracts';
@@ -120,6 +122,18 @@ async function submit(who: As, answers: Record<string, unknown>, target = form):
     });
     expect(res.statusCode, res.body).toBe(201);
     return res.json<{ id: string }>().id;
+}
+
+/** A stored, unlinked file of Damot Gale, as a confirmed upload leaves it (task 0.18: a file answer names one). */
+async function storedFile(): Promise<string> {
+    const id = randomUUID();
+    await api.owner.query(
+        `insert into kernel.files (id, region_id, unit_id, status, filename, content_type, size, sha256, object_key,
+             confirmed_at)
+         values ($1, $2, $3, 'stored', 'a.pdf', 'application/pdf', 10, repeat('a', 64), $4, now())`,
+        [id, units.damot.regionId, units.damot.id, `files/${units.damot.regionId}/${id}`]
+    );
+    return id;
 }
 
 const views = (who: As, formId = form.id) => api.call('GET', `/api/v1/forms/${formId}/views`, who);
@@ -287,7 +301,7 @@ describe('an export', () => {
                 title: 'Gamma',
                 dept: 'ops',
                 urgent: false,
-                docs: [{ name: 'a.pdf', size: 10 }],
+                docs: [{ file_id: await storedFile() }],
                 lines: [{ line_qty: 2 }, { line_qty: 3 }]
             },
             { title: '=HYPERLINK("http://evil.example")', dept: 'sales' }

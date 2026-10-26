@@ -26,6 +26,7 @@ import {
     cn,
     useNotify
 } from '@itrms/ui';
+import { DOCUMENT_TYPES, type DocumentType } from '@itrms/schemas';
 import { CALENDAR_LANGUAGES, type CalendarLanguage } from '@itrms/ethiopian-calendar';
 import { useEngineText } from '../../host/text';
 import { useFileActions } from '../../host/files';
@@ -552,11 +553,15 @@ function ColorField({ field, id, value, onChange, onBlur, disabled, describedBy 
 }
 
 // ---- files: uploaded right away, the value keeps a reference per file ----------------------------------------------
+const isDocumentType = (v: string): v is DocumentType => (DOCUMENT_TYPES as readonly string[]).includes(v);
+
 export interface StoredFileRef {
     file_id: string;
     name: string;
     size: number;
     type: string;
+    /** the tag the field asked for (the server checks it against the stored file) */
+    documentType?: string;
 }
 
 function FileField({
@@ -579,6 +584,7 @@ function FileField({
     );
     const multiple = Boolean(p(field, 'multiple'));
     const maxSize = num(p(field, 'maxFileSize')) ?? 2_000_000;
+    const documentType = str(p(field, 'docType')) || undefined;
     const inputId = useId();
 
     const upload = async (chosen: File[]) => {
@@ -596,8 +602,14 @@ function FileField({
         try {
             const added: StoredFileRef[] = [];
             for (const file of ok) {
-                const r = await uploadFile({ file }); // a failure is toasted by the upload mutation
-                added.push({ file_id: r.file_id, name: r.filename, size: r.size, type: r.content_type });
+                const r = await uploadFile({ file, documentType }); // a failure is toasted by the upload mutation
+                added.push({
+                    file_id: r.file_id,
+                    name: r.filename,
+                    size: r.size,
+                    type: r.content_type,
+                    ...(documentType ? { documentType } : {})
+                });
             }
             onChange(multiple ? [...files, ...added] : added);
         } catch {
@@ -652,6 +664,11 @@ function FileField({
                             <Paperclip className="size-4 text-muted-foreground" aria-hidden="true" />
                             <span>{f.name}</span>
                             <span className="text-muted-foreground">{formatBytes(f.size)}</span>
+                            {f.documentType && isDocumentType(f.documentType) && (
+                                <span className="text-muted-foreground">
+                                    {t(`form-engine.core.documentType.${f.documentType}`)}
+                                </span>
+                            )}
                             <Button
                                 type="button"
                                 variant="ghost"

@@ -41,6 +41,7 @@ import {
     submissionQuerySchema
 } from '../contracts';
 import { FormsService } from './forms.service';
+import { RegistryLookups } from './lookups';
 import { formDefinitions } from './forms.table';
 import { render, rendering } from './export';
 import { SubmissionQueryService } from './query.service';
@@ -216,7 +217,8 @@ export class SubmissionsController {
     constructor(
         @Inject(DATABASE) private readonly db: Database,
         @Inject(SubmissionsService) private readonly submissions: SubmissionsService,
-        @Inject(SubmissionQueryService) private readonly queries: SubmissionQueryService
+        @Inject(SubmissionQueryService) private readonly queries: SubmissionQueryService,
+        @Inject(RegistryLookups) private readonly lookups: RegistryLookups
     ) {}
 
     /**
@@ -288,7 +290,9 @@ export class SubmissionsController {
     create(@Body() body: SubmissionCreateDto) {
         const ctx = requestDbContext();
         const { roles } = currentPrincipal();
-        return this.db.scoped(ctx, (tx) => this.submissions.create(tx, ctx, roles, body, currentContext()?.language));
+        return this.db.scoped(ctx, (tx) =>
+            this.submissions.create(tx, ctx, roles, body, this.lookups, currentContext()?.language)
+        );
     }
 
     @Get(':id')

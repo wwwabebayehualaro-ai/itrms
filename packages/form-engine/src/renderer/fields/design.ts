@@ -19,6 +19,7 @@ import {
     ListChecks,
     Minus,
     Palette,
+    BookUser,
     Paperclip,
     Rows3,
     SlidersHorizontal,
@@ -34,7 +35,9 @@ import {
     Group,
     PanelTop
 } from 'lucide-react';
+import { DOCUMENT_TYPES } from '@itrms/schemas';
 import { describeFieldType, setting, type SettingMeta } from '../kit';
+import type { EngineWord } from '../../core/messages';
 
 const text = (meta: SettingMeta) => setting(z.string().optional(), meta);
 const num = (meta: SettingMeta) => setting(z.number().optional(), meta);
@@ -314,8 +317,32 @@ describeFieldType('FileUpload', {
         chooseLabel: text({
             title: 'form-engine.settings.FileUpload.chooseLabel.title',
             placeholderWord: 'form-engine.settings.FileUpload.chooseLabel.placeholder'
+        }),
+        docType: setting(z.enum(DOCUMENT_TYPES).optional(), {
+            title: 'form-engine.settings.FileUpload.docType.title',
+            labels: Object.fromEntries(
+                DOCUMENT_TYPES.map((code) => [code, `form-engine.core.documentType.${code}` as const])
+            ) satisfies Record<string, EngineWord>
         })
     })
+});
+
+// ---- registry ---------------------------------------------------------------------------------------------------------
+describeFieldType('RegistryLookup', {
+    label: 'form-engine.palette.type.RegistryLookup.label',
+    icon: BookUser,
+    group: 'data',
+    hint: 'form-engine.palette.type.RegistryLookup.hint',
+    keywords: ['registry', 'lookup', 'person', 'organisation', 'record', 'search'],
+    settings: z.object({
+        provider: setting(z.string().optional(), {
+            title: 'form-engine.settings.RegistryLookup.provider.title',
+            optionsFrom: 'registryLookups'
+        }),
+        showFacts: flag({ title: 'form-engine.settings.RegistryLookup.showFacts.title' }),
+        placeholder
+    }),
+    defaults: { showFacts: true }
 });
 
 // ---- layout -----------------------------------------------------------------------------------------------------------

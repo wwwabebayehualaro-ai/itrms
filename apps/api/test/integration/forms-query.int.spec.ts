@@ -86,7 +86,6 @@ const ROWS = [
         amount: 40,
         when: '2026-10-02T00:00:00.000Z',
         urgent: false,
-        docs: [{ name: 'a.pdf', size: 10 }],
         lines: [{ line_qty: 2 }, { line_qty: 3 }]
     },
     // a value of the wrong type and missing values must not break a query
@@ -147,6 +146,18 @@ async function submit(who: As, formId: string, versionId: string, answers: Recor
     expect(res.statusCode, res.body).toBe(201);
 }
 
+/** A stored, unlinked file of Damot Gale, as a confirmed upload leaves it (the object itself is not read here). */
+async function storedFile(): Promise<string> {
+    const id = randomUUID();
+    await api.owner.query(
+        `insert into kernel.files (id, region_id, unit_id, status, filename, content_type, size, sha256, object_key,
+             confirmed_at)
+         values ($1, $2, $3, 'stored', 'a.pdf', 'application/pdf', 10, repeat('a', 64), $4, now())`,
+        [id, units.damot.regionId, units.damot.id, `files/${units.damot.regionId}/${id}`]
+    );
+    return id;
+}
+
 const query = (formId: string, body: object = {}, who: As = as.damot()) =>
     api.call('POST', '/api/v1/submissions/query', who, { formId, ...body });
 const titles = (r: { json: () => unknown }) => (r.json() as Result).items.map((i) => String(i.answers.title));
@@ -195,12 +206,11 @@ beforeAll(async () => {
         // an answer of another kind ('n/a' in a number) cannot come through the API any more (task 0.17b), but stored
         // answers may hold one (older data): it is written into the stored answers, as such data would be
         for (const row of ROWS)
-            await submit(
-                as.damot(),
-                form.id,
-                form.versionId,
-                Object.fromEntries(Object.entries(row).filter(([, v]) => v !== 'n/a'))
-            );
+            await submit(as.damot(), form.id, form.versionId, {
+                ...Object.fromEntries(Object.entries(row).filter(([, v]) => v !== 'n/a')),
+                // a file answer names a stored file of the caller's office (task 0.18): one per submission
+                ...(row.title === 'Gamma' ? { docs: [{ file_id: await storedFile() }] } : {})
+            });
         await api.owner.query(
             `update forms.submissions set answers = jsonb_set(answers, '{amount}', '"n/a"')
               where form_id = $1 and answers->>'title' = 'delta'`,

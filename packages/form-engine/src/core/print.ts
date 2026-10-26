@@ -85,6 +85,8 @@ export interface PrintOptions {
     gregorian?: boolean;
     /** the most columns a repeatable section prints as a table (default 6) */
     maxTableColumns?: number;
+    /** the label of each registry record a lookup answer refers to, by id (the id prints when not given) */
+    refs?: ReadonlyMap<string, string>;
 }
 
 export interface PrintDocument {
@@ -135,7 +137,7 @@ function dayText(v: unknown, language: string): string {
 export function printValueText(
     field: EngineField,
     value: unknown,
-    opts: Pick<PrintOptions, 'language' | 'words' | 'gregorian'>
+    opts: Pick<PrintOptions, 'language' | 'words' | 'gregorian' | 'refs'>
 ): string {
     const words = { ...printWords(opts.language), ...opts.words };
     const kind = valueKindOf(field);
@@ -178,6 +180,8 @@ export function printValueText(
             const text = ethiopianDateText(at.day, { language, long: true });
             return text ? [text, at.time].filter(Boolean).join(' ') : String(value);
         }
+        case 'ref':
+            return opts.refs?.get(String(value)) ?? String(value);
         case 'files':
             return (Array.isArray(value) ? value : [])
                 .map((f) => (isRecord(f) ? (nonEmpty(f.name) ?? nonEmpty(f.filename) ?? '') : ''))
@@ -198,7 +202,7 @@ export function printModel(form: unknown, values: Record<string, unknown>, opts:
     const byId = new Map(fields.map((f) => [f.id, f]));
     const root = pruneHidden(fields, knownValues(fields, values), scope);
     const ctx = { ...scope, root };
-    const printOpts = { language: opts.language, words, gregorian: opts.gregorian };
+    const printOpts = { language: opts.language, words, gregorian: opts.gregorian, refs: opts.refs };
 
     const ownRoles = (f: EngineField) =>
         !opts.roles || !f.visibleToRoles?.length || f.visibleToRoles.some((r) => opts.roles?.includes(r));

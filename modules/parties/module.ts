@@ -8,7 +8,8 @@ export default defineModule({
     key: 'parties',
     layer: 'registry',
     version: '0.0.0',
-    dependsOn: ['kernel'],
+    dependsOn: ['kernel', 'forms'],
+    lookups: ['person', 'organisation'],
     title: { am: 'የሰዎችና የድርጅቶች መዝገብ', en: 'People and organisations' },
     permissions: {
         // lookup: find a person by an exact FIN or phone (intake only; each one is audited)

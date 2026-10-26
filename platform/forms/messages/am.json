@@ -13,5 +13,8 @@
   "forms.export.failed.invalid_query": "እንደተጠየቀው ሊዘጋጅ አይችልም (መስክ ወይም ማጣሪያ የለም)።",
   "forms.export.failed.not_permitted": "በዚህ ጽሕፈት ቤት የማውጣት መብት የለዎትም።",
   "forms.export.failed.failed": "ማውጣቱ ሊዘጋጅ አልቻለም፤ እንደገና ይጠይቁ።",
-  "forms.validation.tooManyChoices": "ቢበዛ {max} ምርጫዎች"
+  "forms.validation.tooManyChoices": "ቢበዛ {max} ምርጫዎች",
+  "forms.validation.invalidReference": "ይህ መዝገብ አልተገኘም ወይም ከእንግዲህ ሊመረጥ አይችልም",
+  "forms.validation.fileNotUsable": "ይህ ፋይል ጥቅም ላይ ሊውል አይችልም፤ እንደገና ይጫኑት",
+  "forms.validation.wrongDocumentType": "ይህ ፋይል የተጠየቀው የሰነድ ዓይነት አይደለም"
 }

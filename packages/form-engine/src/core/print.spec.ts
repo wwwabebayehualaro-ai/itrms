@@ -266,3 +266,18 @@ describe('printModel', () => {
         expect(text(out.nodes, 'at')).toBe(ethiopianDateText('2026-10-25', { language: 'en', long: true }));
     });
 });
+
+describe('printing a registry reference', () => {
+    const ID = '0b8f7a52-3c1d-4e6a-9f10-5d2c8e7b1a34';
+    const doc = { fields: [F('owner', 'RegistryLookup', { props: { provider: 'person' } })] };
+    const textOf = (refs?: ReadonlyMap<string, string>) => {
+        const node = printModel(doc, { owner: ID }, { language: 'en', refs }).nodes[0];
+        return node?.kind === 'value' ? node.text : undefined;
+    };
+
+    it('prints the label it is given, else the id', () => {
+        expect(textOf(new Map([[ID, 'Sample Person']]))).toBe('Sample Person');
+        expect(textOf(new Map())).toBe(ID);
+        expect(textOf()).toBe(ID);
+    });
+});

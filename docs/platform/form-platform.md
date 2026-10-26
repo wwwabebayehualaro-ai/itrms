@@ -46,7 +46,7 @@ effects: {
       applicant: personRef(),                         // must come from a RegistryLookup(person) field
       licenceCategory: z.enum(LICENCE_CATEGORIES),    // a choice field whose options come from reference data
       educationLevel: z.enum(EDUCATION_LEVELS),
-      medicalCertificate: fileRef({ docType: 'medical-certificate' }),
+      medicalCertificate: fileRef({ docType: 'medical_certificate' }),
       trainingCompletion: z.object({ school: orgRef('training_school'), completedOn: ethDate() }),
     }),
   },

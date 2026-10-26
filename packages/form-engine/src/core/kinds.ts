@@ -7,7 +7,18 @@ import { isFormArray, type EngineField } from './model';
 import { engineTranslator, type EngineMessageKey } from './messages';
 
 export type ValueKind =
-    'text' | 'number' | 'boolean' | 'date' | 'datetime' | 'ethdate' | 'choice' | 'multi' | 'range' | 'files' | 'rows';
+    | 'text'
+    | 'number'
+    | 'boolean'
+    | 'date'
+    | 'datetime'
+    | 'ethdate'
+    | 'choice'
+    | 'multi'
+    | 'range'
+    | 'files'
+    | 'rows'
+    | 'ref';
 
 const TEXT_TYPES = new Set(['InputText', 'InputTextarea', 'InputMask', 'AutoComplete', 'ColorPicker', 'Password']);
 const MULTI_TYPES = new Set(['MultiSelect', 'CheckboxGroup', 'Chips']);
@@ -27,6 +38,7 @@ export function valueKindOf(f: Pick<EngineField, 'type' | 'props'>): ValueKind |
     if (t === 'Calendar') return f.props.showTime ? 'datetime' : 'date';
     if (t === 'EthDate') return 'ethdate';
     if (t === 'FileUpload') return 'files';
+    if (t === 'RegistryLookup') return 'ref';
     if (isFormArray(f)) return 'rows';
     return null;
 }
@@ -38,6 +50,7 @@ const isOption = (v: unknown) => isScalar(v) || isObject(v);
 const isNumeric = (v: unknown) =>
     (typeof v === 'number' && Number.isFinite(v)) ||
     (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v)));
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const INSTANT = /^(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$/;
 
 function isInstant(v: unknown): boolean {
@@ -94,6 +107,10 @@ export function shapeError(f: EngineField, v: unknown, language = 'am'): string 
             return Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === 'number' && Number.isFinite(n))
                 ? undefined
                 : bad('form-engine.core.validation.checkSelection');
+        case 'ref':
+            return typeof v === 'string' && UUID.test(v)
+                ? undefined
+                : bad('form-engine.core.validation.invalidReference');
         case 'files':
             return Array.isArray(v) && v.every(isFile) ? undefined : bad('form-engine.core.validation.invalidFile');
     }

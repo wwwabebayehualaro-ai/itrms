@@ -1,5 +1,5 @@
 // Public entry of @itrms/kernel (code-structure.md §4): the payloads of the events the kernel emits.
-import { INSTALLABLE_LANGUAGES } from '@itrms/schemas';
+import { DOCUMENT_TYPES, INSTALLABLE_LANGUAGES } from '@itrms/schemas';
 import { z } from 'zod';
 
 /** A unit was created, renamed, moved or deactivated (the identity provider's groups follow). */
@@ -81,10 +81,7 @@ export const fileUploadRequestSchema = z.strictObject({
     /** SHA-256 of the content, hex: the browser computes it, the server checks it on confirmation */
     sha256: z.string().regex(/^[0-9a-f]{64}$/, 'expected a hex SHA-256'),
     /** the kind of document (`id_card`, `medical_certificate` …) */
-    documentType: z
-        .string()
-        .regex(/^[a-z][a-z0-9_]{1,40}$/)
-        .optional()
+    documentType: z.enum(DOCUMENT_TYPES).optional()
 });
 export type FileUploadRequest = z.infer<typeof fileUploadRequestSchema>;
 

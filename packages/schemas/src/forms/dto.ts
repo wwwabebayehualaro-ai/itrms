@@ -89,6 +89,28 @@ export const submissionPageSchema = z.object({
 
 export type SubmissionPage = z.infer<typeof submissionPageSchema>;
 
+/** What an uploaded document is (the tag a FileUpload field can require, and the file's `document_type`). */
+export const DOCUMENT_TYPES = [
+    'id_card',
+    'fayda_card',
+    'photo',
+    'medical_certificate',
+    'libre_copy',
+    'bolo_certificate',
+    'driver_licence_copy',
+    'training_certificate',
+    'education_certificate',
+    'tin_certificate',
+    'trade_licence',
+    'contract',
+    'design_drawing',
+    'payment_receipt',
+    'letter',
+    'other'
+] as const;
+
+export type DocumentType = (typeof DOCUMENT_TYPES)[number];
+
 /** A stored upload (an attachment field's value refers to it by `file_id`). */
 export const uploadedFileSchema = z.object({
     file_id: z.string(),

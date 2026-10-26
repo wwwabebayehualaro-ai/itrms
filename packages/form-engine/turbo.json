@@ -3,7 +3,7 @@
   "extends": ["//"],
   "tasks": {
     "test": {
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/config/**", "$TURBO_ROOT$/contracts/form-config.schema.json"]
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/config/**"]
     }
   }
 }

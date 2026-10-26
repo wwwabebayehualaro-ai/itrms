@@ -121,6 +121,14 @@ export function loadSlices<Module>(
             if (other) problems.push(`${m.key}: emits "${event}", which "${other}" already emits`);
             else emitter.set(event, m.key);
         }
+    // registry lookups: a key (what a form field's provider names) has one owner
+    const lookupOwner = new Map<string, string>();
+    for (const m of all)
+        for (const lookup of m.lookups) {
+            const other = lookupOwner.get(lookup);
+            if (other) problems.push(`${m.key}: declares lookup "${lookup}", which "${other}" already declares`);
+            else lookupOwner.set(lookup, m.key);
+        }
     for (const { manifest: m, effects = [], events = {} } of enabled) {
         for (const effect of m.effects)
             if (!effects.includes(effect))

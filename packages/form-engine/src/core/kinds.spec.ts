@@ -18,6 +18,9 @@ describe('valueKindOf', () => {
             else expect(valueKindOf(field(type)), type).not.toBeNull();
         }
     });
+    it('gives a registry lookup the kind ref', () => {
+        expect(valueKindOf(field('RegistryLookup', { provider: 'person' }))).toBe('ref');
+    });
     it('follows the props of Dropdown, Slider and Calendar', () => {
         expect(valueKindOf(field('Dropdown'))).toBe('choice');
         expect(valueKindOf(field('Dropdown', { multiple: true }))).toBe('multi');
@@ -36,6 +39,15 @@ describe('shapeError', () => {
         expect(shapeError(field(type, props), value), `${type} ${JSON.stringify(value)}`).toBeUndefined();
     const bad = (type: string, value: unknown, props: Record<string, unknown> = {}) =>
         expect(shapeError(field(type, props), value), `${type} ${JSON.stringify(value)}`).toEqual(expect.any(String));
+
+    it('takes only a uuid string as a registry reference', () => {
+        ok('RegistryLookup', '0b8f7a52-3c1d-4e6a-9f10-5d2c8e7b1a34', { provider: 'person' });
+        for (const value of ['abc', 12, true, ['0b8f7a52-3c1d-4e6a-9f10-5d2c8e7b1a34'], { id: 'x' }])
+            bad('RegistryLookup', value, { provider: 'person' });
+        expect(shapeError(field('RegistryLookup', { provider: 'person' }), 'abc', 'en')).toBe(
+            'Choose a record from the list'
+        );
+    });
 
     it('lets a blank through for every kind', () => {
         for (const type of [

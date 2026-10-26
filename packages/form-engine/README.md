@@ -2,8 +2,8 @@
 
 Builds, stores and runs dynamic forms. A form is JSON in `form_config`: `{ schemaVersion?: 2, fields: FormField[], runtime?: TemplateRuntimeConfig }`,
 a flat list of fields linked by `parentId`. That shape is a contract: its types, Zod schemas and the backend contract live in
-`@itrms/schemas` (`forms/`), and the backend checks every saved form against `contracts/form-config.schema.json` (generated
-from them and the field kit: `pnpm --filter @itrms/form-engine form:schema`).
+`@itrms/schemas` (`forms/`), and the API checks every saved form against `formConfigSchema(FIELD_TYPES)` (`FIELD_TYPES` in
+`src/core/fieldTypes.ts` is kept by hand; a test fails when it differs from the kit).
 
 Rules: [code-structure.md](../../docs/platform/code-structure.md) §3 and §7.
 
@@ -164,8 +164,8 @@ describeFieldType('Iban', {
 registerAction('exportPdf', async ({ payload, formValues, context, setFieldValue, runApi, refetch }) => { ... });
 ```
 
-Register once at app start (module scope of a client component or provider). A new type also needs `form:schema` (the backend
-accepts only types the contract lists). `check:engine` exercises all three.
+Register once at app start (module scope of a client component or provider). A new built-in type also needs an entry in `FIELD_TYPES` (the API
+accepts only types it lists). `check:engine` exercises all three.
 
 ## How it is built
 
@@ -199,7 +199,6 @@ documents and other loose JSON come in as `unknown` and are narrowed with Zod (`
 - the unit and component tests (`src/**/*.spec.ts(x)`; core's run in Node);
 - `check:engine` — extension points (a custom type end to end, every built-in type creates a valid, drawable field, actions);
 - `check:runtime` — bindings, mapping, requests, formulas;
-- `form:schema --check` — the backend contract is up to date with the kit.
 
 `check:roundtrip <fixtures.json>` checks that the builder opens and saves real forms unchanged (fixtures:
 `{ versions: [{ id, name, form_config }] }`, exported from a database). The e2e journeys are in the web app

@@ -56,6 +56,8 @@
   "form-engine.palette.type.RadioButton.label": "የምርጫ ቁልፎች",
   "form-engine.palette.type.Rating.hint": "ከ1 እስከ 5 (ወይም ከዚያ በላይ) ኮከቦች።",
   "form-engine.palette.type.Rating.label": "ደረጃ አሰጣጥ",
+  "form-engine.palette.type.RegistryLookup.hint": "ከመዝገብ ሰው ወይም ድርጅት ይምረጡ።",
+  "form-engine.palette.type.RegistryLookup.label": "የመዝገብ ፍለጋ",
   "form-engine.palette.type.Slider.hint": "በመለኪያ ላይ የሚመረጥ ቁጥር።",
   "form-engine.palette.type.Slider.label": "ተንሸራታች",
   "form-engine.palette.ui.add": "{label} ጨምር",

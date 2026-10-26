@@ -696,12 +696,12 @@
         {
           "id": "0.18",
           "title": "Form engine for ITRMS, part 2",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.18-registry-lookup",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Definition of ready: the Fee field needs fee rules and their evaluator (0.22) and service configuration (0.21), neither built yet; moved to 0.22 in the phase file (2026-10-26). The rest is ready. Design (architect): a lookup provider registry in platform/forms (RegistryLookups; parties registers person and organisation providers through Nest DI, platform never imports modules), GET api/v1/registry-lookups endpoints, the stored value is the bare uuid ('ref' kind), the server resolves ids under RLS (another region's id → 422 invalid_reference); files resolved from the stored row, doc-type checked and finally linked to the submission (fixes unlinked attachments that expired after 7 days); DOCUMENT_TYPES fixed code list; form:schema removed (the API already validates with Zod). No migrations. Built in three batches: engine (RegistryLookup field, 'ref' kind, lookupRefs, print refs, FileField docType, provider/docType settings, host lookup hooks, viewer label cells, Combobox onSearchChange, form:schema removed — FIELD_TYPES hand-kept, registered-types spec); platform (RegistryLookups + controller, resolveFiles/checkReferences/linkFile on submit with per-path 422 codes, assertLookups on save/publish, 'ref' view kind, kernel documentType enum, loader lookup-owner check, OpenAPI); parties (person and organisation providers, never FIN/phone/birth date) + forms-lookups.int.spec.ts, app.spec lookup registration, existing int tests send real stored files. Local: turbo lint+typecheck+test 63/63, boundaries 988 modules, i18n complete."
         },
         {
           "id": "0.18a",

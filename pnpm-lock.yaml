@@ -529,6 +529,9 @@ importers:
 
   modules/parties:
     dependencies:
+      '@itrms/forms':
+        specifier: workspace:*
+        version: link:../../platform/forms
       '@itrms/kernel':
         specifier: workspace:*
         version: link:../../platform/kernel

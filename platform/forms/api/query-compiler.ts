@@ -167,7 +167,13 @@ export class QueryCompiler {
         if (spec.column) return sql`${spec.column} is null`;
         if (spec.kind === 'multi' || spec.kind === 'files' || spec.kind === 'rows')
             return sql`coalesce(${this.node(spec)}, 'null'::jsonb) in ('null'::jsonb, '[]'::jsonb, '""'::jsonb, '{}'::jsonb)`;
-        if (spec.kind === 'text' || spec.kind === 'choice' || spec.kind === 'date' || spec.kind === 'datetime')
+        if (
+            spec.kind === 'text' ||
+            spec.kind === 'choice' ||
+            spec.kind === 'ref' ||
+            spec.kind === 'date' ||
+            spec.kind === 'datetime'
+        )
             return sql`coalesce(${this.text(spec)}, '') = ''`;
         return sql`${this.value(spec)} is null`;
     }
@@ -248,7 +254,7 @@ export class QueryCompiler {
                 : this.holds(spec, value);
         }
 
-        if (kind === 'person' || kind === 'unit') {
+        if (kind === 'person' || kind === 'unit' || kind === 'ref') {
             const column = spec.column ?? this.text(spec);
             if (op === 'eq') return sql`${column} = ${asUuid(value)}::uuid`;
             const ids = sql.join(
