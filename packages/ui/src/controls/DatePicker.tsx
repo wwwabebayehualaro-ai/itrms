@@ -24,6 +24,8 @@ export interface DatePickerProps {
     'aria-label'?: string;
     'aria-describedby'?: string;
     className?: string;
+    /** The time input's accessible name (default "Time"). */
+    timeLabel?: string;
     onOpenChange?: (open: boolean) => void;
 }
 
@@ -38,6 +40,7 @@ export function DatePicker({
     onChange,
     id,
     placeholder = 'Pick a date',
+    timeLabel = 'Time',
     withTime,
     min,
     max,
@@ -100,7 +103,7 @@ export function DatePicker({
                     {withTime && (
                         <Input
                             type="time"
-                            aria-label="Time"
+                            aria-label={timeLabel}
                             value={time}
                             className="h-(--field-height-sm) w-28"
                             onChange={(e) => {

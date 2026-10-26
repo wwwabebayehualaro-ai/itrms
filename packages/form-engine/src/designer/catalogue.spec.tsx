@@ -73,3 +73,36 @@ describe('the builder palette and field settings in the catalogues', () => {
         expect(screen.getByText(amText('form-engine.settings.inspector.field.requiredHelp'))).toBeTruthy();
     });
 });
+
+describe('an option value in an Amharic session (task 0.17d)', () => {
+    it('lets the placeholder value of a default option follow the first label with letters', async () => {
+        const user = userEvent.setup();
+        const { OptionsEditor } = await import('./controls');
+        const { useState } = await import('react');
+        let latest: unknown[] = [];
+        const Host = () => {
+            const [rows, setRows] = useState<{ label: string; value: string }[]>([
+                { label: amText('form-engine.palette.defaults.option', { n: '1' }), value: 'option_1' },
+                { label: amText('form-engine.palette.defaults.option', { n: '2' }), value: 'option_2' }
+            ]);
+            return (
+                <OptionsEditor
+                    value={rows}
+                    onChange={(next) => {
+                        latest = next;
+                        setRows(next as typeof rows);
+                    }}
+                />
+            );
+        };
+        hostRenderer({ language: 'am' })(<Host />);
+        const second = screen.getByLabelText(amText('form-engine.settings.controls.options.label', { n: '2' }));
+        await user.clear(second);
+        await user.type(second, 'Town');
+        expect(latest[1]).toEqual({ label: 'Town', value: 'town' });
+        // a translation or an Amharic label never changes it again once it has one of its own
+        await user.clear(second);
+        await user.type(second, 'ከተማ');
+        expect(latest[1]).toMatchObject({ value: 'town' });
+    });
+});

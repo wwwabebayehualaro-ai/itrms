@@ -2096,6 +2096,16 @@
       "foundIn": "0.17d",
       "item": "The engine's ~800 Amharic texts were written by the team: a native reviewer at a bureau signs them off (i18n-and-languages.md §5), with the shell's",
       "movedTo": "Phase 0 gate (demo validation)"
+    },
+    {
+      "foundIn": "0.17d",
+      "item": "Developer/configuration errors that can surface in a submit toast stay English (renderer/actions.ts 'Unsafe navigation target', 'apiCall actions need a data source id and a runtime'): give them error codes and catalogue words",
+      "movedTo": "0.18"
+    },
+    {
+      "foundIn": "0.17d",
+      "item": "The app's own words are still English in places the journeys meet (the request dialog's 'New request' / 'Submit request' / 'Save changes', the gallery's publish dialog, approvals, the record page's History tab, home tiles) and the date picker's calendar (react-day-picker month names and navigation): move them to apps/web catalogues and give the calendar a locale",
+      "movedTo": "0.18"
     }
   ]
 }

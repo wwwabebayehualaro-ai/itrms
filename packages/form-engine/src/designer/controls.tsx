@@ -185,8 +185,15 @@ export const valueFromLabel = (label: string) =>
 /**
  * The choices of a field. The value is what is stored in a request (and filtered on); it follows the English (or plain)
  * label until it is edited, so "Sick leave" stores `sick_leave`. A label without letters (Amharic) never makes a value:
- * a new option gets `option_<n>`, an option that has one keeps it. Editing a label changes that language's text only.
+ * a new option gets `option_<n>`, a placeholder that follows the first label with letters written in the authoring
+ * language; an option with a value of its own keeps it. Editing a label changes that language's text only.
  */
+/** `option_<n>`: the value an option gets while its label gives none. */
+const isPlaceholderValue = (v: string): boolean => {
+    const n = v.startsWith('option_') ? v.slice('option_'.length) : '';
+    return n.length > 0 && [...n].every((c) => c >= '0' && c <= '9');
+};
+
 /** The first `option_<n>` no option stores yet (an option whose label gives no value of its own). */
 function freeValue(rows: readonly OptionRow[]): string {
     const taken = new Set(rows.map((r) => String(r.value)));
@@ -216,10 +223,11 @@ export function OptionsEditor({
         const before = keySourceOf(r.label);
         // a translation never changes what an answer stores: the value follows the label only while it is written in
         // the authoring language (and still equals the value made from it), or while the option has none
+        const placeholder = valueFromLabel(before) === '' && isPlaceholderValue(String(r.value));
         const follows =
             r.value === undefined ||
             r.value === '' ||
-            (language === plainAs && String(r.value) === valueFromLabel(before));
+            (language === plainAs && (String(r.value) === valueFromLabel(before) || placeholder));
         const proposed = valueFromLabel(keySourceOf(label));
         const next: OptionRow = { ...r };
         if (label === undefined) delete next.label;

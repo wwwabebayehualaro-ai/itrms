@@ -186,7 +186,11 @@ function ChoiceField({ field, id, value, onChange, onBlur, disabled, invalid, de
     const common = {
         id,
         options: state.options,
-        placeholder: str(p(field, 'placeholder')) || undefined,
+        placeholder:
+            str(p(field, 'placeholder')) ||
+            t(multiple ? 'form-engine.renderer.choice.selectMany' : 'form-engine.renderer.choice.selectOne'),
+        loadingLabel: t('form-engine.renderer.choice.loading'),
+        searchPlaceholder: t('form-engine.renderer.choice.search'),
         searchable: Boolean(p(field, 'filter')) || state.options.length > 7 || field.type === 'AutoComplete',
         clearable: Boolean(p(field, 'showClear')) || !field.rules.required,
         clearLabel: t('form-engine.renderer.field.clear', {
@@ -369,6 +373,7 @@ const dayString = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 function DateField({ field, id, value, onChange, onBlur, disabled, invalid, describedBy }: ValueFieldProps<unknown>) {
+    const { t } = useEngineText();
     const withTime = Boolean(p(field, 'showTime'));
     const fmt = toDateFnsFormat(str(p(field, 'dateFormat')) || 'mm/dd/yy');
     const timeFmt = p(field, 'hourFormat') === '12' ? 'h:mm a' : 'HH:mm';
@@ -381,7 +386,8 @@ function DateField({ field, id, value, onChange, onBlur, disabled, invalid, desc
             min={parseDate(field.rules.minDate)}
             max={parseDate(field.rules.maxDate)}
             formatLabel={(d) => formatDateFns(d, fmt) + (withTime ? ` ${formatDateFns(d, timeFmt)}` : '')}
-            placeholder={str(p(field, 'placeholder')) || undefined}
+            placeholder={str(p(field, 'placeholder')) || t('form-engine.renderer.date.placeholder')}
+            timeLabel={t('form-engine.renderer.date.time')}
             disabled={disabled}
             invalid={invalid}
             aria-describedby={describedBy}
@@ -512,6 +518,7 @@ function RatingField({ field, id, value, onChange, onBlur, disabled, describedBy
 }
 
 function ChipsField({ field, id, value, onChange, onBlur, disabled, invalid, describedBy }: ValueFieldProps<string[]>) {
+    const { t } = useEngineText();
     return (
         <TagsInput
             id={id}
@@ -519,7 +526,7 @@ function ChipsField({ field, id, value, onChange, onBlur, disabled, invalid, des
             onChange={onChange}
             onBlur={onBlur}
             separator={str(p(field, 'separator')) || ','}
-            placeholder={str(p(field, 'placeholder')) || undefined}
+            placeholder={str(p(field, 'placeholder')) || t('form-engine.renderer.chips.placeholder')}
             disabled={disabled}
             invalid={invalid}
             aria-describedby={describedBy}

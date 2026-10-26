@@ -10,7 +10,8 @@ import { PEOPLE, api, field, publishedForm, runName, signedIn, switchOff } from 
 
 // the page runs in Amharic, so the engine's own words are looked up in its Amharic catalogue
 const am = engineTranslator('am');
-const SUBMIT = am('form-engine.renderer.submit.label');
+// the request dialog names its own submit button (the app's label, not the engine's)
+const SUBMIT = 'Submit request';
 // any number of fields: the plural's "other" form with a number pattern in place of its count
 const FIX_FIELDS = new RegExp(am('form-engine.renderer.submit.fixFields', { count: 7 }).replace('7', '\\d+'));
 

@@ -26,6 +26,10 @@ interface Common<V> {
     /** Accessible name of the ✕ (default "Clear <aria-label>"). */
     clearLabel?: string;
     loading?: boolean;
+    /** Shown while the options load (default "Loading…"). */
+    loadingLabel?: string;
+    /** The search box's placeholder (default "Search…"). */
+    searchPlaceholder?: string;
     disabled?: boolean;
     invalid?: boolean;
     'aria-label'?: string;
@@ -63,6 +67,8 @@ export function Combobox<V = unknown>(props: ComboboxProps<V>) {
         clearable,
         clearLabel,
         loading,
+        loadingLabel = 'Loading…',
+        searchPlaceholder = 'Search…',
         disabled,
         invalid,
         emptyMessage = 'No options',
@@ -82,7 +88,7 @@ export function Combobox<V = unknown>(props: ComboboxProps<V>) {
     const single = options[current]?.label ?? fallbackLabel ?? '';
     const empty = labels ? labels.length === 0 : !single;
     const shownPlaceholder = loading
-        ? 'Loading…'
+        ? loadingLabel
         : (placeholder ?? (props.multiple ? 'Select options' : 'Select an option'));
     const canClear = clearable && !disabled && !empty;
     const showSearch = searchable ?? options.length > 7;
@@ -148,9 +154,9 @@ export function Combobox<V = unknown>(props: ComboboxProps<V>) {
                     aria-label={props['aria-label'] ?? shownPlaceholder}
                 >
                     <Command>
-                        {showSearch && <CommandInput placeholder="Search…" />}
+                        {showSearch && <CommandInput placeholder={searchPlaceholder} />}
                         <CommandList>
-                            <CommandEmpty>{loading ? 'Loading…' : emptyMessage}</CommandEmpty>
+                            <CommandEmpty>{loading ? loadingLabel : emptyMessage}</CommandEmpty>
                             <CommandGroup>
                                 {options.map((o, i) => {
                                     const on = props.multiple
