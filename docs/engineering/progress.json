@@ -696,10 +696,11 @@
         {
           "id": "0.18",
           "title": "Form engine for ITRMS, part 2",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.18-registry-lookup",
           "commits": [
-            "c1c2f01"
+            "c1c2f01",
+            "8e253c3"
           ],
           "evidence": [
             "apps/api/test/integration/forms-lookups.int.spec.ts (CI run ): picking a person stores only the id with an audit row; a forged other-region id → 422 invalid_reference (Amharic message, no row); unknown/merged/malformed ids → 422; organisation lookups; row paths; a file uploaded as medical_certificate is stored with its tag and linked (expires_at null); wrong doc type / another user's / generated export file → 422 invalid_file; lookup filters eq/in/nin/empty",
@@ -713,7 +714,7 @@
         {
           "id": "0.18a",
           "title": "Form governance: contracts, stability, checks, tests",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
