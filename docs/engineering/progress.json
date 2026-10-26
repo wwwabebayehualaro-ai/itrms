@@ -636,8 +636,8 @@
         {
           "id": "0.17c",
           "title": "Form engine for ITRMS, part 1c: print mode and the remaining texts",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.17c-print-texts",
           "commits": [],
           "evidence": [],
           "blockers": [],
