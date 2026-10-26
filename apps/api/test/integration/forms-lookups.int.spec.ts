@@ -430,6 +430,82 @@ describe('a submission with registry answers', () => {
     });
 });
 
+describe('a query over a lookup field', () => {
+    let asked: { id: string; versionId: string };
+    const query = async (filter: object) => {
+        const res = await api.call('POST', '/api/v1/submissions/query', as.damot(), {
+            formId: asked.id,
+            filter: { op: 'and', items: [filter] }
+        });
+        return res;
+    };
+    const names = async (filter: object): Promise<string[]> => {
+        const res = await query(filter);
+        expect(res.statusCode, res.body).toBe(200);
+        return res
+            .json<{ items: { answers: { title?: string } }[] }>()
+            .items.map((i) => String(i.answers.title))
+            .sort();
+    };
+
+    beforeAll(async () => {
+        asked = await createAndPublish('lookups-query', [
+            field('title', 'InputText'),
+            field('applicant', 'RegistryLookup', { props: { provider: 'person' } })
+        ]);
+        for (const answers of [
+            { title: 'one', applicant: ids.person },
+            { title: 'two', applicant: ids.sameZone },
+            { title: 'none' }
+        ])
+            expect((await submit(as.damot(), asked, answers)).statusCode).toBe(201);
+    });
+
+    it('compares the stored id as text: eq, in, nin, empty and notempty', async () => {
+        expect(await names({ field: 'applicant', op: 'eq', value: ids.person })).toEqual(['one']);
+        expect(await names({ field: 'applicant', op: 'eq', value: ids.person.toUpperCase() })).toEqual(['one']);
+        expect(await names({ field: 'applicant', op: 'in', value: [ids.person, ids.sameZone] })).toEqual([
+            'one',
+            'two'
+        ]);
+        expect(await names({ field: 'applicant', op: 'nin', value: [ids.person] })).toEqual(['none', 'two']);
+        expect(await names({ field: 'applicant', op: 'empty' })).toEqual(['none']);
+        expect(await names({ field: 'applicant', op: 'notempty' })).toEqual(['one', 'two']);
+    });
+
+    it('refuses a filter value that is no uuid with a 400, not a 500', async () => {
+        const res = await query({ field: 'applicant', op: 'eq', value: 'not-an-id' });
+        expect(res.statusCode, res.body).toBe(400);
+    });
+});
+
+describe('a lookup in rows that fail their own check', () => {
+    let short: { id: string; versionId: string };
+
+    beforeAll(async () => {
+        short = await createAndPublish('lookups-min-rows', [
+            field('members', 'FormArray', {
+                category: 'Layout',
+                layout: { options: { isContainer: true } },
+                props: { minItems: 2 }
+            }),
+            field('who', 'RegistryLookup', { props: { provider: 'person' }, parentId: 'members' })
+        ]);
+    });
+
+    it('answers 422, not 500, for a malformed id in a section short of rows', async () => {
+        const res = await submit(as.damot(), short, { members: [{ who: 'x' }] });
+        expect(res.statusCode, res.body).toBe(422);
+        expect(res.json<Problem>().errors.map((e) => e.path)).toContain('members[0].who');
+        expect(res.json<Problem>().errors.find((e) => e.path === 'members[0].who')?.code).toBe('invalid_reference');
+    });
+
+    it('takes an upper case uuid as the same record', async () => {
+        const res = await submit(as.damot(), form, { applicant: ids.person.toUpperCase() });
+        expect(res.statusCode, res.body).toBe(201);
+    });
+});
+
 describe('a form that names a registry', () => {
     it('is refused on save when the registry is not installed (invalid_form, at the field)', async () => {
         const res = await api.call('POST', '/api/v1/forms', as.bureau(), {
@@ -438,8 +514,12 @@ describe('a form that names a registry', () => {
             document: { fields: [field('v', 'RegistryLookup', { props: { provider: 'vehicle' } })] }
         });
         expect(res.statusCode, res.body).toBe(422);
-        expect(res.json<Problem>().code).toBe('invalid_form');
-        expect(res.json<Problem>().errors[0]).toMatchObject({ path: 'document.fields[0].props.provider' });
+        // the problem is a validation failure; each entry says what is wrong where (as the document check does)
+        expect(res.json<Problem>().code).toBe('validation_failed');
+        expect(res.json<Problem>().errors[0]).toMatchObject({
+            path: 'document.fields[0].props.provider',
+            code: 'invalid_form'
+        });
     });
 
     it('is refused on save when a lookup names no registry at all', async () => {
@@ -537,6 +617,34 @@ describe('a file answer', () => {
             [wrongType]
         );
         expect(free.rows[0]?.linked_id).toBeNull();
+    });
+
+    it("is refused when it is a generated export or another person's upload, and the export keeps its expiry", async () => {
+        const damotId = await api.userId(SUB.damot);
+        const exportId = randomUUID();
+        await api.owner.query(
+            `insert into kernel.files (id, region_id, unit_id, status, filename, content_type, size, sha256, object_key,
+                 confirmed_at, origin, document_type, expires_at, created_by)
+             values ($1, $2, $3, 'stored', 'x.csv', 'text/csv', 10, repeat('a', 64), $4, now(), 'generated',
+                 'submission_export', now() + interval '1 day', $5)`,
+            [exportId, units.damot.regionId, units.damot.id, `files/${units.damot.regionId}/${exportId}`, damotId]
+        );
+        // another person of the same office uploaded this one
+        const others = await uploaded(as.damotHead(), undefined);
+        for (const [name, file_id] of [
+            ['export', exportId],
+            ['upload of another person', others]
+        ] as const) {
+            const res = await submit(as.damot(), files, { anything: [{ file_id }] });
+            expect(res.statusCode, `${name}: ${res.body}`).toBe(422);
+            expect(res.json<Problem>().errors, name).toMatchObject([{ path: 'anything', code: 'invalid_file' }]);
+        }
+        const kept = await api.owner.query<{ expires_at: Date | null; linked_id: string | null }>(
+            'select expires_at, linked_id from kernel.files where id = $1',
+            [exportId]
+        );
+        expect(kept.rows[0]?.expires_at).not.toBeNull();
+        expect(kept.rows[0]?.linked_id).toBeNull();
     });
 
     it('is refused at the upload when the document type is not one the system knows', async () => {

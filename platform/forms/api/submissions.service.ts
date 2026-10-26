@@ -64,7 +64,13 @@ export class SubmissionsService {
         const fields = fieldsFor(version.document, roles, language);
         const scope = scopeFor(ctx, roles);
         // the files are read from their rows first (validation then sees real names and sizes), the references last
-        const submitted = await resolveFiles(tx, fields, submittedValues(fields, input.answers, scope), language);
+        const submitted = await resolveFiles(
+            tx,
+            fields,
+            submittedValues(fields, input.answers, scope),
+            language,
+            ctx.userId
+        );
         const answers = submitted.answers;
         const problems: AnswerProblem[] = [...submitted.problems];
         for (const [path, message] of Object.entries(validateForm(fields, answers, scope, { language })))

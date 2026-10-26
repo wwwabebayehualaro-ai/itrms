@@ -6,7 +6,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { LookupFact, LookupItem, RegistryLookupProvider } from '@itrms/forms/api';
 import type { Tx } from '@itrms/kernel/db';
-import { NotFoundError } from '@itrms/kernel/errors';
 
 import type { PersonName, PersonSummary } from '../contracts';
 import am from '../messages/am.json';
@@ -113,16 +112,8 @@ export class OrganisationLookup implements RegistryLookupProvider {
     }
 
     async resolve(tx: Tx, ids: readonly string[], language: string): Promise<LookupItem[]> {
-        const items: LookupItem[] = [];
-        for (const id of new Set(ids)) {
-            try {
-                items.push(this.item(await this.organisations.get(tx, id), language));
-            } catch (error) {
-                // not in the caller's region (RLS) or unknown: not returned
-                if (!(error instanceof NotFoundError)) throw error;
-            }
-        }
-        return items;
+        // not in the caller's region (RLS) or unknown: not returned
+        return (await this.organisations.summaries(tx, ids)).map((o) => this.item(o, language));
     }
 
     private item(o: OrganisationSummary, language: string): LookupItem {

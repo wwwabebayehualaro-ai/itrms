@@ -40,6 +40,8 @@ type MessageKey =
 
 const message = (key: MessageKey, language: string): string => (language === 'en' ? en : am)[key];
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /**
@@ -52,7 +54,9 @@ export async function resolveFiles(
     tx: Tx,
     fields: EngineField[],
     answers: Record<string, unknown>,
-    language: string
+    language: string,
+    /** who submits: only a file they uploaded themselves is taken */
+    userId: string | null | undefined
 ): Promise<{ answers: Record<string, unknown>; problems: AnswerProblem[]; files: TakenFile[] }> {
     const problems: AnswerProblem[] = [];
     const taken = new Map<string, TakenFile>();
@@ -74,8 +78,7 @@ export async function resolveFiles(
             return entry;
         };
         // a malformed id is not a uuid the database could compare
-        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(fileId))
-            return unusable('forms.validation.fileNotUsable');
+        if (!UUID.test(fileId)) return unusable('forms.validation.fileNotUsable');
         let row;
         try {
             row = await getFile(tx, fileId);
@@ -83,7 +86,11 @@ export async function resolveFiles(
             if (error instanceof NotFoundError) return unusable('forms.validation.fileNotUsable');
             throw error;
         }
+        // a generated file (an export) or another person's upload is not for a submission to take
         if (
+            row.origin !== 'upload' ||
+            !userId ||
+            row.createdBy !== userId ||
             row.status !== 'stored' ||
             row.linkedId !== null ||
             (row.expiresAt !== null && row.expiresAt.getTime() <= Date.now())
@@ -161,9 +168,13 @@ export async function checkReferences(
             problems.push(...wanted.map((r) => refused(r.path)));
             continue;
         }
-        const found = await provider.resolve(tx, [...new Set(wanted.map((r) => r.id))], language);
-        const usable = new Set(found.filter((i) => i.active).map((i) => i.id));
-        problems.push(...wanted.filter((r) => !usable.has(r.id)).map((r) => refused(r.path)));
+        // an id that is no uuid (a row never shape-checked, a disabled field) is refused here, never handed to the database
+        const valid = wanted.filter((r) => UUID.test(r.id));
+        problems.push(...wanted.filter((r) => !UUID.test(r.id)).map((r) => refused(r.path)));
+        if (valid.length === 0) continue;
+        const found = await provider.resolve(tx, [...new Set(valid.map((r) => r.id.toLowerCase()))], language);
+        const usable = new Set(found.filter((i) => i.active).map((i) => i.id.toLowerCase()));
+        problems.push(...valid.filter((r) => !usable.has(r.id.toLowerCase())).map((r) => refused(r.path)));
     }
     return problems;
 }

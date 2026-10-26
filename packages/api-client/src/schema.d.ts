@@ -972,6 +972,29 @@ export interface components {
             /** Format: date-time */
             validTo?: string;
         };
+        LookupItemsOut_Output: {
+            items: {
+                active: boolean;
+                facts: {
+                    key: string;
+                    label: string;
+                    value: string | null;
+                }[];
+                /** Format: uuid */
+                id: string;
+                label: string;
+            }[];
+        };
+        LookupProvidersOut_Output: {
+            items: {
+                facts: {
+                    key: string;
+                    label: string;
+                }[];
+                key: string;
+                title: string;
+            }[];
+        };
         MemberAddDto: {
             /** Format: uuid */
             personId: string;
@@ -2576,7 +2599,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LookupProvidersOut_Output"];
+                };
             };
         };
     };
@@ -2598,7 +2623,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LookupItemsOut_Output"];
+                };
             };
         };
     };
@@ -2619,7 +2646,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LookupItemsOut_Output"];
+                };
             };
         };
     };

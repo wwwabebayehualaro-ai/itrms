@@ -125,13 +125,16 @@ export function useRememberLookupItem() {
     return (provider: string, item: LookupItem) => rememberLookupItem(queryClient, provider, item);
 }
 
-/** id -> label of many records at once, per registry (one request per registry, up to 50 ids): a page of the data viewer. */
+/** id -> label of many records at once, per registry (one request per 50 ids, none left out): a page of the data viewer. */
 export function useLookupLabels(wanted: ReadonlyMap<string, readonly string[]>): Map<string, Map<string, string>> {
     const client = useFormsClient();
-    const requests = [...wanted.entries()].map(([provider, ids]) => ({
-        provider,
-        ids: [...new Set(ids)].slice(0, MAX_IDS).sort()
-    }));
+    const requests = [...wanted.entries()].flatMap(([provider, ids]) => {
+        const unique = [...new Set(ids)].sort();
+        const chunks: { provider: string; ids: string[] }[] = [];
+        for (let at = 0; at < unique.length; at += MAX_IDS)
+            chunks.push({ provider, ids: unique.slice(at, at + MAX_IDS) });
+        return chunks.length > 0 ? chunks : [{ provider, ids: [] }];
+    });
     const results = useQueries({
         queries: requests.map(({ provider, ids }) => ({
             queryKey: lookupKeys.items(provider, ids),

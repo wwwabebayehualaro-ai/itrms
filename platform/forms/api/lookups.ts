@@ -5,6 +5,7 @@
  */
 import { Injectable } from '@nestjs/common';
 import type { Tx } from '@itrms/kernel/db';
+import { ForbiddenError } from '@itrms/kernel/errors';
 
 /** One non-sensitive fact shown under the picked record (never a national id, phone or birth date). */
 export interface LookupFact {
@@ -31,6 +32,18 @@ export interface RegistryLookupProvider {
     search(tx: Tx, q: string, limit: number, language: string): Promise<LookupItem[]>;
     /** The records among `ids` that the caller's scope shows, of any status. */
     resolve(tx: Tx, ids: readonly string[], language: string): Promise<LookupItem[]>;
+}
+
+/** The caller may read the provider's registry; if not, a 403 whose audit row names the permission missing. */
+export function assertMayLookUp(
+    permissions: ReadonlySet<string>,
+    provider: Pick<RegistryLookupProvider, 'permission'>
+): void {
+    if (!permissions.has(provider.permission))
+        throw new ForbiddenError({
+            detail: 'You may not look up records of this registry.',
+            audit: { reason: 'missing_permission', permission: provider.permission }
+        });
 }
 
 @Injectable()

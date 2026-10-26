@@ -6,15 +6,25 @@ import { Controller, Get, Inject, Param, Query } from '@nestjs/common';
 import { DATABASE } from '@itrms/kernel/api';
 import type { Database } from '@itrms/kernel/db';
 import { currentContext } from '@itrms/kernel/context';
-import { ForbiddenError, NotFoundError } from '@itrms/kernel/errors';
+import { NotFoundError } from '@itrms/kernel/errors';
 import { Require, currentPrincipal, requestDbContext } from '@itrms/kernel/iam';
-import { createZodDto } from 'nestjs-zod';
+import { ZodResponse, createZodDto } from 'nestjs-zod';
+import { z } from 'zod';
 
-import { registryLookupItemsQuerySchema, registryLookupSearchQuerySchema } from '../contracts';
-import { RegistryLookups, type RegistryLookupProvider } from './lookups';
+import {
+    registryLookupItemSchema,
+    registryLookupItemsQuerySchema,
+    registryLookupItemsResponseSchema,
+    registryLookupProviderSchema,
+    registryLookupProvidersResponseSchema,
+    registryLookupSearchQuerySchema
+} from '../contracts';
+import { RegistryLookups, assertMayLookUp, type RegistryLookupProvider } from './lookups';
 
 class LookupSearchDto extends createZodDto(registryLookupSearchQuerySchema) {}
 class LookupItemsDto extends createZodDto(registryLookupItemsQuerySchema) {}
+class LookupProvidersOut extends createZodDto(registryLookupProvidersResponseSchema) {}
+class LookupItemsOut extends createZodDto(registryLookupItemsResponseSchema) {}
 
 @Controller('api/v1/registry-lookups')
 export class RegistryLookupsController {
@@ -25,30 +35,38 @@ export class RegistryLookupsController {
 
     @Get()
     @Require('form:read')
+    @ZodResponse({ status: 200, type: LookupProvidersOut })
     list() {
         const language = currentContext()?.language ?? 'am';
+        // parsed on the way out: a provider's extra keys never reach the client (SEC-AP-5)
         return {
-            items: this.lookups.list().map((p) => ({ key: p.key, title: p.title(language), facts: p.facts(language) }))
+            items: z
+                .array(registryLookupProviderSchema)
+                .parse(
+                    this.lookups.list().map((p) => ({ key: p.key, title: p.title(language), facts: p.facts(language) }))
+                )
         };
     }
 
     @Get(':provider')
     @Require('form:read')
+    @ZodResponse({ status: 200, type: LookupItemsOut })
     search(@Param('provider') key: string, @Query() query: LookupSearchDto) {
         const provider = this.allowed(key);
         const language = currentContext()?.language ?? 'am';
         return this.db.scoped(requestDbContext(), async (tx) => ({
-            items: await provider.search(tx, query.q, query.limit, language)
+            items: z.array(registryLookupItemSchema).parse(await provider.search(tx, query.q, query.limit, language))
         }));
     }
 
     @Get(':provider/items')
     @Require('form:read')
+    @ZodResponse({ status: 200, type: LookupItemsOut })
     items(@Param('provider') key: string, @Query() query: LookupItemsDto) {
         const provider = this.allowed(key);
         const language = currentContext()?.language ?? 'am';
         return this.db.scoped(requestDbContext(), async (tx) => ({
-            items: await provider.resolve(tx, query.ids, language)
+            items: z.array(registryLookupItemSchema).parse(await provider.resolve(tx, query.ids, language))
         }));
     }
 
@@ -56,8 +74,7 @@ export class RegistryLookupsController {
     private allowed(key: string): RegistryLookupProvider {
         const provider = this.lookups.get(key);
         if (!provider) throw new NotFoundError();
-        if (!currentPrincipal().permissions.has(provider.permission))
-            throw new ForbiddenError({ detail: 'You may not look up records of this registry.' });
+        assertMayLookUp(currentPrincipal().permissions, provider);
         return provider;
     }
 }

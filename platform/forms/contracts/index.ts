@@ -493,6 +493,9 @@ export const registryLookupProviderSchema = z.object({
     facts: z.array(z.object({ key: z.string(), label: z.string() }))
 });
 
+export const registryLookupProvidersResponseSchema = z.object({ items: z.array(registryLookupProviderSchema) });
+export const registryLookupItemsResponseSchema = z.object({ items: z.array(registryLookupItemSchema) });
+
 export const registryLookupSearchQuerySchema = z.strictObject({
     q: z.string().trim().min(2).max(100),
     limit: z.coerce.number().int().min(1).max(20).default(10)

@@ -146,14 +146,14 @@ async function submit(who: As, formId: string, versionId: string, answers: Recor
     expect(res.statusCode, res.body).toBe(201);
 }
 
-/** A stored, unlinked file of Damot Gale, as a confirmed upload leaves it (the object itself is not read here). */
+/** A stored, unlinked upload of the Damot Gale records officer, as a confirmation leaves it (the object itself is not read here). */
 async function storedFile(): Promise<string> {
     const id = randomUUID();
     await api.owner.query(
         `insert into kernel.files (id, region_id, unit_id, status, filename, content_type, size, sha256, object_key,
-             confirmed_at)
-         values ($1, $2, $3, 'stored', 'a.pdf', 'application/pdf', 10, repeat('a', 64), $4, now())`,
-        [id, units.damot.regionId, units.damot.id, `files/${units.damot.regionId}/${id}`]
+             confirmed_at, origin, created_by)
+         values ($1, $2, $3, 'stored', 'a.pdf', 'application/pdf', 10, repeat('a', 64), $4, now(), 'upload', $5)`,
+        [id, units.damot.regionId, units.damot.id, `files/${units.damot.regionId}/${id}`, await api.userId(SUB.damot)]
     );
     return id;
 }
