@@ -57,4 +57,6 @@ export { validateForm, fieldSchema, parseDate, remotePendingText } from './valid
 export type { FieldErrors } from './validate';
 export { checkDocument, MAX_PROBLEMS } from './document';
 export type { DocumentProblem } from './document';
+export { lookupRefs } from './lookups';
+export type { LookupRef } from './lookups';
 export { FIELD_TYPES } from './fieldTypes';

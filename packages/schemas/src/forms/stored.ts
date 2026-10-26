@@ -1,7 +1,7 @@
 /**
  * What a stored form (`form_config.fields`) is made of, as TypeScript types. Lenient on purpose: forms saved by older builders
  * carry more keys (PrimeReact props, editor metadata), and every key is kept when a form is read and written back. Validation
- * of the shape is `storedFieldSchema` (schema.ts); the backend checks the same contract (contracts/form-config.schema.json).
+ * of the shape is `storedFieldSchema` (schema.ts).
  */
 import type { VisibilityCondition } from './conditions';
 import type { FieldOptionsBinding, FieldRowsBinding } from './runtime';

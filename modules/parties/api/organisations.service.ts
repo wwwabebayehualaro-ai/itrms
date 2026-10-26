@@ -68,6 +68,18 @@ export class OrganisationsService {
         };
     }
 
+    /** The organisations among `ids` the caller's scope shows (one query under RLS), without their members. */
+    async summaries(tx: Tx, ids: readonly string[]): Promise<OrganisationSummary[]> {
+        const wanted = [...new Set(ids)];
+        if (wanted.length === 0) return [];
+        const rows = await tx.select().from(organisations).where(inArray(organisations.id, wanted));
+        const units = await unitRefs(
+            tx,
+            rows.flatMap((r) => [r.handlingUnitId, r.addressUnitId])
+        );
+        return rows.map((r) => summaryOf(r, units));
+    }
+
     /** By name (either language, folded) or TIN; without a query, the latest registered. */
     async search(tx: Tx, q: string | undefined, limit: number): Promise<OrganisationSummary[]> {
         let ids: string[];

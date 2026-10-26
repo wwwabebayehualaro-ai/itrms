@@ -167,7 +167,13 @@ export class QueryCompiler {
         if (spec.column) return sql`${spec.column} is null`;
         if (spec.kind === 'multi' || spec.kind === 'files' || spec.kind === 'rows')
             return sql`coalesce(${this.node(spec)}, 'null'::jsonb) in ('null'::jsonb, '[]'::jsonb, '""'::jsonb, '{}'::jsonb)`;
-        if (spec.kind === 'text' || spec.kind === 'choice' || spec.kind === 'date' || spec.kind === 'datetime')
+        if (
+            spec.kind === 'text' ||
+            spec.kind === 'choice' ||
+            spec.kind === 'ref' ||
+            spec.kind === 'date' ||
+            spec.kind === 'datetime'
+        )
             return sql`coalesce(${this.text(spec)}, '') = ''`;
         return sql`${this.value(spec)} is null`;
     }
@@ -248,13 +254,13 @@ export class QueryCompiler {
                 : this.holds(spec, value);
         }
 
-        if (kind === 'person' || kind === 'unit') {
-            const column = spec.column ?? this.text(spec);
-            if (op === 'eq') return sql`${column} = ${asUuid(value)}::uuid`;
-            const ids = sql.join(
-                asList(value).map((v) => sql`${asUuid(v)}::uuid`),
-                sql`, `
-            );
+        if (kind === 'person' || kind === 'unit' || kind === 'ref') {
+            // a lookup field has no typed column: its answer is text, compared as lower case text (an id may be stored in
+            // either case)
+            const column = spec.column ?? sql`lower(${this.text(spec)})`;
+            const id = (v: unknown) => (spec.column ? sql`${asUuid(v)}::uuid` : sql`${asUuid(v).toLowerCase()}::text`);
+            if (op === 'eq') return sql`${column} = ${id(value)}`;
+            const ids = sql.join(asList(value).map(id), sql`, `);
             return op === 'in' ? sql`${column} in (${ids})` : sql`(${column} is null or ${column} not in (${ids}))`;
         }
 

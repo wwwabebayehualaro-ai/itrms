@@ -4,7 +4,7 @@
  * again reuses it) and asks a second person to approve. Until they do, people keep filling in the version published
  * before. Every write goes through the audited helpers in the caller's transaction.
  */
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { and, desc, eq, ilike, inArray, max, or, sql } from 'drizzle-orm';
 import { contextOfTx, insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { ConflictError, ForbiddenError, NotFoundError } from '@itrms/kernel/errors';
@@ -26,7 +26,8 @@ import type {
     publicationListQuerySchema
 } from '../contracts';
 import { formDefinitions, formPublications, formVersions } from './forms.table';
-import { assertReadable, contentHash, fieldsFor, isUniqueViolation, required } from './support';
+import { RegistryLookups } from './lookups';
+import { assertLookups, assertReadable, contentHash, fieldsFor, isUniqueViolation, required } from './support';
 import { filterableKinds } from './view-fields';
 
 type DefinitionRow = typeof formDefinitions.$inferSelect;
@@ -39,6 +40,8 @@ const escapeLike = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 @Injectable()
 export class FormsService {
+    constructor(@Inject(RegistryLookups) private readonly lookups: RegistryLookups = new RegistryLookups()) {}
+
     async list(tx: Tx, query: z.infer<typeof formListQuerySchema>): Promise<FormSummary[]> {
         const conditions = [];
         if (query.active) conditions.push(eq(formDefinitions.active, query.active === 'true'));
@@ -69,6 +72,7 @@ export class FormsService {
 
     async create(tx: Tx, ctx: DbContext, input: z.infer<typeof formCreateSchema>): Promise<Form> {
         assertReadable(input.document);
+        assertLookups(input.document, this.lookups);
         try {
             const row = await insertAudited(tx, formDefinitions, {
                 regionId: required(ctx.regionId),
@@ -99,7 +103,10 @@ export class FormsService {
         input: z.infer<typeof formUpdateSchema>
     ): Promise<Form> {
         const current = await this.writable(tx, ctx, id);
-        if (input.document !== undefined) assertReadable(input.document);
+        if (input.document !== undefined) {
+            assertReadable(input.document);
+            assertLookups(input.document, this.lookups);
+        }
         const hash = input.document !== undefined ? contentHash(input.document) : undefined;
         await updateAudited(tx, formDefinitions, id, version, {
             ...(input.name !== undefined ? { name: input.name } : {}),
@@ -167,6 +174,7 @@ export class FormsService {
             });
         // a form saved under an older contract is checked again before it can go live
         assertReadable(form.document);
+        assertLookups(form.document, this.lookups);
         const version = await this.snapshot(tx, form);
         if (version.id === form.publishedVersionId)
             throw new ConflictError('invalid_transition', { detail: 'This version of the form is already published.' });

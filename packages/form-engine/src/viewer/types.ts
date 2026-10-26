@@ -2,7 +2,7 @@ import type { FormField, FormSubmission, TemplateRuntimeConfig } from '@itrms/sc
 /** Contract of the data viewer, in the screens' keys: `api/wire.ts` maps the forms API's view schema and queries to it. */
 
 export type FieldKind =
-    'text' | 'choice' | 'multi' | 'number' | 'date' | 'datetime' | 'boolean' | 'files' | 'rows' | 'person';
+    'text' | 'choice' | 'multi' | 'number' | 'date' | 'datetime' | 'boolean' | 'files' | 'rows' | 'person' | 'ref';
 export type Op =
     | 'eq'
     | 'ne'
@@ -41,6 +41,8 @@ export interface ViewField {
     aggregatable: boolean;
     options: ViewOption[];
     currency?: string | null;
+    /** the registry a `ref` field points to: its cells show the records' labels */
+    provider?: string | null;
     type?: string;
     /** marked filterable by the form's author */
     filterable?: boolean;

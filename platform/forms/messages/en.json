@@ -13,5 +13,8 @@
   "forms.export.failed.invalid_query": "The export cannot be made as asked (a field or filter is no longer there).",
   "forms.export.failed.not_permitted": "You no longer hold the right to export in this office.",
   "forms.export.failed.failed": "The export could not be made: ask for it again.",
-  "forms.validation.tooManyChoices": "At most {max} choices"
+  "forms.validation.tooManyChoices": "At most {max} choices",
+  "forms.validation.invalidReference": "This record was not found or can no longer be chosen",
+  "forms.validation.fileNotUsable": "This file cannot be used: upload it again",
+  "forms.validation.wrongDocumentType": "This file is not the kind of document asked for"
 }

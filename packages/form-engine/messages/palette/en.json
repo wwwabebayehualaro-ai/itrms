@@ -56,6 +56,8 @@
   "form-engine.palette.type.RadioButton.label": "Choice buttons",
   "form-engine.palette.type.Rating.hint": "Stars from 1 to 5 (or more).",
   "form-engine.palette.type.Rating.label": "Rating",
+  "form-engine.palette.type.RegistryLookup.hint": "Pick a person or an organisation from a registry.",
+  "form-engine.palette.type.RegistryLookup.label": "Registry lookup",
   "form-engine.palette.type.Slider.hint": "A number picked on a scale.",
   "form-engine.palette.type.Slider.label": "Slider",
   "form-engine.palette.ui.add": "Add {label}",

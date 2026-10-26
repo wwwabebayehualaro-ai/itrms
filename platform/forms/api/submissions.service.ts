@@ -8,6 +8,7 @@ import { Injectable } from '@nestjs/common';
 import { and, desc, eq, inArray, lt } from 'drizzle-orm';
 import { users } from '@itrms/kernel/tables';
 import { auditLog, insertAudited, type DbContext, type Tx } from '@itrms/kernel/db';
+import { linkFile } from '@itrms/kernel/files';
 import { ConflictError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
 import { unitRefs } from '@itrms/kernel/org';
 import { knownValues, submittedValues, validateForm, type EngineField } from '@itrms/form-engine/core';
@@ -15,7 +16,9 @@ import type { z } from 'zod';
 
 import type { HistoryEntry, Submission, submissionCreateSchema, submissionListQuerySchema } from '../contracts';
 import { formDefinitions, formVersions, submissions } from './forms.table';
+import type { RegistryLookups } from './lookups';
 import { namesOf, unitOf } from './forms.service';
+import { checkReferences, resolveFiles, type AnswerProblem } from './submission-refs';
 import { lockFormShared, valueRows, writeValues, type Owner } from './submission-values';
 import { fieldsFor, required, scopeFor } from './support';
 import { filterableKinds, MAX_INDEXED_CHOICES } from './view-fields';
@@ -36,6 +39,8 @@ export class SubmissionsService {
         ctx: DbContext,
         roles: readonly string[],
         input: z.infer<typeof submissionCreateSchema>,
+        /** the registries a RegistryLookup field points into */
+        lookups: RegistryLookups,
         /** the language of the author's own messages in a 422 */
         language = 'am'
     ): Promise<Submission> {
@@ -58,17 +63,39 @@ export class SubmissionsService {
 
         const fields = fieldsFor(version.document, roles, language);
         const scope = scopeFor(ctx, roles);
-        const answers = submittedValues(fields, input.answers, scope);
-        const errors = validateForm(fields, answers, scope, { language });
+        // the files are read from their rows first (validation then sees real names and sizes), the references last
+        const submitted = await resolveFiles(
+            tx,
+            fields,
+            submittedValues(fields, input.answers, scope),
+            language,
+            ctx.userId
+        );
+        const answers = submitted.answers;
+        const problems: AnswerProblem[] = [...submitted.problems];
+        for (const [path, message] of Object.entries(validateForm(fields, answers, scope, { language })))
+            if (!problems.some((p) => p.path === path)) problems.push({ path, code: 'invalid', message });
+        problems.push(
+            ...(await checkReferences(
+                tx,
+                lookups,
+                fields,
+                answers,
+                scope,
+                language,
+                new Set(problems.map((p) => p.path))
+            ))
+        );
         // the filterable fields' values (ADR-0035), from the version's fields nobody is restricted from
         const open = fieldsFor(version.document, []);
         const values = (owner: Owner) => valueRows(open, filterableKinds(open), answers, owner);
         for (const key of values({ submissionId: '', formId: '', regionId: '', handlingUnitId: '' }).overflow)
-            errors[key] ??= tooManyChoices(language);
-        if (Object.keys(errors).length)
+            if (!problems.some((p) => p.path === key))
+                problems.push({ path: key, code: 'invalid', message: tooManyChoices(language) });
+        if (problems.length)
             throw new ValidationError('validation_failed', {
                 detail: 'Some answers are not valid.',
-                errors: Object.entries(errors).map(([path, message]) => ({ path, code: 'invalid', message }))
+                errors: problems
             });
 
         const row = await insertAudited(tx, submissions, {
@@ -88,6 +115,13 @@ export class SubmissionsService {
                 handlingUnitId: row.handlingUnitId
             }).rows
         );
+        // the files now belong to the submission: they no longer expire
+        for (const file of submitted.files)
+            await linkFile(tx, file.id, {
+                table: 'forms.submissions',
+                id: row.id,
+                ...(file.documentType ? { documentType: file.documentType } : {})
+            });
         return (await this.present(tx, roles, [row]))[0] as Submission;
     }
 

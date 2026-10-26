@@ -544,12 +544,12 @@ Split on 2026-10-26 (0.17c print and texts, 0.17d the engine's own text, 0.17e t
   - A `RegistryLookup` field type: a searchable picker over a registry (persons and organisations now; vehicles, licences
     and associations later, through a provider registry). It stores the id, shows the facts read-only, and the server checks
     the id exists in the region.
-  - A `Fee` field: preview of the server-computed fee via `POST /fees/preview`.
   - The file field on S3 with doc-type tags.
   - `npm run form:schema` is replaced by direct Zod import in the API.
+  - (The `Fee` field moved to 0.22 on 2026-10-26: its preview needs the fee rules and their evaluator, which 0.22 builds.)
 - **Done when:** picking a person fills the read-only facts and stores only the id; a forged id from another region gets a
-  422; the fee preview updates when inputs change and equals the server figure on submit.
-- **Tests:** component tests for both fields; API tests for lookup scope and fee consistency.
+  422; a file is stored with its doc-type tag.
+- **Tests:** component tests for the lookup field; API tests for lookup scope.
 
 ### 0.18a Form governance: contracts, stability, checks, tests
 - **Do** ([form-platform.md](../platform/form-platform.md) §2–§4):
@@ -640,11 +640,13 @@ Split on 2026-10-26 (0.17c print and texts, 0.17d the engine's own text, 0.17e t
     daily statement. Only verified references settle a case.
   - Reversal with a reason and a second person's approval.
   - The `payment.settled` guard for workflows.
-- **Done when:** a payment order total equals the sum of the rule's lines in santim; receipt numbers are gapless per unit
+  - The form engine's `Fee` field (moved from 0.18): a preview of the server-computed fee via `POST /fees/preview`, updated
+    when its inputs change.
+- **Done when:** the fee preview equals the server figure on submit; a payment order total equals the sum of the rule's lines in santim; receipt numbers are gapless per unit
   and fiscal year under concurrency; a reversal keeps the original number and shows on the case; the same external
   reference can't settle two cases; an unverified reference can't settle any.
 - **Tests:** fee rule golden tests (renewal with penalty months, replacement), concurrency tests on receipts, reversal SoD
-  test.
+  test; a component test of the Fee field and an API test of fee preview and submit consistency.
 
 ### 0.23 Document templates, PDF worker, QR verification
 - **Do:**

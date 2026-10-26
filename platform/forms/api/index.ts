@@ -4,6 +4,8 @@ export { FormsModule } from './forms.module';
 export { FormsService } from './forms.service';
 export { SubmissionsService } from './submissions.service';
 export { SubmissionQueryService } from './query.service';
+export { RegistryLookups } from './lookups';
+export type { LookupFact, LookupItem, RegistryLookupProvider } from './lookups';
 export * from './forms.table';
 export { neutralise, sheetNameOf } from './export';
 export { ExportsService } from './exports.service';

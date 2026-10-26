@@ -472,3 +472,44 @@ export const exportJobSchema = z.object({
 });
 
 export type ExportJob = z.infer<typeof exportJobSchema>;
+
+// ---- registry lookups (task 0.18) ----
+
+export const registryLookupFactSchema = z.object({ key: z.string(), label: z.string(), value: z.string().nullable() });
+
+/** A registry record a form field can point to, with the non-sensitive facts shown under it. */
+export const registryLookupItemSchema = z.object({
+    id: z.uuid(),
+    label: z.string(),
+    /** false: merged or closed; it is shown for a saved value, never offered for a new one */
+    active: z.boolean(),
+    facts: z.array(registryLookupFactSchema)
+});
+
+/** A registry the caller may look up in: the facts it shows are named here (their values come with an item). */
+export const registryLookupProviderSchema = z.object({
+    key: z.string(),
+    title: z.string(),
+    facts: z.array(z.object({ key: z.string(), label: z.string() }))
+});
+
+export const registryLookupProvidersResponseSchema = z.object({ items: z.array(registryLookupProviderSchema) });
+export const registryLookupItemsResponseSchema = z.object({ items: z.array(registryLookupItemSchema) });
+
+export const registryLookupSearchQuerySchema = z.strictObject({
+    q: z.string().trim().min(2).max(100),
+    limit: z.coerce.number().int().min(1).max(20).default(10)
+});
+
+export const MAX_LOOKUP_ITEMS = 50;
+
+/** Up to MAX_LOOKUP_ITEMS ids, comma separated. */
+export const registryLookupItemsQuerySchema = z.strictObject({
+    ids: z
+        .string()
+        .transform((v) => v.split(',').map((id) => id.trim()))
+        .pipe(z.array(z.uuid()).min(1).max(MAX_LOOKUP_ITEMS))
+});
+
+export type RegistryLookupItem = z.infer<typeof registryLookupItemSchema>;
+export type RegistryLookupProviderDto = z.infer<typeof registryLookupProviderSchema>;

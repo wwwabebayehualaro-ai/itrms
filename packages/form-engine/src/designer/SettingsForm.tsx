@@ -28,6 +28,7 @@ import {
 import { text as plainText } from '../core/runtime/path';
 import { NumberInput } from './controls';
 import type { SettingMeta } from '../renderer/kit';
+import { useRegistryLookupProviders } from '../host/lookups';
 import { useEngineText } from '../host/text';
 
 type Meta = Partial<SettingMeta>;
@@ -140,6 +141,29 @@ function Labelled({
     );
 }
 
+/** The registries the person may look up in (the host's `v1/registry-lookups`). */
+function ProviderSelect({ id, value, onChange }: { id: string; value: string; onChange: (v: unknown) => void }) {
+    const { t } = useEngineText();
+    const { data = [] } = useRegistryLookupProviders();
+    // a provider this installation no longer offers stays visible, so the author sees what the field names
+    const known = data.some((p) => p.key === value);
+    return (
+        <Select value={value} onValueChange={(v) => onChange(v)}>
+            <SelectTrigger id={id} className="w-full">
+                <SelectValue placeholder={t('form-engine.settings.form.default')} />
+            </SelectTrigger>
+            <SelectContent>
+                {value && !known && <SelectItem value={value}>{value}</SelectItem>}
+                {data.map((p) => (
+                    <SelectItem key={p.key} value={p.key}>
+                        {p.title}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
+}
+
 function SettingControl({
     spec,
     id,
@@ -199,6 +223,12 @@ function SettingControl({
                 </Labelled>
             );
         default: {
+            if (spec.meta.optionsFrom === 'registryLookups')
+                return (
+                    <Labelled id={id} title={title} description={description}>
+                        <ProviderSelect id={id} value={plainText(value)} onChange={onChange} />
+                    </Labelled>
+                );
             const text = plainText(value);
             const props = {
                 id,

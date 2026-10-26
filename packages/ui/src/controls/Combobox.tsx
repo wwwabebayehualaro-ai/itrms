@@ -41,6 +41,11 @@ interface Common<V> {
     /** Value equality (default: `===`, then the string forms). */
     isEqual?: (a: V, b: V) => boolean;
     onOpenChange?: (open: boolean) => void;
+    /**
+     * The options come from a search (the caller loads them): the box no longer filters `options` itself, and tells the
+     * caller what is typed. The search resets when the list closes.
+     */
+    onSearchChange?: (search: string) => void;
 }
 export type ComboboxProps<V = unknown> = Common<V> &
     (
@@ -75,9 +80,11 @@ export function Combobox<V = unknown>(props: ComboboxProps<V>) {
         className,
         fallbackLabel,
         isEqual = defaultEqual,
-        onOpenChange
+        onOpenChange,
+        onSearchChange
     } = props;
     const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState('');
     const selected: V[] = props.multiple ? (Array.isArray(props.value) ? props.value : []) : [];
     const current = props.multiple
         ? -1
@@ -91,7 +98,11 @@ export function Combobox<V = unknown>(props: ComboboxProps<V>) {
         ? loadingLabel
         : (placeholder ?? (props.multiple ? 'Select options' : 'Select an option'));
     const canClear = clearable && !disabled && !empty;
-    const showSearch = searchable ?? options.length > 7;
+    const showSearch = searchable ?? (onSearchChange ? true : options.length > 7);
+    const typed = (q: string) => {
+        setSearch(q);
+        onSearchChange?.(q);
+    };
 
     const pick = (i: number) => {
         const option = options[i];
@@ -104,6 +115,7 @@ export function Combobox<V = unknown>(props: ComboboxProps<V>) {
         else {
             props.onChange(v);
             setOpen(false);
+            if (onSearchChange) typed('');
             onOpenChange?.(false);
         }
     };
@@ -114,6 +126,7 @@ export function Combobox<V = unknown>(props: ComboboxProps<V>) {
                 open={open}
                 onOpenChange={(o) => {
                     setOpen(o);
+                    if (!o && onSearchChange) typed('');
                     onOpenChange?.(o);
                 }}
             >
@@ -153,8 +166,13 @@ export function Combobox<V = unknown>(props: ComboboxProps<V>) {
                     align="start"
                     aria-label={props['aria-label'] ?? shownPlaceholder}
                 >
-                    <Command>
-                        {showSearch && <CommandInput placeholder={searchPlaceholder} />}
+                    <Command shouldFilter={!onSearchChange}>
+                        {showSearch &&
+                            (onSearchChange ? (
+                                <CommandInput placeholder={searchPlaceholder} value={search} onValueChange={typed} />
+                            ) : (
+                                <CommandInput placeholder={searchPlaceholder} />
+                            ))}
                         <CommandList>
                             <CommandEmpty>{loading ? loadingLabel : emptyMessage}</CommandEmpty>
                             <CommandGroup>

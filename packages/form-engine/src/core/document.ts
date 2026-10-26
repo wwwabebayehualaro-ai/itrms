@@ -95,7 +95,11 @@ export function checkDocument(raw: unknown): DocumentProblem[] {
             })
             .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
             .slice(0, MAX_PROBLEMS);
-    return [...structure(parsed.data.fields), ...ruleProblems(parsed.data.fields)].slice(0, MAX_PROBLEMS);
+    return [
+        ...structure(parsed.data.fields),
+        ...ruleProblems(parsed.data.fields),
+        ...lookupProblems(parsed.data.fields)
+    ].slice(0, MAX_PROBLEMS);
 }
 
 /** A rule's formula (requiredWhen, validWhen) must parse, call known functions and read only what the server has too. */
@@ -110,6 +114,18 @@ function ruleProblems(fields: readonly { behavior?: unknown }[]): DocumentProble
         };
         check(validation?.requiredWhen?.expression, `${base}.requiredWhen.expression`);
         validation?.validWhen?.forEach((rule, j) => check(rule.expression, `${base}.validWhen[${j}].expression`));
+    });
+    return problems;
+}
+
+/** A registry lookup must name the provider it reads (whether the provider exists is the server's check). */
+function lookupProblems(fields: readonly { type: string; props?: unknown }[]): DocumentProblem[] {
+    const problems: DocumentProblem[] = [];
+    fields.forEach((f, i) => {
+        if (f.type !== 'RegistryLookup') return;
+        const provider = (f.props as { provider?: unknown } | null | undefined)?.provider;
+        if (typeof provider !== 'string' || provider.trim() === '')
+            problems.push({ path: `fields[${i}].props.provider`, message: 'A registry lookup needs a provider' });
     });
     return problems;
 }

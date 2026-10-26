@@ -59,4 +59,15 @@ describe('checkDocument', () => {
         for (const key of ['__proto__', 'constructor', 'toString', 'hasOwnProperty', 'created_at', 'handlingUnit'])
             expect(problems({ fields: [F(key, 'InputText')] })['fields[0].id']).toBe(`"${key}" cannot be a field key`);
     });
+
+    it('needs a provider on a registry lookup', () => {
+        expect(FIELD_TYPES).toContain('RegistryLookup');
+        expect(checkDocument({ fields: [F('owner', 'RegistryLookup', { props: { provider: 'person' } })] })).toEqual(
+            []
+        );
+        for (const props of [{}, { provider: '' }, { provider: 3 }])
+            expect(problems({ fields: [F('owner', 'RegistryLookup', { props })] })['fields[0].props.provider']).toBe(
+                'A registry lookup needs a provider'
+            );
+    });
 });

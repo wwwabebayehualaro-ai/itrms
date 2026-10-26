@@ -10,6 +10,7 @@ import { CellValue } from '../../renderer/cells';
 import { getByPath } from '../../core/runtime/expression';
 import type { TableColumn } from '@itrms/schemas';
 import { useSubmissionData } from '../api';
+import { useLookupLabels } from '../../host/lookups';
 import { useGridLabels } from '../gridLabels';
 import type { ViewModeProps } from '../registry';
 import type { ViewField, ViewSchema, ViewRow } from '../types';
@@ -48,6 +49,8 @@ export function columnOf(f: ViewField): TableColumn {
             return { ...base, type: 'tags' };
         case 'person':
             return { ...base, type: 'text' };
+        case 'ref':
+            return { ...base, type: 'lookup' };
         default:
             return { ...base, type: f.options.length || f.person ? 'lookup' : 'text' };
     }
@@ -95,12 +98,28 @@ export default function TableView({
         page_size: state.pageSize
     });
 
+    // registry records are shown by name: one request per registry for the whole page
+    const refIds = useMemo(() => {
+        const wanted = new Map<string, string[]>();
+        for (const k of keys) {
+            const f = schema.fields.find((x) => x.key === k);
+            if (f?.kind !== 'ref' || !f.provider) continue;
+            const ids = (data?.items ?? []).flatMap((row) => {
+                const v: unknown = getByPath(row, pathOf(f));
+                return typeof v === 'string' && v !== '' ? [v] : [];
+            });
+            wanted.set(f.provider, [...(wanted.get(f.provider) ?? []), ...ids]);
+        }
+        return wanted;
+    }, [keys, schema, data]);
+    const refLabels = useLookupLabels(refIds);
+
     const columns = useMemo<ColumnDef<ViewRow>[]>(() => {
         const cols: ColumnDef<ViewRow>[] = keys.flatMap((k) => {
             const f = schema.fields.find((x) => x.key === k);
             if (!f) return [];
             const col = columnOf(f);
-            const lookups = { [col.field]: labeler.lookup(f.key) };
+            const lookups = { [col.field]: (f.provider && refLabels.get(f.provider)) || labeler.lookup(f.key) };
             const isTitle = k === schema.roles.title;
             return [
                 {
@@ -139,7 +158,7 @@ export default function TableView({
             )
         });
         return cols;
-    }, [keys, schema, labeler, onOpen, rowActions, t]);
+    }, [keys, schema, labeler, refLabels, onOpen, rowActions, t]);
 
     const pagination: PaginationState = { pageIndex: state.page - 1, pageSize: state.pageSize };
     const onPaginationChange: OnChangeFn<PaginationState> = (change) => {

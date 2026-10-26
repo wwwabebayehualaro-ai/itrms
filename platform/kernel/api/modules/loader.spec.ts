@@ -164,6 +164,13 @@ describe('loadSlices', () => {
         ).toEqual(['freight: consumes "route.closed.v1", which no installed module emits']);
     });
 
+    it('stops on a lookup key declared by two modules', () => {
+        const owner = { ...drivers, manifest: { ...drivers.manifest, lookups: ['person'] } };
+        expect(problems([kernel, workflow, owner, competency, freight({ lookups: ['person'] })])).toEqual([
+            'freight: declares lookup "person", which "drivers" already declares'
+        ]);
+    });
+
     it('lets a product be switched off without stopping the others that talk to it', () => {
         // freight consumes competency's event and grants competency's permission; competency is off in this installation
         const emitting = slice(

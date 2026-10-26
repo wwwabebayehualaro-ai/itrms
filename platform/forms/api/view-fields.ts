@@ -10,7 +10,18 @@
 import { holdsValue, scopeFields, valueKindOf, type EngineField } from '@itrms/form-engine/core';
 
 export type Kind =
-    'text' | 'choice' | 'multi' | 'number' | 'date' | 'datetime' | 'boolean' | 'files' | 'rows' | 'person' | 'unit';
+    | 'text'
+    | 'choice'
+    | 'multi'
+    | 'number'
+    | 'date'
+    | 'datetime'
+    | 'boolean'
+    | 'files'
+    | 'rows'
+    | 'person'
+    | 'unit'
+    | 'ref';
 
 export const OPS_BY_KIND = {
     text: ['contains', 'ncontains', 'eq', 'ne', 'starts', 'in', 'nin', 'empty', 'notempty'],
@@ -23,7 +34,8 @@ export const OPS_BY_KIND = {
     files: ['empty', 'notempty'],
     rows: ['empty', 'notempty'],
     person: ['eq', 'in', 'nin', 'empty', 'notempty'],
-    unit: ['eq', 'in', 'nin']
+    unit: ['eq', 'in', 'nin'],
+    ref: ['eq', 'in', 'nin', 'empty', 'notempty']
 } as const satisfies Record<Kind, readonly string[]>;
 
 export const SORTABLE = new Set<Kind>(['text', 'choice', 'number', 'date', 'datetime', 'boolean', 'person', 'unit']);
@@ -61,6 +73,8 @@ export interface ViewField {
     bound: boolean;
     required: boolean;
     currency: string | null;
+    /** the registry lookup a `ref` field points to */
+    provider: string | null;
     /** marked filterable by the author (its values are indexed once `indexed`) */
     filterable: boolean;
 }
@@ -84,6 +98,7 @@ export function valueFields(fields: EngineField[]): ViewField[] {
             bound: Boolean(f.optionsBinding),
             required: f.rules.required,
             currency: f.props.mode === 'currency' && typeof f.props.currency === 'string' ? f.props.currency : null,
+            provider: kind === 'ref' && typeof f.props.provider === 'string' ? f.props.provider : null,
             filterable: f.filterable && INDEXABLE.has(kind) && !f.visibleToRoles?.length
         });
     }
@@ -154,6 +169,8 @@ export interface ViewSchemaField {
     options: { value: unknown; label: string }[];
     currency: string | null;
     type: string | null;
+    /** the registry lookup a `ref` field points to (the viewer shows its labels) */
+    provider: string | null;
     filterable: boolean;
     /** its filters run on the value table's indexes */
     indexed: boolean;
@@ -181,6 +198,7 @@ export function describe(
             options: builtinOptions[b.key] ?? [],
             currency: null,
             type: null,
+            provider: null,
             filterable: true,
             indexed: true
         })),
@@ -198,6 +216,7 @@ export function describe(
                 options: f.options,
                 currency: f.currency,
                 type: f.type,
+                provider: f.provider,
                 filterable: f.filterable,
                 indexed: f.filterable && indexedKeys.includes(f.key)
             }))

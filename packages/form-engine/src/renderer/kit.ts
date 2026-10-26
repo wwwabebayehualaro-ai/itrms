@@ -62,6 +62,8 @@ export interface SettingMeta {
     multiline?: boolean;
     /** Shown under "More settings". */
     advanced?: boolean;
+    /** The choices come from the host, not from the schema: the inspector draws a select of them. */
+    optionsFrom?: 'registryLookups';
 }
 
 /** Describe a setting for the inspector: `schema.meta(meta)`, with the words typed. */

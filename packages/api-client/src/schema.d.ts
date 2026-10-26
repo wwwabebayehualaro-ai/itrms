@@ -641,6 +641,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/registry-lookups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["RegistryLookupsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/registry-lookups/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["RegistryLookupsController_search"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/registry-lookups/{provider}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["RegistryLookupsController_items"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/role-assignments": {
         parameters: {
             query?: never;
@@ -880,7 +928,8 @@ export interface components {
         FileUploadDto: {
             /** @enum {string} */
             contentType: "application/pdf" | "image/jpeg" | "image/png" | "image/webp";
-            documentType?: string;
+            /** @enum {string} */
+            documentType?: "id_card" | "fayda_card" | "photo" | "medical_certificate" | "libre_copy" | "bolo_certificate" | "driver_licence_copy" | "training_certificate" | "education_certificate" | "tin_certificate" | "trade_licence" | "contract" | "design_drawing" | "payment_receipt" | "letter" | "other";
             filename: string;
             sha256: string;
             size: number;
@@ -922,6 +971,29 @@ export interface components {
             validFrom?: string;
             /** Format: date-time */
             validTo?: string;
+        };
+        LookupItemsOut_Output: {
+            items: {
+                active: boolean;
+                facts: {
+                    key: string;
+                    label: string;
+                    value: string | null;
+                }[];
+                /** Format: uuid */
+                id: string;
+                label: string;
+            }[];
+        };
+        LookupProvidersOut_Output: {
+            items: {
+                facts: {
+                    key: string;
+                    label: string;
+                }[];
+                key: string;
+                title: string;
+            }[];
         };
         MemberAddDto: {
             /** Format: uuid */
@@ -2511,6 +2583,72 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    RegistryLookupsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LookupProvidersOut_Output"];
+                };
+            };
+        };
+    };
+    RegistryLookupsController_search: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LookupItemsOut_Output"];
+                };
+            };
+        };
+    };
+    RegistryLookupsController_items: {
+        parameters: {
+            query: {
+                ids: string;
+            };
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LookupItemsOut_Output"];
+                };
             };
         };
     };

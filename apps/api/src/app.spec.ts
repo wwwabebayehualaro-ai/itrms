@@ -8,6 +8,7 @@ import {
     Metrics,
     notReplayableHandlers
 } from '@itrms/kernel/api';
+import { RegistryLookups } from '@itrms/forms/api';
 import { loadConfig } from '@itrms/kernel/config';
 import { defineModule } from '@itrms/module-sdk';
 import { describe, expect, it } from 'vitest';
@@ -69,6 +70,23 @@ describe('the API', () => {
         try {
             expect(context.get(Metrics)).toBeInstanceOf(Metrics);
             expect('getHttpAdapter' in context).toBe(false);
+        } finally {
+            await context.close();
+        }
+    });
+
+    it('registers every registry lookup its manifests declare', async () => {
+        const config = loadConfig('worker', DB);
+        const logger = createLogger(config, quiet);
+        const context = await createWorkerContext(AppModule.forRoot(config, logger), logger);
+        try {
+            const declared = SLICES.flatMap((s) => s.manifest.lookups);
+            expect(declared.length).toBeGreaterThan(0);
+            const registered = context
+                .get(RegistryLookups)
+                .list()
+                .map((p) => p.key);
+            expect([...registered].sort()).toEqual([...declared].sort());
         } finally {
             await context.close();
         }

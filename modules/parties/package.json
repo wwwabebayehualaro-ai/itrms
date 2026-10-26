@@ -25,6 +25,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@itrms/forms": "workspace:*",
     "@itrms/kernel": "workspace:*",
     "@itrms/module-sdk": "workspace:*",
     "@itrms/schemas": "workspace:*",

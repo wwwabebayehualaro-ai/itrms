@@ -227,6 +227,7 @@ export interface WireViewField {
     options: { value: unknown; label: string }[];
     currency: string | null;
     type: string | null;
+    provider?: string | null;
     filterable: boolean;
     indexed: boolean;
 }
@@ -268,6 +269,7 @@ export function viewSchemaOf(s: WireViewSchema): ViewSchema {
             options: f.options.map((o) => ({ value: String(o.value), label: o.label })),
             currency: f.currency,
             ...(f.type ? { type: f.type } : {}),
+            ...(f.provider ? { provider: f.provider } : {}),
             filterable: f.filterable,
             indexed: f.indexed
         })),

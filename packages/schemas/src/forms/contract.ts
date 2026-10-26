@@ -1,7 +1,7 @@
 /**
  * The stored form as a contract for the backend: `form_config` = `{ schemaVersion?, fields, runtime? }`, every field readable
- * by `storedFieldSchema` and of a type the field kit has. Exported as JSON Schema to `contracts/form-config.schema.json`
- * (`pnpm --filter @itrms/form-engine form:schema`); the backend checks every saved form against it. Lenient where stored
+ * by `storedFieldSchema` and of a type the field kit has. The API checks every saved form
+ * against it with the engine's field types (`FIELD_TYPES`). Lenient where stored
  * forms are (unknown keys are kept), strict where the engine depends on it (ids, types, the runtime's data sources).
  */
 import { z } from 'zod';
@@ -95,13 +95,4 @@ export function formConfigSchema(types: string[]) {
             description:
                 'A stored form: its fields (flat, linked by parentId) and its runtime (data sources, variables, submit).'
         });
-}
-
-/** The JSON Schema of `form_config` for the given field types (sorted, so the file only changes when the contract does). */
-export function formConfigJsonSchema(types: string[]): string {
-    const schema = z.toJSONSchema(formConfigSchema([...new Set(types)].sort()), {
-        io: 'input',
-        unrepresentable: 'any'
-    });
-    return JSON.stringify(schema, null, 2) + '\n';
 }

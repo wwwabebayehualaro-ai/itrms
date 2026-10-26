@@ -218,7 +218,24 @@
             "type": "string"
           },
           "documentType": {
-            "pattern": "^[a-z][a-z0-9_]{1,40}$",
+            "enum": [
+              "id_card",
+              "fayda_card",
+              "photo",
+              "medical_certificate",
+              "libre_copy",
+              "bolo_certificate",
+              "driver_licence_copy",
+              "training_certificate",
+              "education_certificate",
+              "tin_certificate",
+              "trade_licence",
+              "contract",
+              "design_drawing",
+              "payment_receipt",
+              "letter",
+              "other"
+            ],
             "type": "string"
           },
           "filename": {
@@ -397,6 +414,115 @@
           "unitId",
           "roleKey",
           "reason"
+        ],
+        "type": "object"
+      },
+      "LookupItemsOut_Output": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "active": {
+                  "type": "boolean"
+                },
+                "facts": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "key": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "value": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "label",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "id": {
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "label",
+                "active",
+                "facts"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "LookupProvidersOut_Output": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "facts": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "key": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "label"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "title",
+                "facts"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
         ],
         "type": "object"
       },
@@ -4288,6 +4414,116 @@
         },
         "tags": [
           "Persons"
+        ]
+      }
+    },
+    "/api/v1/registry-lookups": {
+      "get": {
+        "operationId": "RegistryLookupsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LookupProvidersOut_Output"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": [
+          "RegistryLookups"
+        ]
+      }
+    },
+    "/api/v1/registry-lookups/{provider}": {
+      "get": {
+        "operationId": "RegistryLookupsController_search",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 100,
+              "minLength": 2,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "maximum": 20,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LookupItemsOut_Output"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": [
+          "RegistryLookups"
+        ]
+      }
+    },
+    "/api/v1/registry-lookups/{provider}/items": {
+      "get": {
+        "operationId": "RegistryLookupsController_items",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ids",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LookupItemsOut_Output"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": [
+          "RegistryLookups"
         ]
       }
     },

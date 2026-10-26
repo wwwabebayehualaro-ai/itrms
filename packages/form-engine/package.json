@@ -18,11 +18,10 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run && pnpm check:engine && pnpm check:runtime && pnpm form:schema --check",
+    "test": "vitest run && pnpm check:engine && pnpm check:runtime",
     "check:engine": "tsx scripts/checkFormEngineExtensions.mts",
     "check:runtime": "tsx scripts/checkRuntimeEngine.mts",
-    "check:roundtrip": "tsx scripts/checkDesignerRoundTrip.mts",
-    "form:schema": "tsx scripts/exportFormSchema.mts"
+    "check:roundtrip": "tsx scripts/checkDesignerRoundTrip.mts"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",
