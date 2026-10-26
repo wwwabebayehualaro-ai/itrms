@@ -616,10 +616,11 @@
         {
           "id": "0.17b",
           "title": "Form engine for ITRMS, part 1b: conditional rules and the Ethiopian date",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.17b-rules-ethdate",
           "commits": [
-            "c5738d7"
+            "c5738d7",
+            "2079780"
           ],
           "evidence": [
             "PR #10 CI (head c5738d7) → all 9 jobs pass; dev stack job runs pnpm test:int (forms integration on PostgreSQL 16)",
