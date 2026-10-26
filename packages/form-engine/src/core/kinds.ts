@@ -44,8 +44,14 @@ function isInstant(v: unknown): boolean {
     return !!m && isIsoDay(m[1]) && !Number.isNaN(new Date(v as string).getTime());
 }
 
+/**
+ * An uploaded file as the engine records it (`host/files.ts`: `{ file_id, url, filename, content_type, size }`), or as
+ * older forms stored it (`{ name, size }`): an object that names the file, with a size that is a count of bytes if given.
+ */
 function isFile(v: unknown): boolean {
-    return isObject(v) && typeof v.file_id === 'string' && typeof v.name === 'string' && Number(v.size) > 0;
+    if (!isObject(v)) return false;
+    const named = typeof v.file_id === 'string' || typeof v.filename === 'string' || typeof v.name === 'string';
+    return named && (v.size === undefined || (typeof v.size === 'number' && Number.isFinite(v.size) && v.size >= 0));
 }
 
 /**

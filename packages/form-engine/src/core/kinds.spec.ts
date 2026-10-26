@@ -91,10 +91,16 @@ describe('shapeError', () => {
         ok('Slider', [1, 2], { range: true });
         bad('Slider', [1], { range: true });
         bad('Slider', [1, '2'], { range: true });
-        ok('FileUpload', [{ file_id: 'f', name: 'a.png', size: 5 }]);
+        // what the engine records for an upload (host/files.ts), and what older forms stored
+        ok('FileUpload', [
+            { file_id: 'f', url: '/api/v1/files/f/download', filename: 'a.png', content_type: 'image/png', size: 5 }
+        ]);
+        ok('FileUpload', [{ name: 'a.pdf', size: 10 }]);
+        ok('FileUpload', [{ file_id: 'f', filename: 'empty.txt', size: 0 }]);
         bad('FileUpload', 'x');
-        bad('FileUpload', [{ name: 'a.png', size: 5 }]);
-        bad('FileUpload', [{ file_id: 'f', name: 'a.png', size: 0 }]);
+        bad('FileUpload', [{ size: 5 }]);
+        bad('FileUpload', [{ file_id: 'f', size: -1 }]);
+        bad('FileUpload', [{ file_id: 'f', size: '5' }]);
     });
     it("uses the author's type message", () => {
         const f = field(

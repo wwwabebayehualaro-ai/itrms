@@ -961,7 +961,7 @@ describe('conditional rules, the Ethiopian date and recomputed values (task 0.17
         expect(refused.statusCode, refused.body).toBe(422);
         expect(refused.json<Problem>().errors).toEqual([
             expect.objectContaining({
-                path: 'answers.medicalCertificate',
+                path: 'medicalCertificate',
                 message: 'A medical certificate is required'
             })
         ]);
