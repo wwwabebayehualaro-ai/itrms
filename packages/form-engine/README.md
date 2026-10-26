@@ -143,15 +143,21 @@ dates Ethiopian. Hidden fields, fields the reader's roles do not see, display fi
 ## Extend it
 
 ```tsx
-import { defineFieldType, describeFieldType, registerAction } from '@itrms/form-engine/renderer';
+import { defineFieldType, describeFieldType, registerAction, setting } from '@itrms/form-engine/renderer';
 import { z } from 'zod';
 
 // a field type: how it renders (on @itrms/ui; the renderer owns label, help, errors, visibility and width)...
 defineFieldType({ kind: 'value', type: 'Iban', Render: ({ id, value, onChange, onBlur, disabled, invalid }) => <Input id={id} … /> });
-// ...and how the builder offers it: palette entry, starting settings, and the Settings tab, generated from a Zod schema
+// ...and how the builder offers it: palette entry, starting settings, and the Settings tab, generated from a Zod schema;
+// its words are texts in every language (an extension has no catalogue keys of its own)
 describeFieldType('Iban', {
-    label: 'IBAN', icon: Landmark, group: 'Text & numbers', rules: ['pattern'], defaults: { country: 'DE' },
-    settings: z.object({ country: z.enum(['DE', 'FR']).optional().meta({ title: 'Country', labels: { DE: 'Germany', FR: 'France' } }) })
+    label: { am: 'IBAN', en: 'IBAN' }, icon: Landmark, group: 'text', rules: ['pattern'], defaults: { country: 'DE' },
+    settings: z.object({
+        country: setting(z.enum(['DE', 'FR']).optional(), {
+            title: { am: 'ሀገር', en: 'Country' },
+            labels: { DE: { am: 'ጀርመን', en: 'Germany' }, FR: { am: 'ፈረንሳይ', en: 'France' } }
+        })
+    })
 });
 
 // templates call it by name: { "type": "custom", "target": "exportPdf", "payload": { ... } } (a template never carries code)

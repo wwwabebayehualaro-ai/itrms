@@ -1,4 +1,6 @@
 {
+  "form-engine.core.dataSource.failed": "ጥያቄው አልተሳካም",
+  "form-engine.core.dataSource.timedOut": "ጥያቄው ጊዜው አልፎበታል",
   "form-engine.core.print.item": "ንጥል",
   "form-engine.core.print.no": "አይደለም",
   "form-engine.core.print.noRows": "ምንም ረድፍ የለም",

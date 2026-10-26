@@ -197,7 +197,7 @@
   "form-engine.settings.inspector.options.source": "Where the options come from",
   "form-engine.settings.inspector.options.valueFrom": "Value from",
   "form-engine.settings.inspector.options.valueFromHelp": "What is stored",
-  "form-engine.settings.inspector.outline.count": "{count, plural, one {# field} other {# fields}}. Select one to change it.",
+  "form-engine.settings.inspector.outline.count": "{count, plural, one {{count} field} other {{count} fields}}. Select one to change it.",
   "form-engine.settings.inspector.outline.none": "No fields yet.",
   "form-engine.settings.inspector.outline.shortcuts": "Shortcuts: Ctrl+Z undo · Ctrl+Shift+Z redo · Del delete · Ctrl+D duplicate · Alt+↑/↓ move · Esc deselect · Ctrl+S save",
   "form-engine.settings.inspector.outline.title": "Form outline",

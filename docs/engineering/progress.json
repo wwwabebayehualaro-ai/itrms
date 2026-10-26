@@ -662,7 +662,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Design (architect): the engine resolves its own catalogues (packages/form-engine/messages/<area>, keys form-engine.<area>.*) with intl-messageformat in core, typed keys from the en catalogues, useEngineText/EngineTextLanguage on screen; ADR-0036. Foundation done: core/messages.ts, host/text.tsx, i18n:check covers package areas (+ fixture test), core's validation and print words per language (validateForm opts.language, default am; API passes the caller's; cases.json carries language en; int test for an Amharic default 422 message), Ethiopic F9 announced through a polite live region with EthiopicTypingProvider labels from shell.ethiopic.*. Out of scope (ADR-0036): formula/pattern/document-check diagnostics stay English until they get error codes."
+          "notes": "Design (architect): the engine resolves its own catalogues (packages/form-engine/messages/<area>, keys form-engine.<area>.*) with intl-messageformat in core, typed keys from the en catalogues, useEngineText/EngineTextLanguage on screen; ADR-0036. Foundation done: core/messages.ts, host/text.tsx, i18n:check covers package areas (+ fixture test), core's validation and print words per language (validateForm opts.language, default am; API passes the caller's; cases.json carries language en; int test for an Amharic default 422 message), Ethiopic F9 announced through a polite live region with EthiopicTypingProvider labels from shell.ethiopic.*. Out of scope (ADR-0036): formula/pattern/document-check diagnostics stay English until they get error codes. Batches: palette+settings (339 keys), renderer+viewer (258 + pager/grid 16), designer (204), core 33, e2e journeys look engine words up in Amharic. Reviewer: one high (API bundle missing intl-messageformat; caught by externals.spec, fixed by declaring it in apps/api), lows fixed (data-source failure texts per language, counts written the same in am and en with {count}, README extension example with I18nText + setting()); two lows moved to 0.18. CI fixes: catalogue JSON imported with { type: 'json' } (Playwright's Node ESM), shared cases carry their own language. Engine 203 tests, ui 73, web 63, api unit 10, i18n:check + fixtures 4, boundaries 976 modules, API and web builds."
         },
         {
           "id": "0.17e",
@@ -2081,6 +2081,21 @@
       "foundIn": "0.17c",
       "item": "Palette defaults written by createField (Text input, Option 1/2, Item, Add row) are English but stored as the builder's language; give them per-language catalogue texts",
       "movedTo": "0.17d"
+    },
+    {
+      "foundIn": "0.17d",
+      "item": "A form drawn in its own language (EngineForm language prop) submits with the screen's Accept-Language, so server-only 422 messages can come back in the screen language: send the form's language with the submission",
+      "movedTo": "0.18"
+    },
+    {
+      "foundIn": "0.17d",
+      "item": "Two rare texts still English: host/files.ts 'Could not read the file' (FileReader failure) and EngineForm 'Template ID is required' (developer error that can reach a toast)",
+      "movedTo": "0.18"
+    },
+    {
+      "foundIn": "0.17d",
+      "item": "The engine's ~800 Amharic texts were written by the team: a native reviewer at a bureau signs them off (i18n-and-languages.md §5), with the shell's",
+      "movedTo": "Phase 0 gate (demo validation)"
     }
   ]
 }

@@ -33,7 +33,7 @@
   "form-engine.designer.leave.reject": "Stay",
   "form-engine.designer.notice.cannotMove": "The field cannot go there.",
   "form-engine.designer.notice.copied": "Copied",
-  "form-engine.designer.notice.fixed": "{count, plural, one {# thing} other {# things}} in this form needed fixing when it was opened: {list}",
+  "form-engine.designer.notice.fixed": "{count, plural, one {{count} thing} other {{count} things}} in this form needed fixing when it was opened: {list}",
   "form-engine.designer.notice.nameTaken": "A form with this name already exists. Choose another name.",
   "form-engine.designer.notice.saved": "“{name}” saved",
   "form-engine.designer.preview.intro": "This is the form as people will see it. Fill it in to try the rules; submitting shows what would be stored and sends nothing.",

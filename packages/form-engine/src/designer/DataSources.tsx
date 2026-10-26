@@ -116,7 +116,7 @@ function Part({ title, open: initial = false, children }: { title: string; open?
 
 function TestPanel({ ds }: { ds: DataSourceDefinition }) {
     const client = useFormsClient();
-    const { t } = useEngineText();
+    const { t, language } = useEngineText();
     const [sample, setSample] = useState<unknown>({});
     const [state, setState] = useState<{ loading: boolean; error?: string; data?: unknown; count?: number }>({
         loading: false
@@ -137,7 +137,7 @@ function TestPanel({ ds }: { ds: DataSourceDefinition }) {
             variables: {}
         };
         try {
-            const data = await executeDataSource(client, ds, ctx);
+            const data = await executeDataSource(client, ds, ctx, { language });
             setState({ loading: false, data, count: toOptions(data, ds.responseMapping?.options).length });
         } catch (e) {
             setState({ loading: false, error: (e as Error).message });

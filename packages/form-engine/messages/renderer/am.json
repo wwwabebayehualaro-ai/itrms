@@ -58,7 +58,7 @@
   "form-engine.renderer.submit.clear": "ቅጹን አጽዳ",
   "form-engine.renderer.submit.done": "በተሳካ ሁኔታ ገብቷል",
   "form-engine.renderer.submit.failed": "ቅጹን ማስገባት አልተቻለም። እባክዎ እንደገና ይሞክሩ።",
-  "form-engine.renderer.submit.fixFields": "{count, plural, one {እባክዎ ከማስገባትዎ በፊት 1 መስክ ያስተካክሉ።} other {እባክዎ ከማስገባትዎ በፊት # መስኮችን ያስተካክሉ።}}",
+  "form-engine.renderer.submit.fixFields": "{count, plural, one {እባክዎ ከማስገባትዎ በፊት 1 መስክ ያስተካክሉ።} other {እባክዎ ከማስገባትዎ በፊት {count} መስኮችን ያስተካክሉ።}}",
   "form-engine.renderer.submit.label": "አስገባ",
   "form-engine.renderer.submit.refresh": "ውሂቡን አድስ",
   "form-engine.renderer.submit.saveChanges": "ለውጦችን አስቀምጥ",

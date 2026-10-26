@@ -58,7 +58,7 @@
   "form-engine.renderer.submit.clear": "Clear form",
   "form-engine.renderer.submit.done": "Submitted successfully",
   "form-engine.renderer.submit.failed": "Failed to submit form. Please try again.",
-  "form-engine.renderer.submit.fixFields": "{count, plural, one {Please fix 1 field before submitting.} other {Please fix # fields before submitting.}}",
+  "form-engine.renderer.submit.fixFields": "{count, plural, one {Please fix 1 field before submitting.} other {Please fix {count} fields before submitting.}}",
   "form-engine.renderer.submit.label": "Submit",
   "form-engine.renderer.submit.refresh": "Refresh data",
   "form-engine.renderer.submit.saveChanges": "Save changes",

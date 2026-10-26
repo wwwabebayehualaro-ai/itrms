@@ -1,4 +1,6 @@
 {
+  "form-engine.core.dataSource.failed": "Request failed",
+  "form-engine.core.dataSource.timedOut": "The request timed out",
   "form-engine.core.print.item": "Item",
   "form-engine.core.print.no": "No",
   "form-engine.core.print.noRows": "No rows",
@@ -21,7 +23,7 @@
   "form-engine.core.validation.maxItems": "{label}: at most {max} rows allowed",
   "form-engine.core.validation.maxLength": "Cannot exceed {max} characters",
   "form-engine.core.validation.min": "Must be at least {min}",
-  "form-engine.core.validation.minItems": "{label}: at least {count, plural, one {# row} other {# rows}} required",
+  "form-engine.core.validation.minItems": "{label}: at least {count, plural, one {{count} row} other {{count} rows}} required",
   "form-engine.core.validation.minLength": "Must be at least {min} characters",
   "form-engine.core.validation.notValid": "This value is not valid",
   "form-engine.core.validation.notVerified": "Could not be verified",
