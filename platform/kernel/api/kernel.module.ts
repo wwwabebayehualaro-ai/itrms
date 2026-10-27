@@ -25,6 +25,7 @@ import { ProblemFilter } from './errors/problem.filter';
 import { EffectRegistry } from './effects';
 import { AccessGuard, AUTHENTICATOR, RouteInventory, type Authenticator } from './iam/access';
 import { IamController } from './iam/iam.controller';
+import { NotificationsController } from './notifications/notifications.controller';
 import { OidcAuthenticator, type OidcOptions } from './iam/oidc-authenticator';
 import type { RolePermissions } from './iam/roles';
 import { IdempotencyInterceptor } from './idempotency/idempotency';
@@ -117,6 +118,7 @@ export class KernelModule {
                           HealthController,
                           OrgController,
                           IamController,
+                          NotificationsController,
                           JobsController,
                           SettingsController,
                           FilesController

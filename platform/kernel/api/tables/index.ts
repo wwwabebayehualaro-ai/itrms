@@ -6,3 +6,4 @@ export { bytea } from '../crypto/crypto.table';
 export { orgUnits } from '../org/org.table';
 export { users } from '../iam/iam.table';
 export { files } from '../files/files.table';
+export { notifications } from '../notifications/notifications.table';

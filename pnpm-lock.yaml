@@ -1055,6 +1055,9 @@ importers:
 
   platform/workflow:
     dependencies:
+      '@itrms/ethiopian-calendar':
+        specifier: workspace:*
+        version: link:../../packages/ethiopian-calendar
       '@itrms/forms':
         specifier: workspace:*
         version: link:../forms

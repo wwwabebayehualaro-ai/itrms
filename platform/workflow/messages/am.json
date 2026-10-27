@@ -21,6 +21,8 @@
   "workflow.check.unknown-step-form": "\"{form}\" የሚባል የቅጽ ስሪት የለም።",
   "workflow.check.unreachable": "ወደ ደረጃ \"{state}\" የሚያደርስ ሽግግር የለም።",
   "workflow.check.wait-action": "ከመጠበቂያ ደረጃ \"{state}\" የሚወጣው በክስተት ወይም በጊዜ ገደቡ ብቻ ነው እንጂ በሰው ውሳኔ አይደለም።",
+  "workflow.notify.escalated": "ጉዳይ {number}፦ ከጽ/ቤትዎ በታች ባለ ጽ/ቤት ያለው ደረጃ \"{state}\" ጊዜው አልፏል።",
+  "workflow.notify.overdue": "ጉዳይ {number}፦ በጽ/ቤትዎ ያለው ደረጃ \"{state}\" ጊዜው አልፏል።",
   "workflow.refusal.comment-required": "ለዚህ ውሳኔ አስተያየት ይጻፉ።",
   "workflow.refusal.final-state": "ጉዳዩ ተዘግቷል፤ ተጨማሪ ሥራ ሊሠራበት አይችልም።",
   "workflow.refusal.form-needed": "የደረጃውን ቅጽ ይሙሉ።",

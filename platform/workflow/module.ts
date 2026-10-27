@@ -13,5 +13,9 @@ export default defineModule({
         // a case's steps: who acts on one is the engine's business (the step's role in its unit); `act` lets a role try
         case: ['read', 'act']
     },
-    events: { emits: ['case.transitioned.v1'], consumes: [] }
+    // the SLA timers are its own: the worker marks an overdue step and delivers a wait's timeout (0.20a)
+    events: {
+        emits: ['case.transitioned.v1', 'case-task.due.v1', 'case.wait-due.v1'],
+        consumes: ['case-task.due.v1', 'case.wait-due.v1']
+    }
 });

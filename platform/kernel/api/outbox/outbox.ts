@@ -21,7 +21,11 @@ export async function emit(
     tx: Tx,
     type: string,
     payload: Record<string, unknown>,
-    where: { unitId?: string; regionId?: string } = {}
+    where: {
+        unitId?: string;
+        regionId?: string;
+        /** not before (an SLA's due time): the relay waits for it */ availableAt?: Date;
+    } = {}
 ): Promise<Emitted> {
     if (!EVENT.test(type)) throw new Error(`"${type}" is not an event name (<entity>.<happened>.v<n>)`);
     const ctx = contextOfTx(tx);
@@ -30,7 +34,14 @@ export async function emit(
     if (!unitId || !regionId) throw new Error(`emit("${type}"): no unit for the event (name one outside a request)`);
     const [row] = await tx
         .insert(outboxEvents)
-        .values({ type, payload: plain(payload), unitId, regionId, requestId: ctx.requestId })
+        .values({
+            type,
+            payload: plain(payload),
+            unitId,
+            regionId,
+            requestId: ctx.requestId,
+            ...(where.availableAt ? { availableAt: where.availableAt } : {})
+        })
         .returning({ id: outboxEvents.id });
     if (!row) throw new Error(`emit("${type}"): the event was not written`);
     return row;

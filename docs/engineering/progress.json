@@ -780,12 +780,12 @@
         {
           "id": "0.20a",
           "title": "Workflow engine, part 2a: calendars, SLA timers, notifications",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.20a-sla-calendars",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "businessDeadline + ethiopianHolidays (fixed dates via Ethiopian dates, Orthodox Easter computed; Muslim holidays PROVISIONAL placeholders 2026–2028) in @itrms/ethiopian-calendar; whole-minute precision. Calendars: workflow.working_calendars / workflow.holidays (class C, nearest up the tree; default civil service week Mon–Fri 08:30–12:30, 13:30–17:30). Timers are outbox events with available_at = due_at (no second queue); slaSweep every 15 min. Supervisors = unit_head of the task's unit; escalation = unit_head of its parent. kernel.notifications class T, no API grant: kernel.my_notifications / read_my_notifications definers; GET/POST /api/v1/me/notifications. Follow-up 122 (export-ready notification) → 0.20b."
         },
         {
           "id": "0.20b",
@@ -2059,7 +2059,7 @@
     {
       "foundIn": "0.16e",
       "item": "Tell the requester when a background export is ready (an in-app notification)",
-      "movedTo": "0.20a"
+      "movedTo": "0.20b"
     },
     {
       "foundIn": "0.16e",

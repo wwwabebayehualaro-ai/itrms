@@ -48,6 +48,7 @@ describe('every table', () => {
             'forms.submission_values: derived from its submission, whose insert is audited in the same transaction (ADR-0035)',
             'kernel.audit_log: it is the audit log',
             'kernel.idempotency_keys: a technical record of a request already audited by the write it carried',
+            'kernel.notifications: a message to one person: what caused it (an overdue step, a mention) is audited where it happened',
             'kernel.number_counters: a counter moves with every number issued; the business row that carries the number is audited',
             "kernel.outbox_events: an event of a business write that is itself audited; its status is the relay's bookkeeping",
             'kernel.region_data_keys: key material: written only by kernel.ensure_region_data_key, which writes its own audit event'

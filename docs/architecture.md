@@ -351,10 +351,15 @@ Definition (Zod schema `workflowDefinitionSchema` in `packages/schemas`; stored 
 - **Small offices:** if separation of duties leaves no eligible actor in the unit, the task is **routed to the parent
   unit** automatically. This is recorded on the case and in the audit, so it never deadlocks and never silently relaxes the
   rule.
-- **SLA:** `due_at` is computed by one helper in the application (never in SQL), with the unit's **working calendar**
+- **SLA (task 0.20a):** `due_at` is computed by one helper in the application (`businessDeadline` in
+  `@itrms/ethiopian-calendar`, never in SQL), with the unit's **working calendar**
   (working days and hours, lunch break, half days, holidays) in Addis Ababa time. A BullMQ delayed job fires at
   `due_at` (marks the task overdue, notifies, escalates one level up). A 15-minute sweep catches lost timers. Escalation never
-  changes who may decide. It adds visibility for the supervisor.
+  changes who may decide. It adds visibility for the supervisor. The timer is an outbox event available at `due_at` (`case-task.due.v1`,
+  `case.wait-due.v1`); a step's supervisors are its office's `unit_head`s, the escalation tells the office above; a wait
+  past its SLA leaves by its `timeout` transition (`system:timer`). The national holidays are computed (fixed dates and
+  the Orthodox Easter); the Muslim ones are provisional data a region confirms in `workflow.holidays`. Notifications are
+  `kernel.notifications`, read by their recipient only through reviewed functions.
 - **Versioning:** a case runs on the definition version it started with. Storing a version runs the engine's checks
   (`platform/workflow/api/engine/check.ts`): one start; every state reachable; an end reachable from every state; a task
   left only by actions, a wait only by events or its timeout (with an SLA), an end never; separation of duties naming

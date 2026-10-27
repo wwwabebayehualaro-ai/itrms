@@ -169,5 +169,9 @@ export const WORKFLOW_EVENTS = {
         to: z.string(),
         action: z.string(),
         closed: z.boolean()
-    })
+    }),
+    /** a step's SLA timer (available when it is due) */
+    'case-task.due.v1': z.object({ taskId: z.uuid(), caseId: z.uuid() }),
+    /** a wait's SLA timer: its timeout (available when it is due) */
+    'case.wait-due.v1': z.object({ caseId: z.uuid(), state: z.string() })
 };
