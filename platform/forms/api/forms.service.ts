@@ -28,7 +28,15 @@ import type {
 } from '../contracts';
 import { formDefinitions, formPublications, formVersions } from './forms.table';
 import { RegistryLookups } from './lookups';
-import { assertLookups, assertReadable, contentHash, fieldsFor, isUniqueViolation, required } from './support';
+import {
+    approvedVersions,
+    assertLookups,
+    assertReadable,
+    contentHash,
+    fieldsFor,
+    isUniqueViolation,
+    required
+} from './support';
 import { assertKeysStable, assertPublishable, publishCheck, publishedDocument } from './governance';
 import { filterableKinds } from './view-fields';
 
@@ -170,7 +178,7 @@ export class FormsService {
     ): Promise<Set<string>> {
         if (refs.length === 0) return new Set();
         const rows = await tx
-            .select({ key: formDefinitions.key, number: formVersions.number })
+            .select({ id: formVersions.id, key: formDefinitions.key, number: formVersions.number })
             .from(formVersions)
             .innerJoin(formDefinitions, eq(formDefinitions.id, formVersions.formId))
             .where(
@@ -178,15 +186,29 @@ export class FormsService {
                     inArray(formDefinitions.key, [...new Set(refs.map((r) => r.key))]),
                     inArray(formVersions.number, [...new Set(refs.map((r) => r.number))]),
                     eq(formDefinitions.active, true),
-                    sql`${formDefinitions.orgPath} @> ${ownerPath}::ltree`,
-                    or(
-                        eq(formDefinitions.publishedVersionId, formVersions.id),
-                        sql`exists (select 1 from ${formPublications} p
-                                     where p.form_version_id = ${formVersions.id} and p.status = 'approved')`
-                    )
+                    sql`${formDefinitions.orgPath} @> ${ownerPath}::ltree`
                 )
             );
-        return new Set(rows.map((r) => `${r.key}@${r.number}`));
+        const approved = await approvedVersions(
+            tx,
+            rows.map((r) => r.id)
+        );
+        return new Set(rows.filter((r) => approved.has(r.id)).map((r) => `${r.key}@${r.number}`));
+    }
+
+    /**
+     * The form version a workflow step names (`<key>@<number>`), among the forms the caller can read: an approved version
+     * of an active form (as `existingVersions` checked when the workflow was stored). Null when there is none.
+     */
+    async stepVersion(tx: Tx, key: string, number: number): Promise<{ formId: string; versionId: string } | null> {
+        const [row] = await tx
+            .select({ formId: formVersions.formId, versionId: formVersions.id })
+            .from(formVersions)
+            .innerJoin(formDefinitions, eq(formDefinitions.id, formVersions.formId))
+            .where(
+                and(eq(formDefinitions.key, key), eq(formVersions.number, number), eq(formDefinitions.active, true))
+            );
+        return row && (await approvedVersions(tx, [row.versionId])).has(row.versionId) ? row : null;
     }
 
     async version(tx: Tx, formId: string, versionId: string): Promise<FormVersion> {

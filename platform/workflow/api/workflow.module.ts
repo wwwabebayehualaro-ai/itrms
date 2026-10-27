@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { FormsModule } from '@itrms/forms/api';
 
+import { CasesController } from './cases.controller';
+import { CasesService } from './cases.service';
 import { WorkflowDefinitionsController } from './definitions.controller';
 import { WorkflowDefinitionsService } from './definitions.service';
 
@@ -10,8 +12,8 @@ import { WorkflowDefinitionsService } from './definitions.service';
  */
 @Module({
     imports: [FormsModule],
-    controllers: [WorkflowDefinitionsController],
-    providers: [WorkflowDefinitionsService],
-    exports: [WorkflowDefinitionsService]
+    controllers: [WorkflowDefinitionsController, CasesController],
+    providers: [WorkflowDefinitionsService, CasesService],
+    exports: [WorkflowDefinitionsService, CasesService]
 })
 export class WorkflowModule {}

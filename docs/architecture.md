@@ -262,8 +262,8 @@ records are **deactivated**, never deleted); `timestamptz` stored in UTC, busine
 | `cases` | one service request: number, service version, resolved-config hash, applicant party, **subject refs** (`vehicle_id`, `person_id`, `licence_id`, `association_id`, `project_id`; typed FKs, nullable), handling unit, state, timestamps; class T |
 | `submissions` | form answers: `case_id`, `form_version_id`, `step_key`, `answers JSONB`, `submitted_by`; answers hold **ids** of registry records picked by lookup fields, never copies |
 | `workflow_definitions` | versioned JSON (§8) |
-| `case_tasks` | open and closed human steps: role, unit, due_at, claimed_by, outcome; class T on the assignee unit |
-| `case_events` | append-only timeline (transitions, comments, payments, documents) |
+| `case_tasks` | open and closed human steps: role, unit, due_at, claimed_by, outcome; class T on the assignee unit (a step in a unit above the actor's scope is opened through the reviewed `workflow.open_task`, task 0.19b) |
+| `case_events` | append-only timeline (transitions, routings, comments, payments, documents); class T at the handling unit |
 
 The JSONB answers are the evidence of what was filled in. **The registry tables are the truth.** Workflow effects copy the
 facts that matter (licence grade, issue date, plate number) from answers into typed tables, in the same transaction, so

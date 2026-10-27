@@ -385,6 +385,8 @@ describe('every tenant table', () => {
               AND has_function_privilege('itrms_app', p.oid, 'EXECUTE')
             ORDER BY 1`);
         expect(rows.map((r) => r.name)).toEqual([
+            // which of the form versions the caller reads a second person approved (task 0.19b)
+            'forms.approved_versions(uuid[])',
             // the caller's region's first data key, once (task 0.14)
             'kernel.ensure_region_data_key(uuid,text,bytea)',
             'kernel.principal_units(text)',
@@ -396,7 +398,11 @@ describe('every tenant table', () => {
             'kernel.set_my_preferences(jsonb)',
             // the registers' searches, limited to the caller's region; ids only (task 0.14)
             'parties.search_organisations(text,integer)',
-            'parties.search_persons(text,bytea,bytea,integer)'
+            'parties.search_persons(text,bytea,bytea,integer)',
+            // the step a transition leads to, in a unit above the caller's scope, for a case they see (task 0.19b)
+            'workflow.open_task(uuid,uuid,text,uuid,text,uuid)',
+            // who holds a role in a unit of the caller's chain: user ids only (task 0.19b)
+            'workflow.role_holders(uuid,text)'
         ]);
     });
 });

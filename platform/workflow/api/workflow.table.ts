@@ -9,14 +9,19 @@
  *                                 unit move rewrites `org_path`. A case runs on the version it started with (0.19b).
  *
  * The audit log holds a version's hash, never its content (the versions are the record).
+ *
+ *   cases, case_tasks, case_events   the cases running on them, their open and closed steps, their timeline (0.19b).
  */
+import { sql } from 'drizzle-orm';
 import {
+    bigint,
     boolean,
     index,
     integer,
     jsonb,
     pgSchema,
     text,
+    timestamp,
     uniqueIndex,
     uuid,
     type AnyPgColumn
@@ -82,4 +87,133 @@ export const workflowDefinitionVersions = withRls(
         { omit: ['definition'] }
     ),
     'config'
+);
+
+/**
+ * Cases (task 0.19b): one service request running on the workflow version it started with and the configuration frozen
+ * at its start (`approval_unit` …). Its state changes only through a transition. Class T at the handling unit.
+ */
+export const cases = withRls(
+    audited(
+        workflowSchema.table(
+            'cases',
+            {
+                ...baseColumns(),
+                regionId: uuid('region_id').notNull(),
+                handlingUnitId: uuid('handling_unit_id')
+                    .notNull()
+                    .references(() => orgUnits.id),
+                /** set by trigger from the handling unit */
+                orgPath: ltree('org_path').notNull().default(''),
+                /** from an ordinary sequence: gaps are harmless here (architecture.md §17) */
+                number: bigint('number', { mode: 'number' }).notNull(),
+                definitionVersionId: uuid('definition_version_id')
+                    .notNull()
+                    .references(() => workflowDefinitionVersions.id),
+                /** the resolved configuration, frozen at the start: later changes never alter an open case */
+                config: jsonb('config').$type<Record<string, unknown>>().notNull(),
+                configHash: text('config_hash').notNull(),
+                state: text('state').notNull(),
+                /** what effects handed back, for later guards and effects */
+                facts: jsonb('facts')
+                    .$type<Record<string, unknown>>()
+                    .notNull()
+                    .default(sql`'{}'::jsonb`),
+                startedBy: uuid('started_by').notNull(),
+                closedAt: timestamp('closed_at', { withTimezone: true })
+            },
+            (t) => [
+                uniqueIndex('cases_number_uq').on(t.regionId, t.number),
+                index('cases_org_path_gist').using('gist', t.orgPath),
+                index('cases_state_idx').on(t.regionId, t.state)
+            ]
+        ),
+        { omit: ['facts'] }
+    ),
+    'transaction'
+);
+
+export const CASE_TASK_STATUSES = ['open', 'done', 'cancelled'] as const;
+
+/**
+ * A step waiting for a person (task 0.19b): the role that acts and the unit it is held in. Class T at the **assignee**
+ * unit: only that unit (and the offices above it) sees the task; who of them may act is the engine's business (the role).
+ * One open task per case.
+ */
+export const caseTasks = withRls(
+    audited(
+        workflowSchema.table(
+            'case_tasks',
+            {
+                ...baseColumns(),
+                regionId: uuid('region_id').notNull(),
+                caseId: uuid('case_id')
+                    .notNull()
+                    .references(() => cases.id),
+                unitId: uuid('unit_id')
+                    .notNull()
+                    .references(() => orgUnits.id),
+                /** set by trigger from the assignee unit */
+                orgPath: ltree('org_path').notNull().default(''),
+                stateKey: text('state_key').notNull(),
+                role: text('role').notNull(),
+                status: text('status', { enum: CASE_TASK_STATUSES }).notNull().default('open'),
+                /** the unit the definition assigned it to, when separation of duties sent it up the tree */
+                routedFromUnitId: uuid('routed_from_unit_id').references(() => orgUnits.id),
+                actedBy: uuid('acted_by'),
+                action: text('action'),
+                closedAt: timestamp('closed_at', { withTimezone: true })
+            },
+            (t) => [
+                uniqueIndex('case_tasks_open_uq')
+                    .on(t.caseId)
+                    .where(sql`status = 'open'`),
+                index('case_tasks_case_idx').on(t.caseId),
+                index('case_tasks_org_path_gist').using('gist', t.orgPath),
+                index('case_tasks_inbox_idx').on(t.unitId, t.role, t.status)
+            ]
+        )
+    ),
+    'transaction'
+);
+
+export const CASE_EVENT_KINDS = ['started', 'transition', 'routed'] as const;
+
+/**
+ * A case's timeline (task 0.19b): append-only (no UPDATE or DELETE but a unit move's `org_path`). Class T at the unit
+ * handling the case when it happened. A person's actor is a user id; a system actor its `system:<adapter>`.
+ */
+export const caseEvents = withRls(
+    audited(
+        workflowSchema.table(
+            'case_events',
+            {
+                ...baseColumns(),
+                regionId: uuid('region_id').notNull(),
+                caseId: uuid('case_id')
+                    .notNull()
+                    .references(() => cases.id),
+                unitId: uuid('unit_id')
+                    .notNull()
+                    .references(() => orgUnits.id),
+                /** set by trigger from the unit */
+                orgPath: ltree('org_path').notNull().default(''),
+                kind: text('kind', { enum: CASE_EVENT_KINDS }).notNull(),
+                fromState: text('from_state'),
+                toState: text('to_state'),
+                /** the action, or the event or `timeout` a system actor took */
+                action: text('action'),
+                actorUserId: uuid('actor_user_id'),
+                systemActor: text('system_actor'),
+                comment: text('comment'),
+                data: jsonb('data').$type<Record<string, unknown>>()
+            },
+            (t) => [
+                index('case_events_case_idx').on(t.caseId, t.createdAt),
+                index('case_events_org_path_gist').using('gist', t.orgPath)
+            ]
+        ),
+        { omit: ['comment'] }
+    ),
+    'transaction'
 );

@@ -2,7 +2,8 @@
  * Shared by the forms services: the content hash of a document (the kernel's), the document check as a 422, and what the engine sees of
  * a form on the server (the caller's fields, the scope its conditions read).
  */
-import type { DbContext } from '@itrms/kernel/db';
+import { sql } from 'drizzle-orm';
+import type { DbContext, Tx } from '@itrms/kernel/db';
 import { ForbiddenError, ValidationError } from '@itrms/kernel/errors';
 import { checkDocument, fieldsForRoles, readDocument, type EngineField, type Scope } from '@itrms/form-engine/core';
 
@@ -71,4 +72,17 @@ export function isUniqueViolation(error: unknown, constraint: string): boolean {
         if (code === '23505' && name === constraint) return true;
     }
     return false;
+}
+
+/**
+ * Which of `ids` (versions the caller reads) a second person approved: the published one, or one an approved publication
+ * names. Through the reviewed `forms.approved_versions`: the publications are the owner unit's (class T), so an office
+ * below cannot read them itself.
+ */
+export async function approvedVersions(tx: Tx, ids: readonly string[]): Promise<Set<string>> {
+    if (ids.length === 0) return new Set();
+    const result = await tx.execute<{ id: string }>(
+        sql`select v as id from forms.approved_versions(${`{${ids.join(',')}}`}::uuid[]) v`
+    );
+    return new Set(result.rows.map((r) => r.id));
 }

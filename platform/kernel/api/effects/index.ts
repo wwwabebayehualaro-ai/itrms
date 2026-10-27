@@ -20,6 +20,9 @@ export interface EffectRun<Input = unknown> {
     tx: Tx;
     ctx: DbContext;
     caseId: string;
+    /** the case's region and handling unit: where an effect files what it makes (not the actor's unit) */
+    regionId: string;
+    handlingUnitId: string;
     /** what follows the key in the reference: `licence-card` of `documents.issue:licence-card` */
     argument?: string;
     /** the step's answers, typed by the effect's contract (0.21a) */

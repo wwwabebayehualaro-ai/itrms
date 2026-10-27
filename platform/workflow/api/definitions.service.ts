@@ -9,7 +9,7 @@ import { and, desc, eq, ilike, inArray, max, or, sql } from 'drizzle-orm';
 import { contentHash, insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { EffectRegistry } from '@itrms/kernel/effects';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
-import { SHELL, type Shell } from '@itrms/kernel/iam';
+import { rolePermissions, SHELL, type Shell } from '@itrms/kernel/iam';
 import { unitRefs, withinScope } from '@itrms/kernel/org';
 import { FormsService } from '@itrms/forms/api';
 import { parseStepForm, type WorkflowDefinition } from '@itrms/schemas';
@@ -63,9 +63,13 @@ export class WorkflowDefinitionsService {
         private readonly forms: FormsService
     ) {}
 
-    /** The roles the installed modules define (a role nobody defines grants nothing, so a step on it could never run). */
+    /**
+     * The roles a step may name: those the installed modules define and grant `case:act` (a step on any other role could
+     * never be taken: its holders are refused at the door).
+     */
     private roles(): Set<string> {
-        return new Set(this.shell.manifests.flatMap((m) => Object.keys(m.roles)));
+        const granted = rolePermissions(this.shell.manifests);
+        return new Set([...granted].filter(([, permissions]) => permissions.has('case:act')).map(([role]) => role));
     }
 
     /**

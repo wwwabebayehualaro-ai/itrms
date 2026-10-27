@@ -33,6 +33,17 @@ interface Binding {
 const BINDINGS = new WeakMap<object, Binding>();
 
 /** Called by `scoped` for the transaction it opens: the helpers take the actor and the request from here. */
+/**
+ * A system transaction (no person, no region) acting for one unit's record: its audit rows carry that region, unit and
+ * scope, so the region's auditors see them. Refused in a person's transaction (their context is already bound).
+ */
+export function actFor(tx: Tx, where: { regionId: string; unitId: string; scopePath: string }): void {
+    const binding = bindingOf(tx);
+    if (binding.ctx.userId || binding.ctx.regionId)
+        throw new Error('actFor is for system transactions: a person acts in their own context');
+    BINDINGS.set(tx, { ...binding, ctx: { ...binding.ctx, ...where } });
+}
+
 export function bindContext(tx: Tx, ctx: DbContext, auditKey?: string) {
     BINDINGS.set(tx, { ctx, auditKey });
 }

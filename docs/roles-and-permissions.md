@@ -72,7 +72,7 @@ In code a permission is `resource:action` with the resource in kebab-case, as th
 | `user` (assignments) | A (region) | A (subtree) | R | — | — | — | — | — | — | R |
 | `service_config` (versions, overrides) | A | U (allowed overrides) | R | R | R | R | R | R | R | R |
 | `person`, `organisation` | R | R | R | C U R | R | R | C U R | R | R | R |
-| `case` (any service) | R | — | R | C R | R | R | R U | R | R | R |
+| `case` (any service; `case:act` lets a role try a step, the engine then checks the step's role in its unit, 0.19b) | R | — | R | C R | R | R | R U | R | R | R |
 | case step "review" (competency) | — | — | — | — | — | — | D | D | — | — |
 | case step "exam" | — | — | — | — | — | — | — | — | D | — |
 | case step "approval" (competency) | — | — | D (if named) | — | — | — | — | D | — | — |

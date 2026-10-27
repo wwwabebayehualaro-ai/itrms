@@ -29,6 +29,7 @@ import type { InstalledSlice } from '@itrms/module-sdk';
 import reports from '@itrms/reports/manifest';
 import services from '@itrms/services/manifest';
 import { WorkflowModule } from '@itrms/workflow/api';
+import { WORKFLOW_EVENTS } from '@itrms/workflow/contracts';
 import workflow from '@itrms/workflow/manifest';
 import workflowAm from '@itrms/workflow/messages/am';
 import workflowEn from '@itrms/workflow/messages/en';
@@ -44,6 +45,7 @@ export const SLICES: ApiSlice[] = [
     {
         manifest: workflow,
         module: WorkflowModule,
+        events: WORKFLOW_EVENTS,
         messages: { am: workflowAm, en: workflowEn, 'wal-Latn': workflowWal }
     },
     ...[services, reports].map((manifest) => ({ manifest })),
