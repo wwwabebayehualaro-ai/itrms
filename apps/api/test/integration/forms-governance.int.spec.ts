@@ -263,7 +263,16 @@ describe('the review of a change', () => {
 
     it('is not found outside the caller region', async () => {
         const form = await published();
-        const asked = (await request(form)).json<PublicationOut>();
+        // a request needs a change: the published content itself is refused (409, already published)
+        const flagged = (
+            await patch(form, { ...BASE, fields: [BASE.fields[0], office({ removed: true })] })
+        ).json<FormOut>();
+        const sent = await request(flagged);
+        expect(sent.statusCode, sent.body).toBe(201);
+        const asked = sent.json<PublicationOut>();
+        expect((await api.call('GET', `/api/v1/form-publications/${asked.id}/review`, as.bureau2)).statusCode).toBe(
+            200
+        );
         const res = await api.call('GET', `/api/v1/form-publications/${asked.id}/review`, as.trx);
         expect(res.statusCode).toBe(404);
     });

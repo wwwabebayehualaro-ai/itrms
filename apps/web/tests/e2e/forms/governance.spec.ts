@@ -85,7 +85,8 @@ test('a change to a published form shows its diff and the views it affects, and 
         await expect(review.locator('[data-review-section="views"]')).toContainText(viewName);
         await review.locator('[data-request-publication]').click();
         await expect(page.getByText(am('form-engine.designer.publish.sentForApproval')).first()).toBeVisible();
-        expect((await author.get<FormOut>(`v1/forms/${formId}`)).status).toBe('published');
+        // waiting for the second person; people go on filling version 1 meanwhile
+        expect((await author.get<FormOut>(`v1/forms/${formId}`)).status).toBe('pending');
 
         // the zone's head reviews the same difference and view in the inbox, and approves
         await checker.reload();
@@ -97,6 +98,7 @@ test('a change to a published form shows its diff and the views it affects, and 
         await expect(sheet.locator('[data-review-section="views"]')).toContainText(viewName);
         await sheet.getByRole('button', { name: /approve/i }).click();
         await expect(sheet).toBeHidden();
+        expect((await author.get<FormOut>(`v1/forms/${formId}`)).status).toBe('published');
 
         // the live version keeps the office, flagged removed
         const live = await author.get<VersionOut>(`v1/forms/${formId}/versions/published`);

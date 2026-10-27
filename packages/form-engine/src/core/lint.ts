@@ -185,9 +185,13 @@ function allowed(method: string, url: string, list: readonly DataSourceAllowance
     return list.some((entry) => {
         if (entry.method.toUpperCase() !== method.toUpperCase()) return false;
         const want = entry.path.split('/').filter(Boolean);
-        return want.length <= segments.length && want.every((w, i) => /^\{[^}]*\}$/.test(w) || w === segments[i]);
+        return want.length <= segments.length && want.every((w, i) => isPlaceholder(w) || w === segments[i]);
     });
 }
+
+/** A path segment written `{name}`: any one segment matches it. */
+const isPlaceholder = (segment: string) =>
+    segment.length >= 2 && segment.startsWith('{') && segment.indexOf('}') === segment.length - 1;
 
 /** The problems of a stored form, errors first. */
 export function lintDocument(raw: unknown, opts: LintOptions = {}): LintProblem[] {

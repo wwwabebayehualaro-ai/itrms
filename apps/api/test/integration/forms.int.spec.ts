@@ -253,6 +253,10 @@ const text = (id: string, extra: Record<string, unknown> = {}) => ({
 const required = (id: string) => text(id, { props: { required: true } });
 const V1 = { schemaVersion: 2, fields: [required('fullName'), text('phone')] };
 const V2 = { schemaVersion: 2, fields: [required('fullName'), text('phone'), required('kebele')] };
+const V1_WITHOUT_KEBELE = {
+    schemaVersion: 2,
+    fields: [required('fullName'), text('phone'), { ...required('kebele'), removed: true }]
+};
 
 async function createForm(who: As, key: string, document: unknown = V1): Promise<FormOut> {
     const res = await call('POST', '/api/v1/forms', who, {
@@ -522,19 +526,19 @@ describe('a bureau form', () => {
     it('stays on its published version when a publication is rejected; the same content reuses its version', async () => {
         form = await get<FormOut>(`/api/v1/forms/${form.id}`, as.bureau());
         const live = form.publishedVersion;
+        // the kebele is published: taking it out keeps it, flagged removed (task 0.18a), which is a third content
         const toV1 = await call(
             'PATCH',
             `/api/v1/forms/${form.id}`,
             as.bureau(),
-            { document: V1 },
+            { document: V1_WITHOUT_KEBELE },
             ifMatch(form.version)
         );
-        expect(toV1.statusCode).toBe(200);
+        expect(toV1.statusCode, toV1.body).toBe(200);
         const asked = (
             await call('POST', `/api/v1/forms/${form.id}/publications`, as.bureau(), {})
         ).json<PublicationOut>();
-        // back to the first content: its version, not a third
-        expect(asked.formVersion.number).toBe(1);
+        expect(asked.formVersion.number).toBe(3);
         // a rejection says why
         const unexplained = await call(
             'POST',
@@ -554,11 +558,25 @@ describe('a bureau form', () => {
         expect(rejected.json()).toMatchObject({ status: 'rejected' });
         form = await get<FormOut>(`/api/v1/forms/${form.id}`, as.bureau());
         expect(form).toMatchObject({ status: 'draft', publishedVersion: { id: live?.id, number: 2 } });
+        // asked again with the same content: its version, not a fourth (withdrawn, so nothing stays pending)
+        const again = (
+            await call('POST', `/api/v1/forms/${form.id}/publications`, as.bureau(), {})
+        ).json<PublicationOut>();
+        expect(again.formVersion).toEqual(asked.formVersion);
+        const withdrawn = await call(
+            'POST',
+            `/api/v1/form-publications/${again.id}/withdrawal`,
+            as.bureau(),
+            {},
+            ifMatch(again.version)
+        );
+        expect(withdrawn.statusCode, withdrawn.body).toBe(200);
         const versions = await get<{ items: { number: number; published: boolean }[] }>(
             `/api/v1/forms/${form.id}/versions`,
             as.damot()
         );
         expect(versions.items.map((v) => [v.number, v.published])).toEqual([
+            [3, false],
             [2, true],
             [1, false]
         ]);

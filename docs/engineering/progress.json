@@ -719,7 +719,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Design (architect): maker-checker publish and version routes already exist; adds a stored 'removed' flag (published keys never vanish or change kind/row scope: key-missing/retyped/moved → 422 at PATCH, request and approval), core lintDocument (errors: unknown-reference, unreachable, cycle, duplicate-option, too-many-fields (300), unsafe data-source URL; warnings: unlisted data source (lead's choice until 0.21 manifests add allow-lists), untranslated, required-hideable, unknown-option, reads-removed, unknown-role), form_config.testCases run by a DB-free core runner, diffDocuments, impact on saved views (shared + own private only), publish-check/review routes, a PublishReview component in the designer, gallery and approval inbox, history with restore (keepPublishedKeys). No migration. CI record: GitHub Actions on origin (wwwabebayehualaro-ai/itrms) — integration (test:int) and e2e journeys run there; the run URL is the CI evidence, not pnpm ci:local."
+          "notes": "Design (architect): maker-checker publish and version routes already exist; adds a stored 'removed' flag (published keys never vanish or change kind/row scope: key-missing/retyped/moved → 422 at PATCH, request and approval), core lintDocument (errors: unknown-reference, unreachable, cycle, duplicate-option, too-many-fields (300), unsafe data-source URL; warnings: unlisted data source (lead's choice until 0.21 manifests add allow-lists), untranslated, required-hideable, unknown-option, reads-removed, unknown-role), form_config.testCases run by a DB-free core runner, diffDocuments, impact on saved views (shared + own private only), publish-check/review routes, a PublishReview component in the designer, gallery and approval inbox, history with restore (keepPublishedKeys). No migration. CI record: GitHub Actions on origin (wwwabebayehualaro-ai/itrms) — integration (test:int) and e2e journeys run there; the run URL is the CI evidence, not pnpm ci:local. Gallery publish now opens the PublishDialog (server check); the old client-side 'untranslated' confirm is replaced by the lint warning 'untranslated'. PR #15; CI on GitHub (integration incl. forms-governance.int.spec.ts in the infra job; e2e forms/governance.spec.ts)."
         },
         {
           "id": "0.19",
@@ -2148,6 +2148,11 @@
       "foundIn": "0.18",
       "item": "Printouts show a RegistryLookup's id until the caller passes labels (PrintOptions.refs): the PDF worker resolves them",
       "movedTo": "0.23"
+    },
+    {
+      "foundIn": "0.18a",
+      "item": "Check that a malformed id in a path (e.g. GET /api/v1/form-publications/undefined/review) answers 400, not 500: a CI run of PR #15 saw a 500 there for a records officer of another region (seen only through a test bug, not reproduced locally)",
+      "movedTo": "0.26 (hardening)"
     }
   ]
 }

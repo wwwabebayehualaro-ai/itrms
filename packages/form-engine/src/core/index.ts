@@ -67,7 +67,7 @@ export { checkKeyStability, keepPublishedKeys, publishedKeysOf } from './keys';
 export type { PublishedKey } from './keys';
 export { diffDocuments } from './diff';
 export type { DiffArea, DiffChange, DiffField, FormDiff } from './diff';
-export { runTestCases, mismatchText, TEST_USER_ID } from './testCases';
+export { runTestCases, mismatchText, CASE_ACTOR_ID } from './testCases';
 export type { TestCaseResult, TestMismatch } from './testCases';
 export { FORM_FIELD_LIMIT, MAX_TEST_CASES, testCaseSchema } from '@itrms/schemas';
 export type { FormTestCase } from '@itrms/schemas';

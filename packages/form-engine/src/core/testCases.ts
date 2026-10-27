@@ -13,7 +13,7 @@ import { submittedValues } from './values';
 import { validateForm } from './validate';
 
 /** The user the cases act as (conditions may read `user.id`): the nil UUID, no real person. */
-export const TEST_USER_ID = '00000000-0000-0000-0000-000000000000';
+export const CASE_ACTOR_ID = '00000000-0000-0000-0000-000000000000';
 
 export interface TestMismatch {
     /** `valid`, `errors.<path>` or `values.<path>` */
@@ -81,7 +81,7 @@ export function runTestCases(raw: unknown): TestCaseResult[] {
         const language = c.language ?? formLanguage;
         const roles = c.roles ?? [];
         const fields = fieldsForRoles(readDocument(raw, { language }).fields, roles);
-        const scope = { user: { id: TEST_USER_ID, roles: [...roles] } };
+        const scope = { user: { id: CASE_ACTOR_ID, roles: [...roles] } };
         const answers = submittedValues(fields, c.values, scope);
         const errors = validateForm(fields, answers, scope, { language });
         const failed = Object.keys(errors);

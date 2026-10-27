@@ -2,7 +2,7 @@
 // Form test cases (task 0.18a): run through the server's rules, no database.
 import { describe, expect, it } from 'vitest';
 
-import { checkDocument, mismatchText, runTestCases, TEST_USER_ID } from './';
+import { checkDocument, mismatchText, runTestCases, CASE_ACTOR_ID } from './';
 
 const F = (id: string, type = 'InputText', extra: Record<string, unknown> = {}) => ({
     id,
@@ -123,7 +123,7 @@ describe('runTestCases', () => {
     });
 
     it('lets a rule read the test user and the roles', () => {
-        const expression = `user.id == "${TEST_USER_ID}" && count(user.roles) == 1`;
+        const expression = `user.id == "${CASE_ACTOR_ID}" && count(user.roles) == 1`;
         const fields = [
             F('name', 'InputText', { behavior: V({ validWhen: [{ expression, message: { en: 'bad' } }] }) })
         ];
