@@ -737,10 +737,11 @@
         {
           "id": "0.19a",
           "title": "Workflow engine, part 1a: definitions, checks, effect registry",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.19a-workflow-definitions",
           "commits": [
-            "39eec7b"
+            "39eec7b",
+            "9adcd43"
           ],
           "evidence": [
             "GitHub CI run 40507968656 on 39eec7b (PR #16): all 9 jobs success — checks, infra+test:int, e2e, perf, stories/axe, Semgrep, gitleaks, Trivy, licence report",
@@ -758,7 +759,7 @@
         {
           "id": "0.19b",
           "title": "Workflow engine, part 1b: cases, tasks, transitions",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
