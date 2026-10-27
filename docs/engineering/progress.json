@@ -2240,6 +2240,12 @@
     {
       "foundIn": "0.19b",
       "item": "Flaky story: packages/ui select.stories.tsx Default fails its axe check now and then in the am/light/compact run (CI runs 40497043950 and 40544712603; it passes on rerun) — find the race (the Radix portal id?) and fix it",
+      "movedTo": "0.26 (hardening)",
+      "closedIn": "0.20a: the open listbox had no accessible name (aria-input-field-name, caught when axe ran mid-transition); the story names it with its field label (aria-labelledby). Forms using Select should do the same (noted)"
+    },
+    {
+      "foundIn": "0.20a",
+      "item": "Select: the open listbox has no accessible name unless the caller passes aria-labelledby (the select story now does); give SelectContent its trigger's label by default (e.g. a context carrying the field label id) so every form's open list is named",
       "movedTo": "0.26 (hardening)"
     }
   ]

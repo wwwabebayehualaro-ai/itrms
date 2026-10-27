@@ -69,7 +69,7 @@ function OpenDemo() {
     const placeholder = useText(TEXT.selectWoreda);
     return (
         <div className="flex min-h-96 max-w-xs flex-col gap-2 pt-32">
-            <Label htmlFor="woreda-open">
+            <Label htmlFor="woreda-open" id="woreda-open-label">
                 <T text={TEXT.woreda} />
             </Label>
             <Select defaultOpen defaultValue="sodo-zuria">
@@ -77,7 +77,8 @@ function OpenDemo() {
                 <SelectTrigger id="woreda-open" className="w-full" tabIndex={-1}>
                     <SelectValue placeholder={placeholder} />
                 </SelectTrigger>
-                <SelectContent>
+                {/* the open list is named by its field's label: axe may check it while it opens or closes */}
+                <SelectContent aria-labelledby="woreda-open-label">
                     <Items />
                 </SelectContent>
             </Select>
