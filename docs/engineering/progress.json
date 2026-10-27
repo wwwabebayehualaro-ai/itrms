@@ -735,8 +735,18 @@
           "notes": "Design (architect): maker-checker publish and version routes already exist; adds a stored 'removed' flag (published keys never vanish or change kind/row scope: key-missing/retyped/moved → 422 at PATCH, request and approval), core lintDocument (errors: unknown-reference, unreachable, cycle, duplicate-option, too-many-fields (300), unsafe data-source URL; warnings: unlisted data source (lead's choice until 0.21 manifests add allow-lists), untranslated, required-hideable, unknown-option, reads-removed, unknown-role), form_config.testCases run by a DB-free core runner, diffDocuments, impact on saved views (shared + own private only), publish-check/review routes, a PublishReview component in the designer, gallery and approval inbox, history with restore (keepPublishedKeys). No migration. CI record: GitHub Actions on origin (wwwabebayehualaro-ai/itrms) — integration (test:int) and e2e journeys run there; the run URL is the CI evidence, not pnpm ci:local. Gallery publish now opens the PublishDialog (server check); the old client-side 'untranslated' confirm is replaced by the lint warning 'untranslated'. PR #15; CI on GitHub (integration incl. forms-governance.int.spec.ts in the infra job; e2e forms/governance.spec.ts)."
         },
         {
-          "id": "0.19",
-          "title": "Workflow engine, part 1: definitions, cases, transitions",
+          "id": "0.19a",
+          "title": "Workflow engine, part 1a: definitions, checks, effect registry",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.19b",
+          "title": "Workflow engine, part 1b: cases, tasks, transitions",
           "status": "planned",
           "branch": null,
           "commits": [],
@@ -1396,7 +1406,7 @@
     {
       "foundIn": "0.2",
       "item": "Generator templates feature/screen/effect produce compile-safe placeholders; fill them with the real kernel APIs (db.scoped, @Require, Drizzle + withRls, @Effect, page templates)",
-      "movedTo": "0.4 (screen), 0.6 (controller, service), 0.7/0.9 (repository, table), 0.19 (effect)"
+      "movedTo": "0.4 (screen), 0.6 (controller, service), 0.7/0.9 (repository, table), 0.19a (effect)"
     },
     {
       "foundIn": "0.2",
@@ -1593,7 +1603,7 @@
     {
       "foundIn": "0.6a",
       "item": "Manifest loader: build InstalledSlice.effects from the effect registry (@Effect handlers) instead of a hand-written list, and check the effects named by seeded service versions exist",
-      "movedTo": "0.19"
+      "movedTo": "0.19a"
     },
     {
       "foundIn": "0.6a",
@@ -1968,7 +1978,7 @@
     {
       "foundIn": "0.16b",
       "item": "A transfer of a submission's handling unit must move its submission_values rows too (they carry handling_unit_id for their scope)",
-      "movedTo": "0.19"
+      "movedTo": "0.19b"
     },
     {
       "foundIn": "0.16b",
@@ -1995,7 +2005,7 @@
     {
       "foundIn": "0.16d",
       "item": "A submission's history shows only its own audit rows: add its case's steps when cases exist",
-      "movedTo": "0.19"
+      "movedTo": "0.19b"
     },
     {
       "foundIn": "0.16d",
@@ -2060,7 +2070,7 @@
     {
       "foundIn": "0.16c",
       "item": "Editing a filed request (PATCH, re-validated on its version, keeping role-restricted values) as a workflow transition",
-      "movedTo": "0.19"
+      "movedTo": "0.19b"
     },
     {
       "foundIn": "0.16c",
@@ -2080,7 +2090,7 @@
     {
       "foundIn": "0.16f",
       "item": "Board moves (menu and drag) and editing a request from its page in the e2e journeys, once a filed request changes through its case's workflow",
-      "movedTo": "0.19"
+      "movedTo": "0.19b"
     },
     {
       "foundIn": "0.16f",

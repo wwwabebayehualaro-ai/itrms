@@ -574,18 +574,41 @@ for 0.22.
 - **Tests:** lint rule tests; test-case runner tests; an e2e of an author changing a form, seeing the diff and the impact,
   and getting it approved.
 
-### 0.19 Workflow engine, part 1: definitions, cases, transitions
-- **Do:**
-  - The workflow definition schema:
-    - state kinds `start`, `task`, **`wait`** (event and timeout transitions run by audited **system actors**), `end`;
-    - transitions with an assignee role + unit rule (incl. `${approval_unit}`), guards, effects, step forms, separation of
-      duties, comment rules, and `reject` only from listed states by `rejectRoles`.
-  - Publish-time checks: reachability, known roles, known effects, known step forms.
-  - `cases` (class T), `case_tasks`, `case_events`.
+### 0.19a Workflow engine, part 1a: definitions, checks, effect registry
+Split on 2026-10-27: 0.19 did not fit one session. The definitions, their checks and the engine's rules (DB-free) come
+first; the cases, tasks, events and the transitions endpoint follow in **0.19b**.
+- **Do** ([architecture.md](../architecture.md) §8):
+  - The workflow definition schema (Zod, `packages/schemas`):
+    - state kinds `start`, `task`, **`wait`** (left only by event and timeout transitions, run by **system actors**), `end`;
+    - transitions with an assignee role + unit rule (`handling`, `parent`, `region`, a named level, `${approval_unit}`),
+      guards, effects, step forms, separation of duties, comment rules, and `reject` only from listed states by `rejectRoles`.
+  - Publish-time checks: structure (one start, every state reachable, an end reachable from every state, wait states left
+    only by events/timeouts, task states only by actions), known roles, known effects, known step forms.
+  - `workflow_definitions`: versioned, content-hashed, immutable versions (class C at the owner unit, like forms); an API to
+    check a definition and to store a version only when the checks pass.
+  - An effect registry for modules (`@itrms/kernel/effects`): an effect is registered by key with its `Tx`/`Ctx` signature;
+    the engine resolves effects only through it.
+  - The engine's rules as pure functions: the transitions an actor may take from a state (role, `rejectRoles`, actions vs
+    events), separation of duties, guards over case facts, and the assignee unit (incl. the parent-unit routing of a
+    one-person office).
+- **Done when:**
+  - a definition with an unreachable state, no reachable end, an unknown role, effect or step form is refused with a clear
+    Amharic/English message, and a valid one is stored as an immutable version;
+  - the rules refuse a maker approving their own step, a cashier rejecting, and an action out of a `wait` state;
+  - "zone approves for a town" resolves the town's parent unit, and a one-person office routes the SoD step to its parent.
+- **Tests:** an engine unit suite (definition validation, transition rules, SoD, guards, assignment); integration tests for
+  the definitions API (checks, versions, RLS of class C).
+
+### 0.19b Workflow engine, part 1b: cases, tasks, transitions
+Needs 0.19a.
+- **Do** ([architecture.md](../architecture.md) §8):
+  - `cases` (class T), `case_tasks` (class T on the assignee unit), `case_events` (append-only); `submissions.case_id` gets
+    its foreign key.
+  - Starting a case from a frozen configuration (definition version, `approval_unit` and other resolved keys), for
+    `services` to call; the engine never reads the service catalogue (code-structure.md §3). Until 0.21 the tests start cases.
   - `POST /cases/:id/transitions`, running everything in one transaction: role/unit check, guard, step-form validation,
     effects, events, audit, outbox.
-  - An effect registry for modules (`@itrms/kernel/effects`). Cases are started by `services` with a frozen
-    configuration; the engine in `workflow` never reads the service catalogue (code-structure.md §3).
+  - Event and timeout transitions as audited system actors (`system:<adapter>`); 0.20 wires the SLA timers to them.
   - Case status changes only through transitions.
 - **Done when:**
   - a test workflow runs end to end;
@@ -595,8 +618,8 @@ for 0.22.
   - a `wait` state is left only by its event or its timeout;
   - in a one-person office the separation-of-duties step routes to the parent unit, recorded on the case;
   - a cashier cannot reject a case.
-- **Tests:** an engine unit suite (definition validation, transition rules, SoD, guards) and integration tests with RLS
-  (tasks visible only to the assignee unit's role holders).
+- **Tests:** integration tests with RLS (tasks visible only to the assignee unit's role holders), the isolation matrix for
+  the new tables, and the transition runner's rollback.
 
 ### 0.20 Workflow engine, part 2: SLA, inbox, case page, drafts, notifications
 - **Do:**
@@ -722,7 +745,7 @@ Moved from 0.18a on 2026-10-26 (it needs cases, service versions and overlays). 
 - **Tests:** the restore drill script with checks; the smoke load test thresholds in CI (nightly).
 
 ## Phase acceptance criteria
-1. All 30 tasks done (0.1–0.26, 0.4a, 0.4b, 0.4c and 0.18a), CI green on `main` (lint, typecheck, unit, integration on Postgres, isolation matrix, i18n keys,
+1. All tasks done (0.1–0.26 with 0.19 as 0.19a and 0.19b, 0.4a, 0.4b, 0.4c, 0.18a and 0.21a), CI green on `main` (lint, typecheck, unit, integration on Postgres, isolation matrix, i18n keys,
    security scans, e2e).
 2. The demo journey runs in Amharic and English (Wolaytta with fallback) across Boditi, the zone and Damot Gale. A user of one office
    sees none of the other office's cases,
@@ -733,7 +756,7 @@ Moved from 0.18a on 2026-10-26 (it needs cases, service versions and overlays). 
 
 ## Tests to write in this phase (summary)
 Isolation matrix (0.9); audit-in-transaction (0.7); numbering concurrency (0.11); calendar reference + property tests
-(0.12); i18n completeness (0.13); shared validation cases (0.16a); workflow engine suite (0.19); SLA date math (0.20);
+(0.12); i18n completeness (0.13); shared validation cases (0.16a); workflow engine suite (0.19a, 0.19b); SLA date math (0.20);
 configuration resolution (0.21); fee goldens (0.22); PDF goldens (0.23); demo e2e (0.25); restore drill (0.26).
 
 ## Open questions for the product owner (block or shape Phase 0)
