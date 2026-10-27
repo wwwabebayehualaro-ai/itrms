@@ -15,6 +15,8 @@ import {
     type WorkflowState
 } from '@itrms/schemas';
 
+import { MAX_DEFINITION_DEPTH, nestsDeeperThan } from '../../contracts';
+
 export const CHECK_CODES = [
     'invalid',
     'duplicate-state',
@@ -62,6 +64,14 @@ export interface CheckResult {
 
 /** Checks a definition: its shape (the schema), its structure, and, given `known`, its roles, effects and step forms. */
 export function checkDefinition(raw: unknown, known?: Known): CheckResult {
+    // measured before the schema recurses into it
+    if (nestsDeeperThan(raw, MAX_DEFINITION_DEPTH))
+        return {
+            definition: null,
+            problems: [
+                { code: 'invalid', path: '', values: { detail: `nested deeper than ${MAX_DEFINITION_DEPTH} levels` } }
+            ]
+        };
     const parsed = workflowDefinitionSchema.safeParse(raw);
     if (!parsed.success)
         return {
@@ -92,7 +102,7 @@ function structureProblems(def: WorkflowDefinition): CheckProblem[] {
 
     // edges between known states; each transition's shape against the kind of state it leaves
     const next = new Map<string, Set<string>>();
-    const seen = new Map<string, number>();
+    const unguarded = new Set<string>();
     def.transitions.forEach((t, i) => {
         const at = `transitions[${i}]`;
         if (!byKey.has(t.to)) add('unknown-state', `${at}.to`, { state: t.to });
@@ -106,15 +116,15 @@ function structureProblems(def: WorkflowDefinition): CheckProblem[] {
             if (state.kind === 'wait' && t.action) add('wait-action', `${at}.action`, { state: from });
             if (t.on === 'timeout' && state.kind === 'wait' && !state.sla)
                 add('timeout-without-sla', `${at}.on`, { state: from });
-            // two transitions on one trigger out of one state are told apart only by their guards
+            // on one trigger out of one state the first transition whose guard holds is taken: one after an unguarded
+            // one could never be taken (a last unguarded one is the fallback)
             const trigger = `${from}\u0000${t.action ?? t.on ?? ''}`;
-            const earlier = seen.get(trigger);
-            if (earlier !== undefined && (!t.guard || !def.transitions[earlier]?.guard))
+            if (unguarded.has(trigger))
                 add(t.on === 'timeout' ? 'many-timeouts' : 'duplicate-action', `${at}.${t.action ? 'action' : 'on'}`, {
                     state: from,
                     action: t.action ?? t.on ?? ''
                 });
-            if (earlier === undefined) seen.set(trigger, i);
+            if (!t.guard) unguarded.add(trigger);
             if (byKey.has(t.to)) next.set(from, (next.get(from) ?? new Set()).add(t.to));
         });
     });

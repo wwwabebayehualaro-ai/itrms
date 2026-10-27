@@ -24,11 +24,11 @@ const person = (userId: string, ...roles: string[]): PersonActor => ({
     userId,
     rolesInUnit: new Set(roles)
 });
-const none = { history: [] as StepHistory[], facts: {}, comment: false };
+const none = { history: [] as StepHistory[], facts: {}, comment: false, startedBy: 'r1' };
 
 describe('actions', () => {
     it('lets the step role act, and only rejectRoles reject: a cashier pays but does not reject', () => {
-        expect(actionsFor(LICENCE, 'payment', person('c1', 'cashier'))).toEqual(['paid']);
+        expect(actionsFor(LICENCE, 'payment', person('c1', 'cashier'), 'r1')).toEqual(['paid']);
         expect(decideAction(LICENCE, 'payment', 'reject', person('c1', 'cashier'), { ...none, comment: true })).toEqual(
             {
                 ok: false,
@@ -40,6 +40,44 @@ describe('actions', () => {
             comment: true
         });
         expect(lead.ok && lead.transition.to).toBe('rejected');
+    });
+
+    it('lets only whoever started the case act in the start, also when the case is sent back to it', () => {
+        expect(actionsFor(LICENCE, 'draft', person('r1'), 'r1')).toEqual(['submit']);
+        expect(actionsFor(LICENCE, 'draft', person('x', 'competency.officer'), 'r1')).toEqual([]);
+        expect(decideAction(LICENCE, 'draft', 'submit', person('x', 'competency.lead'), none)).toEqual({
+            ok: false,
+            refusal: 'role-required'
+        });
+        const back = decideAction(LICENCE, 'draft', 'submit', person('r1'), none);
+        expect(back.ok && back.transition.to).toBe('review');
+    });
+
+    it('checks the roles of the transition taken: guarded rejects may name different roles', () => {
+        const def = structuredClone(LICENCE);
+        def.transitions = def.transitions.filter((t) => t.action !== 'reject');
+        def.transitions.push(
+            {
+                from: 'review',
+                to: 'rejected',
+                action: 'reject',
+                rejectRoles: ['competency.lead'],
+                guard: { fact: 'amount', op: 'gt', value: 1000 }
+            },
+            { from: 'review', to: 'rejected', action: 'reject', rejectRoles: ['competency.officer'] }
+        );
+        const lead = person('l1', 'competency.lead');
+        const officer = person('o1', 'competency.officer');
+        // a small amount: the lead's transition does not hold, and the officer's is not the lead's to take
+        expect(decideAction(def, 'review', 'reject', lead, { ...none, facts: { amount: 500 } })).toEqual({
+            ok: false,
+            refusal: 'guard-failed'
+        });
+        const big = decideAction(def, 'review', 'reject', lead, { ...none, facts: { amount: 5000 } });
+        expect(big.ok && big.transition.rejectRoles).toEqual(['competency.lead']);
+        const small = decideAction(def, 'review', 'reject', officer, { ...none, facts: { amount: 500 } });
+        expect(small.ok && small.transition.rejectRoles).toEqual(['competency.officer']);
+        expect(actionsFor(def, 'review', officer, 'r1')).toContain('reject');
     });
 
     it('refuses someone without the step role', () => {

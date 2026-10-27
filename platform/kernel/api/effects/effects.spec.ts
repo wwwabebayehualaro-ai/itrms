@@ -1,6 +1,6 @@
 // The effect registry (task 0.19a): marked providers are found by key, a key is registered once, and a slice's listed
 // effects come from the marks.
-import { Injectable, Module } from '@nestjs/common';
+import { Injectable, Module, Scope } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import { describe, expect, it } from 'vitest';
@@ -34,6 +34,14 @@ class IssueLicenceAgain implements WorkflowEffect {
     }
 }
 
+@Injectable({ scope: Scope.REQUEST })
+@Effect('competency.perRequest')
+class PerRequest implements WorkflowEffect {
+    run() {
+        return Promise.resolve();
+    }
+}
+
 async function registryWith(...providers: (new (...args: never[]) => unknown)[]) {
     @Module({ providers })
     class Slice {}
@@ -58,6 +66,10 @@ describe('effects', () => {
         await expect(registryWith(IssueLicence, IssueLicenceAgain)).rejects.toThrow(
             'The effect competency.issueLicence is registered twice'
         );
+    });
+
+    it('refuses a request-scoped effect (its static instance would be an unconstructed prototype)', async () => {
+        await expect(registryWith(PerRequest)).rejects.toThrow('The effect competency.perRequest must be a singleton');
     });
 
     it('lists a slice’s effect keys from the marks, and refuses an unmarked class', () => {

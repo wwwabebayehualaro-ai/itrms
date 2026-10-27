@@ -3,8 +3,9 @@
  * (0.19b) gathers the facts (the actor's roles in the task's unit, who acted on which step, the case's facts, the unit tree)
  * and asks these; nothing here reads the database.
  *
- * - A person takes an action out of a task (or the start) when they hold the step's role in its unit. `reject` is the
- *   exception: only `rejectRoles` may take it, the step's own role included only if listed (a cashier does not reject).
+ * - A person takes an action out of a task when they hold the step's role in its unit, and out of the start (a case sent
+ *   back for correction included) only if they started the case. `reject` is the exception: only `rejectRoles` may take
+ *   it, the step's own role included only if listed (a cashier does not reject).
  * - A wait is left only by its event, taken by the transition's system actor, or by its timeout.
  * - Separation of duties: whoever acted on a listed step (or started the case) does not act on this one.
  * - Of the transitions a trigger matches, the first whose guard holds is taken.
@@ -61,31 +62,33 @@ const leaving = (def: WorkflowDefinition, state: string, match: (t: WorkflowTran
     def.transitions.filter((t) => fromStates(t).includes(state) && match(t));
 
 /** The actions a person could take out of `state` (before guards and separation of duties). */
-export function actionsFor(def: WorkflowDefinition, state: string, actor: PersonActor): string[] {
+export function actionsFor(def: WorkflowDefinition, state: string, actor: PersonActor, startedBy: string): string[] {
     const s = stateOf(def, state);
     if (!s || (s.kind !== 'task' && s.kind !== 'start')) return [];
     const actions = new Set<string>();
     for (const t of leaving(def, state, (x) => x.action !== undefined))
-        if (t.action && mayTake(s, t, actor)) actions.add(t.action);
+        if (t.action && mayTake(s, t, actor, startedBy)) actions.add(t.action);
     return [...actions];
 }
 
-function mayTake(state: WorkflowState, t: WorkflowTransition, actor: PersonActor): boolean {
+function mayTake(state: WorkflowState, t: WorkflowTransition, actor: PersonActor, startedBy: string): boolean {
     if (t.action === 'reject') return (t.rejectRoles ?? []).some((r) => actor.rolesInUnit.has(r));
-    // the start is taken by whoever started the case (the runner checks it); a task by the step's role
-    return state.kind === 'start' || (state.assignee !== undefined && actor.rolesInUnit.has(state.assignee.role));
+    // the start (also a case sent back to it for correction) is acted on by whoever started the case; a task by the
+    // step's role
+    if (state.kind === 'start') return actor.userId === startedBy;
+    return state.assignee !== undefined && actor.rolesInUnit.has(state.assignee.role);
 }
 
 /**
  * Decides a person's action out of `state`. `history` is who acted on which step; `facts` are the case's facts the guards
- * read; `comment` whether the actor wrote one.
+ * read; `comment` whether the actor wrote one; `startedBy` who started the case (who alone acts in the start).
  */
 export function decideAction(
     def: WorkflowDefinition,
     state: string,
     action: string,
     actor: PersonActor,
-    ctx: { history: readonly StepHistory[]; facts: unknown; comment: boolean }
+    ctx: { history: readonly StepHistory[]; facts: unknown; comment: boolean; startedBy: string }
 ): Decision {
     const s = stateOf(def, state);
     if (!s) return { ok: false, refusal: 'unknown-state' };
@@ -93,12 +96,11 @@ export function decideAction(
     if (s.kind === 'wait') return { ok: false, refusal: 'not-an-action' };
     const candidates = leaving(def, state, (t) => t.action === action);
     if (!candidates.length) return { ok: false, refusal: 'unknown-action' };
-    // the same action has the same roles wherever it leads (a reject is a reject)
-    const first = candidates[0];
-    if (!first || !mayTake(s, first, actor))
-        return { ok: false, refusal: action === 'reject' ? 'reject-not-allowed' : 'role-required' };
+    // only the transitions this actor may take count: two guarded rejects may name different rejectRoles
+    const allowed = candidates.filter((t) => mayTake(s, t, actor, ctx.startedBy));
+    if (!allowed.length) return { ok: false, refusal: action === 'reject' ? 'reject-not-allowed' : 'role-required' };
     if (violatesSeparation(s, actor.userId, ctx.history)) return { ok: false, refusal: 'separation-of-duties' };
-    const taken = candidates.find((t) => !t.guard || evaluateGuard(t.guard, ctx.facts));
+    const taken = allowed.find((t) => !t.guard || evaluateGuard(t.guard, ctx.facts));
     if (!taken) return { ok: false, refusal: 'guard-failed' };
     if (taken.commentRequired && !ctx.comment) return { ok: false, refusal: 'comment-required' };
     return { ok: true, transition: taken };

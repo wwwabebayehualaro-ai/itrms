@@ -16,8 +16,8 @@ import { i18nTextSchema } from '../i18n';
 export const WORKFLOW_KEY = /^[a-z][a-z0-9_]{0,62}$/;
 /** A definition's key: `driver-licence-new`. */
 export const WORKFLOW_DEFINITION_KEY = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-/** A role: a cross-cutting plain name (`cashier`) or a module's (`competency.officer`). */
-export const WORKFLOW_ROLE = /^([a-z][a-z0-9-]*\.)?[a-z][a-z0-9_]*$/;
+/** A role: a cross-cutting plain name (`cashier`) or a module's (`competency.officer`), as manifests write them. */
+export const WORKFLOW_ROLE = /^(?:[a-z][a-z0-9-]*\.[a-zA-Z][a-zA-Z0-9_.-]*|[a-z][a-z0-9_]*)$/;
 /** An effect a module registered (`competency.issueLicence`), with an optional argument (`documents.issue:licence-card`). */
 export const WORKFLOW_EFFECT = /^[a-z][a-z0-9-]*\.[a-zA-Z][a-zA-Z0-9_.-]*(:[a-z0-9][a-z0-9-]{0,62})?$/;
 /** An event a wait state is left by: `event:national.licence.accepted`. */

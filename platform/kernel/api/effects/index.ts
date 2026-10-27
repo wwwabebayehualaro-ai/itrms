@@ -73,6 +73,9 @@ export class EffectRegistry implements OnModuleInit {
             const instance: unknown = wrapper.instance;
             const key = metatype ? MARKS.get(metatype) : undefined;
             if (!key || !instance) continue;
+            // a request-scoped or transient provider's static instance is an unconstructed prototype: effects are singletons
+            if (wrapper.isTransient || !wrapper.isDependencyTreeStatic())
+                throw new Error(`The effect ${key} must be a singleton (not request-scoped or transient)`);
             if (this.effects.has(key)) throw new Error(`The effect ${key} is registered twice`);
             this.effects.set(key, instance as WorkflowEffect);
         }

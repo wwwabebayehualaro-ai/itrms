@@ -12,6 +12,8 @@ import { startPostgres, type TestPostgres } from './support/postgres';
 
 const SUB = {
     bureau: '0199f0a0-d000-7000-8000-000000000001',
+    bureau2: '0199f0a0-d000-7000-8000-00000000f703',
+    zoneHead: '0199f0a0-d000-7000-8000-000000000101',
     zoneAdmin: '0199f0a0-d000-7000-8000-000000000102',
     damot: '0199f0a0-d000-7000-8000-000000000202',
     tzbAdmin: '0199f0a0-d000-7000-8000-00000000f701',
@@ -79,6 +81,13 @@ beforeAll(async () => {
     api = await startApi(pg, [
         { username: 'test.tzb.admin', sub: SUB.tzbAdmin, region: 'SER', home: 'TZB', roles: [['TZB', 'unit_admin']] },
         {
+            username: 'test.bureau.admin2',
+            sub: SUB.bureau2,
+            region: 'SER',
+            home: 'SER',
+            roles: [['SER', 'bureau_admin']]
+        },
+        {
             username: 'test.trx.records',
             sub: SUB.trxAdmin,
             region: 'TRX',
@@ -87,6 +96,8 @@ beforeAll(async () => {
         }
     ]);
     as.bureau = { sub: SUB.bureau, unit: await api.unit('SER', 'SER') };
+    as.bureau2 = { sub: SUB.bureau2, unit: as.bureau.unit };
+    as.zoneHead = { sub: SUB.zoneHead, unit: await api.unit('SER', 'WOL') };
     as.zoneAdmin = { sub: SUB.zoneAdmin, unit: await api.unit('SER', 'WOL') };
     as.damot = { sub: SUB.damot, unit: await api.unit('SER', 'WOL-DAMOT-GALE') };
     as.tzbAdmin = { sub: SUB.tzbAdmin, unit: await api.unit('SER', 'TZB') };
@@ -188,32 +199,73 @@ describe('storing a definition', () => {
         expect(check.problems.map((p) => p.code)).toContain('unreachable');
     });
 
-    it('knows a step form once its version exists', async () => {
-        const form = await api.call('POST', '/api/v1/forms', as.bureau, {
-            key: 'exam-result',
-            name: { am: 'የፈተና ውጤት', en: 'Exam result' },
-            document: { schemaVersion: 2, fields: [] }
-        });
-        expect(form.statusCode, form.body).toBe(201);
-        // asking to publish snapshots version 1
-        const asked = await api.call(
-            'POST',
-            `/api/v1/forms/${form.json<{ id: string }>().id}/publications`,
-            as.bureau,
-            {}
-        );
-        expect(asked.statusCode, asked.body).toBe(201);
-        const withForm = definition();
-        (withForm.states[1] as Record<string, unknown>).stepForm = 'exam-result@1';
-        const check = await api.call('POST', '/api/v1/workflow-definitions/check', as.bureau, { definition: withForm });
-        expect(check.json<{ ok: boolean }>()).toMatchObject({ ok: true });
-        (withForm.states[1] as Record<string, unknown>).stepForm = 'exam-result@2';
-        const missing = await api.call('POST', '/api/v1/workflow-definitions/check', as.bureau, {
-            definition: withForm
-        });
-        expect(missing.json<{ problems: { code: string }[] }>().problems.map((p) => p.code)).toEqual([
+    it('knows a step form once a second person approved its version, and only one every running unit can read', async () => {
+        const withForm = (ref: string) => {
+            const d = definition();
+            (d.states[1] as Record<string, unknown>).stepForm = ref;
+            return { definition: d };
+        };
+        const check = async (who: As, ref: string) =>
+            (await api.call('POST', '/api/v1/workflow-definitions/check', who, withForm(ref))).json<{
+                ok: boolean;
+                problems: { code: string }[];
+            }>();
+        /** A form of `maker`'s unit with one approved version (and, when `pending`, a second one asked for only). */
+        const formOf = async (maker: As, checker: As, key: string, pending = false) => {
+            const created = await api.call('POST', '/api/v1/forms', maker, {
+                key,
+                name: { am: 'የፈተና ውጤት', en: 'Exam result' },
+                document: { schemaVersion: 2, fields: [] }
+            });
+            expect(created.statusCode, created.body).toBe(201);
+            const id = created.json<{ id: string }>().id;
+            const asked = (await api.call('POST', `/api/v1/forms/${id}/publications`, maker, {})).json<{
+                id: string;
+                version: number;
+            }>();
+            const approved = await api.call(
+                'POST',
+                `/api/v1/form-publications/${asked.id}/approval`,
+                checker,
+                {},
+                { 'if-match': `"${asked.version}"` }
+            );
+            expect(approved.statusCode, approved.body).toBe(200);
+            if (pending) {
+                const form = (await api.call('GET', `/api/v1/forms/${id}`, maker)).json<{ version: number }>();
+                const field = { id: 'score', type: 'InputNumber', label: { am: 'ውጤት', en: 'Score' }, props: {} };
+                const changed = await api.call(
+                    'PATCH',
+                    `/api/v1/forms/${id}`,
+                    maker,
+                    { document: { schemaVersion: 2, fields: [field] } },
+                    { 'if-match': `"${form.version}"` }
+                );
+                expect(changed.statusCode, changed.body).toBe(200);
+                expect((await api.call('POST', `/api/v1/forms/${id}/publications`, maker, {})).statusCode).toBe(201);
+            }
+        };
+        await formOf(as.bureau, as.bureau2, 'exam-result', true);
+        expect(await check(as.bureau, 'exam-result@1')).toMatchObject({ ok: true });
+        // version 2 only waits for a second person: not yet a step form
+        expect((await check(as.bureau, 'exam-result@2')).problems.map((p) => p.code)).toEqual(['unknown-step-form']);
+        // the zone's own form: a zone workflow may name it, the bureau's may not (its woredas elsewhere cannot read it)
+        await formOf(as.zoneAdmin, as.zoneHead, 'zone-inspection');
+        expect(await check(as.zoneAdmin, 'zone-inspection@1')).toMatchObject({ ok: true });
+        expect((await check(as.bureau, 'zone-inspection@1')).problems.map((p) => p.code)).toEqual([
             'unknown-step-form'
         ]);
+        // and the bureau's form serves the zone's workflow
+        expect(await check(as.zoneAdmin, 'exam-result@1')).toMatchObject({ ok: true });
+    });
+
+    it('answers a hostile nesting with 422, never 500', async () => {
+        let guard: unknown = { fact: 'a', op: 'eq', value: 1 };
+        for (let i = 0; i < 5000; i++) guard = { not: guard };
+        const deep = definition();
+        (deep.transitions[0] as Record<string, unknown>).guard = guard;
+        const res = await api.call('POST', '/api/v1/workflow-definitions/check', as.bureau, { definition: deep });
+        expect(res.statusCode, res.body.slice(0, 300)).toBe(422);
     });
 
     it('refuses a key used in the region', async () => {

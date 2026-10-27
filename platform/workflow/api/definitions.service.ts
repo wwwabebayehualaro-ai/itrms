@@ -68,10 +68,14 @@ export class WorkflowDefinitionsService {
         return new Set(this.shell.manifests.flatMap((m) => Object.keys(m.roles)));
     }
 
-    /** The engine's checks on `raw`, with what the installation knows; problems in the reader's language. */
+    /**
+     * The engine's checks on `raw`, with what the installation knows, for a workflow owned at `ownerPath` (its step forms
+     * must be ones every unit running it can read); problems in the reader's language.
+     */
     async check(
         tx: Tx,
         raw: unknown,
+        ownerPath: string,
         language: string
     ): Promise<WorkflowCheck & { definition: WorkflowDefinition | null }> {
         const shape = checkDefinition(raw);
@@ -81,7 +85,7 @@ export class WorkflowDefinitionsService {
                 const ref = s.stepForm ? parseStepForm(s.stepForm) : null;
                 return ref ? [ref] : [];
             });
-            const stepForms = await this.forms.existingVersions(tx, refs);
+            const stepForms = await this.forms.existingVersions(tx, refs, ownerPath);
             result = checkDefinition(raw, { roles: this.roles(), effects: this.effects.keys(), stepForms });
         }
         return {
@@ -96,8 +100,8 @@ export class WorkflowDefinitionsService {
     }
 
     /** The checked definition, or a 422 listing every problem. */
-    private async valid(tx: Tx, raw: unknown, language: string): Promise<WorkflowDefinition> {
-        const { definition, problems } = await this.check(tx, raw, language);
+    private async valid(tx: Tx, raw: unknown, ownerPath: string, language: string): Promise<WorkflowDefinition> {
+        const { definition, problems } = await this.check(tx, raw, ownerPath, language);
         if (!definition || problems.length)
             throw new ValidationError('validation_failed', {
                 detail: 'The workflow is not valid: fix what is listed.',
@@ -107,7 +111,7 @@ export class WorkflowDefinitionsService {
     }
 
     async create(tx: Tx, ctx: DbContext, input: WorkflowCreate, language: string): Promise<WorkflowOut> {
-        const definition = await this.valid(tx, input.definition, language);
+        const definition = await this.valid(tx, input.definition, required(ctx.scopePath), language);
         let row: DefinitionRow;
         try {
             row = await insertAudited(tx, workflowDefinitions, {
@@ -135,7 +139,7 @@ export class WorkflowDefinitionsService {
      */
     async addVersion(tx: Tx, ctx: DbContext, id: string, raw: unknown, language: string): Promise<WorkflowVersionOut> {
         const current = await this.writable(tx, ctx, id);
-        const definition = await this.valid(tx, raw, language);
+        const definition = await this.valid(tx, raw, current.orgPath, language);
         const version = await this.store(tx, current, definition);
         if (current.latestVersionId !== version.id)
             await updateAudited(tx, workflowDefinitions, current.id, current.rowVersion, {

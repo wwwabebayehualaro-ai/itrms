@@ -8,9 +8,26 @@ export const MAX_DEFINITION_BYTES = 512 * 1024;
 
 const utf8 = new TextEncoder();
 
-/** The definition as sent: any object within the size limit; the engine's checks say what is wrong with it. */
+/** How deep a definition's JSON may nest (a definition needs about 8 levels, a guard 6 more). */
+export const MAX_DEFINITION_DEPTH = 32;
+
+/** Whether `value` nests deeper than `max` levels, measured without recursion (a hostile body cannot exhaust the stack). */
+export function nestsDeeperThan(value: unknown, max: number): boolean {
+    const stack: [unknown, number][] = [[value, 1]];
+    for (let item = stack.pop(); item; item = stack.pop()) {
+        const [v, depth] = item;
+        if (!v || typeof v !== 'object') continue;
+        if (depth > max) return true;
+        for (const child of Array.isArray(v) ? v : Object.values(v)) stack.push([child, depth + 1]);
+    }
+    return false;
+}
+
+/** The definition as sent: any object within the depth and size limits; the engine's checks say what is wrong with it. */
 export const definitionInputSchema = z.record(z.string(), z.unknown()).superRefine((v, ctx) => {
-    if (utf8.encode(JSON.stringify(v)).length > MAX_DEFINITION_BYTES)
+    if (nestsDeeperThan(v, MAX_DEFINITION_DEPTH))
+        ctx.addIssue({ code: 'custom', message: `nested deeper than ${MAX_DEFINITION_DEPTH} levels` });
+    else if (utf8.encode(JSON.stringify(v)).length > MAX_DEFINITION_BYTES)
         ctx.addIssue({ code: 'custom', message: `larger than ${MAX_DEFINITION_BYTES / 1024} KB` });
 });
 

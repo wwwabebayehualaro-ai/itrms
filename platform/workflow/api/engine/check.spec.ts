@@ -112,19 +112,29 @@ describe('checkDefinition', () => {
         expect(found).toContain('many-timeouts');
     });
 
-    it('refuses one action twice out of a state unless guards tell them apart', () => {
+    it('refuses a transition that could never be taken: one after an unguarded one on the same action', () => {
         const d = clone();
         d.transitions.push({ from: 'review', to: 'rejected', action: 'approve' });
         expect(codes(checkDefinition(d).problems)).toContain('duplicate-action');
-        const guarded = clone();
-        guarded.transitions[1] = { ...guarded.transitions[1], guard: { fact: 'x', op: 'eq', value: 1 } } as never;
-        guarded.transitions.push({
+        // guarded ones first, an unguarded one last: the fallback (if … else)
+        const fallback = clone();
+        fallback.transitions[1] = {
             from: 'review',
             to: 'rejected',
             action: 'approve',
-            guard: { fact: 'x', op: 'ne', value: 1 }
+            guard: { fact: 'x', op: 'eq', value: 1 }
+        };
+        fallback.transitions.push({ from: 'review', to: 'exam', action: 'approve' });
+        expect(codes(checkDefinition(fallback).problems)).not.toContain('duplicate-action');
+        // the fallback first leaves the guarded one unreachable
+        const reversed = clone();
+        reversed.transitions.push({
+            from: 'review',
+            to: 'rejected',
+            action: 'approve',
+            guard: { fact: 'x', op: 'eq', value: 1 }
         });
-        expect(codes(checkDefinition(guarded).problems)).not.toContain('duplicate-action');
+        expect(codes(checkDefinition(reversed).problems)).toContain('duplicate-action');
     });
 
     it('keeps separation of duties to steps people act on', () => {
@@ -157,6 +167,16 @@ describe('checkDefinition', () => {
         expect(problems.filter((p) => p.code === 'unknown-effect').map((p) => p.values.effect)).toContain(
             'documents.issue:licence-card'
         );
+    });
+
+    it('refuses a hostile nesting before the schema recurses into it', () => {
+        let guard: unknown = { fact: 'a', op: 'eq', value: 1 };
+        for (let i = 0; i < 20_000; i++) guard = { not: guard };
+        const d = clone();
+        d.transitions[0] = { ...d.transitions[0], guard } as never;
+        const { definition, problems } = checkDefinition(d);
+        expect(definition).toBeNull();
+        expect(problems).toEqual([{ code: 'invalid', path: '', values: { detail: 'nested deeper than 32 levels' } }]);
     });
 
     it('refuses guards nested too deep and comparisons without values', () => {

@@ -42,8 +42,10 @@ export class WorkflowDefinitionsController {
     @HttpCode(200)
     @Require('workflow-definition:create')
     async check(@Body() body: WorkflowCheckDto) {
-        const { ok, problems } = await this.db.scoped(requestDbContext(), (tx) =>
-            this.definitions.check(tx, body.definition, language())
+        const ctx = requestDbContext();
+        // checked as a workflow the caller's unit would own
+        const { ok, problems } = await this.db.scoped(ctx, (tx) =>
+            this.definitions.check(tx, body.definition, ctx.scopePath ?? '', language())
         );
         return { ok, problems };
     }
