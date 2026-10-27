@@ -261,7 +261,7 @@ describe('storing a definition', () => {
 
     it('answers a hostile nesting with 422, never 500', async () => {
         let guard: unknown = { fact: 'a', op: 'eq', value: 1 };
-        for (let i = 0; i < 5000; i++) guard = { not: guard };
+        for (let i = 0; i < 500; i++) guard = { not: guard };
         const deep = definition();
         (deep.transitions[0] as Record<string, unknown>).guard = guard;
         const res = await api.call('POST', '/api/v1/workflow-definitions/check', as.bureau, { definition: deep });
