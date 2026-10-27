@@ -759,10 +759,11 @@
         {
           "id": "0.19b",
           "title": "Workflow engine, part 1b: cases, tasks, transitions",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.19b-cases-transitions",
           "commits": [
-            "1609ce4"
+            "1609ce4",
+            "858a43a"
           ],
           "evidence": [
             "GitHub CI run 40556654444 on 1609ce4 (PR #17): all 9 jobs success — checks, infra+test:int, e2e, perf, stories/axe, Semgrep, gitleaks, Trivy, licence report",
