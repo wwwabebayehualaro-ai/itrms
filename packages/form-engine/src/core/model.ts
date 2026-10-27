@@ -94,6 +94,8 @@ export interface EngineField {
     visibleToRoles?: string[];
     /** indexed for the data viewer (ADR-0035) */
     filterable: boolean;
+    /** A published key taken out of the form: never shown, taken or checked, its old answers stay readable. */
+    removed: boolean;
     /** The stored field, for extensions and the builder (never mutated by the engine). */
     source: FormField;
 }
@@ -241,6 +243,7 @@ export function toEngineField(stored: StoredField, language: string = DEFAULT_TE
         actions: (stored.behavior?.actions ?? {}) as Record<string, Action[]>,
         visibleToRoles: stored.visibleToRoles ?? undefined,
         filterable: stored.filterable === true,
+        removed: stored.removed === true,
         source: stored as unknown as FormField
     };
 }
@@ -284,6 +287,10 @@ export function readDocument(raw: unknown, opts: { language?: string } = {}): En
 export function childrenOf(fields: EngineField[], parentId: string | null): EngineField[] {
     return fields.filter((f) => f.parentId === parentId);
 }
+
+/** The fields the caller may see: a field with `visibleToRoles` only for those roles (its children go with a restricted container). */
+export const fieldsForRoles = (fields: EngineField[], roles: readonly string[]): EngineField[] =>
+    fields.filter((f) => !f.visibleToRoles?.length || f.visibleToRoles.some((r) => roles.includes(r)));
 
 export const isFormArray = (f: Pick<EngineField, 'type'>) => f.type === 'FormArray';
 

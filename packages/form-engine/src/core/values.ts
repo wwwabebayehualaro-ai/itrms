@@ -77,7 +77,10 @@ export function scopeFields(fields: EngineField[], parentId: string | null): Eng
     return out;
 }
 
-/** Visible = its own rules hold and every container around it (inside the same scope) is visible. */
+/**
+ * Visible = its own rules hold and every container around it (inside the same scope) is visible. A removed field (or a
+ * removed container) is never visible: it is not drawn, taken or checked.
+ */
 export function isVisibleIn(
     field: EngineField,
     byId: Map<string, EngineField>,
@@ -90,7 +93,7 @@ export function isVisibleIn(
         f && f.id !== stopAt;
         f = f.parentId ? byId.get(f.parentId) : undefined
     ) {
-        if (!evaluateAll(f.visibleWhen, values, scope)) return false;
+        if (f.removed || !evaluateAll(f.visibleWhen, values, scope)) return false;
     }
     return true;
 }

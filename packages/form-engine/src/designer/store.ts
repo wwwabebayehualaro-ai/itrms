@@ -12,7 +12,8 @@ import { createContext, useContext } from 'react';
 import { produce, type Draft } from 'immer';
 import { createStore, useStore, type StoreApi } from 'zustand';
 import { setTextIn, type FormField, type FormTemplate } from '@itrms/schemas';
-import type { TemplateRuntimeConfig } from '@itrms/schemas';
+import type { FormTestCase, TemplateRuntimeConfig } from '@itrms/schemas';
+import type { PublishedKey } from '../core/keys';
 import type { EngineWord } from '../core/messages';
 import { keyFromLabel } from './fieldKeys';
 import {
@@ -54,6 +55,11 @@ export interface DesignerState {
      * Per session: not in the document, not undone with it.
      */
     following: ReadonlySet<string>;
+    /**
+     * The keys of the published version (key stability): a published key keeps its name and, taken out of the form, stays
+     * in it flagged `removed`. Per session, from the server: not in the document, not an undo step.
+     */
+    published: ReadonlyMap<string, PublishedKey>;
 }
 
 export interface DesignerActions {
@@ -65,7 +71,10 @@ export interface DesignerActions {
     move: (id: string, parent: string, index: number) => boolean;
     /** One place up / down among its siblings. */
     nudge: (id: string, by: -1 | 1) => void;
+    /** A field is deleted; one that holds a published key is flagged `removed` instead (its answers stay readable). */
     remove: (id: string) => void;
+    /** Takes a removed field back into the form. */
+    restore: (id: string) => void;
     duplicate: (id: string) => string | null;
     update: (id: string, recipe: (f: Draft<FormField>) => void, key?: string) => void;
     rename: (id: string, newKey: string) => void;
@@ -76,6 +85,11 @@ export interface DesignerActions {
      */
     relabel: (id: string, text: string, language?: string) => void;
     setLanguage: (language: string) => void;
+    setPublished: (published: ReadonlyMap<string, PublishedKey>) => void;
+    /** The form's test cases (one undo step per call; calls with the same `key` in quick succession are one). */
+    setTestCases: (cases: FormTestCase[], key?: string) => void;
+    /** Another document in place of this one (a restored version): one undo step, unsaved until saved. */
+    replace: (doc: DesignDoc) => void;
     setRuntime: (runtime: TemplateRuntimeConfig) => void;
     select: (id: string | null) => void;
     undo: () => void;
@@ -181,11 +195,28 @@ export function createDesignerStore(
                 const at = list.indexOf(id);
                 // the selection moves to the next field (or the previous, or the container) so Delete can be pressed again
                 const next = list[at + 1] ?? list[at - 1] ?? (parentOf(doc, id) || null);
+                const { published } = get();
+                // a published key never leaves the form: the field (and what is inside it) stays, flagged removed
+                if (subtree(doc, id).some((x) => published.has(x))) {
+                    if (doc.byId[id].removed) return;
+                    edit((d) => {
+                        const f = d.byId[id];
+                        if (f) f.removed = true;
+                    });
+                    return;
+                }
                 edit(
                     (d) => removeField(d, id),
                     undefined,
                     selected && subtree(doc, id).includes(selected) ? next : selected
                 );
+            },
+            restore: (id) => {
+                if (!get().doc.byId[id]?.removed) return;
+                edit((d) => {
+                    const f = d.byId[id];
+                    if (f) delete f.removed;
+                });
             },
             duplicate: (id) => {
                 let copy: string | null = null;
@@ -205,7 +236,8 @@ export function createDesignerStore(
                 ),
             rename: (id, newKey) => {
                 const { doc } = get();
-                if (!doc.byId[id] || id === newKey) return;
+                // a published key keeps its name (its answers, views and formulas are named by it)
+                if (!doc.byId[id] || id === newKey || get().published.has(id)) return;
                 commit(renameKey(doc, id, newKey), undefined, newKey, true);
                 // a key renamed by hand stops following the label
                 set((s) => {
@@ -251,6 +283,13 @@ export function createDesignerStore(
                 commit(next, key, get().selected === id ? selectedId : undefined, true);
             },
             setLanguage: (language) => set((s) => (s.language === language ? s : { language })),
+            setPublished: (published) => set({ published }),
+            setTestCases: (cases, key) =>
+                edit((d) => {
+                    if (cases.length) d.testCases = cases;
+                    else delete d.testCases;
+                }, key),
+            replace: (next) => commit(next),
             setRuntime: (runtime) =>
                 edit((d) => {
                     d.runtime = runtime;
@@ -296,6 +335,7 @@ export function createDesignerStore(
             template,
             language,
             following: new Set<string>(),
+            published: new Map<string, PublishedKey>(),
             actions
         };
     });

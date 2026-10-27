@@ -39,12 +39,21 @@ function useLanguages(): { language: string; languages: readonly string[] } {
     return useMemo(() => ({ language, languages: formLanguages(setting) }), [language, setting]);
 }
 
+/**
+ * The data source requests a form may name (the API's DATA_SOURCE_ALLOWLIST in platform/forms/contracts; the app does not
+ * import a platform slice, so it states the same list). The builder warns about a source outside it.
+ */
+const DATA_SOURCE_ALLOWLIST: readonly { method: string; path: string }[] = [
+    { method: 'GET', path: 'v1/registry-lookups/' }
+];
+
 const host: FormsHost = {
     client,
     useUser: useAuthUser,
     useLocation,
     useLanguages,
     roleKeys: ROLE_KEYS,
+    dataSourceAllowList: DATA_SOURCE_ALLOWLIST,
     templatesHref: '/dynamic-template/saved-templates',
     isReported,
     logError: (message, error) => logger.error({ err: error }, message)

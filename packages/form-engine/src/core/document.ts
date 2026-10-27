@@ -76,6 +76,22 @@ function structure(fields: readonly { id: string; parentId?: string | number | n
     return problems;
 }
 
+/** Two test cases of a form cannot share an id. */
+function testCaseProblems(cases: readonly { id: string }[] | undefined): DocumentProblem[] {
+    const problems: DocumentProblem[] = [];
+    const first = new Map<string, number>();
+    (cases ?? []).forEach((c, i) => {
+        const at = first.get(c.id);
+        if (at === undefined) first.set(c.id, i);
+        else
+            problems.push({
+                path: `testCases[${i}].id`,
+                message: `The test case "${c.id}" is used by case ${at + 1} too`
+            });
+    });
+    return problems;
+}
+
 /** The problems of a stored form; empty when the engine can read it. */
 export function checkDocument(raw: unknown): DocumentProblem[] {
     const doc = Array.isArray(raw) ? { fields: raw } : raw;
@@ -97,6 +113,7 @@ export function checkDocument(raw: unknown): DocumentProblem[] {
             .slice(0, MAX_PROBLEMS);
     return [
         ...structure(parsed.data.fields),
+        ...testCaseProblems(parsed.data.testCases),
         ...ruleProblems(parsed.data.fields),
         ...lookupProblems(parsed.data.fields)
     ].slice(0, MAX_PROBLEMS);

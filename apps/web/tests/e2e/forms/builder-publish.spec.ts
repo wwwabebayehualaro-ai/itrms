@@ -142,11 +142,15 @@ test('a form built in the builder is published once a second person approves, th
         await page.goto('/dynamic-template/saved-templates');
         // the gallery shows it by its Amharic name (the page's language)
         await page.getByRole('button', { name: `Publish ቅጽ ${name}` }).click();
-        // its labels were written in one language: publishing warns, and goes on when confirmed
-        const warning = page.getByRole('alertdialog');
-        await expect(warning).toContainText('no Amharic or English text');
-        await warning.getByRole('button', { name: 'Publish anyway' }).click();
-        await expect(page.getByText('Sent for approval').first()).toBeVisible();
+        // the publish review (task 0.18a): its labels were written in one language, a warning that does not block
+        const review = page.locator('[data-publish-dialog]');
+        await expect(review.locator('[data-publish-review]')).toHaveAttribute('data-can-publish', 'true');
+        await expect(
+            review.locator('[data-review-section="warnings"] [data-problem="untranslated"]').first()
+        ).toBeVisible();
+        await expect(review.locator('[data-diff="added"]')).toContainText('fullName');
+        await review.locator('[data-request-publication]').click();
+        await expect(page.getByText(am('form-engine.designer.publish.sentForApproval')).first()).toBeVisible();
         const filler = await signedIn(browser, PEOPLE.filler);
         await filler.goto(`/submitted-forms/template/${formId}`);
         await expect(filler.getByRole('button', { name: 'New request' })).toBeDisabled();

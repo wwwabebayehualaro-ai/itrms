@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 
 import type { DbContext } from '@itrms/kernel/db';
 import { ForbiddenError, ValidationError } from '@itrms/kernel/errors';
-import { checkDocument, readDocument, type EngineField, type Scope } from '@itrms/form-engine/core';
+import { checkDocument, fieldsForRoles, readDocument, type EngineField, type Scope } from '@itrms/form-engine/core';
 
 /** JSON with every object's keys sorted: the same document always gives the same text (jsonb does not keep key order). */
 export function canonicalJson(value: unknown): string {
@@ -63,9 +63,7 @@ export function assertLookups(document: unknown, lookups: { get(key: string): un
  * shown, taken, nor checked. Texts (labels, options, messages) come resolved in `language`.
  */
 export function fieldsFor(document: unknown, roles: readonly string[], language = 'am'): EngineField[] {
-    return readDocument(document, { language }).fields.filter(
-        (f) => !f.visibleToRoles?.length || f.visibleToRoles.some((r) => roles.includes(r))
-    );
+    return fieldsForRoles(readDocument(document, { language }).fields, roles);
 }
 
 /** What conditions may read on the server besides the form: the caller (as the browser's `user`). */

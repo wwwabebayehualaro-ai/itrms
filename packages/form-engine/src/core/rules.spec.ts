@@ -10,7 +10,9 @@ import {
     isIsoDay,
     isRequiredIn,
     readDocument,
+    knownValues,
     settledValues,
+    submittedValues,
     validateForm as validate
 } from './';
 import { evalFormula } from './runtime/formula';
@@ -332,5 +334,37 @@ describe('review findings of task 0.17b', () => {
     it('refuses a subtraction written without spaces (it would read a field that cannot exist)', () => {
         expect(checkRuleFormula('form.total-form.paid >= 0')).toMatch(/spaces around "-"/);
         expect(checkRuleFormula('form.total - form.paid >= 0')).toBeNull();
+    });
+});
+
+describe('removed fields (task 0.18a)', () => {
+    const fields = () =>
+        doc(
+            F('name', 'InputText', { props: { required: true }, behavior: { validation: { supported: true } } }),
+            F('old', 'InputText', {
+                removed: true,
+                props: { required: true },
+                behavior: { validation: { supported: true } }
+            }),
+            F('box', 'Panel', { category: 'Layout', layout: { options: { isContainer: true } }, removed: true }),
+            F('inBox', 'InputText', {
+                parentId: 'box',
+                props: { required: true },
+                behavior: { validation: { supported: true } }
+            })
+        );
+
+    it('are not visible, so they are pruned from a submission and not validated', () => {
+        const f = fields();
+        expect(submittedValues(f, { name: 'a', old: 'x', inBox: 'y' })).toEqual({ name: 'a' });
+        expect(validateForm(f, { name: 'a' })).toEqual({});
+        expect(Object.keys(validateForm(f, {}))).toEqual(['name']);
+    });
+
+    it('are still fields of the form, so old answers stay readable', () => {
+        const f = fields();
+        expect(f.find((x) => x.id === 'old')?.removed).toBe(true);
+        expect(f.find((x) => x.id === 'name')?.removed).toBe(false);
+        expect(knownValues(f, { old: 'x' })).toEqual({ old: 'x' });
     });
 });

@@ -3253,6 +3253,29 @@
         ]
       }
     },
+    "/api/v1/form-publications/{id}/review": {
+      "get": {
+        "operationId": "PublicationsController_review",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Publications"
+        ]
+      }
+    },
     "/api/v1/form-publications/{id}/withdrawal": {
       "post": {
         "operationId": "PublicationsController_withdraw",
@@ -3424,6 +3447,29 @@
         },
         "responses": {
           "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
+        ]
+      }
+    },
+    "/api/v1/forms/{id}/publish-check": {
+      "get": {
+        "operationId": "FormsController_publishCheck",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
             "description": ""
           }
         },

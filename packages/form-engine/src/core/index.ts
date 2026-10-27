@@ -10,6 +10,7 @@ export {
     DEFAULT_TEXT_LANGUAGE,
     containerTitle,
     childrenOf,
+    fieldsForRoles,
     isFormArray,
     isRequiredIn,
     rowScopedIds
@@ -60,3 +61,13 @@ export type { DocumentProblem } from './document';
 export { lookupRefs } from './lookups';
 export type { LookupRef } from './lookups';
 export { FIELD_TYPES } from './fieldTypes';
+export { lintDocument } from './lint';
+export type { DataSourceAllowance, LintOptions, LintProblem, LintRule } from './lint';
+export { checkKeyStability, keepPublishedKeys, publishedKeysOf } from './keys';
+export type { PublishedKey } from './keys';
+export { diffDocuments } from './diff';
+export type { DiffArea, DiffChange, DiffField, FormDiff } from './diff';
+export { runTestCases, mismatchText, TEST_USER_ID } from './testCases';
+export type { TestCaseResult, TestMismatch } from './testCases';
+export { FORM_FIELD_LIMIT, MAX_TEST_CASES, testCaseSchema } from '@itrms/schemas';
+export type { FormTestCase } from '@itrms/schemas';

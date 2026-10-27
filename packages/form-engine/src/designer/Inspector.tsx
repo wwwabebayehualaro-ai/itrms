@@ -164,6 +164,8 @@ function FieldTab({ stored, field, design }: { stored: FormField; field: EngineF
     const { t, word } = useEngineText();
     const actions = useDesignerActions();
     const keys = useDesigner((s) => s.doc.byId);
+    // a published key keeps its name: the form's answers, views and formulas are named by it
+    const keyLocked = useDesigner((s) => s.published.has(stored.id));
     const [key, setKey] = useState<string | null>(null);
     const draftKey = key ?? stored.id;
     const keyError = !KEY_PATTERN.test(draftKey)
@@ -199,12 +201,17 @@ function FieldTab({ stored, field, design }: { stored: FormField; field: EngineF
                 <Row
                     id="insp-key"
                     label={t('form-engine.settings.inspector.field.key')}
-                    help={t('form-engine.settings.inspector.field.keyHelp')}
+                    help={
+                        keyLocked
+                            ? t('form-engine.settings.inspector.field.keyLocked')
+                            : t('form-engine.settings.inspector.field.keyHelp')
+                    }
                     error={keyError}
                 >
                     <Input
                         id="insp-key"
                         value={draftKey}
+                        disabled={keyLocked}
                         className="font-mono text-xs"
                         onChange={(e) => setKey(e.target.value)}
                         onBlur={commitKey}

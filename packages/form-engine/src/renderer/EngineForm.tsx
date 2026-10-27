@@ -59,6 +59,8 @@ export interface EngineFormProps {
     silent?: boolean;
     /** The language its texts are shown in (default: the screens' language). */
     language?: string;
+    /** Called with the form's values whenever they change (the builder's preview saves them as a test case). */
+    onValuesChange?: (values: Values) => void;
 }
 
 /** True when the field kit can draw every field of `doc`. */
@@ -103,6 +105,7 @@ function EngineFormBody({
     readOnly,
     showRefresh,
     silent,
+    onValuesChange,
     remount
 }: EngineFormProps & { doc: EngineDocument; remount: () => void }) {
     const notify = useNotify();
@@ -227,6 +230,16 @@ function EngineFormBody({
             void form.validate('change');
         });
     }, [hasRemote, store, form]);
+    const changed = useRef(onValuesChange);
+    useEffect(() => {
+        changed.current = onValuesChange;
+    });
+    useEffect(() => {
+        if (!changed.current) return;
+        changed.current(form.state.values);
+        const sub = form.store.subscribe(() => changed.current?.(form.state.values));
+        return () => sub.unsubscribe();
+    }, [form]);
     const byId = useMemo(() => new Map(doc.fields.map((f) => [f.id, f])), [doc.fields]);
     const tree = useMemo(() => ({ form: form, doc, byId, readOnly: !!readOnly }), [form, doc, byId, readOnly]);
     const plain = view || readOnly || bare;

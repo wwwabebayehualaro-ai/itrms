@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-10-26",
+  "updated": "2026-10-27",
   "statuses": [
     "planned",
     "ready",
@@ -714,12 +714,12 @@
         {
           "id": "0.18a",
           "title": "Form governance: stability, checks, tests",
-          "status": "ready",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.18a-form-governance",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Design (architect): maker-checker publish and version routes already exist; adds a stored 'removed' flag (published keys never vanish or change kind/row scope: key-missing/retyped/moved → 422 at PATCH, request and approval), core lintDocument (errors: unknown-reference, unreachable, cycle, duplicate-option, too-many-fields (300), unsafe data-source URL; warnings: unlisted data source (lead's choice until 0.21 manifests add allow-lists), untranslated, required-hideable, unknown-option, reads-removed, unknown-role), form_config.testCases run by a DB-free core runner, diffDocuments, impact on saved views (shared + own private only), publish-check/review routes, a PublishReview component in the designer, gallery and approval inbox, history with restore (keepPublishedKeys). No migration. CI record: GitHub Actions on origin (wwwabebayehualaro-ai/itrms) — integration (test:int) and e2e journeys run there; the run URL is the CI evidence, not pnpm ci:local."
         },
         {
           "id": "0.19",

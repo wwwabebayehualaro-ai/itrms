@@ -286,3 +286,54 @@ describe('designer store: texts in a language', () => {
         expect(props).toEqual({ minItems: 1 });
     });
 });
+
+describe('designer store: published keys', () => {
+    const published = new Map([
+        ['title', { kind: 'text', scope: null, label: 'title', type: 'InputText' }],
+        ['qty', { kind: 'number', scope: 'lines', label: 'qty', type: 'InputNumber' }]
+    ]);
+    const load = () => {
+        const store = createDesignerStore();
+        store.getState().actions.load(fromStored(stored).doc, { name: 'T', slug: 't', form_config: {} });
+        store.getState().actions.setPublished(published);
+        return store;
+    };
+
+    it('refuses to rename a published key and renames another', () => {
+        const store = load();
+        const a = store.getState().actions;
+        a.rename('title', 'heading');
+        expect(Object.keys(store.getState().doc.byId)).toContain('title');
+        expect(Object.keys(store.getState().doc.byId)).not.toContain('heading');
+        expect(store.getState().past).toHaveLength(0);
+        a.rename('note', 'remark');
+        expect(Object.keys(store.getState().doc.byId)).toContain('remark');
+    });
+
+    it('flags a published field removed instead of deleting it, and restores it', () => {
+        const store = load();
+        const a = store.getState().actions;
+        a.remove('title');
+        expect(store.getState().doc.byId.title?.removed).toBe(true);
+        expect(store.getState().doc.children[ROOT]).toContain('title');
+        a.restore('title');
+        expect(store.getState().doc.byId.title?.removed).toBeUndefined();
+        // a container that holds a published key is flagged too: its fields stay
+        a.remove('box');
+        expect(store.getState().doc.byId.box?.removed).toBe(true);
+        expect(store.getState().doc.byId.qty).toBeDefined();
+        // a field with no published key inside is deleted as before
+        a.remove('note');
+        expect(store.getState().doc.byId.note).toBeUndefined();
+        a.undo();
+        expect(store.getState().doc.byId.note).toBeDefined();
+    });
+
+    it('keeps the flag when saved: removed is part of the stored field', () => {
+        const store = load();
+        store.getState().actions.remove('title');
+        const out = toStored(store.getState().doc);
+        expect(out.fields.find((x) => x.id === 'title')?.removed).toBe(true);
+        expect(readDocument(out).fields.find((x) => x.id === 'title')?.removed).toBe(true);
+    });
+});
