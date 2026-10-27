@@ -52,6 +52,8 @@ const SUB = {
     damotBoth: '0199f0a0-d000-7000-8000-00000000f801',
     damotCashier: '0199f0a0-d000-7000-8000-00000000f802',
     solo: '0199f0a0-d000-7000-8000-00000000f803',
+    // demo.dual: a cashier at Boditi and the zone's only records officer
+    zoneRecords: '0199f0a0-d000-7000-8000-000000000401',
     tzbAdmin: '0199f0a0-d000-7000-8000-00000000f804'
 };
 
@@ -241,6 +243,7 @@ beforeAll(async () => {
     as.damotBoth = { sub: SUB.damotBoth, unit: damot };
     as.damotCashier = { sub: SUB.damotCashier, unit: damot };
     as.solo = { sub: SUB.solo, unit: await api.unit('SER', 'WOL-HUMBO') };
+    as.zoneRecords = { sub: SUB.zoneRecords, unit: wol };
     as.tzbAdmin = { sub: SUB.tzbAdmin, unit: await api.unit('SER', 'TZB') };
     versions.licence = await workflow(LICENCE());
     versions.failing = await workflow(LICENCE(['test.markFact:reviewed', 'test.writeNote', 'test.fail']));
@@ -441,10 +444,10 @@ describe('step forms', () => {
         const id = await start(as.damotRecords, versionId, { approval_unit: 'parent' });
         await ok(as.damotRecords, id, 'submit');
         const missing = await act(as.damotRecords, id, 'approve');
-        expect(missing.statusCode).toBe(422);
+        expect(missing.statusCode, missing.body).toBe(422);
         expect(missing.json<Problem>().errors?.[0]).toMatchObject({ path: 'answers', code: 'required' });
         const invalid = await act(as.damotRecords, id, 'approve', { answers: {} });
-        expect(invalid.statusCode).toBe(422);
+        expect(invalid.statusCode, invalid.body).toBe(422);
         expect(invalid.json<Problem>().errors?.map((e) => e.path)).toContain('photo');
         // sending it back for correction takes no form
         expect((await ok(as.damotRecords, id, 'return', { comment: 'Again' })).state).toBe('draft');
@@ -461,16 +464,26 @@ describe('step forms', () => {
 
 describe('nobody eligible', () => {
     it('refuses a step nobody up to the region may take, as a configuration problem (409, not a denial)', async () => {
+        // Humbo's solo officer reviews, the zone's records officer reviews again, and the approval is kept apart from both:
+        // records officers are only those two, up to the region
         const def = LICENCE();
-        // the approval falls to records officers, kept apart from the review: the solo officer has no other anywhere
-        (def.states[2] as Record<string, unknown>).assignee = { role: 'records_officer', unit: 'handling' };
+        def.states.splice(2, 0, {
+            key: 'zone_review',
+            kind: 'task',
+            assignee: { role: 'records_officer', unit: 'parent' }
+        } as never);
+        (def.states[3] as Record<string, unknown>).assignee = { role: 'records_officer', unit: 'handling' };
+        (def.states[3] as Record<string, unknown>).separationOfDuties = ['review', 'zone_review'];
+        def.transitions[1] = { from: 'review', to: 'zone_review', action: 'approve' };
+        def.transitions.push({ from: 'zone_review', to: 'approval', action: 'approve' });
         const versionId = await workflow(def);
         const id = await start(as.solo, versionId);
         await ok(as.solo, id, 'submit');
-        const res = await act(as.solo, id, 'approve');
+        await ok(as.solo, id, 'approve');
+        const res = await act(as.zoneRecords, id, 'approve');
         expect(res.statusCode, res.body).toBe(409);
         expect(res.json<Problem>().detail).toContain('Nobody in this office or above it');
-        expect((await get(as.solo, id)).state).toBe('review');
+        expect((await get(as.zoneRecords, id)).state).toBe('zone_review');
     });
 });
 

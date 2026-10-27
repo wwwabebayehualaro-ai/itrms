@@ -385,6 +385,8 @@ describe('every tenant table', () => {
               AND has_function_privilege('itrms_app', p.oid, 'EXECUTE')
             ORDER BY 1`);
         expect(rows.map((r) => r.name)).toEqual([
+            // which of the form versions the caller reads a second person approved (task 0.19b)
+            'forms.approved_versions(uuid[])',
             // the caller's region's first data key, once (task 0.14)
             'kernel.ensure_region_data_key(uuid,text,bytea)',
             'kernel.principal_units(text)',

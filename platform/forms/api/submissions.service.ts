@@ -15,12 +15,12 @@ import { knownValues, submittedValues, validateForm, type EngineField } from '@i
 import type { z } from 'zod';
 
 import type { HistoryEntry, Submission, submissionCreateSchema, submissionListQuerySchema } from '../contracts';
-import { formDefinitions, formPublications, formVersions, submissions } from './forms.table';
+import { formDefinitions, formVersions, submissions } from './forms.table';
 import type { RegistryLookups } from './lookups';
 import { namesOf, unitOf } from './forms.service';
 import { checkReferences, resolveFiles, type AnswerProblem } from './submission-refs';
 import { lockFormShared, valueRows, writeValues, type Owner } from './submission-values';
-import { fieldsFor, required, scopeFor } from './support';
+import { approvedVersions, fieldsFor, required, scopeFor } from './support';
 import { filterableKinds, MAX_INDEXED_CHOICES } from './view-fields';
 
 import am from '../messages/am.json';
@@ -67,15 +67,12 @@ export class SubmissionsService {
             .where(and(eq(formVersions.id, input.formVersionId), eq(formVersions.formId, form.id)));
         if (!version) throw new NotFoundError();
         // a step's version need not be the published one, but a second person approved it (SEC-AC-6)
-        if (step && version.id !== form.publishedVersionId) {
-            const [approved] = await tx
-                .select({ id: formPublications.id })
-                .from(formPublications)
-                .where(and(eq(formPublications.formVersionId, version.id), eq(formPublications.status, 'approved')))
-                .limit(1);
-            if (!approved)
-                throw new ConflictError('not_configured', { detail: 'This version of the form was never approved.' });
-        }
+        if (
+            step &&
+            version.id !== form.publishedVersionId &&
+            !(await approvedVersions(tx, [version.id])).has(version.id)
+        )
+            throw new ConflictError('not_configured', { detail: 'This version of the form was never approved.' });
 
         const fields = fieldsFor(version.document, roles, language);
         const scope = scopeFor(ctx, roles);
