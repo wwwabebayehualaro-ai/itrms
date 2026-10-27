@@ -223,6 +223,17 @@ describe('an overdue step', () => {
               where grantee = 'itrms_app' and table_schema = 'kernel' and table_name = 'notifications'`
         );
         expect(grants.rowCount).toBe(0);
+        // only the scope columns a unit move rewrites: never a message
+        const columns = await api.owner.query<{ column_name: string; privilege_type: string }>(
+            `select column_name, privilege_type from information_schema.column_privileges
+              where grantee = 'itrms_app' and table_schema = 'kernel' and table_name = 'notifications'
+              order by column_name, privilege_type`
+        );
+        expect(columns.rows.map((r) => `${r.privilege_type} ${r.column_name}`)).toEqual([
+            'SELECT org_path',
+            'UPDATE org_path',
+            'SELECT region_id'
+        ]);
     });
 });
 

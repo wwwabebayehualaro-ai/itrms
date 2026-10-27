@@ -45,6 +45,10 @@ SELECT kernel.apply_rls('workflow.holidays', 'config', 'org_path');
 --> statement-breakpoint
 SELECT kernel.apply_rls('kernel.notifications', 'transaction', 'org_path');
 --> statement-breakpoint
+-- a unit move (kernel.org_units_move_subtree, run by the API that moves it) rewrites every scope column below the unit:
+-- it reads the scope columns, nothing else (the API reads a message only through kernel.my_notifications)
+GRANT SELECT ("region_id", "org_path") ON "kernel"."notifications" TO itrms_app;
+--> statement-breakpoint
 -- open_task with the task's due time (its SLA on the assignee unit's calendar, computed by the engine)
 DROP FUNCTION "workflow"."open_task"(uuid, uuid, text, uuid, text, uuid);
 --> statement-breakpoint
