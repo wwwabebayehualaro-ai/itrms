@@ -714,10 +714,11 @@
         {
           "id": "0.18a",
           "title": "Form governance: stability, checks, tests",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.18a-form-governance",
           "commits": [
-            "659760d"
+            "659760d",
+            "5f109c8"
           ],
           "evidence": [
             "GitHub CI run 40483091481 on 659760d (PR #15): all 9 jobs success — checks, infra+test:int, e2e, perf, stories/axe, Semgrep 0 findings, gitleaks no leaks, Trivy, licence report",
