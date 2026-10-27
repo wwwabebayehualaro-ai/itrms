@@ -125,7 +125,12 @@ export const formVersionSchema = z.object({
     createdBy: z.uuid().nullable()
 });
 
-export const formVersionSummarySchema = formVersionSchema.omit({ document: true }).extend({ published: z.boolean() });
+export const formVersionSummarySchema = formVersionSchema.omit({ document: true }).extend({
+    published: z.boolean(),
+    /** when the latest approved publication of this version was decided; null if it never went live */
+    publishedAt: z.string().nullable(),
+    createdByName: z.string().nullable()
+});
 
 /** withdrawn: the person who asked took the request back */
 export const PUBLICATION_STATUSES = ['pending', 'approved', 'rejected', 'withdrawn'] as const;
@@ -203,6 +208,82 @@ export const submissionSchema = z.object({
     createdAt: z.string(),
     updatedAt: z.string()
 });
+
+// ---- governance: the publish check (task 0.18a) ----
+
+/**
+ * The data sources a form may call: method and path prefix (without the leading `/` and `api/`). Browser-safe, so the
+ * designer shows the same warning the API raises; module manifests add their own in 0.21.
+ */
+export const DATA_SOURCE_ALLOWLIST: readonly { method: string; path: string }[] = [
+    { method: 'GET', path: 'v1/registry-lookups/' }
+];
+
+export const checkProblemSchema = z.object({
+    /** key-stability, test-case, or the lint rule's name */
+    code: z.string(),
+    severity: z.enum(['error', 'warning']),
+    fieldId: z.string().nullable(),
+    path: z.string(),
+    /** in the caller's language */
+    message: z.string()
+});
+
+export const checkTestResultSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    passed: z.boolean(),
+    mismatches: z.array(z.object({ path: z.string(), expected: z.unknown(), actual: z.unknown() }))
+});
+
+export const diffFieldSchema = z.object({ key: z.string(), label: z.string(), type: z.string() });
+
+export const diffChangeSchema = z.object({
+    area: z.string(),
+    languages: z.array(z.string()).optional(),
+    key: z.string().optional(),
+    before: z.unknown().optional(),
+    after: z.unknown().optional()
+});
+
+export const formDiffSchema = z.object({
+    added: z.array(diffFieldSchema),
+    removed: z.array(diffFieldSchema),
+    restored: z.array(diffFieldSchema),
+    changed: z.array(z.object({ key: z.string(), label: z.string(), changes: z.array(diffChangeSchema) })),
+    form: z.array(z.object({ area: z.string() }))
+});
+
+export const VIEW_VISIBILITIES = ['private', 'unit'] as const;
+
+/** Where a changed key is used by a saved view. */
+export const IMPACT_REASONS = ['filter', 'sort', 'column', 'option'] as const;
+
+export const impactViewSchema = z.object({
+    id: z.uuid(),
+    name: z.string(),
+    visibility: z.enum(VIEW_VISIBILITIES),
+    unit: unitRefSchema,
+    /** the caller's own view */
+    mine: z.boolean(),
+    keys: z.array(z.object({ key: z.string(), reasons: z.array(z.enum(IMPACT_REASONS)) }))
+});
+
+export const publishCheckSchema = z.object({
+    /** no blocking problem, and every test case passes */
+    canPublish: z.boolean(),
+    /** the published version the candidate is compared with; null: nothing published yet */
+    base: z.object({ id: z.uuid(), number: z.number().int() }).nullable(),
+    candidate: z.object({ id: z.uuid().nullable(), number: z.number().int().nullable() }),
+    problems: z.array(checkProblemSchema),
+    tests: z.array(checkTestResultSchema),
+    diff: formDiffSchema,
+    impact: z.object({ views: z.array(impactViewSchema) })
+});
+
+export type CheckProblem = z.infer<typeof checkProblemSchema>;
+export type PublishCheck = z.infer<typeof publishCheckSchema>;
+export type ImpactView = z.infer<typeof impactViewSchema>;
 
 export type FormSummary = z.infer<typeof formSummarySchema>;
 export type Form = z.infer<typeof formSchema>;
@@ -356,7 +437,6 @@ export type SubmissionQueryResult = z.infer<typeof submissionQueryResultSchema>;
 // ---- saved views, exports and history (task 0.16d) ----
 
 export const VIEW_MODES = ['table', 'cards', 'board', 'calendar', 'pivot', 'dashboard'] as const;
-export const VIEW_VISIBILITIES = ['private', 'unit'] as const;
 
 /** What a view keeps: the query's parts, the columns shown and the mode's own options (bounded). */
 export const viewConfigSchema = z.strictObject({

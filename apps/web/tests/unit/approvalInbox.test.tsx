@@ -28,13 +28,42 @@ const request = {
     decidedAt: null,
     decisionNote: null
 };
+// what approving it would do (GET form-publications/:id/review)
+const review = {
+    canPublish: true,
+    base: { id: 'v2', number: 2 },
+    candidate: { id: 'v3', number: 3 },
+    problems: [],
+    tests: [],
+    diff: {
+        added: [{ key: 'reason', label: 'Reason' }],
+        removed: [],
+        restored: [],
+        changed: [],
+        form: []
+    },
+    impact: {
+        views: [
+            {
+                id: 'sv1',
+                name: 'Long leaves',
+                visibility: 'unit',
+                unit: { id: 'u', code: 'Z', name: { en: 'Zone' } },
+                mine: false,
+                keys: [{ key: 'days', reasons: ['column'] }]
+            }
+        ]
+    }
+};
+const listOr = (items: unknown[]) => (url: string) =>
+    Promise.resolve({ data: url.endsWith('/review') ? review : { items } });
 const ifMatch = { headers: { 'if-match': '"1"' } };
 const problem = (data: unknown) =>
     new ApiError('failed', 'ERR_BAD_RESPONSE', { url: 'x' }, { status: 422, headers: {}, data });
 
 describe('ApprovalInbox', () => {
     beforeEach(() => {
-        api.get.mockReset().mockResolvedValue({ data: { items: [request] } });
+        api.get.mockReset().mockImplementation(listOr([request]));
         api.post.mockReset();
     });
 
@@ -49,6 +78,10 @@ describe('ApprovalInbox', () => {
         const sheet = await screen.findByRole('dialog');
         expect(within(sheet).getByText('Priya Nair')).toBeInTheDocument();
         expect(within(sheet).getByText('Publish “Leave Request” (version 3)')).toBeInTheDocument();
+        // the review of what approving would do: the change and the saved view it touches
+        expect(await within(sheet).findByText('Long leaves')).toBeInTheDocument();
+        expect(within(sheet).getByText('Reason')).toBeInTheDocument();
+        expect(api.get).toHaveBeenCalledWith('v1/form-publications/a1/review', expect.anything());
         expect(api.get).toHaveBeenCalledWith(
             'v1/form-publications',
             expect.objectContaining({ params: { status: 'pending' } })
@@ -81,21 +114,19 @@ describe('ApprovalInbox', () => {
 
 describe('the inbox’s scopes', () => {
     it('shows only what the caller may decide under “To decide”, and their own under “My requests”', async () => {
-        api.get.mockReset().mockResolvedValue({
-            data: {
-                items: [
-                    request,
-                    {
-                        ...request,
-                        id: 'a2',
-                        formName: { en: 'Own form' },
-                        requestedBy: 'me',
-                        canDecide: false,
-                        canWithdraw: true
-                    }
-                ]
-            }
-        });
+        api.get.mockReset().mockImplementation(
+            listOr([
+                request,
+                {
+                    ...request,
+                    id: 'a2',
+                    formName: { en: 'Own form' },
+                    requestedBy: 'me',
+                    canDecide: false,
+                    canWithdraw: true
+                }
+            ])
+        );
         renderWithQuery(<ApprovalInbox />);
         expect(await screen.findByText('Publish “Leave Request” (version 3)')).toBeInTheDocument();
         expect(screen.queryByText('Publish “Own form” (version 3)')).not.toBeInTheDocument();

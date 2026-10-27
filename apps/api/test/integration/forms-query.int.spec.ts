@@ -684,7 +684,7 @@ describe("the review's cases", () => {
         expect(sum.aggregates.sum_salary).toBe(9010);
     });
 
-    it('drops an indexed key whose kind changes, and fills it again as the new kind', async () => {
+    it('never changes an indexed key kind; drops a key unmarked filterable, and fills it again once marked', async () => {
         const form = await createAndPublish('kind-change', [
             field('title', 'InputText'),
             field('day', 'Calendar', { filterable: true })
@@ -694,17 +694,34 @@ describe("the review's cases", () => {
         expect(await indexed(form.id, 'day')).toBe(true);
         // a date: the day the person picked, its ISO text
         expect(titles(await query(form.id, cond('day', 'eq', '2026-01-05')))).toEqual(['early']);
-        await publishNext(form.id, [
-            field('title', 'InputText'),
-            field('day', 'Calendar', { filterable: true, props: { showTime: true } })
-        ]);
+        // a published key keeps its kind (task 0.18a): a date never becomes a timestamp, so its index stays valid
+        const current = (await api.call('GET', `/api/v1/forms/${form.id}`, as.bureau())).json<{ version: number }>();
+        const retyped = await api.call(
+            'PATCH',
+            `/api/v1/forms/${form.id}`,
+            as.bureau(),
+            {
+                document: {
+                    fields: [
+                        field('title', 'InputText'),
+                        field('day', 'Calendar', { filterable: true, props: { showTime: true } })
+                    ]
+                }
+            },
+            { 'if-match': `"${current.version}"` }
+        );
+        expect(retyped.statusCode, retyped.body).toBe(422);
+        expect(await indexed(form.id, 'day')).toBe(true);
+        // unmarked: back to the answers at once, the same result
+        await publishNext(form.id, [field('title', 'InputText'), field('day', 'Calendar')]);
+        expect(await indexed(form.id, 'day')).not.toBe(true);
+        // marked again: the answers serve until the worker fills the index anew
+        await publishNext(form.id, [field('title', 'InputText'), field('day', 'Calendar', { filterable: true })]);
         expect(await indexed(form.id, 'day')).toBe(false);
-        // a timestamp: its day in Addis Ababa (22:30 UTC is 01:30 the next day there), on the answers and the index alike
-        expect(titles(await query(form.id, cond('day', 'eq', '2026-01-06')))).toEqual(['early']);
+        expect(titles(await query(form.id, cond('day', 'eq', '2026-01-05')))).toEqual(['early']);
         await fillValues(system, form.id);
         expect(await indexed(form.id, 'day')).toBe(true);
-        expect(titles(await query(form.id, cond('day', 'eq', '2026-01-06')))).toEqual(['early']);
-        expect(titles(await query(form.id, cond('day', 'eq', '2026-01-05')))).toEqual([]);
+        expect(titles(await query(form.id, cond('day', 'eq', '2026-01-05')))).toEqual(['early']);
     });
 
     it('matches a choice whose option value is a number the same on both paths', async () => {

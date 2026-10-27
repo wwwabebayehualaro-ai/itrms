@@ -85,6 +85,26 @@ export function databaseRefusalOf(error: unknown): { status: number; code: strin
     return undefined;
 }
 
+/**
+ * The status of a Nest HTTP exception, also one built by another installed copy of `@nestjs/common` (the lockfile may hold
+ * several, by peer dependency): `instanceof` fails across copies, so a slice's `ParseUUIDPipe` refusal would read as a 500.
+ */
+function httpStatusOf(error: unknown): number | undefined {
+    if (error instanceof HttpException) return error.getStatus();
+    const e = error as { getStatus?: unknown; getResponse?: unknown } | null;
+    if (typeof e?.getStatus !== 'function' || typeof e.getResponse !== 'function') return undefined;
+    const status: unknown = e.getStatus.call(error);
+    return typeof status === 'number' && Number.isInteger(status) && status >= 400 && status < 600 ? status : undefined;
+}
+
+/** A nestjs-zod request validation error, from whichever installed copy built it (as above). */
+function zodErrorOf(error: unknown): { found: boolean; cause?: unknown } {
+    if (error instanceof ZodValidationException) return { found: true, cause: error.getZodError() };
+    const e = error as { getZodError?: unknown; getStatus?: unknown } | null;
+    if (typeof e?.getZodError !== 'function' || typeof e.getStatus !== 'function') return { found: false };
+    return { found: true, cause: e.getZodError.call(error) };
+}
+
 /** The problem body for anything thrown while serving a request. */
 export function problemOf(error: unknown, language: Language, traceId?: string): Problem {
     const make = (status: number, code: string, extra: Partial<Problem> = {}): Problem => ({
@@ -102,11 +122,10 @@ export function problemOf(error: unknown, language: Language, traceId?: string):
         });
     const refusal = databaseRefusalOf(error);
     if (refusal) return make(refusal.status, refusal.code);
-    if (error instanceof ZodValidationException) {
-        const cause = error.getZodError();
-        return make(422, 'validation_failed', cause instanceof ZodError ? { errors: fieldErrors(cause) } : {});
-    }
-    const status = error instanceof HttpException ? error.getStatus() : clientStatusOf(error);
+    const zod = zodErrorOf(error);
+    if (zod.found)
+        return make(422, 'validation_failed', zod.cause instanceof ZodError ? { errors: fieldErrors(zod.cause) } : {});
+    const status = httpStatusOf(error) ?? clientStatusOf(error);
     if (status !== undefined && status < 500) return make(status, STATUS_CODES[status] ?? 'invalid_request');
     if (status === 503) return make(503, 'unavailable');
     return make(500, 'internal_error');

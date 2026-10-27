@@ -154,6 +154,7 @@
   "form-engine.settings.inspector.field.key": "ቁልፍ",
   "form-engine.settings.inspector.field.keyHelp": "በተላከው መረጃ፣ በማጣሪያዎችና በቀመሮች ውስጥ የዋጋው ስም። ስሙን መቀየር የሚጠቀሙትን ደንብና ቀመር ሁሉ ያዘምናል።",
   "form-engine.settings.inspector.field.keyInvalid": "በፊደል ይጀምሩ፤ ፊደል፣ ቁጥርና _ ብቻ (ቢበዛ 64)።",
+  "form-engine.settings.inspector.field.keyLocked": "ይህ ቁልፍ ታትሟል፤ ስለዚህ ስሙ ሊቀየር አይችልም፤ የተላከው መረጃ፣ እይታዎችና ቀመሮች ይጠቀሙበታል። በምትኩ መስኩን ያስወግዱ።",
   "form-engine.settings.inspector.field.keyTaken": "ይህን ቁልፍ ሌላ መስክ አስቀድሞ ይጠቀምበታል።",
   "form-engine.settings.inspector.field.label": "መለያ",
   "form-engine.settings.inspector.field.readOnly": "ለማንበብ ብቻ",

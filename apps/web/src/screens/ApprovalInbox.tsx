@@ -6,6 +6,7 @@ import { Check, Inbox, Undo2, X } from 'lucide-react';
 import {
     useApprovalActions,
     useApprovals,
+    usePublicationReview,
     type Approval,
     type ApprovalScope,
     type ApprovalStatus
@@ -13,6 +14,7 @@ import {
 import { useCan } from '@/lib/auth/authHooks';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { formatDateTime } from '@/lib/format';
+import { PublishReview, type PublishCheck } from '@itrms/form-engine/designer';
 import { Alert, AlertDescription, AlertTitle } from '@itrms/ui';
 import { Button } from '@itrms/ui';
 import { Card, CardContent } from '@itrms/ui';
@@ -193,6 +195,7 @@ const decisionSchema = z.object({ note: z.string().max(500, 'At most 500 charact
 
 function ApprovalDetail({ approval: a, onDone }: { approval: Approval; onDone: () => void }) {
     const { approve, reject, cancel } = useApprovalActions();
+    const review = usePublicationReview<PublishCheck>(a.id);
     // which button submitted (a ref: the submit runs before a state update would re-render)
     const action = React.useRef<'approve' | 'reject'>('approve');
     const form = useZodForm({
@@ -246,6 +249,8 @@ function ApprovalDetail({ approval: a, onDone }: { approval: Approval; onDone: (
                         </>
                     )}
                 </dl>
+                {review.isPending && <Skeleton className="h-24 w-full" />}
+                {review.data && <PublishReview check={review.data} />}
                 {a.can_decide && (
                     <>
                         <Separator />

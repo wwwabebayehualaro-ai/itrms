@@ -28,11 +28,15 @@ import {
     Database,
     Eye,
     FilePlus2,
+    FlaskConical,
+    History,
     Languages,
     MoreHorizontal,
     PencilRuler,
     Redo2,
     Save,
+    Send,
+    ShieldCheck,
     Undo2
 } from 'lucide-react';
 import {
@@ -70,17 +74,21 @@ import {
 } from '@itrms/ui';
 import { requestErrorMessage } from '../host/client';
 import { TemplateStatusTag } from '../renderer/TemplateStatusTag';
-import { useTemplateList, useTemplateMutations } from '../api/templates';
+import { usePublishedTemplate, useTemplateList, useTemplateMutations } from '../api/templates';
 import { useFields, useFormActions, useRuntimeConfig, useTemplate } from '../renderer/store/formStore';
 import { REQUIRED_TEXT_LANGUAGES, EMPTY_RUNTIME, formTextIn, type TemplateRuntimeConfig } from '@itrms/schemas';
-import { readDocument, untranslatedTexts } from '../core';
+import { publishedKeysOf, readDocument, untranslatedTexts } from '../core';
 import { EngineForm } from '../renderer/EngineForm';
 import { unsupportedFields } from '../renderer/kit';
 import '../renderer/fields/registerAll';
 import { DataSources } from './DataSources';
 import { Canvas, DragStateProvider, LIST_PREFIX, PALETTE_PREFIX, dropTarget, type DragState } from './Canvas';
 import { EMPTY_DOC, accepts, fromStored, slugify, subtree, toStored, type DesignDoc } from './document';
+import { ChecksSheet, useChecks } from './Checks';
+import { HistorySheet } from './History';
 import { Inspector } from './Inspector';
+import { PublishDialog } from './PublishReview';
+import { SaveAsTestCase, TestCasesSheet } from './TestCases';
 import { TranslationsSheet, endonym } from './Translations';
 import { Palette, type PaletteEntry } from './Palette';
 import {
@@ -93,7 +101,7 @@ import {
 } from './store';
 import { LANGUAGE_TAG, type FormTemplate } from '@itrms/schemas';
 
-import { useFormsHost, useFormsLanguages, useFormsLocation } from '../host/FormsHost';
+import { useCan, useFormsHost, useFormsLanguages, useFormsLocation } from '../host/FormsHost';
 import { useEngineText } from '../host/text';
 
 /** A save refused because someone else saved first (HTTP 409). */
@@ -120,7 +128,8 @@ export function FormDesigner() {
                 : template.id || fields.length
                   ? 'am'
                   : language;
-        const { doc, problems } = fromStored({ fields, textLanguage }, runtime ?? EMPTY_RUNTIME);
+        const testCases = (template.form_config as { testCases?: unknown } | null | undefined)?.testCases;
+        const { doc, problems } = fromStored({ fields, textLanguage, testCases }, runtime ?? EMPTY_RUNTIME);
         return { store: createDesignerStore(doc, template, language), problems };
     });
     const told = useRef(false);
@@ -156,7 +165,18 @@ function DesignerScreen() {
     const plainAs = doc.textLanguage;
     const { languages } = useFormsLanguages();
     const untranslated = useMemo(() => untranslatedTexts(toStored(doc).fields, plainAs).length, [doc, plainAs]);
+    const checks = useChecks();
+    const canPublish = useCan('form:publish');
+    const published = usePublishedTemplate(template.id).data;
+    // the keys the published version holds: a key keeps its name and only leaves the form flagged removed
+    useEffect(() => {
+        actions.setPublished(published ? publishedKeysOf(published.form_config) : new Map());
+    }, [actions, published]);
     const [translationsOpen, setTranslationsOpen] = useState(false);
+    const [checksOpen, setChecksOpen] = useState(false);
+    const [testsOpen, setTestsOpen] = useState(false);
+    const [historyOpen, setHistoryOpen] = useState(false);
+    const [publishOpen, setPublishOpen] = useState(false);
     const [mode, setMode] = useState<'design' | 'preview'>('design');
     const [naming, setNaming] = useState(false);
     const [jsonOpen, setJsonOpen] = useState(false);
@@ -444,6 +464,36 @@ function DesignerScreen() {
                         </Badge>
                     )}
                 </Button>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setChecksOpen(true)}
+                    data-checks-button
+                >
+                    <ShieldCheck />
+                    {t('form-engine.designer.checks.button')}
+                    {checks.errors > 0 && (
+                        <Badge variant="destructive" data-checks-errors>
+                            {checks.errors}
+                        </Badge>
+                    )}
+                    {checks.warnings > 0 && (
+                        <Badge className="bg-status-warning-bg text-status-warning-fg" data-checks-warnings>
+                            {checks.warnings}
+                        </Badge>
+                    )}
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setTestsOpen(true)}>
+                    <FlaskConical />
+                    {t('form-engine.designer.tests.button')}
+                </Button>
+                {template.id && (
+                    <Button type="button" variant="outline" size="sm" onClick={() => setHistoryOpen(true)}>
+                        <History />
+                        {t('form-engine.designer.history.button')}
+                    </Button>
+                )}
                 <Button type="button" variant="outline" size="sm" onClick={() => setSourcesOpen(true)}>
                     <Database />
                     {t('form-engine.designer.toolbar.dataSources')}
@@ -480,6 +530,20 @@ function DesignerScreen() {
                     {saving ? <Spinner /> : <Save />}
                     {template.id ? t('form-engine.designer.toolbar.save') : t('form-engine.designer.toolbar.saveAs')}
                 </Button>
+                {template.id && canPublish && (
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        disabled={dirty || saving}
+                        onClick={() => setPublishOpen(true)}
+                        title={dirty ? t('form-engine.designer.publish.saveFirst') : undefined}
+                        data-request-publication-button
+                    >
+                        <Send />
+                        {t('form-engine.designer.publish.button')}
+                    </Button>
+                )}
             </header>
 
             {mode === 'preview' ? (
@@ -530,6 +594,17 @@ function DesignerScreen() {
             <JsonDialog open={jsonOpen} onOpenChange={setJsonOpen} store={store} />
             <DataSourcesSheet open={sourcesOpen} onOpenChange={setSourcesOpen} />
             <TranslationsSheet open={translationsOpen} onOpenChange={setTranslationsOpen} />
+            <ChecksSheet open={checksOpen} onOpenChange={setChecksOpen} />
+            <TestCasesSheet open={testsOpen} onOpenChange={setTestsOpen} />
+            <HistorySheet open={historyOpen} onOpenChange={setHistoryOpen} />
+            {template.id && (
+                <PublishDialog
+                    templateId={template.id}
+                    name={template.name}
+                    open={publishOpen}
+                    onOpenChange={setPublishOpen}
+                />
+            )}
         </div>
     );
 }
@@ -543,6 +618,7 @@ function Preview() {
     const stored = useMemo(() => toStored(doc), [doc]);
     const unsupported = useMemo(() => unsupportedFields(readDocument(stored, { language }).fields), [stored, language]);
     const [result, setResult] = useState<Record<string, unknown> | null>(null);
+    const [values, setValues] = useState<Record<string, unknown>>({});
     // no submit data source: a preview never calls the form's API
     const runtime = useMemo<TemplateRuntimeConfig>(() => ({ ...stored.runtime, submit: undefined }), [stored.runtime]);
     return (
@@ -561,8 +637,12 @@ function Preview() {
                 fields={stored.fields}
                 runtime={runtime}
                 template={{ ...template, id: template.id ?? 'preview', form_config: stored }}
+                onValuesChange={setValues}
                 onFormSubmit={(s: { submission_data: Record<string, unknown> }) => setResult(s.submission_data)}
             />
+            <div>
+                <SaveAsTestCase values={values} />
+            </div>
             {result && (
                 <Card className="p-4">
                     <h3 className="mb-2 text-sm font-semibold">{t('form-engine.designer.preview.stored')}</h3>

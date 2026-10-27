@@ -5,6 +5,7 @@
  * importing `@itrms/forms/contracts` (the API's OpenAPI contract is their source).
  */
 import { formTextIn, type FormSubmission, type FormTemplate, type PublishedForm } from '@itrms/schemas';
+import type { FormDiff } from '../core';
 import type {
     FieldKind,
     FilterGroup,
@@ -57,6 +58,61 @@ export interface WireVersion {
     number: number;
     document: unknown;
     createdAt: string;
+}
+
+/** One version in the history list (GET forms/:id/versions). */
+export interface WireVersionSummary {
+    id: string;
+    formId: string;
+    number: number;
+    contentHash: string;
+    createdAt: string;
+    createdBy: string | null;
+    createdByName: string | null;
+    published: boolean;
+    /** when the latest approved publication of this version was decided */
+    publishedAt: string | null;
+}
+
+/**
+ * What a publication would do (GET forms/:id/publish-check, GET form-publications/:id/review): the problems that block it
+ * or only warn, the form's test cases, the difference to the published version and the views that name changed keys.
+ */
+export interface PublishCheck {
+    canPublish: boolean;
+    base: { id: string; number: number } | null;
+    candidate: { id: string | null; number: number | null };
+    problems: PublishCheckProblem[];
+    tests: PublishCheckTest[];
+    diff: FormDiff;
+    impact: { views: PublishCheckView[] };
+}
+
+export interface PublishCheckProblem {
+    /** the rule (core/lint.ts, or key-missing / key-retyped / key-moved of core/keys.ts) */
+    code: string;
+    severity: 'error' | 'warning';
+    fieldId: string | null;
+    path: string;
+    /** already in the reader's language */
+    message: string;
+}
+
+export interface PublishCheckTest {
+    id: string;
+    name: string;
+    passed: boolean;
+    mismatches: { path: string; expected: unknown; actual: unknown }[];
+}
+
+export interface PublishCheckView {
+    id: string;
+    name: string;
+    visibility: 'private' | 'unit';
+    unit: { id: string; code: string; name: I18nText };
+    /** the reader's own view (a private view of another person is never listed) */
+    mine: boolean;
+    keys: { key: string; reasons: string[] }[];
 }
 
 export interface WireSubmission {

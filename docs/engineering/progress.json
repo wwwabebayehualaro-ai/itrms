@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-10-26",
+  "updated": "2026-10-27",
   "statuses": [
     "planned",
     "ready",
@@ -714,12 +714,24 @@
         {
           "id": "0.18a",
           "title": "Form governance: stability, checks, tests",
-          "status": "ready",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.18a-form-governance",
+          "commits": [
+            "659760d"
+          ],
+          "evidence": [
+            "GitHub CI run 40483091481 on 659760d (PR #15): all 9 jobs success — checks, infra+test:int, e2e, perf, stories/axe, Semgrep 0 findings, gitleaks no leaks, Trivy, licence report",
+            "pnpm test:int (CI infra job) → 14 files / 312 tests passed on PostgreSQL 16, incl. forms-governance.int.spec.ts (key stability 422, failing test case 422 test_case, lint error blocks, warning alone passes, rollback reuses version, impact lists shared + own private views only, review 404 outside region, malformed id 400) and isolation.int.spec.ts",
+            "Done when 1 (renaming a published key is impossible): forms-governance.int.spec.ts › key stability (422 key_stability on rename/delete; removed flag kept); e2e forms/governance.spec.ts (key input disabled, key-locked help)",
+            "Done when 2 (a failing test case blocks publishing): forms-governance.int.spec.ts › is refused with a failing test case, naming it (422 document.testCases[0] test_case); core/testCases.spec.ts",
+            "Done when 3 (impact lists a saved view using a changed field): forms-governance.int.spec.ts › the review of a change; e2e forms/governance.spec.ts (view listed in the author's dialog and the approver's inbox, approved, live v2 keeps office removed)",
+            "Unit (CI checks job): form-engine 35 files / 291 (lint, keys, diff incl. removed containers, testCases, designer governance), kernel 61 (problem filter: foreign HTTP exceptions), web 10/62, schemas 4/28, api 4/11, forms 1/2; i18n:check catalogues complete in am and en; boundaries clean",
+            "e2e (CI) → 10 passed: new forms/governance.spec.ts, builder-publish.spec.ts through the publish review",
+            "task-verifier: all Done when, Do and Tests items met; reviewer: no critical/high; 2 medium fixed in 659760d (removed containers in diff/impact, malformed id 500→400 via problem filter), lows recorded as follow-ups (0.21a, 0.26)",
+            "No migration (removed flag and testCases live in the form document); OpenAPI regenerated (packages/api-client)"
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "Design (architect): maker-checker publish and version routes already exist; adds a stored 'removed' flag (published keys never vanish or change kind/row scope: key-missing/retyped/moved → 422 at PATCH, request and approval), core lintDocument (errors: unknown-reference, unreachable, cycle, duplicate-option, too-many-fields (300), unsafe data-source URL; warnings: unlisted data source (lead's choice until 0.21 manifests add allow-lists), untranslated, required-hideable, unknown-option, reads-removed, unknown-role), form_config.testCases run by a DB-free core runner, diffDocuments, impact on saved views (shared + own private only), publish-check/review routes, a PublishReview component in the designer, gallery and approval inbox, history with restore (keepPublishedKeys). No migration. CI record: GitHub Actions on origin (wwwabebayehualaro-ai/itrms) — integration (test:int) and e2e journeys run there; the run URL is the CI evidence, not pnpm ci:local. Gallery publish now opens the PublishDialog (server check); the old client-side 'untranslated' confirm is replaced by the lint warning 'untranslated'. PR #15; CI on GitHub (integration incl. forms-governance.int.spec.ts in the infra job; e2e forms/governance.spec.ts)."
         },
         {
           "id": "0.19",
@@ -2148,6 +2160,27 @@
       "foundIn": "0.18",
       "item": "Printouts show a RegistryLookup's id until the caller passes labels (PrintOptions.refs): the PDF worker resolves them",
       "movedTo": "0.23"
+    },
+    {
+      "foundIn": "0.18a",
+      "item": "Check that a malformed id in a path (e.g. GET /api/v1/form-publications/undefined/review) answers 400, not 500: a CI run of PR #15 saw a 500 there for a records officer of another region (seen only through a test bug, not reproduced locally)",
+      "movedTo": "0.26 (hardening)",
+      "closedIn": "0.18a: the problem filter reads HTTP and nestjs-zod exceptions by shape (two installed copies of @nestjs/common made instanceof fail); unit test + forms-governance int test (malformed id → 400)"
+    },
+    {
+      "foundIn": "0.18a",
+      "item": "Dedupe @nestjs/common (installed twice by supports-color 7.2.0 / 10.2.2) and nestjs-zod (4 copies) in the lockfile, e.g. a pnpm override; the problem filter now copes, other instanceof checks across slices may not",
+      "movedTo": "0.26 (hardening)"
+    },
+    {
+      "foundIn": "0.18a",
+      "item": "Impact analysis: filter saved views on the changed keys in SQL instead of reading the first 500 by name, and report views whose config no longer parses (now skipped silently)",
+      "movedTo": "0.21a"
+    },
+    {
+      "foundIn": "0.18a",
+      "item": "Governance HTTP tests still missing: the approval re-check refusing (422, form and publication unchanged), key-moved into/out of a FormArray, restore of an old version through PATCH keeping published keys, the approver's review listing the approver's own private view and not the requester's",
+      "movedTo": "0.21a"
     }
   ]
 }

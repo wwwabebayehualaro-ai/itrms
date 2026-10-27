@@ -13,9 +13,37 @@ import { SCHEMA_VERSION, storedFieldSchema } from './schema';
 
 /** Limits of one form (the backend refuses bigger ones). */
 export const MAX_FIELDS = 1000;
+/** How many fields one form should have (the publish check lints above it; a constant until the unit settings of 0.21). */
+export const FORM_FIELD_LIMIT = 300;
+/** Test cases one form carries (versioned and hashed with it). */
+export const MAX_TEST_CASES = 50;
 /** A rule's formula (requiredWhen, validWhen) and how many validWhen rules one field has. */
 export const MAX_RULE_EXPRESSION = 500;
 export const MAX_VALID_WHEN = 10;
+
+/**
+ * One test case of a form: values a person could enter (with the language and roles they act in), and what the engine must
+ * answer: valid or not, which fields fail (a string is the exact message, `true` any), and values the submission keeps.
+ */
+export const testCaseSchema = z
+    .object({
+        id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/),
+        name: z.string().min(1).max(200),
+        language: z.string().regex(LANGUAGE_TAG, 'is not a language tag').optional(),
+        roles: z.array(z.string().min(1).max(100)).max(20).optional(),
+        values: z.record(z.string(), z.unknown()),
+        expect: z.object({
+            valid: z.boolean(),
+            errors: z.record(z.string(), z.union([z.string(), z.literal(true)])).optional(),
+            values: z.record(z.string(), z.unknown()).optional()
+        })
+    })
+    .refine((c) => !(c.expect.valid && c.expect.errors !== undefined), {
+        path: ['expect', 'errors'],
+        message: 'a valid case cannot expect errors'
+    });
+
+export type FormTestCase = z.infer<typeof testCaseSchema>;
 
 const dataSourceSchema = z
     .object({
@@ -73,6 +101,7 @@ export function formConfigSchema(types: string[]) {
                         })
                 )
                 .max(MAX_FIELDS),
+            testCases: z.array(testCaseSchema).max(MAX_TEST_CASES).optional(),
             runtime: z
                 .object({
                     dataSources: z.array(dataSourceSchema).max(100),

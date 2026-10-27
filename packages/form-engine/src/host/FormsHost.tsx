@@ -45,6 +45,11 @@ export interface FormsHost {
     /** The installation's role keys: what a field's "Only for roles" may name. */
     roleKeys?: readonly string[];
     /**
+     * The data source requests a form may name (`{ method: 'GET', path: 'v1/registry-lookups/' }`: a path prefix). The
+     * builder's checks warn about a source outside it; without it that check is skipped.
+     */
+    dataSourceAllowList?: readonly { method: string; path: string }[];
+    /**
      * A hook: the language the screens are shown in and the installation's languages (Amharic and English first): forms
      * are drawn in it, and the builder translates into them. Without it: the page's language, Amharic and English.
      */

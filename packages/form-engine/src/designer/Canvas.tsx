@@ -10,7 +10,7 @@
  */
 import { createContext, memo, useContext, useMemo, type ReactNode } from 'react';
 import { useDraggable, useDroppable, type Over } from '@dnd-kit/core';
-import { ArrowDown, ArrowUp, Copy, GripVertical, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Copy, GripVertical, Plus, Trash2, Undo2 } from 'lucide-react';
 import { Badge, Button, FieldDescription, Field as FieldShell, FieldLabel, IconButton, cn } from '@itrms/ui';
 import { initialValueOf, toEngineField, type EngineField, type StoredField } from '../core';
 import { text as plainText } from '../core/runtime/path';
@@ -173,19 +173,43 @@ const DesignNode = memo(function DesignNode({ id, inRow }: { id: string; inRow: 
                 selected
                     ? 'bg-primary/5 ring-2 ring-primary'
                     : 'hover:ring-1 hover:ring-border focus-visible:ring-2 focus-visible:ring-ring',
-                dragging && 'opacity-40'
+                dragging && 'opacity-40',
+                field.removed && 'opacity-60 grayscale'
             )}
             style={width.style}
             data-span={width.span}
             data-design-field={id}
             data-selected={selected || undefined}
             data-field-type={field.type}
+            data-removed={field.removed || undefined}
         >
+            {field.removed && <RemovedBar id={id} />}
             {selected && <Toolbar id={id} label={def?.design ? word(def.design.label) : field.type} />}
             {body}
         </div>
     );
 });
+
+/** A published key taken out of the form: it stays (old answers stay readable) but people no longer see it. */
+function RemovedBar({ id }: { id: string }) {
+    const actions = useDesignerActions();
+    const { t } = useEngineText();
+    return (
+        <div
+            className="mb-1 flex items-center gap-2"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+        >
+            <Badge variant="outline" data-removed-badge>
+                {t('form-engine.designer.removed.badge')}
+            </Badge>
+            <Button type="button" variant="ghost" size="xs" onClick={() => actions.restore(id)}>
+                <Undo2 />
+                {t('form-engine.designer.removed.restore')}
+            </Button>
+        </div>
+    );
+}
 
 /** Actions of the selected field, on its top edge. */
 function Toolbar({ id, label }: { id: string; label: string }) {

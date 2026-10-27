@@ -6,7 +6,15 @@
  * children, siblings in their order) with `schemaVersion: 2`. Every key of a field the builder does not know is kept as it was.
  */
 import type { Draft } from 'immer';
-import { formTextIn, setTextIn, textLanguageOf, textPropsOf, type FormField, type FormText } from '@itrms/schemas';
+import {
+    formTextIn,
+    setTextIn,
+    textLanguageOf,
+    textPropsOf,
+    type FormField,
+    type FormTestCase,
+    type FormText
+} from '@itrms/schemas';
 import { getFieldType } from '../renderer/kit';
 import { wordIn, type EngineWord } from '../core/messages';
 import { keyFromLabel, renameFieldKey, renameInRuntime } from './fieldKeys';
@@ -37,6 +45,8 @@ export interface DesignDoc {
     runtime: TemplateRuntimeConfig;
     /** The language the form's plain-string texts are written in (stored with the form, fixed for its life). */
     textLanguage: string;
+    /** The form's test cases (versioned with it); the builder keeps and edits them. */
+    testCases?: FormTestCase[];
 }
 
 // a type, not an interface: it is a `form_config` (a Record), which an interface is not assignable to
@@ -45,6 +55,7 @@ export type StoredDocument = {
     fields: FormField[];
     runtime: TemplateRuntimeConfig;
     textLanguage: string;
+    testCases?: FormTestCase[];
 };
 
 export const EMPTY_DOC: DesignDoc = { byId: {}, children: { [ROOT]: [] }, runtime: EMPTY_RUNTIME, textLanguage: 'am' };
@@ -108,7 +119,23 @@ export function fromStored(
         }
         (children[parent] ??= []).push(id);
     }
-    return { doc: { byId, children, runtime, textLanguage: textLanguageOf(config) }, problems };
+    const testCases =
+        config &&
+        typeof config === 'object' &&
+        !Array.isArray(config) &&
+        Array.isArray((config as { testCases?: unknown }).testCases)
+            ? (config as { testCases: FormTestCase[] }).testCases
+            : undefined;
+    return {
+        doc: {
+            byId,
+            children,
+            runtime,
+            textLanguage: textLanguageOf(config),
+            ...(testCases?.length ? { testCases } : {})
+        },
+        problems
+    };
 }
 
 /** The builder's document -> what is stored (`form_config`). */
@@ -122,7 +149,13 @@ export function toStored(doc: DesignDoc): StoredDocument {
             visit(id);
         });
     visit(ROOT);
-    return { schemaVersion: SCHEMA_VERSION, fields, runtime: doc.runtime, textLanguage: doc.textLanguage };
+    return {
+        schemaVersion: SCHEMA_VERSION,
+        fields,
+        runtime: doc.runtime,
+        textLanguage: doc.textLanguage,
+        ...(doc.testCases?.length ? { testCases: doc.testCases } : {})
+    };
 }
 
 // ---- queries ----------------------------------------------------------------------------------------------------------

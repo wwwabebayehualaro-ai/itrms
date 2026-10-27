@@ -133,6 +133,19 @@ export function usePendingApproval(formId?: string) {
     return { ...q, data: formId ? q.data?.items[0] : undefined };
 }
 
+/**
+ * What approving this request would do: its version against the published one (problems, tests, diff, affected views).
+ * The caller names the shape (the form engine's PublishCheck): this layer does not import the engine.
+ */
+export function usePublicationReview<T>(id: string | undefined) {
+    return useQuery({
+        queryKey: [...approvalKeys.detail(id ?? ''), 'review'] as const,
+        queryFn: async ({ signal }) => (await client.get<T>(`${BASE}/${id}/review`, { signal })).data,
+        enabled: !!id,
+        retry: false
+    });
+}
+
 const ifMatch = (version: number) => ({ headers: { 'if-match': `"${version}"` } });
 
 /**

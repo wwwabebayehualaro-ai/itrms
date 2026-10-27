@@ -20,6 +20,7 @@ import type {
     FormVersion,
     FormVersionSummary,
     Publication,
+    PublishCheck,
     formCreateSchema,
     formListQuerySchema,
     formUpdateSchema,
@@ -28,6 +29,7 @@ import type {
 import { formDefinitions, formPublications, formVersions } from './forms.table';
 import { RegistryLookups } from './lookups';
 import { assertLookups, assertReadable, contentHash, fieldsFor, isUniqueViolation, required } from './support';
+import { assertKeysStable, assertPublishable, publishCheck, publishedDocument } from './governance';
 import { filterableKinds } from './view-fields';
 
 type DefinitionRow = typeof formDefinitions.$inferSelect;
@@ -106,6 +108,8 @@ export class FormsService {
         if (input.document !== undefined) {
             assertReadable(input.document);
             assertLookups(input.document, this.lookups);
+            // a key the published version holds stays (flagged removed when it leaves the form)
+            assertKeysStable(await publishedDocument(tx, current), input.document, currentContext()?.language ?? 'am');
         }
         const hash = input.document !== undefined ? contentHash(input.document) : undefined;
         await updateAudited(tx, formDefinitions, id, version, {
@@ -134,10 +138,23 @@ export class FormsService {
             .where(eq(formVersions.formId, formId))
             .orderBy(desc(formVersions.number))
             .limit(LIST_LIMIT);
+        // when each version last went live: its latest approved publication
+        const live = await tx
+            .select({ formVersionId: formPublications.formVersionId, at: max(formPublications.decidedAt) })
+            .from(formPublications)
+            .where(and(eq(formPublications.formId, formId), eq(formPublications.status, 'approved')))
+            .groupBy(formPublications.formVersionId);
+        const publishedAt = new Map(live.map((l) => [l.formVersionId, l.at]));
+        const people = await namesOf(
+            tx,
+            rows.map((r) => r.createdBy)
+        );
         return rows.map((v) => ({
             ...v,
             createdAt: v.createdAt.toISOString(),
-            published: v.id === form.publishedVersionId
+            published: v.id === form.publishedVersionId,
+            publishedAt: publishedAt.get(v.id)?.toISOString() ?? null,
+            createdByName: v.createdBy ? (people.get(v.createdBy) ?? null) : null
         }));
     }
 
@@ -175,6 +192,13 @@ export class FormsService {
         // a form saved under an older contract is checked again before it can go live
         assertReadable(form.document);
         assertLookups(form.document, this.lookups);
+        await assertPublishable(
+            tx,
+            ctx.userId,
+            form,
+            { id: null, number: null, document: form.document },
+            currentContext()?.language ?? 'am'
+        );
         const version = await this.snapshot(tx, form);
         if (version.id === form.publishedVersionId)
             throw new ConflictError('invalid_transition', { detail: 'This version of the form is already published.' });
@@ -213,6 +237,38 @@ export class FormsService {
         return this.publicationsOf(tx, rows);
     }
 
+    /** What publishing the working copy would change and whom it affects (the builder asks before it requests). */
+    async publishCheck(tx: Tx, ctx: DbContext, formId: string): Promise<PublishCheck> {
+        const form = await this.definition(tx, formId);
+        // a snapshot of the same content is the version the request would reuse
+        const [same] = await tx
+            .select({ id: formVersions.id, number: formVersions.number })
+            .from(formVersions)
+            .where(and(eq(formVersions.formId, formId), eq(formVersions.contentHash, form.documentHash)));
+        return publishCheck(
+            tx,
+            ctx.userId,
+            form,
+            { id: same?.id ?? null, number: same?.number ?? null, document: form.document },
+            currentContext()?.language ?? 'am'
+        );
+    }
+
+    /** What a publication request changes against the published version (the approver reads it before deciding). */
+    async review(tx: Tx, ctx: DbContext, id: string): Promise<PublishCheck> {
+        const [row] = await tx.select().from(formPublications).where(eq(formPublications.id, id));
+        if (!row) throw new NotFoundError();
+        const form = await this.definition(tx, row.formId);
+        const candidate = await this.version(tx, row.formId, row.formVersionId);
+        return publishCheck(
+            tx,
+            ctx.userId,
+            form,
+            { id: candidate.id, number: candidate.number, document: candidate.document },
+            currentContext()?.language ?? 'am'
+        );
+    }
+
     async approve(tx: Tx, ctx: DbContext, id: string, version: number, note?: string): Promise<Publication> {
         const publication = await this.pending(tx, ctx, id);
         const form = await this.writable(tx, ctx, publication.formId, { lock: true });
@@ -220,6 +276,15 @@ export class FormsService {
             throw new ConflictError('invalid_transition', {
                 detail: 'This form was switched off: reject the request.'
             });
+        // checked again: the published version may have changed since the request was made
+        const candidate = await this.version(tx, form.id, publication.formVersionId);
+        await assertPublishable(
+            tx,
+            ctx.userId,
+            form,
+            { id: candidate.id, number: candidate.number, document: candidate.document },
+            currentContext()?.language ?? 'am'
+        );
         const previousVersionId = form.publishedVersionId;
         // a key stays indexed only if the new version marks it filterable with the same kind as the previous one: its
         // rows are then complete and of the right type. The others go back to the answers at once; the worker fills

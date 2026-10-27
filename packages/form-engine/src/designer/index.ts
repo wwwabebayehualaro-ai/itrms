@@ -9,3 +9,7 @@ export {
     useRuntimeConfig,
     useFormActions as useBuilderActions
 } from '../renderer/store/formStore';
+
+// What a publication would do: the review shown to the person who asks and the one who approves, and the dialog that asks.
+export { PublishReview, PublishDialog } from './PublishReview';
+export type { PublishCheck, PublishCheckProblem, PublishCheckTest, PublishCheckView } from '../api/wire';

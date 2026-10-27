@@ -155,6 +155,14 @@ export class FormsController {
         return this.db.scoped(requestDbContext(), (tx) => this.forms.version(tx, id, versionId));
     }
 
+    /** What publishing the working copy changes against the published version, and whom it affects. */
+    @Get(':id/publish-check')
+    @Require('form:publish')
+    publishCheck(@Param('id', ParseUUIDPipe) id: string) {
+        const ctx = requestDbContext();
+        return this.db.scoped(ctx, (tx) => this.forms.publishCheck(tx, ctx, id));
+    }
+
     @Post(':id/publications')
     @Require('form:publish')
     requestPublication(@Param('id', ParseUUIDPipe) id: string, @Body() body: PublicationRequestDto) {
@@ -174,6 +182,14 @@ export class PublicationsController {
     @Require('form:read')
     list(@Query() query: PublicationListDto) {
         return this.db.scoped(requestDbContext(), async (tx) => ({ items: await this.forms.publications(tx, query) }));
+    }
+
+    /** The request's version against the published one: problems, tests, diff and the saved views it affects. */
+    @Get(':id/review')
+    @Require('form:read')
+    review(@Param('id', ParseUUIDPipe) id: string) {
+        const ctx = requestDbContext();
+        return this.db.scoped(ctx, (tx) => this.forms.review(tx, ctx, id));
     }
 
     @Post(':id/approval')

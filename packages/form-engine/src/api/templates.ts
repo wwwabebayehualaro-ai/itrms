@@ -14,8 +14,10 @@ import {
     publishedOf,
     templateOf,
     textAll,
+    type PublishCheck,
     type WireForm,
-    type WireVersion
+    type WireVersion,
+    type WireVersionSummary
 } from './wire';
 
 /** The approval inbox (the app's `approvalKeys.all`): a publish opens a request there. */
@@ -110,6 +112,44 @@ export const publishedOptions = (client: FormsClient, id: string) =>
 export function usePublishedTemplate(id?: string) {
     const client = useFormsClient();
     return useQuery({ ...publishedOptions(client, id ?? ''), enabled: !!id });
+}
+
+/** The versions of a form, newest first (the history sheet). */
+export function useVersions(id: string | undefined, enabled = true) {
+    const client = useFormsClient();
+    return useQuery({
+        queryKey: [...templateKeys.detail(id ?? ''), 'versions'] as const,
+        queryFn: async ({ signal }) =>
+            (await client.get<{ items: WireVersionSummary[] }>(`${FORMS_API.forms}/${id}/versions`, { signal })).data
+                .items,
+        enabled: !!id && enabled
+    });
+}
+
+/** One version with its document. */
+export function useVersion(id: string | undefined, versionId: string | null) {
+    const client = useFormsClient();
+    return useQuery({
+        queryKey: [...templateKeys.detail(id ?? ''), 'version', versionId] as const,
+        queryFn: async ({ signal }) =>
+            (await client.get<WireVersion>(`${FORMS_API.forms}/${id}/versions/${versionId}`, { signal })).data,
+        enabled: !!id && !!versionId,
+        staleTime: Infinity
+    });
+}
+
+/** What publishing the saved working copy would do (never cached: the answer follows the saved form). */
+export function usePublishCheck(id: string | undefined, enabled: boolean) {
+    const client = useFormsClient();
+    return useQuery({
+        queryKey: [...templateKeys.detail(id ?? ''), 'publish-check'] as const,
+        queryFn: async ({ signal }) =>
+            (await client.get<PublishCheck>(`${FORMS_API.forms}/${id}/publish-check`, { signal })).data,
+        enabled: !!id && enabled,
+        gcTime: 0,
+        staleTime: 0,
+        retry: false
+    });
 }
 
 interface WirePublication {

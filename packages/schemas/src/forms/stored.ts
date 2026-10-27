@@ -76,6 +76,8 @@ export interface FormField {
     metadata?: { description?: string; [key: string]: unknown };
     /** Only these roles see the field (on screen and in exports). */
     visibleToRoles?: string[];
+    /** A published key taken out of the form: kept (its old answers stay readable), but never shown, taken or checked. */
+    removed?: boolean | null;
     [key: string]: unknown;
 }
 

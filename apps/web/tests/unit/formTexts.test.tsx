@@ -1,5 +1,5 @@
-// Texts of a stored form in every language (task 0.17a): the languages a form is translated into, the settings form's
-// one-name-per-language fields, and the publish warning for texts without Amharic or English.
+// Texts of a stored form in every language (task 0.17a): the languages a form is translated into and the settings form's
+// one-name-per-language fields; and the gallery's publish button, which opens the publish review (task 0.18a).
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -26,6 +26,15 @@ vi.mock('@itrms/form-engine/renderer', async (importOriginal) => ({
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock('@/form-templates/TemplatePreviewDialog', () => ({ default: () => null }));
 vi.mock('@/lib/auth/authHooks', () => ({ useCan: () => true }));
+// the publish dialog (the server's check, its review) is the engine's, tested there (designer/governance.spec.tsx)
+vi.mock('@itrms/form-engine/designer', async (importOriginal) => ({
+    ...(await importOriginal<Record<string, unknown>>()),
+    PublishDialog: ({ templateId, name }: { templateId: string; name: string }) => (
+        <div role="dialog" data-template={templateId}>
+            Publish {name}?
+        </div>
+    )
+}));
 
 import { TemplateSettingsForm } from '@/form-templates/TemplateSettingsForm';
 import TemplatesManager from '@/form-templates/TemplatesManager';
@@ -112,42 +121,22 @@ describe('TemplateSettingsForm', () => {
     });
 });
 
-describe('publishing a form with untranslated texts', () => {
+describe('publishing from the gallery', () => {
     beforeEach(() => {
         engine.publish.mockReset();
         engine.list = [template];
-        engine.load.mockReset();
     });
 
-    it('asks first, then publishes after confirming', async () => {
-        engine.load.mockResolvedValue({
-            ...template,
-            form_config: { fields: [{ id: 'f1', type: 'text', label: { am: 'ስም' } }] }
-        });
+    // texts without Amharic or English are now one of the check's warnings (core/lint.ts, rule "untranslated")
+    it('opens the publish review instead of sending at once', async () => {
         renderWithQuery(
             <NotifyProvider>
                 <TemplatesManager />
             </NotifyProvider>
         );
         await userEvent.click(screen.getByRole('button', { name: 'Publish Leave' }));
-        expect(await screen.findByText(/1 text has no Amharic or English text/)).toBeInTheDocument();
+        expect(await screen.findByRole('dialog')).toHaveAttribute('data-template', 't1');
+        expect(screen.getByText('Publish Leave?')).toBeInTheDocument();
         expect(engine.publish).not.toHaveBeenCalled();
-        await userEvent.click(screen.getByRole('button', { name: 'Publish anyway' }));
-        await waitFor(() => expect(engine.publish).toHaveBeenCalledWith({ id: 't1' }, expect.anything()));
-    });
-
-    it('publishes straight away when every text is translated', async () => {
-        engine.load.mockResolvedValue({
-            ...template,
-            form_config: { fields: [{ id: 'f1', type: 'text', label: { am: 'ስም', en: 'Name' } }] }
-        });
-        renderWithQuery(
-            <NotifyProvider>
-                <TemplatesManager />
-            </NotifyProvider>
-        );
-        await userEvent.click(screen.getByRole('button', { name: 'Publish Leave' }));
-        await waitFor(() => expect(engine.publish).toHaveBeenCalled());
-        expect(screen.queryByText(/no Amharic or English/)).not.toBeInTheDocument();
     });
 });

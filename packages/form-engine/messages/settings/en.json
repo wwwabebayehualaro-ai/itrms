@@ -154,6 +154,7 @@
   "form-engine.settings.inspector.field.key": "Key",
   "form-engine.settings.inspector.field.keyHelp": "Name of the value in submitted data, filters and formulas. Renaming updates every rule and formula that uses it.",
   "form-engine.settings.inspector.field.keyInvalid": "Start with a letter; letters, digits and _ only (max 64).",
+  "form-engine.settings.inspector.field.keyLocked": "This key was published, so it cannot be renamed: submitted data, views and formulas use it. Remove the field instead.",
   "form-engine.settings.inspector.field.keyTaken": "Another field already uses this key.",
   "form-engine.settings.inspector.field.label": "Label",
   "form-engine.settings.inspector.field.readOnly": "Read-only",
