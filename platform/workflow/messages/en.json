@@ -1,1 +1,21 @@
-{}
+{
+  "workflow.check.dead-end": "A case in the state \"{state}\" can never reach an end.",
+  "workflow.check.duplicate-action": "The state \"{state}\" has the action \"{action}\" more than once without conditions that tell them apart.",
+  "workflow.check.duplicate-state": "The state \"{state}\" is defined more than once.",
+  "workflow.check.end-exit": "The end state \"{state}\" cannot be left.",
+  "workflow.check.invalid": "The definition is not valid here: {detail}",
+  "workflow.check.many-starts": "The workflow has more than one start state: {states}.",
+  "workflow.check.many-timeouts": "The waiting state \"{state}\" has more than one timeout without conditions that tell them apart.",
+  "workflow.check.no-end": "The workflow has no end state.",
+  "workflow.check.no-start": "The workflow has no start state.",
+  "workflow.check.sod-state": "The state \"{state}\" keeps apart from \"{other}\", which is not a step a person acts on.",
+  "workflow.check.start-event": "The start \"{state}\" is left by an action, not by an event or a timeout.",
+  "workflow.check.task-event": "The task \"{state}\" is left by a person's action, not by an event or a timeout.",
+  "workflow.check.timeout-without-sla": "The waiting state \"{state}\" has a timeout but no time limit.",
+  "workflow.check.unknown-effect": "No installed module provides the effect \"{effect}\".",
+  "workflow.check.unknown-role": "No installed module defines the role \"{role}\".",
+  "workflow.check.unknown-state": "No state is called \"{state}\".",
+  "workflow.check.unknown-step-form": "There is no form version \"{form}\".",
+  "workflow.check.unreachable": "No transition leads to the state \"{state}\".",
+  "workflow.check.wait-action": "The waiting state \"{state}\" is left only by an event or its timeout, not by an action."
+}

@@ -83,6 +83,7 @@ In code a permission is `resource:action` with the resource in kebab-case, as th
 | `issued_document` | R | — | R | R | R (receipts) | R | R | R | — | R |
 | `document_template` | A | — | R | — | — | — | — | — | — | R |
 | `form` (definitions; `publish` asks, `approve` decides: maker-checker) | C U publish approve | C U publish (own unit's forms) | R approve | R | R | R | R | R | R | R |
+| `workflow-definition` (versions stored once the engine's checks pass; live only when a service version names them, 0.21) | C U R | C U R (own unit's workflows) | — | — | — | — | — | — | — | R |
 | `submission` (form answers; follows `case` until cases exist, 0.19) | R | — | R | C R | R | R | — | — | — | R |
 | `submission:export` (CSV/Excel of a query, audited) and `submission-view:share` (a view for the office, its default) | export, share | — | export, share | — | — | export | — | — | — | export |
 | `audit_log` | R | R (subtree users only) | R | — | — | — | — | — | — | R |

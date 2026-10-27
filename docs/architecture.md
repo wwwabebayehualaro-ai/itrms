@@ -298,18 +298,19 @@ effective(service, unit) = default(service_version) ⊕ override(ancestor_1) ⊕
 
 ## 8. Workflow engine
 
-Definition (Zod schema in `packages/schemas`, stored versioned):
+Definition (Zod schema `workflowDefinitionSchema` in `packages/schemas`; stored as immutable, content-hashed versions of a
+`workflow_definitions` row, which holds the key and the name; task 0.19a):
 
 ```jsonc
 {
-  "key": "driver-licence-new", "version": 3,
+  "schemaVersion": 1,
   "states": [
     { "key": "draft", "kind": "start" },
     { "key": "review", "kind": "task", "label": {"am": "ሰነድ ማጣራት", "en": "Document review"},
       "assignee": { "role": "competency.officer", "unit": "handling" }, "sla": { "businessHours": 8 } },
     { "key": "exam", "kind": "task", "assignee": { "role": "competency.examiner", "unit": "handling" },
       "stepForm": "exam-result@2", "sla": { "businessDays": 10 } },
-    { "key": "payment", "kind": "task", "assignee": { "role": "cashier", "unit": "handling" }, "requires": ["paymentOrder"] },
+    { "key": "payment", "kind": "task", "assignee": { "role": "cashier", "unit": "handling" } },
     { "key": "approval", "kind": "task", "assignee": { "role": "competency.lead", "unit": "${approval_unit}" }, "separationOfDuties": ["review", "exam"] },
     { "key": "national", "kind": "wait", "label": {"am": "ብሔራዊ ማረጋገጫ በመጠበቅ ላይ", "en": "Waiting for the national platform"},
       "sla": { "businessDays": 2 } },
@@ -320,7 +321,7 @@ Definition (Zod schema in `packages/schemas`, stored versioned):
     { "from": "review", "to": "exam", "action": "approve" },
     { "from": "review", "to": "draft", "action": "return", "commentRequired": true },
     { "from": "exam", "to": "payment", "action": "pass", "effects": ["fees.createPaymentOrder"] },
-    { "from": "payment", "to": "approval", "action": "paid", "guard": { "fact": "payment.settled", "eq": true } },
+    { "from": "payment", "to": "approval", "action": "paid", "guard": { "fact": "payment.settled", "op": "eq", "value": true } },
     { "from": "approval", "to": "national", "action": "approve",
       "effects": ["competency.createPendingLicence", "integrations.national.requestLicence"] },
     { "from": "national", "to": "issued", "on": "event:national.licence.accepted", "actor": "system:national-driver-platform",
@@ -354,8 +355,14 @@ Definition (Zod schema in `packages/schemas`, stored versioned):
   (working days and hours, lunch break, half days, holidays) in Addis Ababa time. A BullMQ delayed job fires at
   `due_at` (marks the task overdue, notifies, escalates one level up). A 15-minute sweep catches lost timers. Escalation never
   changes who may decide. It adds visibility for the supervisor.
-- **Versioning:** a case runs on the definition version it started with. Publishing a definition checks reachability (every
-  state reachable, an end reachable), known roles, known effects and step forms.
+- **Versioning:** a case runs on the definition version it started with. Storing a version runs the engine's checks
+  (`platform/workflow/api/engine/check.ts`): one start; every state reachable; an end reachable from every state; a task
+  left only by actions, a wait only by events or its timeout (with an SLA), an end never; separation of duties naming
+  steps people act on; and the roles, effects (the kernel's effect registry, `@itrms/kernel/effects`) and step forms
+  (`<form-key>@<version>`) the installation knows. Problems come back in the reader's language.
+- **Guards** are a small language over the case's facts (`eq`, `ne`, `in`, `gt`, `gte`, `lt`, `lte`, `exists`, combined
+  with `all`, `any`, `not`, at most 6 deep); no regular expressions. The engine's rules (`engine/rules.ts`) are pure
+  functions: the transition runner (0.19b) gathers the facts and asks them.
 - Legacy "status" fields do not exist. A case's state changes only through transitions (closes legacy gap #2).
 
 ## 9. Fees, payments, receipts

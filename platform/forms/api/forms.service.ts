@@ -158,6 +158,25 @@ export class FormsService {
         }));
     }
 
+    /**
+     * Which of `refs` (a form key and a version number, as a workflow's step forms name them) exist among the forms the
+     * caller can read: `<key>@<number>` of each one found.
+     */
+    async existingVersions(tx: Tx, refs: readonly { key: string; number: number }[]): Promise<Set<string>> {
+        if (refs.length === 0) return new Set();
+        const rows = await tx
+            .select({ key: formDefinitions.key, number: formVersions.number })
+            .from(formVersions)
+            .innerJoin(formDefinitions, eq(formDefinitions.id, formVersions.formId))
+            .where(
+                and(
+                    inArray(formDefinitions.key, [...new Set(refs.map((r) => r.key))]),
+                    inArray(formVersions.number, [...new Set(refs.map((r) => r.number))])
+                )
+            );
+        return new Set(rows.map((r) => `${r.key}@${r.number}`));
+    }
+
     async version(tx: Tx, formId: string, versionId: string): Promise<FormVersion> {
         const [row] = await tx
             .select()

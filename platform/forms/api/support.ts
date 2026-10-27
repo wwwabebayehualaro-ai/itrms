@@ -1,25 +1,12 @@
 /**
- * Shared by the forms services: the content hash of a document, the document check as a 422, and what the engine sees of
+ * Shared by the forms services: the content hash of a document (the kernel's), the document check as a 422, and what the engine sees of
  * a form on the server (the caller's fields, the scope its conditions read).
  */
-import { createHash } from 'node:crypto';
-
 import type { DbContext } from '@itrms/kernel/db';
 import { ForbiddenError, ValidationError } from '@itrms/kernel/errors';
 import { checkDocument, fieldsForRoles, readDocument, type EngineField, type Scope } from '@itrms/form-engine/core';
 
-/** JSON with every object's keys sorted: the same document always gives the same text (jsonb does not keep key order). */
-export function canonicalJson(value: unknown): string {
-    return JSON.stringify(value, (_key, v: unknown) =>
-        v && typeof v === 'object' && !Array.isArray(v)
-            ? Object.fromEntries(
-                  Object.entries(v as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-              )
-            : v
-    );
-}
-
-export const contentHash = (document: unknown) => createHash('sha256').update(canonicalJson(document)).digest('hex');
+export { canonicalJson, contentHash } from '@itrms/kernel/db';
 
 /** 422 with one entry per problem when the engine cannot read `document`. */
 export function assertReadable(document: unknown): void {

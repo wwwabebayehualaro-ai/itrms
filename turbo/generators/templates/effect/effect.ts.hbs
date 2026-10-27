@@ -1,3 +1,13 @@
 // Effect '{{sliceKey slicePath}}.{{camelCase name}}': code a service configuration names; runs in the transition's transaction as
-// itrms_app (code-structure.md §5.2). Task 0.19 adds the @Effect decorator and its typed input to this template.
-export const EFFECT_KEY = '{{sliceKey slicePath}}.{{camelCase name}}' as const;
+// itrms_app (code-structure.md §5.2). Declare the key in the slice's manifest (`effects`), list the class in its NestJS
+// module's providers and in its InstalledSlice (`effects: effectKeys([...])`): the kernel's registry finds it by its mark.
+import { Injectable } from '@nestjs/common';
+import { Effect, type EffectResult, type WorkflowEffect } from '@itrms/kernel/effects';
+
+@Injectable()
+@Effect('{{sliceKey slicePath}}.{{camelCase name}}')
+export class {{pascalCase name}}Effect implements WorkflowEffect {
+    run(): Promise<EffectResult | void> {
+        return Promise.resolve();
+    }
+}
