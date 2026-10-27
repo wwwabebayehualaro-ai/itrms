@@ -70,7 +70,7 @@ CREATE FUNCTION "workflow"."role_holders"(p_unit uuid, p_role text)
     LANGUAGE sql
     STABLE
     SECURITY DEFINER
-    SET search_path = pg_catalog, pg_temp
+    SET search_path = pg_catalog, public, pg_temp
 AS $$
     SELECT ra.user_id
       FROM kernel.role_assignments ra
@@ -94,7 +94,7 @@ CREATE FUNCTION "workflow"."open_task"(
     LANGUAGE plpgsql
     VOLATILE
     SECURITY DEFINER
-    SET search_path = pg_catalog, pg_temp
+    SET search_path = pg_catalog, public, pg_temp
 AS $$
 DECLARE
     v_region uuid := nullif(current_setting('app.region_id', true), '')::uuid;
