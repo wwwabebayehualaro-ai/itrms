@@ -24,6 +24,10 @@ const AUTHOR_FORMS = ['form:create', 'form:update', 'form:publish'];
 // workflow definitions (@itrms/workflow, task 0.19a): authored by the same administrators as forms; a version stored is
 // not live until a service version names it (0.21)
 const AUTHOR_WORKFLOWS = ['workflow-definition:read', 'workflow-definition:create', 'workflow-definition:update'];
+// cases (@itrms/workflow, task 0.19b; roles-and-permissions.md §2 `case`): who acts on a step is the engine's business (the
+// step's role in its unit); `case:act` lets the operational roles try
+const CASE_READ = ['case:read'];
+const CASE_ACT = ['case:read', 'case:act'];
 
 export default defineModule({
     key: 'kernel',
@@ -65,7 +69,8 @@ export default defineModule({
             'form:approve',
             'submission:read',
             'submission:export',
-            'submission-view:share'
+            'submission-view:share',
+            ...CASE_READ
         ],
         unit_admin: [
             ...READ_ORG,
@@ -90,12 +95,13 @@ export default defineModule({
             'form:approve',
             'submission:read',
             'submission:export',
-            'submission-view:share'
+            'submission-view:share',
+            ...CASE_ACT
         ],
         // at intake: checks the identity of the person in front of them
-        records_officer: [...READ_ORG, ...INTAKE, 'pii:reveal', 'submission:create', 'submission:read'],
-        cashier: [...READ_ORG, ...REGISTER, 'submission:read'],
-        finance_officer: [...READ_ORG, ...REGISTER, 'submission:read', 'submission:export'],
+        records_officer: [...READ_ORG, ...INTAKE, ...CASE_ACT, 'pii:reveal', 'submission:create', 'submission:read'],
+        cashier: [...READ_ORG, ...REGISTER, ...CASE_ACT, 'submission:read'],
+        finance_officer: [...READ_ORG, ...REGISTER, ...CASE_ACT, 'submission:read', 'submission:export'],
         auditor: [
             ...READ_ORG,
             ...REGISTER,
@@ -103,7 +109,8 @@ export default defineModule({
             'audit-log:read',
             'workflow-definition:read',
             'submission:read',
-            'submission:export'
+            'submission:export',
+            ...CASE_READ
         ],
         // names and addresses only: never a sensitive field (no pii:reveal)
         viewer: [...READ_ORG, ...REGISTER]

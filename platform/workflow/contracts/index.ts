@@ -103,3 +103,71 @@ export type WorkflowCheck = z.infer<typeof workflowCheckSchema>;
 export type WorkflowOut = z.infer<typeof workflowSchema>;
 export type WorkflowVersionSummary = z.infer<typeof workflowVersionSummarySchema>;
 export type WorkflowVersionOut = z.infer<typeof workflowVersionSchema>;
+
+// --- cases (task 0.19b) -------------------------------------------------------------------------------------------
+
+/** A person's transition: the action, the step form's answers when the step has one, and a comment where one is required. */
+export const transitionSchema = z.strictObject({
+    action: z.string().regex(/^[a-z][a-z0-9_]{0,62}$/, 'an action key'),
+    answers: z.record(z.string(), z.unknown()).optional(),
+    comment: z.string().trim().min(1).max(2000).optional()
+});
+
+const caseTaskSchema = z.object({
+    id: z.uuid(),
+    state: z.string(),
+    role: z.string(),
+    unit: unitRefSchema,
+    status: z.enum(['open', 'done', 'cancelled']),
+    /** the unit the definition assigned it to, when separation of duties sent it up */
+    routedFrom: unitRefSchema.nullable(),
+    actedBy: z.uuid().nullable(),
+    action: z.string().nullable(),
+    openedAt: z.string(),
+    closedAt: z.string().nullable()
+});
+
+const caseEventSchema = z.object({
+    id: z.uuid(),
+    kind: z.enum(['started', 'transition', 'routed']),
+    from: z.string().nullable(),
+    to: z.string().nullable(),
+    action: z.string().nullable(),
+    actorUserId: z.uuid().nullable(),
+    systemActor: z.string().nullable(),
+    comment: z.string().nullable(),
+    at: z.string()
+});
+
+export const caseSchema = z.object({
+    id: z.uuid(),
+    /** the row version, for If-Match */
+    version: z.number().int(),
+    number: z.number().int(),
+    state: z.string(),
+    closed: z.boolean(),
+    handlingUnit: unitRefSchema,
+    workflow: z.object({ id: z.uuid(), versionId: z.uuid(), number: z.number().int() }),
+    startedBy: z.uuid(),
+    /** the actions the caller may take now (before guards: a guard can still refuse one) */
+    actions: z.array(z.string()),
+    /** the steps the caller can see: their own unit's and those of units below it */
+    tasks: z.array(caseTaskSchema),
+    events: z.array(caseEventSchema),
+    createdAt: z.string(),
+    closedAt: z.string().nullable()
+});
+
+export type Transition = z.infer<typeof transitionSchema>;
+export type CaseOut = z.infer<typeof caseSchema>;
+
+/** The events the slice emits (code-structure.md §5.6). */
+export const WORKFLOW_EVENTS = {
+    'case.transitioned.v1': z.object({
+        caseId: z.uuid(),
+        from: z.string(),
+        to: z.string(),
+        action: z.string(),
+        closed: z.boolean()
+    })
+};

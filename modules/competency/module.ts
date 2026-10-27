@@ -14,6 +14,9 @@ const REGISTER_INTAKE = [
     'organisation:update'
 ];
 
+// a case's steps (@itrms/workflow, task 0.19b): which step a role acts on is the workflow's business
+const CASE_ACT = ['case:read', 'case:act'];
+
 export default defineModule({
     key: 'competency',
     layer: 'work-process',
@@ -27,18 +30,19 @@ export default defineModule({
         exam: ['read', 'record']
     },
     roles: {
-        'competency.officer': ['licence:read', 'exam:read', ...REGISTER_INTAKE, 'pii:reveal'],
+        'competency.officer': ['licence:read', 'exam:read', ...REGISTER_INTAKE, ...CASE_ACT, 'pii:reveal'],
         'competency.lead': [
             'licence:read',
             'licence:issue',
             'licence:print',
             'exam:read',
             ...REGISTER_READ,
+            ...CASE_ACT,
             'person:lookup',
             'pii:reveal'
         ],
-        'competency.examiner': ['exam:read', 'exam:record', ...REGISTER_READ],
-        'competency.inspector': ['licence:read', ...REGISTER_READ]
+        'competency.examiner': ['exam:read', 'exam:record', ...REGISTER_READ, ...CASE_ACT],
+        'competency.inspector': ['licence:read', ...REGISTER_READ, 'case:read']
     },
     services: [
         'DVC-01',

@@ -9,7 +9,7 @@ import { dirname, join } from 'node:path';
 import { Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
-import { Module, type DynamicModule } from '@nestjs/common';
+import { Module, type DynamicModule, type Type } from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { createHttpApp, createLogger, KernelModule, loadSlices } from '@itrms/kernel/api';
 import { loadConfig } from '@itrms/kernel/config';
@@ -65,7 +65,11 @@ export interface TestApi {
 export async function startApi(
     pg: TestPostgres,
     users: TestUser[] = [],
-    options: { objectStore?: ObjectStore } = {}
+    options: {
+        objectStore?: ObjectStore;
+        /** modules a suite adds beside the slices (test effects, task 0.19b) */
+        modules?: (Type | DynamicModule)[];
+    } = {}
 ): Promise<TestApi> {
     const installer = createDatabase(pg.url('owner'));
     const owner = new Client({ connectionString: pg.url('owner') });
@@ -132,7 +136,8 @@ export async function startApi(
                         roles: rolePermissions(installed.manifests),
                         shell: { manifests: installed.manifests, messages: installed.messages }
                     }),
-                    ...installed.modules
+                    ...installed.modules,
+                    ...(options.modules ?? [])
                 ]
             };
         }

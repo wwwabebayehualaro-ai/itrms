@@ -30,3 +30,22 @@ Layer: platform. Shape, public entries and rules: [code-structure.md](../../docs
 | `GET /api/v1/workflow-definitions`, `GET …/{id}`, `GET …/{id}/versions`, `GET …/{id}/versions/{versionId}` | `workflow-definition:read` |
 | `POST /api/v1/workflow-definitions/check` (dry run), `POST /api/v1/workflow-definitions` | `workflow-definition:create` |
 | `POST /api/v1/workflow-definitions/{id}/versions` | `workflow-definition:update` (a unit's own workflows) |
+
+## Cases and transitions (task 0.19b)
+
+- `cases` (class T at the handling unit), `case_tasks` (class T at the **assignee** unit: only that unit and the offices
+  above it see a step), `case_events` (the append-only timeline). `submissions.case_id` now points at `cases`.
+- `CasesService.start` starts a case on a stored workflow version with the configuration a service froze for it
+  (`approval_unit` …); `services` calls it from 0.21. `transition` is a person's action; `deliver` an event or the timeout
+  taken by a system actor (`system:<adapter>`, `system:timer`) in the worker's system context (0.20 wires the timers).
+- A transition runs in one transaction: the engine's decision, the step form's answers (filed as a submission of the
+  version the step names), the effects (a failing one undoes everything), the task closed and the next one opened, the
+  timeline, the audit rows and `case.transitioned.v1` in the outbox.
+- A step in a unit above the actor's scope ("the zone approves for a town") is opened through the reviewed
+  `workflow.open_task`; separation of duties finds who else may act through `workflow.role_holders`, and routes a
+  one-person office's step up the tree (recorded as a `routed` event), or refuses it when nobody anywhere may take it.
+
+| Route | Permission |
+|---|---|
+| `GET /api/v1/cases/{id}` (the case, its visible steps, its timeline, the caller's actions) | `case:read` |
+| `POST /api/v1/cases/{id}/transitions` (If-Match: the case's version) | `case:act`, then the step's role in its unit |

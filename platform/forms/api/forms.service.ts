@@ -189,6 +189,30 @@ export class FormsService {
         return new Set(rows.map((r) => `${r.key}@${r.number}`));
     }
 
+    /**
+     * The form version a workflow step names (`<key>@<number>`), among the forms the caller can read: an approved version
+     * of an active form (as `existingVersions` checked when the workflow was stored). Null when there is none.
+     */
+    async stepVersion(tx: Tx, key: string, number: number): Promise<{ formId: string; versionId: string } | null> {
+        const [row] = await tx
+            .select({ formId: formVersions.formId, versionId: formVersions.id })
+            .from(formVersions)
+            .innerJoin(formDefinitions, eq(formDefinitions.id, formVersions.formId))
+            .where(
+                and(
+                    eq(formDefinitions.key, key),
+                    eq(formVersions.number, number),
+                    eq(formDefinitions.active, true),
+                    or(
+                        eq(formDefinitions.publishedVersionId, formVersions.id),
+                        sql`exists (select 1 from ${formPublications} p
+                                     where p.form_version_id = ${formVersions.id} and p.status = 'approved')`
+                    )
+                )
+            );
+        return row ?? null;
+    }
+
     async version(tx: Tx, formId: string, versionId: string): Promise<FormVersion> {
         const [row] = await tx
             .select()

@@ -239,6 +239,20 @@
       "when": 1793099371608,
       "tag": "0033_workflow_definitions_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1793116495690,
+      "tag": "0034_workflow_cases",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1793116546817,
+      "tag": "0035_workflow_cases_rls",
+      "breakpoints": true
     }
   ]
 }

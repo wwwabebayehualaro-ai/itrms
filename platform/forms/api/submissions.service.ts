@@ -42,23 +42,29 @@ export class SubmissionsService {
         /** the registries a RegistryLookup field points into */
         lookups: RegistryLookups,
         /** the language of the author's own messages in a 422 */
-        language = 'am'
+        language = 'am',
+        /**
+         * A workflow step's answers (task 0.19b): filed on the case, on the version the step names (approved, though maybe
+         * no longer the published one).
+         */
+        step?: { caseId: string }
     ): Promise<Submission> {
         // first: a fill completing the form's filterable keys waits for this submission, or this reads its version
         await lockFormShared(tx, input.formId);
         const [form] = await tx.select().from(formDefinitions).where(eq(formDefinitions.id, input.formId));
         if (!form) throw new NotFoundError();
         if (!form.active) throw new ConflictError('invalid_transition', { detail: 'This form takes no submissions.' });
-        if (!form.publishedVersionId)
+        // a step's version is the workflow's (checked when it was stored); a person's request is on the published one
+        if (!step && !form.publishedVersionId)
             throw new ConflictError('not_configured', { detail: 'This form has not been published yet.' });
-        if (input.formVersionId !== form.publishedVersionId)
+        if (!step && input.formVersionId !== form.publishedVersionId)
             throw new ConflictError('stale_version', {
                 detail: 'A newer version of this form was published: reload it and fill it in again.'
             });
         const [version] = await tx
-            .select({ document: formVersions.document })
+            .select({ id: formVersions.id, document: formVersions.document })
             .from(formVersions)
-            .where(eq(formVersions.id, form.publishedVersionId));
+            .where(and(eq(formVersions.id, input.formVersionId), eq(formVersions.formId, form.id)));
         if (!version) throw new NotFoundError();
 
         const fields = fieldsFor(version.document, roles, language);
@@ -102,7 +108,8 @@ export class SubmissionsService {
             regionId: required(ctx.regionId),
             handlingUnitId: required(ctx.unitId),
             formId: form.id,
-            formVersionId: form.publishedVersionId,
+            formVersionId: version.id,
+            caseId: step?.caseId ?? null,
             answers
         });
         // in the same transaction, whoever filled them in
