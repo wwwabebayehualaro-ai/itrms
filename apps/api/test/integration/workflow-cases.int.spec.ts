@@ -300,7 +300,7 @@ describe('a case end to end', () => {
         // every write audited in its transaction, the effects' own work included
         const audit = await api.owner.query<{ table_name: string | null; event_type: string | null }>(
             `select table_name, event_type from kernel.audit_log
-              where (row_id = $1) or (diff ->> 'caseId' = $1) or (event_type = 'test.effect.ran')
+              where (row_id = $1::uuid) or (diff ->> 'caseId' = $1::text) or (event_type = 'test.effect.ran')
               order by at, id`,
             [id]
         );
@@ -378,7 +378,7 @@ describe('effects', () => {
         expect(after.tasks.find((t) => t.status === 'open')).toMatchObject({ state: 'review' });
         // the effects that ran before the failure left nothing behind
         const ran = await api.owner.query(
-            `select 1 from kernel.audit_log where event_type = 'test.effect.ran' and diff ->> 'caseId' = $1`,
+            `select 1 from kernel.audit_log where event_type = 'test.effect.ran' and diff ->> 'caseId' = $1::text`,
             [id]
         );
         expect(ran.rowCount).toBe(0);
