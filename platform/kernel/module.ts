@@ -21,6 +21,9 @@ const INTAKE = [
 // forms (@itrms/forms, task 0.16a): the bureau and unit administrators author them; a second person approves a
 // publication (SEC-AC-6). Submissions follow the `case` column of roles-and-permissions.md §2 until cases exist (0.19).
 const AUTHOR_FORMS = ['form:create', 'form:update', 'form:publish'];
+// workflow definitions (@itrms/workflow, task 0.19a): authored by the same administrators as forms; a version stored is
+// not live until a service version names it (0.21)
+const AUTHOR_WORKFLOWS = ['workflow-definition:read', 'workflow-definition:create', 'workflow-definition:update'];
 
 export default defineModule({
     key: 'kernel',
@@ -58,6 +61,7 @@ export default defineModule({
             'job:retry',
             'setting:update',
             ...AUTHOR_FORMS,
+            ...AUTHOR_WORKFLOWS,
             'form:approve',
             'submission:read',
             'submission:export',
@@ -72,7 +76,8 @@ export default defineModule({
             'role-assignment:grant',
             'role-assignment:revoke',
             'audit-log:read',
-            ...AUTHOR_FORMS
+            ...AUTHOR_FORMS,
+            ...AUTHOR_WORKFLOWS
         ],
         unit_head: [
             ...READ_ORG,
@@ -96,6 +101,7 @@ export default defineModule({
             ...REGISTER,
             'role-assignment:read',
             'audit-log:read',
+            'workflow-definition:read',
             'submission:read',
             'submission:export'
         ],

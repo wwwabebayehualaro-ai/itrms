@@ -158,6 +158,37 @@ export class FormsService {
         }));
     }
 
+    /**
+     * Which of `refs` (a form key and a version number, as a workflow's step forms name them) a workflow owned at
+     * `ownerPath` may name: versions a second person approved (SEC-AC-6), of active forms owned at that unit or above it
+     * (every unit that runs the workflow can read them). `<key>@<number>` of each one found.
+     */
+    async existingVersions(
+        tx: Tx,
+        refs: readonly { key: string; number: number }[],
+        ownerPath: string
+    ): Promise<Set<string>> {
+        if (refs.length === 0) return new Set();
+        const rows = await tx
+            .select({ key: formDefinitions.key, number: formVersions.number })
+            .from(formVersions)
+            .innerJoin(formDefinitions, eq(formDefinitions.id, formVersions.formId))
+            .where(
+                and(
+                    inArray(formDefinitions.key, [...new Set(refs.map((r) => r.key))]),
+                    inArray(formVersions.number, [...new Set(refs.map((r) => r.number))]),
+                    eq(formDefinitions.active, true),
+                    sql`${formDefinitions.orgPath} @> ${ownerPath}::ltree`,
+                    or(
+                        eq(formDefinitions.publishedVersionId, formVersions.id),
+                        sql`exists (select 1 from ${formPublications} p
+                                     where p.form_version_id = ${formVersions.id} and p.status = 'approved')`
+                    )
+                )
+            );
+        return new Set(rows.map((r) => `${r.key}@${r.number}`));
+    }
+
     async version(tx: Tx, formId: string, versionId: string): Promise<FormVersion> {
         const [row] = await tx
             .select()

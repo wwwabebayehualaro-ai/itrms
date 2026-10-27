@@ -1,1 +1,21 @@
-{}
+{
+  "workflow.check.dead-end": "በደረጃ \"{state}\" ያለ ጉዳይ ፈጽሞ ወደ ማጠናቀቂያ ሊደርስ አይችልም።",
+  "workflow.check.duplicate-action": "ደረጃ \"{state}\" ውሳኔ \"{action}\"ን ከአንድ ጊዜ በላይ የሚለያቸው ሁኔታ ሳይኖር ይዟል።",
+  "workflow.check.duplicate-state": "ደረጃ \"{state}\" ከአንድ ጊዜ በላይ ተገልጿል።",
+  "workflow.check.end-exit": "ከማጠናቀቂያ ደረጃ \"{state}\" መውጣት አይቻልም።",
+  "workflow.check.invalid": "ፍሰቱ እዚህ ላይ ትክክል አይደለም፦ {detail}",
+  "workflow.check.many-starts": "የሥራ ፍሰቱ ከአንድ በላይ መጀመሪያ ደረጃዎች አሉት፦ {states}።",
+  "workflow.check.many-timeouts": "የመጠበቂያ ደረጃ \"{state}\" የሚለያቸው ሁኔታ ሳይኖር ከአንድ በላይ የጊዜ ገደብ ሽግግሮች አሉት።",
+  "workflow.check.no-end": "የሥራ ፍሰቱ የማጠናቀቂያ ደረጃ የለውም።",
+  "workflow.check.no-start": "የሥራ ፍሰቱ መጀመሪያ ደረጃ የለውም።",
+  "workflow.check.sod-state": "ደረጃ \"{state}\" ከ\"{other}\" እንዲለይ ተደርጓል፤ ነገር ግን \"{other}\" ሰው የሚሠራበት ደረጃ አይደለም።",
+  "workflow.check.start-event": "ከመጀመሪያው \"{state}\" የሚወጣው በሰው ውሳኔ ነው እንጂ በክስተት ወይም በጊዜ ገደብ አይደለም።",
+  "workflow.check.task-event": "ከተግባር \"{state}\" የሚወጣው በሰው ውሳኔ ነው እንጂ በክስተት ወይም በጊዜ ገደብ አይደለም።",
+  "workflow.check.timeout-without-sla": "የመጠበቂያ ደረጃ \"{state}\" የጊዜ ገደብ ሽግግር አለው ነገር ግን የጊዜ ገደብ አልተወሰነለትም።",
+  "workflow.check.unknown-effect": "ውጤት \"{effect}\"ን የሚያቀርብ የተጫነ ሞጁል የለም።",
+  "workflow.check.unknown-role": "ሚና \"{role}\"ን የሚገልጽ የተጫነ ሞጁል የለም።",
+  "workflow.check.unknown-state": "\"{state}\" የሚባል ደረጃ የለም።",
+  "workflow.check.unknown-step-form": "\"{form}\" የሚባል የቅጽ ስሪት የለም።",
+  "workflow.check.unreachable": "ወደ ደረጃ \"{state}\" የሚያደርስ ሽግግር የለም።",
+  "workflow.check.wait-action": "ከመጠበቂያ ደረጃ \"{state}\" የሚወጣው በክስተት ወይም በጊዜ ገደቡ ብቻ ነው እንጂ በሰው ውሳኔ አይደለም።"
+}

@@ -22,6 +22,7 @@ import { FilesController } from './files/files.controller';
 import { NO_OBJECT_STORE, type ObjectStore } from './files/object-store';
 import type { Database } from './db/database';
 import { ProblemFilter } from './errors/problem.filter';
+import { EffectRegistry } from './effects';
 import { AccessGuard, AUTHENTICATOR, RouteInventory, type Authenticator } from './iam/access';
 import { IamController } from './iam/iam.controller';
 import { OidcAuthenticator, type OidcOptions } from './iam/oidc-authenticator';
@@ -108,7 +109,8 @@ export class KernelModule {
         return {
             module: KernelModule,
             global: true,
-            imports: config.process === 'http' ? [DiscoveryModule] : [],
+            // the route inventory (http) and the effect registry (every process) look through the providers
+            imports: [DiscoveryModule],
             controllers:
                 config.process === 'http'
                     ? [
@@ -135,10 +137,22 @@ export class KernelModule {
                 },
                 Metrics,
                 ReadinessRegistry,
+                EffectRegistry,
                 ...database,
                 ...http
             ],
-            exports: [KERNEL_CONFIG, LOGGER, Metrics, ReadinessRegistry, DATABASE, FIELD_CRYPTO, OBJECT_STORE]
+            exports: [
+                KERNEL_CONFIG,
+                LOGGER,
+                // the installed manifests: the roles a workflow may assign (task 0.19a)
+                SHELL,
+                Metrics,
+                ReadinessRegistry,
+                EffectRegistry,
+                DATABASE,
+                FIELD_CRYPTO,
+                OBJECT_STORE
+            ]
         };
     }
 }

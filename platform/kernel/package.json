@@ -25,7 +25,8 @@
     "./testing": "./api/testing/index.ts",
     "./crypto": "./api/crypto/index.ts",
     "./tables": "./api/tables/index.ts",
-    "./files": "./api/files/index.ts"
+    "./files": "./api/files/index.ts",
+    "./effects": "./api/effects/index.ts"
   },
   "imports": {
     "#contracts/*": "./contracts/*.ts",

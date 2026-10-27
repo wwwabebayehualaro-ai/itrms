@@ -737,12 +737,23 @@
         {
           "id": "0.19a",
           "title": "Workflow engine, part 1a: definitions, checks, effect registry",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.19a-workflow-definitions",
+          "commits": [
+            "39eec7b"
+          ],
+          "evidence": [
+            "GitHub CI run 40507968656 on 39eec7b (PR #16): all 9 jobs success — checks, infra+test:int, e2e, perf, stories/axe, Semgrep, gitleaks, Trivy, licence report",
+            "pnpm test:int (CI) → 15 files / 324 tests on PostgreSQL 16, incl. workflow-definitions.int.spec.ts (14: valid → version 1; unreachable/unknown role/effect/step form refused with en messages; am message for a dead end; step forms only approved versions owned at/above the workflow's owner; duplicate key 409; same content same version, rollback to v1; versions immutable for the owner; audit rows without content; class C reads below, writes only where owned, sibling zone 404, roles without permission 403; malformed id 400; hostile nesting 422) and isolation.int.spec.ts (both new tables class C)",
+            "Done when 1: workflow-definitions.int.spec.ts › refuses an unreachable state…, answers in Amharic too…; engine/check.spec.ts (16)",
+            "Done when 2: engine/rules.spec.ts › keeps the maker off the approval, lets the step role act and only rejectRoles reject (a cashier does not), refuses an action out of a wait or an end",
+            "Done when 3: engine/rules.spec.ts › assignment: parent (\"the zone approves for a town\"), routes a one-person office's separated step to its parent; refused (never relaxed) when nobody is eligible",
+            "Unit (CI checks): workflow 30, kernel 66 (effect registry incl. singleton rule), form-engine 291, web 62, schemas 28, api 11; i18n am/en complete; boundaries clean; OpenAPI regenerated; migrations 0032 (generated) + 0033 (RLS, immutability, grants)",
+            "e2e (CI) → 10 passed",
+            "Reviewer: 4 medium + 4 low, all fixed in ebde6b4 (approved/owner-scoped step forms, roles checked on the transition taken, start acted on by its starter, unguarded fallback, singleton effects, depth limit, manifest role format); task-verifier: all Done when/Do/Tests met, blocker was the hostile-nesting test client overflow (fixed 39eec7b)"
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "Engine core DB-free in platform/workflow/api/engine (check.ts, rules.ts); schema in @itrms/schemas/workflow; guards are a small own language (no regex). Effect registry: @Effect class marks + DiscoveryService (KernelModule, every process); effect keys follow module-sdk QUALIFIED. contentHash moved to @itrms/kernel/db (forms re-exports). workflow_definitions + versions class C like forms; permissions workflow-definition:read|create|update for bureau_admin and unit_admin (auditor read). Step forms checked through FormsService.existingVersions (forms the caller can read)."
         },
         {
           "id": "0.19b",
@@ -1603,7 +1614,8 @@
     {
       "foundIn": "0.6a",
       "item": "Manifest loader: build InstalledSlice.effects from the effect registry (@Effect handlers) instead of a hand-written list, and check the effects named by seeded service versions exist",
-      "movedTo": "0.19a"
+      "movedTo": "0.19a",
+      "closedIn": "0.19a: @Effect marks and effectKeys() give a slice's InstalledSlice.effects; the kernel's EffectRegistry finds marked providers; the check of effects named by service versions moved to 0.21"
     },
     {
       "foundIn": "0.6a",
@@ -2192,6 +2204,16 @@
       "foundIn": "0.18a",
       "item": "Governance HTTP tests still missing: the approval re-check refusing (422, form and publication unchanged), key-moved into/out of a FormArray, restore of an old version through PATCH keeping published keys, the approver's review listing the approver's own private view and not the requester's",
       "movedTo": "0.21a"
+    },
+    {
+      "foundIn": "0.19a",
+      "item": "Check that the effects (and workflow versions) named by seeded and published service versions exist: the EffectRegistry's keys, WorkflowDefinitionsService",
+      "movedTo": "0.21"
+    },
+    {
+      "foundIn": "0.19a",
+      "item": "Workflow definitions admin: PATCH name/active (switch a workflow off), a definitions screen with the check's problems, and maker-checker if a stored version should need a second person before a service version can name it",
+      "movedTo": "0.21"
     }
   ]
 }

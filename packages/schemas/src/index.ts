@@ -5,6 +5,7 @@
  * - problem+json: reading API error bodies.
  * - Search folding: Ethiopic homophones and Wolaytta apostrophes match.
  * - Forms: the stored form (`form_config`) as types and Zod schemas, the backend contract, and the forms API's DTOs.
+ * - Workflows: the definition a case runs on (states, transitions, guards), task 0.19a.
  */
 export * from './forms/conditions';
 export * from './forms/runtime';
@@ -16,3 +17,4 @@ export * from './forms/text';
 export * from './i18n';
 export * from './problem';
 export * from './search';
+export * from './workflow/definition';

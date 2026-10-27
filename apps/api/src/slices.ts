@@ -28,7 +28,11 @@ import partiesWal from '@itrms/parties/messages/wal-Latn';
 import type { InstalledSlice } from '@itrms/module-sdk';
 import reports from '@itrms/reports/manifest';
 import services from '@itrms/services/manifest';
+import { WorkflowModule } from '@itrms/workflow/api';
 import workflow from '@itrms/workflow/manifest';
+import workflowAm from '@itrms/workflow/messages/am';
+import workflowEn from '@itrms/workflow/messages/en';
+import workflowWal from '@itrms/workflow/messages/wal-Latn';
 
 export type ApiSlice = InstalledSlice<Type | DynamicModule>;
 
@@ -36,7 +40,13 @@ export const SLICES: ApiSlice[] = [
     { manifest: kernel, events: KERNEL_EVENTS, messages: { am: kernelAm, en: kernelEn, 'wal-Latn': kernelWal } },
     { manifest: integrations },
     { manifest: forms, module: FormsModule, events: FORMS_EVENTS },
-    ...[fees, documents, workflow, services, reports].map((manifest) => ({ manifest })),
+    ...[fees, documents].map((manifest) => ({ manifest })),
+    {
+        manifest: workflow,
+        module: WorkflowModule,
+        messages: { am: workflowAm, en: workflowEn, 'wal-Latn': workflowWal }
+    },
+    ...[services, reports].map((manifest) => ({ manifest })),
     {
         manifest: parties,
         module: PartiesModule,

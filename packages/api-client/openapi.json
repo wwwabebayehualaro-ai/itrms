@@ -2996,6 +2996,83 @@
           "formId"
         ],
         "type": "object"
+      },
+      "WorkflowCheckDto": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "additionalProperties": {},
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "definition"
+        ],
+        "type": "object"
+      },
+      "WorkflowCreateDto": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "additionalProperties": {},
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "key": {
+            "maxLength": 80,
+            "minLength": 2,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "name": {
+            "additionalProperties": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "properties": {
+              "am": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "en": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "am",
+              "en"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "definition"
+        ],
+        "type": "object"
+      },
+      "WorkflowVersionCreateDto": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "additionalProperties": {},
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "definition"
+        ],
+        "type": "object"
       }
     }
   },
@@ -4977,6 +5054,207 @@
         },
         "tags": [
           "Submissions"
+        ]
+      }
+    },
+    "/api/v1/workflow-definitions": {
+      "get": {
+        "operationId": "WorkflowDefinitionsController_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "active",
+            "required": false,
+            "schema": {
+              "enum": [
+                "true",
+                "false"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "WorkflowDefinitions"
+        ]
+      },
+      "post": {
+        "operationId": "WorkflowDefinitionsController_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowCreateDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "WorkflowDefinitions"
+        ]
+      }
+    },
+    "/api/v1/workflow-definitions/check": {
+      "post": {
+        "operationId": "WorkflowDefinitionsController_check",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowCheckDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "WorkflowDefinitions"
+        ]
+      }
+    },
+    "/api/v1/workflow-definitions/{id}": {
+      "get": {
+        "operationId": "WorkflowDefinitionsController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "WorkflowDefinitions"
+        ]
+      }
+    },
+    "/api/v1/workflow-definitions/{id}/versions": {
+      "get": {
+        "operationId": "WorkflowDefinitionsController_versions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "WorkflowDefinitions"
+        ]
+      },
+      "post": {
+        "operationId": "WorkflowDefinitionsController_addVersion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowVersionCreateDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "WorkflowDefinitions"
+        ]
+      }
+    },
+    "/api/v1/workflow-definitions/{id}/versions/{versionId}": {
+      "get": {
+        "operationId": "WorkflowDefinitionsController_version",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "versionId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "WorkflowDefinitions"
         ]
       }
     }
