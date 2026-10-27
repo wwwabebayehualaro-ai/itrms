@@ -261,6 +261,19 @@ describe('the review of a change', () => {
         expect(seen).not.toContain('Private of the bureau');
     });
 
+    it('answers a malformed id with 400, never 500', async () => {
+        // the review needs form:read, which a records officer of another region holds too; the check needs form:publish
+        const asked: [string, As][] = [
+            ['/api/v1/form-publications/undefined/review', as.bureau],
+            ['/api/v1/form-publications/undefined/review', as.trx],
+            ['/api/v1/forms/not-a-uuid/publish-check', as.bureau]
+        ];
+        for (const [url, who] of asked) {
+            const res = await api.call('GET', url, who);
+            expect(res.statusCode, `${url}: ${res.body}`).toBe(400);
+        }
+    });
+
     it('is not found outside the caller region', async () => {
         const form = await published();
         // a request needs a change: the published content itself is refused (409, already published)

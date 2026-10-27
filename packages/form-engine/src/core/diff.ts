@@ -197,21 +197,43 @@ function orderAmong(fields: EngineField[], shared: Set<string>): Map<string, num
     return out;
 }
 
+/**
+ * The fields out of the form: flagged removed, or inside a container that is (people no longer see them, their values are
+ * no longer kept), as lint's `gone` reads them.
+ */
+function removedIn(fields: readonly EngineField[]): Set<string> {
+    const byId = new Map(fields.map((f) => [f.id, f]));
+    const out = new Set<string>();
+    for (const f of fields) {
+        const seen = new Set<string>();
+        for (let up: EngineField | undefined = f; up && !seen.has(up.id); up = byId.get(up.parentId ?? '')) {
+            seen.add(up.id);
+            if (up.removed) {
+                out.add(f.id);
+                break;
+            }
+        }
+    }
+    return out;
+}
+
 /** What changed from the document `a` to the document `b`. */
 export function diffDocuments(a: unknown, b: unknown): FormDiff {
     const docA = readDocument(a);
     const docB = readDocument(b);
     const byA = new Map(docA.fields.map((f) => [f.id, f]));
     const byB = new Map(docB.fields.map((f) => [f.id, f]));
+    const goneA = removedIn(docA.fields);
+    const goneB = removedIn(docB.fields);
     const diff: FormDiff = { added: [], removed: [], restored: [], changed: [], form: [] };
 
     for (const f of docB.fields) if (!byA.has(f.id)) diff.added.push(brief(f));
     for (const f of docA.fields) {
         const now = byB.get(f.id);
         if (!now) {
-            if (!f.removed) diff.removed.push(brief(f));
-        } else if (!f.removed && now.removed) diff.removed.push(brief(now));
-        else if (f.removed && !now.removed) diff.restored.push(brief(now));
+            if (!goneA.has(f.id)) diff.removed.push(brief(f));
+        } else if (!goneA.has(f.id) && goneB.has(f.id)) diff.removed.push(brief(now));
+        else if (goneA.has(f.id) && !goneB.has(f.id)) diff.restored.push(brief(now));
     }
 
     const shared = new Set(docA.fields.filter((f) => byB.has(f.id)).map((f) => f.id));
@@ -219,7 +241,7 @@ export function diffDocuments(a: unknown, b: unknown): FormDiff {
     const orderB = orderAmong(docB.fields, shared);
     for (const f of docA.fields) {
         const now = byB.get(f.id);
-        if (!now || f.removed || now.removed) continue;
+        if (!now || goneA.has(f.id) || goneB.has(f.id)) continue;
         const changes = changesOf(f, now, docA.textLanguage, docB.textLanguage, orderA, orderB);
         if (changes.length) diff.changed.push({ key: f.id, label: now.label, changes });
     }

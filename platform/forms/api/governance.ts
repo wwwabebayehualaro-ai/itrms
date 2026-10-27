@@ -34,8 +34,11 @@ type Reason = (typeof IMPACT_REASONS)[number];
 const log = new Logger('FormsGovernance');
 const IMPACT_LIMIT = 500;
 const KEY_RULES = new Set<string>(['key-missing', 'key-retyped', 'key-moved']);
-/** The change areas that can break a saved view's use of a key. */
-const VIEW_BREAKING_AREAS = new Set<string>(['type', 'kind', 'parent', 'options', 'filterable']);
+/**
+ * The change areas that can break a saved view's use of a key: its type, place or choices, and who sees it (a key restricted
+ * to roles, or hidden by a condition, leaves the viewer of anyone else).
+ */
+const VIEW_BREAKING_AREAS = new Set<string>(['type', 'kind', 'parent', 'options', 'filterable', 'roles', 'visibility']);
 
 interface VersionRef {
     id: string;
@@ -110,7 +113,7 @@ export async function publishCheck(
         mismatches: t.mismatches.map((m) => ({ path: m.path, expected: m.expected, actual: m.actual }))
     }));
     const diff = diffDocuments(base?.document ?? { fields: [] }, candidate.document);
-    // keys a view may no longer find or read the same way: gone, retyped, moved or with other choices
+    // keys a view may no longer find or read the same way: gone, retyped, moved, with other choices or other readers
     const changed = new Set(diff.removed.map((f) => f.key));
     for (const c of diff.changed) if (c.changes.some((x) => VIEW_BREAKING_AREAS.has(x.area))) changed.add(c.key);
     return {

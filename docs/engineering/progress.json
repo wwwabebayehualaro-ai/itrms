@@ -2152,7 +2152,23 @@
     {
       "foundIn": "0.18a",
       "item": "Check that a malformed id in a path (e.g. GET /api/v1/form-publications/undefined/review) answers 400, not 500: a CI run of PR #15 saw a 500 there for a records officer of another region (seen only through a test bug, not reproduced locally)",
+      "movedTo": "0.26 (hardening)",
+      "closedIn": "0.18a: the problem filter reads HTTP and nestjs-zod exceptions by shape (two installed copies of @nestjs/common made instanceof fail); unit test + forms-governance int test (malformed id → 400)"
+    },
+    {
+      "foundIn": "0.18a",
+      "item": "Dedupe @nestjs/common (installed twice by supports-color 7.2.0 / 10.2.2) and nestjs-zod (4 copies) in the lockfile, e.g. a pnpm override; the problem filter now copes, other instanceof checks across slices may not",
       "movedTo": "0.26 (hardening)"
+    },
+    {
+      "foundIn": "0.18a",
+      "item": "Impact analysis: filter saved views on the changed keys in SQL instead of reading the first 500 by name, and report views whose config no longer parses (now skipped silently)",
+      "movedTo": "0.21a"
+    },
+    {
+      "foundIn": "0.18a",
+      "item": "Governance HTTP tests still missing: the approval re-check refusing (422, form and publication unchanged), key-moved into/out of a FormArray, restore of an old version through PATCH keeping published keys, the approver's review listing the approver's own private view and not the requester's",
+      "movedTo": "0.21a"
     }
   ]
 }

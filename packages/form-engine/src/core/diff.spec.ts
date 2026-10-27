@@ -38,6 +38,19 @@ describe('diffDocuments', () => {
         expect(diff.changed).toEqual([]);
     });
 
+    it('lists what is inside a container newly removed, and inside one taken back', () => {
+        const panel = (extra: Record<string, unknown> = {}) => F('addr', 'Panel', extra);
+        const inside = [F('kebele', 'InputText', { parentId: 'addr' }), F('woreda', 'InputText', { parentId: 'addr' })];
+        const live = doc([F('name'), panel(), ...inside]);
+        const out = doc([F('name'), panel({ removed: true }), ...inside]);
+        const removed = diffDocuments(live, out);
+        expect(removed.removed.map((f) => f.key)).toEqual(['addr', 'kebele', 'woreda']);
+        expect(removed.changed).toEqual([]);
+        expect(diffDocuments(out, live).restored.map((f) => f.key)).toEqual(['addr', 'kebele', 'woreda']);
+        // deleted together with its already removed container: nothing new
+        expect(diffDocuments(out, doc([F('name')])).removed).toEqual([]);
+    });
+
     it('does not list a field that was already removed and is deleted', () => {
         expect(diffDocuments(doc([F('old', 'InputText', { removed: true })]), doc([])).removed).toEqual([]);
     });

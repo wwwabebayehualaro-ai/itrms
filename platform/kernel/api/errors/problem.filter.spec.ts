@@ -148,6 +148,31 @@ describe('problem+json', () => {
     });
 });
 
+describe('framework errors from another copy of @nestjs/common', () => {
+    // the lockfile may install the package more than once (by peer dependency): a slice's pipe throws its own copy's class
+    class ForeignHttpException extends Error {
+        constructor(private readonly status: number) {
+            super('Validation failed (uuid is expected)');
+        }
+        getStatus() {
+            return this.status;
+        }
+        getResponse() {
+            return { message: this.message, statusCode: this.status };
+        }
+    }
+
+    it('keeps the status of an HTTP exception that is not an instance of this copy’s class', () => {
+        expect(problemOf(new ForeignHttpException(400), 'en')).toMatchObject({ status: 400, code: 'invalid_request' });
+        expect(problemOf(new ForeignHttpException(404), 'en')).toMatchObject({ status: 404, code: 'not_found' });
+    });
+
+    it('still answers 500 for an error that only looks like one, with no valid status', () => {
+        expect(problemOf(new ForeignHttpException(42), 'en')).toMatchObject({ status: 500, code: 'internal_error' });
+        expect(problemOf({ getStatus: 'x', getResponse: () => ({}) }, 'en')).toMatchObject({ status: 500 });
+    });
+});
+
 describe('database refusals', () => {
     it('are 409 for a taken unique key, 404 for a missing reference and 403 for a row-level security check, wrapped or not', () => {
         const unique = Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' });
