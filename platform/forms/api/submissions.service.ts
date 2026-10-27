@@ -15,7 +15,7 @@ import { knownValues, submittedValues, validateForm, type EngineField } from '@i
 import type { z } from 'zod';
 
 import type { HistoryEntry, Submission, submissionCreateSchema, submissionListQuerySchema } from '../contracts';
-import { formDefinitions, formVersions, submissions } from './forms.table';
+import { formDefinitions, formPublications, formVersions, submissions } from './forms.table';
 import type { RegistryLookups } from './lookups';
 import { namesOf, unitOf } from './forms.service';
 import { checkReferences, resolveFiles, type AnswerProblem } from './submission-refs';
@@ -47,7 +47,7 @@ export class SubmissionsService {
          * A workflow step's answers (task 0.19b): filed on the case, on the version the step names (approved, though maybe
          * no longer the published one).
          */
-        step?: { caseId: string }
+        step?: { caseId: string; handlingUnitId: string }
     ): Promise<Submission> {
         // first: a fill completing the form's filterable keys waits for this submission, or this reads its version
         await lockFormShared(tx, input.formId);
@@ -66,6 +66,16 @@ export class SubmissionsService {
             .from(formVersions)
             .where(and(eq(formVersions.id, input.formVersionId), eq(formVersions.formId, form.id)));
         if (!version) throw new NotFoundError();
+        // a step's version need not be the published one, but a second person approved it (SEC-AC-6)
+        if (step && version.id !== form.publishedVersionId) {
+            const [approved] = await tx
+                .select({ id: formPublications.id })
+                .from(formPublications)
+                .where(and(eq(formPublications.formVersionId, version.id), eq(formPublications.status, 'approved')))
+                .limit(1);
+            if (!approved)
+                throw new ConflictError('not_configured', { detail: 'This version of the form was never approved.' });
+        }
 
         const fields = fieldsFor(version.document, roles, language);
         const scope = scopeFor(ctx, roles);
@@ -106,7 +116,8 @@ export class SubmissionsService {
 
         const row = await insertAudited(tx, submissions, {
             regionId: required(ctx.regionId),
-            handlingUnitId: required(ctx.unitId),
+            // a step's answers belong with the case (the actor may be an office above it)
+            handlingUnitId: step?.handlingUnitId ?? required(ctx.unitId),
             formId: form.id,
             formVersionId: version.id,
             caseId: step?.caseId ?? null,

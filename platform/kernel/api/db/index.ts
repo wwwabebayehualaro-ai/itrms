@@ -12,6 +12,7 @@ export { canonicalJson, contentHash } from './content-hash';
 export { audited, auditOptionsOf, auditPolicyOf, notAudited, type AuditOptions } from './audit-policy';
 export {
     type AuditEvent,
+    actFor,
     type BaseTable,
     contextOfTx,
     deleteAudited,

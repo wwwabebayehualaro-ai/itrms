@@ -2215,6 +2215,11 @@
       "foundIn": "0.19a",
       "item": "Workflow definitions admin: PATCH name/active (switch a workflow off), a definitions screen with the check's problems, and maker-checker if a stored version should need a second person before a service version can name it",
       "movedTo": "0.21"
+    },
+    {
+      "foundIn": "0.19b",
+      "item": "Flaky story: packages/ui select.stories.tsx Default fails its axe check now and then in the am/light/compact run (CI runs 40497043950 and 40544712603; it passes on rerun) — find the race (the Radix portal id?) and fix it",
+      "movedTo": "0.26 (hardening)"
     }
   ]
 }

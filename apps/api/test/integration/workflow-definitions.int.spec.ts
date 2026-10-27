@@ -154,7 +154,7 @@ describe('storing a definition', () => {
                 {
                     path: 'definition.states[5].assignee.role',
                     code: 'unknown-role',
-                    message: 'No installed module defines the role "competency.ghost".'
+                    message: 'No installed module defines the role "competency.ghost" as one that acts on cases.'
                 },
                 {
                     path: 'definition.states[6].stepForm',

@@ -81,6 +81,8 @@ AS $$
        AND ra.valid_from <= now()
        AND (ra.valid_to IS NULL OR ra.valid_to > now())
        AND us.active
+       -- an office (or one above it) switched off has nobody who can act there (as kernel.resolve_principal)
+       AND NOT EXISTS (SELECT 1 FROM kernel.org_units a WHERE a.path @> u.path AND NOT a.active)
        AND u.region_id = nullif(current_setting('app.region_id', true), '')::uuid
        AND (u.path @> nullif(current_setting('app.scope_path', true), '')::ltree
             OR u.path <@ nullif(current_setting('app.scope_path', true), '')::ltree)

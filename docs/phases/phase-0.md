@@ -618,8 +618,9 @@ Needs 0.19a.
   - a `wait` state is left only by its event or its timeout;
   - in a one-person office the separation-of-duties step routes to the parent unit, recorded on the case;
   - a cashier cannot reject a case.
-- **Tests:** integration tests with RLS (tasks visible only to the assignee unit's role holders), the isolation matrix for
-  the new tables, and the transition runner's rollback.
+- **Tests:** integration tests with RLS (tasks visible only to the assignee unit and the offices above it; only the step's
+  role in that unit acts; the inbox (0.20) lists a person's own role's tasks), the isolation matrix for the new tables,
+  and the transition runner's rollback.
 
 ### 0.20 Workflow engine, part 2: SLA, inbox, case page, drafts, notifications
 - **Do:**

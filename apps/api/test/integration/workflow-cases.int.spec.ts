@@ -45,6 +45,7 @@ class TestEffects {}
 
 const SUB = {
     bureau: '0199f0a0-d000-7000-8000-000000000001',
+    bureau2: '0199f0a0-d000-7000-8000-00000000f805',
     zoneHead: '0199f0a0-d000-7000-8000-000000000101',
     damotHead: '0199f0a0-d000-7000-8000-000000000201',
     damotRecords: '0199f0a0-d000-7000-8000-000000000202',
@@ -217,6 +218,13 @@ beforeAll(async () => {
                     ['WOL-HUMBO', 'unit_head']
                 ]
             },
+            {
+                username: 'test.bureau.admin2',
+                sub: SUB.bureau2,
+                region: 'SER',
+                home: 'SER',
+                roles: [['SER', 'bureau_admin']]
+            },
             { username: 'test.tzb.head', sub: SUB.tzbAdmin, region: 'SER', home: 'TZB', roles: [['TZB', 'unit_head']] }
         ],
         { modules: [TestEffects] }
@@ -226,6 +234,7 @@ beforeAll(async () => {
     const wol = await api.unit('SER', 'WOL');
     const damot = await api.unit('SER', 'WOL-DAMOT-GALE');
     as.bureau = { sub: SUB.bureau, unit: ser };
+    as.bureau2 = { sub: SUB.bureau2, unit: ser };
     as.zoneHead = { sub: SUB.zoneHead, unit: wol };
     as.damotHead = { sub: SUB.damotHead, unit: damot };
     as.damotRecords = { sub: SUB.damotRecords, unit: damot };
@@ -304,7 +313,7 @@ describe('a case end to end', () => {
               order by at, id`,
             [id]
         );
-        const kinds = audit.rows.map((r) => r.table_name ?? r.event_type);
+        const kinds = audit.rows.flatMap((r) => [r.table_name, r.event_type]).filter(Boolean);
         expect(kinds).toEqual(expect.arrayContaining(['workflow.cases', 'workflow.task.opened', 'test.effect.ran']));
     });
 
@@ -361,6 +370,107 @@ describe('separation of duties', () => {
         expect(zone.events.at(-1)).toMatchObject({ kind: 'routed', from: 'approval', to: 'approval' });
         expect((await act(as.solo, id, 'approve')).statusCode).toBe(403);
         expect((await ok(as.zoneHead, id, 'approve')).state).toBe('payment');
+    });
+});
+
+describe('step forms', () => {
+    it('files the answers on the case, on the version the step names (approved, though no longer published)', async () => {
+        // a form with a required field, approved as version 1, then version 2 published over it
+        const created = await api.call('POST', '/api/v1/forms', as.bureau, {
+            key: 'review-checklist',
+            name: { am: 'የማጣሪያ ዝርዝር', en: 'Review checklist' },
+            document: {
+                schemaVersion: 2,
+                fields: [
+                    {
+                        id: 'photo',
+                        type: 'InputText',
+                        label: { am: 'ፎቶ', en: 'Photo' },
+                        props: { required: true },
+                        behavior: { validation: { supported: true } }
+                    }
+                ]
+            }
+        });
+        expect(created.statusCode, created.body).toBe(201);
+        const formId = created.json<{ id: string }>().id;
+        const publish = async () => {
+            const asked = (await api.call('POST', `/api/v1/forms/${formId}/publications`, as.bureau, {})).json<{
+                id: string;
+                version: number;
+            }>();
+            const approved = await api.call(
+                'POST',
+                `/api/v1/form-publications/${asked.id}/approval`,
+                as.bureau2,
+                {},
+                { 'if-match': `"${asked.version}"` }
+            );
+            expect(approved.statusCode, approved.body).toBe(200);
+        };
+        await publish();
+        const def = LICENCE();
+        (def.states[1] as Record<string, unknown>).stepForm = 'review-checklist@1';
+        const versionId = await workflow(def);
+        const form = (await api.call('GET', `/api/v1/forms/${formId}`, as.bureau)).json<{ version: number }>();
+        const changed = await api.call(
+            'PATCH',
+            `/api/v1/forms/${formId}`,
+            as.bureau,
+            {
+                document: {
+                    schemaVersion: 2,
+                    fields: [
+                        {
+                            id: 'photo',
+                            type: 'InputText',
+                            label: { am: 'ፎቶ', en: 'Photo' },
+                            props: { required: true },
+                            behavior: { validation: { supported: true } }
+                        },
+                        { id: 'note', type: 'InputText', label: { am: 'ማስታወሻ', en: 'Note' }, props: {} }
+                    ]
+                }
+            },
+            { 'if-match': `"${form.version}"` }
+        );
+        expect(changed.statusCode, changed.body).toBe(200);
+        // version 2 is the published one now; the workflow keeps naming version 1
+        await publish();
+
+        const id = await start(as.damotRecords, versionId, { approval_unit: 'parent' });
+        await ok(as.damotRecords, id, 'submit');
+        const missing = await act(as.damotRecords, id, 'approve');
+        expect(missing.statusCode).toBe(422);
+        expect(missing.json<Problem>().errors?.[0]).toMatchObject({ path: 'answers', code: 'required' });
+        const invalid = await act(as.damotRecords, id, 'approve', { answers: {} });
+        expect(invalid.statusCode).toBe(422);
+        expect(invalid.json<Problem>().errors?.map((e) => e.path)).toContain('photo');
+        // sending it back for correction takes no form
+        expect((await ok(as.damotRecords, id, 'return', { comment: 'Again' })).state).toBe('draft');
+        await ok(as.damotRecords, id, 'submit');
+        expect((await ok(as.damotRecords, id, 'approve', { answers: { photo: 'front.jpg' } })).state).toBe('approval');
+        const filed = await api.owner.query<{ case_id: string; handling: string; number: number }>(
+            `select s.case_id, s.handling_unit_id as handling, v.number from forms.submissions s
+               join forms.form_versions v on v.id = s.form_version_id where s.case_id = $1::uuid`,
+            [id]
+        );
+        expect(filed.rows).toEqual([{ case_id: id, handling: as.damotRecords.unit.id, number: 1 }]);
+    });
+});
+
+describe('nobody eligible', () => {
+    it('refuses a step nobody up to the region may take, as a configuration problem (409, not a denial)', async () => {
+        const def = LICENCE();
+        // the approval falls to records officers, kept apart from the review: the solo officer has no other anywhere
+        (def.states[2] as Record<string, unknown>).assignee = { role: 'records_officer', unit: 'handling' };
+        const versionId = await workflow(def);
+        const id = await start(as.solo, versionId);
+        await ok(as.solo, id, 'submit');
+        const res = await act(as.solo, id, 'approve');
+        expect(res.statusCode, res.body).toBe(409);
+        expect(res.json<Problem>().detail).toContain('Nobody in this office or above it');
+        expect((await get(as.solo, id)).state).toBe('review');
     });
 });
 

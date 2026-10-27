@@ -17,6 +17,7 @@
 import { Injectable } from '@nestjs/common';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import {
+    actFor,
     contentHash,
     insertAudited,
     newId,
@@ -181,7 +182,9 @@ export class CasesService {
             { history, facts: row.facts, comment: input.comment !== undefined, startedBy: row.startedBy }
         );
         if (!decision.ok) refuse(decision.refusal, language, id);
-        const answers = await this.stepAnswers(tx, ctx, actor, row, state, decision.transition, input, language);
+        const to = stateOf(def, decision.transition.to);
+        if (!to) refuse('unknown-state', language, id);
+        const answers = await this.stepAnswers(tx, ctx, actor, row, state, decision.transition, to, input, language);
         await this.advance(tx, ctx, row, def, state, decision.transition, {
             userId: actor.userId,
             task,
@@ -207,6 +210,13 @@ export class CasesService {
         language = 'am'
     ): Promise<{ from: string; to: string }> {
         const row = await this.locked(tx, id);
+        // the system acts for the case's unit: its audit rows carry the case's region and scope
+        const chain = await this.chain(tx, row.handlingUnitId);
+        actFor(tx, {
+            regionId: row.regionId,
+            unitId: row.handlingUnitId,
+            scopePath: chain[chain.length - 1]?.path ?? ''
+        });
         if (row.closedAt) refuse('final-state', language, id);
         const def = await this.definition(tx, row.definitionVersionId);
         const state = stateOf(def, row.state);
@@ -250,7 +260,16 @@ export class CasesService {
             const effect = this.effects.get(key);
             if (!effect) throw new ConflictError('not_configured', { detail: `The effect ${key} is not installed.` });
             const argument = ref.includes(':') ? ref.slice(ref.indexOf(':') + 1) : undefined;
-            const result = await effect.run({ tx, ctx, caseId: row.id, argument, input: by.input, facts });
+            const result = await effect.run({
+                tx,
+                ctx,
+                caseId: row.id,
+                regionId: row.regionId,
+                handlingUnitId: row.handlingUnitId,
+                argument,
+                input: by.input,
+                facts
+            });
             if (result?.facts) Object.assign(facts, result.facts);
         }
         if (by.task)
@@ -319,7 +338,10 @@ export class CasesService {
             const holders = new Map<string, readonly string[]>();
             for (const u of upTo) holders.set(u.id, await this.holders(tx, ctx, u.id, assignee.role));
             const routed = routeStep(upTo, (id) => holders.get(id) ?? [], excluded);
-            if (!routed) refuse('separation-of-duties', language, row.id);
+            if (!routed)
+                throw new ConflictError('invalid_transition', {
+                    detail: text('workflow.refusal.no-eligible', language)
+                });
             unit = routed.unit;
             if (routed.hops > 0) routedFrom = assigned.unit.id;
         }
@@ -368,8 +390,10 @@ export class CasesService {
               )
             : await tx.execute<{ id: string }>(
                   sql`select ra.user_id as id from kernel.role_assignments ra join kernel.users u on u.id = ra.user_id
+                        join kernel.org_units ou on ou.id = ra.unit_id
                        where ra.unit_id = ${unitId}::uuid and ra.role_key = ${role} and ra.valid_from <= now()
-                         and (ra.valid_to is null or ra.valid_to > now()) and u.active`
+                         and (ra.valid_to is null or ra.valid_to > now()) and u.active
+                         and not exists (select 1 from kernel.org_units a where a.path @> ou.path and not a.active)`
               );
         return result.rows.map((r) => r.id);
     }
@@ -393,11 +417,13 @@ export class CasesService {
         row: CaseRow,
         state: WorkflowState,
         t: WorkflowTransition,
+        to: WorkflowState,
         input: Transition,
         language: string
     ): Promise<Record<string, unknown>> {
-        // a reject or a return takes no form; a step without one takes no answers
-        const wanted = state.stepForm && t.action !== 'reject' ? parseStepForm(state.stepForm) : null;
+        // a reject, or a case sent back to its start for correction, takes no form; a step without one takes no answers
+        const sentBack = to.kind === 'start';
+        const wanted = state.stepForm && t.action !== 'reject' && !sentBack ? parseStepForm(state.stepForm) : null;
         if (!wanted) {
             if (input.answers !== undefined)
                 throw new ValidationError('validation_failed', {
@@ -421,7 +447,7 @@ export class CasesService {
             { formId: version.formId, formVersionId: version.versionId, answers: input.answers },
             this.lookups,
             language,
-            { caseId: row.id }
+            { caseId: row.id, handlingUnitId: row.handlingUnitId }
         );
         return submission.answers;
     }
