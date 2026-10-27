@@ -778,8 +778,18 @@
           "notes": "Cases class T at the handling unit, case_tasks class T at the assignee unit (as architecture §6.2), case_events append-only. Cross-scope work through two reviewed SECURITY DEFINER functions: workflow.open_task (checks in SQL: case in caller's scope and open, state = the task's, the definition assigns that role, unit ancestor-or-self of the handling unit) and workflow.role_holders (units of the caller's chain only, user ids only). Roles count only in the task's own unit; reject by rejectRoles held there. Starting cases is internal (CasesService.start) until services (0.21). Events/timeouts: CasesService.deliver in a system context (0.20 wires timers). Follow-ups 113→0.21, 118→0.20, 131→0.21, 135→0.25 (they need requests started as cases or the case page)."
         },
         {
-          "id": "0.20",
-          "title": "Workflow engine, part 2: SLA, inbox, case page, drafts, notifications",
+          "id": "0.20a",
+          "title": "Workflow engine, part 2a: calendars, SLA timers, notifications",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.20b",
+          "title": "Workflow engine, part 2b: inbox, case page, drafts, comments",
           "status": "planned",
           "branch": null,
           "commits": [],
@@ -1821,7 +1831,7 @@
     {
       "foundIn": "0.10b",
       "item": "Badges, the notifications bell and role workspaces (home widgets) in the shell",
-      "movedTo": "0.20"
+      "movedTo": "0.20b"
     },
     {
       "foundIn": "0.10b",
@@ -2029,7 +2039,7 @@
     {
       "foundIn": "0.16d",
       "item": "A submission's history shows only its own audit rows: add its case's steps when cases exist",
-      "movedTo": "0.20"
+      "movedTo": "0.20b"
     },
     {
       "foundIn": "0.16d",
@@ -2049,7 +2059,7 @@
     {
       "foundIn": "0.16e",
       "item": "Tell the requester when a background export is ready (an in-app notification)",
-      "movedTo": "0.20"
+      "movedTo": "0.20a"
     },
     {
       "foundIn": "0.16e",
@@ -2064,7 +2074,7 @@
     {
       "foundIn": "0.16c",
       "item": "Cross-form request lists by state (waiting, recent) and changing a request after it is filed: the case workflow and its inbox",
-      "movedTo": "0.20"
+      "movedTo": "0.20b"
     },
     {
       "foundIn": "0.16c",
@@ -2089,7 +2099,7 @@
     {
       "foundIn": "0.16c",
       "item": "The approvals inbox scopes and pages the newest 100 publications of a status client-side: mine/decidable filters and a cursor on GET /v1/form-publications",
-      "movedTo": "0.20"
+      "movedTo": "0.20b"
     },
     {
       "foundIn": "0.16c",
@@ -2119,7 +2129,7 @@
     {
       "foundIn": "0.16f",
       "item": "A shared and default saved view in the browser journeys (the API's forms-views integration tests cover sharing and defaults)",
-      "movedTo": "0.20"
+      "movedTo": "0.20b"
     },
     {
       "foundIn": "0.17a",

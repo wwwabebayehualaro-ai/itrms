@@ -622,18 +622,32 @@ Needs 0.19a.
   role in that unit acts; the inbox (0.20) lists a person's own role's tasks), the isolation matrix for the new tables,
   and the transition runner's rollback.
 
-### 0.20 Workflow engine, part 2: SLA, inbox, case page, drafts, notifications
+### 0.20a Workflow engine, part 2a: calendars, SLA timers, notifications
+Split on 2026-10-27: 0.20 did not fit one session. The timers and what they tell people come first; the inbox, the case
+page, drafts and comments follow in **0.20b**.
 - **Do:**
   - Working calendars per region/unit (working days and hours, lunch break, half days) + `holidays` (Ethiopian holidays
-    seeded), and `due_at` computed by one application helper.
-  - BullMQ delayed SLA jobs + a 15-minute sweep; overdue marking and escalation notice.
-  - Task inbox (claim, act, filters), and a case page with timeline, answers per step, documents and payments.
+    seeded; the movable Muslim holidays as marked placeholders per year), and `due_at` computed by one application helper
+    in Africa/Addis_Ababa.
+  - A task's and a wait's `due_at` from its state's SLA when it opens; BullMQ delayed SLA jobs + a 15-minute sweep;
+    overdue marking and an escalation notice one level up; a wait's timeout delivered by `system:timer` (0.19b's
+    `deliver`).
+  - In-app notifications (a table, the person's list, read/unread) and an SMS **fake** adapter (logged), behind a port.
+- **Done when:** an SLA of 8 business hours started Friday 16:00 lands on the right Monday/Tuesday time across a holiday;
+  an overdue task notifies the supervisor; a wait past its SLA leaves by its timeout.
+- **Tests:** due-date calculation tests (holidays, weekends, lunch, half days, Addis time), SLA job and sweep tests,
+  notification isolation.
+
+### 0.20b Workflow engine, part 2b: inbox, case page, drafts, comments
+Needs 0.20a.
+- **Do:**
+  - Task inbox (claim, act, filters): a person's own role's open tasks in their active unit, with SLA state.
+  - A case page with timeline, answers per step, documents and payments (the last two as they arrive in 0.22–0.23).
   - Drafts with save and resume.
   - **Case comments** with `@mentions` (notify the mentioned user) on the case timeline, internal by default; audited.
-  - In-app notifications and an SMS **fake** adapter (logged).
-- **Done when:** an SLA of 8 business hours started Friday 16:00 lands on the right Monday/Tuesday time across a holiday; an
-  overdue task notifies the supervisor; the inbox shows only tasks of the user's role in their unit.
-- **Tests:** due-date calculation tests (holidays, weekends, Addis time), SLA job tests, inbox e2e.
+- **Done when:** the inbox shows only tasks of the user's role in their unit; a mention notifies; a draft resumes where it
+  was left.
+- **Tests:** inbox e2e, case page e2e, mention and draft integration tests.
 
 ### 0.21 Service catalogue and configuration inheritance
 - **Do:**
@@ -746,7 +760,7 @@ Moved from 0.18a on 2026-10-26 (it needs cases, service versions and overlays). 
 - **Tests:** the restore drill script with checks; the smoke load test thresholds in CI (nightly).
 
 ## Phase acceptance criteria
-1. All tasks done (0.1–0.26 with 0.19 as 0.19a and 0.19b, 0.4a, 0.4b, 0.4c, 0.18a and 0.21a), CI green on `main` (lint, typecheck, unit, integration on Postgres, isolation matrix, i18n keys,
+1. All tasks done (0.1–0.26 with 0.19 as 0.19a and 0.19b, 0.20 as 0.20a and 0.20b, 0.4a, 0.4b, 0.4c, 0.18a and 0.21a), CI green on `main` (lint, typecheck, unit, integration on Postgres, isolation matrix, i18n keys,
    security scans, e2e).
 2. The demo journey runs in Amharic and English (Wolaytta with fallback) across Boditi, the zone and Damot Gale. A user of one office
    sees none of the other office's cases,
@@ -757,7 +771,7 @@ Moved from 0.18a on 2026-10-26 (it needs cases, service versions and overlays). 
 
 ## Tests to write in this phase (summary)
 Isolation matrix (0.9); audit-in-transaction (0.7); numbering concurrency (0.11); calendar reference + property tests
-(0.12); i18n completeness (0.13); shared validation cases (0.16a); workflow engine suite (0.19a, 0.19b); SLA date math (0.20);
+(0.12); i18n completeness (0.13); shared validation cases (0.16a); workflow engine suite (0.19a, 0.19b); SLA date math (0.20a);
 configuration resolution (0.21); fee goldens (0.22); PDF goldens (0.23); demo e2e (0.25); restore drill (0.26).
 
 ## Open questions for the product owner (block or shape Phase 0)
