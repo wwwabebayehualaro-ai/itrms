@@ -56,7 +56,12 @@ async function main() {
             // what roles give, for the background exports' check of the requester's rights when they run
             const catalogue = rolePermissions(loadSlices(SLICES, { disabled: config.MODULES_DISABLED }).manifests);
             // the SLA timers: an overdue step, a wait's timeout (task 0.20a); SMS through the fake gateway until Phase 1
-            const sla: SlaDeps = { cases: app.get(CasesService), sms: new FakeSms() };
+            const sla: SlaDeps = {
+                cases: app.get(CasesService),
+                sms: new FakeSms(),
+                onError: (err, what) =>
+                    logger.warn({ err, what }, 'an SLA item could not be handled; the next sweep tries again')
+            };
             const handlers: Record<string, OutboxHandler> = {
                 ...workflowHandlers(system, sla),
                 ...formsHandlers(system, {

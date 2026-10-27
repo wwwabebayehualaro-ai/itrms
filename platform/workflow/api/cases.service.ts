@@ -208,8 +208,10 @@ export class CasesService {
         id: string,
         on: string,
         actor: SystemActor,
-        language = 'am'
-    ): Promise<{ from: string; to: string }> {
+        language = 'am',
+        /** a timer's question: when the wait has no such way out, answer null (nothing written) instead of refusing */
+        options: { quiet?: boolean } = {}
+    ): Promise<{ from: string; to: string } | null> {
         const row = await this.locked(tx, id);
         // the system acts for the case's unit: its audit rows carry the case's region and scope
         const chain = await this.chain(tx, row.handlingUnitId);
@@ -218,12 +220,13 @@ export class CasesService {
             unitId: row.handlingUnitId,
             scopePath: chain[chain.length - 1]?.path ?? ''
         });
-        if (row.closedAt) refuse('final-state', language, id);
+        if (row.closedAt) return options.quiet ? null : refuse('final-state', language, id);
         const def = await this.definition(tx, row.definitionVersionId);
         const state = stateOf(def, row.state);
-        if (!state) refuse('unknown-state', language, id);
+        if (!state) return options.quiet ? null : refuse('unknown-state', language, id);
         const decision = decideEvent(def, row.state, on, actor, row.facts);
-        if (!decision.ok) refuse(decision.refusal, language, id);
+        if (!decision.ok) return options.quiet ? null : refuse(decision.refusal, language, id);
+        // from here a failure (an effect, the next step's assignment) undoes everything: never a half transition
         const history = await this.history(tx, row, def);
         await this.advance(tx, {}, row, def, state, decision.transition, {
             system: actor.id,

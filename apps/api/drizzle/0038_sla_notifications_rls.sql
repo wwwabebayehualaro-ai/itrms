@@ -30,9 +30,7 @@ ALTER TABLE "kernel"."notifications"
     ADD CONSTRAINT "notifications_link_check" CHECK (
         "link" IS NULL OR (jsonb_typeof("link") = 'object' AND pg_column_size("link") <= 1024));
 --> statement-breakpoint
--- a task's due time and overdue mark, set by the engine and the SLA timers
-GRANT UPDATE ("due_at", "overdue_at") ON "workflow"."case_tasks" TO itrms_app;
---> statement-breakpoint
+-- a wait's due time, set by the transition that enters it (a task's is set when it opens; only the worker marks overdue)
 GRANT UPDATE ("due_at") ON "workflow"."cases" TO itrms_app;
 --> statement-breakpoint
 GRANT SELECT, INSERT ON "workflow"."working_calendars", "workflow"."holidays" TO itrms_app;
@@ -80,6 +78,10 @@ BEGIN
                     WHERE s ->> 'key' = p_state AND s ->> 'kind' = 'task' AND s -> 'assignee' ->> 'role' = p_role);
     IF v_path IS NULL OR v_user IS NULL THEN
         RAISE EXCEPTION 'workflow.open_task: the case is not one the caller may advance' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    -- a due time is the step's SLA from now: never already past (it would escalate at once)
+    IF p_due IS NOT NULL AND p_due <= now() THEN
+        RAISE EXCEPTION 'workflow.open_task: a due time in the past' USING ERRCODE = 'check_violation';
     END IF;
     -- the unit (and the one it was routed from) is the handling unit or above it
     IF NOT EXISTS (SELECT 1 FROM kernel.org_units u

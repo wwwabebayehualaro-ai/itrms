@@ -1,7 +1,8 @@
 /**
  * A person's own notifications (task 0.20a): the newest first, a page at a time, and marking them read. Only through the
  * reviewed `kernel.my_notifications` and `kernel.read_my_notifications` (the API holds no grant on the table); the text
- * is the message in every language the installation has, with its values.
+ * is the message in every language the installation has, with its values (a value may have a version per language,
+ * `state:am`, as a step's label does).
  */
 import { Body, Controller, Get, HttpCode, Inject, Post, Query } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
@@ -54,7 +55,12 @@ export class NotificationsController {
                     const text = Object.fromEntries(
                         Object.entries(textOf(this.shell.messages, r.message_key)).map(([language, template]) => [
                             language,
-                            Object.entries(r.params).reduce((t, [k, v]) => t.replaceAll(`{${k}}`, v), template)
+                            Object.entries(r.params)
+                                .filter(([k]) => !k.includes(':'))
+                                .reduce(
+                                    (t, [k, v]) => t.replaceAll(`{${k}}`, r.params[`${k}:${language}`] ?? v),
+                                    template
+                                )
                         ])
                     );
                     return {
