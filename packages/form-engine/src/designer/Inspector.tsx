@@ -38,7 +38,15 @@ import {
     cn,
     useNotify
 } from '@itrms/ui';
-import { formTextIn, ownText, textPropsOf, type FormField, type StoredTableColumn } from '@itrms/schemas';
+import {
+    DEFAULT_FIELD_CLASSIFICATION,
+    FIELD_CLASSIFICATIONS,
+    formTextIn,
+    ownText,
+    textPropsOf,
+    type FormField,
+    type StoredTableColumn
+} from '@itrms/schemas';
 import { KEY_PATTERN } from './fieldKeys';
 import { checkFormula, checkRuleFormula } from '../core/runtime/formula';
 import type { FieldOptionsBinding } from '@itrms/schemas';
@@ -280,6 +288,29 @@ function FieldTab({ stored, field, design }: { stored: FormField; field: EngineF
                     checked={stored.filterable === true}
                     onChange={(v) => set('filterable', v || undefined)}
                 />
+            )}
+            {value && (
+                <Row
+                    id="insp-classification"
+                    label={t('form-engine.settings.inspector.field.classification')}
+                    help={t('form-engine.settings.inspector.field.classificationHelp')}
+                >
+                    <Select
+                        value={stored.classification ?? DEFAULT_FIELD_CLASSIFICATION}
+                        onValueChange={(v) => set('classification', v)}
+                    >
+                        <SelectTrigger id="insp-classification" className="w-full" data-classification-select>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {FIELD_CLASSIFICATIONS.map((c) => (
+                                <SelectItem key={c} value={c}>
+                                    {t(`form-engine.settings.inspector.classification.${c}`)}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </Row>
             )}
             <SwitchRow
                 id="insp-disabled"

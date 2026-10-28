@@ -70,5 +70,6 @@
   "form-engine.core.validation.thisSection": "This section",
   "form-engine.core.validation.tooEarly": "Date is too early",
   "form-engine.core.validation.tooLate": "Date is too late",
-  "form-engine.core.validation.yesOrNo": "Please choose yes or no"
+  "form-engine.core.validation.yesOrNo": "Please choose yes or no",
+  "form-engine.core.lint.unclassified": "\"{field}\" has no data class: the browser keeps no draft of its answer, and it counts as personal elsewhere. Mark a phone, a FIN or a medical result as sensitive."
 }

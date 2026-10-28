@@ -54,7 +54,6 @@ import {
 import {
     EMPTY_RUNTIME,
     FormRenderer,
-    PublishedFormRenderer,
     TemplateStatusTag,
     getRuntimeConfig,
     isViewTemplate,
@@ -68,7 +67,10 @@ import { useCan } from '@/lib/auth/authHooks';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { formatDate } from '@/lib/format';
 import type { IFormTemplate } from '@/types/template_builder/form';
+import { DraftedForm } from './DraftedForm';
+import { DraftsList } from './DraftsList';
 import TemplatePreviewDialog from './TemplatePreviewDialog';
+import type { DraftStart } from '@/lib/drafts';
 import { TemplateSettingsForm } from './TemplateSettingsForm';
 
 export interface TemplatesManagerProps {
@@ -109,7 +111,9 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
     const [layout, setLayout] = useState<'grid' | 'list'>('grid');
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [settings, setSettings] = useState<IFormTemplate | null>(null);
-    const [open, setOpen] = useState<{ template: IFormTemplate; as: 'preview' | 'start' } | null>(null);
+    const [open, setOpen] = useState<{ template: IFormTemplate; as: 'preview' | 'start'; start?: DraftStart } | null>(
+        null
+    );
     const [attachment, setAttachment] = useState<IFormTemplate | null>(null);
 
     const allCategories = useMemo(
@@ -349,6 +353,15 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
 
     return (
         <div className="flex flex-col gap-4" data-templates={mode}>
+            {mode === 'start' && (
+                <DraftsList
+                    formName={(id) => all.find((t) => t.id === id)?.name}
+                    onResume={(formId, start) => {
+                        const template = all.find((t) => t.id === formId);
+                        if (template) setOpen({ template, as: 'start', start });
+                    }}
+                />
+            )}
             <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
                     <h1 className="text-2xl font-semibold">{mode === 'start' ? 'Start a request' : 'Forms'}</h1>
@@ -531,9 +544,10 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
                         />
                     )}
                     {open?.as === 'start' && (
-                        <PublishedFormRenderer
-                            bare
+                        // kept as a draft while it is filled in (task 0.20c)
+                        <DraftedForm
                             template={open.template}
+                            start={open.start}
                             onFormSubmit={onFormSubmit}
                             onSuccess={() => setOpen(null)}
                         />

@@ -26,6 +26,9 @@ import { Require, currentPrincipal, requestDbContext } from '@itrms/kernel/iam';
 import { createZodDto } from 'nestjs-zod';
 
 import {
+    draftCreateSchema,
+    draftListQuerySchema,
+    draftUpdateSchema,
     formCreateSchema,
     formListQuerySchema,
     formUpdateSchema,
@@ -48,6 +51,7 @@ import { SubmissionQueryService } from './query.service';
 import { SavedViewsService } from './views.service';
 import { ExportsService } from './exports.service';
 import { SubmissionsService } from './submissions.service';
+import { DraftsService } from './drafts.service';
 
 class FormCreateDto extends createZodDto(formCreateSchema) {}
 class FormUpdateDto extends createZodDto(formUpdateSchema) {}
@@ -62,6 +66,9 @@ class SubmissionQueryDto extends createZodDto(submissionQuerySchema) {}
 class SubmissionExportDto extends createZodDto(submissionExportSchema) {}
 class SavedViewCreateDto extends createZodDto(savedViewCreateSchema) {}
 class SavedViewUpdateDto extends createZodDto(savedViewUpdateSchema) {}
+class DraftCreateDto extends createZodDto(draftCreateSchema) {}
+class DraftUpdateDto extends createZodDto(draftUpdateSchema) {}
+class DraftListDto extends createZodDto(draftListQuerySchema) {}
 
 /** Who may share a view with the office, or make it its default. */
 const canShare = () => currentPrincipal().permissions.has('submission-view:share');
@@ -345,6 +352,61 @@ export class SavedViewsController {
         const ctx = requestDbContext();
         const version = versionFrom(ifMatch);
         await this.db.scoped(ctx, (tx) => this.savedViews.remove(tx, ctx, canShare(), id, version));
+    }
+}
+
+/** A person's drafts of a request (task 0.20c): theirs alone, kept until the request is filed or thrown away. */
+@Controller('api/v1/form-drafts')
+export class DraftsController {
+    constructor(
+        @Inject(DATABASE) private readonly db: Database,
+        @Inject(DraftsService) private readonly drafts: DraftsService
+    ) {}
+
+    @Get()
+    @Require('submission:create')
+    list(@Query() query: DraftListDto) {
+        const ctx = requestDbContext();
+        const { roles } = currentPrincipal();
+        return this.db.scoped(ctx, (tx) => this.drafts.list(tx, ctx, roles, query));
+    }
+
+    @Get(':id')
+    @Require('submission:create')
+    get(@Param('id', ParseUUIDPipe) id: string) {
+        const ctx = requestDbContext();
+        const { roles } = currentPrincipal();
+        return this.db.scoped(ctx, (tx) => this.drafts.get(tx, ctx, roles, id));
+    }
+
+    @Post()
+    @Require('submission:create')
+    create(@Body() body: DraftCreateDto) {
+        const ctx = requestDbContext();
+        const { roles } = currentPrincipal();
+        return this.db.scoped(ctx, (tx) => this.drafts.create(tx, ctx, roles, body));
+    }
+
+    @Patch(':id')
+    @Require('submission:create')
+    update(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Headers('if-match') ifMatch: string | undefined,
+        @Body() body: DraftUpdateDto
+    ) {
+        const ctx = requestDbContext();
+        const version = versionFrom(ifMatch);
+        const { roles } = currentPrincipal();
+        return this.db.scoped(ctx, (tx) => this.drafts.update(tx, ctx, roles, id, version, body));
+    }
+
+    @Delete(':id')
+    @HttpCode(204)
+    @Require('submission:create')
+    async remove(@Param('id', ParseUUIDPipe) id: string, @Headers('if-match') ifMatch: string | undefined) {
+        const ctx = requestDbContext();
+        const version = versionFrom(ifMatch);
+        await this.db.scoped(ctx, (tx) => this.drafts.remove(tx, ctx, id, version));
     }
 }
 

@@ -38,6 +38,7 @@ Assets, in order of importance:
 | 15 | Elevation of privilege | SSRF from integrations to internal services | egress allowlist proxy, split networks, endpoints only from ops configuration | 0.26 |
 | 16 | Elevation of privilege | vulnerable dependency or tampered image | pinned versions, Trivy, Semgrep, SBOM, cosign-verified images | 0.2, releases |
 | 17 | Elevation of privilege | vendor support over-reach | "view as user" read-only, time-limited, approved, audited; no hidden super-user | Phase 1 |
+| 18 | Information disclosure | a draft's answers left in a shared PC's browser | only classified, non-Sensitive answers kept (unclassified ones stay on the server), sealed with a non-extractable AES-GCM key per person; an explicit sign-out deletes the key and drafts in every tab. Residual risk: the person's separation on one PC is a label in the origin's IndexedDB (code on the origin can read another person's key), and an expired session (no sign-out) leaves the sealed copy by design (SEC-WB-3) | 0.20c |
 
 ## Open items
 * The per-site network design (VPN or WAN vs. internet exposure of the staff host) depends on each bureau's network. This

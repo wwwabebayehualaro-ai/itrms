@@ -115,7 +115,9 @@ export function useSubmissionMutations() {
                     await client.post<WireSubmission>(FORMS_API.submissions, {
                         formId: data.template_id,
                         formVersionId: versionId,
-                        answers: data.submission_data
+                        answers: data.submission_data,
+                        // the draft it was filled from goes with the filing (task 0.20c)
+                        ...(data.draft_id ? { draftId: data.draft_id } : {})
                     })
                 ).data
             );

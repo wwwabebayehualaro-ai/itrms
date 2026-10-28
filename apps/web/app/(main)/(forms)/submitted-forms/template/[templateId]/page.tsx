@@ -18,8 +18,10 @@ import { Button, IconButton, InlineStatus, confirmAction, useNotify } from '@itr
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { useCan } from '@/lib/auth/authHooks';
 import { RequestEditorDialog } from './RequestEditorDialog';
+import { DraftsList } from '@/form-templates/DraftsList';
+import type { DraftStart } from '@/lib/drafts';
 
-type Editor = 'new' | IFormSubmission | null;
+type Editor = 'new' | { resume: DraftStart } | IFormSubmission | null;
 
 /**
  * Requests of one form, for ANY form: the data viewer (table, cards, board, calendar, pivot, dashboard), "New request" and Edit in a dialog,
@@ -89,7 +91,7 @@ export default function TemplateSubmissionsPage() {
                 onAccept: async () => {
                     await remove.mutateAsync(row.id as string);
                     notify.success('Request deleted');
-                    setEditor((cur) => (cur && cur !== 'new' && cur.id === row.id ? null : cur));
+                    setEditor((cur) => (cur && cur !== 'new' && 'id' in cur && cur.id === row.id ? null : cur));
                 }
             }),
         [remove, notify]
@@ -129,6 +131,15 @@ export default function TemplateSubmissionsPage() {
                 )}
             </div>
 
+            {canCreate && (
+                <div className="mb-4">
+                    <DraftsList
+                        formId={templateId}
+                        formName={() => template.name}
+                        onResume={(_, start) => setEditor({ resume: start })}
+                    />
+                </div>
+            )}
             <RequestEditorDialog template={template} editing={editor} onHide={() => setEditor(null)} />
 
             <DataViewer

@@ -11,6 +11,7 @@
  *   submissions        answers, pinned to the version they were filled on (class T at the handling unit). `case_id` gets
  *                      its foreign key when cases exist (task 0.19).
  *   submission_values  the typed values of filterable fields, for the data viewer's indexes (ADR-0035, task 0.16b).
+ *   submission_drafts  a person's request in the making, on the version they started (class T, its creator's: 0.20c).
  *
  * The audit log holds a document's hash, never the document (the versions are the record of what was published), and
  * answers only as an HMAC: they hold personal data and the values of role-restricted fields.
@@ -179,6 +180,42 @@ export const submissions = withRls(
                     .on(t.caseId)
                     .where(sql`${t.caseId} is not null`),
                 index('submissions_org_path_gist').using('gist', t.orgPath)
+            ]
+        ),
+        { mask: ['answers'] }
+    ),
+    'transaction'
+);
+
+/**
+ * A person's draft of a request (task 0.20c): the answers so far, on the form version they started, kept until the
+ * request is filed or the draft is thrown away. Class T at the unit it was started in (RLS), and its creator's alone
+ * (the service reads and writes only `created_by = the caller`; no policy on it, so a unit move rewrites every draft's
+ * scope): a colleague at the counter never sees it. Its answers are in the log only as an HMAC, as a submission's.
+ */
+export const submissionDrafts = withRls(
+    audited(
+        formsSchema.table(
+            'submission_drafts',
+            {
+                ...baseColumns(),
+                regionId: uuid('region_id').notNull(),
+                unitId: uuid('unit_id')
+                    .notNull()
+                    .references(() => orgUnits.id),
+                /** set by trigger from the unit */
+                orgPath: ltree('org_path').notNull().default(''),
+                formId: uuid('form_id')
+                    .notNull()
+                    .references(() => formDefinitions.id),
+                formVersionId: uuid('form_version_id')
+                    .notNull()
+                    .references(() => formVersions.id),
+                answers: jsonb('answers').$type<Record<string, unknown>>().notNull()
+            },
+            (t) => [
+                index('submission_drafts_creator_idx').on(t.createdBy, t.formId, t.updatedAt.desc()),
+                index('submission_drafts_org_path_gist').using('gist', t.orgPath)
             ]
         ),
         { mask: ['answers'] }

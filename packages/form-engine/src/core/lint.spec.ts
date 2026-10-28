@@ -4,11 +4,13 @@ import { describe, expect, it } from 'vitest';
 
 import { engineText, lintDocument, type LintProblem } from './';
 
+// classified, as a sound form's fields are (the unclassified rule has its own tests)
 const F = (id: string, type = 'InputText', extra: Record<string, unknown> = {}) => ({
     id,
     type,
     label: { am: id, en: id },
     props: {},
+    classification: 'personal',
     ...extra
 });
 const panel = (id: string, extra: Record<string, unknown> = {}) =>
@@ -47,6 +49,24 @@ describe('lintDocument', () => {
         expect(engineText('en', first?.message ?? 'form-engine.core.lint.unreachable', first?.values)).toContain(
             '"zzz"'
         );
+    });
+
+    describe('unclassified', () => {
+        it('warns of a field that holds an answer and has no data class, and only of it', () => {
+            const problems = lintDocument(
+                doc([
+                    F('phone', 'InputText', { classification: undefined }),
+                    F('fin', 'InputText', { classification: 'sensitive' }),
+                    panel('box', { classification: undefined })
+                ])
+            );
+            expect(ofRule(problems, 'unclassified')).toEqual([
+                expect.objectContaining({ severity: 'warning', fieldId: 'phone', path: 'fields[0].classification' })
+            ]);
+            expect(engineText('en', 'form-engine.core.lint.unclassified', { field: 'phone' })).toContain(
+                'the browser keeps no draft'
+            );
+        });
     });
 
     describe('unknown-reference', () => {

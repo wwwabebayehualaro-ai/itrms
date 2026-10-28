@@ -169,6 +169,38 @@ export function knownValues(fields: EngineField[], values: Record<string, unknow
     return keep(null, values);
 }
 
+/**
+ * What the browser may keep of a draft's answers (task 0.20c, SEC-WB-3): only those of fields their author classified,
+ * and not Sensitive. A field without a data class (a form published before classes existed) is kept on the server only,
+ * as a Sensitive one is; a field inside a Sensitive container goes with it; keys the form does not have are dropped.
+ */
+export function withoutSensitive(fields: EngineField[], values: Record<string, unknown>): Record<string, unknown> {
+    const byId = new Map(fields.map((f) => [f.id, f]));
+    const serverOnly = (f: EngineField): boolean => {
+        if (!f.source.classification) return true;
+        for (let p: EngineField | undefined = f; p; p = p.parentId ? byId.get(p.parentId) : undefined)
+            if (p.classification === 'sensitive') return true;
+        return false;
+    };
+    const keep = (current: Record<string, unknown>): Record<string, unknown> => {
+        const out: Record<string, unknown> = {};
+        for (const [key, v] of Object.entries(current)) {
+            const f = byId.get(key);
+            if (!f || serverOnly(f)) continue;
+            out[key] =
+                isFormArray(f) && Array.isArray(v)
+                    ? (v as unknown[]).map((row: unknown) => (isRecord(row) ? keep(row) : row))
+                    : v;
+        }
+        return out;
+    };
+    return keep(values);
+}
+
+/** Whether some of the form's answers are kept on the server only (a Sensitive field, or one without a data class). */
+export const keepsServerOnly = (fields: EngineField[]): boolean =>
+    fields.some((f) => holdsValue(f) && (f.classification === 'sensitive' || !f.source.classification));
+
 /** Roots a computed field may read wherever the form is checked: the server has no data sources, route or variables. */
 const PORTABLE_ROOTS = new Set(['form', 'row', 'root', 'user']);
 

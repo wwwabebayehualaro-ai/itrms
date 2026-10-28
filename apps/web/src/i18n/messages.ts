@@ -6,6 +6,9 @@
 import competencyAm from '@itrms/competency/messages/am';
 import competencyEn from '@itrms/competency/messages/en';
 import competencyWal from '@itrms/competency/messages/wal-Latn';
+import formsAm from '@itrms/forms/messages/am';
+import formsEn from '@itrms/forms/messages/en';
+import formsWal from '@itrms/forms/messages/wal-Latn';
 import kernelAm from '@itrms/kernel/messages/am';
 import kernelEn from '@itrms/kernel/messages/en';
 import kernelWal from '@itrms/kernel/messages/wal-Latn';
@@ -30,9 +33,9 @@ type Flat = Readonly<Record<string, string>>;
 type Nested = { [key: string]: string | Nested };
 
 const CATALOGUES: Readonly<Record<UiLanguage, readonly Flat[]>> = {
-    am: [shellAm, kernelAm, workflowAm, partiesAm, competencyAm],
-    en: [shellEn, kernelEn, workflowEn, partiesEn, competencyEn],
-    'wal-Latn': [shellWal, kernelWal, workflowWal, partiesWal, competencyWal]
+    am: [shellAm, kernelAm, formsAm, workflowAm, partiesAm, competencyAm],
+    en: [shellEn, kernelEn, formsEn, workflowEn, partiesEn, competencyEn],
+    'wal-Latn': [shellWal, kernelWal, formsWal, workflowWal, partiesWal, competencyWal]
 };
 
 /** `{ "a.b": "x" }` → `{ a: { b: "x" } }`; a key that is also another's prefix is a catalogue error. */

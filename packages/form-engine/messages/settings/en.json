@@ -278,5 +278,11 @@
   "form-engine.settings.shared.printBreakBefore.title": "Start a new page when printed",
   "form-engine.settings.shared.showClear.description": "A ✕ empties the choice (always offered when the field is optional).",
   "form-engine.settings.shared.showClear.title": "Can be cleared",
-  "form-engine.settings.shared.toggleable.title": "Can be collapsed"
+  "form-engine.settings.shared.toggleable.title": "Can be collapsed",
+  "form-engine.settings.inspector.field.classification": "Data class",
+  "form-engine.settings.inspector.field.classificationHelp": "What the answer is: a sensitive one (a phone, a FIN, a medical result) is never kept in the browser and is masked in exports.",
+  "form-engine.settings.inspector.classification.public": "Public",
+  "form-engine.settings.inspector.classification.internal": "Internal",
+  "form-engine.settings.inspector.classification.personal": "Personal",
+  "form-engine.settings.inspector.classification.sensitive": "Sensitive"
 }

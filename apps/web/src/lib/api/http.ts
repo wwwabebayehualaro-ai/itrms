@@ -96,7 +96,7 @@ export interface HttpClient {
  * A random UUID v4. `randomUUID` exists only in secure contexts (HTTPS, localhost); `getRandomValues` exists everywhere,
  * so a page served over plain HTTP still gets an unguessable, collision-free key (never Math.random: SEC-CR-5).
  */
-function defaultKey(): string {
+export function defaultKey(): string {
     if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
     const b = Array.from(crypto.getRandomValues(new Uint8Array(16)));
     b[6] = ((b[6] ?? 0) & 0x0f) | 0x40;

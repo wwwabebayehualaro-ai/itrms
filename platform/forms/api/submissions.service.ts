@@ -17,6 +17,7 @@ import type { z } from 'zod';
 import type { HistoryEntry, Submission, submissionCreateSchema, submissionListQuerySchema } from '../contracts';
 import { formDefinitions, formVersions, submissions } from './forms.table';
 import type { RegistryLookups } from './lookups';
+import { fileDraft } from './drafts.service';
 import { namesOf, unitOf } from './forms.service';
 import { checkReferences, resolveFiles, type AnswerProblem } from './submission-refs';
 import { lockFormShared, valueRows, writeValues, type Owner } from './submission-values';
@@ -137,6 +138,8 @@ export class SubmissionsService {
                 id: row.id,
                 ...(file.documentType ? { documentType: file.documentType } : {})
             });
+        // the draft it was filled from is done with (task 0.20c)
+        if (input.draftId) await fileDraft(tx, ctx, input.draftId, form.id);
         return (await this.present(tx, roles, [row]))[0] as Submission;
     }
 
