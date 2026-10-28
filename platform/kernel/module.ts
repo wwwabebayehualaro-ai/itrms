@@ -97,7 +97,9 @@ export default defineModule({
             'submission:read',
             'submission:export',
             'submission-view:share',
-            ...CASE_ACT
+            ...CASE_ACT,
+            // gives back a step someone else took on (someone away), task 0.20b
+            'case:reassign'
         ],
         // at intake: checks the identity of the person in front of them
         records_officer: [

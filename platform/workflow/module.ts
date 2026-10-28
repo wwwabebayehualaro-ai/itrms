@@ -12,8 +12,9 @@ export default defineModule({
     permissions: {
         'workflow-definition': ['read', 'create', 'update'],
         // a case's steps: who acts on one is the engine's business (the step's role in its unit); `act` lets a role try
-        // (and take a step on); `create` is intake; `comment` writes on the timeline and mentions colleagues
-        case: ['read', 'create', 'act', 'comment']
+        // (and take a step on); `create` is intake; `comment` writes on the timeline and mentions colleagues; `reassign`
+        // gives back a step someone else took on, in the office or one below it
+        case: ['read', 'create', 'act', 'comment', 'reassign']
     },
     // the SLA timers are its own: the worker marks an overdue step and delivers a wait's timeout (0.20a); a comment's
     // mentions are told by the worker (0.20b)

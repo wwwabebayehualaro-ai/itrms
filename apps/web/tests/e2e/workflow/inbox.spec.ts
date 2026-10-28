@@ -18,7 +18,7 @@ test("lists the office's steps for the person's role; a step is taken on and ope
     await page.locator('[data-app-sidebar] [data-menu-item="workflow.inbox"]').click();
     await expect(page.getByRole('heading', { name: 'የእኔ ሥራዎች' })).toBeVisible();
     await page.getByLabel('የጉዳይ ቁጥር').fill(String(started.number));
-    await page.getByRole('button', { name: 'ፈልግ' }).click();
+    await page.locator('[data-screen="inbox"] form[role="search"]').getByRole('button', { name: 'ፈልግ' }).click();
     const row = page.locator(`[data-case-number="${started.number}"]`);
     await expect(row).toBeVisible();
     await expect(row).toContainText('ማጣራት');
@@ -43,7 +43,7 @@ test("lists the office's steps for the person's role; a step is taken on and ope
     const head = await signedIn(browser, PEOPLE.head);
     await head.goto('/inbox');
     await head.getByLabel('የጉዳይ ቁጥር').fill(String(started.number));
-    await head.getByRole('button', { name: 'ፈልግ' }).click();
+    await head.locator('[data-screen="inbox"] form[role="search"]').getByRole('button', { name: 'ፈልግ' }).click();
     await expect(head.locator('[data-slot="empty-state"]')).toBeVisible();
     await expect(head.locator(`[data-case-number="${started.number}"]`)).toHaveCount(0);
 });

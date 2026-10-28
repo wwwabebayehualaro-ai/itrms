@@ -5,6 +5,10 @@
  * may not take; a comment's mentions must work on the case and are told once by the worker; all of it audited, and
  * nothing of it reaches another office.
  */
+import { DATABASE } from '@itrms/kernel/api';
+import type { Database, DbContext } from '@itrms/kernel/db';
+import { CasesService } from '@itrms/workflow/api';
+import { sql } from 'drizzle-orm';
 import { tellMentioned } from '@itrms/workflow/api/worker';
 import type { CaseOut, Inbox } from '@itrms/workflow/contracts';
 import { createSystemDatabase, type SystemDatabase } from '@itrms/kernel/db/system';
@@ -16,6 +20,7 @@ import { startPostgres, type TestPostgres } from './support/postgres';
 const SUB = {
     bureau: '0199f0a0-d000-7000-8000-000000000001',
     zoneHead: '0199f0a0-d000-7000-8000-000000000101',
+    zoneAdmin: '0199f0a0-d000-7000-8000-000000000102',
     zoneAuditor: '0199f0a0-d000-7000-8000-000000000109',
     damotHead: '0199f0a0-d000-7000-8000-000000000201',
     damotRecords: '0199f0a0-d000-7000-8000-000000000202',
@@ -210,7 +215,7 @@ describe('the inbox', () => {
             after = page.nextCursor;
         } while (after);
         expect(seen).toEqual(all.map((i) => i.taskId));
-        expect((await api.call('GET', '/api/v1/me/tasks?sort=due', as.damotRecords)).statusCode).toBe(400);
+        expect((await api.call('GET', '/api/v1/me/tasks?sort=due', as.damotRecords)).statusCode).toBe(422);
     });
 });
 
@@ -232,7 +237,7 @@ describe('a claim', () => {
         // the other holder: no claim, no action, no release; the page shows them nothing to do
         expect((await claim(as.damotRecords2, c)).statusCode).toBe(409);
         expect((await act(as.damotRecords2, c.id, 'forward')).statusCode).toBe(409);
-        expect((await claim(as.damotRecords2, c, true)).statusCode).toBe(409);
+        expect((await claim(as.damotRecords2, c, true)).statusCode).toBe(403);
         expect((await get(as.damotRecords2, c.id)).actions).toEqual([]);
         // another role may not claim it; a head of the office may give it back (someone away)
         expect((await claim(as.damotHead, c)).statusCode).toBe(403);
@@ -256,6 +261,25 @@ describe('a claim', () => {
             [c.tasks.find((t) => t.status === 'open')?.id]
         );
         expect(audit.rows.filter((r) => r.action === 'update').length).toBeGreaterThanOrEqual(4);
+    });
+
+    it('counts for nothing once its holder no longer holds the role there: another takes it over', async () => {
+        const c = await submitted();
+        expect((await claim(as.damotRecords2, c)).statusCode).toBe(200);
+        await api.owner.query('update kernel.users set active = false where keycloak_sub = $1', [SUB.damotRecords2]);
+        try {
+            const page = await get(as.damotRecords, c.id);
+            expect(page.tasks.find((t) => t.status === 'open')?.claimedBy).toBeNull();
+            expect(page.actions).toContain('forward');
+            expect((await inbox(as.damotRecords)).items.find((i) => i.caseId === c.id)?.claimedBy).toBeNull();
+            const taken = await claim(as.damotRecords, c);
+            expect(taken.statusCode, taken.body).toBe(200);
+            expect(taken.json<CaseOut>().tasks.find((t) => t.status === 'open')?.claimedBy?.name).toBe(
+                'Damot Gale Records Officer (demo)'
+            );
+        } finally {
+            await api.owner.query('update kernel.users set active = true where keycloak_sub = $1', [SUB.damotRecords2]);
+        }
     });
 
     it('is refused to whom separation of duties keeps off the step; the inbox says so', async () => {
@@ -292,6 +316,12 @@ describe('a comment', () => {
             mentions: [await api.userId(SUB.boditiHead)]
         });
         expect(outside.statusCode, outside.body).toBe(422);
+        // the zone's admin works above the case, but in a role that reads no cases: not mentioned either
+        const noReader = await api.call('POST', `/api/v1/cases/${c.id}/comments`, as.damotRecords, {
+            text: 'Admin, please look',
+            mentions: [await api.userId(SUB.zoneAdmin)]
+        });
+        expect(noReader.statusCode, noReader.body).toBe(422);
 
         const res = await api.call('POST', `/api/v1/cases/${c.id}/comments`, as.damotRecords, {
             text: '@Zone Head (demo) the applicant brings the libre tomorrow',
@@ -320,8 +350,9 @@ describe('a comment', () => {
         );
         expect(event.rows[0]?.payload.mentions.sort()).toEqual([zoneHead, damotHead].sort());
         const input = { caseId: c.id, eventId: comment?.id ?? '', mentions: event.rows[0]?.payload.mentions ?? [] };
-        expect(await tellMentioned(system, input)).toBe(2);
-        expect(await tellMentioned(system, input)).toBe(0);
+        const readers = api.http.get(CasesService).caseReaders();
+        expect(await tellMentioned(system, input, readers)).toBe(2);
+        expect(await tellMentioned(system, input, readers)).toBe(0);
         const told = (await notes(as.zoneHead)).filter((n) => n.link?.eventId === comment?.id);
         expect(told).toHaveLength(1);
         expect(told[0]).toMatchObject({ key: 'workflow.notify.mentioned', link: { caseId: c.id } });
@@ -343,5 +374,34 @@ describe('a comment', () => {
         expect((await api.call('GET', `/api/v1/cases/${c.id}`, as.boditiRecords)).statusCode).toBe(404);
         const empty = await api.call('POST', `/api/v1/cases/${c.id}/comments`, as.damotRecords, { text: '  ' });
         expect(empty.statusCode).toBe(422);
+    });
+
+    it('lets the reviewed workflow.case_people answer only for a case the caller sees', async () => {
+        const c = await submitted();
+        const readers = `{${api.http.get(CasesService).caseReaders().join(',')}}`;
+        const ask = async (who: As | null) => {
+            const ctx: DbContext = who
+                ? {
+                      userId: await api.userId(who.sub),
+                      unitId: who.unit.id,
+                      regionId: who.unit.regionId,
+                      scopePath: who.unit.path
+                  }
+                : {};
+            return api.http
+                .get<Database>(DATABASE)
+                .scoped(ctx, async (tx) =>
+                    (
+                        await tx.execute<{ user_id: string }>(
+                            sql`select user_id from workflow.case_people(${c.id}::uuid, null, null, ${readers}::text[])`
+                        )
+                    ).rows.map((r) => r.user_id)
+                );
+        };
+        expect((await ask(as.damotRecords)).length).toBeGreaterThan(0);
+        expect(await ask(as.zoneHead)).toContain(await api.userId(SUB.damotHead));
+        // a sibling office, and no context at all: nobody
+        expect(await ask(as.boditiRecords)).toEqual([]);
+        expect(await ask(null)).toEqual([]);
     });
 });

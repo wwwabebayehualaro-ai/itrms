@@ -193,24 +193,31 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
         menu: { key: string; label: { am: string; en: string }; items: { key: string; route: string }[] }[];
     }
     const itemsOf = (w: Workspace) => w.menu.flatMap((g) => g.items.map((i) => i.key));
-    // every office reads the register of people and organisations (task 0.14)
+    // every office reads the register of people and organisations (task 0.14); whoever acts on cases has "My tasks" (0.20b)
     const REGISTER = ['parties.persons', 'parties.organisations'];
+    const TASKS = 'workflow.inbox';
 
     it("shows no licensing at Damot Gale (no DVC services), and a Boditi competency officer's licensing", async () => {
         const damot = await unitAt('WOL-DAMOT-GALE');
         const atDamot = (
             await call('GET', '/api/v1/me/workspace', { token: await token(SUB.damotRecords), unit: damot.id })
         ).json<Workspace>();
-        expect(itemsOf(atDamot)).toEqual(['kernel.home', ...REGISTER]);
+        expect(itemsOf(atDamot)).toEqual(['kernel.home', TASKS, ...REGISTER]);
 
         const boditi = await unitAt('WOL-BODITI');
         const officer = (
             await call('GET', '/api/v1/me/workspace', { token: await token(SUB.boditiOfficer), unit: boditi.id })
         ).json<Workspace>();
-        expect(officer.menu.map((g) => g.key)).toEqual(['home', 'work-process:1', 'registries']);
-        expect(officer.menu[1]?.label).toMatchObject({ en: 'Driver and vehicle competency' });
+        expect(officer.menu.map((g) => g.key)).toEqual(['home', 'my-work', 'work-process:1', 'registries']);
+        expect(officer.menu[2]?.label).toMatchObject({ en: 'Driver and vehicle competency' });
         // applications and exams (Boditi has examiners); print batches need licence:print, which officers lack
-        expect(itemsOf(officer)).toEqual(['kernel.home', 'competency.applications', 'competency.exams', ...REGISTER]);
+        expect(itemsOf(officer)).toEqual([
+            'kernel.home',
+            TASKS,
+            'competency.applications',
+            'competency.exams',
+            ...REGISTER
+        ]);
     });
 
     it('hides licensing from a competency officer whose unit stops offering the licensing services', async () => {
@@ -230,7 +237,7 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
         });
         try {
             // the same person and role: only the unit's services changed
-            expect(await officerMenu()).toEqual(['kernel.home', ...REGISTER]);
+            expect(await officerMenu()).toEqual(['kernel.home', TASKS, ...REGISTER]);
         } finally {
             await installer.scoped({}, async (tx) => {
                 for (const code of licensing) await clearServiceOverride(tx, boditi.id, code);
@@ -246,7 +253,7 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
         const atZone = (await call('GET', '/api/v1/me/workspace', { token: t, unit: zone.id })).json<Workspace>();
         const atDamot = (await call('GET', '/api/v1/me/workspace', { token: t, unit: damot.id })).json<Workspace>();
         expect(itemsOf(atZone)).toContain('competency.applications');
-        expect(itemsOf(atDamot)).toEqual(['kernel.home', ...REGISTER]);
+        expect(itemsOf(atDamot)).toEqual(['kernel.home', TASKS, ...REGISTER]);
     });
 });
 
@@ -276,10 +283,11 @@ describe('a person in two units', () => {
         }>();
         expect(atZone.roles).toEqual(['records_officer']);
         expect(atZone.activeUnit.code).toBe('WOL');
-        // a cashier reads the org, the register, the forms and their submissions, and acts on cases' steps (0.19b: the
-        // engine decides which); nothing more
+        // a cashier reads the org, the register, the forms and their submissions, acts on cases' steps (0.19b: the
+        // engine decides which) and comments on them (0.20b); nothing more
         expect(atBoditi.permissions).toEqual([
             'case:act',
+            'case:comment',
             'case:read',
             'file:read',
             'file:upload',

@@ -20,7 +20,7 @@ import type { RegistryLookups } from './lookups';
 import { namesOf, unitOf } from './forms.service';
 import { checkReferences, resolveFiles, type AnswerProblem } from './submission-refs';
 import { lockFormShared, valueRows, writeValues, type Owner } from './submission-values';
-import { approvedVersions, fieldsFor, required, scopeFor } from './support';
+import { approvedVersions, documentFor, fieldsFor, required, scopeFor } from './support';
 import { filterableKinds, MAX_INDEXED_CHOICES } from './view-fields';
 
 import am from '../messages/am.json';
@@ -192,7 +192,7 @@ export class SubmissionsService {
 
     /**
      * A case's step forms (task 0.20b), in the order they were filed: each as the caller may see it, with its version's
-     * document for the printed view (which leaves out the fields of other roles too).
+     * document for the printed view, without the fields of other roles.
      */
     async ofCase(tx: Tx, roles: readonly string[], caseId: string): Promise<(Submission & { document: unknown })[]> {
         const rows = await tx
@@ -211,7 +211,7 @@ export class SubmissionsService {
         );
         return (await this.present(tx, roles, rows)).map((s) => ({
             ...s,
-            document: documents.get(s.formVersion.id) ?? null
+            document: documentFor(documents.get(s.formVersion.id) ?? null, roles)
         }));
     }
 

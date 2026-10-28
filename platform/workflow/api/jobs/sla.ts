@@ -193,7 +193,11 @@ export function workflowHandlers(system: SystemDatabase, deps: SlaDeps): Record<
             await waitTimeout(system, deps, WORKFLOW_EVENTS['case.wait-due.v1'].parse(job.payload).caseId);
         },
         'case.commented.v1': async (job) => {
-            await tellMentioned(system, WORKFLOW_EVENTS['case.commented.v1'].parse(job.payload));
+            await tellMentioned(
+                system,
+                WORKFLOW_EVENTS['case.commented.v1'].parse(job.payload),
+                deps.cases.caseReaders()
+            );
         }
     };
 }

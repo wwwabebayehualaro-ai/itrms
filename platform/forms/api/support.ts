@@ -54,6 +54,20 @@ export function fieldsFor(document: unknown, roles: readonly string[], language 
     return fieldsForRoles(readDocument(document, { language }).fields, roles);
 }
 
+/**
+ * A stored form's document with only the fields the caller may see (`fieldsFor`): the labels, options and help of a
+ * field restricted to other roles never leave the server either (task 0.20b, the case page's printed answers).
+ */
+export function documentFor(document: unknown, roles: readonly string[]): unknown {
+    if (!document || typeof document !== 'object' || !Array.isArray((document as { fields?: unknown }).fields))
+        return document;
+    const seen = new Set(fieldsFor(document, roles).map((f) => f.id));
+    const fields = (document as { fields: unknown[] }).fields.filter(
+        (f) => !!f && typeof f === 'object' && seen.has(String((f as { id?: unknown }).id))
+    );
+    return { ...document, fields };
+}
+
 /** What conditions may read on the server besides the form: the caller (as the browser's `user`). */
 export const scopeFor = (ctx: DbContext, roles: readonly string[]): Scope => ({
     user: { id: ctx.userId, roles: [...roles] }

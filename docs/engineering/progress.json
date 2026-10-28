@@ -805,7 +805,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Claims: case_tasks.claimed_by/claimed_at; a step claimed by another refuses their claim and transition (409); release by the claimer or a unit_head of the step's unit. Inbox GET /api/v1/me/tasks: unit = active unit, role in the roles held there, cursor = last task id (keys compared in SQL), due-soon = within 4 wall-clock hours, mayAct from separation of duties. Comments = case_events kind comment (data.mentions, visibility internal), case:comment with case:act; mentions checked by the reviewed workflow.case_people (active role at the handling unit or above), told by the worker on case.commented.v1, once each (dedup by link.eventId), in-app only. POST /api/v1/cases (case:create, records_officer) starts a case on a workflow's newest version until service requests (0.21). Step answers: the transition event records data.submissionId; the case API returns the version document + role-filtered answers, printed with PrintForm."
+          "notes": "Claims: case_tasks.claimed_by/claimed_at; a step claimed by another refuses their claim and transition (409); release by the claimer or a unit_head of the step's unit. Inbox GET /api/v1/me/tasks: unit = active unit, role in the roles held there, cursor = last task id (keys compared in SQL), due-soon = within 4 wall-clock hours, mayAct from separation of duties. Comments = case_events kind comment (data.mentions, visibility internal), case:comment with case:act; mentions checked by the reviewed workflow.case_people (active role at the handling unit or above), told by the worker on case.commented.v1, once each (dedup by link.eventId), in-app only. POST /api/v1/cases (case:create, records_officer) starts a case on a workflow's newest version until service requests (0.21). Step answers: the transition event records data.submissionId; the case API returns the version document + role-filtered answers, printed with PrintForm. Verifier (on 624a573): every Done when / Do / Tests item met by code and tests; gaps were CI pending, evidence not yet recorded, and no test of the export notice. Added (local, not pushed yet): forms-exports.int.spec asserts one forms.notify.export-ready to the requester across two deliveries, and forms.notify.export-failed on a failed export. Waiting for CI run 40676731815 and the security review before pushing fixes together. Review (2026-10-28): no high; M1 a claim whose holder left blocked a step for good → claims count only while the holder holds the role (workflow.role_holders), release by holder or case:reassign (unit_head), unauthorized release 403 audited; M2 interim intake documented + follow-up to 0.21; M3 case:read includes step answers, decided in roles-and-permissions.md; L1 step documents stripped of other roles' fields (documentFor); L2/L7 advisory locks + told-once checks for mentions and export notices (a redelivery repairs a lost export notice); L3 mentions only of roles with case:read (case_people takes the reader roles from the manifests); L4 claim locks the task row; L6 the case page's SLA from the DB clock; L8 direct case_people test; L9 rate limits → 0.26, comments on closed cases intended."
         },
         {
           "id": "0.20c",
@@ -2279,6 +2279,16 @@
       "foundIn": "0.20b",
       "item": "Case page: a lookup answer in a step's printed answers shows the record's id, not its label (PrintForm refs)",
       "movedTo": "0.21"
+    },
+    {
+      "foundIn": "0.20b",
+      "item": "POST /api/v1/cases starts any active workflow the office reads, with no service configuration (interim intake): restrict it to workflows a service enabled for the unit names, or remove it",
+      "movedTo": "0.21"
+    },
+    {
+      "foundIn": "0.20b",
+      "item": "Rate limits for comments (up to 20 mentions each) and the case people search (SEC-AP-2)",
+      "movedTo": "0.26 (hardening)"
     }
   ]
 }

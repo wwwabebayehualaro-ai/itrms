@@ -14,7 +14,7 @@
  * - A task in a unit outside the actor's scope (the zone's approval of a town's case) is opened through the reviewed
  *   `workflow.open_task`, which checks the case and the unit again in SQL.
  */
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import {
     actFor,
@@ -27,6 +27,7 @@ import {
     type Tx
 } from '@itrms/kernel/db';
 import { EffectRegistry } from '@itrms/kernel/effects';
+import { rolePermissions, SHELL, type Shell } from '@itrms/kernel/iam';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
 import { unitRefs, withinScope, type UnitRef as UnitLabel } from '@itrms/kernel/org';
 import { emit } from '@itrms/kernel/outbox';
@@ -105,6 +106,7 @@ function refuse(refusal: Refusal | ClaimRefusal, language: string, caseId: strin
         case 'reject-not-allowed':
         case 'separation-of-duties':
         case 'wrong-system-actor':
+        case 'not-claimed':
             throw new ForbiddenError({ detail, audit: { reason: refusal, caseId } });
         case 'comment-required':
             throw new ValidationError('validation_failed', {
@@ -118,12 +120,26 @@ function refuse(refusal: Refusal | ClaimRefusal, language: string, caseId: strin
 
 @Injectable()
 export class CasesService {
+    /** The roles that read cases (the installed manifests): only their holders may be mentioned on one. */
+    private readonly readers: readonly string[];
+
     constructor(
         private readonly effects: EffectRegistry,
         private readonly forms: FormsService,
         private readonly submissions: SubmissionsService,
-        private readonly lookups: RegistryLookups
-    ) {}
+        private readonly lookups: RegistryLookups,
+        @Inject(SHELL) shell: Shell
+    ) {
+        this.readers = [...rolePermissions(shell.manifests)]
+            .filter(([, granted]) => granted.has('case:read'))
+            .map(([role]) => role)
+            .sort();
+    }
+
+    /** The roles whose holders read cases: whom a comment may mention (the worker's check too). */
+    caseReaders(): readonly string[] {
+        return this.readers;
+    }
 
     /**
      * Starts a case on a stored workflow version, handled by the caller's unit, with the configuration a service resolved
@@ -186,8 +202,9 @@ export class CasesService {
         const state = stateOf(def, row.state);
         if (!state) refuse('unknown-state', language, id);
         const task = await this.openTask(tx, id);
-        // a step one of the role's holders took on is theirs (0.20b)
-        if (task?.claimedBy && task.claimedBy !== actor.userId) refuse('claimed', language, id);
+        // a step one of the role's holders took on is theirs while they hold the role there (0.20b)
+        if (task?.claimedBy && task.claimedBy !== actor.userId && (await this.claimHeld(tx, task)))
+            refuse('claimed', language, id);
         // the roles count in the task's own unit only; the start is its starter's
         const rolesInUnit = new Set(task && task.unitId === actor.unitId ? actor.roles : []);
         const history = await this.history(tx, row, def);
@@ -275,14 +292,16 @@ export class CasesService {
 
     /**
      * Takes an open step on: one of the role's holders in the step's unit, not kept off it by separation of duties. The
-     * others see whose it is and may not act on it until it is released. Taking it on again is a no-op.
+     * others see whose it is and may not act on it until it is released. Taking it on again is a no-op; a claim whose
+     * holder no longer holds the role there (left, revoked, switched off) counts for nothing and is taken over.
      */
     async claim(tx: Tx, actor: CaseActor, caseId: string, taskId: string, language: string): Promise<CaseOut> {
         const row = await this.locked(tx, caseId);
         const task = await this.openStep(tx, row, taskId, language);
         if (task.unitId !== actor.unitId || !actor.roles.includes(task.role)) refuse('role-required', language, caseId);
-        if (task.claimedBy && task.claimedBy !== actor.userId) refuse('claimed', language, caseId);
-        if (!task.claimedBy) {
+        const holder = await this.claimHeld(tx, task);
+        if (holder && holder !== actor.userId) refuse('claimed', language, caseId);
+        if (holder !== actor.userId) {
             const def = await this.definition(tx, row.definitionVersionId);
             const state = stateOf(def, task.stateKey);
             if (state && excludedBySeparation(state, await this.history(tx, row, def)).has(actor.userId))
@@ -295,12 +314,15 @@ export class CasesService {
         return this.get(tx, actor, caseId);
     }
 
-    /** Gives a step back to the role's holders: by whoever took it on, or a head of the step's office (someone away). */
+    /**
+     * Gives a step back to the role's holders: by whoever took it on, or by someone who may reassign steps (`case:reassign`)
+     * in its office or one above it (who sees the step: RLS). Anyone else is refused, audited.
+     */
     async release(tx: Tx, actor: CaseActor, caseId: string, taskId: string, language: string): Promise<CaseOut> {
         const row = await this.locked(tx, caseId);
         const task = await this.openStep(tx, row, taskId, language);
-        const head = task.unitId === actor.unitId && actor.roles.includes('unit_head');
-        if (!task.claimedBy || (task.claimedBy !== actor.userId && !head)) refuse('not-claimed', language, caseId);
+        const reassign = actor.permissions?.has('case:reassign') === true;
+        if (!task.claimedBy || (task.claimedBy !== actor.userId && !reassign)) refuse('not-claimed', language, caseId);
         await updateAudited(tx, caseTasks, task.id, task.rowVersion, { claimedBy: null, claimedAt: null });
         return this.get(tx, actor, caseId);
     }
@@ -423,6 +445,12 @@ export class CasesService {
             tx,
             page.map((r) => r.task.claimedBy)
         );
+        // a claim counts while its holder holds the role here (one lookup per role on the page)
+        const holders = new Map<string, Set<string>>();
+        for (const role of new Set(page.filter((r) => r.task.claimedBy).map((r) => r.task.role)))
+            holders.set(role, await this.holdersOf(tx, actor.unitId, role));
+        const heldBy = (task: TaskRow) =>
+            task.claimedBy && holders.get(task.role)?.has(task.claimedBy) ? task.claimedBy : null;
         return {
             items: page.map(({ task, ...r }): InboxItem => {
                 const def = defs.get(r.versionId);
@@ -440,7 +468,7 @@ export class CasesService {
                     routedFrom: task.routedFromUnitId ? label(task.routedFromUnitId) : null,
                     dueAt: task.dueAt?.toISOString() ?? null,
                     sla: r.sla,
-                    claimedBy: personOf(names, task.claimedBy),
+                    claimedBy: personOf(names, heldBy(task)),
                     mayAct: !excluded.has(actor.userId),
                     openedAt: task.createdAt.toISOString()
                 };
@@ -760,6 +788,22 @@ export class CasesService {
         return out;
     }
 
+    /**
+     * Who holds a step's claim, if they still may: the role in the step's unit, an active person in an active office (the
+     * reviewed `workflow.role_holders`). A claim of someone who left counts for nothing.
+     */
+    private async claimHeld(tx: Tx, task: TaskRow): Promise<string | null> {
+        if (!task.claimedBy) return null;
+        return (await this.holdersOf(tx, task.unitId, task.role)).has(task.claimedBy) ? task.claimedBy : null;
+    }
+
+    private async holdersOf(tx: Tx, unitId: string, role: string): Promise<Set<string>> {
+        const result = await tx.execute<{ id: string }>(
+            sql`select h as id from workflow.role_holders(${unitId}::uuid, ${role}) h`
+        );
+        return new Set(result.rows.map((r) => r.id));
+    }
+
     /** Stored definitions by version id (checked when stored: parsed for their types). */
     private async definitions(tx: Tx, versionIds: readonly string[]): Promise<Map<string, WorkflowDefinition>> {
         const wanted = [...new Set(versionIds)];
@@ -776,7 +820,8 @@ export class CasesService {
         const [task] = await tx
             .select()
             .from(caseTasks)
-            .where(and(eq(caseTasks.id, taskId), eq(caseTasks.caseId, row.id)));
+            .where(and(eq(caseTasks.id, taskId), eq(caseTasks.caseId, row.id)))
+            .for('update');
         if (!task) throw new NotFoundError();
         if (task.status !== 'open' || row.closedAt) refuse('task-closed', language, row.id);
         return task;
@@ -791,7 +836,7 @@ export class CasesService {
     ): Promise<PersonRef[]> {
         const result = await tx.execute<{ user_id: string; display_name: string }>(
             sql`select user_id, display_name from workflow.case_people(${caseId}::uuid, ${q}::text,
-                    ${ids ? `{${ids.join(',')}}` : null}::uuid[])`
+                    ${ids ? `{${ids.join(',')}}` : null}::uuid[], ${`{${this.readers.join(',')}}`}::text[])`
         );
         return result.rows.map((r) => ({ id: r.user_id, name: r.display_name }));
     }
@@ -821,11 +866,12 @@ export class CasesService {
         const units = await unitRefs(tx, [row.handlingUnitId, ...tasks.flatMap((t) => [t.unitId, t.routedFromUnitId])]);
         const label = (id: string): UnitLabel => units.get(id) ?? { id, code: '', name: {} };
         const open = tasks.find((t) => t.status === 'open');
-        // a step another person took on is theirs: the caller has no action on it
-        const mine = open && open.unitId === actor.unitId && (!open.claimedBy || open.claimedBy === actor.userId);
-        const rolesInUnit = new Set(mine ? actor.roles : []);
+        // a step another person took on is theirs while they hold the role there: the caller has no action on it
+        const held = open ? await this.claimHeld(tx, open) : null;
+        const takenByOther = held !== null && held !== actor.userId;
+        const rolesInUnit = new Set(open && open.unitId === actor.unitId && !takenByOther ? actor.roles : []);
         const actions =
-            row.closedAt || (open?.claimedBy && open.claimedBy !== actor.userId)
+            row.closedAt || takenByOther
                 ? []
                 : actionsFor(def, row.state, { kind: 'person', userId: actor.userId, rolesInUnit }, row.startedBy);
         const current = stateOf(def, row.state);
@@ -851,7 +897,10 @@ export class CasesService {
             ...events.flatMap((e) => [e.actorUserId, ...mentionsOf(e)]),
             ...filed.map((s) => s.submittedBy)
         ]);
-        const now = Date.now();
+        // the database's clock, as the inbox's
+        const now = new Date(
+            (await tx.execute<{ now: Date | string }>(sql`select now() as now`)).rows[0]?.now ?? Date.now()
+        ).getTime();
         return {
             id: row.id,
             version: row.rowVersion,
@@ -890,7 +939,7 @@ export class CasesService {
                 action: t.action,
                 dueAt: t.dueAt?.toISOString() ?? null,
                 sla: t.status === 'open' ? slaOf(t.dueAt, now) : 'none',
-                claimedBy: personOf(names, t.claimedBy),
+                claimedBy: personOf(names, t.status === 'open' && t.id === open?.id ? held : t.claimedBy),
                 openedAt: t.createdAt.toISOString(),
                 closedAt: t.closedAt?.toISOString() ?? null
             })),
@@ -925,7 +974,7 @@ export class CasesService {
     }
 }
 
-/** Where an open step stands against its due time (as the inbox says it, from the database's clock). */
+/** Where an open step stands against its due time at `now` (the database's clock, as the inbox says it). */
 function slaOf(dueAt: Date | null, now: number): SlaState {
     if (!dueAt) return 'none';
     if (dueAt.getTime() <= now) return 'overdue';

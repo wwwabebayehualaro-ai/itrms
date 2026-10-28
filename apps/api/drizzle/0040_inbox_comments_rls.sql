@@ -1,7 +1,8 @@
 -- The inbox and comments (task 0.20b), hand-written: claiming a step, comments on the timeline, and one reviewed
 -- SECURITY DEFINER function:
---   workflow.case_people   the people who work on a case the caller sees (an active role in its handling unit or an
---                          office above it): whom a comment may mention, by name or by id; ids and display names only
+--   workflow.case_people   the people who work on a case the caller sees (an active role that reads cases, in its
+--                          handling unit or an office above it): whom a comment may mention, by name or by id; ids and
+--                          display names only. The roles that read cases come from the application (the manifests)
 ALTER TABLE "workflow"."case_tasks"
     ADD CONSTRAINT "case_tasks_claimed_check" CHECK (("claimed_by" IS NULL) = ("claimed_at" IS NULL));
 --> statement-breakpoint
@@ -15,7 +16,7 @@ ALTER TABLE "workflow"."case_events"
 --> statement-breakpoint
 GRANT UPDATE ("claimed_by", "claimed_at") ON "workflow"."case_tasks" TO itrms_app;
 --> statement-breakpoint
-CREATE FUNCTION "workflow"."case_people"(p_case uuid, p_q text, p_ids uuid[])
+CREATE FUNCTION "workflow"."case_people"(p_case uuid, p_q text, p_ids uuid[], p_roles text[])
     RETURNS TABLE (user_id uuid, display_name text)
     LANGUAGE sql
     STABLE
@@ -31,6 +32,7 @@ AS $$
        -- a case the caller sees
        AND c.region_id = nullif(current_setting('app.region_id', true), '')::uuid
        AND c.org_path <@ nullif(current_setting('app.scope_path', true), '')::ltree
+       AND ra.role_key = ANY (p_roles)
        AND ra.valid_from <= now()
        AND (ra.valid_to IS NULL OR ra.valid_to > now())
        AND us.active
@@ -42,6 +44,6 @@ AS $$
      LIMIT 50
 $$;
 --> statement-breakpoint
-REVOKE ALL ON FUNCTION "workflow"."case_people"(uuid, text, uuid[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION "workflow"."case_people"(uuid, text, uuid[], text[]) FROM PUBLIC;
 --> statement-breakpoint
-GRANT EXECUTE ON FUNCTION "workflow"."case_people"(uuid, text, uuid[]) TO itrms_app;
+GRANT EXECUTE ON FUNCTION "workflow"."case_people"(uuid, text, uuid[], text[]) TO itrms_app;
