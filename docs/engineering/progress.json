@@ -823,10 +823,21 @@
         {
           "id": "0.20c",
           "title": "Workflow engine, part 2c: drafts",
-          "status": "in progress",
+          "status": "done",
           "branch": "task/0.20c-drafts",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "4bba743",
+            "25dcbb0",
+            "adcf611"
+          ],
+          "evidence": [
+            "GitHub CI run 40694793026 on adcf611 (PR #20): all 9 jobs success — checks, infra+test:int, e2e, perf, stories/axe, Semgrep, gitleaks, Trivy, licence report",
+            "pnpm test:int (CI) → 19 files / 353 tests on PostgreSQL 16, incl. forms-drafts.int.spec.ts (5: own drafts only — a same-unit colleague, another office 404, a role without submission:create 403; stale If-Match 409; the version move; removed by the filing in its transaction, another's draftId ignored; audit insert/update/delete with the answers masked) and isolation.int.spec.ts (50: forms.submission_drafts declared, class T policies)",
+            "Done when — a draft resumes where it was left, on another PC from the server and after a dropped network from the browser; no Sensitive field in the browser's storage: e2e forms/drafts › goes on on another PC (the Sensitive answer from the server), the network dropped while typing keeps the change in IndexedDB, unsealed in the browser with its own key as [{applicant, town}] (no phone), reaches the server when the link is back, filed from the draft on a third PC, which then has no draft",
+            "Unit: seal (round trip, wrong key, non-extractable, fresh IV, tamper), mergeAnswers (row by row, rows added/removed), withoutSensitive (Sensitive, inside a Sensitive container, unclassified, unknown keys, rows) and the unclassified lint; form-engine 293, web suites, forms, schemas green in CI; i18n am/en complete; boundaries clean; OpenAPI regenerated; migrations 0041 (generated), 0042 (checks, grants, RLS)",
+            "e2e (CI) → 13 journeys passed (incl. forms/drafts), no flaky",
+            "Reviewer: 0 high, 5 medium, 9 low, all fixed (25dcbb0) but drafts' retention (→ 0.26) and field encryption by class (→ Phase 1); Semgrep's Math.random fallback replaced (adcf611). task-verifier: all Done when/Do/Tests met; the unclassified rule is a publish-check warning by decision (notes)"
+          ],
           "blockers": [],
           "notes": "Field classification on stored form fields (public/internal/personal/sensitive; unset = personal, lint warning 'unclassified'); designer select in the Inspector. Server drafts: forms.submission_drafts (class T at the unit; ownership by created_by in the service, not a policy: the unit move rewrites scopes as the API and a creator policy would skip others' drafts), /api/v1/form-drafts with submission:create, answers via knownValues (no validation), move to a newer published version on save, removed by a submission's draftId in the same tx. Browser: Dexie 4.4.6 (ADR-0024) db itrms-drafts, AES-GCM 256 non-extractable key per user stored as CryptoKey, answers withoutSensitive (engine); local save after 1.5 s, server after 6 s, retry on 'online'; explicit sign-out deletes key + drafts, warning when unsynced. UI: drafts on the start page and on a form's requests page, the request editor and start dialog fill through DraftedForm. Decision: an unclassified field is a publish-check warning, not an error. Unset counts as personal (encrypted, kept locally); blocking would refuse every form published before classes existed. The approver (maker-checker) sees the warning in the publish review, which is SEC-DC-1's review. Verifier (4bba743): all Done when/Do/Tests met by code and tests, pending CI; the Dexie timers and retry are covered by the e2e journey only. Review (2026-10-28): 0 high, 5 medium, 9 low. Fixed: M1 row-wise resume merge (mergeAnswers, rows merged only when counts match); M2 no clock comparison (synced flag + baseVersion = the server version the local change was made on; older base = conflict shown, server wins); M3 leaving the form sends the pending save; M4 the browser keeps only classified non-Sensitive answers (unclassified stay on the server); M5 sign-out never blocked by IndexedDB; L6 forget broadcast to other tabs; L7 key creation race (add + re-read); L8 stale local copies cleaned or shown as only-here; L9 409 retried on the latest version; L10 stable Idempotency-Key for the create; L11 lists and saves without answers (DraftSummary); L13 no WebCrypto → server-only drafts. L12 retention → 0.26, field encryption by class → Phase 1; L14 in the threat model (row 18)."
         },
