@@ -866,8 +866,8 @@
           "notes": "Approvals: GET /v1/form-publications takes scope (all/mine/decidable, canDecide's rule in SQL) and a cursor (before = last id; UUIDv7 newest first); /count for the badge. Tasks: GET /me/tasks/count {open, overdue, unclaimed}. Shell: forms manifest menu 'Approvals' (my-work, form:approve); badges on workflow.inbox and forms.approvals (lib/workspace, every 60 s and after a case change); home page MyTasksWidget. Masking: present() leaves Sensitive answers out (maskSensitive, named in masked) unless a workflow step's own clear use; the data viewer/exports use openFieldsFor (no Sensitive field to show, filter, sort, export); POST /submissions/{id}/reveal (pii:reveal, reason, audited submission.revealed, @NotReplayable); record page SensitiveAnswers panel. The API now registers the forms catalogue (its menu label and its notices were unresolved: a 0.20b gap for export notices). Review (2026-10-28): H1 the reveal now needs a fresh second factor (recentAuth 300 s, as a person's); M1 recorded before the read in its own transaction (kernel reveal(), probes on record); M2 needs submission:read too; M3 a data class change is in the publication diff (area classification, view-breaking); M4 no Sensitive field in the filterable values (openFieldsFor) + lint error sensitive-filterable; L1 case steps carry masked + a link to the record; L2 the audit names the exact fields; L7 scope=mine without a user is empty; L8 comment; L9 revealed values printed as the form prints them. Follow-ups: field-list reveal (Phase 1), reveal rate limits (0.26), unclassified release decision (0.21), stale-claim count (0.26). The test kit's tokens now carry auth_time (As.authAge for a step-up)."
         },
         {
-          "id": "0.21",
-          "title": "Service catalogue and configuration inheritance",
+          "id": "0.21a",
+          "title": "Configuration inheritance, part 1: the resolver and the settings registry",
           "status": "planned",
           "branch": null,
           "commits": [],
@@ -876,7 +876,27 @@
           "notes": ""
         },
         {
-          "id": "0.21a",
+          "id": "0.21b",
+          "title": "Configuration inheritance, part 2: the service catalogue and frozen configuration",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.21c",
+          "title": "Configuration inheritance, part 3: service admin screens and requests as cases",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.21d",
           "title": "Form governance, part 2: effect contracts and form tiers",
           "status": "planned",
           "branch": null,
@@ -1643,7 +1663,7 @@
     {
       "foundIn": "0.4b",
       "item": "Theme and density are remembered per browser; read and save them as the ui.theme / ui.density user preferences (region defaults)",
-      "movedTo": "0.21"
+      "movedTo": "0.21a"
     },
     {
       "foundIn": "0.4b",
@@ -1765,7 +1785,7 @@
     {
       "foundIn": "0.8",
       "item": "Service overrides: If-Match on PUT/DELETE /org-units/{id}/services/{code}; codes checked against service_definitions; which units may override which services (allowed-overrides policy per service version)",
-      "movedTo": "0.21"
+      "movedTo": "0.21b"
     },
     {
       "foundIn": "0.8",
@@ -1847,7 +1867,7 @@
     {
       "foundIn": "0.10",
       "item": "Maker-checker on role grants (SEC-AC-6): a second administrator confirms; self-grant and own revocation are already refused",
-      "movedTo": "0.21"
+      "movedTo": "0.21c"
     },
     {
       "foundIn": "0.10",
@@ -1910,7 +1930,7 @@
     {
       "foundIn": "0.10b",
       "item": "Unknown service codes in menu requires are not checked against the service catalogue",
-      "movedTo": "0.21"
+      "movedTo": "0.21b"
     },
     {
       "foundIn": "0.11",
@@ -1958,7 +1978,7 @@
     {
       "foundIn": "0.13",
       "item": "Settings PUT below the region answers 404 for an existing row and 403 for a new one: make both 403",
-      "movedTo": "0.21"
+      "movedTo": "0.21a"
     },
     {
       "foundIn": "0.14",
@@ -2066,7 +2086,7 @@
     {
       "foundIn": "0.16a",
       "item": "The legacy runtime.submit.serverAction is not run: a service version names module effects instead",
-      "movedTo": "0.21"
+      "movedTo": "0.21b"
     },
     {
       "foundIn": "0.16a",
@@ -2081,7 +2101,7 @@
     {
       "foundIn": "0.16b",
       "item": "A transfer of a submission's handling unit must move its submission_values rows too (they carry handling_unit_id for their scope)",
-      "movedTo": "0.21"
+      "movedTo": "0.21b"
     },
     {
       "foundIn": "0.16b",
@@ -2136,7 +2156,7 @@
     {
       "foundIn": "0.16e",
       "item": "How long exports are kept (7 days) and the background limit (100 000 rows) as region settings",
-      "movedTo": "0.21"
+      "movedTo": "0.21a"
     },
     {
       "foundIn": "0.16e",
@@ -2146,12 +2166,12 @@
     {
       "foundIn": "0.16c",
       "item": "Cross-form request lists by state (waiting, recent) and changing a request after it is filed: the case workflow and its inbox",
-      "movedTo": "0.21 (needs requests started as cases)"
+      "movedTo": "0.21c"
     },
     {
       "foundIn": "0.16c",
       "item": "Server actions on submit: the designer offers none until service configuration names module effects",
-      "movedTo": "0.21"
+      "movedTo": "0.21c"
     },
     {
       "foundIn": "0.16c",
@@ -2177,7 +2197,7 @@
     {
       "foundIn": "0.16c",
       "item": "Editing a filed request (PATCH, re-validated on its version, keeping role-restricted values) as a workflow transition",
-      "movedTo": "0.21"
+      "movedTo": "0.21c"
     },
     {
       "foundIn": "0.16c",
@@ -2294,22 +2314,22 @@
     {
       "foundIn": "0.18a",
       "item": "Impact analysis: filter saved views on the changed keys in SQL instead of reading the first 500 by name, and report views whose config no longer parses (now skipped silently)",
-      "movedTo": "0.21a"
+      "movedTo": "0.21d"
     },
     {
       "foundIn": "0.18a",
       "item": "Governance HTTP tests still missing: the approval re-check refusing (422, form and publication unchanged), key-moved into/out of a FormArray, restore of an old version through PATCH keeping published keys, the approver's review listing the approver's own private view and not the requester's",
-      "movedTo": "0.21a"
+      "movedTo": "0.21d"
     },
     {
       "foundIn": "0.19a",
       "item": "Check that the effects (and workflow versions) named by seeded and published service versions exist: the EffectRegistry's keys, WorkflowDefinitionsService",
-      "movedTo": "0.21"
+      "movedTo": "0.21b"
     },
     {
       "foundIn": "0.19a",
       "item": "Workflow definitions admin: PATCH name/active (switch a workflow off), a definitions screen with the check's problems, and maker-checker if a stored version should need a second person before a service version can name it",
-      "movedTo": "0.21"
+      "movedTo": "0.21c"
     },
     {
       "foundIn": "0.19b",
@@ -2325,17 +2345,17 @@
     {
       "foundIn": "0.20b",
       "item": "Case page: an action that files the step's form is shown disabled; take it with the form where the service's request flow renders it",
-      "movedTo": "0.21"
+      "movedTo": "0.21c"
     },
     {
       "foundIn": "0.20b",
       "item": "Case page: a lookup answer in a step's printed answers shows the record's id, not its label (PrintForm refs)",
-      "movedTo": "0.21"
+      "movedTo": "0.21c"
     },
     {
       "foundIn": "0.20b",
       "item": "POST /api/v1/cases starts any active workflow the office reads, with no service configuration (interim intake): restrict it to workflows a service enabled for the unit names, or remove it",
-      "movedTo": "0.21"
+      "movedTo": "0.21b"
     },
     {
       "foundIn": "0.20b",
@@ -2370,7 +2390,7 @@
     {
       "foundIn": "0.20d",
       "item": "Decide unclassified answers in lists and exports: SEC-DC-1 says unlabelled is not released and the classification table masks Personal in exports, while unset counts as personal and is shown (Sensitive alone masked); an ADR or a doc fix",
-      "movedTo": "0.21"
+      "movedTo": "0.21c"
     },
     {
       "foundIn": "0.20d",

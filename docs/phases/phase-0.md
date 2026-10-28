@@ -553,7 +553,7 @@ Split on 2026-10-26 (0.17c print and texts, 0.17d the engine's own text, 0.17e t
 
 ### 0.18a Form governance: stability, checks, tests
 Split on 2026-10-26: effect contracts, the service-version mapping, overlay tiers and the impact on cases, effects and
-overlays need cases (0.19) and service versions and overlays (0.21); they moved to **0.21a**. The fee in test cases waits
+overlays need cases (0.19) and service versions and overlays (0.21); they moved to **0.21a** (now **0.21d**). The fee in test cases waits
 for 0.22.
 - **Do** ([form-platform.md](../platform/form-platform.md) §2–§4):
   - **Key stability:** keys immutable after the first publish; "remove" hides the field in new versions and keeps its data.
@@ -655,7 +655,7 @@ did not fit one session. The screens people act on come first; drafts and the re
 Needs 0.20b. Split on 2026-10-28: drafts are a security feature of their own (SEC-WB-3: what a browser keeps leaves out
 the Sensitive fields and is encrypted for its user), which needs the form fields' classification (SEC-DC-1) first. The
 approvals inbox, badges and role workspaces follow in **0.20d**; changing a filed request through its case moves to
-**0.21** (it needs requests started as cases).
+**0.21** (now **0.21c**: it needs requests started as cases).
 - **Do:**
   - A form field's classification (SEC-DC-1: public, internal, personal, sensitive), set in the designer and checked
     when a version is published.
@@ -679,23 +679,66 @@ Needs 0.20c.
   masks a Sensitive field.
 - **Tests:** the approvals inbox's integration tests, the workspace and saved-view journeys, the masking tests.
 
-### 0.21 Service catalogue and configuration inheritance
-- **Do:**
+### 0.21a Configuration inheritance, part 1: the resolver and the settings registry
+Split on 2026-10-28: 0.21 did not fit one session (the settings registry, the service catalogue, its admin screens and
+some twenty follow-ups). The one resolver (architecture.md §7) and the settings registry on it come first; the service
+catalogue's API follows in **0.21b**, its screens and requests started as cases in **0.21c**; the old 0.21a (effect
+contracts and form tiers) is now **0.21d**.
+- **Do** (ADR-0026, [org-and-unit-types.md](../platform/org-and-unit-types.md) §4):
+  - **One resolver** as pure functions: walks the unit's real ltree ancestors, then its unit type, then the unit (then the
+    user for a preference); the nearest value wins per key; a level a key does not allow is refused; the answer names
+    where each value comes from. The service configuration (0.21b) uses the same resolver.
+  - Settings declared once in code (key, Zod type, default, `overridableAt`, `userPreference`, `sensitive`) in the
+    manifests, checked at start-up; `settings_values` extended from one row per region to a scope (installation, org
+    unit, unit type, user), class C (a user's own preferences only for that user).
+  - The API: a unit's effective settings with their source, set and reset at a level (If-Match, audited), a person's
+    preferences; the workspace carries the effective settings.
+  - The settings admin screen: each value with where it comes from, override and reset at the levels the admin may write.
+  - The settings follow-ups: theme and density as user preferences (region defaults), export retention and the background
+    export limit as region settings, PUT below the region answering 403 alike for a new and an existing row.
+- **Done when:** a zone value overrides the region's for its subtree only and a unit's own value beats both; a level a
+  key does not allow is refused; reset brings back the inherited value; the admin screen shows where each value comes
+  from; a person's theme follows them to another PC.
+- **Tests:** resolver unit tests (precedence through real ancestors incl. a region without zones, unit type, user,
+  disallowed levels, provenance); integration tests (RLS of the new scopes, sibling units Damot Gale and Boditi, Test
+  Zone B, audit, If-Match); a settings screen e2e journey.
+
+### 0.21b Configuration inheritance, part 2: the service catalogue and frozen configuration
+Needs 0.21a.
+- **Do** (architecture.md §6.2, §7):
   - `service_definitions` (all 54 seeded with codes and Amharic/English names, most marked `not_configured`).
-  - `service_versions` (form + workflow + fee rule + templates + `overridePolicy`), `service_overrides` (class C).
-  - The **settings registry** (ADR-0026):
-    - settings declared in code (key, Zod type, default, `overridableAt`, `userPreference`), stored in `settings_values`;
-    - resolved product → installation → region → zone → unit type → unit → user;
-    - an admin screen that shows where each value comes from, with override and reset.
-  - The resolution algorithm root → unit; freezing the resolved config on case creation; publish-time cross-checks.
-  - Admin screens: catalogue, version publish, override editor showing what is inherited and what is overridden.
+  - `service_versions` (form + workflow + fee rule + templates + `overridePolicy`, effective dates), `service_overrides`
+    (class C): enabled, SLA hours, `approval_unit`, help texts, a form overlay, the template header.
+  - Resolution root → unit through the 0.21a resolver; publish-time cross-checks (the form and workflow versions exist,
+    the named effects are registered); a new bureau version re-applies the overlays and reports conflicts.
+  - Starting a case from a service enabled for the unit: the resolved configuration frozen on the case (hash + version
+    ids); the interim intake (`POST /cases` on any workflow) replaced by it.
+  - The service follow-ups: unit service overrides checked against the catalogue with If-Match and the version's policy;
+    menu `requires` checked against the catalogue; a transfer of a handling unit moving the submission values too.
 - **Done when:** a woreda override of an allowed key (SLA, help text, extra field) applies to that woreda's new cases only;
   a disallowed key is refused; publishing a new bureau version re-applies overlays and reports conflicts; open cases keep
   their frozen config.
-- **Tests:** resolution unit tests (precedence, disallowed keys, overlay conflicts) and integration tests across sibling units (Damot Gale, Boditi) and Test Zone B.
+- **Tests:** resolution unit tests (precedence, disallowed keys, overlay conflicts) and integration tests across sibling
+  units (Damot Gale, Boditi) and Test Zone B.
 
-### 0.21a Form governance, part 2: effect contracts and form tiers
-Moved from 0.18a on 2026-10-26 (it needs cases, service versions and overlays). Needs 0.21.
+### 0.21c Configuration inheritance, part 3: service admin screens and requests as cases
+Needs 0.21b.
+- **Do:**
+  - Admin screens: the catalogue, version publish, the override editor showing what is inherited and what is
+    overridden; the workflow definitions screen (with the check's problems, switching a workflow off).
+  - Requests started as cases at the counter through their service; the case page takes a step's form where the
+    service's request flow renders it; cross-form request lists by state; changing a filed request as a workflow
+    transition (re-validated on its version, keeping role-restricted values).
+  - The remaining follow-ups moved to 0.21: maker-checker on role grants (SEC-AC-6), lookup labels in a step's printed
+    answers, the release of unclassified answers (an ADR or a doc fix).
+- **Done when:** an admin publishes a service version and a woreda admin overrides its SLA from the screens; a request
+  filed at the counter starts a case of its service; a filed request changed through its case is re-validated and audited.
+- **Tests:** admin screen e2e journeys (catalogue, publish, override); a request-as-case e2e journey; integration tests
+  for the change-request transition and the role-grant confirmation.
+
+### 0.21d Form governance, part 2: effect contracts and form tiers
+Moved from 0.18a on 2026-10-26 (it needs cases, service versions and overlays); renamed from 0.21a when 0.21 was split on
+2026-10-28. Needs 0.21c.
 - **Do** ([form-platform.md](../platform/form-platform.md) §2–§4):
   - **Effect input contracts** in module manifests (Zod), a service-version mapping from contract paths to form keys,
     contract fields locked in the builder (key, type, required), and publish failing when a contract is unmet. This
@@ -790,7 +833,7 @@ Moved from 0.18a on 2026-10-26 (it needs cases, service versions and overlays). 
 - **Tests:** the restore drill script with checks; the smoke load test thresholds in CI (nightly).
 
 ## Phase acceptance criteria
-1. All tasks done (0.1–0.26 with 0.19 as 0.19a and 0.19b, 0.20 as 0.20a, 0.20b, 0.20c and 0.20d, 0.4a, 0.4b, 0.4c, 0.18a and 0.21a), CI green on `main` (lint, typecheck, unit, integration on Postgres, isolation matrix, i18n keys,
+1. All tasks done (0.1–0.26 with 0.19 as 0.19a and 0.19b, 0.20 as 0.20a, 0.20b, 0.20c and 0.20d, 0.4a, 0.4b, 0.4c, 0.18a, and 0.21 as 0.21a, 0.21b, 0.21c and 0.21d), CI green on `main` (lint, typecheck, unit, integration on Postgres, isolation matrix, i18n keys,
    security scans, e2e).
 2. The demo journey runs in Amharic and English (Wolaytta with fallback) across Boditi, the zone and Damot Gale. A user of one office
    sees none of the other office's cases,
@@ -802,7 +845,7 @@ Moved from 0.18a on 2026-10-26 (it needs cases, service versions and overlays). 
 ## Tests to write in this phase (summary)
 Isolation matrix (0.9); audit-in-transaction (0.7); numbering concurrency (0.11); calendar reference + property tests
 (0.12); i18n completeness (0.13); shared validation cases (0.16a); workflow engine suite (0.19a, 0.19b); SLA date math (0.20a);
-configuration resolution (0.21); fee goldens (0.22); PDF goldens (0.23); demo e2e (0.25); restore drill (0.26).
+configuration resolution (0.21a, 0.21b); fee goldens (0.22); PDF goldens (0.23); demo e2e (0.25); restore drill (0.26).
 
 ## Open questions for the product owner (block or shape Phase 0)
 1. ~~Object storage~~ **Decided:** SeaweedFS (ADR-0020). Every technical question is answered in [tech-stack.md](../tech-stack.md).
