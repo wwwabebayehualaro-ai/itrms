@@ -24,6 +24,7 @@ import am from '../../messages/am.json';
 import en from '../../messages/en.json';
 import type { CasesService } from '../cases.service';
 import { SYSTEM_TIMER } from '../engine/rules';
+import { tellMentioned } from './comments';
 import { cases, caseTasks, workflowDefinitionVersions } from '../workflow.table';
 
 export interface SlaDeps {
@@ -182,7 +183,7 @@ export async function slaSweep(system: SystemDatabase, deps: SlaDeps): Promise<n
     return handled;
 }
 
-/** The SLA timers' handlers: an event that became available at its due time. */
+/** The workflow's handlers: the SLA timers (an event that became available at its due time) and a comment's mentions. */
 export function workflowHandlers(system: SystemDatabase, deps: SlaDeps): Record<string, OutboxHandler> {
     return {
         'case-task.due.v1': async (job) => {
@@ -190,6 +191,9 @@ export function workflowHandlers(system: SystemDatabase, deps: SlaDeps): Record<
         },
         'case.wait-due.v1': async (job) => {
             await waitTimeout(system, deps, WORKFLOW_EVENTS['case.wait-due.v1'].parse(job.payload).caseId);
+        },
+        'case.commented.v1': async (job) => {
+            await tellMentioned(system, WORKFLOW_EVENTS['case.commented.v1'].parse(job.payload));
         }
     };
 }

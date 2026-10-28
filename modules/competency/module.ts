@@ -15,7 +15,7 @@ const REGISTER_INTAKE = [
 ];
 
 // a case's steps (@itrms/workflow, task 0.19b): which step a role acts on is the workflow's business
-const CASE_ACT = ['case:read', 'case:act'];
+const CASE_ACT = ['case:read', 'case:act', 'case:comment'];
 
 export default defineModule({
     key: 'competency',

@@ -25,9 +25,10 @@ const AUTHOR_FORMS = ['form:create', 'form:update', 'form:publish'];
 // not live until a service version names it (0.21)
 const AUTHOR_WORKFLOWS = ['workflow-definition:read', 'workflow-definition:create', 'workflow-definition:update'];
 // cases (@itrms/workflow, task 0.19b; roles-and-permissions.md §2 `case`): who acts on a step is the engine's business (the
-// step's role in its unit); `case:act` lets the operational roles try
+// step's role in its unit); `case:act` lets the operational roles try, and comment on the timeline (0.20b); intake starts
+// cases (`case:create`)
 const CASE_READ = ['case:read'];
-const CASE_ACT = ['case:read', 'case:act'];
+const CASE_ACT = ['case:read', 'case:act', 'case:comment'];
 
 export default defineModule({
     key: 'kernel',
@@ -99,7 +100,15 @@ export default defineModule({
             ...CASE_ACT
         ],
         // at intake: checks the identity of the person in front of them
-        records_officer: [...READ_ORG, ...INTAKE, ...CASE_ACT, 'pii:reveal', 'submission:create', 'submission:read'],
+        records_officer: [
+            ...READ_ORG,
+            ...INTAKE,
+            ...CASE_ACT,
+            'case:create',
+            'pii:reveal',
+            'submission:create',
+            'submission:read'
+        ],
         cashier: [...READ_ORG, ...REGISTER, ...CASE_ACT, 'submission:read'],
         finance_officer: [...READ_ORG, ...REGISTER, ...CASE_ACT, 'submission:read', 'submission:export'],
         auditor: [

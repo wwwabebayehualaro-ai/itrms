@@ -16,5 +16,7 @@
   "forms.validation.tooManyChoices": "At most {max} choices",
   "forms.validation.invalidReference": "This record was not found or can no longer be chosen",
   "forms.validation.fileNotUsable": "This file cannot be used: upload it again",
-  "forms.validation.wrongDocumentType": "This file is not the kind of document asked for"
+  "forms.validation.wrongDocumentType": "This file is not the kind of document asked for",
+  "forms.notify.export-ready": "Your export is ready: {rows} rows.",
+  "forms.notify.export-failed": "Your export could not be made: open the data viewer to see why."
 }

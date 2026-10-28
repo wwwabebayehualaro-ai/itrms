@@ -800,12 +800,12 @@
         {
           "id": "0.20b",
           "title": "Workflow engine, part 2b: inbox, case page, comments",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.20b-inbox-case-page",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Claims: case_tasks.claimed_by/claimed_at; a step claimed by another refuses their claim and transition (409); release by the claimer or a unit_head of the step's unit. Inbox GET /api/v1/me/tasks: unit = active unit, role in the roles held there, cursor = last task id (keys compared in SQL), due-soon = within 4 wall-clock hours, mayAct from separation of duties. Comments = case_events kind comment (data.mentions, visibility internal), case:comment with case:act; mentions checked by the reviewed workflow.case_people (active role at the handling unit or above), told by the worker on case.commented.v1, once each (dedup by link.eventId), in-app only. POST /api/v1/cases (case:create, records_officer) starts a case on a workflow's newest version until service requests (0.21). Step answers: the transition event records data.submissionId; the case API returns the version document + role-filtered answers, printed with PrintForm."
         },
         {
           "id": "0.20c",
@@ -1851,7 +1851,7 @@
     {
       "foundIn": "0.10b",
       "item": "Badges, the notifications bell and role workspaces (home widgets) in the shell",
-      "movedTo": "0.20b (the bell), 0.20c (badges, role workspaces)"
+      "movedTo": "0.20c (badges, role workspaces; the bell came in 0.20b)"
     },
     {
       "foundIn": "0.10b",
@@ -2059,7 +2059,8 @@
     {
       "foundIn": "0.16d",
       "item": "A submission's history shows only its own audit rows: add its case's steps when cases exist",
-      "movedTo": "0.20b"
+      "movedTo": "0.20b",
+      "closedIn": "0.20b: a step form's record links to its case, whose timeline holds the steps; the case page shows each step's answers"
     },
     {
       "foundIn": "0.16d",
@@ -2079,7 +2080,8 @@
     {
       "foundIn": "0.16e",
       "item": "Tell the requester when a background export is ready (an in-app notification)",
-      "movedTo": "0.20b"
+      "movedTo": "0.20b",
+      "closedIn": "0.20b: the worker tells the requester when a background export is ready or failed (forms.notify.export-ready/-failed)"
     },
     {
       "foundIn": "0.16e",
@@ -2267,6 +2269,16 @@
       "foundIn": "0.20a",
       "item": "Select: the open listbox has no accessible name unless the caller passes aria-labelledby (the select story now does); give SelectContent its trigger's label by default (e.g. a context carrying the field label id) so every form's open list is named",
       "movedTo": "0.26 (hardening)"
+    },
+    {
+      "foundIn": "0.20b",
+      "item": "Case page: an action that files the step's form is shown disabled; take it with the form where the service's request flow renders it",
+      "movedTo": "0.21"
+    },
+    {
+      "foundIn": "0.20b",
+      "item": "Case page: a lookup answer in a step's printed answers shows the record's id, not its label (PrintForm refs)",
+      "movedTo": "0.21"
     }
   ]
 }

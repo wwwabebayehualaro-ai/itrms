@@ -22,6 +22,7 @@ import {
     type GeneratedObject,
     type ObjectStore
 } from '@itrms/kernel/files';
+import { notify } from '@itrms/kernel/notifications';
 import { orgUnits, users } from '@itrms/kernel/tables';
 import { roleAssignments } from '@itrms/kernel/iam';
 
@@ -106,8 +107,24 @@ export async function runExport(system: SystemDatabase, deps: ExportDeps, export
             await updateAudited(tx, submissionExports, exportId, current.rowVersion, changes);
             return true;
         });
-    const fail = (code: ExportFailure, detail: string) =>
-        end({ status: 'failed', errorCode: code, error: detail.slice(0, 500), finishedAt: new Date() });
+    // the requester is told when it ends (task 0.20b), from the system context: the app's role writes no notifications
+    const tell = (messageKey: string, params: Record<string, string> = {}) =>
+        system.systemContext('forms.export_notice', (tx) =>
+            notify(tx, [
+                {
+                    userId: job.createdBy ?? '',
+                    regionId: job.regionId,
+                    unitId: job.unitId,
+                    messageKey,
+                    params,
+                    link: { formId: job.formId, exportId }
+                }
+            ])
+        );
+    const fail = async (code: ExportFailure, detail: string) => {
+        if (await end({ status: 'failed', errorCode: code, error: detail.slice(0, 500), finishedAt: new Date() }))
+            await tell('forms.notify.export-failed');
+    };
 
     if (!deps.permissionsOf(roles).has('submission:export')) {
         await fail('not_permitted', 'You no longer hold the right to export in this office.');
@@ -171,6 +188,7 @@ export async function runExport(system: SystemDatabase, deps: ExportDeps, export
             });
             return true;
         });
+        if (recorded) await tell('forms.notify.export-ready', { rows: String(table.rows.length) });
     } catch (error) {
         const refused =
             error instanceof ExportRefused

@@ -59,3 +59,28 @@ Layer: platform. Shape, public entries and rules: [code-structure.md](../../docs
   handles it in the worker: an overdue step is marked and its office's heads told (`workflow.notify.overdue`), the office
   above too (`workflow.notify.escalated`), by in-app notification and the fake SMS gateway; a wait leaves by its timeout.
   A 15-minute sweep (`slaSweep`) catches lost timers. Each runs once whatever the order.
+
+## Inbox, case page and comments (task 0.20b)
+
+- Intake starts a case on a workflow's newest version (`POST /api/v1/cases`, `case:create`, the records officer); a
+  service request (0.21) starts one with the configuration it resolved.
+- The inbox (`GET /api/v1/me/tasks`) lists the open steps of the caller's active unit for the roles they hold there, by
+  due time (overdue first, no SLA last), then the oldest; filters `claim` (all, mine, unclaimed), `sla` (overdue,
+  due-soon: within `DUE_SOON_HOURS`), `state`, `number`; a cursor (`after`: the last task of the page before). A step
+  separation of duties keeps the caller off is listed with `mayAct: false`.
+- A step is taken on (`…/tasks/{taskId}/claim`) by one of the role's holders in its unit; the others see whose it is,
+  may not act on it, and it is given back (`…/release`) by its holder or a head of the office (`unit_head`).
+- The case page (`GET /api/v1/cases/{id}`) carries names, the states' labels, the actions with their labels and whether
+  they need a comment or the step's form, the open step's SLA and claim, and each step form's answers (`steps`: the
+  version's document and the answers the caller may see; the transition that filed them names the submission).
+- A comment (`POST /api/v1/cases/{id}/comments`, `case:comment`) is a `comment` event on the timeline, internal. The
+  people it mentions must work on the case: an active role in its handling office or one above it, found through the
+  reviewed `workflow.case_people` (`GET …/people?q=` for the picker). The worker tells them (`case.commented.v1`,
+  `api/jobs/comments.ts`: `workflow.notify.mentioned`, in the application only, once each).
+
+| Route | Permission |
+|---|---|
+| `POST /api/v1/cases` (a workflow's newest version, the caller's unit) | `case:create` |
+| `GET /api/v1/me/tasks` | `case:act` |
+| `POST /api/v1/cases/{id}/tasks/{taskId}/claim`, `…/release` | `case:act`, then the step's role in its unit |
+| `POST /api/v1/cases/{id}/comments`, `GET /api/v1/cases/{id}/people` | `case:comment` |

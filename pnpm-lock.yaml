@@ -395,6 +395,9 @@ importers:
       '@itrms/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@itrms/workflow':
+        specifier: workspace:*
+        version: link:../../platform/workflow
       '@tanstack/react-form':
         specifier: 1.33.5
         version: 1.33.5(react-dom@19.3.0(react@19.3.0))(react@19.3.0)

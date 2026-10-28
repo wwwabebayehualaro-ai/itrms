@@ -19,4 +19,9 @@ admin password from `infra/compose/.env`: nothing secret is in this folder. Each
   its own forms through the API (`forms/support.ts`) and switches them off afterwards, so they repeat on the same
   database.
 
+- `workflow/`: the inbox and the case page (task 0.20b): Damot Gale's records officer finds a review in "My tasks",
+  takes it on and opens the case; on the case page they comment mentioning the office's head and forward it, and the head
+  is told (the worker relays the mention), opens the case from the bell and approves it. Each run makes its own workflow
+  (by `demo.zone.admin`) and its own cases through the API (`workflow/support.ts`).
+
 `legacy/` holds what is left of the old engine journeys, not run (its README says why).

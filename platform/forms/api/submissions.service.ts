@@ -5,7 +5,7 @@
  * stored is what was checked. A submission keeps its version for good: publishing a newer one never touches it.
  */
 import { Injectable } from '@nestjs/common';
-import { and, desc, eq, inArray, lt } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, lt } from 'drizzle-orm';
 import { users } from '@itrms/kernel/tables';
 import { auditLog, insertAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { linkFile } from '@itrms/kernel/files';
@@ -188,6 +188,31 @@ export class SubmissionsService {
             changes: e.action === 'update' ? changedColumns(e.diff) : []
         }));
         return { items, truncated };
+    }
+
+    /**
+     * A case's step forms (task 0.20b), in the order they were filed: each as the caller may see it, with its version's
+     * document for the printed view (which leaves out the fields of other roles too).
+     */
+    async ofCase(tx: Tx, roles: readonly string[], caseId: string): Promise<(Submission & { document: unknown })[]> {
+        const rows = await tx
+            .select()
+            .from(submissions)
+            .where(eq(submissions.caseId, caseId))
+            .orderBy(asc(submissions.createdAt), asc(submissions.id));
+        if (rows.length === 0) return [];
+        const documents = new Map(
+            (
+                await tx
+                    .select({ id: formVersions.id, document: formVersions.document })
+                    .from(formVersions)
+                    .where(inArray(formVersions.id, [...new Set(rows.map((r) => r.formVersionId))]))
+            ).map((v) => [v.id, v.document])
+        );
+        return (await this.present(tx, roles, rows)).map((s) => ({
+            ...s,
+            document: documents.get(s.formVersion.id) ?? null
+        }));
     }
 
     /** A form's submissions in the caller's subtree, newest first, a page at a time. */
