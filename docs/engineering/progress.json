@@ -800,10 +800,22 @@
         {
           "id": "0.20b",
           "title": "Workflow engine, part 2b: inbox, case page, comments",
-          "status": "in progress",
+          "status": "done",
           "branch": "task/0.20b-inbox-case-page",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "624a573",
+            "ba86ecf"
+          ],
+          "evidence": [
+            "GitHub CI run 40679528798 on ba86ecf (PR #19): all 9 jobs success — checks, infra+test:int, e2e, perf, stories/axe, Semgrep, gitleaks, Trivy, licence report",
+            "pnpm test:int (CI) → 18 files / 348 tests on PostgreSQL 16, incl. workflow-inbox.int.spec.ts (9), workflow-cases (10, the case page's step answers), forms-exports (10, the export notices), iam (14), isolation (50: workflow.case_people on the reviewed definer list)",
+            "Done when — the inbox shows only tasks of the user's role in their unit: workflow-inbox › lists only the open steps of the caller's unit for their roles (the second records officer sees it; the unit head, the zone head and Boditi do not; the auditor 403); overdue first, sla/number filters, cursor paging in the same order",
+            "Done when — a mention notifies: workflow-inbox › a comment goes on the timeline with its mentions, audited; the worker tells each person once (2, then 0 on redelivery; the author not told); mentions outside the case or of a role that reads no cases 422; e2e workflow/case-page: the head gets the notice in the bell and opens the case from it",
+            "Also: claims (409 for the other holder, release by holder or case:reassign else 403, a stale claim taken over, separation of duties mayAct false + 403); case:comment required; sibling office 404; workflow.case_people answers nothing for a sibling or no context; audit rows for claims and comments",
+            "e2e (CI) → 12 journeys: 11 passed, 1 flaky unrelated (forms/builder-publish drag, passed on retry; follow-up to 0.26); incl. workflow/inbox and workflow/case-page",
+            "Unit (CI checks): workflow 30, kernel 66, form-engine 291, web 62, api 11; i18n am/en complete; boundaries clean; OpenAPI regenerated; migrations 0039 (generated), 0040 (checks, claim grant, workflow.case_people)",
+            "Reviewer: 0 high, 3 medium, 9 low, all fixed or decided (ba86ecf; M2 interim intake and rate limits → follow-ups 0.21, 0.26). task-verifier: all Done when/Do/Tests met (its gap, the export notice test, added)"
+          ],
           "blockers": [],
           "notes": "Claims: case_tasks.claimed_by/claimed_at; a step claimed by another refuses their claim and transition (409); release by the claimer or a unit_head of the step's unit. Inbox GET /api/v1/me/tasks: unit = active unit, role in the roles held there, cursor = last task id (keys compared in SQL), due-soon = within 4 wall-clock hours, mayAct from separation of duties. Comments = case_events kind comment (data.mentions, visibility internal), case:comment with case:act; mentions checked by the reviewed workflow.case_people (active role at the handling unit or above), told by the worker on case.commented.v1, once each (dedup by link.eventId), in-app only. POST /api/v1/cases (case:create, records_officer) starts a case on a workflow's newest version until service requests (0.21). Step answers: the transition event records data.submissionId; the case API returns the version document + role-filtered answers, printed with PrintForm. Verifier (on 624a573): every Done when / Do / Tests item met by code and tests; gaps were CI pending, evidence not yet recorded, and no test of the export notice. Added (local, not pushed yet): forms-exports.int.spec asserts one forms.notify.export-ready to the requester across two deliveries, and forms.notify.export-failed on a failed export. Waiting for CI run 40676731815 and the security review before pushing fixes together. Review (2026-10-28): no high; M1 a claim whose holder left blocked a step for good → claims count only while the holder holds the role (workflow.role_holders), release by holder or case:reassign (unit_head), unauthorized release 403 audited; M2 interim intake documented + follow-up to 0.21; M3 case:read includes step answers, decided in roles-and-permissions.md; L1 step documents stripped of other roles' fields (documentFor); L2/L7 advisory locks + told-once checks for mentions and export notices (a redelivery repairs a lost export notice); L3 mentions only of roles with case:read (case_people takes the reader roles from the manifests); L4 claim locks the task row; L6 the case page's SLA from the DB clock; L8 direct case_people test; L9 rate limits → 0.26, comments on closed cases intended."
         },
@@ -2288,6 +2300,11 @@
     {
       "foundIn": "0.20b",
       "item": "Rate limits for comments (up to 20 mentions each) and the case people search (SEC-AP-2)",
+      "movedTo": "0.26 (hardening)"
+    },
+    {
+      "foundIn": "0.20b",
+      "item": "Flaky e2e: forms/builder-publish drags a long-text field into a panel and finds it not there now and then (CI run 40679528798, passed on retry); make the drag wait for the drop zone",
       "movedTo": "0.26 (hardening)"
     }
   ]
