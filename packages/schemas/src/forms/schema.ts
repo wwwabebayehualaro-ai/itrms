@@ -6,6 +6,7 @@
 import { z } from 'zod';
 
 import type { VisibilityCondition } from './conditions';
+import { FIELD_CLASSIFICATIONS } from './stored';
 
 /** Version of the stored document this engine writes. Documents without a version are the original builder format (1). */
 export const SCHEMA_VERSION = 2;
@@ -92,7 +93,9 @@ export const storedFieldSchema = z
         /** the data viewer filters by it on an index (ADR-0035): set by the author on a few top-level fields */
         filterable: z.boolean().optional().nullable(),
         /** a key that was published and is no longer asked: kept so old answers stay readable, hidden and unchecked */
-        removed: z.boolean().optional().nullable()
+        removed: z.boolean().optional().nullable(),
+        /** its answer's data class (SEC-DC-1, task 0.20c); unset counts as personal */
+        classification: z.enum(FIELD_CLASSIFICATIONS).optional().nullable()
     })
     .loose();
 

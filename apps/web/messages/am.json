@@ -54,5 +54,8 @@
   "shell.notifications.unread": "ማሳወቂያዎች፦ {count} ያልተነበቡ",
   "shell.notifications.markAll": "ሁሉንም እንደተነበበ ምልክት አድርግ",
   "shell.notifications.empty": "እስካሁን ማሳወቂያ የለም",
-  "shell.notifications.new": "አዲስ"
+  "shell.notifications.new": "አዲስ",
+  "shell.user.unsavedDraftsTitle": "ያልተቀመጡ ረቂቆች እያሉ ይውጡ?",
+  "shell.user.unsavedDrafts": "በዚህ ኮምፒውተር ያሉ {count} ረቂቅ(ቆች) እስካሁን ሰርቨሩ ላይ አልደረሱም (ግንኙነት የለም)። መውጣት ይሰርዛቸዋል።",
+  "shell.user.signOutAnyway": "ውጣና ሰርዛቸው"
 }

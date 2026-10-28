@@ -137,7 +137,9 @@ export const formSubmissionInputSchema = formSubmissionSchema
     })
     .extend({
         /** The published version the person filled in: filed on it, refused (409) if another is published since. */
-        form_version_id: z.string().optional()
+        form_version_id: z.string().optional(),
+        /** The person's draft it was filled from: removed when the request is filed (task 0.20c). */
+        draft_id: z.string().optional()
     });
 
 export type FormSubmissionInput = z.infer<typeof formSubmissionInputSchema>;

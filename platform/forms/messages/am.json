@@ -18,5 +18,21 @@
   "forms.validation.fileNotUsable": "ይህ ፋይል ጥቅም ላይ ሊውል አይችልም፤ እንደገና ይጫኑት",
   "forms.validation.wrongDocumentType": "ይህ ፋይል የተጠየቀው የሰነድ ዓይነት አይደለም",
   "forms.notify.export-ready": "የጠየቁት ኤክስፖርት ዝግጁ ነው፦ {rows} ረድፎች።",
-  "forms.notify.export-failed": "የጠየቁት ኤክስፖርት ሊዘጋጅ አልቻለም፤ ምክንያቱን ለማየት የመረጃ ማሳያውን ይክፈቱ።"
+  "forms.notify.export-failed": "የጠየቁት ኤክስፖርት ሊዘጋጅ አልቻለም፤ ምክንያቱን ለማየት የመረጃ ማሳያውን ይክፈቱ።",
+  "forms.draft.title": "የእርስዎ ረቂቆች",
+  "forms.draft.resume": "ቀጥል",
+  "forms.draft.discard": "ጣል",
+  "forms.draft.discardOf": "የ{form} ረቂቅ ጣል",
+  "forms.draft.discardTitle": "ይህ ረቂቅ ይጣል?",
+  "forms.draft.discardBody": "በ\"{form}\" ላይ እስካሁን የተሞሉት መልሶች እዚህም በሰርቨሩም ይሰረዛሉ።",
+  "forms.draft.onlyHere": "በዚህ ኮምፒውተር ብቻ የተቀመጠ",
+  "forms.draft.changedHere": "ከዚያ በኋላ በዚህ ኮምፒውተር የተቀየረ",
+  "forms.draft.outdated": "ቅጹ ተቀይሯል፤ በአዲሱ ስሪት ይቀጥላል",
+  "forms.draft.status.idle": "ሲሞሉ መልሶችዎ እንደ ረቂቅ ይቀመጣሉ።",
+  "forms.draft.status.local": "በዚህ ኮምፒውተር ተቀምጧል",
+  "forms.draft.status.saving": "ረቂቁ እየተቀመጠ ነው…",
+  "forms.draft.status.saved": "ረቂቁ ተቀምጧል",
+  "forms.draft.status.offline": "ግንኙነት የለም፤ በዚህ ኮምፒውተር ተቀምጧል፤ ግንኙነቱ ሲመለስ ወደ ሰርቨሩ ይላካል",
+  "forms.draft.status.error": "ረቂቁ በሰርቨሩ ላይ ሊቀመጥ አልቻለም፤ በዚህ ኮምፒውተር ተቀምጧል",
+  "forms.draft.sensitive": "ጥብቅ መልሶች (ስልክ፣ FIN) የሚቀመጡት በሰርቨሩ ብቻ ነው፤ ግንኙነት ከሌለ እንደገና ይሞላሉ።"
 }

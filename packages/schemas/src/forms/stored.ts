@@ -19,6 +19,15 @@ export type Action = {
     conditions?: VisibilityCondition[];
 };
 
+/**
+ * The data class of a field's answer (security.md §3, SEC-DC-1, task 0.20c). It drives what may leave the server: a
+ * Sensitive answer is never kept in the browser's storage (SEC-WB-3) and is masked in exports (SEC-DC-2).
+ */
+export const FIELD_CLASSIFICATIONS = ['public', 'internal', 'personal', 'sensitive'] as const;
+export type FieldClassification = (typeof FIELD_CLASSIFICATIONS)[number];
+/** What an unclassified field's answer counts as: about a person, the usual case of a form's answers. */
+export const DEFAULT_FIELD_CLASSIFICATION: FieldClassification = 'personal';
+
 /** One stored field. */
 export interface FormField {
     /** The field's key: its name in submitted data, rules and formulas. */
@@ -78,6 +87,8 @@ export interface FormField {
     visibleToRoles?: string[];
     /** A published key taken out of the form: kept (its old answers stay readable), but never shown, taken or checked. */
     removed?: boolean | null;
+    /** Its answer's data class (SEC-DC-1); unset counts as `personal`. */
+    classification?: FieldClassification | null;
     [key: string]: unknown;
 }
 

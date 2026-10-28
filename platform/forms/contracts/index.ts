@@ -178,8 +178,42 @@ export const submissionCreateSchema = z.strictObject({
     formId: z.uuid(),
     /** the version the person filled in: it must still be the published one */
     formVersionId: z.uuid(),
-    answers: answersSchema
+    answers: answersSchema,
+    /** the person's draft it was filled from: removed with the filing, in its transaction (task 0.20c) */
+    draftId: z.uuid().optional()
 });
+
+// ---- drafts (task 0.20c) ----
+
+/** A draft of a request: the answers so far, on the published version the person started. */
+export const draftCreateSchema = z.strictObject({ formId: z.uuid(), formVersionId: z.uuid(), answers: answersSchema });
+
+/** The answers so far; a newer published version to go on with, when the form was published again meanwhile. */
+export const draftUpdateSchema = z.strictObject({ formVersionId: z.uuid().optional(), answers: answersSchema });
+
+export const draftListQuerySchema = z.strictObject({
+    formId: z.uuid().optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(50)
+});
+
+export const draftSchema = z.object({
+    id: z.uuid(),
+    /** the row version, for If-Match */
+    version: z.number().int(),
+    formId: z.uuid(),
+    formName: z.record(z.string(), z.string()),
+    formVersion: z.object({ id: z.uuid(), number: z.number().int() }),
+    /** a newer version is published: the draft goes on with it when it is opened again */
+    outdated: z.boolean(),
+    unit: unitRefSchema,
+    answers: z.record(z.string(), z.unknown()),
+    createdAt: z.string(),
+    updatedAt: z.string()
+});
+
+export type Draft = z.infer<typeof draftSchema>;
+export type DraftCreate = z.infer<typeof draftCreateSchema>;
+export type DraftUpdate = z.infer<typeof draftUpdateSchema>;
 
 export const submissionUpdateSchema = z.strictObject({ answers: answersSchema });
 

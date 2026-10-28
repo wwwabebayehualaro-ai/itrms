@@ -36,7 +36,8 @@ export type LintRule =
     | 'unknown-role'
     | 'key-missing'
     | 'key-retyped'
-    | 'key-moved';
+    | 'key-moved'
+    | 'unclassified';
 
 export interface LintProblem {
     rule: LintRule;
@@ -439,6 +440,11 @@ export function lintDocument(raw: unknown, opts: LintOptions = {}): LintProblem[
         for (const f of subjects)
             for (const role of new Set(f.visibleToRoles ?? []))
                 if (!roleKeys.includes(role)) add('unknown-role', 'warning', f, `${at(f)}.visibleToRoles`, { role });
+
+    // unclassified: an answer's data class decides what may leave the server (SEC-DC-1); unset counts as personal
+    for (const f of subjects)
+        if (holdsValue(f) && !f.source.classification)
+            add('unclassified', 'warning', f, `${at(f)}.classification`, { field: f.label || f.id });
 
     return [...out.filter((p) => p.severity === 'error'), ...out.filter((p) => p.severity === 'warning')];
 }

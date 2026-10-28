@@ -383,6 +383,9 @@ importers:
       '@itrms/form-engine':
         specifier: workspace:*
         version: link:../../packages/form-engine
+      '@itrms/forms':
+        specifier: workspace:*
+        version: link:../../platform/forms
       '@itrms/kernel':
         specifier: workspace:*
         version: link:../../platform/kernel
@@ -410,6 +413,9 @@ importers:
       date-fns:
         specifier: 4.4.0
         version: 4.4.0
+      dexie:
+        specifier: 4.4.6
+        version: 4.4.6
       immer:
         specifier: 10.2.0
         version: 10.2.0
@@ -5541,6 +5547,9 @@ packages:
 
   detect-node-es@1.1.0:
     resolution: {integrity: sha512-ypdmJU/TbBby2Dxibuv7ZLW3Bs1QEmM7nHjEANfohJLvE0XVujisn1qPJcZxg+qDucsr+bP6fLD1rPS3AhJ7EQ==}
+
+  dexie@4.4.6:
+    resolution: {integrity: sha512-hJP/BO6mjB+tX6hToIO1kmxYLNmun90wYbfcoAoLpKEyDYal/k33dg0TAfoUe2TDsbbLoVIzljJ3BN2UbR5EOg==}
 
   docker-compose@1.5.0:
     resolution: {integrity: sha512-O+eD6c63+BJORUWddXA7uAlI6H1KLDPd/aS14k73nXYpFliM48C3xrrKB3sXsR1Fp/rHUZQe7+fJ+QA7+jepyw==}
@@ -13238,6 +13247,8 @@ snapshots:
   detect-libc@2.1.2: {}
 
   detect-node-es@1.1.0: {}
+
+  dexie@4.4.6: {}
 
   docker-compose@1.5.0:
     dependencies:

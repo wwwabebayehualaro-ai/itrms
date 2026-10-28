@@ -209,6 +209,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/form-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["DraftsController_list"];
+        put?: never;
+        post: operations["DraftsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/form-drafts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["DraftsController_get"];
+        put?: never;
+        post?: never;
+        delete: operations["DraftsController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["DraftsController_update"];
+        trace?: never;
+    };
     "/api/v1/form-publications": {
         parameters: {
             query?: never;
@@ -1183,6 +1215,22 @@ export interface components {
             /** Format: uuid */
             unitTypeId?: string;
         };
+        DraftCreateDto: {
+            answers: {
+                [key: string]: unknown;
+            };
+            /** Format: uuid */
+            formId: string;
+            /** Format: uuid */
+            formVersionId: string;
+        };
+        DraftUpdateDto: {
+            answers: {
+                [key: string]: unknown;
+            };
+            /** Format: uuid */
+            formVersionId?: string;
+        };
         DuplicateCheckDto: {
             nameAm: {
                 father: string;
@@ -1638,6 +1686,8 @@ export interface components {
             answers: {
                 [key: string]: unknown;
             };
+            /** Format: uuid */
+            draftId?: string;
             /** Format: uuid */
             formId: string;
             /** Format: uuid */
@@ -2112,6 +2162,108 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DraftsController_list: {
+        parameters: {
+            query?: {
+                formId?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DraftsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftCreateDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DraftsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DraftsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DraftsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftUpdateDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {

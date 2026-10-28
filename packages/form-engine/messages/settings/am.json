@@ -278,5 +278,11 @@
   "form-engine.settings.shared.printBreakBefore.title": "ሲታተም በአዲስ ገጽ ጀምር",
   "form-engine.settings.shared.showClear.description": "✕ ምርጫውን ባዶ ያደርጋል (መስኩ አማራጭ ሲሆን ሁልጊዜ ይቀርባል)።",
   "form-engine.settings.shared.showClear.title": "ማጽዳት ይቻላል",
-  "form-engine.settings.shared.toggleable.title": "መሸብሸብ ይቻላል"
+  "form-engine.settings.shared.toggleable.title": "መሸብሸብ ይቻላል",
+  "form-engine.settings.inspector.field.classification": "የመረጃ ደረጃ",
+  "form-engine.settings.inspector.field.classificationHelp": "መልሱ ምን ዓይነት ነው፦ ጥብቅ መረጃ (ስልክ፣ FIN፣ የሕክምና ውጤት) በአሳሹ ውስጥ አይቀመጥም፤ በኤክስፖርትም ይሸፈናል።",
+  "form-engine.settings.inspector.classification.public": "ይፋዊ",
+  "form-engine.settings.inspector.classification.internal": "የውስጥ",
+  "form-engine.settings.inspector.classification.personal": "ግላዊ",
+  "form-engine.settings.inspector.classification.sensitive": "ጥብቅ"
 }

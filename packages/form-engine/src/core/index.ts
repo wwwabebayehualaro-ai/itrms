@@ -48,6 +48,8 @@ export {
     knownValues,
     settledValues,
     submittedValues,
+    withoutSensitive,
+    hasSensitive,
     scopeFields,
     holdsValue,
     isListField,

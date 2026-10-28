@@ -23,6 +23,7 @@ rules run, `requiredWhen`/`validWhen` rules are enforced, and a section takes at
 | `GET/POST /api/v1/forms/{id}/views`, `PATCH/DELETE /api/v1/saved-views/{id}`, `GET /api/v1/submissions/{id}/history` | `submission:read` (sharing a view: `submission-view:share`) |
 | `POST /api/v1/submissions/export` | `submission:export` |
 | `POST /api/v1/submission-exports`, `GET …/{id}`, `POST …/{id}/download` | `submission:export` (the requester alone) |
+| `GET/POST /api/v1/form-drafts`, `GET/PATCH/DELETE /api/v1/form-drafts/{id}` | `submission:create` (the creator alone) |
 
 Task 0.16b: the data viewer's queries. `view-fields.ts` is the allow-list (the published version's top-level value fields
 the caller may see, and the built-ins `createdAt`, `submittedBy`, `handlingUnit`); `query-compiler.ts` turns a data-only
@@ -38,6 +39,14 @@ read them, every cell neutralised (SEC-IN-8), at most 5000 rows, each export an 
 over the limit run in the worker from 0.16e.
 
 Task 0.16e: background exports.
+
+Task 0.20c: drafts (`drafts.service.ts`, `forms.submission_drafts`): a person's request in the making, on the published
+version they started; theirs alone (the service reads and writes by `created_by`, RLS keeps it to the unit), never
+validated, holding only the form's own fields they may see; saved again on a newer published version, it goes on with
+that one; filing the request with its `draftId` removes it in the filing's transaction. Each field of a form carries a
+data class (`classification`, SEC-DC-1; unset counts as personal, a publish-check warning): the browser keeps a draft
+in IndexedDB (apps/web `lib/drafts`, Dexie), sealed with the person's non-extractable key and without the Sensitive
+answers (SEC-WB-3), so it survives a dropped network; an explicit sign-out deletes the key and the drafts.
 
 Layer: platform. Shape, public entries and rules: [code-structure.md](../../docs/platform/code-structure.md) §4.
 

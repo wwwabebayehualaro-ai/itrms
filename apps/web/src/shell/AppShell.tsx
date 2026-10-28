@@ -8,6 +8,7 @@
 import Link from 'next/link';
 import { CalendarDays, Languages, LogOut, UserRound } from 'lucide-react';
 import {
+    confirmAction,
     AppearanceMenu,
     Button,
     DropdownMenu,
@@ -36,6 +37,7 @@ import {
     type AppearanceLabels
 } from '@itrms/ui';
 import { NO_LABELS, useAuthStore } from '@/lib/auth/authStore';
+import { forgetLocalDrafts, unsyncedCount } from '@/lib/drafts';
 import {
     CALENDARS,
     LANGUAGE_NAMES,
@@ -70,6 +72,23 @@ function UserMenu() {
     const roleLabels = useAuthStore((s) => s.workspace?.roleLabels ?? NO_LABELS);
     const languages = availableLanguages(useAuthStore((s) => s.workspace?.settings['i18n.languages']));
     const name = user?.full_name || user?.username || t('shell.user.signedIn');
+    // an explicit sign-out deletes this browser's drafts and their key (SEC-WB-3); drafts the server does not have yet
+    // are lost with them, so it asks first
+    const signOut = async () => {
+        const unsaved = user ? await unsyncedCount(user.id) : 0;
+        const leave = async () => {
+            if (user) await forgetLocalDrafts(user.id);
+            logout();
+        };
+        if (unsaved === 0) return leave();
+        void confirmAction({
+            header: t('shell.user.unsavedDraftsTitle'),
+            message: t('shell.user.unsavedDrafts', { count: String(unsaved) }),
+            acceptLabel: t('shell.user.signOutAnyway'),
+            danger: true,
+            onAccept: leave
+        });
+    };
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -138,7 +157,7 @@ function UserMenu() {
                     </DropdownMenuSubContent>
                 </DropdownMenuSub>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => logout()} data-sign-out>
+                <DropdownMenuItem onSelect={() => void signOut()} data-sign-out>
                     <LogOut />
                     {t('shell.user.signOut')}
                 </DropdownMenuItem>

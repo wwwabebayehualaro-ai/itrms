@@ -11,6 +11,7 @@
  * engine renderer reads them.
  */
 import {
+    DEFAULT_FIELD_CLASSIFICATION,
     DEFAULT_FORM_TEXT_LANGUAGE,
     formDocumentSchema,
     formTextIn,
@@ -18,6 +19,7 @@ import {
     textLanguageOf,
     textPropsOf,
     type Action,
+    type FieldClassification,
     type FieldOptionsBinding,
     type FieldRowsBinding,
     type FormField,
@@ -96,6 +98,8 @@ export interface EngineField {
     filterable: boolean;
     /** A published key taken out of the form: never shown, taken or checked, its old answers stay readable. */
     removed: boolean;
+    /** Its answer's data class (SEC-DC-1): `personal` when the author set none. */
+    classification: FieldClassification;
     /** The stored field, for extensions and the builder (never mutated by the engine). */
     source: FormField;
 }
@@ -244,6 +248,7 @@ export function toEngineField(stored: StoredField, language: string = DEFAULT_TE
         visibleToRoles: stored.visibleToRoles ?? undefined,
         filterable: stored.filterable === true,
         removed: stored.removed === true,
+        classification: stored.classification ?? DEFAULT_FIELD_CLASSIFICATION,
         source: stored as unknown as FormField
     };
 }

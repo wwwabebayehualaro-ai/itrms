@@ -54,5 +54,8 @@
   "shell.notifications.unread": "Notifications: {count} unread",
   "shell.notifications.markAll": "Mark all read",
   "shell.notifications.empty": "No notifications yet",
-  "shell.notifications.new": "new"
+  "shell.notifications.new": "new",
+  "shell.user.unsavedDraftsTitle": "Sign out with unsaved drafts?",
+  "shell.user.unsavedDrafts": "{count} draft(s) on this PC have not reached the server yet (no connection). Signing out deletes them.",
+  "shell.user.signOutAnyway": "Sign out and delete them"
 }

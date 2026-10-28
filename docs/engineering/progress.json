@@ -823,12 +823,12 @@
         {
           "id": "0.20c",
           "title": "Workflow engine, part 2c: drafts",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.20c-drafts",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Field classification on stored form fields (public/internal/personal/sensitive; unset = personal, lint warning 'unclassified'); designer select in the Inspector. Server drafts: forms.submission_drafts (class T at the unit; ownership by created_by in the service, not a policy: the unit move rewrites scopes as the API and a creator policy would skip others' drafts), /api/v1/form-drafts with submission:create, answers via knownValues (no validation), move to a newer published version on save, removed by a submission's draftId in the same tx. Browser: Dexie 4.4.6 (ADR-0024) db itrms-drafts, AES-GCM 256 non-extractable key per user stored as CryptoKey, answers withoutSensitive (engine); local save after 1.5 s, server after 6 s, retry on 'online'; explicit sign-out deletes key + drafts, warning when unsynced. UI: drafts on the start page and on a form's requests page, the request editor and start dialog fill through DraftedForm."
         },
         {
           "id": "0.20d",
