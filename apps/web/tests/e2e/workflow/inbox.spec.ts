@@ -1,5 +1,6 @@
 /**
- * The task inbox (task 0.20b): Damot Gale's records officer finds a case's review in "My tasks" from the menu, with its
+ * The task inbox (tasks 0.20b, 0.20d): the home page counts and lists what waits; Damot Gale's records officer finds a
+ * case's review in "My tasks" from the menu, with its
  * time limit, takes it on (the claim filters follow), and opens the case. The office's head (another role) does not see
  * it in their inbox. Each run makes its own workflow and case, and finds the case by its number.
  */
@@ -13,6 +14,13 @@ test("lists the office's steps for the person's role; a step is taken on and ope
     const workflowId = await journeyWorkflow(api(author), 'inbox');
     const page = await signedIn(browser, PEOPLE.records);
     const started = await submittedCase(api(page), workflowId);
+
+    // the home page: the menu's badge counts what waits, the "my tasks" widget lists it (task 0.20d)
+    await page.goto('/');
+    await expect(page.locator('[data-menu-badge="workflow.inbox"]')).toBeVisible();
+    const widget = page.locator('[data-widget="my-tasks"]');
+    await expect(widget).toBeVisible();
+    await expect(widget.locator('[data-widget-task]').first()).toBeVisible();
 
     // from the menu
     await page.locator('[data-app-sidebar] [data-menu-item="workflow.inbox"]').click();

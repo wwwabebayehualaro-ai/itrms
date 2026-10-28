@@ -2,7 +2,8 @@
  * Drafts (task 0.20c): Damot Gale's records officer starts a request and leaves it half-filled; it is on the server, so
  * on another PC they go on with it, Sensitive answer and all. There the network drops while they type: the change is
  * kept in the browser, sealed, without the Sensitive answer (read back here with the browser's own key), and reaches
- * the server when the link is back. On a third PC the request is filed from the draft, and the draft is gone.
+ * the server when the link is back. On a third PC the request is filed from the draft, and the draft is gone; its record
+ * leaves the Sensitive answer out until it is shown with a reason (task 0.20d).
  */
 import { expect, test, type Page } from '@playwright/test';
 
@@ -15,7 +16,9 @@ const FIELDS = [
 ];
 
 interface Submission {
+    id: string;
     answers: Record<string, unknown>;
+    masked: string[];
 }
 
 /** What this browser keeps of its drafts, unsealed with its own key (as the app reads it). */
@@ -98,15 +101,27 @@ test('a draft goes on on another PC, survives a dropped network, and goes when i
         await last.getByRole('button', { name: 'Submit request' }).click();
         await expect(last).toBeHidden();
         const filed = await api(third).get<{ items: Submission[] }>(`v1/submissions?formId=${formId}&mine=true`);
-        expect(filed.items.find((s) => s.answers.applicant === applicant)?.answers).toMatchObject({
-            applicant,
-            phone: '0911223344',
-            town: 'Boditi'
-        });
+        // filed with every answer; the list leaves the Sensitive one out and names it (shown below with a reason)
+        const listed = filed.items.find((s) => s.answers.applicant === applicant);
+        expect(listed?.answers).toMatchObject({ applicant, town: 'Boditi' });
+        expect(listed?.answers).not.toHaveProperty('phone');
+        expect(listed?.masked).toEqual(['phone']);
         const drafts = await api(third).get<{ items: { formId: string }[] }>(`v1/form-drafts?formId=${formId}`);
         expect(drafts.items).toEqual([]);
         await third.reload();
         await expect(third.locator('[data-drafts]')).toHaveCount(0);
+
+        // the filed request's record leaves the Sensitive answer out; it is shown with a reason (task 0.20d)
+        const record = filed.items.find((s) => s.answers.applicant === applicant);
+        await third.goto(`/submitted-forms/template/${formId}/${record?.id ?? ''}`);
+        const hidden = third.locator('[data-sensitive-answers]');
+        await expect(hidden).toContainText('Phone');
+        await expect(hidden).not.toContainText('0911223344');
+        await hidden.getByRole('button', { name: 'አሳይ' }).click();
+        const ask = third.locator('[data-reveal-dialog]');
+        await ask.getByLabel('ምክንያት').fill('Calling the applicant about the missing document');
+        await ask.getByRole('button', { name: 'አሳይ' }).click();
+        await expect(hidden.locator('[data-revealed]')).toContainText('0911223344');
     } finally {
         await switchOff(author, formId);
     }
