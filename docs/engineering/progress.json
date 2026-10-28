@@ -804,7 +804,8 @@
           "branch": "task/0.20b-inbox-case-page",
           "commits": [
             "624a573",
-            "ba86ecf"
+            "ba86ecf",
+            "455826c"
           ],
           "evidence": [
             "GitHub CI run 40679528798 on ba86ecf (PR #19): all 9 jobs success — checks, infra+test:int, e2e, perf, stories/axe, Semgrep, gitleaks, Trivy, licence report",
