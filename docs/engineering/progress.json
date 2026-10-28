@@ -845,10 +845,22 @@
         {
           "id": "0.20d",
           "title": "Workflow engine, part 2d: approvals inbox, workspaces, export masking",
-          "status": "in progress",
+          "status": "done",
           "branch": "task/0.20d-approvals-workspaces-masking",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "b9d6a04",
+            "4c7eaf8",
+            "cec698b"
+          ],
+          "evidence": [
+            "GitHub CI run 40743071459 on cec698b (PR #21): all 9 jobs success — checks, infra+test:int, e2e, perf, stories/axe, Semgrep, gitleaks, Trivy, licence report",
+            "pnpm test:int (CI) → 20 files / 358 tests on PostgreSQL 16, incl. forms-sensitive.int.spec.ts (4: a Sensitive answer left out of one, a list, the data viewer (no field, filter refused, rows), never in an export (named refused); the reveal with a reason, step-up on an old second factor (401), submission:read and pii:reveal, on record before the read with the exact fields (probes too), never replayed; the approvals' decidable scope paged with a cursor, mine, and the count) and workflow-inbox.int.spec.ts (10, incl. the task count)",
+            "Done when — the approvals inbox pages past 100 publications: scope and cursor filtered and paged on the server (limit ≤ 100, before = last id), shown page by page in forms-sensitive › the approvals; the approvals screen pages by it (unit test)",
+            "Done when — a home widget shows the person's open tasks: e2e workflow/inbox › the home page's badge on My tasks and the My tasks widget listing the steps; GET /me/tasks/count integration-tested",
+            "Done when — an export masks a Sensitive field: forms-sensitive › never leaves in an export (CSV without the FIN and the row's FIN); e2e forms/drafts › the record leaves the phone out until it is shown with a reason; e2e forms/saved-views › a shared default view opens for the office",
+            "Unit: maskSensitive/onlySensitive, the diff's data class, the sensitive-filterable lint, the approvals and sidebar tests on server paging and badges; i18n am/en complete; boundaries clean; OpenAPI regenerated; no migrations; e2e (CI) → 14 journeys passed, no flaky",
+            "Reviewer: 1 high (the reveal's step-up), 4 medium, 9 low; high, mediums and L1/L2/L7/L8/L9 fixed (cec698b); L3 field-list reveal → Phase 1, L4 rate limits → 0.26, L5 unclassified release decision → 0.21, L6 stale-claim count → 0.26. task-verifier: all Done when/Do/Tests met; its gaps (widget, badge, reveal untested) closed by e2e steps (4c7eaf8)"
+          ],
           "blockers": [],
           "notes": "Approvals: GET /v1/form-publications takes scope (all/mine/decidable, canDecide's rule in SQL) and a cursor (before = last id; UUIDv7 newest first); /count for the badge. Tasks: GET /me/tasks/count {open, overdue, unclaimed}. Shell: forms manifest menu 'Approvals' (my-work, form:approve); badges on workflow.inbox and forms.approvals (lib/workspace, every 60 s and after a case change); home page MyTasksWidget. Masking: present() leaves Sensitive answers out (maskSensitive, named in masked) unless a workflow step's own clear use; the data viewer/exports use openFieldsFor (no Sensitive field to show, filter, sort, export); POST /submissions/{id}/reveal (pii:reveal, reason, audited submission.revealed, @NotReplayable); record page SensitiveAnswers panel. The API now registers the forms catalogue (its menu label and its notices were unresolved: a 0.20b gap for export notices). Review (2026-10-28): H1 the reveal now needs a fresh second factor (recentAuth 300 s, as a person's); M1 recorded before the read in its own transaction (kernel reveal(), probes on record); M2 needs submission:read too; M3 a data class change is in the publication diff (area classification, view-breaking); M4 no Sensitive field in the filterable values (openFieldsFor) + lint error sensitive-filterable; L1 case steps carry masked + a link to the record; L2 the audit names the exact fields; L7 scope=mine without a user is empty; L8 comment; L9 revealed values printed as the form prints them. Follow-ups: field-list reveal (Phase 1), reveal rate limits (0.26), unclassified release decision (0.21), stale-claim count (0.26). The test kit's tokens now carry auth_time (As.authAge for a step-up)."
         },
