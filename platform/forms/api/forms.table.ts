@@ -321,7 +321,7 @@ export const savedViews = withRls(
 
 /**
  * A background export (task 0.16e): asked for by one person, made by the worker with their scope and roles as they were
- * when they asked, kept as a generated file for EXPORT_KEEP_DAYS. Class T at their unit; only they follow and download
+ * when they asked, kept as a generated file for the region's `forms.exports.keepDays`. Class T at their unit; only they follow and download
  * it (the service's check on `created_by`, on top of RLS).
  */
 export const submissionExports = withRls(

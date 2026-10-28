@@ -48,6 +48,7 @@ import {
     type Calendar,
     type Language
 } from '@/lib/preferences';
+import { usePersonalAppearance } from './appearance';
 import { AppNav } from './AppNav';
 import { CommandPalette } from './CommandPalette';
 import { NotificationsBell } from './NotificationsBell';
@@ -189,6 +190,7 @@ function useAppearanceLabels(): AppearanceLabels {
 export function AppShell({ children }: { children: React.ReactNode }) {
     const { t } = useText();
     const appearance = useAppearanceLabels();
+    const onAppearance = usePersonalAppearance();
     return (
         <SidebarProvider>
             <a
@@ -227,7 +229,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <div className="ml-auto flex items-center gap-1">
                         <CommandPalette />
                         <NotificationsBell />
-                        <AppearanceMenu labels={appearance} />
+                        <AppearanceMenu labels={appearance} onChange={onAppearance} />
                         <UserMenu />
                     </div>
                 </header>

@@ -228,6 +228,43 @@ describe('loadSlices', () => {
         ]);
     });
 
+    it('needs every setting declared once, with a schema its default fits and a name in Amharic and English', () => {
+        const names = (keys: string[]) =>
+            Object.fromEntries(
+                ['am', 'en'].map((l) => [l, Object.fromEntries(keys.map((k) => [`freight.setting.${k}`, k]))])
+            );
+        const declared = (schemas: Record<string, z.ZodType>, messages = names(['permitDays'])) =>
+            slice(
+                {
+                    key: 'freight',
+                    layer: 'work-process',
+                    version: '1.0.0',
+                    title,
+                    workProcess: 3,
+                    dependsOn: ['kernel'],
+                    settings: [{ key: 'freight.permitDays', default: 30, overridableAt: ['region', 'unit'] }]
+                },
+                { settings: schemas, messages }
+            );
+        const sound = loadSlices([kernel, declared({ 'freight.permitDays': z.number().int().positive() })]);
+        expect([...sound.settings.keys()]).toEqual(['freight.permitDays']);
+        expect(sound.settings.get('freight.permitDays')).toMatchObject({
+            owner: 'freight',
+            label: 'freight.setting.permitDays'
+        });
+        expect(problems([kernel, declared({})])).toEqual(['freight: setting "freight.permitDays" has no value schema']);
+        expect(problems([kernel, declared({ 'freight.permitDays': z.string() })])).toEqual([
+            'freight: setting "freight.permitDays": its default does not fit its schema'
+        ]);
+        expect(problems([kernel, declared({ 'freight.permitDays': z.number(), 'freight.other': z.number() })])).toEqual(
+            ['freight: has a schema for setting "freight.other" without declaring it']
+        );
+        expect(problems([kernel, declared({ 'freight.permitDays': z.number() }, { am: {}, en: {} })])).toEqual([
+            'freight: setting freight.permitDays\'s name "freight.setting.permitDays" has no am text in its messages',
+            'freight: setting freight.permitDays\'s name "freight.setting.permitDays" has no en text in its messages'
+        ]);
+    });
+
     it('says every problem in one message', () => {
         expect(() => loadSlices([kernel, competency])).toThrow(
             /The installed modules cannot start:\n- competency: depends on "drivers", which is not installed\n- competency: depends on "workflow"/

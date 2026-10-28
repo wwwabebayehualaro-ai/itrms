@@ -35,8 +35,14 @@ const ENGLISH: AppearanceLabels = {
 const THEME_CHOICES: ThemePreference[] = ['system', 'light', 'dark', 'high-contrast'];
 const DENSITY_CHOICES: Density[] = ['comfortable', 'compact'];
 
+export interface AppearanceMenuProps {
+    labels?: AppearanceLabels;
+    /** the person chose (the app keeps it as their preference, so it follows them to another PC) */
+    onChange?: (change: { theme: ThemePreference } | { density: Density }) => void;
+}
+
 /** Theme and density choices for the top bar. Changes apply at once, without a reload. */
-export function AppearanceMenu({ labels = ENGLISH }: { labels?: AppearanceLabels }) {
+export function AppearanceMenu({ labels = ENGLISH, onChange }: AppearanceMenuProps) {
     const { theme, setTheme, density, setDensity } = useAppearance();
     return (
         <DropdownMenu>
@@ -47,7 +53,13 @@ export function AppearanceMenu({ labels = ENGLISH }: { labels?: AppearanceLabels
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>{labels.theme}</DropdownMenuLabel>
-                <DropdownMenuRadioGroup value={theme} onValueChange={(v) => setTheme(v as ThemePreference)}>
+                <DropdownMenuRadioGroup
+                    value={theme}
+                    onValueChange={(v) => {
+                        setTheme(v as ThemePreference);
+                        onChange?.({ theme: v as ThemePreference });
+                    }}
+                >
                     {THEME_CHOICES.map((t) => (
                         <DropdownMenuRadioItem key={t} value={t}>
                             {labels.themes[t]}
@@ -56,7 +68,13 @@ export function AppearanceMenu({ labels = ENGLISH }: { labels?: AppearanceLabels
                 </DropdownMenuRadioGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>{labels.density}</DropdownMenuLabel>
-                <DropdownMenuRadioGroup value={density} onValueChange={(v) => setDensity(v as Density)}>
+                <DropdownMenuRadioGroup
+                    value={density}
+                    onValueChange={(v) => {
+                        setDensity(v as Density);
+                        onChange?.({ density: v as Density });
+                    }}
+                >
                     {DENSITY_CHOICES.map((d) => (
                         <DropdownMenuRadioItem key={d} value={d}>
                             {labels.densities[d]}

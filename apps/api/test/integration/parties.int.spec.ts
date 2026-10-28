@@ -134,7 +134,11 @@ beforeAll(async () => {
                         database: app,
                         identity: { issuer: ISSUER, audience: AUDIENCE, keys: createLocalJWKSet({ keys: [jwk] }) },
                         roles: rolePermissions(installed.manifests),
-                        shell: { manifests: installed.manifests, messages: installed.messages }
+                        shell: {
+                            manifests: installed.manifests,
+                            messages: installed.messages,
+                            settings: installed.settings
+                        }
                     }),
                     ...installed.modules
                 ]

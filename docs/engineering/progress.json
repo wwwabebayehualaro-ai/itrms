@@ -868,12 +868,12 @@
         {
           "id": "0.21a",
           "title": "Configuration inheritance, part 1: the resolver and the settings registry",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.21a-settings-registry",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Design: one pure resolver (resolve.ts: default → installation → region root → units below → unit type → unit → user; a disallowed level or a value its schema rejects is passed over) for settings now and service configuration in 0.21b. Settings declared in manifests (overridableAt: installation|region|unit|unitType, userPreference, sensitive), Zod schemas on InstalledSlice.settings, checked by the loader with names <owner>.setting.<key>. settings_values scoped by unit_id (+ unit_type_id on the region root), class C; installation values from INSTALLATION_SETTINGS (operator config, checked at start-up) instead of a table; a person's values in users.preferences (set_my_preferences). API: GET/PUT/DELETE org-units/:id/settings[/:key], PUT/DELETE unit-types/:id/settings/:key, PUT/DELETE me/settings/:key; the old /settings/:key routes removed. unit_admin gets setting:update. Web: /admin/settings, languages page on the new routes, theme/density from the workspace and saved as the person's own."
         },
         {
           "id": "0.21b",

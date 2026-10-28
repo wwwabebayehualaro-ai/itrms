@@ -26,7 +26,14 @@ export interface MenuGroup {
 /** `GET /api/v1/me/workspace` (ADR-0028): who, where, what they may do there, and the menu computed for it. */
 export interface Workspace {
     user: { id: string; username?: string; displayName?: string | null };
-    activeUnit: { id: string; code: string; name: Text; services: string[]; capabilities: string[] };
+    activeUnit: {
+        id: string;
+        regionId: string;
+        code: string;
+        name: Text;
+        services: string[];
+        capabilities: string[];
+    };
     units: { id: string; code: string; name: Text; roles: string[] }[];
     roles: string[];
     permissions: string[];

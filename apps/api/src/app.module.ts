@@ -25,7 +25,7 @@ export class AppModule {
         logger: Logger,
         { database, objectStore, slices = SLICES }: AppOptions = {}
     ): DynamicModule {
-        const { manifests, modules, messages } = loadSlices(slices, { disabled: config.MODULES_DISABLED });
+        const { manifests, modules, messages, settings } = loadSlices(slices, { disabled: config.MODULES_DISABLED });
         logger.info({ modules: manifests.map((m) => m.key) }, 'modules loaded');
         const identity =
             config.process === 'http' && config.OIDC_ISSUER
@@ -39,7 +39,7 @@ export class AppModule {
                     objectStore,
                     identity,
                     roles: rolePermissions(manifests),
-                    shell: { manifests, messages }
+                    shell: { manifests, messages, settings }
                 }),
                 ...modules
             ]

@@ -61,17 +61,26 @@ One resolver serves settings and service configuration ([architecture.md](../arc
 ltree ancestors, so regions without zones, special woredas and cities with sub-cities need no special case. Service keys
 (`approval_unit`, SLAs, form overlays) live only in service overrides; the settings registry refers to them.
 
-* Every setting is declared once in code with a key, type (Zod), default, and **who may override it at which level**
-  (`overridableAt: ['installation', 'ancestor', 'unitType', 'unit']`, `userPreference: boolean`). It also says whether it is sensitive (audited).
-* Examples:
+* Every setting is declared once in code: the manifest names its key, default, **the levels where it may be overridden**
+  (`overridableAt`: `installation`, `region`, `unit` (any unit below the region; its value holds in its subtree),
+  `unitType`), whether it is a person's choice (`userPreference`) and whether it is sensitive (a change needs a fresh
+  second factor, SEC-SE-5); the slice gives its Zod value schema (`InstalledSlice.settings`). The manifest loader refuses
+  a setting without a schema, with a default its schema rejects, declared twice, or without a name in Amharic and English
+  (`<owner>.setting.<key>`; a fixed choice's name is `<owner>.settingOption.<key>.<value>`).
+* **Resolution** (task 0.21a, `@itrms/kernel/settings`): default → installation (`INSTALLATION_SETTINGS`, the operator's
+  JSON, checked at start-up) → the region's root → each unit below it down to the unit's parent → the region's value for
+  the unit's **type** → the unit's own → the person's own. The nearest value wins; a value at a level the setting does not
+  allow, or one its schema no longer accepts, is passed over.
+* Examples (the first four rows and the export limits are declared; the others are planned):
 
 | Setting | Declared default | Overridable at | User preference |
 |---|---|---|---|
-| `i18n.languages` | `[am, en]` | region | — |
-| `i18n.language` | region default | — | yes |
-| `calendar.display` | `ethiopian` | region | yes (Gregorian toggle) |
-| `ui.theme` | `system` | — | yes (light / dark / high contrast) |
-| `ui.density` | `comfortable` | region | yes (`compact` for data-entry staff) |
+| `i18n.languages` | `[am, en]` | installation, region | — |
+| `ui.theme` | `system` | region | yes (light / dark / high contrast) |
+| `ui.density` | `comfortable` | region, unit, unit type | yes (`compact` for data-entry staff) |
+| `forms.exports.keepDays`, `forms.exports.backgroundMaxRows` | 7, 100 000 (also the ceiling) | region | — |
+| `i18n.language` | region default | — | yes (today the person's `language` preference) |
+| `calendar.display` | `ethiopian` | region | yes (today the person's `calendar` preference) |
 | `branding.logo`, `branding.header` | product | region, zone, unit (document headers) | — |
 | `service.<code>.sla.review` | from the service version | per the version's override policy | — |
 | `service.<code>.approval_unit` | `handling` | region, zone (allowed key) | — |
@@ -93,17 +102,24 @@ A **new region** is a new installation of the same release (ADR-0008), seeded wi
 level definitions and unit types.
 
 ## 6. Implementation notes
-* Tables: `unit_types`, `unit_type_services`, `unit_type_roles`, `unit_service_overrides`, `settings_values` (key, scope
-  level, scope id, value JSONB, set_by, set_at). They are class C configuration (ADR-0011): readable in the subtree and
-  its ancestors.
+* Tables: `unit_types`, `unit_type_services`, `unit_type_roles`, `unit_service_overrides`, `settings_values` (unit, unit
+  type, key, value JSONB). They are class C configuration (ADR-0011): readable in the subtree and its ancestors.
 * An API `GET /me/workspace` returns the active unit's effective services, capabilities, menu and settings in one call
   (cached, invalidated on change). See [navigation-and-menus.md](navigation-and-menus.md).
 * Tasks: 0.8 (org tree, unit types, the Wolaita seed), 0.21 (service enablement + settings hierarchy).## 6. Implementation notes
 * Code: `@itrms/kernel/org` (`platform/kernel/api/org/`). Tables in the `kernel` schema (migrations 0003 and 0004):
   `org_level_definitions` (key, rank, name), `org_units`, `org_departments`, `unit_types` (level, allowed categories,
   **capabilities** and the **default teams** as columns), `unit_type_services`, `unit_type_roles`,
-  `unit_service_overrides` (enabled + reason). `settings_values` comes with task 0.21. All are audited; RLS class C
-  arrives with task 0.9.
+  `unit_service_overrides` (enabled + reason). All are audited; RLS class C arrives with task 0.9.
+* **Settings** (task 0.21a, `@itrms/kernel/settings`; migrations 0043–0044): `settings_values` holds one value per
+  (unit, key), a unit's own (the region's on its root), or per (unit type, key) on the region's root; class C on the
+  unit's path, so the units above read what a unit chose and only a seat at the root sets a unit type's value. A person's
+  own values sit beside their preferences in `users.preferences`, written by `kernel.set_my_preferences`. API:
+  `GET /org-units/{id}/settings` (each value, its source, what it inherits, who may change it), `PUT|DELETE
+  /org-units/{id}/settings/{key}`, `PUT|DELETE /unit-types/{id}/settings/{key}` (`setting:update`, If-Match; a unit not
+  seen is 404, one above the seat 403, a level the setting does not allow 422 `setting_level_not_allowed`), and
+  `PUT|DELETE /me/settings/{key}` for a person's own choice. The workspace's `settings` are the resolved ones. The admin
+  screen is `/admin/settings`.
 * **Paths:** one ltree label per unit (`u` + the id's hex), so a rename never touches a path. Triggers set the path
   from the parent, rewrite the whole subtree when `parent_id` changes, and refuse a direct path write, a change of region
   and a move under itself. A GiST index serves subtree queries (`path <@ …`).

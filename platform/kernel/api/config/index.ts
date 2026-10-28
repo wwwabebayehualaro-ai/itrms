@@ -41,7 +41,24 @@ const common = {
                 .map((k) => k.trim())
                 .filter(Boolean)
         )
-        .pipe(z.array(z.string().regex(/^[a-z][a-z0-9-]*$/, 'expected module keys')))
+        .pipe(z.array(z.string().regex(/^[a-z][a-z0-9-]*$/, 'expected module keys'))),
+    /**
+     * The installation's own values of settings (ADR-0026: the level between the product's defaults and the region), a
+     * JSON object of key → value set by the operator. The settings registry checks each key and value at start-up: a key
+     * not declared overridable at the installation, or a value its schema rejects, stops the start.
+     */
+    INSTALLATION_SETTINGS: z
+        .string()
+        .default('{}')
+        .transform((v, ctx) => {
+            try {
+                return JSON.parse(v) as unknown;
+            } catch {
+                ctx.addIssue({ code: 'custom', message: 'is not JSON' });
+                return z.NEVER;
+            }
+        })
+        .pipe(z.record(z.string(), z.unknown()))
 };
 
 const postgresUrl = z.url({ protocol: /^postgres(ql)?$/ });

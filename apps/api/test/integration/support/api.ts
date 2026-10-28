@@ -23,7 +23,7 @@ import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { Client } from 'pg';
 import { parse as parseYaml } from 'yaml';
 
-import { SLICES } from '../../../src/slices';
+import { SLICES, type ApiSlice } from '../../../src/slices';
 import type { TestPostgres } from './postgres';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -55,7 +55,7 @@ export interface TestApi {
     /** a user's id in ITRMS (`created_by` of what they write) */
     userId(sub: string): Promise<string>;
     call(
-        method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+        method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
         url: string,
         as: As,
         body?: object,
@@ -71,6 +71,10 @@ export async function startApi(
         objectStore?: ObjectStore;
         /** modules a suite adds beside the slices (test effects, task 0.19b) */
         modules?: (Type | DynamicModule)[];
+        /** slices a suite installs beside the product's (a test setting, task 0.21a) */
+        slices?: ApiSlice[];
+        /** the installation's own setting values (`INSTALLATION_SETTINGS`) */
+        installationSettings?: Record<string, unknown>;
     } = {}
 ): Promise<TestApi> {
     const installer = createDatabase(pg.url('owner'));
@@ -125,13 +129,17 @@ export async function startApi(
         FIELD_KEYS: `k1:${randomBytes(32).toString('base64')}`,
         BLIND_INDEX_KEY: randomBytes(32).toString('hex')
     };
-    const config = loadConfig('http', { DATABASE_URL: pg.url('app'), ...keys });
+    const config = loadConfig('http', {
+        DATABASE_URL: pg.url('app'),
+        ...keys,
+        ...(options.installationSettings ? { INSTALLATION_SETTINGS: JSON.stringify(options.installationSettings) } : {})
+    });
     const logger = createLogger(
         config,
         process.env.INT_LOG ? process.stderr : new Writable({ write: (_c, _e, done) => done() })
     );
     const app = createDatabase(config.DATABASE_URL, { auditKey: keys.AUDIT_HMAC_KEY });
-    const installed = loadSlices(SLICES);
+    const installed = loadSlices([...SLICES, ...(options.slices ?? [])]);
     @Module({})
     class Root {
         static forRoot(): DynamicModule {
@@ -143,7 +151,11 @@ export async function startApi(
                         objectStore: options.objectStore,
                         identity: { issuer: ISSUER, audience: AUDIENCE, keys: createLocalJWKSet({ keys: [jwk] }) },
                         roles: rolePermissions(installed.manifests),
-                        shell: { manifests: installed.manifests, messages: installed.messages }
+                        shell: {
+                            manifests: installed.manifests,
+                            messages: installed.messages,
+                            settings: installed.settings
+                        }
                     }),
                     ...installed.modules,
                     ...(options.modules ?? [])

@@ -42,7 +42,7 @@ export default defineModule({
         'audit-log': ['read'],
         // the outbox's events and jobs: the dead-letter list, sending a dead event back
         job: ['read', 'retry'],
-        // the region's settings (its languages)
+        // settings (ADR-0026): a unit's own values and its subtree's, a region's values for its unit types
         setting: ['update'],
         // sensitive personal fields in clear (Fayda FIN, phone, full birth date), with a reason, audited (task 0.14)
         pii: ['reveal'],
@@ -82,6 +82,8 @@ export default defineModule({
             'role-assignment:grant',
             'role-assignment:revoke',
             'audit-log:read',
+            // the unit's own settings and its subtree's, where a setting allows a unit's value (task 0.21a)
+            'setting:update',
             ...AUTHOR_FORMS,
             ...AUTHOR_WORKFLOWS
         ],
@@ -126,9 +128,20 @@ export default defineModule({
         // names and addresses only: never a sensitive field (no pii:reveal)
         viewer: [...READ_ORG, ...REGISTER]
     },
-    // the installation's languages (i18n-and-languages.md): Amharic and English everywhere; a region adds its own
-    // (Wolaita: wal-Latn) as an override, with the configuration inheritance of task 0.21
-    settings: [{ key: 'i18n.languages', default: ['am', 'en'], overridableAt: ['region'] }],
+    // the settings registry (ADR-0026; value schemas: KERNEL_SETTINGS in the contracts). The languages
+    // (i18n-and-languages.md): Amharic and English everywhere; the installation or a region adds its own (Wolaita:
+    // wal-Latn). The look (design-system.md §4): a region's default for its offices, a unit's or a unit type's for
+    // data-entry offices (compact), and each person's own choice
+    settings: [
+        { key: 'i18n.languages', default: ['am', 'en'], overridableAt: ['installation', 'region'] },
+        { key: 'ui.theme', default: 'system', overridableAt: ['region'], userPreference: true },
+        {
+            key: 'ui.density',
+            default: 'comfortable',
+            overridableAt: ['region', 'unit', 'unitType'],
+            userPreference: true
+        }
+    ],
     // the identity provider follows the tree and the assignments through the outbox (the worker's identity sync)
     events: {
         emits: ['org-unit.changed.v1', 'role-assignment.changed.v1'],
@@ -144,6 +157,16 @@ export default defineModule({
             label: 'kernel.nav.languages',
             icon: 'languages',
             route: '/admin/languages',
+            requires: { permission: 'setting:update' }
+        },
+        // every setting of a unit, where its value comes from, override and reset (task 0.21a)
+        {
+            key: 'kernel.settings',
+            group: 'administration',
+            order: 11,
+            label: 'kernel.nav.settings',
+            icon: 'sliders-horizontal',
+            route: '/admin/settings',
             requires: { permission: 'setting:update' }
         }
     ]

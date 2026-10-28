@@ -25,6 +25,7 @@ import {
 import { notify } from '@itrms/kernel/notifications';
 import { orgUnits, users } from '@itrms/kernel/tables';
 import { roleAssignments } from '@itrms/kernel/iam';
+import type { SettingsService } from '@itrms/kernel/settings';
 
 import {
     EXPORT_KEEP_DAYS,
@@ -49,6 +50,8 @@ export interface ExportDeps {
     permissionsOf: (roles: readonly string[]) => ReadonlySet<string>;
     /** the largest file an export may make (tests make it small) */
     maxBytes?: number;
+    /** the region's limits (task 0.21a); without, the defaults */
+    settings?: Pick<SettingsService, 'value'>;
 }
 
 type Job = typeof submissionExports.$inferSelect;
@@ -144,15 +147,23 @@ export async function runExport(system: SystemDatabase, deps: ExportDeps, export
     let recorded = false;
     try {
         const input = submissionExportSchema.parse(job.request);
-        const table = await deps.database.scoped(ctx, (tx) =>
-            new SubmissionQueryService(new FormsService(), new SubmissionsService()).exportTable(
+        const { table, keepDays } = await deps.database.scoped(ctx, async (tx) => {
+            // the limits of the office's region as they are when it runs
+            const [maxRows, keepDays] = deps.settings
+                ? await Promise.all([
+                      deps.settings.value<number>(tx, job.unitId, 'forms.exports.backgroundMaxRows'),
+                      deps.settings.value<number>(tx, job.unitId, 'forms.exports.keepDays')
+                  ])
+                : [MAX_BACKGROUND_EXPORT_ROWS, EXPORT_KEEP_DAYS];
+            const table = await new SubmissionQueryService(new FormsService(), new SubmissionsService()).exportTable(
                 tx,
                 roles,
                 input,
                 job.language,
-                { maxRows: MAX_BACKGROUND_EXPORT_ROWS, budgetMs: BACKGROUND_BUDGET_MS }
-            )
-        );
+                { maxRows, budgetMs: BACKGROUND_BUDGET_MS }
+            );
+            return { table, keepDays };
+        });
         const file = await render(table, deps.maxBytes ?? MAX_GENERATED_BYTES);
         object = await putGeneratedObject(deps.store, job.regionId, {
             contentType:
@@ -173,7 +184,7 @@ export async function runExport(system: SystemDatabase, deps: ExportDeps, export
             const stored = await recordGeneratedFile(tx, ctx, made, {
                 filename: table.filename,
                 documentType: 'submission_export',
-                keepUntil: new Date(Date.now() + EXPORT_KEEP_DAYS * 86_400_000)
+                keepUntil: new Date(Date.now() + keepDays * 86_400_000)
             });
             await updateAudited(tx, submissionExports, exportId, current.rowVersion, {
                 status: 'done',

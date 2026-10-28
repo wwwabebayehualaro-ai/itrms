@@ -24,6 +24,21 @@ describe('defineModule', () => {
         expect(permissionsOf(m)).toEqual(['licence:read', 'licence:issue']);
     });
 
+    it('declares settings with their levels, a personal choice and sensitivity (ADR-0026)', () => {
+        const setting = { key: 'competency.examDays', default: 14 };
+        const m = defineModule({ ...valid, settings: [{ ...setting, overridableAt: ['region', 'unitType'] }] });
+        expect(m.settings).toEqual([
+            { ...setting, overridableAt: ['region', 'unitType'], userPreference: false, sensitive: false }
+        ]);
+        const problems = (settings: unknown) => manifestProblems({ ...valid, settings });
+        expect(problems([{ ...setting, overridableAt: ['zone'] }])[0]).toMatch(/^settings\.0\.overridableAt\.0:/);
+        expect(problems([{ ...setting, overridableAt: ['unit', 'unit'] }])).toEqual([
+            'setting "competency.examDays" lists a level twice'
+        ]);
+        expect(problems([setting, setting])).toEqual(['settings has duplicates']);
+        expect(problems([{ ...setting, label: 'x' }])[0]).toMatch(/label/);
+    });
+
     it('rejects a key that is not kebab-case', () => {
         expect(() => defineModule({ ...valid, key: 'Competency_1' })).toThrow(/kebab-case/);
     });

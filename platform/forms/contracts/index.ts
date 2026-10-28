@@ -557,9 +557,18 @@ export type SavedView = z.infer<typeof savedViewSchema>;
 export const EXPORT_FORMATS = ['csv', 'xlsx'] as const;
 /** The most rows an export answers directly; more go to the background export (task 0.16e). */
 export const MAX_DIRECT_EXPORT_ROWS = 5000;
-/** The most rows a background export makes into a file, and how long the file is kept for its requester. */
+/**
+ * The most rows a background export makes into a file, and how long the file is kept for its requester: the defaults of
+ * the region's settings (task 0.21a), and the ceiling of the first (a region may lower it, never raise it).
+ */
 export const MAX_BACKGROUND_EXPORT_ROWS = 100_000;
 export const EXPORT_KEEP_DAYS = 7;
+
+/** The value schemas of the forms' settings (ADR-0026; declared in the manifest). */
+export const FORMS_SETTINGS = {
+    'forms.exports.keepDays': z.number().int().min(1).max(90),
+    'forms.exports.backgroundMaxRows': z.number().int().min(MAX_DIRECT_EXPORT_ROWS).max(MAX_BACKGROUND_EXPORT_ROWS)
+} as const;
 
 /** What the viewer shows, as a file: the same filter, search and sort, the chosen fields (all by default). */
 export const submissionExportSchema = z.strictObject({

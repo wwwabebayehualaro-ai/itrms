@@ -68,7 +68,7 @@ const densityScript = (requested: Density) => {
 
 export interface AppearanceProviderProps {
     children: React.ReactNode;
-    /** Defaults until users have preferences (later: the region's `ui.theme` and `ui.density` settings). */
+    /** Defaults before the app knows the person's `ui.theme` and `ui.density` (it applies them with useAppearance). */
     defaultTheme?: ThemePreference;
     defaultDensity?: Density;
     /** CSP nonce for the two inline pre-paint scripts. */
@@ -77,7 +77,8 @@ export interface AppearanceProviderProps {
 
 /**
  * Theme (light, dark, high contrast, or system) as a class on <html>, and density as `data-density` on <html>. Both switch at
- * runtime without a reload and are remembered per browser.
+ * runtime without a reload and are remembered per browser, for the first paint; the app keeps the person's choice on the
+ * server and applies it when it arrives.
  */
 export function AppearanceProvider({
     children,

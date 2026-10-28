@@ -57,8 +57,9 @@
 ## 4. Themes and branding
 * **Themes:** light (default), dark, **high contrast** (for bright offices and low-vision users). The setting
   `ui.theme` = system | light | dark | high-contrast is a user preference. `AppearanceProvider` puts the theme class
-  (`.dark`, `.high-contrast`) and `data-density` on `<html>`, and `AppearanceMenu` switches both at runtime. Until user
-  settings exist (task 0.21) both are remembered per browser.
+  (`.dark`, `.high-contrast`) and `data-density` on `<html>`, and `AppearanceMenu` switches both at runtime. Both are
+  settings (task 0.21a): a region's default (density also a unit's or a unit type's) and each person's own choice, kept
+  on the server so it follows them; the browser remembers the last look for the first paint.
 * **Default product palette:** a calm government look. Primary is deep teal-blue; neutrals are slate; status colours are
   fixed (§6). The Ethiopian flag colours are not used as UI colours, because they clash with the status colours. The national
   emblem appears only in document headers where the bureau supplies it.

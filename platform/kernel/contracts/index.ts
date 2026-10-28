@@ -16,6 +16,23 @@ export const roleAssignmentChangedV1 = z.strictObject({
     change: z.enum(['granted', 'revoked'])
 });
 
+/**
+ * The value schemas of the kernel's settings (ADR-0026; declared in its manifest): the installation's languages, and the
+ * look of the screens, which a region sets for its offices and each person may choose for themselves.
+ */
+export const UI_THEMES = ['system', 'light', 'dark', 'high-contrast'] as const;
+export const UI_DENSITIES = ['comfortable', 'compact'] as const;
+export const KERNEL_SETTINGS = {
+    'i18n.languages': z
+        .array(z.enum(INSTALLABLE_LANGUAGES))
+        .min(2)
+        .max(INSTALLABLE_LANGUAGES.length)
+        .refine((l) => new Set(l).size === l.length, 'a language is listed twice')
+        .refine((l) => l.includes('am') && l.includes('en'), 'Amharic and English are always on'),
+    'ui.theme': z.enum(UI_THEMES),
+    'ui.density': z.enum(UI_DENSITIES)
+} as const;
+
 /** A person's own display preferences (task 0.13): kept on the server so they follow the person between PCs. */
 export const userPreferencesSchema = z.strictObject({
     language: z.enum(INSTALLABLE_LANGUAGES).optional(),

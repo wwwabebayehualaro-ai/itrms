@@ -14,7 +14,7 @@ export { FileViewer } from './files/LazyFileViewer';
 export { AppearanceProvider, useAppearance } from './theme/AppearanceProvider';
 export type { Appearance, AppearanceProviderProps, ThemePreference } from './theme/AppearanceProvider';
 export { AppearanceMenu } from './theme/AppearanceMenu';
-export type { AppearanceLabels } from './theme/AppearanceMenu';
+export type { AppearanceLabels, AppearanceMenuProps } from './theme/AppearanceMenu';
 
 // ---- design-system primitives: shadcn/ui on Radix, styled with Tailwind and the semantic tokens (src/styles/tokens.css).
 // Features use these instead of primereact/*, @radix-ui/* or PrimeFlex classes (ESLint enforces it in the coded and platform paths).
