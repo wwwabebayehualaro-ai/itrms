@@ -64,7 +64,7 @@ describe('lintDocument', () => {
                 expect.objectContaining({ severity: 'warning', fieldId: 'phone', path: 'fields[0].classification' })
             ]);
             expect(engineText('en', 'form-engine.core.lint.unclassified', { field: 'phone' })).toContain(
-                'counts as personal'
+                'the browser keeps no draft'
             );
         });
     });

@@ -75,10 +75,14 @@ function UserMenu() {
     // an explicit sign-out deletes this browser's drafts and their key (SEC-WB-3); drafts the server does not have yet
     // are lost with them, so it asks first
     const signOut = async () => {
-        const unsaved = user ? await unsyncedCount(user.id) : 0;
+        // the browser's storage failing (blocked, full) never keeps a person from signing out
+        const unsaved = user ? await unsyncedCount(user.id).catch(() => 0) : 0;
         const leave = async () => {
-            if (user) await forgetLocalDrafts(user.id);
-            logout();
+            try {
+                if (user) await forgetLocalDrafts(user.id);
+            } finally {
+                logout();
+            }
         };
         if (unsaved === 0) return leave();
         void confirmAction({

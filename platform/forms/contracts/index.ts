@@ -196,6 +196,24 @@ export const draftListQuerySchema = z.strictObject({
     limit: z.coerce.number().int().min(1).max(100).default(50)
 });
 
+/**
+ * A draft without its answers: what a list and a save answer (SEC-PD-2: answers only where they are opened; nor kept in
+ * the idempotency records), the answers on `GET /form-drafts/{id}`.
+ */
+export const draftSummarySchema = z.object({
+    id: z.uuid(),
+    /** the row version, for If-Match */
+    version: z.number().int(),
+    formId: z.uuid(),
+    formName: z.record(z.string(), z.string()),
+    formVersion: z.object({ id: z.uuid(), number: z.number().int() }),
+    /** a newer version is published: the draft goes on with it when it is opened again */
+    outdated: z.boolean(),
+    unit: unitRefSchema,
+    createdAt: z.string(),
+    updatedAt: z.string()
+});
+
 export const draftSchema = z.object({
     id: z.uuid(),
     /** the row version, for If-Match */
@@ -212,6 +230,7 @@ export const draftSchema = z.object({
 });
 
 export type Draft = z.infer<typeof draftSchema>;
+export type DraftSummary = z.infer<typeof draftSummarySchema>;
 export type DraftCreate = z.infer<typeof draftCreateSchema>;
 export type DraftUpdate = z.infer<typeof draftUpdateSchema>;
 

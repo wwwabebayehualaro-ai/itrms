@@ -2,20 +2,35 @@
 
 /**
  * Drafts of a request (task 0.20c): the person's drafts on the server (`/v1/form-drafts`) and the session a form fill
- * keeps while they type. Every change is kept in this browser within seconds (sealed, without the Sensitive answers:
- * store.ts) and on the server a few seconds later when there is a connection; a dropped link only delays the server's
- * copy, which follows when it is back. Filing the request removes the draft (the server in the filing's transaction).
+ * keeps while they type. Every change is kept in this browser within seconds (sealed, without the answers kept on the
+ * server only: store.ts) and on the server a few seconds later when there is a connection; a dropped link only delays
+ * the server's copy, which follows when it is back. Filing the request removes the draft (the server in the filing's
+ * transaction).
+ *
+ * Which copy a resumed draft starts from never compares clocks: this browser's copy goes on when it holds a change the
+ * server does not have and was made on the server version it has now; a copy made on an older one (the draft changed on
+ * another PC meanwhile) gives way to the server's, and the form says so.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Draft } from '@itrms/forms/contracts';
+import type { Draft, DraftSummary } from '@itrms/forms/contracts';
 
 import client from '../api/client';
 import { isApiError } from '../api/http';
 import { createKeys } from '../query/keys';
-import { listLocal, loadLocal, markSynced, removeLocal, renameLocal, saveLocal, type LocalDraftMeta } from './store';
+import { mergeAnswers } from './merge';
+import {
+    canSeal,
+    listLocal,
+    loadLocal,
+    markSynced,
+    removeLocal,
+    renameLocal,
+    saveLocal,
+    type LocalDraftMeta
+} from './store';
 
-export type { Draft, LocalDraftMeta };
+export type { Draft, DraftSummary, LocalDraftMeta };
 export { forget as forgetLocalDrafts, unsyncedCount } from './store';
 
 export const draftKeys = createKeys('form-drafts');
@@ -26,11 +41,17 @@ const ifMatch = (version: number) => ({ headers: { 'if-match': `"${version}"` } 
 const LOCAL_AFTER = 1_500;
 const SERVER_AFTER = 6_000;
 
-/** The person's drafts on the server, and those kept only in this browser (never saved there), the latest first. */
+/** A local id: random where the browser can make one (not over plain HTTP), else from the time. */
+const newLocalId = () =>
+    `local-${globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`}`;
+
+/** The person's drafts on the server (without their answers), and those kept in this browser, the latest first. */
 export function useMyDrafts(userId: string | undefined) {
     const server = useQuery({
         queryKey: draftKeys.list(),
-        queryFn: async ({ signal }) => (await client.get<{ items: Draft[] }>('v1/form-drafts', { signal })).data.items
+        queryFn: async ({ signal }) =>
+            (await client.get<{ items: DraftSummary[] }>('v1/form-drafts', { params: { limit: 100 }, signal })).data
+                .items
     });
     const local = useQuery({
         queryKey: [...draftKeys.all, 'local', userId ?? ''] as const,
@@ -44,21 +65,63 @@ export type DraftStatus = 'idle' | 'local' | 'saving' | 'saved' | 'offline' | 'e
 
 export interface DraftStart {
     /** the server's draft being resumed */
-    draft?: Draft;
+    draft?: DraftSummary;
     /** this browser's copy of it, or a draft kept only here */
     local?: LocalDraftMeta;
 }
 
+export interface Resumed {
+    values: Record<string, unknown>;
+    /** this browser's unsaved change was made on an older server version: the server's is shown instead */
+    conflict: boolean;
+    /** the start as it is now (the server's current version; no server draft when it is gone) */
+    start: DraftStart;
+}
+
 /**
- * The answers a resumed draft starts from: the server's, with this browser's newer change over them (the browser keeps
- * no Sensitive answer, so the server's stay); a draft kept only here starts from its own answers.
+ * The answers a resumed draft starts from (see the header): the server's, with this browser's change over them when it
+ * goes on (rows of a repeating section merged row by row, so the server's answers kept on the server only stay); a
+ * draft kept only here, or whose server draft is gone, starts from this browser's copy.
  */
-export async function resumeValues(userId: string, start: DraftStart): Promise<Record<string, unknown>> {
+export async function resumeValues(userId: string, start: DraftStart): Promise<Resumed> {
+    const server = start.draft ? await currentDraft(start.draft.id) : null;
     const here = start.local ? await loadLocal(userId, start.local.localId) : null;
-    const server = start.draft?.answers ?? {};
-    if (!here) return server;
-    const newer = !start.draft || here.updatedAt > Date.parse(start.draft.updatedAt);
-    return newer ? { ...server, ...here.answers } : server;
+    const local = start.local ? { ...start.local, draftId: server ? start.local.draftId : null } : undefined;
+    const now: DraftStart = { ...(server ? { draft: server } : {}), ...(local ? { local } : {}) };
+    if (!here) return { values: server?.answers ?? {}, conflict: false, start: now };
+    if (!server) return { values: here.answers, conflict: false, start: now };
+    if (here.synced) return { values: server.answers, conflict: false, start: now };
+    if (here.baseVersion === server.version)
+        return { values: mergeAnswers(server.answers, here.answers), conflict: false, start: now };
+    return { values: server.answers, conflict: true, start: now };
+}
+
+/** A server draft with its answers; null when it is gone (filed or thrown away elsewhere). */
+async function currentDraft(id: string): Promise<Draft | null> {
+    try {
+        return (await client.get<Draft>(`v1/form-drafts/${id}`)).data;
+    } catch (error) {
+        if (isApiError(error) && error.response?.status === 404) return null;
+        throw error;
+    }
+}
+
+/** A session's state: one object for its life (a ref): its fields change, the object does not. */
+function initial(start: DraftStart | undefined) {
+    const localId = start?.draft?.id ?? start?.local?.localId ?? newLocalId();
+    return {
+        localId,
+        draftId: start?.draft?.id ?? start?.local?.draftId ?? null,
+        serverVersion: start?.draft?.version ?? null,
+        // one create per session, whatever happens to its answer (a lost reply never makes a second draft)
+        createKey: `draft-create:${localId}`,
+        values: null as Record<string, unknown> | null,
+        updatedAt: 0,
+        unsent: false,
+        localTimer: undefined as ReturnType<typeof setTimeout> | undefined,
+        serverTimer: undefined as ReturnType<typeof setTimeout> | undefined,
+        sending: Promise.resolve()
+    };
 }
 
 /**
@@ -71,80 +134,95 @@ export function useDraftSession(input: {
     formId: string;
     /** the version the form is shown on (a resumed draft goes on with it) */
     versionId: string;
-    /** the answers without the Sensitive ones (SEC-WB-3) */
+    /** the answers this browser may keep (SEC-WB-3) */
     local: (values: Record<string, unknown>) => Record<string, unknown>;
     start?: DraftStart;
 }) {
     const queries = useQueryClient();
     const [status, setStatus] = useState<DraftStatus>('idle');
-    const state = useRef({
-        localId: input.start?.draft?.id ?? input.start?.local?.localId ?? `local-${crypto.randomUUID()}`,
-        draftId: input.start?.draft?.id ?? input.start?.local?.draftId ?? null,
-        serverVersion: input.start?.draft?.version ?? null,
-        values: null as Record<string, unknown> | null,
-        updatedAt: 0,
-        unsent: false,
-        localTimer: undefined as ReturnType<typeof setTimeout> | undefined,
-        serverTimer: undefined as ReturnType<typeof setTimeout> | undefined,
-        sending: Promise.resolve()
-    });
+    const ref = useRef(initial(input.start));
     const meta = useRef(input);
     useEffect(() => {
         meta.current = input;
     });
 
     const keepLocal = useCallback(async () => {
-        const s = state.current;
+        const state = ref.current;
         const { userId, formId, versionId, local } = meta.current;
-        if (!s.values) return;
+        // no WebCrypto (an insecure context): nothing is kept here, the server's copy is the draft
+        if (!state.values || !canSeal()) return;
         await saveLocal(
             {
-                localId: s.localId,
+                localId: state.localId,
                 userId,
                 formId,
-                draftId: s.draftId,
+                draftId: state.draftId,
                 formVersionId: versionId,
-                updatedAt: s.updatedAt,
+                baseVersion: state.serverVersion,
+                updatedAt: state.updatedAt,
                 synced: false
             },
-            local(s.values)
+            local(state.values)
         );
         setStatus((cur) => (cur === 'saving' ? cur : 'local'));
     }, []);
 
+    const keepLocalShown = useCallback(() => {
+        keepLocal().catch(() => setStatus('error'));
+    }, [keepLocal]);
+
     const send = useCallback(async () => {
-        const s = state.current;
+        const state = ref.current;
         const { formId, versionId } = meta.current;
-        if (!s.values || !s.unsent) return;
+        if (!state.values || !state.unsent) return;
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
             setStatus('offline');
             return;
         }
-        const answers = s.values;
-        const at = s.updatedAt;
+        const answers = state.values;
+        const at = state.updatedAt;
+        const patch = async (id: string, version: number) =>
+            (
+                await client.patch<DraftSummary>(
+                    `v1/form-drafts/${id}`,
+                    { formVersionId: versionId, answers },
+                    ifMatch(version)
+                )
+            ).data;
         setStatus('saving');
         try {
-            if (s.draftId && s.serverVersion !== null) {
-                const saved = (
-                    await client.patch<Draft>(
-                        `v1/form-drafts/${s.draftId}`,
-                        { formVersionId: versionId, answers },
-                        ifMatch(s.serverVersion)
+            let saved: DraftSummary | null = null;
+            if (state.draftId && state.serverVersion !== null) {
+                const id = state.draftId;
+                try {
+                    saved = await patch(id, state.serverVersion);
+                } catch (error) {
+                    const code = isApiError(error) ? error.response?.status : undefined;
+                    if (code === 409) {
+                        // saved meanwhile from another tab of the same person: on top of that save
+                        const current = await currentDraft(id);
+                        if (current) saved = await patch(id, current.version);
+                    } else if (code !== 404) throw error;
+                    // gone (filed or thrown away elsewhere): saved anew below
+                    if (!saved) state.draftId = null;
+                }
+            }
+            if (!saved) {
+                saved = (
+                    await client.post<DraftSummary>(
+                        'v1/form-drafts',
+                        { formId, formVersionId: versionId, answers },
+                        { headers: { 'idempotency-key': state.createKey } }
                     )
                 ).data;
-                s.serverVersion = saved.version;
-            } else {
-                const saved = (
-                    await client.post<Draft>('v1/form-drafts', { formId, formVersionId: versionId, answers })
-                ).data;
-                await renameLocal(s.localId, saved.id, saved.id);
-                s.localId = saved.id;
-                s.draftId = saved.id;
-                s.serverVersion = saved.version;
+                if (canSeal()) await renameLocal(state.localId, saved.id, saved.id);
+                state.localId = saved.id;
+                state.draftId = saved.id;
             }
-            if (s.updatedAt === at) s.unsent = false;
-            await markSynced(s.localId, at);
-            setStatus(s.unsent ? 'local' : 'saved');
+            state.serverVersion = saved.version;
+            if (state.updatedAt === at) state.unsent = false;
+            if (canSeal()) await markSynced(state.localId, at, saved.version);
+            setStatus(state.unsent ? 'local' : 'saved');
             void queries.invalidateQueries({ queryKey: draftKeys.all });
         } catch (error) {
             // no answer (a dropped link): kept here, sent again when the link is back; anything else is shown
@@ -154,72 +232,74 @@ export function useDraftSession(input: {
 
     /** Sends what is pending, after any send already on its way. */
     const flush = useCallback(() => {
-        const s = state.current;
-        s.sending = s.sending.then(send);
-        return s.sending;
+        const state = ref.current;
+        state.sending = state.sending.then(send);
+        return state.sending;
     }, [send]);
 
     const change = useCallback(
         (values: Record<string, unknown>) => {
-            const s = state.current;
-            s.values = values;
-            s.updatedAt = Date.now();
-            s.unsent = true;
-            clearTimeout(s.localTimer);
-            clearTimeout(s.serverTimer);
-            s.localTimer = setTimeout(() => void keepLocal(), LOCAL_AFTER);
-            s.serverTimer = setTimeout(() => void flush(), SERVER_AFTER);
+            const state = ref.current;
+            state.values = values;
+            state.updatedAt = Date.now();
+            state.unsent = true;
+            clearTimeout(state.localTimer);
+            clearTimeout(state.serverTimer);
+            state.localTimer = setTimeout(keepLocalShown, LOCAL_AFTER);
+            state.serverTimer = setTimeout(() => void flush(), SERVER_AFTER);
         },
-        [keepLocal, flush]
+        [keepLocalShown, flush]
     );
 
     // the link is back: what waited goes to the server
     useEffect(() => {
-        // one object for the session's life: its fields change, the object does not
-        const s = state.current;
+        const state = ref.current;
         const online = () => void flush();
         window.addEventListener('online', online);
         return () => {
             window.removeEventListener('online', online);
-            clearTimeout(s.localTimer);
-            clearTimeout(s.serverTimer);
-            // leaving the form: keep the last change here at once (the server's copy follows next time)
-            if (s.unsent) void keepLocal();
+            clearTimeout(state.localTimer);
+            clearTimeout(state.serverTimer);
+            // leaving the form: the last change is kept here and sent at once, not left for next time
+            if (state.unsent) {
+                keepLocalShown();
+                void flush();
+            }
         };
-    }, [flush, keepLocal]);
+    }, [flush, keepLocalShown]);
 
     /** Before filing: no save is started any more, and the one on its way (if any) is waited for. */
     const settle = useCallback(async () => {
-        const s = state.current;
-        clearTimeout(s.localTimer);
-        clearTimeout(s.serverTimer);
-        await s.sending;
+        const state = ref.current;
+        clearTimeout(state.localTimer);
+        clearTimeout(state.serverTimer);
+        await state.sending;
     }, []);
 
     /** The request was filed: the server removed its draft; this browser's copy goes too. */
     const filed = useCallback(async () => {
-        const s = state.current;
-        clearTimeout(s.localTimer);
-        clearTimeout(s.serverTimer);
-        s.unsent = false;
-        await removeLocal(s.localId);
+        const state = ref.current;
+        clearTimeout(state.localTimer);
+        clearTimeout(state.serverTimer);
+        state.unsent = false;
+        if (canSeal()) await removeLocal(state.localId);
         void queries.invalidateQueries({ queryKey: draftKeys.all });
     }, [queries]);
 
-    return {
-        status,
-        change,
-        flush,
-        settle,
-        filed,
-        /** the server's draft, for the filing */
-        draftId: () => state.current.draftId
-    };
+    /** The server's draft, for the filing. */
+    const draftId = useCallback(() => ref.current.draftId, []);
+
+    return { status, change, flush, settle, filed, draftId };
 }
 
-/** Throws a person's draft away, here and on the server. */
-export async function discardDraft(local: { localId: string } | null, server: Draft | null): Promise<void> {
-    if (server) await client.delete(`v1/form-drafts/${server.id}`, ifMatch(server.version));
+/** Throws a person's draft away, here and on the server (gone there already: nothing more to do). */
+export async function discardDraft(local: { localId: string } | null, server: DraftSummary | null): Promise<void> {
+    if (server)
+        try {
+            await client.delete(`v1/form-drafts/${server.id}`, ifMatch(server.version));
+        } catch (error) {
+            if (!(isApiError(error) && error.response?.status === 404)) throw error;
+        }
     if (local) await removeLocal(local.localId);
 }
 

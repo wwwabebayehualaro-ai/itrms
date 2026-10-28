@@ -44,9 +44,11 @@ Task 0.20c: drafts (`drafts.service.ts`, `forms.submission_drafts`): a person's 
 version they started; theirs alone (the service reads and writes by `created_by`, RLS keeps it to the unit), never
 validated, holding only the form's own fields they may see; saved again on a newer published version, it goes on with
 that one; filing the request with its `draftId` removes it in the filing's transaction. Each field of a form carries a
-data class (`classification`, SEC-DC-1; unset counts as personal, a publish-check warning): the browser keeps a draft
-in IndexedDB (apps/web `lib/drafts`, Dexie), sealed with the person's non-extractable key and without the Sensitive
-answers (SEC-WB-3), so it survives a dropped network; an explicit sign-out deletes the key and the drafts.
+data class (`classification`, SEC-DC-1; unset counts as personal elsewhere, a publish-check warning): the browser keeps
+a draft in IndexedDB (apps/web `lib/drafts`, Dexie), sealed with the person's non-extractable key and with only the
+answers of classified, non-Sensitive fields (SEC-WB-3), so it survives a dropped network; an explicit sign-out deletes
+the key and the drafts in every tab. Lists and saves answer without the answers (`DraftSummary`); `GET …/{id}` has them.
+A resumed draft takes this browser's unsaved change only when it was made on the server's current version.
 
 Layer: platform. Shape, public entries and rules: [code-structure.md](../../docs/platform/code-structure.md) §4.
 

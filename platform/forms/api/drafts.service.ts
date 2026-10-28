@@ -13,7 +13,14 @@ import { unitRefs } from '@itrms/kernel/org';
 import { knownValues } from '@itrms/form-engine/core';
 import type { z } from 'zod';
 
-import type { Draft, DraftCreate, DraftUpdate, draftListQuerySchema } from '../contracts';
+import {
+    draftSummarySchema,
+    type Draft,
+    type DraftCreate,
+    type DraftSummary,
+    type DraftUpdate,
+    type draftListQuerySchema
+} from '../contracts';
 import { unitOf } from './forms.service';
 import { formDefinitions, formVersions, submissionDrafts } from './forms.table';
 import { fieldsFor, required } from './support';
@@ -22,13 +29,13 @@ type DraftRow = typeof submissionDrafts.$inferSelect;
 
 @Injectable()
 export class DraftsService {
-    /** The caller's drafts, the latest changed first. */
+    /** The caller's drafts, the latest changed first, without their answers. */
     async list(
         tx: Tx,
         ctx: DbContext,
         roles: readonly string[],
         query: z.infer<typeof draftListQuerySchema>
-    ): Promise<{ items: Draft[] }> {
+    ): Promise<{ items: DraftSummary[] }> {
         const rows = await tx
             .select()
             .from(submissionDrafts)
@@ -40,14 +47,14 @@ export class DraftsService {
             )
             .orderBy(desc(submissionDrafts.updatedAt))
             .limit(query.limit);
-        return { items: await this.present(tx, roles, rows) };
+        return { items: (await this.present(tx, roles, rows)).map(summaryOf) };
     }
 
     async get(tx: Tx, ctx: DbContext, roles: readonly string[], id: string): Promise<Draft> {
         return (await this.present(tx, roles, [await this.own(tx, ctx, id)]))[0] as Draft;
     }
 
-    async create(tx: Tx, ctx: DbContext, roles: readonly string[], input: DraftCreate): Promise<Draft> {
+    async create(tx: Tx, ctx: DbContext, roles: readonly string[], input: DraftCreate): Promise<DraftSummary> {
         const document = await this.published(tx, input.formId, input.formVersionId);
         const row = await insertAudited(tx, submissionDrafts, {
             regionId: required(ctx.regionId),
@@ -56,7 +63,7 @@ export class DraftsService {
             formVersionId: input.formVersionId,
             answers: knownValues(fieldsFor(document, roles), input.answers)
         });
-        return this.get(tx, ctx, roles, row.id);
+        return summaryOf(await this.get(tx, ctx, roles, row.id));
     }
 
     /** The answers so far (If-Match: the draft's version); a newer published version to go on with. */
@@ -67,7 +74,7 @@ export class DraftsService {
         id: string,
         version: number,
         input: DraftUpdate
-    ): Promise<Draft> {
+    ): Promise<DraftSummary> {
         const row = await this.own(tx, ctx, id);
         const versionId = input.formVersionId ?? row.formVersionId;
         const document =
@@ -78,7 +85,7 @@ export class DraftsService {
             formVersionId: versionId,
             answers: knownValues(fieldsFor(document, roles), input.answers)
         });
-        return this.get(tx, ctx, roles, id);
+        return summaryOf(await this.get(tx, ctx, roles, id));
     }
 
     async remove(tx: Tx, ctx: DbContext, id: string, version: number): Promise<void> {
@@ -163,6 +170,9 @@ export class DraftsService {
         });
     }
 }
+
+/** A draft without its answers (the summary's schema keeps only its own keys). */
+const summaryOf = (draft: Draft): DraftSummary => draftSummarySchema.parse(draft);
 
 /** Removes the caller's draft a request was filled from, with the filing (no-op if it is gone already: another tab). */
 export async function fileDraft(tx: Tx, ctx: DbContext, draftId: string, formId: string): Promise<void> {

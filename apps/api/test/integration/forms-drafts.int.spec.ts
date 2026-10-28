@@ -118,7 +118,9 @@ describe('a draft', () => {
             answers: { name: 'Abebe', fin: '1234 5678 9012', ghost: 'not a field' }
         });
         expect(res.statusCode, res.body).toBe(201);
-        const d = res.json<DraftOut>();
+        // a save answers without the answers (nor are they kept in its idempotency record); they come on GET
+        expect(res.json<DraftOut>()).not.toHaveProperty('answers');
+        const d = (await get(as.damotRecords, res.json<DraftOut>().id)).json<DraftOut>();
         // the server keeps the Sensitive answer (only the browser may not)
         expect(d).toMatchObject({
             formId,
@@ -128,7 +130,9 @@ describe('a draft', () => {
             answers: { name: 'Abebe', fin: '1234 5678 9012' }
         });
         expect(d.answers).not.toHaveProperty('ghost');
-        expect((await mine(as.damotRecords)).map((x) => x.id)).toContain(d.id);
+        const listed = (await mine(as.damotRecords)).find((x) => x.id === d.id);
+        expect(listed).toBeDefined();
+        expect(listed).not.toHaveProperty('answers');
 
         // a colleague at the same counter, another office, the office above: never theirs
         expect((await mine(as.damotRecords2)).map((x) => x.id)).not.toContain(d.id);
@@ -183,7 +187,7 @@ describe('a draft', () => {
             answers: { name: 'Kebede', plate: 'ETH-ABC-1234' }
         });
         expect(moved.statusCode, moved.body).toBe(200);
-        expect(moved.json<DraftOut>()).toMatchObject({
+        expect((await get(as.damotRecords, d.id)).json<DraftOut>()).toMatchObject({
             formVersion: { id: v2, number: 2 },
             outdated: false,
             answers: { name: 'Kebede', plate: 'ETH-ABC-1234' }

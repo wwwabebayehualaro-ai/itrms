@@ -49,7 +49,7 @@ export {
     settledValues,
     submittedValues,
     withoutSensitive,
-    hasSensitive,
+    keepsServerOnly,
     scopeFields,
     holdsValue,
     isListField,

@@ -34,5 +34,7 @@
   "forms.draft.status.saved": "Draft saved",
   "forms.draft.status.offline": "No connection: saved on this PC; it goes to the server when the link is back",
   "forms.draft.status.error": "The draft could not be saved on the server: it is kept on this PC",
-  "forms.draft.sensitive": "Sensitive answers (a phone, a FIN) are kept only on the server: without a connection they are typed again."
+  "forms.draft.sensitive": "Some answers (sensitive ones, and those of fields without a data class) are kept only on the server: without a connection they are typed again.",
+  "forms.draft.conflict": "This draft was saved on another PC after the changes made here: that version is shown. Check the answers before you go on.",
+  "forms.draft.resumeFailed": "The draft could not be opened: try again."
 }

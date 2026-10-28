@@ -1,17 +1,26 @@
 'use client';
 
 /**
- * The person's drafts on the "start a request" page (task 0.20c): those on the server (from any PC) and those kept only
- * in this browser (never reached the server), the latest first, each resumed or thrown away. A server draft changed here
- * since its last save says so; it goes on with this browser's change.
+ * The person's drafts (task 0.20c), on the "start a request" page and a form's requests page: those on the server (from
+ * any PC) and those kept only in this browser (never reached the server, or whose server draft is gone with a change
+ * still unsaved here), the latest first, each resumed or thrown away. A copy here whose server draft is gone and which
+ * holds nothing unsaved is cleaned up. A server draft changed here since its last save says so.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FilePen, Trash2 } from 'lucide-react';
 import { Button, confirmAction } from '@itrms/ui';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useAuthStore } from '@/lib/auth/authStore';
-import { discardDraft, draftKeys, useMyDrafts, type Draft, type DraftStart, type LocalDraftMeta } from '@/lib/drafts';
+import {
+    discardDraft,
+    draftKeys,
+    useMyDrafts,
+    type DraftStart,
+    type DraftSummary,
+    type LocalDraftMeta
+} from '@/lib/drafts';
+import { removeLocal } from '@/lib/drafts/store';
 import { formatMoment } from '@/lib/format';
 import { usePreferences, useText } from '@/lib/preferences';
 
@@ -20,7 +29,7 @@ interface Row {
     formId: string;
     name: string;
     at: string;
-    server: Draft | null;
+    server: DraftSummary | null;
     local: LocalDraftMeta | null;
 }
 
@@ -43,6 +52,16 @@ export function DraftsList({
     const [busy, setBusy] = useState<string | null>(null);
 
     const here = new Map((local.data ?? []).map((l) => [l.draftId ?? l.localId, l]));
+    const onServer = new Set((server.data ?? []).map((d) => d.id));
+    // a copy here whose server draft is gone (filed or thrown away elsewhere): shown while it holds an unsaved change
+    const gone = (l: LocalDraftMeta) => server.isSuccess && l.draftId !== null && !onServer.has(l.draftId);
+    useEffect(() => {
+        const stale = (local.data ?? []).filter((l) => gone(l) && l.synced);
+        if (stale.length === 0) return;
+        void Promise.all(stale.map((l) => removeLocal(l.localId))).then(() =>
+            queries.invalidateQueries({ queryKey: draftKeys.all })
+        );
+    });
     const rows: Row[] = [
         ...(server.data ?? []).map((d) => {
             const l = here.get(d.id) ?? null;
@@ -56,7 +75,7 @@ export function DraftsList({
             };
         }),
         ...(local.data ?? [])
-            .filter((l) => !l.draftId)
+            .filter((l) => !l.draftId || (gone(l) && !l.synced))
             .map((l) => ({
                 key: l.localId,
                 formId: l.formId,

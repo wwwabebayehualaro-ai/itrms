@@ -7,12 +7,12 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CloudOff, Check, Loader2, HardDrive, TriangleAlert } from 'lucide-react';
-import { hasSensitive, readDocument, withoutSensitive } from '@itrms/form-engine/core';
+import { keepsServerOnly, readDocument, withoutSensitive } from '@itrms/form-engine/core';
 import { PublishedFormRenderer, usePublishedTemplate } from '@itrms/form-engine/renderer';
-import { InlineStatus } from '@itrms/ui';
+import { Alert, AlertDescription, InlineStatus } from '@itrms/ui';
 
 import { useAuthStore } from '@/lib/auth/authStore';
-import { resumeValues, useDraftSession, type DraftStart, type DraftStatus } from '@/lib/drafts';
+import { resumeValues, useDraftSession, type DraftStart, type DraftStatus, type Resumed } from '@/lib/drafts';
 import { useText } from '@/lib/preferences';
 import type { IFormTemplate } from '@/types/template_builder/form';
 
@@ -27,11 +27,15 @@ interface Props {
 
 export function DraftedForm({ template, start, onFormSubmit, onSuccess, submitLabel }: Props) {
     const userId = useAuthStore((s) => s.user?.id);
-    const { language } = useText();
+    const { language, t } = useText();
     const published = usePublishedTemplate(template.id as string);
-    const [initial, setInitial] = useState<Record<string, unknown> | null>(start ? null : {});
+    const [resumed, setResumed] = useState<Resumed | null>(start ? null : { values: {}, conflict: false, start: {} });
+    const [failed, setFailed] = useState(false);
     useEffect(() => {
-        if (start && userId) void resumeValues(userId, start).then(setInitial);
+        if (start && userId)
+            resumeValues(userId, start)
+                .then(setResumed)
+                .catch(() => setFailed(true));
     }, [start, userId]);
     const fields = useMemo(() => {
         const config = published.data?.form_config;
@@ -39,7 +43,8 @@ export function DraftedForm({ template, start, onFormSubmit, onSuccess, submitLa
     }, [published.data, language]);
 
     // the published form's own states (loading, not published) are the renderer's
-    if (!userId || !published.data || !fields || initial === null)
+    if (failed) return <InlineStatus error={t('forms.draft.resumeFailed')} className="p-4" />;
+    if (!userId || !published.data || !fields || resumed === null)
         return published.error ? (
             <PublishedFormRenderer bare template={template} onFormSubmit={onFormSubmit} onSuccess={onSuccess} />
         ) : (
@@ -51,8 +56,9 @@ export function DraftedForm({ template, start, onFormSubmit, onSuccess, submitLa
             template={template}
             versionId={published.data.version_id}
             fields={fields}
-            start={start}
-            initial={initial}
+            start={resumed.start}
+            initial={resumed.values}
+            conflict={resumed.conflict}
             onFormSubmit={onFormSubmit}
             onSuccess={onSuccess}
             submitLabel={submitLabel}
@@ -67,6 +73,7 @@ function DraftFill({
     fields,
     start,
     initial,
+    conflict,
     onFormSubmit,
     onSuccess,
     submitLabel
@@ -75,7 +82,9 @@ function DraftFill({
     versionId: string;
     fields: ReturnType<typeof readDocument>['fields'];
     initial: Record<string, unknown>;
+    conflict: boolean;
 }) {
+    const { t } = useText();
     const session = useDraftSession({
         userId,
         formId: template.id as string,
@@ -87,7 +96,12 @@ function DraftFill({
     const opened = useRef<string | null>(null);
     return (
         <div className="flex flex-col gap-3">
-            <DraftStatusLine status={session.status} sensitive={hasSensitive(fields)} />
+            {conflict && (
+                <Alert data-draft-conflict>
+                    <AlertDescription>{t('forms.draft.conflict')}</AlertDescription>
+                </Alert>
+            )}
+            <DraftStatusLine status={session.status} serverOnly={keepsServerOnly(fields)} />
             <PublishedFormRenderer
                 bare
                 template={template}
@@ -120,7 +134,7 @@ const LOOK: Record<Exclude<DraftStatus, 'idle'>, { icon: typeof Check; key: stri
     error: { icon: TriangleAlert, key: 'forms.draft.status.error', tone: 'text-destructive' }
 };
 
-function DraftStatusLine({ status, sensitive }: { status: DraftStatus; sensitive: boolean }) {
+function DraftStatusLine({ status, serverOnly }: { status: DraftStatus; serverOnly: boolean }) {
     const { t } = useText();
     const look = status === 'idle' ? null : LOOK[status];
     return (
@@ -133,7 +147,7 @@ function DraftStatusLine({ status, sensitive }: { status: DraftStatus; sensitive
             ) : (
                 <span className="text-muted-foreground">{t('forms.draft.status.idle')}</span>
             )}
-            {sensitive && <span className="text-muted-foreground">{t('forms.draft.sensitive')}</span>}
+            {serverOnly && <span className="text-muted-foreground">{t('forms.draft.sensitive')}</span>}
         </div>
     );
 }
