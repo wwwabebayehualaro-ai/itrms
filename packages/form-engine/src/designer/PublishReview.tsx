@@ -40,6 +40,7 @@ const AREA_WORD = {
     computed: 'form-engine.designer.publish.area.computed',
     roles: 'form-engine.designer.publish.area.roles',
     filterable: 'form-engine.designer.publish.area.filterable',
+    classification: 'form-engine.designer.publish.area.classification',
     settings: 'form-engine.designer.publish.area.settings'
 } as const satisfies Record<DiffChange['area'], EngineMessageKey>;
 

@@ -984,6 +984,7 @@ export class CasesService {
                 formVersion: s.formVersion.number,
                 form: s.document,
                 answers: s.answers,
+                masked: s.masked,
                 submittedBy: personOf(names, s.submittedBy),
                 at: s.createdAt
             })),

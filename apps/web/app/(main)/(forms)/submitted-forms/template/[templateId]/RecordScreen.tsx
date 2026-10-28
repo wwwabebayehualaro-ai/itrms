@@ -147,6 +147,7 @@ export function RecordScreen({ templateId, submissionId }: { templateId: string;
             <SensitiveAnswers
                 submissionId={submission.id as string}
                 masked={(submission as { masked?: string[] }).masked ?? []}
+                form={{ fields }}
                 labelOf={(key) => {
                     const f = fields.find((x: { id: string }) => x.id === key);
                     return (f && formTextIn(f.label, language)) || key;

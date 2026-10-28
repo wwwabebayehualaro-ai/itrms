@@ -5,8 +5,9 @@
  * here; someone who may reveal personal data shows them with a reason, recorded in the audit log with who and when.
  * What was shown goes when the record is left (it is never cached).
  */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Eye, ShieldAlert } from 'lucide-react';
+import { isFormArray, printValueText, readDocument } from '@itrms/form-engine/core';
 import {
     Alert,
     AlertDescription,
@@ -31,13 +32,31 @@ import { useText } from '@/lib/preferences';
 export function SensitiveAnswers({
     submissionId,
     masked,
+    form,
     labelOf
 }: {
     submissionId: string;
     masked: readonly string[];
+    /** the record's form (its stored fields), to show the answers as the form prints them */
+    form: unknown;
     labelOf: (key: string) => string;
 }) {
-    const { t } = useText();
+    const { t, language } = useText();
+    const fields = useMemo(() => readDocument(form, { language }).fields, [form, language]);
+    // an answer as the printed form says it: an Ethiopian date, an option's label, a section's rows by their fields
+    const textOf = (key: string, value: unknown): string => {
+        const field = fields.find((f) => f.id === key);
+        if (!field) return typeof value === 'string' ? value : JSON.stringify(value);
+        if (isFormArray(field) && Array.isArray(value))
+            return value
+                .map((row: unknown) =>
+                    Object.entries(row && typeof row === 'object' ? (row as Record<string, unknown>) : {})
+                        .map(([k, v]) => `${labelOf(k)}: ${textOf(k, v)}`)
+                        .join(', ')
+                )
+                .join(' · ');
+        return printValueText(field, value, { language });
+    };
     const mayReveal = useCan('pii:reveal');
     const [asking, setAsking] = useState(false);
     const [reason, setReason] = useState('');
@@ -74,7 +93,7 @@ export function SensitiveAnswers({
                         data-revealed
                         items={Object.entries(shown).map(([key, value]) => ({
                             term: labelOf(key),
-                            value: typeof value === 'string' ? value : JSON.stringify(value)
+                            value: textOf(key, value)
                         }))}
                     />
                 ) : (

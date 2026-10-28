@@ -174,6 +174,8 @@ const caseStepSchema = z.object({
     formVersion: z.number().int(),
     form: z.unknown(),
     answers: z.record(z.string(), z.unknown()),
+    /** the Sensitive fields left out of `answers` (task 0.20d): revealed on the submission's record, with a reason */
+    masked: z.array(z.string()),
     submittedBy: personRefSchema.nullable(),
     at: z.string()
 });

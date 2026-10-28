@@ -170,11 +170,28 @@ describe('a Sensitive answer', () => {
         );
         expect(audit.rows).toHaveLength(1);
         expect(JSON.stringify(audit.rows[0]?.data)).toContain('Checking the FIN against the national ID card');
+        // the exact fields shown, a section's included (who saw what of a person: SEC-PD-4), never their values
+        expect(audit.rows[0]?.data.fields).toEqual(['childFin', 'fin']);
+        expect(JSON.stringify(audit.rows[0]?.data)).not.toContain('1234 5678 9012');
         // never kept for a replay (it answers in clear)
         const kept = await api.owner.query(
             `select 1 from kernel.idempotency_keys where response::text like '%1234 5678 9012%'`
         );
         expect(kept.rowCount).toBe(0);
+
+        // a probe of a submission the caller does not see is on record too (the reveal is recorded before the read)
+        const probe = await api.call(
+            'POST',
+            '/api/v1/submissions/0199f0a0-0000-7000-8000-00000000dead/reveal',
+            as.damotHead,
+            { reason: 'Looking for a record' }
+        );
+        expect(probe.statusCode).toBe(404);
+        const probed = await api.owner.query(
+            `select 1 from kernel.audit_log where event_type = 'submission.revealed'
+               and row_id = '0199f0a0-0000-7000-8000-00000000dead'::uuid`
+        );
+        expect(probed.rowCount).toBe(1);
 
         // without the right, without a reason
         const zone = await api.call('POST', `/api/v1/submissions/${submissionId}/reveal`, as.zoneAdmin, {
@@ -185,6 +202,16 @@ describe('a Sensitive answer', () => {
             reason: 'x'
         });
         expect(short.statusCode).toBe(422);
+        // a second factor entered too long ago: asked again (step-up), nothing shown
+        const old = await api.call(
+            'POST',
+            `/api/v1/submissions/${submissionId}/reveal`,
+            { ...as.damotHead, authAge: 900 },
+            { reason: 'Checking the FIN again' }
+        );
+        expect(old.statusCode).toBe(401);
+        expect(old.headers['www-authenticate']).toContain('insufficient_user_authentication');
+        expect(old.body).not.toContain('1234 5678 9012');
     });
 });
 

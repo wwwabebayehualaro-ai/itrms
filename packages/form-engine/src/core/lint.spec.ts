@@ -69,6 +69,17 @@ describe('lintDocument', () => {
         });
     });
 
+    describe('sensitive-filterable', () => {
+        it('refuses a Sensitive field marked filterable (task 0.20d)', () => {
+            const problems = lintDocument(
+                doc([F('fin', 'InputText', { classification: 'sensitive', filterable: true })])
+            );
+            expect(ofRule(problems, 'sensitive-filterable')).toEqual([
+                expect.objectContaining({ severity: 'error', fieldId: 'fin', path: 'fields[0].filterable' })
+            ]);
+        });
+    });
+
     describe('unknown-reference', () => {
         it('fires for a condition, a computed field, requiredWhen and validWhen that name no field', () => {
             const problems = lintDocument(

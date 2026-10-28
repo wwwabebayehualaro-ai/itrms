@@ -334,6 +334,17 @@ function Steps({ c, stateName }: { c: CaseOut; stateName: (key: string | null) =
                             {s.submittedBy?.name ?? '—'} · {formatMoment(s.at, { language, calendar })}
                         </span>
                     </div>
+                    {s.masked.length > 0 && (
+                        <p className="text-muted-foreground text-xs" data-step-masked>
+                            {t('workflow.case.maskedAnswers')}{' '}
+                            <Link
+                                href={`/submitted-forms/template/${s.formId}/${s.submissionId}`}
+                                className="text-primary hover:underline"
+                            >
+                                {t('workflow.case.openRecord')}
+                            </Link>
+                        </p>
+                    )}
                     <PrintForm form={s.form} values={s.answers} language={language} options={{ roles }} />
                 </section>
             ))}

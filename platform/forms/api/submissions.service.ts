@@ -7,7 +7,7 @@
 import { Injectable } from '@nestjs/common';
 import { and, asc, desc, eq, inArray, lt } from 'drizzle-orm';
 import { users } from '@itrms/kernel/tables';
-import { auditLog, insertAudited, recordEvent, type DbContext, type Tx } from '@itrms/kernel/db';
+import { auditLog, insertAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { linkFile } from '@itrms/kernel/files';
 import { ConflictError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
 import { unitRefs } from '@itrms/kernel/org';
@@ -28,7 +28,7 @@ import { fileDraft } from './drafts.service';
 import { namesOf, unitOf } from './forms.service';
 import { checkReferences, resolveFiles, type AnswerProblem } from './submission-refs';
 import { lockFormShared, valueRows, writeValues, type Owner } from './submission-values';
-import { approvedVersions, documentFor, fieldsFor, required, scopeFor } from './support';
+import { approvedVersions, documentFor, fieldsFor, openFieldsFor, required, scopeFor } from './support';
 import { filterableKinds, MAX_INDEXED_CHOICES } from './view-fields';
 
 import am from '../messages/am.json';
@@ -107,8 +107,9 @@ export class SubmissionsService {
                 new Set(problems.map((p) => p.path))
             ))
         );
-        // the filterable fields' values (ADR-0035), from the version's fields nobody is restricted from
-        const open = fieldsFor(version.document, []);
+        // the filterable fields' values (ADR-0035), from the version's fields nobody is restricted from, never a Sensitive
+        // one (no copy of it in clear: nothing may query it, task 0.20d)
+        const open = openFieldsFor(version.document, []);
         const values = (owner: Owner) => valueRows(open, filterableKinds(open), answers, owner);
         for (const key of values({ submissionId: '', formId: '', regionId: '', handlingUnitId: '' }).overflow)
             if (!problems.some((p) => p.path === key))
@@ -152,30 +153,31 @@ export class SubmissionsService {
     }
 
     /**
-     * A submission's Sensitive answers (task 0.20d, SEC-PD-2), for someone who may reveal personal data (`pii:reveal`)
-     * and sees the submission: each reveal is an audited event with its reason and the fields shown.
+     * What a reveal of a submission would show (task 0.20d, SEC-PD-2): the ids of its Sensitive fields the caller may see
+     * (each field, rows' too), read without their values so the reveal is on record with them before anything is shown.
+     * Null when the caller does not see the submission.
      */
-    async reveal(
-        tx: Tx,
-        roles: readonly string[],
-        id: string,
-        reason: string
-    ): Promise<{ answers: Record<string, unknown> }> {
+    async sensitiveOf(tx: Tx, roles: readonly string[], id: string): Promise<string[] | null> {
+        const [row] = await tx.select().from(submissions).where(eq(submissions.id, id));
+        if (!row) return null;
+        const fields = await this.fieldsOfVersion(tx, roles, row.formVersionId);
+        return maskSensitive(fields, knownValues(fields, row.answers)).masked.sort();
+    }
+
+    /** A submission's Sensitive answers (the reveal's read, after it is on record). */
+    async revealed(tx: Tx, roles: readonly string[], id: string): Promise<{ answers: Record<string, unknown> }> {
         const [row] = await tx.select().from(submissions).where(eq(submissions.id, id));
         if (!row) throw new NotFoundError();
+        const fields = await this.fieldsOfVersion(tx, roles, row.formVersionId);
+        return { answers: onlySensitive(fields, knownValues(fields, row.answers)) };
+    }
+
+    private async fieldsOfVersion(tx: Tx, roles: readonly string[], versionId: string): Promise<EngineField[]> {
         const [version] = await tx
             .select({ document: formVersions.document })
             .from(formVersions)
-            .where(eq(formVersions.id, row.formVersionId));
-        const fields = fieldsFor(version?.document, roles);
-        const answers = onlySensitive(fields, knownValues(fields, row.answers));
-        await recordEvent(tx, {
-            type: 'submission.revealed',
-            table: submissions,
-            rowId: id,
-            data: { fields: Object.keys(answers), reason }
-        });
-        return { answers };
+            .where(eq(formVersions.id, versionId));
+        return fieldsFor(version?.document, roles);
     }
 
     async get(tx: Tx, roles: readonly string[], id: string): Promise<Submission> {

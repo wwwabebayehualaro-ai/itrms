@@ -43,6 +43,8 @@ export interface TestUser {
 export interface As {
     sub: string;
     unit: OrgUnit;
+    /** how many seconds before the call the person entered their second factor (default: just now; a step-up asks it) */
+    authAge?: number;
 }
 
 export interface TestApi {
@@ -105,8 +107,15 @@ export async function startApi(
 
     const realm = await generateKeyPair('RS256');
     const jwk = { ...(await exportJWK(realm.publicKey)), kid: 'realm-key', alg: 'RS256' };
-    const sign = (sub: string) =>
-        new SignJWT({ sub, iss: ISSUER, aud: AUDIENCE, typ: 'Bearer', azp: 'itrms-web' })
+    const sign = (sub: string, authAge = 0) =>
+        new SignJWT({
+            sub,
+            iss: ISSUER,
+            aud: AUDIENCE,
+            typ: 'Bearer',
+            azp: 'itrms-web',
+            auth_time: Math.floor(Date.now() / 1000) - authAge
+        })
             .setProtectedHeader({ alg: 'RS256', kid: 'realm-key' })
             .setIssuedAt()
             .setExpirationTime('5m')
@@ -175,7 +184,7 @@ export async function startApi(
                     method,
                     url,
                     headers: {
-                        authorization: `Bearer ${await sign(as.sub)}`,
+                        authorization: `Bearer ${await sign(as.sub, as.authAge)}`,
                         'x-org-unit': as.unit.id,
                         'accept-language': 'en',
                         ...(method === 'POST' ? { 'idempotency-key': randomUUID() } : {}),

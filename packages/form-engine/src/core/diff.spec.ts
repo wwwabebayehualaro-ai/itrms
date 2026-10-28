@@ -17,6 +17,21 @@ const changesOf = (a: unknown, b: unknown, key: string) =>
     diffDocuments(a, b).changed.find((c) => c.key === key)?.changes;
 
 describe('diffDocuments', () => {
+    it("shows a field's data class changing, set or taken away (task 0.20d: the approver sees it)", () => {
+        const sensitive = changesOf(
+            doc([F('fin')]),
+            doc([F('fin', 'InputText', { classification: 'sensitive' })]),
+            'fin'
+        );
+        expect(sensitive).toContainEqual({ area: 'classification', before: null, after: 'sensitive' });
+        const personal = changesOf(
+            doc([F('fin', 'InputText', { classification: 'sensitive' })]),
+            doc([F('fin', 'InputText', { classification: 'personal' })]),
+            'fin'
+        );
+        expect(personal).toContainEqual({ area: 'classification', before: 'sensitive', after: 'personal' });
+    });
+
     it('finds nothing between equal documents', () => {
         const d = doc([F('a'), F('b', 'Dropdown', { props: { options: [{ value: 'x', label: 'X' }] } })]);
         expect(diffDocuments(d, structuredClone(d))).toEqual({

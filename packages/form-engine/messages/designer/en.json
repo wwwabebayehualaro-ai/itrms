@@ -285,5 +285,6 @@
   "form-engine.designer.translations.setting.title": "Title",
   "form-engine.designer.translations.setting.uploadButton": "Upload button",
   "form-engine.designer.translations.text": "Text",
-  "form-engine.designer.translations.toTranslate": "{count} to translate"
+  "form-engine.designer.translations.toTranslate": "{count} to translate",
+  "form-engine.designer.publish.area.classification": "Data class"
 }

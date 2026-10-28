@@ -33,7 +33,7 @@ import {
     assertLookups,
     assertReadable,
     contentHash,
-    fieldsFor,
+    openFieldsFor,
     isUniqueViolation,
     required
 } from './support';
@@ -288,6 +288,8 @@ export class FormsService {
         const mayApprove = currentContext()?.principal?.permissions.has('form:approve') ?? false;
         if (query.scope === 'decidable' && (!mayApprove || !me || query.status !== 'pending'))
             return { items: [], next: null };
+        // nobody signed in has no requests of their own
+        if (query.scope === 'mine' && !me) return { items: [], next: null };
         const rows = await tx
             .select()
             .from(formPublications)
@@ -312,7 +314,7 @@ export class FormsService {
         };
     }
 
-    /** How many pending publications the caller may decide (`canDecide`'s rule), up to the list's limit. */
+    /** How many pending publications the caller may decide (`canDecide`'s rule). */
     async decidableCount(tx: Tx): Promise<number> {
         const me = contextOfTx(tx).userId;
         if (!me || !(currentContext()?.principal?.permissions.has('form:approve') ?? false)) return 0;
@@ -387,7 +389,7 @@ export class FormsService {
                 .select({ document: formVersions.document })
                 .from(formVersions)
                 .where(eq(formVersions.id, id));
-            return filterableKinds(fieldsFor(v?.document, [])) as Map<string, string>;
+            return filterableKinds(openFieldsFor(v?.document, [])) as Map<string, string>;
         };
         const before = await kindsOf(previousVersionId);
         const after = await kindsOf(publication.formVersionId);
