@@ -37,7 +37,8 @@ export type LintRule =
     | 'key-missing'
     | 'key-retyped'
     | 'key-moved'
-    | 'unclassified';
+    | 'unclassified'
+    | 'sensitive-filterable';
 
 export interface LintProblem {
     rule: LintRule;
@@ -440,6 +441,11 @@ export function lintDocument(raw: unknown, opts: LintOptions = {}): LintProblem[
         for (const f of subjects)
             for (const role of new Set(f.visibleToRoles ?? []))
                 if (!roleKeys.includes(role)) add('unknown-role', 'warning', f, `${at(f)}.visibleToRoles`, { role });
+
+    // sensitive-filterable: a Sensitive answer is never filtered on (it would tell its value) nor copied to the index
+    for (const f of subjects)
+        if (holdsValue(f) && f.classification === 'sensitive' && f.filterable)
+            add('sensitive-filterable', 'error', f, `${at(f)}.filterable`, { field: f.label || f.id });
 
     // unclassified: an answer's data class decides what may leave the server (SEC-DC-1); unset counts as personal
     for (const f of subjects)

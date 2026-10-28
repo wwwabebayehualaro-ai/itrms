@@ -56,13 +56,15 @@ export interface ApprovalListParams {
     status?: ApprovalStatus;
     /** one form's requests */
     form_id?: string;
-    page?: number;
+    /** the previous page's `next` (task 0.20d: the server pages) */
+    after?: string | null;
     page_size?: number;
 }
 
 export interface ApprovalPage {
     items: Approval[];
-    total: number;
+    /** the next page's cursor, none on the last page */
+    next: string | null;
 }
 
 const BASE = 'v1/form-publications';
@@ -100,9 +102,16 @@ export function approvalOf(p: Publication): Approval {
 
 export const approvalKeys = createKeys('approvals');
 
+/** The API's scope for each of the screen's (task 0.20d: filtered and paged on the server, past any 100). */
+const SCOPE_ON_WIRE: Record<ApprovalScope, 'all' | 'mine' | 'decidable'> = {
+    to_decide: 'decidable',
+    mine: 'mine',
+    all: 'all'
+};
+
 /**
- * One status at a time (the API's newest 100 in the active unit's view), narrowed to the scope and paged here: "to decide"
- * is what the caller may decide, "mine" what they asked for.
+ * One status at a time, the newest first, a page at a time: "to decide" is what the caller may decide, "mine" what they
+ * asked for (both decided by the server).
  */
 export function useApprovals(params: ApprovalListParams) {
     const me = useAuthStore((s) => s.user?.id);
@@ -110,18 +119,19 @@ export function useApprovals(params: ApprovalListParams) {
         queryKey: approvalKeys.list({ ...params, me }),
         queryFn: async ({ signal }): Promise<ApprovalPage> => {
             const status = params.scope === 'to_decide' ? 'pending' : (params.status ?? 'pending');
-            const all = (
-                await client.get<{ items: Publication[] }>(BASE, {
-                    params: { status: STATUS_ON_WIRE[status], formId: params.form_id },
+            const page = (
+                await client.get<{ items: Publication[]; next: string | null }>(BASE, {
+                    params: {
+                        status: STATUS_ON_WIRE[status],
+                        scope: SCOPE_ON_WIRE[params.scope],
+                        limit: params.page_size ?? 20,
+                        ...(params.form_id ? { formId: params.form_id } : {}),
+                        ...(params.after ? { before: params.after } : {})
+                    },
                     signal
                 })
-            ).data.items.map(approvalOf);
-            const kept = all.filter((a) =>
-                params.scope === 'to_decide' ? a.can_decide : params.scope === 'mine' ? a.requested_by === me : true
-            );
-            const size = params.page_size ?? 20;
-            const start = ((params.page ?? 1) - 1) * size;
-            return { items: kept.slice(start, start + size), total: kept.length };
+            ).data;
+            return { items: page.items.map(approvalOf), next: page.next };
         },
         placeholderData: keepPreviousData
     });

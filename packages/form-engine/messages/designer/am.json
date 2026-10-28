@@ -285,5 +285,6 @@
   "form-engine.designer.translations.setting.title": "ርዕስ",
   "form-engine.designer.translations.setting.uploadButton": "መጫኛ ቁልፍ",
   "form-engine.designer.translations.text": "ጽሑፍ",
-  "form-engine.designer.translations.toTranslate": "{count} የሚተረጎም"
+  "form-engine.designer.translations.toTranslate": "{count} የሚተረጎም",
+  "form-engine.designer.publish.area.classification": "የመረጃ ደረጃ"
 }

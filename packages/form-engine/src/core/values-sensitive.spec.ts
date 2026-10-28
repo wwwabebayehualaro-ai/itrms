@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { keepsServerOnly, readDocument, withoutSensitive } from './';
+import { keepsServerOnly, maskSensitive, onlySensitive, readDocument, withoutSensitive } from './';
 
 const field = (id: string, extra: Record<string, unknown> = {}) => ({
     id,
@@ -64,5 +64,33 @@ describe('withoutSensitive', () => {
         expect(keepsServerOnly(readDocument({ fields: [field('a', { classification: 'personal' })] }).fields)).toBe(
             false
         );
+    });
+});
+
+describe('maskSensitive and onlySensitive (task 0.20d)', () => {
+    const answers = {
+        name: 'Abebe',
+        fin: '1234 5678 9012',
+        note: 'unclassified: not Sensitive, shown',
+        children: [{ childName: 'Almaz', childFin: '2222' }],
+        medical: [{ result: 'fit' }]
+    };
+
+    it('takes out the Sensitive answers (rows too) and names them; unclassified ones stay', () => {
+        const { values, masked } = maskSensitive(fields, answers);
+        expect(values).toEqual({
+            name: 'Abebe',
+            note: 'unclassified: not Sensitive, shown',
+            children: [{ childName: 'Almaz' }]
+        });
+        expect([...masked].sort()).toEqual(['childFin', 'fin', 'medical']);
+    });
+
+    it('gives the Sensitive answers alone, for the reveal', () => {
+        expect(onlySensitive(fields, answers)).toEqual({
+            fin: '1234 5678 9012',
+            children: [{ childFin: '2222' }],
+            medical: [{ result: 'fit' }]
+        });
     });
 });

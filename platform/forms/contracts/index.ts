@@ -147,7 +147,12 @@ export const publicationRejectionSchema = z.strictObject({ note: z.string().trim
 
 export const publicationListQuerySchema = z.strictObject({
     status: z.enum(PUBLICATION_STATUSES).default('pending'),
-    formId: z.uuid().optional()
+    formId: z.uuid().optional(),
+    /** everything the unit's view holds, what the caller asked for, or what they may decide (task 0.20d) */
+    scope: z.enum(['all', 'mine', 'decidable']).default('all'),
+    /** the previous page's `next`: the page starts after it (newest first) */
+    before: z.uuid().optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(50)
 });
 
 export const publicationSchema = z.object({
@@ -258,9 +263,14 @@ export const submissionSchema = z.object({
     answers: z.record(z.string(), z.unknown()),
     submittedBy: z.uuid().nullable(),
     submittedByName: z.string().nullable(),
+    /** the Sensitive fields whose answers are left out (SEC-PD-2): they come only through the audited reveal (0.20d) */
+    masked: z.array(z.string()),
     createdAt: z.string(),
     updatedAt: z.string()
 });
+
+/** Why the Sensitive answers of a submission are shown (kept in the audit log with who and when, task 0.20d). */
+export const revealSchema = z.strictObject({ reason: z.string().trim().min(5).max(500) });
 
 // ---- governance: the publish check (task 0.18a) ----
 

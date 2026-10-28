@@ -20,7 +20,8 @@ import {
 import { DATABASE, NotReplayable } from '@itrms/kernel/api';
 import type { Database } from '@itrms/kernel/db';
 import { OBJECT_STORE, type ObjectStore } from '@itrms/kernel/files';
-import { versionFrom } from '@itrms/kernel/errors';
+import { ForbiddenError, versionFrom } from '@itrms/kernel/errors';
+import { reveal } from '@itrms/kernel/crypto';
 import { currentContext } from '@itrms/kernel/context';
 import { Require, currentPrincipal, requestDbContext } from '@itrms/kernel/iam';
 import { createZodDto } from 'nestjs-zod';
@@ -36,6 +37,7 @@ import {
     publicationRejectionSchema,
     publicationListQuerySchema,
     publicationRequestSchema,
+    revealSchema,
     savedViewCreateSchema,
     savedViewUpdateSchema,
     submissionCreateSchema,
@@ -45,7 +47,7 @@ import {
 } from '../contracts';
 import { FormsService } from './forms.service';
 import { RegistryLookups } from './lookups';
-import { formDefinitions } from './forms.table';
+import { formDefinitions, submissions } from './forms.table';
 import { render, rendering } from './export';
 import { SubmissionQueryService } from './query.service';
 import { SavedViewsService } from './views.service';
@@ -66,6 +68,10 @@ class SubmissionQueryDto extends createZodDto(submissionQuerySchema) {}
 class SubmissionExportDto extends createZodDto(submissionExportSchema) {}
 class SavedViewCreateDto extends createZodDto(savedViewCreateSchema) {}
 class SavedViewUpdateDto extends createZodDto(savedViewUpdateSchema) {}
+class RevealDto extends createZodDto(revealSchema) {}
+
+/** How recently the person entered their second factor to reveal personal data (SEC-SE-5, as a person's record). */
+const REVEAL_RECENT_AUTH = 300;
 class DraftCreateDto extends createZodDto(draftCreateSchema) {}
 class DraftUpdateDto extends createZodDto(draftUpdateSchema) {}
 class DraftListDto extends createZodDto(draftListQuerySchema) {}
@@ -188,7 +194,14 @@ export class PublicationsController {
     @Get()
     @Require('form:read')
     list(@Query() query: PublicationListDto) {
-        return this.db.scoped(requestDbContext(), async (tx) => ({ items: await this.forms.publications(tx, query) }));
+        return this.db.scoped(requestDbContext(), (tx) => this.forms.publications(tx, query));
+    }
+
+    /** How many pending publications the caller may decide (the menu's badge, the home page: task 0.20d). */
+    @Get('count')
+    @Require('form:read')
+    count() {
+        return this.db.scoped(requestDbContext(), async (tx) => ({ decidable: await this.forms.decidableCount(tx) }));
     }
 
     /** The request's version against the published one: problems, tests, diff and the saved views it affects. */
@@ -281,6 +294,29 @@ export class SubmissionsController {
             .header('x-row-count', String(file.rows))
             .header('cache-control', 'no-store')
             .send(file.body);
+    }
+
+    /**
+     * A submission's Sensitive answers, with a reason (task 0.20d): audited; not replayable, so they are never kept in an
+     * idempotency record.
+     */
+    @Post(':id/reveal')
+    @HttpCode(200)
+    @NotReplayable()
+    @Require('pii:reveal', { recentAuth: REVEAL_RECENT_AUTH })
+    async reveal(@Param('id', ParseUUIDPipe) id: string, @Body() body: RevealDto) {
+        const { roles, permissions } = currentPrincipal();
+        // personal data in clear is for someone who reads submissions at all (a case officer without it reveals none)
+        if (!permissions.has('submission:read')) throw new ForbiddenError({ audit: { reason: 'submission:read' } });
+        const ctx = requestDbContext();
+        // the fields it would show (no values), then the reveal on record in a transaction of its own, then the read
+        const fields = await this.db.scoped(ctx, (tx) => this.submissions.sensitiveOf(tx, roles, id));
+        return reveal(
+            this.db,
+            ctx,
+            { type: 'submission.revealed', table: submissions, rowId: id, fields: fields ?? [], reason: body.reason },
+            (tx) => this.submissions.revealed(tx, roles, id)
+        );
     }
 
     /** Who did what to a submission and when (the answers' values never: the log holds them masked). */

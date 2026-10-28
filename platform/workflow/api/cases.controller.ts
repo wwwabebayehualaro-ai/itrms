@@ -111,4 +111,11 @@ export class InboxController {
     list(@Query() query: InboxQueryDto) {
         return this.db.scoped(requestDbContext(), (tx) => this.cases.inbox(tx, actor(), query));
     }
+
+    /** How many of the caller's steps are open, overdue, taken on by nobody (the menu's badge, the home page: 0.20d). */
+    @Get('count')
+    @Require('case:act')
+    count() {
+        return this.db.scoped(requestDbContext(), (tx) => this.cases.inboxCount(tx, actor()));
+    }
 }

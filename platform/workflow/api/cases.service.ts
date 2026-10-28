@@ -477,6 +477,26 @@ export class CasesService {
         };
     }
 
+    /** The inbox's counts: the caller's open steps (as `inbox` lists them), those overdue, those nobody took on. */
+    async inboxCount(tx: Tx, actor: CaseActor): Promise<{ open: number; overdue: number; unclaimed: number }> {
+        if (actor.roles.length === 0) return { open: 0, overdue: 0, unclaimed: 0 };
+        const [row] = await tx
+            .select({
+                open: sql<number>`count(*)::int`,
+                overdue: sql<number>`count(*) filter (where ${caseTasks.dueAt} <= now())::int`,
+                unclaimed: sql<number>`count(*) filter (where ${caseTasks.claimedBy} is null)::int`
+            })
+            .from(caseTasks)
+            .where(
+                and(
+                    eq(caseTasks.status, 'open'),
+                    eq(caseTasks.unitId, actor.unitId),
+                    inArray(caseTasks.role, [...actor.roles])
+                )
+            );
+        return { open: row?.open ?? 0, overdue: row?.overdue ?? 0, unclaimed: row?.unclaimed ?? 0 };
+    }
+
     // --- the transition's work ----------------------------------------------------------------------------------------
 
     private async advance(
@@ -964,6 +984,7 @@ export class CasesService {
                 formVersion: s.formVersion.number,
                 form: s.document,
                 answers: s.answers,
+                masked: s.masked,
                 submittedBy: personOf(names, s.submittedBy),
                 at: s.createdAt
             })),

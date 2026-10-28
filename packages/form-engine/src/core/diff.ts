@@ -22,6 +22,7 @@ export type DiffArea =
     | 'computed'
     | 'roles'
     | 'filterable'
+    | 'classification'
     | 'settings';
 
 export interface DiffChange {
@@ -175,6 +176,13 @@ function changesOf(
     if (!same([...(a.visibleToRoles ?? [])].sort(), [...(b.visibleToRoles ?? [])].sort()))
         out.push({ area: 'roles', before: a.visibleToRoles ?? [], after: b.visibleToRoles ?? [] });
     if (a.filterable !== b.filterable) out.push({ area: 'filterable', before: a.filterable, after: b.filterable });
+    // the answer's data class decides what leaves the server (task 0.20d): the approver sees it change, unset included
+    if ((a.source.classification ?? null) !== (b.source.classification ?? null))
+        out.push({
+            area: 'classification',
+            before: a.source.classification ?? null,
+            after: b.source.classification ?? null
+        });
 
     const settingsA = settingsOf(a);
     const settingsB = settingsOf(b);

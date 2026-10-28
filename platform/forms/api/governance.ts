@@ -36,9 +36,18 @@ const IMPACT_LIMIT = 500;
 const KEY_RULES = new Set<string>(['key-missing', 'key-retyped', 'key-moved']);
 /**
  * The change areas that can break a saved view's use of a key: its type, place or choices, and who sees it (a key restricted
- * to roles, or hidden by a condition, leaves the viewer of anyone else).
+ * to roles, or hidden by a condition, leaves the viewer of anyone else; a key made Sensitive leaves it for everyone).
  */
-const VIEW_BREAKING_AREAS = new Set<string>(['type', 'kind', 'parent', 'options', 'filterable', 'roles', 'visibility']);
+const VIEW_BREAKING_AREAS = new Set<string>([
+    'type',
+    'kind',
+    'parent',
+    'options',
+    'filterable',
+    'roles',
+    'visibility',
+    'classification'
+]);
 
 interface VersionRef {
     id: string;

@@ -71,5 +71,6 @@
   "form-engine.core.validation.tooEarly": "ቀኑ ከተፈቀደው ቀደም ያለ ነው",
   "form-engine.core.validation.tooLate": "ቀኑ ከተፈቀደው የዘገየ ነው",
   "form-engine.core.validation.yesOrNo": "እባክዎ አዎ ወይም አይደለም ይምረጡ",
-  "form-engine.core.lint.unclassified": "\"{field}\" የመረጃ ደረጃ የለውም፤ አሳሹ የመልሱን ረቂቅ አያስቀምጥም፤ በሌላ ቦታ እንደ ግላዊ ይቆጠራል። ስልክ፣ FIN ወይም የሕክምና ውጤት ጥብቅ ተብሎ ይመደብ።"
+  "form-engine.core.lint.unclassified": "\"{field}\" የመረጃ ደረጃ የለውም፤ አሳሹ የመልሱን ረቂቅ አያስቀምጥም፤ በሌላ ቦታ እንደ ግላዊ ይቆጠራል። ስልክ፣ FIN ወይም የሕክምና ውጤት ጥብቅ ተብሎ ይመደብ።",
+  "form-engine.core.lint.sensitive-filterable": "\"{field}\" ጥብቅ ነው፤ ማጣሪያ ሊሆን አይችልም (በእሱ ማጣራት እሴቱን ያሳውቃል)።"
 }

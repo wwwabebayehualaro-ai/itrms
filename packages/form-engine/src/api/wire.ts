@@ -121,6 +121,8 @@ export interface WireSubmission {
     formId: string;
     formVersion: { id: string; number: number };
     caseId: string | null;
+    /** task 0.20d; absent from a server before it */
+    masked?: string[];
     handlingUnit: { id: string; code: string; name: I18nText };
     answers: Record<string, unknown>;
     submittedBy: string | null;
@@ -219,6 +221,8 @@ export function submissionOf(s: WireSubmission): FormSubmission & {
     handling_unit_name: string;
     /** the case its answers were filed on (a step form's), task 0.20b */
     case_id: string | null;
+    /** the Sensitive fields whose answers were left out (task 0.20d): shown only through the audited reveal */
+    masked: string[];
 } {
     return {
         id: s.id,
@@ -229,6 +233,7 @@ export function submissionOf(s: WireSubmission): FormSubmission & {
         handling_unit: s.handlingUnit.id,
         handling_unit_name: textOf(s.handlingUnit.name) || s.handlingUnit.code,
         case_id: s.caseId,
+        masked: s.masked ?? [],
         created_at: s.createdAt,
         updated_at: s.updatedAt,
         version: s.formVersion.number

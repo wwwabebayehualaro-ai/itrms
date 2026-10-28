@@ -20,6 +20,7 @@ import {
 } from '@itrms/ui';
 import { useAuthStore, type MenuItem } from '@/lib/auth/authStore';
 import { usePreferences, useText } from '@/lib/preferences';
+import { useMenuBadges } from '@/lib/workspace';
 import { MENU_ICONS } from './menu-icons.generated';
 
 /** The menu item a path belongs to: the longest route that is the path or one of its parents. */
@@ -45,6 +46,7 @@ export function AppNav() {
         if (current) visit(current.key);
     }, [current, visit]);
 
+    const badges = useMenuBadges();
     const close = () => setOpenMobile(false); // a navigation closes the menu on phones
     // favourites that are no longer in the menu here (another unit, a role taken away) are simply not shown
     const pinned = favourites.flatMap((k) => items.filter((i) => i.key === k));
@@ -64,6 +66,16 @@ export function AppNav() {
                     >
                         {Icon && <Icon />}
                         <span>{label}</span>
+                        {/* what waits behind it (task 0.20d): read with the item's name */}
+                        {!!badges[item.key] && (
+                            <span
+                                className="ml-auto rounded-full bg-primary px-1.5 text-[0.6875rem] font-semibold leading-5 text-primary-foreground tabular-nums group-data-[collapsible=icon]:hidden"
+                                data-menu-badge={item.key}
+                                aria-label={t('shell.nav.waiting', { count: String(badges[item.key]) })}
+                            >
+                                {(badges[item.key] ?? 0) > 99 ? '99+' : badges[item.key]}
+                            </span>
+                        )}
                     </Link>
                 </SidebarMenuButton>
                 <SidebarMenuAction

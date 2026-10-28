@@ -13,6 +13,9 @@ import fees from '@itrms/fees/manifest';
 import { FormsModule } from '@itrms/forms/api';
 import { FORMS_EVENTS } from '@itrms/forms/contracts';
 import forms from '@itrms/forms/manifest';
+import formsAm from '@itrms/forms/messages/am';
+import formsEn from '@itrms/forms/messages/en';
+import formsWal from '@itrms/forms/messages/wal-Latn';
 import integrations from '@itrms/integrations/manifest';
 import { KERNEL_EVENTS } from '@itrms/kernel/contracts';
 import kernel from '@itrms/kernel/manifest';
@@ -40,7 +43,13 @@ export type ApiSlice = InstalledSlice<Type | DynamicModule>;
 export const SLICES: ApiSlice[] = [
     { manifest: kernel, events: KERNEL_EVENTS, messages: { am: kernelAm, en: kernelEn, 'wal-Latn': kernelWal } },
     { manifest: integrations },
-    { manifest: forms, module: FormsModule, events: FORMS_EVENTS },
+    {
+        manifest: forms,
+        module: FormsModule,
+        events: FORMS_EVENTS,
+        // its menu entry and its notices (an export ready) are read in the person's language (tasks 0.20b, 0.20d)
+        messages: { am: formsAm, en: formsEn, 'wal-Latn': formsWal }
+    },
     ...[fees, documents].map((manifest) => ({ manifest })),
     {
         manifest: workflow,

@@ -20,7 +20,7 @@ import { formPublishedV1, submissionExportRequestedV1 } from '../../contracts';
 import { runExport, type ExportDeps } from './run-export';
 import { formDefinitions, formVersions } from '../forms.table';
 import { clearValues, lockFormExclusive, nextBatch, valueRows, writeValues, type FillRow } from '../submission-values';
-import { fieldsFor } from '../support';
+import { openFieldsFor } from '../support';
 import { filterableKinds, valueFields, type Kind } from '../view-fields';
 
 export const FILL_BATCH = 2000;
@@ -44,7 +44,8 @@ async function planOf(tx: Tx, formId: string): Promise<Plan> {
         .select({ id: formVersions.id, document: formVersions.document })
         .from(formVersions)
         .where(eq(formVersions.formId, formId));
-    const versions = new Map(rows.map((v) => [v.id, fieldsFor(v.document, [])]));
+    // never a Sensitive field's values (task 0.20d: nothing may query them)
+    const versions = new Map(rows.map((v) => [v.id, openFieldsFor(v.document, [])]));
     const published = (form?.publishedVersionId && versions.get(form.publishedVersionId)) || [];
     const kinds = filterableKinds(published);
     const open = new Map([...versions].map(([id, fields]) => [id, new Set(valueFields(fields).map((f) => f.key))]));

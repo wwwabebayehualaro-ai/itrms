@@ -27,7 +27,7 @@ import { FormsService, namesOf } from './forms.service';
 import { formVersions, submissions } from './forms.table';
 import { QueryCompiler, type FieldSpec } from './query-compiler';
 import { SubmissionsService, type SubmissionRow } from './submissions.service';
-import { fieldsFor } from './support';
+import { openFieldsFor } from './support';
 import { readDocument } from '@itrms/form-engine/core';
 import { BUILTIN_KEYS, BUILTINS, describe, valueFields, type ViewField } from './view-fields';
 
@@ -322,7 +322,8 @@ export class SubmissionQueryService {
                 .from(formVersions)
                 .where(eq(formVersions.formId, formId))
         ).map((v) => {
-            const seen = valueFields(fieldsFor(v.document, roles, language));
+            // never a Sensitive field: it would show, sort or filter by its values (task 0.20d)
+            const seen = valueFields(openFieldsFor(v.document, roles, language));
             return {
                 id: v.id,
                 seen,

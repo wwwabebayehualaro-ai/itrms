@@ -18,11 +18,13 @@
   "workflow.case.dueAt": "የመጨረሻ ጊዜ {at}",
   "workflow.case.fromRecord": "ይህ ጥያቄ የአንድ ጉዳይ ደረጃ ነው፤ ደረጃዎቹ በጉዳዩ የሂደት ታሪክ ላይ ናቸው።",
   "workflow.case.handlingUnit": "የሚያስተናግደው ጽ/ቤት",
+  "workflow.case.maskedAnswers": "ጥብቅ መልሶች እዚህ ተደብቀዋል።",
   "workflow.case.needsForm": "ይህ ተግባር የደረጃውን ቅጽ ይሞላል፤ ከአገልግሎቱ ጥያቄ ይውሰዱት።",
   "workflow.case.noAnswers": "እስካሁን የተሞላ የደረጃ ቅጽ የለም",
   "workflow.case.noAnswersHint": "የእያንዳንዱ ደረጃ ቅጽ ሲሞላ መረጃው እዚህ ይታያል።",
   "workflow.case.notFound": "ጉዳዩ አልተገኘም",
   "workflow.case.number": "ጉዳይ {number}",
+  "workflow.case.openRecord": "በጥያቄው ገጽ ላይ አሳይ",
   "workflow.case.routedFrom": "ከ{unit} የተላከ",
   "workflow.case.someone": "አንድ ሰው",
   "workflow.case.startedAt": "የተጀመረበት",
@@ -113,5 +115,9 @@
   "workflow.sla.due-soon": "ጊዜው ተቃርቧል",
   "workflow.sla.none": "የጊዜ ገደብ የለውም",
   "workflow.sla.on-time": "በጊዜው",
-  "workflow.sla.overdue": "ጊዜው አልፏል"
+  "workflow.sla.overdue": "ጊዜው አልፏል",
+  "workflow.widget.all": "ሁሉም ሥራዎቼ",
+  "workflow.widget.counts": "{open} ክፍት · {overdue} ጊዜው ያለፈ · {unclaimed} ያልተያዘ",
+  "workflow.widget.intro": "በጽ/ቤትዎ ለሚናዎ የሚጠብቁ ደረጃዎች።",
+  "workflow.widget.title": "የእኔ ሥራዎች"
 }

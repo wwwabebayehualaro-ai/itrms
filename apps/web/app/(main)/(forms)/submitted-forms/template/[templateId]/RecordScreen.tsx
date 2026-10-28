@@ -11,7 +11,7 @@ import {
     useTemplateQuery,
     useCanChangeRequests
 } from '@itrms/form-engine/renderer';
-import { storedFieldsOf } from '@itrms/schemas';
+import { formTextIn, storedFieldsOf } from '@itrms/schemas';
 import {
     titleOf,
     useLabeler,
@@ -36,6 +36,7 @@ import { getApiErrorMessage } from '@/lib/api/errors';
 import { formatDateTime } from '@/lib/format';
 import { useText } from '@/lib/preferences';
 import { RequestEditorDialog } from './RequestEditorDialog';
+import { SensitiveAnswers } from '@/form-templates/SensitiveAnswers';
 
 const ACTION: Record<string, { label: string; icon: typeof Send }> = {
     create: { label: 'Submitted', icon: Send },
@@ -47,7 +48,7 @@ const HIDDEN_CHANGES = new Set(['row_version', 'template_version_id', 'updated_a
 /** One request, as a page you can link to: the form as it was filled in, who changed what, and the actions. */
 export function RecordScreen({ templateId, submissionId }: { templateId: string; submissionId: string }) {
     const router = useRouter();
-    const { t } = useText();
+    const { t, language } = useText();
     const from = useSearchParams().get('from');
     const notify = useNotify();
     // a request changes only through its case's workflow (task 0.19)
@@ -142,6 +143,16 @@ export function RecordScreen({ templateId, submissionId }: { templateId: string;
                 </Alert>
             )}
 
+            {/* the Sensitive answers are left out of the record; shown with a reason (task 0.20d) */}
+            <SensitiveAnswers
+                submissionId={submission.id as string}
+                masked={(submission as { masked?: string[] }).masked ?? []}
+                form={{ fields }}
+                labelOf={(key) => {
+                    const f = fields.find((x: { id: string }) => x.id === key);
+                    return (f && formTextIn(f.label, language)) || key;
+                }}
+            />
             <Tabs defaultValue="request">
                 <TabsList>
                     <TabsTrigger value="request">

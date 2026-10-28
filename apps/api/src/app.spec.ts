@@ -38,7 +38,9 @@ describe('POSTs kept out of the idempotency records (@NotReplayable)', () => {
             // a file of submissions' answers (personal data) in the answer; the export itself is an audited event
             'SubmissionsController.export',
             // a read sent as POST (the query is a document): its answer holds submissions' answers (personal data)
-            'SubmissionsController.query'
+            'SubmissionsController.query',
+            // a submission's Sensitive answers in clear, on reason; each reveal is on record (task 0.20d)
+            'SubmissionsController.reveal'
         ]);
     });
 });

@@ -36,5 +36,13 @@
   "forms.draft.status.error": "ረቂቁ በሰርቨሩ ላይ ሊቀመጥ አልቻለም፤ በዚህ ኮምፒውተር ተቀምጧል",
   "forms.draft.sensitive": "አንዳንድ መልሶች (ጥብቅ የሆኑት እና የመረጃ ደረጃ የሌላቸው መስኮች) የሚቀመጡት በሰርቨሩ ብቻ ነው፤ ግንኙነት ከሌለ እንደገና ይሞላሉ።",
   "forms.draft.conflict": "ይህ ረቂቅ እዚህ ከተደረጉት ለውጦች በኋላ በሌላ ኮምፒውተር ተቀምጧል፤ ያ ስሪት ነው የሚታየው። ከመቀጠልዎ በፊት መልሶቹን ያረጋግጡ።",
-  "forms.draft.resumeFailed": "ረቂቁን መክፈት አልተቻለም፤ እንደገና ይሞክሩ።"
+  "forms.draft.resumeFailed": "ረቂቁን መክፈት አልተቻለም፤ እንደገና ይሞክሩ።",
+  "forms.nav.approvals": "የሚጸድቁ",
+  "forms.sensitive.title": "ጥብቅ መልሶች ተደብቀዋል",
+  "forms.sensitive.hidden": "እዚህ፣ በዝርዝሮች ወይም በኤክስፖርት አይታዩም፦ {fields}።",
+  "forms.sensitive.reveal": "አሳይ",
+  "forms.sensitive.why": "ለምን እንደሚያስፈልጉ ይግለጹ፤ ምክንያቱ ከስምዎና ከሰዓቱ ጋር ይመዘገባል።",
+  "forms.sensitive.reason": "ምክንያት",
+  "forms.sensitive.cancel": "ተው",
+  "forms.sensitive.show": "አሳይ"
 }
