@@ -799,7 +799,17 @@
         },
         {
           "id": "0.20b",
-          "title": "Workflow engine, part 2b: inbox, case page, drafts, comments",
+          "title": "Workflow engine, part 2b: inbox, case page, comments",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.20c",
+          "title": "Workflow engine, part 2c: drafts and request lists",
           "status": "planned",
           "branch": null,
           "commits": [],
@@ -1841,7 +1851,7 @@
     {
       "foundIn": "0.10b",
       "item": "Badges, the notifications bell and role workspaces (home widgets) in the shell",
-      "movedTo": "0.20b"
+      "movedTo": "0.20b (the bell), 0.20c (badges, role workspaces)"
     },
     {
       "foundIn": "0.10b",
@@ -2084,7 +2094,7 @@
     {
       "foundIn": "0.16c",
       "item": "Cross-form request lists by state (waiting, recent) and changing a request after it is filed: the case workflow and its inbox",
-      "movedTo": "0.20b"
+      "movedTo": "0.20c"
     },
     {
       "foundIn": "0.16c",
@@ -2109,7 +2119,7 @@
     {
       "foundIn": "0.16c",
       "item": "The approvals inbox scopes and pages the newest 100 publications of a status client-side: mine/decidable filters and a cursor on GET /v1/form-publications",
-      "movedTo": "0.20b"
+      "movedTo": "0.20c"
     },
     {
       "foundIn": "0.16c",
@@ -2139,7 +2149,7 @@
     {
       "foundIn": "0.16f",
       "item": "A shared and default saved view in the browser journeys (the API's forms-views integration tests cover sharing and defaults)",
-      "movedTo": "0.20b"
+      "movedTo": "0.20c"
     },
     {
       "foundIn": "0.17a",

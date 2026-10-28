@@ -136,11 +136,11 @@ to the contract schema.
 | Server-side validation (G1) | 1 | 0.16a |
 | Server-controlled status | 2 | 0.19 |
 | Access per form/unit | 3 | 0.9, 0.19 |
-| Drafts | 4 | 0.20 |
+| Drafts | 4 | 0.20c |
 | Conditional required, cross-field rules | 5 | 0.17 |
 | Wizard steps | 6 | Phase 1 (1.13a) |
 | Workflow per form | 7 | 0.19–0.20 |
-| Notifications | 8 | 0.20 |
+| Notifications | 8 | 0.20a–0.20b |
 | Version history, diff, rollback, duplicate, import/export | 9 | 0.18a; config packages Phase 1 |
 | Print, PDF, Excel | 10 | 0.17, 0.23 |
 | Multi-language | 11 | 0.13, 0.17 |

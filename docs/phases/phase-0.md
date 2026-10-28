@@ -624,7 +624,7 @@ Needs 0.19a.
 
 ### 0.20a Workflow engine, part 2a: calendars, SLA timers, notifications
 Split on 2026-10-27: 0.20 did not fit one session. The timers and what they tell people come first; the inbox, the case
-page, drafts and comments follow in **0.20b**.
+page and comments follow in **0.20b**, drafts in **0.20c**.
 - **Do:**
   - Working calendars per region/unit (working days and hours, lunch break, half days) + `holidays` (Ethiopian holidays
     seeded; the movable Muslim holidays as marked placeholders per year), and `due_at` computed by one application helper
@@ -638,16 +638,30 @@ page, drafts and comments follow in **0.20b**.
 - **Tests:** due-date calculation tests (holidays, weekends, lunch, half days, Addis time), SLA job and sweep tests,
   notification isolation.
 
-### 0.20b Workflow engine, part 2b: inbox, case page, drafts, comments
-Needs 0.20a.
+### 0.20b Workflow engine, part 2b: inbox, case page, comments
+Needs 0.20a. Split on 2026-10-28: the workflow slice had no screens yet, and the inbox, the case page, comments and drafts
+did not fit one session. The screens people act on come first; drafts and the request lists follow in **0.20c**.
 - **Do:**
   - Task inbox (claim, act, filters): a person's own role's open tasks in their active unit, with SLA state.
-  - A case page with timeline, answers per step, documents and payments (the last two as they arrive in 0.22–0.23).
-  - Drafts with save and resume.
+  - A case page with timeline, answers per step, documents and payments (the last two as they arrive in 0.22–0.23); a
+    submission's history shows its case's steps.
   - **Case comments** with `@mentions` (notify the mentioned user) on the case timeline, internal by default; audited.
-- **Done when:** the inbox shows only tasks of the user's role in their unit; a mention notifies; a draft resumes where it
-  was left.
-- **Tests:** inbox e2e, case page e2e, mention and draft integration tests.
+  - The notifications bell in the shell (unread count, the list, mark read), so a mention or an overdue step is seen; a
+    background export tells its requester when it is ready.
+- **Done when:** the inbox shows only tasks of the user's role in their unit; a mention notifies.
+- **Tests:** inbox e2e, case page e2e, mention integration tests.
+
+### 0.20c Workflow engine, part 2c: drafts and request lists
+Needs 0.20b.
+- **Do:**
+  - Drafts with save and resume (the counter saves a half-filled application while the applicant fetches a missing
+    document); a draft survives a dropped network.
+  - Cross-form request lists by state (waiting, recent), and changing a request after it is filed through the case
+    workflow.
+  - The approvals inbox: mine/decidable filters and a cursor on `GET /v1/form-publications`.
+  - Badges and role workspaces (home widgets) in the shell; a shared and default saved view in the browser journeys.
+- **Done when:** a draft resumes where it was left.
+- **Tests:** draft integration and e2e tests, the request lists' e2e.
 
 ### 0.21 Service catalogue and configuration inheritance
 - **Do:**
@@ -760,7 +774,7 @@ Moved from 0.18a on 2026-10-26 (it needs cases, service versions and overlays). 
 - **Tests:** the restore drill script with checks; the smoke load test thresholds in CI (nightly).
 
 ## Phase acceptance criteria
-1. All tasks done (0.1–0.26 with 0.19 as 0.19a and 0.19b, 0.20 as 0.20a and 0.20b, 0.4a, 0.4b, 0.4c, 0.18a and 0.21a), CI green on `main` (lint, typecheck, unit, integration on Postgres, isolation matrix, i18n keys,
+1. All tasks done (0.1–0.26 with 0.19 as 0.19a and 0.19b, 0.20 as 0.20a, 0.20b and 0.20c, 0.4a, 0.4b, 0.4c, 0.18a and 0.21a), CI green on `main` (lint, typecheck, unit, integration on Postgres, isolation matrix, i18n keys,
    security scans, e2e).
 2. The demo journey runs in Amharic and English (Wolaytta with fallback) across Boditi, the zone and Damot Gale. A user of one office
    sees none of the other office's cases,

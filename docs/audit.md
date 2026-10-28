@@ -226,7 +226,7 @@ design. DROP = not carried over (it stays in git history after task 0.1).
 | G11 | **Workflow per form** | ❌ Single-step publish approval only (legacy #7) | Multi-step workflow from the service configuration (states, approver role per step, SLA) | 0.19–0.20 |
 | G12 | **Server-controlled status** | ❌ A submitter can set any status (legacy #2) | Status only moves through workflow transitions | 0.19 |
 | G13 | **Per-form and per-unit access** | ❌ Any submitter sees all requests (legacy #3) | Cases are visible by org-unit scope (RLS) and role; the applicant's own cases only, if citizen access comes later | 0.9, 0.19 |
-| G14 | **Drafts** | ⚠️ Backend only (legacy #4) | Save draft at the counter (applicant fetches a missing document) | 0.20 |
+| G14 | **Drafts** | ⚠️ Backend only (legacy #4) | Save draft at the counter (applicant fetches a missing document) | 0.20c |
 | G15 | **Multi-step forms** | ❌ (legacy #6) | Useful for long applications; optional for Phase 0 | 1.x |
 | G16 | **Overrides down the tree** | ❌ | A zone may override allowed parts of a bureau form (extra field, help text) without forking it; resolution at publish time | 0.21 |
 | G17 | **Back-capture mode** | ❌ | Entering old paper records: relaxed rules, an "original date" and paper reference, marked as migrated | 1.13 |
