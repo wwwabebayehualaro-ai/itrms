@@ -783,7 +783,8 @@
           "status": "done",
           "branch": "task/0.20a-sla-calendars",
           "commits": [
-            "96b46f7"
+            "96b46f7",
+            "98ffcce"
           ],
           "evidence": [
             "GitHub CI run 40629226422 on 96b46f7 (PR #18): all 9 jobs success — checks, infra+test:int, e2e, perf, stories/axe, Semgrep, gitleaks, Trivy, licence report",
