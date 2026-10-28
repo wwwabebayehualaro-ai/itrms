@@ -6,12 +6,15 @@
 import 'reflect-metadata';
 
 import { formsHandlers } from '@itrms/forms/api/worker';
+import { CasesService } from '@itrms/workflow/api';
+import { slaSweep, workflowHandlers, type SlaDeps } from '@itrms/workflow/api/worker';
 import { KeycloakIdentityAdmin } from '@itrms/integrations/api';
 import { createWorkerContext, loadSlices } from '@itrms/kernel/api';
 import { permissionsOf, rolePermissions } from '@itrms/kernel/iam';
 import { identitySyncHandlers, purgeExpiredUploads, startJobs, type OutboxHandler } from '@itrms/kernel/api/worker';
 import { createDatabase } from '@itrms/kernel/db';
 import { NO_OBJECT_STORE } from '@itrms/kernel/files';
+import { FakeSms } from '@itrms/kernel/notifications';
 import { createSystemDatabase } from '@itrms/kernel/db/system';
 
 import { AppModule } from './app.module';
@@ -52,7 +55,15 @@ async function main() {
             // the forms' filterable values are filled when a version is published (ADR-0035)
             // what roles give, for the background exports' check of the requester's rights when they run
             const catalogue = rolePermissions(loadSlices(SLICES, { disabled: config.MODULES_DISABLED }).manifests);
+            // the SLA timers: an overdue step, a wait's timeout (task 0.20a); SMS through the fake gateway until Phase 1
+            const sla: SlaDeps = {
+                cases: app.get(CasesService),
+                sms: new FakeSms(),
+                onError: (err, what) =>
+                    logger.warn({ err, what }, 'an SLA item could not be handled; the next sweep tries again')
+            };
             const handlers: Record<string, OutboxHandler> = {
+                ...workflowHandlers(system, sla),
                 ...formsHandlers(system, {
                     database,
                     store: objectStore ?? NO_OBJECT_STORE,
@@ -88,18 +99,23 @@ async function main() {
                 handlers,
                 logger,
                 // uploads never confirmed, or refused, are removed after 24 hours (task 0.15)
-                recurring: objectStore
-                    ? [
-                          {
-                              name: 'files purged',
-                              everyMs: 3_600_000,
-                              run: () =>
-                                  purgeExpiredUploads(system, objectStore, {
-                                      onError: (err, what) => logger.warn({ err, what }, 'a file could not be purged')
-                                  })
-                          }
-                      ]
-                    : []
+                recurring: [
+                    // what the timers missed: every 15 minutes (architecture.md §8)
+                    { name: 'SLA sweep', everyMs: 900_000, run: () => slaSweep(system, sla) },
+                    ...(objectStore
+                        ? [
+                              {
+                                  name: 'files purged',
+                                  everyMs: 3_600_000,
+                                  run: () =>
+                                      purgeExpiredUploads(system, objectStore, {
+                                          onError: (err, what) =>
+                                              logger.warn({ err, what }, 'a file could not be purged')
+                                      })
+                              }
+                          ]
+                        : [])
+                ]
             });
             const stop = async (signal: string) => {
                 logger.info({ signal }, 'worker stopping');

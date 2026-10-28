@@ -49,3 +49,13 @@ Layer: platform. Shape, public entries and rules: [code-structure.md](../../docs
 |---|---|
 | `GET /api/v1/cases/{id}` (the case, its visible steps, its timeline, the caller's actions) | `case:read` |
 | `POST /api/v1/cases/{id}/transitions` (If-Match: the case's version) | `case:act`, then the step's role in its unit |
+
+## SLA timers (task 0.20a)
+
+- A step's or a wait's due time is its state's SLA on the working calendar of its unit (`api/sla.ts`: the nearest
+  `working_calendars` row up the tree, else the civil service's week; the national holidays plus the units' `holidays`
+  rows), computed by `businessDeadline` (`@itrms/ethiopian-calendar`).
+- The timer is an outbox event available at the due time (`case-task.due.v1`, `case.wait-due.v1`); `api/jobs/sla.ts`
+  handles it in the worker: an overdue step is marked and its office's heads told (`workflow.notify.overdue`), the office
+  above too (`workflow.notify.escalated`), by in-app notification and the fake SMS gateway; a wait leaves by its timeout.
+  A 15-minute sweep (`slaSweep`) catches lost timers. Each runs once whatever the order.

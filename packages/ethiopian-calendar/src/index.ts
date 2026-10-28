@@ -1,6 +1,7 @@
 /**
  * @itrms/ethiopian-calendar (task 0.12): Gregorian ↔ Ethiopian conversion, names in the installation's languages,
- * formatting with optional Ethiopic numerals, the fiscal year, the Ethiopian clock and Addis Ababa business dates. Pure
+ * formatting with optional Ethiopic numerals, the fiscal year, the Ethiopian clock, Addis Ababa business dates, the
+ * public holidays and when an SLA is due (task 0.20a). Pure
  * TypeScript with no runtime dependency, so the API, the web app and the document renderer share it.
  */
 export {
@@ -38,3 +39,5 @@ export {
     fiscalQuarter,
     startOfAddisDay
 } from './business';
+export { ethiopianHolidays, isoDate, orthodoxEaster, type Holiday } from './holidays';
+export { businessDeadline, CIVIL_SERVICE_WEEK, type Sla, type WorkingCalendar, type WorkingPeriod } from './sla';

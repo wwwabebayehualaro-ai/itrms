@@ -21,6 +21,8 @@
   "workflow.check.unknown-step-form": "There is no form version \"{form}\".",
   "workflow.check.unreachable": "No transition leads to the state \"{state}\".",
   "workflow.check.wait-action": "The waiting state \"{state}\" is left only by an event or its timeout, not by an action.",
+  "workflow.notify.escalated": "Case {number}: the step \"{state}\" in an office below yours is overdue.",
+  "workflow.notify.overdue": "Case {number}: the step \"{state}\" in your office is overdue.",
   "workflow.refusal.comment-required": "Write a comment for this action.",
   "workflow.refusal.final-state": "The case is closed: nothing more can be done on it.",
   "workflow.refusal.form-needed": "Fill in the step's form.",

@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-10-27",
+  "updated": "2026-10-28",
   "statuses": [
     "planned",
     "ready",
@@ -780,12 +780,21 @@
         {
           "id": "0.20a",
           "title": "Workflow engine, part 2a: calendars, SLA timers, notifications",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "done",
+          "branch": "task/0.20a-sla-calendars",
+          "commits": [
+            "96b46f7"
+          ],
+          "evidence": [
+            "GitHub CI run 40629226422 on 96b46f7 (PR #18): all 9 jobs success — checks, infra+test:int, e2e, perf, stories/axe, Semgrep, gitleaks, Trivy, licence report",
+            "pnpm test:int (CI) → 17 files / 339 tests on PostgreSQL 16, incl. workflow-sla.int.spec.ts (5) and isolation.int.spec.ts (50: workflow.working_calendars / workflow.holidays class C, kernel.notifications class T; kernel.my_notifications / read_my_notifications on the reviewed definer list)",
+            "Done when — workflow-sla: a step's due time from its business-hour SLA on its unit's calendar, with the timer event available then; an overdue step is marked once, its office's head told and the office above (escalated), the officer not; SMS after the commit in each reader's language (Amharic by default, English when chosen); a wait past its SLA leaves by its timeout (system:timer); a unit's own working week applies; a person reads and marks only their own notifications",
+            "SLA date math (unit): businessDeadline and ethiopianHolidays in @itrms/ethiopian-calendar (working periods, lunch, half days, holidays, Addis time, whole minutes; Orthodox Easter computed; Muslim holidays provisional 2026–2028); i18n am/en complete; boundaries clean; OpenAPI regenerated; migrations 0037 (generated), 0038 (RLS, definers)",
+            "e2e (CI) → 10 passed; stories/axe → 474 passed (the flaky Select story fixed, c64e7b0)",
+            "Reviewer: 2 high, 4 medium, 3 low, all fixed (b2734f0 the unit move rewrites the notifications' scope; ffea386 timeout rollback, SLA maxima, SMS after commit from catalogues, sweep oldest first and past failures; 96b46f7 the SMS test per language). task-verifier: all Done when/Do/Tests met"
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "businessDeadline + ethiopianHolidays (fixed dates via Ethiopian dates, Orthodox Easter computed; Muslim holidays PROVISIONAL placeholders 2026–2028) in @itrms/ethiopian-calendar; whole-minute precision. Calendars: workflow.working_calendars / workflow.holidays (class C, nearest up the tree; default civil service week Mon–Fri 08:30–12:30, 13:30–17:30). Timers are outbox events with available_at = due_at (no second queue); slaSweep every 15 min. Supervisors = unit_head of the task's unit; escalation = unit_head of its parent. kernel.notifications class T, no API grant: kernel.my_notifications / read_my_notifications definers; GET/POST /api/v1/me/notifications. Follow-up 122 (export-ready notification) → 0.20b."
         },
         {
           "id": "0.20b",
@@ -2059,7 +2068,7 @@
     {
       "foundIn": "0.16e",
       "item": "Tell the requester when a background export is ready (an in-app notification)",
-      "movedTo": "0.20a"
+      "movedTo": "0.20b"
     },
     {
       "foundIn": "0.16e",
@@ -2240,6 +2249,12 @@
     {
       "foundIn": "0.19b",
       "item": "Flaky story: packages/ui select.stories.tsx Default fails its axe check now and then in the am/light/compact run (CI runs 40497043950 and 40544712603; it passes on rerun) — find the race (the Radix portal id?) and fix it",
+      "movedTo": "0.26 (hardening)",
+      "closedIn": "0.20a: the open listbox had no accessible name (aria-input-field-name, caught when axe ran mid-transition); the story names it with its field label (aria-labelledby). Forms using Select should do the same (noted)"
+    },
+    {
+      "foundIn": "0.20a",
+      "item": "Select: the open listbox has no accessible name unless the caller passes aria-labelledby (the select story now does); give SelectContent its trigger's label by default (e.g. a context carrying the field label id) so every form's open list is named",
       "movedTo": "0.26 (hardening)"
     }
   ]

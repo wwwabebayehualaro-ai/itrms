@@ -16,6 +16,7 @@ import { sql } from 'drizzle-orm';
 import {
     bigint,
     boolean,
+    date,
     index,
     integer,
     jsonb,
@@ -120,12 +121,17 @@ export const cases = withRls(
                     .notNull()
                     .default(sql`'{}'::jsonb`),
                 startedBy: uuid('started_by').notNull(),
+                /** when the wait the case is in is due (its timeout), from the state's SLA (task 0.20a) */
+                dueAt: timestamp('due_at', { withTimezone: true }),
                 closedAt: timestamp('closed_at', { withTimezone: true })
             },
             (t) => [
                 uniqueIndex('cases_number_uq').on(t.regionId, t.number),
                 index('cases_org_path_gist').using('gist', t.orgPath),
-                index('cases_state_idx').on(t.regionId, t.state)
+                index('cases_state_idx').on(t.regionId, t.state),
+                index('cases_due_idx')
+                    .on(t.dueAt)
+                    .where(sql`due_at is not null and closed_at is null`)
             ]
         ),
         { omit: ['facts'] }
@@ -162,6 +168,10 @@ export const caseTasks = withRls(
                 routedFromUnitId: uuid('routed_from_unit_id').references(() => orgUnits.id),
                 actedBy: uuid('acted_by'),
                 action: text('action'),
+                /** from the state's SLA on the assignee unit's calendar (task 0.20a) */
+                dueAt: timestamp('due_at', { withTimezone: true }),
+                /** when the SLA timer (or the sweep) found it overdue and told the supervisors */
+                overdueAt: timestamp('overdue_at', { withTimezone: true }),
                 closedAt: timestamp('closed_at', { withTimezone: true })
             },
             (t) => [
@@ -170,7 +180,10 @@ export const caseTasks = withRls(
                     .where(sql`status = 'open'`),
                 index('case_tasks_case_idx').on(t.caseId),
                 index('case_tasks_org_path_gist').using('gist', t.orgPath),
-                index('case_tasks_inbox_idx').on(t.unitId, t.role, t.status)
+                index('case_tasks_inbox_idx').on(t.unitId, t.role, t.status),
+                index('case_tasks_due_idx')
+                    .on(t.dueAt)
+                    .where(sql`status = 'open' and overdue_at is null`)
             ]
         )
     ),
@@ -216,4 +229,67 @@ export const caseEvents = withRls(
         { omit: ['comment'] }
     ),
     'transaction'
+);
+
+/**
+ * A unit's working calendar (task 0.20a): its working periods per weekday and its half days, when it differs from the
+ * civil service's week (`CIVIL_SERVICE_WEEK`). The nearest one up the tree applies. Class C.
+ */
+export const workingCalendars = withRls(
+    audited(
+        workflowSchema.table(
+            'working_calendars',
+            {
+                ...baseColumns(),
+                regionId: uuid('region_id').notNull(),
+                unitId: uuid('unit_id')
+                    .notNull()
+                    .references(() => orgUnits.id),
+                /** set by trigger from the unit */
+                orgPath: ltree('org_path').notNull().default(''),
+                /** weekday (0 = Sunday) → [["08:30","12:30"], ["13:30","17:30"]] */
+                week: jsonb('week').$type<Record<string, [string, string][]>>().notNull(),
+                /** YYYY-MM-DD → the hour it closes */
+                halfDays: jsonb('half_days')
+                    .$type<Record<string, string>>()
+                    .notNull()
+                    .default(sql`'{}'::jsonb`)
+            },
+            (t) => [
+                uniqueIndex('working_calendars_unit_uq').on(t.unitId),
+                index('working_calendars_org_path_gist').using('gist', t.orgPath)
+            ]
+        )
+    ),
+    'config'
+);
+
+/**
+ * A unit's own holidays (task 0.20a), besides the national ones the calendar package computes: a regional day, a
+ * confirmed date of a Muslim holiday. They apply to the unit and below it. Class C.
+ */
+export const holidays = withRls(
+    audited(
+        workflowSchema.table(
+            'holidays',
+            {
+                ...baseColumns(),
+                regionId: uuid('region_id').notNull(),
+                unitId: uuid('unit_id')
+                    .notNull()
+                    .references(() => orgUnits.id),
+                /** set by trigger from the unit */
+                orgPath: ltree('org_path').notNull().default(''),
+                date: date('date', { mode: 'string' }).notNull(),
+                key: text('key').notNull(),
+                /** I18nText */
+                name: jsonb('name').$type<Record<string, string>>().notNull()
+            },
+            (t) => [
+                uniqueIndex('holidays_unit_date_uq').on(t.unitId, t.date),
+                index('holidays_org_path_gist').using('gist', t.orgPath)
+            ]
+        )
+    ),
+    'config'
 );

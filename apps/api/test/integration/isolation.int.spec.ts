@@ -389,7 +389,10 @@ describe('every tenant table', () => {
             'forms.approved_versions(uuid[])',
             // the caller's region's first data key, once (task 0.14)
             'kernel.ensure_region_data_key(uuid,text,bytea)',
+            // the caller's own notifications only (by app.user_id), and marking them read (task 0.20a)
+            'kernel.my_notifications(integer,timestamp with time zone)',
             'kernel.principal_units(text)',
+            'kernel.read_my_notifications(uuid[])',
             'kernel.record_context_free_event(text,jsonb,uuid,text,text)',
             // ids, codes and names of units of the caller's region only (task 0.14)
             'kernel.region_units(uuid[])',
@@ -400,7 +403,7 @@ describe('every tenant table', () => {
             'parties.search_organisations(text,integer)',
             'parties.search_persons(text,bytea,bytea,integer)',
             // the step a transition leads to, in a unit above the caller's scope, for a case they see (task 0.19b)
-            'workflow.open_task(uuid,uuid,text,uuid,text,uuid)',
+            'workflow.open_task(uuid,uuid,text,uuid,text,uuid,timestamp with time zone)',
             // who holds a role in a unit of the caller's chain: user ids only (task 0.19b)
             'workflow.role_holders(uuid,text)'
         ]);

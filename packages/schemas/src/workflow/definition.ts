@@ -110,8 +110,9 @@ export const workflowGuardSchema: z.ZodType<WorkflowGuard> = z
 
 export const workflowSlaSchema = z
     .object({
-        businessHours: z.number().int().min(1).max(10_000).optional(),
-        businessDays: z.number().int().min(1).max(1_000).optional()
+        // about a working year at most: what the calendar's search and its holidays cover
+        businessHours: z.number().int().min(1).max(2_000).optional(),
+        businessDays: z.number().int().min(1).max(250).optional()
     })
     .strict()
     .refine((s) => (s.businessHours === undefined) !== (s.businessDays === undefined), 'give business hours or days');

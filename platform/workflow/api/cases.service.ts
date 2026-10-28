@@ -59,6 +59,7 @@ import {
     type SystemActor,
     type UnitRef
 } from './engine/rules';
+import { dueAt } from './sla';
 import { caseEvents, cases, caseTasks, workflowDefinitionVersions } from './workflow.table';
 
 type CaseRow = typeof cases.$inferSelect;
@@ -207,8 +208,10 @@ export class CasesService {
         id: string,
         on: string,
         actor: SystemActor,
-        language = 'am'
-    ): Promise<{ from: string; to: string }> {
+        language = 'am',
+        /** a timer's question: when the wait has no such way out, answer null (nothing written) instead of refusing */
+        options: { quiet?: boolean } = {}
+    ): Promise<{ from: string; to: string } | null> {
         const row = await this.locked(tx, id);
         // the system acts for the case's unit: its audit rows carry the case's region and scope
         const chain = await this.chain(tx, row.handlingUnitId);
@@ -217,12 +220,13 @@ export class CasesService {
             unitId: row.handlingUnitId,
             scopePath: chain[chain.length - 1]?.path ?? ''
         });
-        if (row.closedAt) refuse('final-state', language, id);
+        if (row.closedAt) return options.quiet ? null : refuse('final-state', language, id);
         const def = await this.definition(tx, row.definitionVersionId);
         const state = stateOf(def, row.state);
-        if (!state) refuse('unknown-state', language, id);
+        if (!state) return options.quiet ? null : refuse('unknown-state', language, id);
         const decision = decideEvent(def, row.state, on, actor, row.facts);
-        if (!decision.ok) refuse(decision.refusal, language, id);
+        if (!decision.ok) return options.quiet ? null : refuse(decision.refusal, language, id);
+        // from here a failure (an effect, the next step's assignment) undoes everything: never a half transition
         const history = await this.history(tx, row, def);
         await this.advance(tx, {}, row, def, state, decision.transition, {
             system: actor.id,
@@ -282,11 +286,28 @@ export class CasesService {
         const to = stateOf(def, t.to);
         if (!to) refuse('unknown-state', by.language, row.id);
         const closed = to.kind === 'end';
+        // a wait with an SLA is due on the handling unit's calendar; its timeout is delivered then (0.20a)
+        const waitDue =
+            to.kind === 'wait' && to.sla
+                ? await dueAt(
+                      tx,
+                      (await this.chain(tx, row.handlingUnitId)).map((u) => u.id),
+                      to.sla
+                  )
+                : null;
         await updateAudited(tx, cases, row.id, row.rowVersion, {
             state: to.key,
             facts,
+            dueAt: waitDue,
             closedAt: closed ? new Date() : null
         });
+        if (waitDue)
+            await emit(
+                tx,
+                'case.wait-due.v1',
+                { caseId: row.id, state: to.key },
+                { unitId: row.handlingUnitId, regionId: row.regionId, availableAt: waitDue }
+            );
         await insertAudited(tx, caseEvents, {
             regionId: row.regionId,
             caseId: row.id,
@@ -346,6 +367,14 @@ export class CasesService {
             if (routed.hops > 0) routedFrom = assigned.unit.id;
         }
         const taskId = newId();
+        // its SLA on the calendar of the unit it is in
+        const due = state.sla
+            ? await dueAt(
+                  tx,
+                  chain.slice(0, chain.findIndex((u) => u.id === unit.id) + 1).map((u) => u.id),
+                  state.sla
+              )
+            : null;
         const values = {
             id: taskId,
             regionId: row.regionId,
@@ -353,7 +382,8 @@ export class CasesService {
             unitId: unit.id,
             stateKey: state.key,
             role: assignee.role,
-            routedFromUnitId: routedFrom
+            routedFromUnitId: routedFrom,
+            dueAt: due
         };
         const path = chain.find((u) => u.id === unit.id)?.path ?? '';
         if (!ctx.scopePath || withinScope(path, ctx.scopePath)) await insertAudited(tx, caseTasks, values);
@@ -361,7 +391,7 @@ export class CasesService {
             // above the caller's scope: the reviewed function checks the case, the unit and the role again
             await tx.execute(
                 sql`select workflow.open_task(${taskId}::uuid, ${row.id}::uuid, ${state.key}, ${unit.id}::uuid,
-                                              ${assignee.role}, ${routedFrom}::uuid)`
+                                              ${assignee.role}, ${routedFrom}::uuid, ${due}::timestamptz)`
             );
             await recordEvent(tx, {
                 type: 'workflow.task.opened',
@@ -370,6 +400,14 @@ export class CasesService {
                 data: { caseId: row.id, unitId: unit.id, role: assignee.role, state: state.key }
             });
         }
+        // the SLA timer: the relay hands it over when it is due (the sweep catches a lost one)
+        if (due)
+            await emit(
+                tx,
+                'case-task.due.v1',
+                { taskId, caseId: row.id },
+                { unitId: row.handlingUnitId, regionId: row.regionId, availableAt: due }
+            );
         if (routedFrom)
             await insertAudited(tx, caseEvents, {
                 regionId: row.regionId,
