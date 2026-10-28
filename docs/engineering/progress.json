@@ -828,7 +828,8 @@
           "commits": [
             "4bba743",
             "25dcbb0",
-            "adcf611"
+            "adcf611",
+            "9287b7c"
           ],
           "evidence": [
             "GitHub CI run 40694793026 on adcf611 (PR #20): all 9 jobs success — checks, infra+test:int, e2e, perf, stories/axe, Semgrep, gitleaks, Trivy, licence report",
