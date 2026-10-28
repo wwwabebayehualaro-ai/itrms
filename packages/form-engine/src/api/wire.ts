@@ -217,6 +217,8 @@ export function submissionOf(s: WireSubmission): FormSubmission & {
     submitted_by_name: string | null;
     handling_unit: string;
     handling_unit_name: string;
+    /** the case its answers were filed on (a step form's), task 0.20b */
+    case_id: string | null;
 } {
     return {
         id: s.id,
@@ -226,6 +228,7 @@ export function submissionOf(s: WireSubmission): FormSubmission & {
         submitted_by_name: s.submittedByName,
         handling_unit: s.handlingUnit.id,
         handling_unit_name: textOf(s.handlingUnit.name) || s.handlingUnit.code,
+        case_id: s.caseId,
         created_at: s.createdAt,
         updated_at: s.updatedAt,
         version: s.formVersion.number

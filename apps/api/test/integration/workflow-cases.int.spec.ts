@@ -117,6 +117,8 @@ interface CaseOut {
         action: string | null;
         systemActor: string | null;
     }[];
+    /** the step forms' answers (task 0.20b) */
+    steps: { state: string; formId: string; formVersion: number; form: unknown; answers: Record<string, unknown> }[];
 }
 interface Problem {
     code: string;
@@ -459,6 +461,17 @@ describe('step forms', () => {
             [id]
         );
         expect(filed.rows).toEqual([{ case_id: id, handling: as.damotRecords.unit.id, number: 1 }]);
+        // the case page shows them as the review's answers, on the version they were filled on (task 0.20b)
+        const page = await get(as.damotRecords, id);
+        expect(page.steps).toHaveLength(1);
+        expect(page.steps[0]).toMatchObject({
+            state: 'review',
+            formId,
+            formVersion: 1,
+            answers: { photo: 'front.jpg' }
+        });
+        expect(page.steps[0]?.form).toMatchObject({ fields: [{ id: 'photo' }] });
+        expect(page.events.find((e) => e.from === 'review' && e.action === 'approve')).toBeDefined();
     });
 });
 

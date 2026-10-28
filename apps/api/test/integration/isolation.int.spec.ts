@@ -402,6 +402,8 @@ describe('every tenant table', () => {
             // the registers' searches, limited to the caller's region; ids only (task 0.14)
             'parties.search_organisations(text,integer)',
             'parties.search_persons(text,bytea,bytea,integer)',
+            // who works on a case the caller sees (whom a comment may mention): ids and display names only (task 0.20b)
+            'workflow.case_people(uuid,text,uuid[],text[])',
             // the step a transition leads to, in a unit above the caller's scope, for a case they see (task 0.19b)
             'workflow.open_task(uuid,uuid,text,uuid,text,uuid,timestamp with time zone)',
             // who holds a role in a unit of the caller's chain: user ids only (task 0.19b)

@@ -10,7 +10,7 @@
  * job (`failed`, a reason code and its detail), so none stays `running`; a failure that is not the person's to fix is
  * thrown on as well, for the logs and the relay's retry (which then finds the job ended).
  */
-import { and, eq, gt, isNull, lte, or } from 'drizzle-orm';
+import { and, eq, gt, isNull, lte, or, sql } from 'drizzle-orm';
 import { recordEvent, updateAudited, type Database, type DbContext, type Tx } from '@itrms/kernel/db';
 import type { SystemDatabase } from '@itrms/kernel/db/system';
 import { AppError } from '@itrms/kernel/errors';
@@ -22,6 +22,7 @@ import {
     type GeneratedObject,
     type ObjectStore
 } from '@itrms/kernel/files';
+import { notify } from '@itrms/kernel/notifications';
 import { orgUnits, users } from '@itrms/kernel/tables';
 import { roleAssignments } from '@itrms/kernel/iam';
 
@@ -81,9 +82,31 @@ export async function runExport(system: SystemDatabase, deps: ExportDeps, export
         },
         { detail: { exportId } }
     );
-    // done or failed already (a delivery again), or no one to make it for: nothing to do
-    if (!found || found.job.status === 'done' || found.job.status === 'failed' || !found.job.createdBy) return;
+    if (!found?.job.createdBy) return;
     const { job } = found;
+    // the requester is told once when it ends (task 0.20b), from the system context (the app's role writes no
+    // notifications); deliveries of one export wait for each other, and the second finds it told
+    const tell = (messageKey: string, params: Record<string, string> = {}) =>
+        system.systemContext('forms.export_notice', async (tx) => {
+            await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`forms.export:${exportId}`}))`);
+            const told = await tx.execute(
+                sql`select 1 from kernel.notifications where link ->> 'exportId' = ${exportId} limit 1`
+            );
+            if (told.rows.length === 0)
+                await notify(tx, [
+                    {
+                        userId: job.createdBy ?? '',
+                        regionId: job.regionId,
+                        unitId: job.unitId,
+                        messageKey,
+                        params,
+                        link: { formId: job.formId, exportId }
+                    }
+                ]);
+        });
+    // done or failed already (a delivery again): nothing to do but the notice, if a failure after that commit lost it
+    if (job.status === 'done') return tell('forms.notify.export-ready', { rows: String(job.rows ?? 0) });
+    if (job.status === 'failed') return tell('forms.notify.export-failed');
     const ctx: DbContext = {
         requestId: `export:${exportId}`,
         userId: job.createdBy ?? undefined,
@@ -106,8 +129,10 @@ export async function runExport(system: SystemDatabase, deps: ExportDeps, export
             await updateAudited(tx, submissionExports, exportId, current.rowVersion, changes);
             return true;
         });
-    const fail = (code: ExportFailure, detail: string) =>
-        end({ status: 'failed', errorCode: code, error: detail.slice(0, 500), finishedAt: new Date() });
+    const fail = async (code: ExportFailure, detail: string) => {
+        if (await end({ status: 'failed', errorCode: code, error: detail.slice(0, 500), finishedAt: new Date() }))
+            await tell('forms.notify.export-failed');
+    };
 
     if (!deps.permissionsOf(roles).has('submission:export')) {
         await fail('not_permitted', 'You no longer hold the right to export in this office.');
@@ -171,6 +196,7 @@ export async function runExport(system: SystemDatabase, deps: ExportDeps, export
             });
             return true;
         });
+        if (recorded) await tell('forms.notify.export-ready', { rows: String(table.rows.length) });
     } catch (error) {
         const refused =
             error instanceof ExportRefused

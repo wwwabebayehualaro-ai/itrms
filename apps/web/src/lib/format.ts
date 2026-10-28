@@ -1,4 +1,5 @@
 import {
+    ADDIS_ABABA_OFFSET_MINUTES,
     addisDate,
     CALENDAR_LANGUAGES,
     formatEthiopianLong,
@@ -127,4 +128,17 @@ export function formatDay(
         );
     const lang = (CALENDAR_LANGUAGES as readonly string[]).includes(language) ? (language as CalendarLanguage) : 'am';
     return formatEthiopianLong(toEthiopian(gregorian), { language: lang });
+}
+
+/** An instant as the person reads it: its Addis Ababa day (`formatDay`) and time ("ጥቅምት 12 ቀን 2019 ዓ.ም 14:30"). */
+export function formatMoment(
+    value: string | Date | null | undefined,
+    options: { language?: string; calendar?: CalendarChoice } = {},
+    empty = '—'
+): string {
+    if (value === null || value === undefined || value === '') return empty;
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return empty;
+    const time = new Date(d.getTime() + ADDIS_ABABA_OFFSET_MINUTES * 60_000).toISOString().slice(11, 16);
+    return `${formatDay(d, options, empty)} ${time}`;
 }

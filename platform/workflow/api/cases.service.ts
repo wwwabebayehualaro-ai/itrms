@@ -14,8 +14,8 @@
  * - A task in a unit outside the actor's scope (the zone's approval of a town's case) is opened through the reviewed
  *   `workflow.open_task`, which checks the case and the unit again in SQL.
  */
-import { Injectable } from '@nestjs/common';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { Inject, Injectable } from '@nestjs/common';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import {
     actFor,
     contentHash,
@@ -27,10 +27,11 @@ import {
     type Tx
 } from '@itrms/kernel/db';
 import { EffectRegistry } from '@itrms/kernel/effects';
+import { rolePermissions, SHELL, type Shell } from '@itrms/kernel/iam';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
 import { unitRefs, withinScope, type UnitRef as UnitLabel } from '@itrms/kernel/org';
 import { emit } from '@itrms/kernel/outbox';
-import { orgUnits } from '@itrms/kernel/tables';
+import { orgUnits, users } from '@itrms/kernel/tables';
 import { FormsService, RegistryLookups, SubmissionsService } from '@itrms/forms/api';
 import {
     effectKeyOf,
@@ -43,7 +44,17 @@ import {
 } from '@itrms/schemas';
 import { z } from 'zod';
 
-import type { CaseOut, Transition } from '../contracts';
+import {
+    DUE_SOON_HOURS,
+    type CaseOut,
+    type CommentCreate,
+    type Inbox,
+    type InboxItem,
+    type InboxQuery,
+    type PersonRef,
+    type SlaState,
+    type Transition
+} from '../contracts';
 import am from '../messages/am.json';
 import en from '../messages/en.json';
 import {
@@ -60,17 +71,21 @@ import {
     type UnitRef
 } from './engine/rules';
 import { dueAt } from './sla';
-import { caseEvents, cases, caseTasks, workflowDefinitionVersions } from './workflow.table';
+import { caseEvents, cases, caseTasks, workflowDefinitions, workflowDefinitionVersions } from './workflow.table';
 
 type CaseRow = typeof cases.$inferSelect;
 type TaskRow = typeof caseTasks.$inferSelect;
 
-/** Who acts: the signed-in person, their active unit and the roles they hold there. */
+/** Who acts: the signed-in person, their active unit, the roles they hold there and what those give. */
 export interface CaseActor {
     userId: string;
     unitId: string;
     roles: readonly string[];
+    permissions?: ReadonlySet<string>;
 }
+
+/** What only this service refuses (the engine's refusals are `Refusal`): a step someone else took on, or not taken on. */
+type ClaimRefusal = 'claimed' | 'not-claimed' | 'task-closed';
 
 /** The configuration a service freezes on a case (0.21 resolves it); the engine reads `approval_unit`. */
 export const caseConfigSchema = z
@@ -84,13 +99,14 @@ const text = (key: string, language: string): string =>
     CATALOGUES[language]?.[key] ?? am[key as keyof typeof am] ?? key;
 
 /** A refusal of the engine as the API answers it: who may not act is 403, what cannot happen now is 409. */
-function refuse(refusal: Refusal, language: string, caseId: string): never {
+function refuse(refusal: Refusal | ClaimRefusal, language: string, caseId: string): never {
     const detail = text(`workflow.refusal.${refusal}`, language);
     switch (refusal) {
         case 'role-required':
         case 'reject-not-allowed':
         case 'separation-of-duties':
         case 'wrong-system-actor':
+        case 'not-claimed':
             throw new ForbiddenError({ detail, audit: { reason: refusal, caseId } });
         case 'comment-required':
             throw new ValidationError('validation_failed', {
@@ -104,12 +120,26 @@ function refuse(refusal: Refusal, language: string, caseId: string): never {
 
 @Injectable()
 export class CasesService {
+    /** The roles that read cases (the installed manifests): only their holders may be mentioned on one. */
+    private readonly readers: readonly string[];
+
     constructor(
         private readonly effects: EffectRegistry,
         private readonly forms: FormsService,
         private readonly submissions: SubmissionsService,
-        private readonly lookups: RegistryLookups
-    ) {}
+        private readonly lookups: RegistryLookups,
+        @Inject(SHELL) shell: Shell
+    ) {
+        this.readers = [...rolePermissions(shell.manifests)]
+            .filter(([, granted]) => granted.has('case:read'))
+            .map(([role]) => role)
+            .sort();
+    }
+
+    /** The roles whose holders read cases: whom a comment may mention (the worker's check too). */
+    caseReaders(): readonly string[] {
+        return this.readers;
+    }
 
     /**
      * Starts a case on a stored workflow version, handled by the caller's unit, with the configuration a service resolved
@@ -172,6 +202,9 @@ export class CasesService {
         const state = stateOf(def, row.state);
         if (!state) refuse('unknown-state', language, id);
         const task = await this.openTask(tx, id);
+        // a step one of the role's holders took on is theirs while they hold the role there (0.20b)
+        if (task?.claimedBy && task.claimedBy !== actor.userId && (await this.claimHeld(tx, task)))
+            refuse('claimed', language, id);
         // the roles count in the task's own unit only; the start is its starter's
         const rolesInUnit = new Set(task && task.unitId === actor.unitId ? actor.roles : []);
         const history = await this.history(tx, row, def);
@@ -185,11 +218,12 @@ export class CasesService {
         if (!decision.ok) refuse(decision.refusal, language, id);
         const to = stateOf(def, decision.transition.to);
         if (!to) refuse('unknown-state', language, id);
-        const answers = await this.stepAnswers(tx, ctx, actor, row, state, decision.transition, to, input, language);
+        const filed = await this.stepAnswers(tx, ctx, actor, row, state, decision.transition, to, input, language);
         await this.advance(tx, ctx, row, def, state, decision.transition, {
             userId: actor.userId,
             task,
-            input: answers,
+            input: filed.answers,
+            submissionId: filed.submissionId,
             comment: input.comment,
             history,
             language
@@ -237,6 +271,212 @@ export class CasesService {
         return { from: row.state, to: decision.transition.to };
     }
 
+    // --- starting, claiming, commenting (task 0.20b) -------------------------------------------------------------------
+
+    /** Starts a case on a workflow's newest version, handled by the caller's unit (intake; 0.21's requests add the config). */
+    async startOn(
+        tx: Tx,
+        ctx: DbContext,
+        workflowId: string,
+        language: string
+    ): Promise<{ id: string; number: number }> {
+        const [workflow] = await tx
+            .select({ active: workflowDefinitions.active, latest: workflowDefinitions.latestVersionId })
+            .from(workflowDefinitions)
+            .where(eq(workflowDefinitions.id, workflowId));
+        if (!workflow) throw new NotFoundError();
+        if (!workflow.active || !workflow.latest)
+            throw new ConflictError('not_configured', { detail: text('workflow.refusal.not-startable', language) });
+        return this.start(tx, ctx, { definitionVersionId: workflow.latest });
+    }
+
+    /**
+     * Takes an open step on: one of the role's holders in the step's unit, not kept off it by separation of duties. The
+     * others see whose it is and may not act on it until it is released. Taking it on again is a no-op; a claim whose
+     * holder no longer holds the role there (left, revoked, switched off) counts for nothing and is taken over.
+     */
+    async claim(tx: Tx, actor: CaseActor, caseId: string, taskId: string, language: string): Promise<CaseOut> {
+        const row = await this.locked(tx, caseId);
+        const task = await this.openStep(tx, row, taskId, language);
+        if (task.unitId !== actor.unitId || !actor.roles.includes(task.role)) refuse('role-required', language, caseId);
+        const holder = await this.claimHeld(tx, task);
+        if (holder && holder !== actor.userId) refuse('claimed', language, caseId);
+        if (holder !== actor.userId) {
+            const def = await this.definition(tx, row.definitionVersionId);
+            const state = stateOf(def, task.stateKey);
+            if (state && excludedBySeparation(state, await this.history(tx, row, def)).has(actor.userId))
+                refuse('separation-of-duties', language, caseId);
+            await updateAudited(tx, caseTasks, task.id, task.rowVersion, {
+                claimedBy: actor.userId,
+                claimedAt: new Date()
+            });
+        }
+        return this.get(tx, actor, caseId);
+    }
+
+    /**
+     * Gives a step back to the role's holders: by whoever took it on, or by someone who may reassign steps (`case:reassign`)
+     * in its office or one above it (who sees the step: RLS). Anyone else is refused, audited.
+     */
+    async release(tx: Tx, actor: CaseActor, caseId: string, taskId: string, language: string): Promise<CaseOut> {
+        const row = await this.locked(tx, caseId);
+        const task = await this.openStep(tx, row, taskId, language);
+        const reassign = actor.permissions?.has('case:reassign') === true;
+        if (!task.claimedBy || (task.claimedBy !== actor.userId && !reassign)) refuse('not-claimed', language, caseId);
+        await updateAudited(tx, caseTasks, task.id, task.rowVersion, { claimedBy: null, claimedAt: null });
+        return this.get(tx, actor, caseId);
+    }
+
+    /**
+     * A comment on the case's timeline, for the staff working on it (internal). The people it mentions must work on the
+     * case (an active role in its handling office or one above it); the worker tells them (`case.commented.v1`).
+     */
+    async comment(tx: Tx, actor: CaseActor, caseId: string, input: CommentCreate, language: string): Promise<CaseOut> {
+        const [row] = await tx.select().from(cases).where(eq(cases.id, caseId));
+        if (!row) throw new NotFoundError();
+        const mentions = [...new Set(input.mentions)];
+        if (mentions.length) {
+            const found = new Set((await this.casePeople(tx, caseId, null, mentions)).map((p) => p.id));
+            const outside = mentions.filter((id) => !found.has(id));
+            if (outside.length)
+                throw new ValidationError('validation_failed', {
+                    errors: outside.map((id) => ({
+                        path: 'mentions',
+                        code: 'invalid',
+                        message: text('workflow.refusal.mention-outside', language),
+                        value: id
+                    }))
+                });
+        }
+        const event = await insertAudited(tx, caseEvents, {
+            regionId: row.regionId,
+            caseId,
+            unitId: row.handlingUnitId,
+            kind: 'comment',
+            actorUserId: actor.userId,
+            comment: input.text,
+            data: { mentions, visibility: 'internal' }
+        });
+        // nobody is told of their own mention
+        const told = mentions.filter((id) => id !== actor.userId);
+        if (told.length)
+            await emit(
+                tx,
+                'case.commented.v1',
+                { caseId, eventId: event.id, mentions: told },
+                { unitId: row.handlingUnitId, regionId: row.regionId }
+            );
+        return this.get(tx, actor, caseId);
+    }
+
+    /** Who a comment on the case may mention: the people working on it, by name. */
+    async people(tx: Tx, caseId: string, q: string | undefined): Promise<{ items: PersonRef[] }> {
+        const [row] = await tx.select({ id: cases.id }).from(cases).where(eq(cases.id, caseId));
+        if (!row) throw new NotFoundError();
+        return { items: await this.casePeople(tx, caseId, q ?? null, null) };
+    }
+
+    /**
+     * The caller's inbox: the open steps of their active unit for the roles they hold there, by due time (overdue first,
+     * no SLA last) then the oldest, a page at a time. "Due soon" and "overdue" are the database's clock.
+     */
+    async inbox(tx: Tx, actor: CaseActor, query: InboxQuery): Promise<Inbox> {
+        if (actor.roles.length === 0) return { items: [], nextCursor: null };
+        const dueKey = sql`coalesce(${caseTasks.dueAt}, 'infinity'::timestamptz)`;
+        const soon = sql`now() + make_interval(hours => ${DUE_SOON_HOURS})`;
+        const rows = await tx
+            .select({
+                task: caseTasks,
+                number: cases.number,
+                startedBy: cases.startedBy,
+                versionId: cases.definitionVersionId,
+                workflowId: workflowDefinitions.id,
+                workflowName: workflowDefinitions.name,
+                sla: sql<SlaState>`case when ${caseTasks.dueAt} is null then 'none'
+                                        when ${caseTasks.dueAt} <= now() then 'overdue'
+                                        when ${caseTasks.dueAt} <= ${soon} then 'due-soon'
+                                        else 'on-time' end`
+            })
+            .from(caseTasks)
+            .innerJoin(cases, eq(cases.id, caseTasks.caseId))
+            .innerJoin(workflowDefinitionVersions, eq(workflowDefinitionVersions.id, cases.definitionVersionId))
+            .innerJoin(workflowDefinitions, eq(workflowDefinitions.id, workflowDefinitionVersions.definitionId))
+            .where(
+                and(
+                    eq(caseTasks.status, 'open'),
+                    eq(caseTasks.unitId, actor.unitId),
+                    inArray(caseTasks.role, [...actor.roles]),
+                    query.claim === 'mine'
+                        ? eq(caseTasks.claimedBy, actor.userId)
+                        : query.claim === 'unclaimed'
+                          ? isNull(caseTasks.claimedBy)
+                          : undefined,
+                    query.sla === 'overdue'
+                        ? sql`${caseTasks.dueAt} <= now()`
+                        : query.sla === 'due-soon'
+                          ? sql`${caseTasks.dueAt} > now() and ${caseTasks.dueAt} <= ${soon}`
+                          : undefined,
+                    query.state ? eq(caseTasks.stateKey, query.state) : undefined,
+                    query.number ? eq(cases.number, query.number) : undefined,
+                    query.after
+                        ? sql`(${dueKey}, ${caseTasks.createdAt}, ${caseTasks.id}) >
+                              (select coalesce(a.due_at, 'infinity'::timestamptz), a.created_at, a.id
+                                 from workflow.case_tasks a where a.id = ${query.after}::uuid)`
+                        : undefined
+                )
+            )
+            .orderBy(dueKey, asc(caseTasks.createdAt), asc(caseTasks.id))
+            .limit(query.limit + 1);
+        const page = rows.slice(0, query.limit);
+        const defs = await this.definitions(
+            tx,
+            page.map((r) => r.versionId)
+        );
+        const histories = await this.histories(
+            tx,
+            page.map((r) => ({ id: r.task.caseId, startedBy: r.startedBy, def: defs.get(r.versionId) }))
+        );
+        const units = await unitRefs(
+            tx,
+            page.flatMap((r) => [r.task.unitId, r.task.routedFromUnitId])
+        );
+        const label = (id: string): UnitLabel => units.get(id) ?? { id, code: '', name: {} };
+        const names = await namesOf(
+            tx,
+            page.map((r) => r.task.claimedBy)
+        );
+        // a claim counts while its holder holds the role here (one lookup per role on the page)
+        const holders = new Map<string, Set<string>>();
+        for (const role of new Set(page.filter((r) => r.task.claimedBy).map((r) => r.task.role)))
+            holders.set(role, await this.holdersOf(tx, actor.unitId, role));
+        const heldBy = (task: TaskRow) =>
+            task.claimedBy && holders.get(task.role)?.has(task.claimedBy) ? task.claimedBy : null;
+        return {
+            items: page.map(({ task, ...r }): InboxItem => {
+                const def = defs.get(r.versionId);
+                const state = def ? stateOf(def, task.stateKey) : undefined;
+                const excluded = state ? excludedBySeparation(state, histories.get(task.caseId) ?? []) : new Set();
+                return {
+                    taskId: task.id,
+                    caseId: task.caseId,
+                    caseNumber: r.number,
+                    workflow: { id: r.workflowId, name: r.workflowName },
+                    state: task.stateKey,
+                    stateLabel: state?.label ?? null,
+                    role: task.role,
+                    unit: label(task.unitId),
+                    routedFrom: task.routedFromUnitId ? label(task.routedFromUnitId) : null,
+                    dueAt: task.dueAt?.toISOString() ?? null,
+                    sla: r.sla,
+                    claimedBy: personOf(names, heldBy(task)),
+                    mayAct: !excluded.has(actor.userId),
+                    openedAt: task.createdAt.toISOString()
+                };
+            }),
+            nextCursor: rows.length > query.limit ? (page[page.length - 1]?.task.id ?? null) : null
+        };
+    }
+
     // --- the transition's work ----------------------------------------------------------------------------------------
 
     private async advance(
@@ -251,6 +491,8 @@ export class CasesService {
             system?: string;
             task?: TaskRow;
             input: Record<string, unknown>;
+            /** the step form's answers filed with it, shown on the case page as that step's */
+            submissionId?: string;
             comment?: string;
             history: readonly StepHistory[];
             language: string;
@@ -319,7 +561,13 @@ export class CasesService {
             actorUserId: by.userId ?? null,
             systemActor: by.system ?? null,
             comment: by.comment ?? null,
-            data: t.effects?.length ? { effects: t.effects } : null
+            data:
+                t.effects?.length || by.submissionId
+                    ? {
+                          ...(t.effects?.length ? { effects: t.effects } : {}),
+                          ...(by.submissionId ? { submissionId: by.submissionId } : {})
+                      }
+                    : null
         });
         if (to.kind === 'task') {
             const history = by.userId ? [...by.history, { state: from.key, userId: by.userId }] : by.history;
@@ -458,16 +706,14 @@ export class CasesService {
         to: WorkflowState,
         input: Transition,
         language: string
-    ): Promise<Record<string, unknown>> {
-        // a reject, or a case sent back to its start for correction, takes no form; a step without one takes no answers
-        const sentBack = to.kind === 'start';
-        const wanted = state.stepForm && t.action !== 'reject' && !sentBack ? parseStepForm(state.stepForm) : null;
+    ): Promise<{ answers: Record<string, unknown>; submissionId?: string }> {
+        const wanted = needsForm(state, t, to) && state.stepForm ? parseStepForm(state.stepForm) : null;
         if (!wanted) {
             if (input.answers !== undefined)
                 throw new ValidationError('validation_failed', {
                     errors: [{ path: 'answers', code: 'invalid', message: text('workflow.refusal.no-form', language) }]
                 });
-            return {};
+            return { answers: {} };
         }
         if (input.answers === undefined)
             throw new ValidationError('validation_failed', {
@@ -487,7 +733,7 @@ export class CasesService {
             language,
             { caseId: row.id, handlingUnitId: row.handlingUnitId }
         );
-        return submission.answers;
+        return { answers: submission.answers, submissionId: submission.id };
     }
 
     // --- reading ------------------------------------------------------------------------------------------------------
@@ -519,16 +765,80 @@ export class CasesService {
 
     /** Who acted on which step: the start's starter, then every person's transition. */
     private async history(tx: Tx, row: CaseRow, def: WorkflowDefinition): Promise<StepHistory[]> {
-        const start = def.states.find((s) => s.kind === 'start');
+        return (await this.histories(tx, [{ id: row.id, startedBy: row.startedBy, def }])).get(row.id) ?? [];
+    }
+
+    /** `history` of several cases in one query (the inbox's page). */
+    private async histories(
+        tx: Tx,
+        of: readonly { id: string; startedBy: string; def: WorkflowDefinition | undefined }[]
+    ): Promise<Map<string, StepHistory[]>> {
+        const out = new Map<string, StepHistory[]>();
+        if (of.length === 0) return out;
+        for (const c of of) {
+            const start = c.def?.states.find((s) => s.kind === 'start');
+            out.set(c.id, start ? [{ state: start.key, userId: c.startedBy }] : []);
+        }
         const steps = await tx
-            .select({ state: caseEvents.fromState, userId: caseEvents.actorUserId })
+            .select({ caseId: caseEvents.caseId, state: caseEvents.fromState, userId: caseEvents.actorUserId })
             .from(caseEvents)
-            .where(and(eq(caseEvents.caseId, row.id), eq(caseEvents.kind, 'transition')))
-            .orderBy(asc(caseEvents.createdAt));
-        return [
-            ...(start ? [{ state: start.key, userId: row.startedBy }] : []),
-            ...steps.flatMap((s) => (s.state && s.userId ? [{ state: s.state, userId: s.userId }] : []))
-        ];
+            .where(and(inArray(caseEvents.caseId, [...out.keys()]), eq(caseEvents.kind, 'transition')))
+            .orderBy(asc(caseEvents.createdAt), asc(caseEvents.id));
+        for (const s of steps) if (s.state && s.userId) out.get(s.caseId)?.push({ state: s.state, userId: s.userId });
+        return out;
+    }
+
+    /**
+     * Who holds a step's claim, if they still may: the role in the step's unit, an active person in an active office (the
+     * reviewed `workflow.role_holders`). A claim of someone who left counts for nothing.
+     */
+    private async claimHeld(tx: Tx, task: TaskRow): Promise<string | null> {
+        if (!task.claimedBy) return null;
+        return (await this.holdersOf(tx, task.unitId, task.role)).has(task.claimedBy) ? task.claimedBy : null;
+    }
+
+    private async holdersOf(tx: Tx, unitId: string, role: string): Promise<Set<string>> {
+        const result = await tx.execute<{ id: string }>(
+            sql`select h as id from workflow.role_holders(${unitId}::uuid, ${role}) h`
+        );
+        return new Set(result.rows.map((r) => r.id));
+    }
+
+    /** Stored definitions by version id (checked when stored: parsed for their types). */
+    private async definitions(tx: Tx, versionIds: readonly string[]): Promise<Map<string, WorkflowDefinition>> {
+        const wanted = [...new Set(versionIds)];
+        if (wanted.length === 0) return new Map();
+        const rows = await tx
+            .select({ id: workflowDefinitionVersions.id, definition: workflowDefinitionVersions.definition })
+            .from(workflowDefinitionVersions)
+            .where(inArray(workflowDefinitionVersions.id, wanted));
+        return new Map(rows.map((r) => [r.id, workflowDefinitionSchema.parse(r.definition)]));
+    }
+
+    /** The case's step that is still open, for a claim (its case locked by the caller). */
+    private async openStep(tx: Tx, row: CaseRow, taskId: string, language: string): Promise<TaskRow> {
+        const [task] = await tx
+            .select()
+            .from(caseTasks)
+            .where(and(eq(caseTasks.id, taskId), eq(caseTasks.caseId, row.id)))
+            .for('update');
+        if (!task) throw new NotFoundError();
+        if (task.status !== 'open' || row.closedAt) refuse('task-closed', language, row.id);
+        return task;
+    }
+
+    /** The people working on a case the caller sees (the reviewed `workflow.case_people`), by name or among `ids`. */
+    private async casePeople(
+        tx: Tx,
+        caseId: string,
+        q: string | null,
+        ids: readonly string[] | null
+    ): Promise<PersonRef[]> {
+        const result = await tx.execute<{ user_id: string; display_name: string }>(
+            sql`select user_id, display_name from workflow.case_people(${caseId}::uuid, ${q}::text,
+                    ${ids ? `{${ids.join(',')}}` : null}::uuid[], ${`{${this.readers.join(',')}}`}::text[])`
+        );
+        return result.rows.map((r) => ({ id: r.user_id, name: r.display_name }));
     }
 
     private async out(tx: Tx, actor: CaseActor, row: CaseRow): Promise<CaseOut> {
@@ -556,7 +866,41 @@ export class CasesService {
         const units = await unitRefs(tx, [row.handlingUnitId, ...tasks.flatMap((t) => [t.unitId, t.routedFromUnitId])]);
         const label = (id: string): UnitLabel => units.get(id) ?? { id, code: '', name: {} };
         const open = tasks.find((t) => t.status === 'open');
-        const rolesInUnit = new Set(open && open.unitId === actor.unitId ? actor.roles : []);
+        // a step another person took on is theirs while they hold the role there: the caller has no action on it
+        const held = open ? await this.claimHeld(tx, open) : null;
+        const takenByOther = held !== null && held !== actor.userId;
+        const rolesInUnit = new Set(open && open.unitId === actor.unitId && !takenByOther ? actor.roles : []);
+        const actions =
+            row.closedAt || takenByOther
+                ? []
+                : actionsFor(def, row.state, { kind: 'person', userId: actor.userId, rolesInUnit }, row.startedBy);
+        const current = stateOf(def, row.state);
+        const [{ name: workflowName } = { name: {} }] = await tx
+            .select({ name: workflowDefinitions.name })
+            .from(workflowDefinitions)
+            .where(eq(workflowDefinitions.id, version.id));
+        // the step forms filed on the case, by the transition that filed each
+        const filedAt = new Map(
+            events.flatMap((e) => {
+                const id = e.data?.submissionId;
+                return typeof id === 'string' && e.fromState ? [[id, e.fromState] as const] : [];
+            })
+        );
+        const filed = (await this.submissions.ofCase(tx, actor.roles, row.id)).filter((s) => filedAt.has(s.id));
+        const mentionsOf = (e: (typeof events)[number]): string[] =>
+            e.kind === 'comment' && Array.isArray(e.data?.mentions)
+                ? e.data.mentions.filter((m): m is string => typeof m === 'string')
+                : [];
+        const names = await namesOf(tx, [
+            row.startedBy,
+            ...tasks.flatMap((t) => [t.actedBy, t.claimedBy]),
+            ...events.flatMap((e) => [e.actorUserId, ...mentionsOf(e)]),
+            ...filed.map((s) => s.submittedBy)
+        ]);
+        // the database's clock, as the inbox's
+        const now = new Date(
+            (await tx.execute<{ now: Date | string }>(sql`select now() as now`)).rows[0]?.now ?? Date.now()
+        ).getTime();
         return {
             id: row.id,
             version: row.rowVersion,
@@ -564,11 +908,25 @@ export class CasesService {
             state: row.state,
             closed: row.closedAt !== null,
             handlingUnit: label(row.handlingUnitId),
-            workflow: { id: version.id, versionId: row.definitionVersionId, number: version.number },
+            workflow: {
+                id: version.id,
+                versionId: row.definitionVersionId,
+                number: version.number,
+                name: workflowName
+            },
+            stateLabels: Object.fromEntries(def.states.flatMap((s) => (s.label ? [[s.key, s.label]] : []))),
             startedBy: row.startedBy,
-            actions: row.closedAt
-                ? []
-                : actionsFor(def, row.state, { kind: 'person', userId: actor.userId, rolesInUnit }, row.startedBy),
+            startedByName: names.get(row.startedBy) ?? null,
+            actions,
+            actionDetails: actions.map((action) => {
+                const t = def.transitions.find((x) => x.from === row.state && x.action === action);
+                return {
+                    action,
+                    label: t?.label ?? null,
+                    commentRequired: t?.commentRequired === true,
+                    needsForm: Boolean(current && t && needsForm(current, t, stateOf(def, t.to)))
+                };
+            }),
             tasks: tasks.map((t) => ({
                 id: t.id,
                 state: t.stateKey,
@@ -577,7 +935,11 @@ export class CasesService {
                 status: t.status,
                 routedFrom: t.routedFromUnitId ? label(t.routedFromUnitId) : null,
                 actedBy: t.actedBy,
+                actedByName: t.actedBy ? (names.get(t.actedBy) ?? null) : null,
                 action: t.action,
+                dueAt: t.dueAt?.toISOString() ?? null,
+                sla: t.status === 'open' ? slaOf(t.dueAt, now) : 'none',
+                claimedBy: personOf(names, t.status === 'open' && t.id === open?.id ? held : t.claimedBy),
                 openedAt: t.createdAt.toISOString(),
                 closedAt: t.closedAt?.toISOString() ?? null
             })),
@@ -588,14 +950,54 @@ export class CasesService {
                 to: e.toState,
                 action: e.action,
                 actorUserId: e.actorUserId,
+                actorName: e.actorUserId ? (names.get(e.actorUserId) ?? null) : null,
                 systemActor: e.systemActor,
                 comment: e.comment,
+                mentions: mentionsOf(e).flatMap((id) => personOf(names, id) ?? []),
+                visibility: e.kind === 'comment' ? 'internal' : null,
                 at: e.createdAt.toISOString()
             })),
+            steps: filed.map((s) => ({
+                submissionId: s.id,
+                state: filedAt.get(s.id) ?? '',
+                formId: s.formId,
+                formVersion: s.formVersion.number,
+                form: s.document,
+                answers: s.answers,
+                submittedBy: personOf(names, s.submittedBy),
+                at: s.createdAt
+            })),
+            canComment: actor.permissions?.has('case:comment') ?? false,
             createdAt: row.createdAt.toISOString(),
             closedAt: row.closedAt?.toISOString() ?? null
         };
     }
+}
+
+/** Where an open step stands against its due time at `now` (the database's clock, as the inbox says it). */
+function slaOf(dueAt: Date | null, now: number): SlaState {
+    if (!dueAt) return 'none';
+    if (dueAt.getTime() <= now) return 'overdue';
+    return dueAt.getTime() <= now + DUE_SOON_HOURS * 3_600_000 ? 'due-soon' : 'on-time';
+}
+
+/** Staff names (users are a regional record: the region reads them). */
+async function namesOf(tx: Tx, ids: readonly (string | null)[]): Promise<Map<string, string>> {
+    const wanted = [...new Set(ids.filter((id): id is string => Boolean(id)))];
+    if (wanted.length === 0) return new Map();
+    const rows = await tx
+        .select({ id: users.id, name: users.displayName })
+        .from(users)
+        .where(inArray(users.id, wanted));
+    return new Map(rows.map((r) => [r.id, r.name]));
+}
+
+const personOf = (names: ReadonlyMap<string, string>, id: string | null): PersonRef | null =>
+    id ? { id, name: names.get(id) ?? '' } : null;
+
+/** Whether a transition out of a step files its form: not a reject, nor a case sent back to its start for correction. */
+function needsForm(state: WorkflowState, t: WorkflowTransition, to: WorkflowState | undefined): boolean {
+    return Boolean(state.stepForm) && t.action !== 'reject' && to?.kind !== 'start';
 }
 
 function required(value: string | undefined): string {

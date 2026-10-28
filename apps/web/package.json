@@ -25,6 +25,7 @@
     "@itrms/parties": "workspace:*",
     "@itrms/schemas": "workspace:*",
     "@itrms/ui": "workspace:*",
+    "@itrms/workflow": "workspace:*",
     "@tanstack/react-form": "1.33.5",
     "@tanstack/react-query": "5.104.1",
     "@tanstack/react-table": "8.21.3",

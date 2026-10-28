@@ -30,6 +30,8 @@ import {
 import { orgUnits } from '@itrms/kernel/tables';
 import { audited, baseColumns, ltree, withRls } from '@itrms/kernel/db';
 
+import { CASE_EVENT_KINDS } from '../contracts';
+
 export const workflowSchema = pgSchema('workflow');
 
 const owned = () => ({
@@ -172,6 +174,9 @@ export const caseTasks = withRls(
                 dueAt: timestamp('due_at', { withTimezone: true }),
                 /** when the SLA timer (or the sweep) found it overdue and told the supervisors */
                 overdueAt: timestamp('overdue_at', { withTimezone: true }),
+                /** who of the role's holders took it on (task 0.20b): the others see it is theirs, and may not act on it */
+                claimedBy: uuid('claimed_by'),
+                claimedAt: timestamp('claimed_at', { withTimezone: true }),
                 closedAt: timestamp('closed_at', { withTimezone: true })
             },
             (t) => [
@@ -190,11 +195,10 @@ export const caseTasks = withRls(
     'transaction'
 );
 
-export const CASE_EVENT_KINDS = ['started', 'transition', 'routed'] as const;
-
 /**
  * A case's timeline (task 0.19b): append-only (no UPDATE or DELETE but a unit move's `org_path`). Class T at the unit
- * handling the case when it happened. A person's actor is a user id; a system actor its `system:<adapter>`.
+ * handling the case when it happened. A person's actor is a user id; a system actor its `system:<adapter>`. A comment
+ * (task 0.20b) is an event of its own: its text, the people it mentions and who may read it (`data`).
  */
 export const caseEvents = withRls(
     audited(

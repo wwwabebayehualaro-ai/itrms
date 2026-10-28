@@ -169,6 +169,16 @@ afterAll(async () => {
     await pg?.stop();
 });
 
+/** The notices about an export (task 0.20b): who was told what. */
+const notices = async (exportId: string) =>
+    (
+        await api.owner.query<{ message_key: string; user_id: string; rows: string | null }>(
+            `select message_key, user_id, params ->> 'rows' as rows from kernel.notifications
+              where link ->> 'exportId' = $1 order by created_at`,
+            [exportId]
+        )
+    ).rows;
+
 describe('a background export', () => {
     let exportId = '';
 
@@ -194,6 +204,10 @@ describe('a background export', () => {
         // again (a second delivery of the event): nothing changes
         await runWorker(exportId);
         expect((await job(as.damotHead(), exportId)).json<Job>().rows).toBe(3);
+        // its requester is told once that it is ready (task 0.20b), whatever the deliveries
+        expect(await notices(exportId)).toEqual([
+            { message_key: 'forms.notify.export-ready', user_id: await api.userId(SUB.damotHead), rows: '3' }
+        ]);
 
         expect((await download(as.zoneHead(), exportId)).statusCode).toBe(404);
         const link = await download(as.damotHead(), exportId);
@@ -253,6 +267,7 @@ describe('a background export', () => {
             error: expect.stringMatching(/unknown field "nope"/) as unknown
         });
         expect((await download(as.damotHead(), id)).statusCode).toBe(404);
+        expect((await notices(id)).map((n) => n.message_key)).toEqual(['forms.notify.export-failed']);
     });
 
     it("is its requester's file alone, through the kernel's file routes too", async () => {

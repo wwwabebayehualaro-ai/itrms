@@ -158,7 +158,8 @@ export function useSetLanguage() {
     );
 }
 
-type Text = { am: string; en: string } & Partial<Record<string, string>>;
+/** A data text by language: an I18nText, or a name as an API hands it (any of its languages may be missing). */
+type Text = Readonly<Partial<Record<string, string>>>;
 
 /**
  * The shell's words (next-intl, the merged catalogues) and a data text (I18nText) in the person's language; a language
@@ -170,6 +171,6 @@ export function useText() {
     return {
         language,
         t: (key: string, values?: Record<string, string>) => translate(key as never, values as never),
-        text: (value: Text) => value[language] ?? value.am ?? value.en
+        text: (value: Text): string => value[language] ?? value.am ?? value.en ?? ''
     };
 }

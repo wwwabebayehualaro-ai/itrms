@@ -34,6 +34,7 @@ import {
 } from '@itrms/ui';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { formatDateTime } from '@/lib/format';
+import { useText } from '@/lib/preferences';
 import { RequestEditorDialog } from './RequestEditorDialog';
 
 const ACTION: Record<string, { label: string; icon: typeof Send }> = {
@@ -46,6 +47,7 @@ const HIDDEN_CHANGES = new Set(['row_version', 'template_version_id', 'updated_a
 /** One request, as a page you can link to: the form as it was filled in, who changed what, and the actions. */
 export function RecordScreen({ templateId, submissionId }: { templateId: string; submissionId: string }) {
     const router = useRouter();
+    const { t } = useText();
     const from = useSearchParams().get('from');
     const notify = useNotify();
     // a request changes only through its case's workflow (task 0.19)
@@ -165,7 +167,17 @@ export function RecordScreen({ templateId, submissionId }: { templateId: string;
                         <InlineStatus loading />
                     )}
                 </TabsContent>
-                <TabsContent value="history" className="pt-2">
+                <TabsContent value="history" className="flex flex-col gap-3 pt-2">
+                    {submission.case_id && (
+                        // a step form's answers: the case's timeline holds its steps (task 0.20b)
+                        <Link
+                            href={`/cases/${submission.case_id as string}`}
+                            className="w-fit text-sm text-primary hover:underline"
+                            data-case-link
+                        >
+                            {t('workflow.case.fromRecord')}
+                        </Link>
+                    )}
                     {history.isPending ? (
                         <InlineStatus loading />
                     ) : history.error ? (

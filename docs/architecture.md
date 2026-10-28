@@ -360,6 +360,10 @@ Definition (Zod schema `workflowDefinitionSchema` in `packages/schemas`; stored 
   past its SLA leaves by its `timeout` transition (`system:timer`). The national holidays are computed (fixed dates and
   the Orthodox Easter); the Muslim ones are provisional data a region confirms in `workflow.holidays`. Notifications are
   `kernel.notifications`, read by their recipient only through reviewed functions.
+- **Inbox and comments (task 0.20b):** a person's inbox is the open steps of their active unit for the roles they hold
+  there, by due time; one of the role's holders takes a step on (`claimed_by`) and the others may not act on it until it
+  is given back. A comment is a `comment` event on the timeline (internal); the people it mentions must work on the case
+  (an active role in its handling office or above it: the reviewed `workflow.case_people`), and the worker tells them.
 - **Versioning:** a case runs on the definition version it started with. Storing a version runs the engine's checks
   (`platform/workflow/api/engine/check.ts`): one start; every state reachable; an end reachable from every state; a task
   left only by actions, a wait only by events or its timeout (with an SLA), an end never; separation of duties naming

@@ -49,5 +49,10 @@
   "shell.languages.failed": "ቋንቋዎቹን ማስቀመጥ አልተቻለም።",
   "shell.languages.changed": "ሌላ አስተዳዳሪ በዚህ መሀል ቋንቋዎቹን ቀይሯል። ያረጋግጡና እንደገና ያስቀምጡ።",
   "shell.ethiopic.on": "የግዕዝ መጻፊያ በርቷል (ለማጥፋት {key})",
-  "shell.ethiopic.off": "የግዕዝ መጻፊያ ጠፍቷል (ለማብራት {key})"
+  "shell.ethiopic.off": "የግዕዝ መጻፊያ ጠፍቷል (ለማብራት {key})",
+  "shell.notifications.title": "ማሳወቂያዎች",
+  "shell.notifications.unread": "ማሳወቂያዎች፦ {count} ያልተነበቡ",
+  "shell.notifications.markAll": "ሁሉንም እንደተነበበ ምልክት አድርግ",
+  "shell.notifications.empty": "እስካሁን ማሳወቂያ የለም",
+  "shell.notifications.new": "አዲስ"
 }

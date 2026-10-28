@@ -274,6 +274,20 @@
       "when": 1793130783735,
       "tag": "0038_sla_notifications_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1793164918583,
+      "tag": "0039_inbox_comments",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793164938098,
+      "tag": "0040_inbox_comments_rls",
+      "breakpoints": true
     }
   ]
 }

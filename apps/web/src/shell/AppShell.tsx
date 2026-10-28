@@ -48,6 +48,7 @@ import {
 } from '@/lib/preferences';
 import { AppNav } from './AppNav';
 import { CommandPalette } from './CommandPalette';
+import { NotificationsBell } from './NotificationsBell';
 import { UnitSwitcher } from './UnitSwitcher';
 
 function Logo({ className }: { className?: string }) {
@@ -202,6 +203,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <UnitSwitcher />
                     <div className="ml-auto flex items-center gap-1">
                         <CommandPalette />
+                        <NotificationsBell />
                         <AppearanceMenu labels={appearance} />
                         <UserMenu />
                     </div>
