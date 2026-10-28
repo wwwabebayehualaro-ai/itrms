@@ -850,7 +850,8 @@
           "commits": [
             "b9d6a04",
             "4c7eaf8",
-            "cec698b"
+            "cec698b",
+            "8f47fd8"
           ],
           "evidence": [
             "GitHub CI run 40743071459 on cec698b (PR #21): all 9 jobs success — checks, infra+test:int, e2e, perf, stories/axe, Semgrep, gitleaks, Trivy, licence report",
