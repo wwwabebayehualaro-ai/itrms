@@ -16,7 +16,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Draft, DraftSummary } from '@itrms/forms/contracts';
 
 import client from '../api/client';
-import { isApiError } from '../api/http';
+import { defaultKey, isApiError } from '../api/http';
 import { createKeys } from '../query/keys';
 import { mergeAnswers } from './merge';
 import {
@@ -41,9 +41,8 @@ const ifMatch = (version: number) => ({ headers: { 'if-match': `"${version}"` } 
 const LOCAL_AFTER = 1_500;
 const SERVER_AFTER = 6_000;
 
-/** A local id: random where the browser can make one (not over plain HTTP), else from the time. */
-const newLocalId = () =>
-    `local-${globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`}`;
+/** A local id: a random UUID, over plain HTTP too (the HTTP client's: never Math.random, SEC-CR-5). */
+const newLocalId = () => `local-${defaultKey()}`;
 
 /** The person's drafts on the server (without their answers), and those kept in this browser, the latest first. */
 export function useMyDrafts(userId: string | undefined) {
