@@ -186,6 +186,10 @@ describe('an overdue step', () => {
             `update workflow.case_tasks set due_at = now() - interval '1 minute' where case_id = $1::uuid and status = 'open'`,
             [id]
         );
+        await api.owner.query(
+            `update kernel.users set preferences = preferences || '{"language": "en"}' where keycloak_sub = $1`,
+            [SUB.zoneHead]
+        );
         expect(await slaSweep(system, deps)).toBeGreaterThanOrEqual(1);
         const task = await api.owner.query<{ overdue_at: Date | null }>(
             `select overdue_at from workflow.case_tasks where case_id = $1::uuid and status = 'open'`,
@@ -202,7 +206,16 @@ describe('an overdue step', () => {
         expect(zone.map((n) => n.key)).toEqual(['workflow.notify.escalated']);
         // the officer who holds the step is not a supervisor: told nothing
         expect((await notes(as.damotRecords)).filter((n) => n.link?.caseId === id)).toEqual([]);
-        expect(sms.sent.some((m) => m.text.includes('is overdue'))).toBe(true);
+        // each SMS in its reader's language: Amharic unless they chose another
+        const smsTo = async (who: As) => {
+            const userId = await api.userId(who.sub);
+            return sms.sent.filter((m) => m.userId === userId).map((m) => m.text);
+        };
+        expect(await smsTo(as.damotHead)).toEqual([expect.stringContaining('በጽ/ቤትዎ ያለው ደረጃ "review" ጊዜው አልፏል')]);
+        expect(await smsTo(as.zoneHead)).toEqual([
+            expect.stringContaining('the step "review" in an office below yours')
+        ]);
+        expect(await smsTo(as.damotRecords)).toEqual([]);
 
         // marked read by its reader only
         const other = await api.call('POST', '/api/v1/me/notifications/read', as.zoneHead, { ids: [head[0]?.id] });
