@@ -651,17 +651,33 @@ did not fit one session. The screens people act on come first; drafts and the re
 - **Done when:** the inbox shows only tasks of the user's role in their unit; a mention notifies.
 - **Tests:** inbox e2e, case page e2e, mention integration tests.
 
-### 0.20c Workflow engine, part 2c: drafts and request lists
-Needs 0.20b.
+### 0.20c Workflow engine, part 2c: drafts
+Needs 0.20b. Split on 2026-10-28: drafts are a security feature of their own (SEC-WB-3: what a browser keeps leaves out
+the Sensitive fields and is encrypted for its user), which needs the form fields' classification (SEC-DC-1) first. The
+approvals inbox, badges and role workspaces follow in **0.20d**; changing a filed request through its case moves to
+**0.21** (it needs requests started as cases).
 - **Do:**
+  - A form field's classification (SEC-DC-1: public, internal, personal, sensitive), set in the designer and checked
+    when a version is published.
   - Drafts with save and resume (the counter saves a half-filled application while the applicant fetches a missing
-    document); a draft survives a dropped network.
-  - Cross-form request lists by state (waiting, recent), and changing a request after it is filed through the case
-    workflow.
+    document): on the server (the person's own, on the form version they started), and in the browser (Dexie, ADR-0024)
+    every few seconds, encrypted with a non-extractable key bound to the user and without the Sensitive fields, so a
+    draft survives a dropped network; signing out with unsaved drafts warns, then deletes the key (SEC-WB-3).
+- **Done when:** a draft resumes where it was left, on another PC from the server and after a dropped network from the
+  browser; a Sensitive field is never in the browser's storage.
+- **Tests:** draft integration tests (own drafts only, isolation, audit), the local store's unit tests (encryption, no
+  Sensitive field), a draft e2e journey.
+
+### 0.20d Workflow engine, part 2d: approvals inbox, workspaces, export masking
+Needs 0.20c.
+- **Do:**
   - The approvals inbox: mine/decidable filters and a cursor on `GET /v1/form-publications`.
   - Badges and role workspaces (home widgets) in the shell; a shared and default saved view in the browser journeys.
-- **Done when:** a draft resumes where it was left.
-- **Tests:** draft integration and e2e tests, the request lists' e2e.
+  - Exports and query answers mask the fields classified Sensitive by default; they are shown only through the
+    audited reveal (SEC-PD-2, SEC-DC-2).
+- **Done when:** the approvals inbox pages past 100 publications; a home widget shows the person's open tasks; an export
+  masks a Sensitive field.
+- **Tests:** the approvals inbox's integration tests, the workspace and saved-view journeys, the masking tests.
 
 ### 0.21 Service catalogue and configuration inheritance
 - **Do:**
@@ -774,7 +790,7 @@ Moved from 0.18a on 2026-10-26 (it needs cases, service versions and overlays). 
 - **Tests:** the restore drill script with checks; the smoke load test thresholds in CI (nightly).
 
 ## Phase acceptance criteria
-1. All tasks done (0.1–0.26 with 0.19 as 0.19a and 0.19b, 0.20 as 0.20a, 0.20b and 0.20c, 0.4a, 0.4b, 0.4c, 0.18a and 0.21a), CI green on `main` (lint, typecheck, unit, integration on Postgres, isolation matrix, i18n keys,
+1. All tasks done (0.1–0.26 with 0.19 as 0.19a and 0.19b, 0.20 as 0.20a, 0.20b, 0.20c and 0.20d, 0.4a, 0.4b, 0.4c, 0.18a and 0.21a), CI green on `main` (lint, typecheck, unit, integration on Postgres, isolation matrix, i18n keys,
    security scans, e2e).
 2. The demo journey runs in Amharic and English (Wolaytta with fallback) across Boditi, the zone and Damot Gale. A user of one office
    sees none of the other office's cases,

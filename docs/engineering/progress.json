@@ -822,7 +822,17 @@
         },
         {
           "id": "0.20c",
-          "title": "Workflow engine, part 2c: drafts and request lists",
+          "title": "Workflow engine, part 2c: drafts",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.20d",
+          "title": "Workflow engine, part 2d: approvals inbox, workspaces, export masking",
           "status": "planned",
           "branch": null,
           "commits": [],
@@ -1864,7 +1874,7 @@
     {
       "foundIn": "0.10b",
       "item": "Badges, the notifications bell and role workspaces (home widgets) in the shell",
-      "movedTo": "0.20c (badges, role workspaces; the bell came in 0.20b)"
+      "movedTo": "0.20d (badges, role workspaces; the bell came in 0.20b)"
     },
     {
       "foundIn": "0.10b",
@@ -2078,7 +2088,7 @@
     {
       "foundIn": "0.16d",
       "item": "Exports and query answers show every visible field in clear: a field flagged sensitive (phone, FIN, medical) is masked by default and revealed only through the audited reveal (SEC-PD-2, SEC-DC-1/2)",
-      "movedTo": "0.18"
+      "movedTo": "0.20d (the classification lands in 0.20c)"
     },
     {
       "foundIn": "0.16d",
@@ -2109,7 +2119,7 @@
     {
       "foundIn": "0.16c",
       "item": "Cross-form request lists by state (waiting, recent) and changing a request after it is filed: the case workflow and its inbox",
-      "movedTo": "0.20c"
+      "movedTo": "0.21 (needs requests started as cases)"
     },
     {
       "foundIn": "0.16c",
@@ -2134,7 +2144,7 @@
     {
       "foundIn": "0.16c",
       "item": "The approvals inbox scopes and pages the newest 100 publications of a status client-side: mine/decidable filters and a cursor on GET /v1/form-publications",
-      "movedTo": "0.20c"
+      "movedTo": "0.20d"
     },
     {
       "foundIn": "0.16c",
@@ -2164,7 +2174,7 @@
     {
       "foundIn": "0.16f",
       "item": "A shared and default saved view in the browser journeys (the API's forms-views integration tests cover sharing and defaults)",
-      "movedTo": "0.20c"
+      "movedTo": "0.20d"
     },
     {
       "foundIn": "0.17a",
