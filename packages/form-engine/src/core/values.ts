@@ -197,6 +197,62 @@ export function withoutSensitive(fields: EngineField[], values: Record<string, u
     return keep(values);
 }
 
+/**
+ * The answers with those of Sensitive fields taken out (task 0.20d, SEC-PD-2): what a list, a record or an export shows
+ * by default; `masked` names the fields taken out (their answers come only through the audited reveal). A field inside a
+ * Sensitive container goes with it; a repeating section's rows lose their Sensitive fields' answers.
+ */
+export function maskSensitive(
+    fields: EngineField[],
+    values: Record<string, unknown>
+): { values: Record<string, unknown>; masked: string[] } {
+    const byId = new Map(fields.map((f) => [f.id, f]));
+    const sensitive = (f: EngineField): boolean => {
+        for (let p: EngineField | undefined = f; p; p = p.parentId ? byId.get(p.parentId) : undefined)
+            if (p.classification === 'sensitive') return true;
+        return false;
+    };
+    const masked = new Set<string>();
+    const keep = (current: Record<string, unknown>): Record<string, unknown> => {
+        const out: Record<string, unknown> = {};
+        for (const [key, v] of Object.entries(current)) {
+            const f = byId.get(key);
+            if (f && sensitive(f)) {
+                masked.add(key);
+                continue;
+            }
+            out[key] =
+                f && isFormArray(f) && Array.isArray(v)
+                    ? (v as unknown[]).map((row: unknown) => (isRecord(row) ? keep(row) : row))
+                    : v;
+        }
+        return out;
+    };
+    const kept = keep(values);
+    return { values: kept, masked: [...masked] };
+}
+
+/** The answers of a form's Sensitive fields alone (the audited reveal's), rows of a section by their row. */
+export function onlySensitive(fields: EngineField[], values: Record<string, unknown>): Record<string, unknown> {
+    const byId = new Map(fields.map((f) => [f.id, f]));
+    const sensitive = (f: EngineField): boolean => {
+        for (let p: EngineField | undefined = f; p; p = p.parentId ? byId.get(p.parentId) : undefined)
+            if (p.classification === 'sensitive') return true;
+        return false;
+    };
+    const out: Record<string, unknown> = {};
+    for (const [key, v] of Object.entries(values)) {
+        const f = byId.get(key);
+        if (!f) continue;
+        if (sensitive(f)) out[key] = v;
+        else if (isFormArray(f) && Array.isArray(v)) {
+            const rows = (v as unknown[]).map((row: unknown) => (isRecord(row) ? onlySensitive(fields, row) : {}));
+            if (rows.some((r) => Object.keys(r).length)) out[key] = rows;
+        }
+    }
+    return out;
+}
+
 /** Whether some of the form's answers are kept on the server only (a Sensitive field, or one without a data class). */
 export const keepsServerOnly = (fields: EngineField[]): boolean =>
     fields.some((f) => holdsValue(f) && (f.classification === 'sensitive' || !f.source.classification));

@@ -845,12 +845,12 @@
         {
           "id": "0.20d",
           "title": "Workflow engine, part 2d: approvals inbox, workspaces, export masking",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.20d-approvals-workspaces-masking",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Approvals: GET /v1/form-publications takes scope (all/mine/decidable, canDecide's rule in SQL) and a cursor (before = last id; UUIDv7 newest first); /count for the badge. Tasks: GET /me/tasks/count {open, overdue, unclaimed}. Shell: forms manifest menu 'Approvals' (my-work, form:approve); badges on workflow.inbox and forms.approvals (lib/workspace, every 60 s and after a case change); home page MyTasksWidget. Masking: present() leaves Sensitive answers out (maskSensitive, named in masked) unless a workflow step's own clear use; the data viewer/exports use openFieldsFor (no Sensitive field to show, filter, sort, export); POST /submissions/{id}/reveal (pii:reveal, reason, audited submission.revealed, @NotReplayable); record page SensitiveAnswers panel. The API now registers the forms catalogue (its menu label and its notices were unresolved: a 0.20b gap for export notices)."
         },
         {
           "id": "0.21",
@@ -1886,7 +1886,8 @@
     {
       "foundIn": "0.10b",
       "item": "Badges, the notifications bell and role workspaces (home widgets) in the shell",
-      "movedTo": "0.20d (badges, role workspaces; the bell came in 0.20b)"
+      "movedTo": "0.20d (badges, role workspaces; the bell came in 0.20b)",
+      "closedIn": "0.20b bell; 0.20d badges on My tasks and Approvals, and the home page's My tasks widget"
     },
     {
       "foundIn": "0.10b",
@@ -2100,7 +2101,8 @@
     {
       "foundIn": "0.16d",
       "item": "Exports and query answers show every visible field in clear: a field flagged sensitive (phone, FIN, medical) is masked by default and revealed only through the audited reveal (SEC-PD-2, SEC-DC-1/2)",
-      "movedTo": "0.20d (the classification lands in 0.20c)"
+      "movedTo": "0.20d (the classification lands in 0.20c)",
+      "closedIn": "0.20d: Sensitive answers left out of submissions, the data viewer and exports, shown through the audited reveal"
     },
     {
       "foundIn": "0.16d",
@@ -2156,7 +2158,8 @@
     {
       "foundIn": "0.16c",
       "item": "The approvals inbox scopes and pages the newest 100 publications of a status client-side: mine/decidable filters and a cursor on GET /v1/form-publications",
-      "movedTo": "0.20d"
+      "movedTo": "0.20d",
+      "closedIn": "0.20d: GET /v1/form-publications filters by scope (all, mine, decidable) and pages with a cursor on the server; the approvals screen pages by it"
     },
     {
       "foundIn": "0.16c",
@@ -2186,7 +2189,8 @@
     {
       "foundIn": "0.16f",
       "item": "A shared and default saved view in the browser journeys (the API's forms-views integration tests cover sharing and defaults)",
-      "movedTo": "0.20d"
+      "movedTo": "0.20d",
+      "closedIn": "0.20d: e2e forms/saved-views (a shared default view opens for the office)"
     },
     {
       "foundIn": "0.17a",

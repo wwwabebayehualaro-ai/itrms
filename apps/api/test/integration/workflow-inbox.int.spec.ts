@@ -219,6 +219,20 @@ describe('the inbox', () => {
     });
 });
 
+describe('the counts behind the badge', () => {
+    it('count what the inbox lists: open, overdue, taken on by nobody', async () => {
+        const all = (await inbox(as.damotRecords, '?limit=100')).items;
+        const res = await api.call('GET', '/api/v1/me/tasks/count', as.damotRecords);
+        expect(res.statusCode, res.body).toBe(200);
+        expect(res.json()).toEqual({
+            open: all.length,
+            overdue: all.filter((i) => i.sla === 'overdue').length,
+            unclaimed: all.filter((i) => i.claimedBy === null).length
+        });
+        expect((await api.call('GET', '/api/v1/me/tasks/count', as.zoneAuditor)).statusCode).toBe(403);
+    });
+});
+
 describe('a claim', () => {
     it("makes a step one holder's: the others see whose it is and may not act on it until it is given back", async () => {
         const c = await submitted();

@@ -36,6 +36,7 @@ import {
     publicationRejectionSchema,
     publicationListQuerySchema,
     publicationRequestSchema,
+    revealSchema,
     savedViewCreateSchema,
     savedViewUpdateSchema,
     submissionCreateSchema,
@@ -66,6 +67,7 @@ class SubmissionQueryDto extends createZodDto(submissionQuerySchema) {}
 class SubmissionExportDto extends createZodDto(submissionExportSchema) {}
 class SavedViewCreateDto extends createZodDto(savedViewCreateSchema) {}
 class SavedViewUpdateDto extends createZodDto(savedViewUpdateSchema) {}
+class RevealDto extends createZodDto(revealSchema) {}
 class DraftCreateDto extends createZodDto(draftCreateSchema) {}
 class DraftUpdateDto extends createZodDto(draftUpdateSchema) {}
 class DraftListDto extends createZodDto(draftListQuerySchema) {}
@@ -188,7 +190,14 @@ export class PublicationsController {
     @Get()
     @Require('form:read')
     list(@Query() query: PublicationListDto) {
-        return this.db.scoped(requestDbContext(), async (tx) => ({ items: await this.forms.publications(tx, query) }));
+        return this.db.scoped(requestDbContext(), (tx) => this.forms.publications(tx, query));
+    }
+
+    /** How many pending publications the caller may decide (the menu's badge, the home page: task 0.20d). */
+    @Get('count')
+    @Require('form:read')
+    count() {
+        return this.db.scoped(requestDbContext(), async (tx) => ({ decidable: await this.forms.decidableCount(tx) }));
     }
 
     /** The request's version against the published one: problems, tests, diff and the saved views it affects. */
@@ -281,6 +290,19 @@ export class SubmissionsController {
             .header('x-row-count', String(file.rows))
             .header('cache-control', 'no-store')
             .send(file.body);
+    }
+
+    /**
+     * A submission's Sensitive answers, with a reason (task 0.20d): audited; not replayable, so they are never kept in an
+     * idempotency record.
+     */
+    @Post(':id/reveal')
+    @HttpCode(200)
+    @NotReplayable()
+    @Require('pii:reveal')
+    reveal(@Param('id', ParseUUIDPipe) id: string, @Body() body: RevealDto) {
+        const { roles } = currentPrincipal();
+        return this.db.scoped(requestDbContext(), (tx) => this.submissions.reveal(tx, roles, id, body.reason));
     }
 
     /** Who did what to a submission and when (the answers' values never: the log holds them masked). */

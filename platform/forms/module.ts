@@ -21,5 +21,17 @@ export default defineModule({
     events: {
         emits: ['form.published.v1', 'submission-export.requested.v1'],
         consumes: ['form.published.v1', 'submission-export.requested.v1']
-    }
+    },
+    // the publications waiting for the person's decision (maker-checker), with their count as a badge (task 0.20d)
+    menu: [
+        {
+            key: 'forms.approvals',
+            group: 'my-work',
+            order: 20,
+            label: 'forms.nav.approvals',
+            icon: 'badge-check',
+            route: '/approvals',
+            requires: { permission: 'form:approve' }
+        }
+    ]
 });

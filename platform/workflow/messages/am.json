@@ -113,5 +113,9 @@
   "workflow.sla.due-soon": "ጊዜው ተቃርቧል",
   "workflow.sla.none": "የጊዜ ገደብ የለውም",
   "workflow.sla.on-time": "በጊዜው",
-  "workflow.sla.overdue": "ጊዜው አልፏል"
+  "workflow.sla.overdue": "ጊዜው አልፏል",
+  "workflow.widget.all": "ሁሉም ሥራዎቼ",
+  "workflow.widget.counts": "{open} ክፍት · {overdue} ጊዜው ያለፈ · {unclaimed} ያልተያዘ",
+  "workflow.widget.intro": "በጽ/ቤትዎ ለሚናዎ የሚጠብቁ ደረጃዎች።",
+  "workflow.widget.title": "የእኔ ሥራዎች"
 }

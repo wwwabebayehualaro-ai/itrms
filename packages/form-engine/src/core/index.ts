@@ -49,6 +49,8 @@ export {
     settledValues,
     submittedValues,
     withoutSensitive,
+    maskSensitive,
+    onlySensitive,
     keepsServerOnly,
     scopeFields,
     holdsValue,

@@ -113,5 +113,9 @@
   "workflow.sla.due-soon": "Due soon",
   "workflow.sla.none": "No time limit",
   "workflow.sla.on-time": "On time",
-  "workflow.sla.overdue": "Overdue"
+  "workflow.sla.overdue": "Overdue",
+  "workflow.widget.all": "All my tasks",
+  "workflow.widget.counts": "{open} open · {overdue} overdue · {unclaimed} not taken",
+  "workflow.widget.intro": "The steps waiting in your office for your role.",
+  "workflow.widget.title": "My tasks"
 }

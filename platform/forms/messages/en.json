@@ -36,5 +36,13 @@
   "forms.draft.status.error": "The draft could not be saved on the server: it is kept on this PC",
   "forms.draft.sensitive": "Some answers (sensitive ones, and those of fields without a data class) are kept only on the server: without a connection they are typed again.",
   "forms.draft.conflict": "This draft was saved on another PC after the changes made here: that version is shown. Check the answers before you go on.",
-  "forms.draft.resumeFailed": "The draft could not be opened: try again."
+  "forms.draft.resumeFailed": "The draft could not be opened: try again.",
+  "forms.nav.approvals": "Approvals",
+  "forms.sensitive.title": "Sensitive answers hidden",
+  "forms.sensitive.hidden": "Not shown here, in the lists or in exports: {fields}.",
+  "forms.sensitive.reveal": "Show them",
+  "forms.sensitive.why": "Say why you need them: the reason is recorded with your name and the time.",
+  "forms.sensitive.reason": "Reason",
+  "forms.sensitive.cancel": "Cancel",
+  "forms.sensitive.show": "Show"
 }

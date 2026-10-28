@@ -57,5 +57,6 @@
   "shell.notifications.new": "new",
   "shell.user.unsavedDraftsTitle": "Sign out with unsaved drafts?",
   "shell.user.unsavedDrafts": "{count} draft(s) on this PC have not reached the server yet (no connection). Signing out deletes them.",
-  "shell.user.signOutAnyway": "Sign out and delete them"
+  "shell.user.signOutAnyway": "Sign out and delete them",
+  "shell.nav.waiting": "{count} waiting"
 }

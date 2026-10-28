@@ -3,6 +3,7 @@
 // merged catalogues nest and fall back.
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -49,12 +50,16 @@ const workspace: Workspace = {
     ]
 };
 
+// the badges read their counts (task 0.20d); none are asked for here (the person holds no case or approval right)
+const queries = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 const nav = (locale: UiLanguage) => (
-    <NextIntlClientProvider locale={locale} messages={messagesFor(locale)} timeZone="Africa/Addis_Ababa">
-        <SidebarProvider>
-            <AppNav />
-        </SidebarProvider>
-    </NextIntlClientProvider>
+    <QueryClientProvider client={queries}>
+        <NextIntlClientProvider locale={locale} messages={messagesFor(locale)} timeZone="Africa/Addis_Ababa">
+            <SidebarProvider>
+                <AppNav />
+            </SidebarProvider>
+        </NextIntlClientProvider>
+    </QueryClientProvider>
 );
 
 let saved: StoredPreferences[] = [];

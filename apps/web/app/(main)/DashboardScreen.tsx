@@ -14,10 +14,11 @@ import {
 } from 'lucide-react';
 import { useSubmissionList, useVisibleTemplates } from '@itrms/form-engine/renderer';
 import { Button, Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle, Skeleton } from '@itrms/ui';
-import { useApprovals } from '@/lib/approval';
 import { useCan } from '@/lib/auth/authHooks';
 import { useAuthStore } from '@/lib/auth/authStore';
 import { formatDateTime } from '@/lib/format';
+import { useApprovalCount } from '@/lib/workspace';
+import { MyTasksWidget } from '@/screens/workflow/MyTasksWidget';
 
 const greeting = (h: number) => (h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening');
 
@@ -33,7 +34,8 @@ export function DashboardScreen() {
     const published = useMemo(() => (forms.data ?? []).filter((t) => t.status === 'published'), [forms.data]);
     const mine = useSubmissionList({ mine: true, limit: 100 }, { enabled: canRead });
     const latest = useSubmissionList({ mine: true, limit: 6 }, { enabled: canRead });
-    const approvals = useApprovals({ scope: 'to_decide', status: 'pending', page_size: 1 });
+    const approvals = useApprovalCount();
+    const canAct = useCan('case:act');
     const formName = useMemo(() => new Map((forms.data ?? []).map((t) => [String(t.id), t.name])), [forms.data]);
 
     return (
@@ -68,6 +70,9 @@ export function DashboardScreen() {
                 </div>
             </div>
 
+            {/* the steps waiting in the person's office for their roles (task 0.20d) */}
+            {canAct && <MyTasksWidget />}
+
             <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
                 <Stat
                     label="Published forms"
@@ -89,7 +94,7 @@ export function DashboardScreen() {
                     label="Approvals to decide"
                     icon={CheckSquare}
                     href="/approvals"
-                    value={approvals.data?.total}
+                    value={approvals.data}
                     hint="waiting for your decision"
                 />
             </div>

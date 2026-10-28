@@ -35,17 +35,18 @@ export function ApprovalInbox() {
     const canSeeAll = useCan('form:approve');
     const [scope, setScope] = React.useState<ApprovalScope>('to_decide');
     const [status, setStatus] = React.useState<ApprovalStatus>('pending');
-    const [page, setPage] = React.useState(1);
+    // the cursors of the pages before this one (the server pages, task 0.20d)
+    const [cursors, setCursors] = React.useState<string[]>([]);
     const [openId, setOpenId] = React.useState<string | null>(null);
 
     const { data, isPending, isFetching, error } = useApprovals({
         scope,
         status,
-        page,
+        after: cursors[cursors.length - 1] ?? null,
         page_size: PAGE_SIZE
     });
     const open = data?.items.find((a) => a.id === openId) ?? null;
-    const pages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
+    const page = cursors.length + 1;
 
     return (
         <div className="flex flex-col gap-4" data-slot="screen">
@@ -61,7 +62,7 @@ export function ApprovalInbox() {
                     value={scope}
                     onValueChange={(v) => {
                         setScope(v as ApprovalScope);
-                        setPage(1);
+                        setCursors([]);
                     }}
                 >
                     <TabsList>
@@ -75,7 +76,7 @@ export function ApprovalInbox() {
                         value={status}
                         onValueChange={(v) => {
                             setStatus(v as ApprovalStatus);
-                            setPage(1);
+                            setCursors([]);
                         }}
                     >
                         <SelectTrigger className="w-44" aria-label="Status">
@@ -167,15 +168,26 @@ export function ApprovalInbox() {
                 </Card>
             )}
 
-            {data && data.total > PAGE_SIZE && (
-                <div className="flex items-center justify-end gap-2 text-sm">
-                    <span className="text-muted-foreground">
-                        Page {page} of {pages}
-                    </span>
-                    <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+            {data && (data.next || page > 1) && (
+                <div className="flex items-center justify-end gap-2 text-sm" data-approvals-pager>
+                    <span className="text-muted-foreground">Page {page}</span>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={page <= 1}
+                        onClick={() => setCursors((c) => c.slice(0, -1))}
+                    >
                         Previous
                     </Button>
-                    <Button variant="outline" size="sm" disabled={page >= pages} onClick={() => setPage((p) => p + 1)}>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!data.next}
+                        onClick={() => {
+                            const next = data.next;
+                            if (next) setCursors((c) => [...c, next]);
+                        }}
+                    >
                         Next
                     </Button>
                 </div>

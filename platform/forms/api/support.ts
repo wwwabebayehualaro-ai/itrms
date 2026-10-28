@@ -68,6 +68,22 @@ export function documentFor(document: unknown, roles: readonly string[]): unknow
     return { ...document, fields };
 }
 
+/**
+ * The fields a query may name (task 0.20d, SEC-PD-2): those the caller may see (`fieldsFor`), without the Sensitive ones
+ * (nor those inside a Sensitive container). A Sensitive answer is never shown, filtered, sorted, grouped by or exported:
+ * each would tell its value; it comes only through the audited reveal of one submission.
+ */
+export function openFieldsFor(document: unknown, roles: readonly string[], language = 'am'): EngineField[] {
+    const fields = fieldsFor(document, roles, language);
+    const byId = new Map(fields.map((f) => [f.id, f]));
+    const sensitive = (f: EngineField): boolean => {
+        for (let p: EngineField | undefined = f; p; p = p.parentId ? byId.get(p.parentId) : undefined)
+            if (p.classification === 'sensitive') return true;
+        return false;
+    };
+    return fields.filter((f) => !sensitive(f));
+}
+
 /** What conditions may read on the server besides the form: the caller (as the browser's `user`). */
 export const scopeFor = (ctx: DbContext, roles: readonly string[]): Scope => ({
     user: { id: ctx.userId, roles: [...roles] }

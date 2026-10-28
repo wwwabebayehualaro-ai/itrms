@@ -5,7 +5,7 @@
  * before. Every write goes through the audited helpers in the caller's transaction.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, ilike, inArray, max, or, sql } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, lt, max, or, sql } from 'drizzle-orm';
 import { contextOfTx, insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { ConflictError, ForbiddenError, NotFoundError } from '@itrms/kernel/errors';
 import { unitRefs, withinScope, type UnitRef } from '@itrms/kernel/org';
@@ -275,19 +275,58 @@ export class FormsService {
         }
     }
 
-    async publications(tx: Tx, query: z.infer<typeof publicationListQuerySchema>): Promise<Publication[]> {
+    /**
+     * The publications of the caller's view, newest first, a page at a time (task 0.20d): all of them, the caller's own
+     * requests, or those they may decide (pending, neither asked for nor authored by them, and they hold `form:approve`:
+     * the same rule as `canDecide`). Ids are UUIDv7, so the newest first is by id and a page starts after `before`.
+     */
+    async publications(
+        tx: Tx,
+        query: z.infer<typeof publicationListQuerySchema>
+    ): Promise<{ items: Publication[]; next: string | null }> {
+        const me = contextOfTx(tx).userId ?? null;
+        const mayApprove = currentContext()?.principal?.permissions.has('form:approve') ?? false;
+        if (query.scope === 'decidable' && (!mayApprove || !me || query.status !== 'pending'))
+            return { items: [], next: null };
         const rows = await tx
             .select()
             .from(formPublications)
             .where(
                 and(
                     eq(formPublications.status, query.status),
-                    query.formId ? eq(formPublications.formId, query.formId) : undefined
+                    query.formId ? eq(formPublications.formId, query.formId) : undefined,
+                    query.scope === 'mine' ? eq(formPublications.createdBy, me ?? '') : undefined,
+                    query.scope === 'decidable' && me
+                        ? sql`${formPublications.createdBy} is distinct from ${me}::uuid
+                              and ${formPublications.contentBy} is distinct from ${me}::uuid`
+                        : undefined,
+                    query.before ? lt(formPublications.id, query.before) : undefined
                 )
             )
-            .orderBy(desc(formPublications.createdAt), desc(formPublications.id))
-            .limit(LIST_LIMIT);
-        return this.publicationsOf(tx, rows);
+            .orderBy(desc(formPublications.id))
+            .limit(Math.min(query.limit, LIST_LIMIT) + 1);
+        const page = rows.slice(0, query.limit);
+        return {
+            items: await this.publicationsOf(tx, page),
+            next: rows.length > query.limit ? (page[page.length - 1]?.id ?? null) : null
+        };
+    }
+
+    /** How many pending publications the caller may decide (`canDecide`'s rule), up to the list's limit. */
+    async decidableCount(tx: Tx): Promise<number> {
+        const me = contextOfTx(tx).userId;
+        if (!me || !(currentContext()?.principal?.permissions.has('form:approve') ?? false)) return 0;
+        const [row] = await tx
+            .select({ n: sql<number>`count(*)::int` })
+            .from(formPublications)
+            .where(
+                and(
+                    eq(formPublications.status, 'pending'),
+                    sql`${formPublications.createdBy} is distinct from ${me}::uuid
+                        and ${formPublications.contentBy} is distinct from ${me}::uuid`
+                )
+            );
+        return row?.n ?? 0;
     }
 
     /** What publishing the working copy would change and whom it affects (the builder asks before it requests). */

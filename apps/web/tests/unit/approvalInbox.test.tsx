@@ -55,8 +55,16 @@ const review = {
         ]
     }
 };
-const listOr = (items: unknown[]) => (url: string) =>
-    Promise.resolve({ data: url.endsWith('/review') ? review : { items } });
+// the server filters by scope (task 0.20d): "decidable" what the caller may decide, "mine" what they asked for
+const listOr =
+    (items: { canDecide?: boolean; requestedBy?: string; [key: string]: unknown }[]) =>
+    (url: string, config?: { params?: { scope?: string } }) => {
+        const scope = config?.params?.scope;
+        const kept = items.filter((i) =>
+            scope === 'decidable' ? i.canDecide : scope === 'mine' ? i.requestedBy === 'me' : true
+        );
+        return Promise.resolve({ data: url.endsWith('/review') ? review : { items: kept, next: null } });
+    };
 const ifMatch = { headers: { 'if-match': '"1"' } };
 const problem = (data: unknown) =>
     new ApiError('failed', 'ERR_BAD_RESPONSE', { url: 'x' }, { status: 422, headers: {}, data });
@@ -84,7 +92,7 @@ describe('ApprovalInbox', () => {
         expect(api.get).toHaveBeenCalledWith('v1/form-publications/a1/review', expect.anything());
         expect(api.get).toHaveBeenCalledWith(
             'v1/form-publications',
-            expect.objectContaining({ params: { status: 'pending' } })
+            expect.objectContaining({ params: expect.objectContaining({ status: 'pending', scope: 'decidable' }) })
         );
 
         await userEvent.click(within(sheet).getByRole('button', { name: /reject/i }));

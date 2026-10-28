@@ -19,6 +19,7 @@ import type {
 
 import client from './api/client';
 import { createKeys } from './query/keys';
+import { workspaceKeys } from './workspace';
 
 export type { CaseOut, Inbox, InboxItem, PersonRef, SlaState };
 export type InboxFilters = Partial<Pick<InboxQuery, 'claim' | 'sla' | 'state' | 'number'>>;
@@ -58,6 +59,7 @@ function useCaseChange<V>(id: string, run: (input: V) => Promise<CaseOut>) {
         onSuccess: (after) => {
             queries.setQueryData(caseKeys.detail(id), after);
             void queries.invalidateQueries({ queryKey: inboxKeys.all });
+            void queries.invalidateQueries({ queryKey: workspaceKeys.all });
         }
     });
 }

@@ -24,6 +24,8 @@ rules run, `requiredWhen`/`validWhen` rules are enforced, and a section takes at
 | `POST /api/v1/submissions/export` | `submission:export` |
 | `POST /api/v1/submission-exports`, `GET …/{id}`, `POST …/{id}/download` | `submission:export` (the requester alone) |
 | `GET/POST /api/v1/form-drafts`, `GET/PATCH/DELETE /api/v1/form-drafts/{id}` | `submission:create` (the creator alone) |
+| `POST /api/v1/submissions/{id}/reveal` (a reason; audited, never replayed) | `pii:reveal` |
+| `GET /api/v1/form-publications?scope=all\|mine\|decidable&before=…`, `GET /api/v1/form-publications/count` | `form:read` |
 
 Task 0.16b: the data viewer's queries. `view-fields.ts` is the allow-list (the published version's top-level value fields
 the caller may see, and the built-ins `createdAt`, `submittedBy`, `handlingUnit`); `query-compiler.ts` turns a data-only
@@ -49,6 +51,12 @@ a draft in IndexedDB (apps/web `lib/drafts`, Dexie), sealed with the person's no
 answers of classified, non-Sensitive fields (SEC-WB-3), so it survives a dropped network; an explicit sign-out deletes
 the key and the drafts in every tab. Lists and saves answer without the answers (`DraftSummary`); `GET …/{id}` has them.
 A resumed draft takes this browser's unsaved change only when it was made on the server's current version.
+
+Task 0.20d: a Sensitive answer (SEC-PD-2, SEC-DC-2) is left out of a submission as the API answers it (one, a list, the
+data viewer's rows, a case's steps), named in `masked`; the data viewer never shows, filters, sorts, groups or exports a
+Sensitive field (`openFieldsFor`: it would tell the value); its answers come through `POST …/{id}/reveal` with a reason,
+an audited `submission.revealed` event, not replayable (never in an idempotency record). A workflow's own use of a step's
+answers (its effects) has them in clear. The approvals list is filtered (`scope`) and paged (`before`) on the server.
 
 Layer: platform. Shape, public entries and rules: [code-structure.md](../../docs/platform/code-structure.md) §4.
 

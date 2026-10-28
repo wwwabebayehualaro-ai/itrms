@@ -7,11 +7,18 @@
 import { Injectable } from '@nestjs/common';
 import { and, asc, desc, eq, inArray, lt } from 'drizzle-orm';
 import { users } from '@itrms/kernel/tables';
-import { auditLog, insertAudited, type DbContext, type Tx } from '@itrms/kernel/db';
+import { auditLog, insertAudited, recordEvent, type DbContext, type Tx } from '@itrms/kernel/db';
 import { linkFile } from '@itrms/kernel/files';
 import { ConflictError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
 import { unitRefs } from '@itrms/kernel/org';
-import { knownValues, submittedValues, validateForm, type EngineField } from '@itrms/form-engine/core';
+import {
+    knownValues,
+    maskSensitive,
+    onlySensitive,
+    submittedValues,
+    validateForm,
+    type EngineField
+} from '@itrms/form-engine/core';
 import type { z } from 'zod';
 
 import type { HistoryEntry, Submission, submissionCreateSchema, submissionListQuerySchema } from '../contracts';
@@ -140,7 +147,35 @@ export class SubmissionsService {
             });
         // the draft it was filled from is done with (task 0.20c)
         if (input.draftId) await fileDraft(tx, ctx, input.draftId, form.id);
-        return (await this.present(tx, roles, [row]))[0] as Submission;
+        // a step's answers go on to the workflow's effects in clear; a person's request answers as it is shown
+        return (await this.present(tx, roles, [row], { clear: !!step }))[0] as Submission;
+    }
+
+    /**
+     * A submission's Sensitive answers (task 0.20d, SEC-PD-2), for someone who may reveal personal data (`pii:reveal`)
+     * and sees the submission: each reveal is an audited event with its reason and the fields shown.
+     */
+    async reveal(
+        tx: Tx,
+        roles: readonly string[],
+        id: string,
+        reason: string
+    ): Promise<{ answers: Record<string, unknown> }> {
+        const [row] = await tx.select().from(submissions).where(eq(submissions.id, id));
+        if (!row) throw new NotFoundError();
+        const [version] = await tx
+            .select({ document: formVersions.document })
+            .from(formVersions)
+            .where(eq(formVersions.id, row.formVersionId));
+        const fields = fieldsFor(version?.document, roles);
+        const answers = onlySensitive(fields, knownValues(fields, row.answers));
+        await recordEvent(tx, {
+            type: 'submission.revealed',
+            table: submissions,
+            rowId: id,
+            data: { fields: Object.keys(answers), reason }
+        });
+        return { answers };
     }
 
     async get(tx: Tx, roles: readonly string[], id: string): Promise<Submission> {
@@ -244,8 +279,16 @@ export class SubmissionsService {
         };
     }
 
-    /** Submissions as the caller may see them: the values of fields restricted to other roles never leave the server. */
-    async present(tx: Tx, roles: readonly string[], rows: readonly SubmissionRow[]): Promise<Submission[]> {
+    /**
+     * Submissions as the caller may see them: the values of fields restricted to other roles never leave the server, and
+     * the Sensitive answers are left out (named in `masked`) unless `clear` (a workflow's own use of a step's answers).
+     */
+    async present(
+        tx: Tx,
+        roles: readonly string[],
+        rows: readonly SubmissionRow[],
+        options: { clear?: boolean } = {}
+    ): Promise<Submission[]> {
         if (rows.length === 0) return [];
         const versions = await tx
             .select({ id: formVersions.id, number: formVersions.number, document: formVersions.document })
@@ -264,6 +307,9 @@ export class SubmissionsService {
         );
         return rows.map((row) => {
             const version = byId.get(row.formVersionId);
+            const known = version ? knownValues(version.fields, row.answers) : {};
+            const shown =
+                version && !options.clear ? maskSensitive(version.fields, known) : { values: known, masked: [] };
             return {
                 id: row.id,
                 version: row.rowVersion,
@@ -271,7 +317,8 @@ export class SubmissionsService {
                 formVersion: { id: row.formVersionId, number: version?.number ?? 0 },
                 caseId: row.caseId,
                 handlingUnit: unitOf(units, row.handlingUnitId),
-                answers: version ? knownValues(version.fields, row.answers) : {},
+                answers: shown.values,
+                masked: shown.masked,
                 submittedBy: row.createdBy,
                 submittedByName: row.createdBy ? (people.get(row.createdBy) ?? null) : null,
                 createdAt: row.createdAt.toISOString(),
