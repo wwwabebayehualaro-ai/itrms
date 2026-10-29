@@ -705,21 +705,22 @@ contracts and form tiers) is now **0.21d**.
   Zone B, audit, If-Match); a settings screen e2e journey.
 
 ### 0.21b Configuration inheritance, part 2: the service catalogue and frozen configuration
-Needs 0.21a.
+Needs 0.21a. Narrowed on 2026-10-29: form overlays (a unit's extra field, re-applied on a new bureau form version)
+reach into the forms slice's validation and belong with the overlay tier; they moved to **0.21d**.
 - **Do** (architecture.md §6.2, §7):
   - `service_definitions` (all 54 seeded with codes and Amharic/English names, most marked `not_configured`).
   - `service_versions` (form + workflow + fee rule + templates + `overridePolicy`, effective dates), `service_overrides`
-    (class C): enabled, SLA hours, `approval_unit`, help texts, a form overlay, the template header.
+    (class C): enabled, SLA hours, `approval_unit`, help texts, the template header.
   - Resolution root → unit through the 0.21a resolver; publish-time cross-checks (the form and workflow versions exist,
-    the named effects are registered); a new bureau version re-applies the overlays and reports conflicts.
+    the named effects are registered); a new bureau version re-checks the overrides below it and reports conflicts.
   - Starting a case from a service enabled for the unit: the resolved configuration frozen on the case (hash + version
     ids); the interim intake (`POST /cases` on any workflow) replaced by it.
   - The service follow-ups: unit service overrides checked against the catalogue with If-Match and the version's policy;
     menu `requires` checked against the catalogue; a transfer of a handling unit moving the submission values too.
-- **Done when:** a woreda override of an allowed key (SLA, help text, extra field) applies to that woreda's new cases only;
-  a disallowed key is refused; publishing a new bureau version re-applies overlays and reports conflicts; open cases keep
-  their frozen config.
-- **Tests:** resolution unit tests (precedence, disallowed keys, overlay conflicts) and integration tests across sibling
+- **Done when:** a woreda override of an allowed key (SLA, help text) applies to that woreda's new cases only; a
+  disallowed key is refused; publishing a new bureau version re-checks the overrides and reports conflicts (an SLA for a
+  state the new workflow lacks, a help text for a field the new form lacks); open cases keep their frozen config.
+- **Tests:** resolution unit tests (precedence, disallowed keys, override conflicts) and integration tests across sibling
   units (Damot Gale, Boditi) and Test Zone B.
 
 ### 0.21c Configuration inheritance, part 3: service admin screens and requests as cases
@@ -747,10 +748,15 @@ Moved from 0.18a on 2026-10-26 (it needs cases, service versions and overlays); 
   - **Impact analysis** on publish, completed: open cases per version; reports and widgets using changed keys; bound
     effects; overlay conflicts.
   - Three form tiers (bureau, overlay, unit-local) enforced by permissions.
+  - **Form overlays** (moved from 0.21b on 2026-10-29): a unit's override adds fields after an anchor (and changes
+    options within the allowed set); the overlaid form is what the unit's new cases fill in and are validated on; a new
+    bureau form version re-applies the overlays and reports conflicts.
 - **Done when:**
   - removing a contract field from the licence application fails to publish, with a clear Amharic/English message;
-  - a zone overlay can add a field but can't touch a locked one.
-- **Tests:** contract checker unit tests; overlay tier tests.
+  - a zone overlay can add a field but can't touch a locked one;
+  - a woreda's extra field applies to its new cases only, and a new bureau form version re-applies it and reports
+    conflicts.
+- **Tests:** contract checker unit tests; overlay tier tests; overlay re-application and conflict tests.
 
 ### 0.22 Fees, payment orders, cashier, receipts
 - **Do:**
