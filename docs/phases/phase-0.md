@@ -737,25 +737,23 @@ lists, changing it through its case) and the remaining follow-ups follow in **0.
 - **Tests:** admin screen e2e journeys (catalogue, publish, override); a request-at-the-counter e2e journey; integration
   tests for the request with its form and for switching a workflow off.
 
-### 0.21d Form governance, part 2: effect contracts and form tiers
+### 0.21d Form governance, part 2: effect input contracts
 Moved from 0.18a on 2026-10-26 (it needs cases, service versions and overlays); renamed from 0.21a when 0.21 was split on
-2026-10-28. Needs 0.21c.
+2026-10-28. Needs 0.21c. Split on 2026-10-29: the contracts come first; form overlays and the three form tiers follow in
+**0.21f** (an overlay's lock is a contract's).
 - **Do** ([form-platform.md](../platform/form-platform.md) §2–§4):
-  - **Effect input contracts** in module manifests (Zod), a service-version mapping from contract paths to form keys,
-    contract fields locked in the builder (key, type, required), and publish failing when a contract is unmet. This
-    generalises the legacy server-action input model and `register_check`.
-  - **Impact analysis** on publish, completed: open cases per version; reports and widgets using changed keys; bound
-    effects; overlay conflicts.
-  - Three form tiers (bureau, overlay, unit-local) enforced by permissions.
-  - **Form overlays** (moved from 0.21b on 2026-10-29): a unit's override adds fields after an anchor (and changes
-    options within the allowed set); the overlaid form is what the unit's new cases fill in and are validated on; a new
-    bureau form version re-applies the overlays and reports conflicts.
-- **Done when:**
-  - removing a contract field from the licence application fails to publish, with a clear Amharic/English message;
-  - a zone overlay can add a field but can't touch a locked one;
-  - a woreda's extra field applies to its new cases only, and a new bureau form version re-applies it and reports
-    conflicts.
-- **Tests:** contract checker unit tests; overlay tier tests; overlay re-application and conflict tests.
+  - **Effect input contracts** declared with the effect (`@Effect(key, { input })`: per field key a value kind, required
+    or not), the effect given validated, typed input, a service-version mapping from contract paths to form keys,
+    contract fields locked in the builder (key, type, required), and publish failing when a contract is unmet (a service
+    version naming a form that does not meet its effects' contracts; a new version of a form a service's effects read).
+    This generalises the legacy server-action input model and `register_check`.
+  - **Impact analysis** on publish: open cases per version and bound effects (reports and widgets: when they exist,
+    Phase 1).
+- **Done when:** removing a contract field from a request form a service's effect reads fails to publish, with a clear
+  Amharic/English message (the licence application's contract arrives with its effect, 0.24); the builder shows the
+  field locked.
+- **Tests:** contract checker unit tests; integration tests for the service-version and form-publish checks and the
+  effect's typed input.
 
 ### 0.21e Configuration inheritance, part 4: filed requests and the remaining follow-ups
 Split from 0.21c on 2026-10-29. Needs 0.21c.
@@ -768,6 +766,20 @@ Split from 0.21c on 2026-10-29. Needs 0.21c.
   administrator's confirmation.
 - **Tests:** integration tests for the change-request transition and the role-grant confirmation; the request lists'
   journey.
+
+### 0.21f Form governance, part 3: form overlays and form tiers
+Split from 0.21d on 2026-10-29. Needs 0.21d.
+- **Do** ([form-platform.md](../platform/form-platform.md) §4):
+  - **Form overlays**: a unit's override adds fields after an anchor (and changes options within the allowed set); the
+    overlaid form is what the unit's new cases fill in and are validated on; a new bureau form version re-applies the
+    overlays and reports conflicts (in the publish's impact analysis).
+  - Three form tiers (bureau, overlay, unit-local) enforced by permissions.
+  - The governance follow-ups: impact analysis filtering saved views in SQL, the remaining governance HTTP tests.
+- **Done when:**
+  - a zone overlay can add a field but can't touch a locked one;
+  - a woreda's extra field applies to its new cases only, and a new bureau form version re-applies it and reports
+    conflicts.
+- **Tests:** overlay tier tests; overlay re-application and conflict tests.
 
 ### 0.22 Fees, payment orders, cashier, receipts
 - **Do:**
@@ -851,7 +863,7 @@ Split from 0.21c on 2026-10-29. Needs 0.21c.
 - **Tests:** the restore drill script with checks; the smoke load test thresholds in CI (nightly).
 
 ## Phase acceptance criteria
-1. All tasks done (0.1–0.26 with 0.19 as 0.19a and 0.19b, 0.20 as 0.20a, 0.20b, 0.20c and 0.20d, 0.4a, 0.4b, 0.4c, 0.18a, and 0.21 as 0.21a, 0.21b, 0.21c, 0.21d and 0.21e), CI green on `main` (lint, typecheck, unit, integration on Postgres, isolation matrix, i18n keys,
+1. All tasks done (0.1–0.26 with 0.19 as 0.19a and 0.19b, 0.20 as 0.20a, 0.20b, 0.20c and 0.20d, 0.4a, 0.4b, 0.4c, 0.18a, and 0.21 as 0.21a to 0.21f), CI green on `main` (lint, typecheck, unit, integration on Postgres, isolation matrix, i18n keys,
    security scans, e2e).
 2. The demo journey runs in Amharic and English (Wolaytta with fallback) across Boditi, the zone and Damot Gale. A user of one office
    sees none of the other office's cases,

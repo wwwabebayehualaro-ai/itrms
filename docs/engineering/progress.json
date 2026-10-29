@@ -932,7 +932,7 @@
         },
         {
           "id": "0.21d",
-          "title": "Form governance, part 2: effect contracts and form tiers",
+          "title": "Form governance, part 2: effect input contracts",
           "status": "planned",
           "branch": null,
           "commits": [],
@@ -943,6 +943,16 @@
         {
           "id": "0.21e",
           "title": "Configuration inheritance, part 4: filed requests and the remaining follow-ups",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.21f",
+          "title": "Form governance, part 3: form overlays and form tiers",
           "status": "planned",
           "branch": null,
           "commits": [],
@@ -2364,12 +2374,12 @@
     {
       "foundIn": "0.18a",
       "item": "Impact analysis: filter saved views on the changed keys in SQL instead of reading the first 500 by name, and report views whose config no longer parses (now skipped silently)",
-      "movedTo": "0.21d"
+      "movedTo": "0.21f"
     },
     {
       "foundIn": "0.18a",
       "item": "Governance HTTP tests still missing: the approval re-check refusing (422, form and publication unchanged), key-moved into/out of a FormArray, restore of an old version through PATCH keeping published keys, the approver's review listing the approver's own private view and not the requester's",
-      "movedTo": "0.21d"
+      "movedTo": "0.21f"
     },
     {
       "foundIn": "0.19a",
