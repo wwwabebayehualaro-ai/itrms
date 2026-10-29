@@ -74,7 +74,7 @@ import {
 } from '@itrms/ui';
 import { requestErrorMessage } from '../host/client';
 import { TemplateStatusTag } from '../renderer/TemplateStatusTag';
-import { usePublishedTemplate, useTemplateList, useTemplateMutations } from '../api/templates';
+import { useFormLocks, usePublishedTemplate, useTemplateList, useTemplateMutations } from '../api/templates';
 import { useFields, useFormActions, useRuntimeConfig, useTemplate } from '../renderer/store/formStore';
 import { REQUIRED_TEXT_LANGUAGES, EMPTY_RUNTIME, formTextIn, type TemplateRuntimeConfig } from '@itrms/schemas';
 import { publishedKeysOf, readDocument, untranslatedTexts } from '../core';
@@ -172,6 +172,11 @@ function DesignerScreen() {
     useEffect(() => {
         actions.setPublished(published ? publishedKeysOf(published.form_config) : new Map());
     }, [actions, published]);
+    // the fields the services' effects read: locked (task 0.21d)
+    const locks = useFormLocks(template.id).data;
+    useEffect(() => {
+        actions.setLocked(new Map((locks ?? []).map((l) => [l.key, l])));
+    }, [actions, locks]);
     const [translationsOpen, setTranslationsOpen] = useState(false);
     const [checksOpen, setChecksOpen] = useState(false);
     const [testsOpen, setTestsOpen] = useState(false);

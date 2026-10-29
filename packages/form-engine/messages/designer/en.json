@@ -286,5 +286,9 @@
   "form-engine.designer.translations.setting.uploadButton": "Upload button",
   "form-engine.designer.translations.text": "Text",
   "form-engine.designer.translations.toTranslate": "{count} to translate",
-  "form-engine.designer.publish.area.classification": "Data class"
+  "form-engine.designer.publish.area.classification": "Data class",
+  "form-engine.designer.locked.badge": "Locked",
+  "form-engine.designer.locked.title": "Read by {effects} ({services}): its key, type and required-ness stay as they are.",
+  "form-engine.designer.publish.services": "Services whose steps read this form",
+  "form-engine.designer.publish.serviceCases": "{count, plural, one {{count} open case keeps its version} other {{count} open cases keep their version}}"
 }

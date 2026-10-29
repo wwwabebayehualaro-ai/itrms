@@ -17,6 +17,7 @@ export {
 } from './model';
 export { evalCondition, checkRuleFormula } from './runtime/formula';
 export { valueKindOf, shapeError, type ValueKind } from './kinds';
+export { checkContract, contractInput, contractLocks, keyOf as contractKeyOf } from './contract';
 export { ethiopianDateText, isIsoDay, addisDayTime } from './dates';
 export { numberFormatOf } from './format';
 export { engineText, engineTranslator, wordIn } from './messages';

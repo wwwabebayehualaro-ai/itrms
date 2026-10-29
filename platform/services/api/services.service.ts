@@ -14,7 +14,8 @@ import { orgUnits } from '@itrms/kernel/tables';
 import { publishedKeysOf } from '@itrms/form-engine/core';
 import { formDefinitions, formVersions, RegistryLookups, SubmissionsService } from '@itrms/forms/api';
 import { CasesService, workflowDefinitions, workflowDefinitionVersions, type CaseActor } from '@itrms/workflow/api';
-import { effectKeyOf, workflowDefinitionSchema, type I18nText } from '@itrms/schemas';
+import { effectKeyOf, workflowDefinitionSchema, type I18nText, type InputMap } from '@itrms/schemas';
+import { currentContext } from '@itrms/kernel/context';
 import { and, asc, desc, eq, inArray, lte, sql } from 'drizzle-orm';
 
 import {
@@ -33,7 +34,10 @@ import {
     type VersionConfig,
     type VersionFacts
 } from './configuration';
+import { contractFindings, contractMessage, servicesText } from './contracts';
 import { serviceDefinitions, serviceOverrides, serviceVersions } from './services.table';
+
+const currentLanguage = () => currentContext()?.language ?? 'am';
 
 type Definition = typeof serviceDefinitions.$inferSelect;
 type Version = typeof serviceVersions.$inferSelect;
@@ -99,6 +103,7 @@ export interface VersionOut {
     workflowVersionId: string;
     defaults: Record<string, unknown>;
     overridePolicy: OverridePolicy;
+    inputMap: InputMap;
     effectiveFrom: string;
     note: string | null;
     publishedAt: string;
@@ -117,6 +122,7 @@ const versionOut = (v: Version): VersionOut => ({
     workflowVersionId: v.workflowVersionId,
     defaults: v.defaults,
     overridePolicy: overridePolicySchema.parse(v.overridePolicy),
+    inputMap: v.inputMap,
     effectiveFrom: v.effectiveFrom,
     note: v.note,
     publishedAt: v.createdAt.toISOString()
@@ -189,7 +195,7 @@ export class ServicesService {
         tx: Tx,
         input: { workflowVersionId: string; formVersionId: string | null },
         regionPath?: string
-    ): Promise<VersionFacts & { effects: string[] }> {
+    ): Promise<VersionFacts & { effects: string[]; formDocument: unknown }> {
         try {
             return await this.checkedFacts(tx, input, regionPath);
         } catch (error) {
@@ -205,7 +211,7 @@ export class ServicesService {
         tx: Tx,
         input: { workflowVersionId: string; formVersionId: string | null },
         regionPath?: string
-    ): Promise<VersionFacts & { effects: string[] }> {
+    ): Promise<VersionFacts & { effects: string[]; formDocument: unknown }> {
         const problems: { path: string; code: string; message: string }[] = [];
         const [workflow] = await tx
             .select({
@@ -236,6 +242,7 @@ export class ServicesService {
                 message: "The workflow is an office's own, not the region's."
             });
         let fieldKeys: string[] = [];
+        let formDocument: unknown = null;
         if (input.formVersionId) {
             const [form] = await tx
                 .select({
@@ -255,7 +262,10 @@ export class ServicesService {
                     code: 'form_not_regional',
                     message: "The form is an office's own, not the region's."
                 });
-            else fieldKeys = [...publishedKeysOf(form.document).keys()];
+            else {
+                fieldKeys = [...publishedKeysOf(form.document).keys()];
+                formDocument = form.document;
+            }
         }
         if (problems.length || !parsed?.success) throw fieldErrors(problems);
         const definition = parsed.data;
@@ -271,7 +281,7 @@ export class ServicesService {
                     message: `The workflow names the effect "${effect}", which no installed module provides.`
                 });
         if (problems.length) throw fieldErrors(problems);
-        return { ...factsOf(definition, fieldKeys), effects };
+        return { ...factsOf(definition, fieldKeys), effects, formDocument };
     }
 
     /** The region's root, if the person's seat is there (a bureau's decision); else 403. */
@@ -295,12 +305,15 @@ export class ServicesService {
         const root = await this.atRoot(tx, ctx);
         const d = await this.definition(tx, ctx.regionId ?? '', code);
         const facts = await this.facts(tx, input, root.path);
-        const problems = Object.entries(input.defaults).flatMap(([key, value]) => {
-            const problem = keyProblem(key, value, facts, input.overridePolicy, 'default');
-            return problem
-                ? [{ path: `defaults.${key}`, code: problem, message: `"${key}" does not fit this version.` }]
-                : [];
-        });
+        const problems: { path: string; code: string; message: string }[] = Object.entries(input.defaults).flatMap(
+            ([key, value]) => {
+                const problem = keyProblem(key, value, facts, input.overridePolicy, 'default');
+                return problem
+                    ? [{ path: `defaults.${key}`, code: problem, message: `"${key}" does not fit this version.` }]
+                    : [];
+            }
+        );
+        problems.push(...this.contractProblems(facts, input.inputMap, currentLanguage()));
         if (problems.length) throw fieldErrors(problems);
         const effectiveFrom = input.effectiveFrom ?? addisToday();
         // a version holds from today or later, never before the one before it: what cases froze is never rewritten, and
@@ -322,6 +335,7 @@ export class ServicesService {
             workflowVersionId: input.workflowVersionId,
             defaults: input.defaults,
             overridePolicy: input.overridePolicy,
+            inputMap: input.inputMap,
             effectiveFrom
         };
         // versions are numbered in order: the definition row is the lock
@@ -339,6 +353,7 @@ export class ServicesService {
             workflowVersionId: input.workflowVersionId,
             defaults: input.defaults,
             overridePolicy: input.overridePolicy,
+            inputMap: input.inputMap,
             effectiveFrom,
             note: input.note ?? null
         });
@@ -346,6 +361,64 @@ export class ServicesService {
         if (fresh)
             await updateAudited(tx, serviceDefinitions, d.id, fresh.rowVersion, { currentVersionId: version.id });
         return { version: versionOut(version), conflicts: await this.conflicts(tx, d.id, facts, input.overridePolicy) };
+    }
+
+    /**
+     * What the version's request form lacks for its effects' input contracts (task 0.21d), and input-map entries naming
+     * an effect the workflow does not run; each said in the reader's language.
+     */
+    private contractProblems(
+        facts: { effects: string[]; formDocument: unknown },
+        inputMap: InputMap,
+        language: string
+    ): { path: string; code: string; message: string }[] {
+        const out: { path: string; code: string; message: string }[] = [];
+        for (const [effect, map] of Object.entries(inputMap)) {
+            const contract = this.effects.contract(effect);
+            if (!facts.effects.includes(effect))
+                out.push({
+                    path: `inputMap.${effect}`,
+                    code: 'unknown_effect',
+                    message: servicesText('services.contract.unknown_effect', language, { effect })
+                });
+            else if (!contract)
+                out.push({
+                    path: `inputMap.${effect}`,
+                    code: 'no_contract',
+                    message: servicesText('services.contract.no_contract', language, { effect })
+                });
+            else
+                for (const path of Object.keys(map))
+                    if (!(path in contract))
+                        out.push({
+                            path: `inputMap.${effect}.${path}`,
+                            code: 'unknown_path',
+                            message: servicesText('services.contract.unknown_path', language, { effect, key: path })
+                        });
+        }
+        const reading = facts.effects.filter((e) => this.effects.contract(e) !== undefined);
+        if (facts.formDocument === null) {
+            for (const effect of reading)
+                if (Object.values(this.effects.contract(effect) ?? {}).some((f) => f.required ?? true))
+                    out.push({
+                        path: 'formVersionId',
+                        code: 'contract_no_form',
+                        message: servicesText('services.contract.no_form', language, { effect })
+                    });
+            return out;
+        }
+        for (const { effect, problem } of contractFindings(
+            reading,
+            (e) => this.effects.contract(e),
+            facts.formDocument,
+            inputMap
+        ))
+            out.push({
+                path: `inputMap.${effect}.${problem.path}`,
+                code: `contract_${problem.code}`,
+                message: contractMessage(effect, problem, language)
+            });
+        return out;
     }
 
     /** The overrides of a service below the region that do not fit a version. */
@@ -580,7 +653,8 @@ export class ServicesService {
         const config = frozenConfig(resolveConfig(version, chain), {
             serviceCode: code,
             serviceVersionId: v.id,
-            formVersionId: v.formVersionId
+            formVersionId: v.formVersionId,
+            inputMap: v.inputMap
         });
         const [form] = v.formVersionId
             ? await tx

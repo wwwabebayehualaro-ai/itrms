@@ -32,7 +32,8 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@
 import { unitRefs, withinScope, type UnitRef as UnitLabel } from '@itrms/kernel/org';
 import { emit } from '@itrms/kernel/outbox';
 import { orgUnits, users } from '@itrms/kernel/tables';
-import { FormsService, RegistryLookups, SubmissionsService } from '@itrms/forms/api';
+import { contractInput } from '@itrms/form-engine/core';
+import { FormsService, RegistryLookups, SubmissionsService, submissions } from '@itrms/forms/api';
 import {
     effectKeyOf,
     parseStepForm,
@@ -41,7 +42,8 @@ import {
     workflowUnitRuleSchema,
     type WorkflowDefinition,
     type WorkflowState,
-    type WorkflowTransition
+    type WorkflowTransition,
+    type EffectContract
 } from '@itrms/schemas';
 import { z } from 'zod';
 
@@ -522,6 +524,7 @@ export class CasesService {
             const effect = this.effects.get(key);
             if (!effect) throw new ConflictError('not_configured', { detail: `The effect ${key} is not installed.` });
             const argument = ref.includes(':') ? ref.slice(ref.indexOf(':') + 1) : undefined;
+            const contract = this.effects.contract(key);
             const result = await effect.run({
                 tx,
                 ctx,
@@ -529,7 +532,7 @@ export class CasesService {
                 regionId: row.regionId,
                 handlingUnitId: row.handlingUnitId,
                 argument,
-                input: by.input,
+                input: contract ? await this.contractedInput(tx, row, key, contract) : by.input,
                 facts
             });
             if (result?.facts) Object.assign(facts, result.facts);
@@ -710,6 +713,37 @@ export class CasesService {
             .orderBy(sql`nlevel(${orgUnits.path})`);
         if (!rows.some((r) => r.id === unitId)) throw new NotFoundError();
         return rows;
+    }
+
+    /**
+     * An effect's input by its contract (task 0.21d): the values of the case's request form (the version its service
+     * froze), read through the service version's input map, each of the kind asked; the step's own answers are filed on
+     * the case, not given to a contracted effect. A required one missing or of another kind (a request filed before the
+     * contract changed) refuses the transition with 409 `contract_unmet`: the effect never runs on less than it needs.
+     */
+    private async contractedInput(
+        tx: Tx,
+        row: CaseRow,
+        key: string,
+        contract: EffectContract
+    ): Promise<Record<string, unknown>> {
+        const config = row.config as { formVersionId?: unknown; inputMap?: Record<string, Record<string, string>> };
+        const [request] =
+            typeof config.formVersionId === 'string'
+                ? await tx
+                      .select({ answers: submissions.answers })
+                      .from(submissions)
+                      .where(and(eq(submissions.caseId, row.id), eq(submissions.formVersionId, config.formVersionId)))
+                      .orderBy(asc(submissions.createdAt))
+                      .limit(1)
+                : [];
+        const { input, missing, invalid } = contractInput(contract, request?.answers ?? {}, config.inputMap?.[key]);
+        // the request was filed and validated on its form: a gap here is the configuration's, never the actor's to fix
+        if (missing.length || invalid.length)
+            throw new ConflictError('contract_unmet', {
+                detail: `The effect ${key} cannot run on this request: ${[...missing, ...invalid].join(', ')}.`
+            });
+        return input;
     }
 
     /** The step form's answers, filed on the case as a submission of the version the step names. */

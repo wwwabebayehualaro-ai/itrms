@@ -60,6 +60,21 @@ export interface DesignerState {
      * in it flagged `removed`. Per session, from the server: not in the document, not an undo step.
      */
     published: ReadonlyMap<string, PublishedKey>;
+    /**
+     * The fields the services' effects read (their input contracts, task 0.21d): a locked field keeps its key, its type
+     * and, where the contract requires it, its required-ness, and never leaves the top level of the form. Per session,
+     * from the server.
+     */
+    locked: ReadonlyMap<string, FieldLock>;
+}
+
+/** What locks a field: the contract's kind and required-ness, the effects that read it and the services they run in. */
+export interface FieldLock {
+    key: string;
+    kind: string;
+    required: boolean;
+    effects: string[];
+    services: string[];
 }
 
 export interface DesignerActions {
@@ -86,9 +101,10 @@ export interface DesignerActions {
     relabel: (id: string, text: string, language?: string) => void;
     setLanguage: (language: string) => void;
     setPublished: (published: ReadonlyMap<string, PublishedKey>) => void;
+    setLocked: (locked: ReadonlyMap<string, FieldLock>) => void;
     /** The form's test cases (one undo step per call; calls with the same `key` in quick succession are one). */
     setTestCases: (cases: FormTestCase[], key?: string) => void;
-    /** Another document in place of this one (a restored version): one undo step, unsaved until saved. */
+    /** Another document in place of this one (a restored version): one undo step, unsaved until saved; refused when it lacks a locked field. */
     replace: (doc: DesignDoc) => void;
     setRuntime: (runtime: TemplateRuntimeConfig) => void;
     select: (id: string | null) => void;
@@ -101,6 +117,30 @@ export interface DesignerActions {
 export type DesignerStore = StoreApi<DesignerState & { actions: DesignerActions }>;
 
 const BLANK: FormTemplate = { name: '', slug: '', form_config: {} };
+
+/** The parts of a locked field an edit may not change (its kind, its conditions, its roles). */
+function lockedParts(f: FormField) {
+    const props = f.props ?? {};
+    return {
+        type: f.type,
+        props: Object.fromEntries(KIND_PROPS.filter((k) => k in props).map((k) => [k, props[k]])),
+        behavior: {
+            visibilityConditions: f.behavior?.visibilityConditions,
+            enabledConditions: f.behavior?.enabledConditions
+        },
+        visibleToRoles: f.visibleToRoles
+    };
+}
+
+/** The settings that decide a field's value kind (`valueKindOf`): a multiple choice, a range, a time. */
+const KIND_PROPS = ['multiple', 'range', 'showTime'] as const;
+
+/** Whether a container, or one it sits in, is a repeating section (its fields' values are the rows'). */
+function inRepeating(doc: DesignDoc, id: string): boolean {
+    for (let at: string | undefined = id; at && at !== ROOT; at = parentOf(doc, at) || undefined)
+        if (doc.byId[at]?.type === 'FormArray') return true;
+    return false;
+}
 
 export function createDesignerStore(
     doc: DesignDoc = EMPTY_DOC,
@@ -172,6 +212,9 @@ export function createDesignerStore(
                 return field.id;
             },
             move: (id, parent, index) => {
+                const { doc, locked } = get();
+                // a locked field stays at the top level: inside a repeating section its value is a row's, not the form's
+                if (subtree(doc, id).some((x) => locked.has(x)) && inRepeating(doc, parent)) return false;
                 let ok = false;
                 edit((d) => {
                     ok = moveField(d, id, parent, index);
@@ -195,7 +238,9 @@ export function createDesignerStore(
                 const at = list.indexOf(id);
                 // the selection moves to the next field (or the previous, or the container) so Delete can be pressed again
                 const next = list[at + 1] ?? list[at - 1] ?? (parentOf(doc, id) || null);
-                const { published } = get();
+                const { published, locked } = get();
+                // a field an effect reads never leaves the form
+                if (subtree(doc, id).some((x) => locked.has(x))) return;
                 // a published key never leaves the form: the field (and what is inside it) stays, flagged removed
                 if (subtree(doc, id).some((x) => published.has(x))) {
                     if (doc.byId[id].removed) return;
@@ -226,18 +271,32 @@ export function createDesignerStore(
                 if (copy) set((s) => ({ selected: copy, selection: s.selection + 1 }));
                 return copy;
             },
-            update: (id, recipe, key) =>
+            update: (id, recipe, key) => {
+                const lock = get().locked.get(id);
                 edit(
                     (d) => {
                         const f = d.byId[id];
-                        if (f) recipe(f);
+                        if (!f) return;
+                        const kept = lock ? lockedParts(f) : null;
+                        recipe(f);
+                        // a locked field keeps its type, the settings that decide its kind and, where the contract
+                        // requires it, its required-ness; it gets no condition or role that could hide or disable it
+                        if (lock && kept) {
+                            f.type = kept.type;
+                            f.props = { ...(f.props ?? {}), ...kept.props };
+                            if (lock.required) f.props.required = true;
+                            f.behavior = { ...(f.behavior ?? {}), ...kept.behavior };
+                            if (kept.visibleToRoles === undefined) delete f.visibleToRoles;
+                            else f.visibleToRoles = kept.visibleToRoles;
+                        }
                     },
                     key ?? `field:${id}`
-                ),
+                );
+            },
             rename: (id, newKey) => {
                 const { doc } = get();
                 // a published key keeps its name (its answers, views and formulas are named by it)
-                if (!doc.byId[id] || id === newKey || get().published.has(id)) return;
+                if (!doc.byId[id] || id === newKey || get().published.has(id) || get().locked.has(id)) return;
                 commit(renameKey(doc, id, newKey), undefined, newKey, true);
                 // a key renamed by hand stops following the label
                 set((s) => {
@@ -284,12 +343,17 @@ export function createDesignerStore(
             },
             setLanguage: (language) => set((s) => (s.language === language ? s : { language })),
             setPublished: (published) => set({ published }),
+            setLocked: (locked) => set({ locked }),
             setTestCases: (cases, key) =>
                 edit((d) => {
                     if (cases.length) d.testCases = cases;
                     else delete d.testCases;
                 }, key),
-            replace: (next) => commit(next),
+            replace: (next) => {
+                // a version that lacks a field an effect reads is not taken in (the field would leave the form)
+                for (const key of get().locked.keys()) if (!next.byId[key] || next.byId[key].removed) return;
+                commit(next);
+            },
             setRuntime: (runtime) =>
                 edit((d) => {
                     d.runtime = runtime;
@@ -336,6 +400,7 @@ export function createDesignerStore(
             language,
             following: new Set<string>(),
             published: new Map<string, PublishedKey>(),
+            locked: new Map<string, FieldLock>(),
             actions
         };
     });

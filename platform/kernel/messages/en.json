@@ -47,5 +47,6 @@
   "kernel.settingOption.ui.density.comfortable": "Comfortable",
   "kernel.settingOption.ui.density.compact": "Compact",
   "kernel.errors.setting_level_not_allowed": "This setting cannot be changed at this level.",
-  "kernel.nav.settings": "Settings"
+  "kernel.nav.settings": "Settings",
+  "kernel.errors.contract_unmet": "The request does not hold what this step's work needs. Ask the service's administrator."
 }

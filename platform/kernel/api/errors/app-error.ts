@@ -95,7 +95,8 @@ export class ConflictError extends AppError {
             | 'idempotency_in_progress'
             | 'invalid_transition'
             | 'duplicate_reference'
-            | 'not_configured',
+            | 'not_configured'
+            | 'contract_unmet',
         options?: AppErrorOptions
     ) {
         super(code, options);

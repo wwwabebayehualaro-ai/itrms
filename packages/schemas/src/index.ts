@@ -18,3 +18,4 @@ export * from './i18n';
 export * from './problem';
 export * from './search';
 export * from './workflow/definition';
+export * from './forms/effectContract';

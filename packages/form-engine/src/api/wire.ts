@@ -85,7 +85,15 @@ export interface PublishCheck {
     problems: PublishCheckProblem[];
     tests: PublishCheckTest[];
     diff: FormDiff;
-    impact: { views: PublishCheckView[] };
+    impact: { views: PublishCheckView[]; services?: PublishCheckService[] };
+}
+
+/** A service whose effects read the form (task 0.21d): its open cases keep their version; its effects' contracts hold. */
+export interface PublishCheckService {
+    code: string;
+    name: Record<string, string>;
+    openCases: number;
+    effects: string[];
 }
 
 export interface PublishCheckProblem {

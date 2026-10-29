@@ -3194,6 +3194,24 @@
             ],
             "default": null
           },
+          "inputMap": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                "type": "string"
+              },
+              "propertyNames": {
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "default": {},
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
+          },
           "note": {
             "maxLength": 500,
             "type": "string"
@@ -4121,6 +4139,29 @@
           },
           "required": true
         },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
+        ]
+      }
+    },
+    "/api/v1/forms/{id}/locks": {
+      "get": {
+        "operationId": "FormsController_locks",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""

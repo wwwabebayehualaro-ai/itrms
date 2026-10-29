@@ -62,6 +62,23 @@ effects: {
 * The effect receives **validated, typed input** (as legacy server actions did), and never parses raw answers itself.
 * Result: a zone can reshape a licence application to match its paper form. It can't remove the medical certificate the
   law requires, or turn the licence category into free text.
+* **Built in task 0.21d:** the contract is declared with the effect (`@Effect(key, { input: { <field key>: { kind,
+  required } } })`, kinds = the engine's value kinds; `@itrms/schemas` `effectContractSchema`), checked by
+  `checkContract` (`@itrms/form-engine/core`): a required field must be at the form's top level, of the kind, required,
+  and not hidden by a condition. A service version's `inputMap` maps an effect's paths to the request form's keys; its
+  publish answers 422 `contract_<missing|wrong_kind|not_required|conditional|no_form>` in the reader's language. The
+  forms slice asks the services slice (its `FORM_PUBLISH_GUARD` port) before a form's version goes live: `contract`
+  problems block it, and the impact lists the services, their open cases and the bound effects; `GET /forms/{id}/locks`
+  feeds the builder's lock badge. The engine gives an effect with a contract its input from the case's request answers
+  (the version the case froze, through the frozen input map), each value of the kind asked; a gap answers 409
+  `contract_unmet` (the configuration's to fix, never the actor's). A required contract field must be one filing always
+  requires and keeps: validated and required, at the top level, under no removed container, never hidden, disabled or
+  kept from some roles. The builder keeps a locked field's key, type, kind settings, required-ness and place, adds no
+  condition or role to it, and takes in no restored version that lacks it.
+* **Changing a contract field** (the form guard blocks a version that leaves one out, even though a service version
+  pins its own form version: it keeps the bureau from building on a form its services cannot use): add the new field
+  beside the old one and publish the form; publish a service version mapping the path to the new key; then take the old
+  field out (it is flagged removed) and publish the form again.
 
 ## 4. The change lifecycle (governance)
 

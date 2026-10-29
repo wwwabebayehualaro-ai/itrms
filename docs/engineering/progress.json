@@ -933,12 +933,22 @@
         {
           "id": "0.21d",
           "title": "Form governance, part 2: effect input contracts",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.21d-effect-contracts",
+          "commits": [
+            "f59917c"
+          ],
+          "evidence": [
+            "GitHub CI run 40914708600 on f59917c (PR #25): all 9 jobs success (lint/typecheck/test/build/boundaries, dev stack + S3, e2e, Semgrep, Trivy, gitleaks, licence, performance, stories)",
+            "CI integration: 23 files / 378 tests passed, incl. services-contracts.int.spec.ts (3) and services.int.spec.ts (9); e2e 16 passed; unit run 474 passed",
+            "Done when, removing a contract field fails publication with a clear message: services-contracts.int (service publish 422 contract_missing/not_required/unknown_effect/unknown_path/no_form in am and en; form publication 422 contract_unmet when the owner field is flagged removed; publish-check canPublish:false with services impact)",
+            "Done when, the builder shows the field locked: GET /forms/{id}/locks (services-contracts.int), designer LockedBar badge, store lock tests (remove/rename/move/type/required/conditions/replace refused)",
+            "Done when, the effect gets typed input: services-contracts.int records test.issuePermit input {plate, holder} through the frozen inputMap; cases.service throws 409 contract_unmet on a gap",
+            "Local: schemas 28, form-engine 308 (contract.spec), kernel 76, forms 2, workflow 30, services 5, api 13, web 73; turbo 24/24; pnpm boundaries clean; i18n complete; OpenAPI regenerated; migration 0047_service_input_map",
+            "task-verifier: ready with caveats (CI evidence, now recorded); reviewer: 2 high, 4 medium, 5 low, all fixed in f59917c"
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "Design: the contract is declared with the effect (@Effect(key, {input})), not in the manifest (the manifest is plain data shared with the web; the schema lives with the code, like events and settings); its vocabulary is the engine's value kinds; checkContract in form-engine/core (UI-free, runs in the API). Service versions carry inputMap (migration 0047); publish refuses unmet contracts with localized messages (services catalogue). The forms slice asks the services slice through FORM_PUBLISH_GUARD (forms cannot import services): contract problems block publication/approval, the impact lists services, open cases, effects; GET /forms/{id}/locks feeds the builder's Locked badge, and the designer store keeps a locked field's key, type, required-ness and top-level place. The engine gives a contracted effect its input from the case's request answers through the frozen inputMap and refuses the transition on a missing required value. Licence application's contract comes with its effect in 0.24; the publish screen's mapping UI → 0.24 (follow-up)."
         },
         {
           "id": "0.21e",
@@ -2145,7 +2155,8 @@
     {
       "foundIn": "0.16a",
       "item": "The legacy runtime.submit.serverAction is not run: a service version names module effects instead",
-      "movedTo": "0.21d (effects named by the service version, the contracts)"
+      "movedTo": "0.21d (effects named by the service version, the contracts)",
+      "closedIn": "0.21d: effects named by the service version run on transitions with typed input from their input contracts; the legacy runtime.submit.serverAction is not run"
     },
     {
       "foundIn": "0.16a",
@@ -2231,7 +2242,8 @@
     {
       "foundIn": "0.16c",
       "item": "Server actions on submit: the designer offers none until service configuration names module effects",
-      "movedTo": "0.21d (effects named by the service version, the contracts)"
+      "movedTo": "0.21d (effects named by the service version, the contracts)",
+      "closedIn": "0.21d: the designer offers no server actions; a form's coded work is an effect with an input contract, its fields locked in the builder"
     },
     {
       "foundIn": "0.16c",
@@ -2475,6 +2487,11 @@
       "foundIn": "0.21c",
       "item": "The publish screen's workflow and form lists read the first 100 (all offices, newest first) and keep the region's own in the browser: filter by owner on the server (an owner query on the workflow and form lists)",
       "movedTo": "0.21e"
+    },
+    {
+      "foundIn": "0.21d",
+      "item": "The service publish screen: map an effect's contract paths to the form's keys (the API takes inputMap; the screen sends none, so a path reads the same key)",
+      "movedTo": "0.24"
     }
   ]
 }

@@ -337,3 +337,70 @@ describe('designer store: published keys', () => {
         expect(readDocument(out).fields.find((x) => x.id === 'title')?.removed).toBe(true);
     });
 });
+
+describe('designer store: fields an effect reads (task 0.21d)', () => {
+    const load = () => {
+        const store = createDesignerStore();
+        store.getState().actions.load(fromStored(stored).doc, { name: 'T', slug: 't', form_config: {} });
+        store
+            .getState()
+            .actions.setLocked(
+                new Map([
+                    ['title', { key: 'title', kind: 'text', required: true, effects: ['x.y'], services: ['RS-01'] }]
+                ])
+            );
+        return store;
+    };
+
+    it('keeps a locked field: its key, its type, its required-ness, its place at the top level', () => {
+        const store = load();
+        const a = store.getState().actions;
+        a.rename('title', 'heading');
+        expect(store.getState().doc.byId.title).toBeDefined();
+        a.remove('title');
+        expect(store.getState().doc.byId.title?.removed).toBeUndefined();
+        expect(store.getState().doc.children[ROOT]).toContain('title');
+        // its label may change; its type and required-ness stay
+        a.update('title', (f) => {
+            f.type = 'InputNumber';
+            f.label = 'Heading';
+            f.props = { ...(f.props ?? {}), required: false };
+        });
+        const title = store.getState().doc.byId.title;
+        expect(title?.type).toBe('InputText');
+        expect(title?.label).toBe('Heading');
+        expect(title?.props?.required).toBe(true);
+        // never into a repeating section (its value would be a row's)
+        expect(a.move('title', 'lines', 0)).toBe(false);
+        expect(a.move('title', 'box', 0)).toBe(true);
+    });
+});
+
+describe('designer store: a locked field keeps what an effect relies on (review of 0.21d)', () => {
+    it('keeps its kind settings, gets no condition or role, and is not dropped by a restored version', () => {
+        const store = createDesignerStore();
+        store.getState().actions.load(fromStored(stored).doc, { name: 'T', slug: 't', form_config: {} });
+        store
+            .getState()
+            .actions.setLocked(
+                new Map([
+                    ['title', { key: 'title', kind: 'text', required: true, effects: ['x.y'], services: ['RS-01'] }]
+                ])
+            );
+        const a = store.getState().actions;
+        a.update('title', (f) => {
+            f.visibleToRoles = ['bureau_admin'];
+            f.behavior = {
+                ...(f.behavior ?? {}),
+                visibilityConditions: [{ field: 'note', operator: 'eq', value: 'x' }]
+            };
+        });
+        const title = store.getState().doc.byId.title;
+        expect(title?.visibleToRoles).toBeUndefined();
+        expect(title?.behavior?.visibilityConditions).toBeUndefined();
+        // a version without the field is not taken in
+        const before = store.getState().doc;
+        a.replace(fromStored(stored.filter((x) => x.id !== 'title')).doc);
+        expect(store.getState().doc).toBe(before);
+    });
+});

@@ -1103,6 +1103,9 @@ importers:
       '@itrms/ethiopian-calendar':
         specifier: workspace:*
         version: link:../../packages/ethiopian-calendar
+      '@itrms/form-engine':
+        specifier: workspace:*
+        version: link:../../packages/form-engine
       '@itrms/forms':
         specifier: workspace:*
         version: link:../forms
