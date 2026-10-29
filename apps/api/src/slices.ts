@@ -11,13 +11,13 @@ import competencyWal from '@itrms/competency/messages/wal-Latn';
 import documents from '@itrms/documents/manifest';
 import fees from '@itrms/fees/manifest';
 import { FormsModule } from '@itrms/forms/api';
-import { FORMS_EVENTS } from '@itrms/forms/contracts';
+import { FORMS_EVENTS, FORMS_SETTINGS } from '@itrms/forms/contracts';
 import forms from '@itrms/forms/manifest';
 import formsAm from '@itrms/forms/messages/am';
 import formsEn from '@itrms/forms/messages/en';
 import formsWal from '@itrms/forms/messages/wal-Latn';
 import integrations from '@itrms/integrations/manifest';
-import { KERNEL_EVENTS } from '@itrms/kernel/contracts';
+import { KERNEL_EVENTS, KERNEL_SETTINGS } from '@itrms/kernel/contracts';
 import kernel from '@itrms/kernel/manifest';
 import kernelAm from '@itrms/kernel/messages/am';
 import kernelEn from '@itrms/kernel/messages/en';
@@ -41,12 +41,18 @@ import workflowWal from '@itrms/workflow/messages/wal-Latn';
 export type ApiSlice = InstalledSlice<Type | DynamicModule>;
 
 export const SLICES: ApiSlice[] = [
-    { manifest: kernel, events: KERNEL_EVENTS, messages: { am: kernelAm, en: kernelEn, 'wal-Latn': kernelWal } },
+    {
+        manifest: kernel,
+        events: KERNEL_EVENTS,
+        settings: KERNEL_SETTINGS,
+        messages: { am: kernelAm, en: kernelEn, 'wal-Latn': kernelWal }
+    },
     { manifest: integrations },
     {
         manifest: forms,
         module: FormsModule,
         events: FORMS_EVENTS,
+        settings: FORMS_SETTINGS,
         // its menu entry and its notices (an export ready) are read in the person's language (tasks 0.20b, 0.20d)
         messages: { am: formsAm, en: formsEn, 'wal-Latn': formsWal }
     },

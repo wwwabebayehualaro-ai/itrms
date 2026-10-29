@@ -36,5 +36,16 @@
   "kernel.role.finance_officer": "Finance officer",
   "kernel.role.auditor": "Auditor",
   "kernel.role.viewer": "Viewer",
-  "kernel.nav.languages": "Languages"
+  "kernel.nav.languages": "Languages",
+  "kernel.setting.i18n.languages": "Languages",
+  "kernel.setting.ui.theme": "Theme",
+  "kernel.settingOption.ui.theme.system": "As the computer",
+  "kernel.settingOption.ui.theme.light": "Light",
+  "kernel.settingOption.ui.theme.dark": "Dark",
+  "kernel.settingOption.ui.theme.high-contrast": "High contrast",
+  "kernel.setting.ui.density": "Density",
+  "kernel.settingOption.ui.density.comfortable": "Comfortable",
+  "kernel.settingOption.ui.density.compact": "Compact",
+  "kernel.errors.setting_level_not_allowed": "This setting cannot be changed at this level.",
+  "kernel.nav.settings": "Settings"
 }

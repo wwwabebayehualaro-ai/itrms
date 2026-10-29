@@ -7,6 +7,7 @@
  * - each event has one emitter, with a payload schema, and every consumed event is emitted by an installed module;
  * - the core (kernel, platform services, registries) cannot be switched off;
  * - every declared effect is implemented (and nothing undeclared is);
+ * - every setting is declared once, with a value schema its default fits, and a name in Amharic and English;
  * - every manifest passes its own checks (@itrms/module-sdk).
  */
 import {
@@ -19,6 +20,7 @@ import {
 } from '@itrms/module-sdk';
 
 import { roleLabelKey } from '../iam/menu';
+import { buildSettingsRegistry, settingLabelKey, settingProblems, type SettingsRegistry } from '../settings/registry';
 
 const RANK: Record<ModuleLayer, number> = { kernel: 0, platform: 1, registry: 2, 'work-process': 3 };
 
@@ -36,6 +38,8 @@ export interface LoadedSlices<Module> {
     modules: Module[];
     /** Their message catalogues merged, by language tag. */
     messages: Record<string, Record<string, string>>;
+    /** The settings they declare, with their schemas (ADR-0026). */
+    settings: SettingsRegistry;
 }
 
 function cycles(manifests: ModuleManifest[]): string[] {
@@ -129,6 +133,8 @@ export function loadSlices<Module>(
             if (other) problems.push(`${m.key}: declares lookup "${lookup}", which "${other}" already declares`);
             else lookupOwner.set(lookup, m.key);
         }
+    // settings: one declaration per key, each with its value schema and a default that fits it (ADR-0026)
+    problems.push(...settingProblems([...installed.values()]));
     for (const { manifest: m, effects = [], events = {} } of enabled) {
         for (const effect of m.effects)
             if (!effects.includes(effect))
@@ -170,8 +176,14 @@ export function loadSlices<Module>(
                 needs(kernelManifest, kernelCatalogues, `kernel.nav.group.${item.group}`, 'menu group');
         }
         for (const role of Object.keys(m.roles)) needs(m, catalogues, roleLabelKey(role), `role ${role}'s name`);
+        for (const s of m.settings) needs(m, catalogues, settingLabelKey(m.key, s.key), `setting ${s.key}'s name`);
     }
 
     if (problems.length) throw new ManifestError(problems);
-    return { manifests, modules: enabled.flatMap((s) => (s.module === undefined ? [] : [s.module])), messages };
+    return {
+        manifests,
+        modules: enabled.flatMap((s) => (s.module === undefined ? [] : [s.module])),
+        messages,
+        settings: buildSettingsRegistry(enabled)
+    };
 }

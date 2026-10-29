@@ -11,6 +11,7 @@ import {
     Inbox,
     Languages,
     Printer,
+    SlidersHorizontal,
     Users
 } from 'lucide-react';
 
@@ -25,5 +26,6 @@ export const MENU_ICONS: Readonly<Record<string, LucideIcon>> = {
     inbox: Inbox,
     languages: Languages,
     printer: Printer,
+    'sliders-horizontal': SlidersHorizontal,
     users: Users
 };

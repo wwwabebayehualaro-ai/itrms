@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 import ExcelJS from 'exceljs';
 import { formsHandlers } from '@itrms/forms/api/worker';
+import { SettingsService } from '@itrms/kernel/settings';
 import { loadSlices } from '@itrms/kernel/api';
 import { permissionsOf, rolePermissions } from '@itrms/kernel/iam';
 import { S3ObjectStore } from '@itrms/integrations/api';
@@ -82,7 +83,9 @@ const runWorker = (exportId: string, maxBytes?: number) =>
         database: app,
         store,
         permissionsOf: (roles) => permissionsOf(catalogue, roles),
-        maxBytes
+        maxBytes,
+        // the region's export limits, as the worker reads them (task 0.21a)
+        settings: api.http.get(SettingsService)
     })['submission-export.requested.v1']?.({
         eventId: randomUUID(),
         type: 'submission-export.requested.v1',
@@ -361,5 +364,23 @@ describe('a background export', () => {
         expect(removed).toBeGreaterThanOrEqual(2);
         expect((await job(as.damotHead(), exportId)).json<Job>().status).toBe('expired');
         expect((await download(as.damotHead(), exportId)).statusCode).toBe(404);
+    });
+
+    it("keeps its file for the region's number of days (a region setting, task 0.21a)", async () => {
+        const set = await api.call(
+            'PUT',
+            `/api/v1/org-units/${units.ser.id}/settings/forms.exports.keepDays`,
+            as.bureau(),
+            { value: 3 },
+            { 'if-match': '"0"' }
+        );
+        expect(set.statusCode, set.body).toBe(200);
+        const id = (await ask(as.damotHead())).json<Job>().id;
+        await runWorker(id);
+        const done = (await job(as.damotHead(), id)).json<Job>();
+        expect(done.status).toBe('done');
+        const kept = Date.parse(done.keptUntil ?? '') - Date.now();
+        expect(kept).toBeGreaterThan(2.9 * 86_400_000);
+        expect(kept).toBeLessThan(3.1 * 86_400_000);
     });
 });

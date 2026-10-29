@@ -31,6 +31,7 @@ import type { RolePermissions } from './iam/roles';
 import { IdempotencyInterceptor } from './idempotency/idempotency';
 import { JobsController } from './outbox/jobs.controller';
 import { SettingsController } from './settings/settings.controller';
+import { SettingsService } from './settings/settings';
 import { SHELL, type Shell } from './iam/shell';
 import { OrgAdminService } from './org/org-admin.service';
 import { OrgController } from './org/org.controller';
@@ -140,6 +141,8 @@ export class KernelModule {
                 Metrics,
                 ReadinessRegistry,
                 EffectRegistry,
+                // the settings registry and the one resolver (ADR-0026): the API's screens, the worker's limits
+                SettingsService,
                 ...database,
                 ...http
             ],
@@ -151,6 +154,7 @@ export class KernelModule {
                 Metrics,
                 ReadinessRegistry,
                 EffectRegistry,
+                SettingsService,
                 DATABASE,
                 FIELD_CRYPTO,
                 OBJECT_STORE

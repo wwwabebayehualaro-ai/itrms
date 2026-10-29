@@ -44,5 +44,7 @@
   "forms.sensitive.why": "ለምን እንደሚያስፈልጉ ይግለጹ፤ ምክንያቱ ከስምዎና ከሰዓቱ ጋር ይመዘገባል።",
   "forms.sensitive.reason": "ምክንያት",
   "forms.sensitive.cancel": "ተው",
-  "forms.sensitive.show": "አሳይ"
+  "forms.sensitive.show": "አሳይ",
+  "forms.setting.exports.keepDays": "ከበስተጀርባ የተዘጋጀ ፋይል የሚቆይባቸው ቀናት",
+  "forms.setting.exports.backgroundMaxRows": "ከበስተጀርባ በሚዘጋጅ ፋይል ውስጥ የሚገቡ ከፍተኛ ረድፎች"
 }

@@ -31,6 +31,15 @@ export const CAPABILITY = /^[a-z][a-z0-9_]*$/;
 const EVENT = /^[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*\.v[1-9]\d*$/;
 /** A service code from the catalogue: DVC-01, PT-12. */
 const SERVICE = /^[A-Z]{2,5}-\d{2}$/;
+/**
+ * Where a setting's value may come from above its default (ADR-0026), in the order they are resolved: the installation
+ * (the operator's), the region (its root unit), a unit below it (its value holds in its subtree) and a unit type (the
+ * region's choice for every unit of that type, which beats the units above). A person's own value (`userPreference`)
+ * comes last.
+ */
+export const SETTING_LEVELS = ['installation', 'region', 'unit', 'unitType'] as const;
+export type SettingLevel = (typeof SETTING_LEVELS)[number];
+
 /** `resource:action` (`licence:issue`). */
 export const PERMISSION = /^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$/;
 
@@ -120,15 +129,22 @@ export const manifestSchema = z
             .object({ emits: z.array(event).default([]), consumes: z.array(event).default([]) })
             .strict()
             .default({ emits: [], consumes: [] }),
+        /**
+         * Configurable values (ADR-0026, org-and-unit-types.md §4): the levels where a value may replace the default, and
+         * whether a person may choose their own. The value's Zod schema is the slice's (`InstalledSlice.settings`).
+         */
         settings: z
             .array(
                 z
                     .object({
                         key: qualified,
                         default: z.unknown(),
-                        overridableAt: z.array(z.string()).default([])
+                        overridableAt: z.array(z.enum(SETTING_LEVELS)).default([]),
+                        userPreference: z.boolean().default(false),
+                        /** a change needs a fresh second factor (SEC-SE-5: security settings) */
+                        sensitive: z.boolean().default(false)
                     })
-                    .loose()
+                    .strict()
             )
             .default([]),
         numberSequences: z.array(z.object({ key, pattern: z.string().min(1) }).strict()).default([]),
@@ -146,6 +162,7 @@ export const manifestSchema = z
 
 export type ModuleManifestInput = z.input<typeof manifestSchema>;
 export type ModuleManifest = z.output<typeof manifestSchema>;
+export type SettingDeclaration = ModuleManifest['settings'][number];
 
 const issueText = (issue: z.core.$ZodIssue) =>
     `${issue.path.length ? `${issue.path.join('.')}: ` : ''}${issue.message}`;
@@ -194,9 +211,13 @@ export function manifestProblems(input: unknown): string[] {
         ['services', m.services],
         ['menu', m.menu.map((i) => i.key)],
         ['events.emits', m.events.emits],
-        ['events.consumes', m.events.consumes]
+        ['events.consumes', m.events.consumes],
+        ['settings', m.settings.map((s) => s.key)]
     ] as const)
         if (new Set(list).size !== list.length) problems.push(`${name} has duplicates`);
+    for (const setting of m.settings)
+        if (new Set(setting.overridableAt).size !== setting.overridableAt.length)
+            problems.push(`setting "${setting.key}" lists a level twice`);
     return problems;
 }
 
@@ -225,4 +246,6 @@ export interface InstalledSlice<Module = unknown> {
     module?: Module;
     effects?: readonly string[];
     events?: Readonly<Record<string, z.ZodType>>;
+    /** The value schema of each setting its manifest declares (the loader checks the default against it). */
+    settings?: Readonly<Record<string, z.ZodType>>;
 }

@@ -22,6 +22,12 @@ export default defineModule({
         emits: ['form.published.v1', 'submission-export.requested.v1'],
         consumes: ['form.published.v1', 'submission-export.requested.v1']
     },
+    // a region's limits of the background exports (task 0.21a; schemas: FORMS_SETTINGS): how long a file is kept, and
+    // how many rows it may hold
+    settings: [
+        { key: 'forms.exports.keepDays', default: 7, overridableAt: ['region'] },
+        { key: 'forms.exports.backgroundMaxRows', default: 100_000, overridableAt: ['region'] }
+    ],
     // the publications waiting for the person's decision (maker-checker), with their count as a badge (task 0.20d)
     menu: [
         {

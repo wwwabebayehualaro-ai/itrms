@@ -106,7 +106,11 @@ export class ConflictError extends AppError {
 export class ValidationError extends AppError {
     readonly status = 422;
     constructor(
-        code: 'validation_failed' | 'idempotency_mismatch' | 'not_eligible' = 'validation_failed',
+        code:
+            | 'validation_failed'
+            | 'idempotency_mismatch'
+            | 'not_eligible'
+            | 'setting_level_not_allowed' = 'validation_failed',
         options?: AppErrorOptions
     ) {
         super(code, options);

@@ -36,5 +36,16 @@
   "kernel.role.finance_officer": "የሂሳብ ባለሙያ",
   "kernel.role.auditor": "ኦዲተር",
   "kernel.role.viewer": "ተመልካች",
-  "kernel.nav.languages": "ቋንቋዎች"
+  "kernel.nav.languages": "ቋንቋዎች",
+  "kernel.setting.i18n.languages": "ቋንቋዎች",
+  "kernel.setting.ui.theme": "ቀለም",
+  "kernel.settingOption.ui.theme.system": "እንደ ስርዓቱ",
+  "kernel.settingOption.ui.theme.light": "ብሩህ",
+  "kernel.settingOption.ui.theme.dark": "ጨለማ",
+  "kernel.settingOption.ui.theme.high-contrast": "ከፍተኛ ንፅፅር",
+  "kernel.setting.ui.density": "ጥግግት",
+  "kernel.settingOption.ui.density.comfortable": "ሰፊ",
+  "kernel.settingOption.ui.density.compact": "የታመቀ",
+  "kernel.errors.setting_level_not_allowed": "ይህ ቅንብር በዚህ ደረጃ ሊቀየር አይችልም።",
+  "kernel.nav.settings": "ቅንብሮች"
 }

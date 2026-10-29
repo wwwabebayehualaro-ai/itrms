@@ -44,5 +44,7 @@
   "forms.sensitive.why": "Say why you need them: the reason is recorded with your name and the time.",
   "forms.sensitive.reason": "Reason",
   "forms.sensitive.cancel": "Cancel",
-  "forms.sensitive.show": "Show"
+  "forms.sensitive.show": "Show",
+  "forms.setting.exports.keepDays": "Days a background export is kept",
+  "forms.setting.exports.backgroundMaxRows": "Most rows in a background export"
 }

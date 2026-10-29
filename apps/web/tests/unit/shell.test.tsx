@@ -30,7 +30,14 @@ const item = (key: string, route: string, am: string, en: string, icon = 'circle
 
 const workspace: Workspace = {
     user: { id: 'u-1', username: 'demo.officer', displayName: 'Officer (demo)' },
-    activeUnit: { id: 'unit-1', code: 'WOL-BODITI', name: { am: 'ቦዲቲ', en: 'Boditi' }, services: [], capabilities: [] },
+    activeUnit: {
+        id: 'unit-1',
+        regionId: 'region-1',
+        code: 'WOL-BODITI',
+        name: { am: 'ቦዲቲ', en: 'Boditi' },
+        services: [],
+        capabilities: []
+    },
     units: [],
     roles: ['competency.officer'],
     permissions: ['licence:read'],

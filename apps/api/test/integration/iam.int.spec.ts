@@ -101,7 +101,11 @@ beforeAll(async () => {
                         database,
                         identity: { issuer: ISSUER, audience: AUDIENCE, keys: createLocalJWKSet({ keys: [jwk] }) },
                         roles: rolePermissions(installed.manifests),
-                        shell: { manifests: installed.manifests, messages: installed.messages }
+                        shell: {
+                            manifests: installed.manifests,
+                            messages: installed.messages,
+                            settings: installed.settings
+                        }
                     })
                 ]
             };
@@ -520,12 +524,14 @@ describe('preferences and region settings (task 0.13)', () => {
         const zone = await unitAt('WOL');
         const admin = await token(SUB.bureauAdmin);
         const languages = ['am', 'en', 'wal-Latn'];
-        const read = await call('GET', '/api/v1/settings/i18n.languages', { token: admin, unit: region.id });
-        expect(read.json()).toEqual({ key: 'i18n.languages', value: ['am', 'en'], version: 0 });
+        const read = await call('GET', `/api/v1/org-units/${region.id}/settings`, { token: admin, unit: region.id });
+        expect(
+            read.json<{ settings: { key: string }[] }>().settings.find((s) => s.key === 'i18n.languages')
+        ).toMatchObject({ value: ['am', 'en'], source: { level: 'default' }, own: null });
         const put = (value: string[], version: number | null) =>
             call(
                 'PUT',
-                '/api/v1/settings/i18n.languages',
+                `/api/v1/org-units/${region.id}/settings/i18n.languages`,
                 { token: admin, unit: region.id },
                 { value },
                 version === null ? {} : { 'if-match': `"${version}"` }
@@ -547,7 +553,7 @@ describe('preferences and region settings (task 0.13)', () => {
         expect(withoutAmharic.statusCode).toBe(422);
         const unknownKey = await call(
             'PUT',
-            '/api/v1/settings/security.sessionIdle',
+            `/api/v1/org-units/${region.id}/settings/security.sessionIdle`,
             { token: admin, unit: region.id },
             { value: 1 },
             { 'if-match': '"0"' }
@@ -555,7 +561,7 @@ describe('preferences and region settings (task 0.13)', () => {
         expect(unknownKey.statusCode).toBe(404);
         const zoneAdmin = await call(
             'PUT',
-            '/api/v1/settings/i18n.languages',
+            `/api/v1/org-units/${region.id}/settings/i18n.languages`,
             { token: await token(SUB.zoneAdmin), unit: zone.id },
             { value: languages },
             { 'if-match': '"1"' }

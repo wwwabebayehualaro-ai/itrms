@@ -27,6 +27,17 @@ describe('loadConfig', () => {
         });
     });
 
+    it("reads the installation's setting values as a JSON object (empty: none), and refuses anything else", () => {
+        expect(loadConfig('http', DB).INSTALLATION_SETTINGS).toEqual({});
+        expect(loadConfig('http', { ...DB, INSTALLATION_SETTINGS: ' ' }).INSTALLATION_SETTINGS).toEqual({});
+        expect(
+            loadConfig('http', { ...DB, INSTALLATION_SETTINGS: '{"i18n.languages":["am","en","om"]}' })
+                .INSTALLATION_SETTINGS
+        ).toEqual({ 'i18n.languages': ['am', 'en', 'om'] });
+        expect(() => loadConfig('http', { ...DB, INSTALLATION_SETTINGS: '{oops' })).toThrow(/INSTALLATION_SETTINGS/);
+        expect(() => loadConfig('http', { ...DB, INSTALLATION_SETTINGS: '[1]' })).toThrow(/INSTALLATION_SETTINGS/);
+    });
+
     it('requires the personal-data keys in production, for the API and the worker, each key with one purpose', () => {
         const problems = (env: Record<string, string>, kind: 'http' | 'worker') => {
             try {

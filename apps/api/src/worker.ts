@@ -13,6 +13,7 @@ import { createWorkerContext, loadSlices } from '@itrms/kernel/api';
 import { permissionsOf, rolePermissions } from '@itrms/kernel/iam';
 import { identitySyncHandlers, purgeExpiredUploads, startJobs, type OutboxHandler } from '@itrms/kernel/api/worker';
 import { createDatabase } from '@itrms/kernel/db';
+import { SettingsService } from '@itrms/kernel/settings';
 import { NO_OBJECT_STORE } from '@itrms/kernel/files';
 import { FakeSms } from '@itrms/kernel/notifications';
 import { createSystemDatabase } from '@itrms/kernel/db/system';
@@ -67,7 +68,9 @@ async function main() {
                 ...formsHandlers(system, {
                     database,
                     store: objectStore ?? NO_OBJECT_STORE,
-                    permissionsOf: (roles) => permissionsOf(catalogue, roles)
+                    permissionsOf: (roles) => permissionsOf(catalogue, roles),
+                    // the region's export limits (task 0.21a)
+                    settings: app.get(SettingsService)
                 })
             };
             // the identity provider follows the tree and the assignments, when the installation names its admin client

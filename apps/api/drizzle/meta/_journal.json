@@ -302,6 +302,20 @@
       "when": 1793188602028,
       "tag": "0042_submission_drafts_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1793220747583,
+      "tag": "0043_settings_scopes",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1793220767947,
+      "tag": "0044_settings_scopes_rls",
+      "breakpoints": true
     }
   ]
 }

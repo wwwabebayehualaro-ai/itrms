@@ -27,7 +27,8 @@
     "./tables": "./api/tables/index.ts",
     "./files": "./api/files/index.ts",
     "./effects": "./api/effects/index.ts",
-    "./notifications": "./api/notifications/index.ts"
+    "./notifications": "./api/notifications/index.ts",
+    "./settings": "./api/settings/index.ts"
   },
   "imports": {
     "#contracts/*": "./contracts/*.ts",

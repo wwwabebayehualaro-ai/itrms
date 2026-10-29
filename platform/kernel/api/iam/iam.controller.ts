@@ -19,7 +19,7 @@ import { currentPrincipal, Require, requestDbContext, SignedIn } from './access'
 import { assignmentsOf, grantRole, revokeRole } from './assignments';
 import { CLIENT_SETTINGS, effectiveMenu, roleLabels } from './menu';
 import { SHELL, type Shell } from './shell';
-import { regionSettings } from '../settings/settings';
+import { SettingsService, userValues } from '../settings/settings';
 import { users } from './iam.table';
 
 class GrantDto extends createZodDto(
@@ -38,6 +38,9 @@ const STEP_UP = 300;
 
 class PreferencesDto extends createZodDto(userPreferencesSchema) {}
 
+/** The preferences as stored: the person's choices of settings (`ui.theme` …) sit beside them. */
+const storedPreferences = z.object(userPreferencesSchema.shape);
+
 interface UnitRow extends Record<string, unknown> {
     unit_id: string;
     code: string;
@@ -49,7 +52,8 @@ interface UnitRow extends Record<string, unknown> {
 export class IamController {
     constructor(
         @Inject(DATABASE) private readonly db: Database,
-        @Inject(SHELL) private readonly shell: Shell
+        @Inject(SHELL) private readonly shell: Shell,
+        private readonly settings: SettingsService
     ) {}
 
     @Get('me/workspace')
@@ -72,17 +76,30 @@ export class IamController {
                     services: new Set(services),
                     capabilities: new Set(described.capabilities)
                 }),
-                // the display settings: the modules' defaults, then the region's choices (unit overrides: task 0.21)
+                // the display settings, resolved for this unit and this person (ADR-0026): the person's own choice,
+                // else the unit's, its type's, the units' above, the region's, the installation's, the default
                 settings: Object.fromEntries(
-                    Object.entries({
-                        ...Object.fromEntries(
-                            this.shell.manifests.flatMap((m) => m.settings.map((s) => [s.key, s.default] as const))
-                        ),
-                        ...(await regionSettings(tx, principal.regionId))
-                    }).filter(([key]) => CLIENT_SETTINGS.test(key))
+                    [
+                        ...(await this.settings.effective(
+                            tx,
+                            unit,
+                            userValues(this.settings.registry, user?.preferences)
+                        ))
+                    ]
+                        .filter(([key]) => CLIENT_SETTINGS.test(key))
+                        .map(([key, resolved]) => [key, resolved.value])
                 ),
-                // the person's own (language, calendar, favourites, recents): they follow them between PCs
-                preferences: userPreferencesSchema.catch({}).parse(user?.preferences ?? {}),
+                // the office's values of the settings a person may choose: a choice equal to it is no choice of their
+                // own (the shell resets theirs, so a later change of the office's reaches them)
+                officeSettings: Object.fromEntries(
+                    [...(await this.settings.effective(tx, unit))]
+                        .filter(([key]) => this.settings.registry.get(key)?.declaration.userPreference)
+                        .filter(([key]) => CLIENT_SETTINGS.test(key))
+                        .map(([key, resolved]) => [key, resolved.value])
+                ),
+                // the person's own (language, calendar, favourites, recents): they follow them between PCs; their
+                // choices of settings are read above
+                preferences: storedPreferences.catch({}).parse(user?.preferences ?? {}),
                 // the names of the roles shown here and in the unit list (keys are never shown to a person)
                 roleLabels: roleLabels(this.shell.messages, [
                     ...principal.roles,
@@ -109,7 +126,7 @@ export class IamController {
             );
             const row = result.rows[0];
             if (!row || row.before === null) throw new NotFoundError();
-            const before = userPreferencesSchema.catch({}).parse(row.before);
+            const before = storedPreferences.catch({}).parse(row.before);
             const after = { ...before, ...body };
             const keys = (Object.keys(body) as (keyof typeof body)[]).filter(
                 (k) => JSON.stringify(before[k]) !== JSON.stringify(after[k])
