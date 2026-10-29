@@ -6,14 +6,15 @@
  */
 import { expect, test } from '@playwright/test';
 
-import { PEOPLE, api, journeyWorkflow, signedIn, submittedCase } from './support';
+import { PEOPLE, api, journeyService, journeyWorkflow, signedIn, submittedCase } from './support';
 
 test("lists the office's steps for the person's role; a step is taken on and opened", async ({ browser }) => {
     test.setTimeout(300_000);
-    const author = await signedIn(browser, PEOPLE.author);
-    const workflowId = await journeyWorkflow(api(author), 'inbox');
+    const bureau = api(await signedIn(browser, PEOPLE.bureau));
+    const workflowId = await journeyWorkflow(bureau, 'inbox');
+    const service = await journeyService(bureau, 'RS-02', workflowId);
     const page = await signedIn(browser, PEOPLE.records);
-    const started = await submittedCase(api(page), workflowId);
+    const started = await submittedCase(api(page), service);
 
     // the home page: the menu's badge counts what waits, the "my tasks" widget lists it (task 0.20d)
     await page.goto('/');

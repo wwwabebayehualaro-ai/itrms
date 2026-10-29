@@ -91,13 +91,22 @@ export class OrgController {
 
     @Put(':id/services/:code')
     @Require('service-config:update')
-    setService(@Param('id', ParseUUIDPipe) id: string, @Param('code') code: string, @Body() body: ServiceOverrideDto) {
-        return this.org.setService(id, serviceFrom(code), body.enabled, body.reason);
+    setService(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Param('code') code: string,
+        @Headers('if-match') ifMatch: string | undefined,
+        @Body() body: ServiceOverrideDto
+    ) {
+        return this.org.setService(id, serviceFrom(code), body.enabled, body.reason, versionFrom(ifMatch));
     }
 
     @Delete(':id/services/:code')
     @Require('service-config:update')
-    resetService(@Param('id', ParseUUIDPipe) id: string, @Param('code') code: string) {
-        return this.org.resetService(id, serviceFrom(code));
+    resetService(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Param('code') code: string,
+        @Headers('if-match') ifMatch: string | undefined
+    ) {
+        return this.org.resetService(id, serviceFrom(code), versionFrom(ifMatch));
     }
 }

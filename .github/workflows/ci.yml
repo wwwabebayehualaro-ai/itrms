@@ -134,11 +134,12 @@ jobs:
           LEFTHOOK: '0'
       - name: Start the dev stack (writes the apps' local settings)
         run: pnpm dev:infra
-      - name: Build the API, migrate, and seed the reference design (org, demo users, Keycloak groups)
+      - name: Build the API, migrate, and seed the reference design (org, service catalogue, demo users, Keycloak groups)
         run: |
           pnpm --filter @itrms/api build
           pnpm --filter @itrms/api dev:migrate
           pnpm --filter @itrms/api dev:seed org seed/org/south-ethiopia.wolaita.yaml
+          pnpm --filter @itrms/api dev:seed services ../../platform/services/seed/catalogue.yaml --region SER
           pnpm --filter @itrms/api dev:seed users seed/users/wolaita.demo.yaml
           pnpm --filter @itrms/api dev:seed identity
       - name: Start the worker (outbox relay, the forms' value fill and exports)

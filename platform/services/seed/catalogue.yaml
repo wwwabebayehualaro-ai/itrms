@@ -1,0 +1,329 @@
+# The service catalogue (task 0.21b): the 54 services of the reference design, by work process, with the source's
+# Amharic text verbatim and our English (docs/service-catalogue.md, from Documents/; generated from it). A region's
+# catalogue is seeded from this file (idempotent by code); a service is "not configured" until a service version is
+# published for it. Codes are stable: forms, menus, unit types and cases name them.
+services:
+  - code: PT-01
+    process: 2
+    module: public-transport
+    name:
+      am: በዞኑ ውስጥ አዳዲስ መናኸሪያዎችን መገንባትና በትራንስፖርትና መንገድ ልማት አስተዳደር መምሪያ ስም የመናኸሪያ ባለቤትነት ፕላን ማሰራት
+      en: Build new terminals (menahariya) in the zone and have terminal ownership plans prepared in the department's name
+  - code: PT-02
+    process: 2
+    module: public-transport
+    name:
+      am: ዞኑን ከአጎራባች ዞኖች፣ ዞኑን ከወረዳ፣ ዞንን ከልዩ ወረዳ የሚያገናኙ አዳዲስ የስምሪት መስመሮችን መክፈት
+      en: Open new routes linking the zone with neighbouring zones, with woredas, and with special woredas
+  - code: PT-03
+    process: 2
+    module: public-transport
+    name:
+      am: በዞኑ ከተሞች አዲስ የታክሲ ማህበር ማደራጀት
+      en: Organise new taxi associations in the zone's towns
+  - code: PT-04
+    process: 2
+    module: public-transport
+    name:
+      am: ለነባር የታክሲ ማህበራት ዓመታዊ ፍቃድ ዕድሳት ማድረግ
+      en: Annual licence renewal of existing taxi associations
+  - code: PT-05
+    process: 2
+    module: public-transport
+    name:
+      am: በዞኑ ውስጥ በሚገኙ ከተሞች አዳዲስ የከተማ ታክሲ የስምሪት መስመሮችን ማጥናትና ታሪፍ ማዘጋጀት
+      en: Study new town-taxi routes in the zone's towns and prepare tariffs
+  - code: PT-06
+    process: 2
+    module: public-transport
+    name:
+      am: ከዞን ተነሽ የሆኑ የህዝብ ማላለሻ ተሽከርካሪዎች ወርሃዊ የስምሪት መርሃ ግብሮችን መርምሮ ማጽደቅ
+      en: Examine and approve the monthly deployment schedules of public transport vehicles departing from the zone
+  - code: RS-01
+    process: 4
+    module: road-safety
+    name:
+      am: በዞኑ ለሚገኙ ህብረተሰብ ክፍሎች በመንገድ ደህንነት ዙሪያ ግንዛቤ እንዲፈጠር ማድረግ
+      en: Raise road-safety awareness among the zone's communities
+  - code: RS-02
+    process: 4
+    module: road-safety
+    name:
+      am: በቀበሌያት እና ት/ቤቶች አድስ የመንገድ ትራፍክ ደህንነት ክበባት ማቋቋም ነባር የመንገድ ትራፍክ ደህንነት ክበባት ማጠናክርና ግንዛቤ መፍጠር
+      en: Establish new road-safety clubs in kebeles and schools, strengthen existing clubs, and raise awareness
+  - code: RS-03
+    process: 4
+    module: road-safety
+    name:
+      am: የእግረኛ ማቋረጫ ቦታዎችን ዜብራ መቀባት
+      en: Paint zebra crossings at pedestrian crossing points
+  - code: RS-04
+    process: 4
+    module: road-safety
+    name:
+      am: መደበኛ ቁጥጥር ክትትል ማድረግ
+      en: Routine inspection and follow-up
+  - code: RS-05
+    process: 4
+    module: road-safety
+    name:
+      am: በዋና ዋና መንገዶች ላይ ድንገተኛ ቁጥጥር ማድረግ
+      en: Surprise inspections on main roads
+  - code: RS-06
+    process: 4
+    module: road-safety
+    name:
+      am: የትራፍክ ደንብ በመተላለፍ የተከሰሱ አሽከርካሪዎች ላይ ገንዘብ መሰብሰብ
+      en: Collect money (fines) from drivers charged with traffic-rule violations
+  - code: RS-07
+    process: 4
+    module: road-safety
+    name:
+      am: የሚከሰቱ የትራፊክ አደጋዎችንና አደጋው ያስከተለውን የሰውና የንብረት ጉዳት መረጃ ማደራጀትና ለሚመለከተው አካል ማስተላለፍ
+      en: Organise data on traffic accidents and the human and property damage they cause, and forward it to the concerned bodies
+  - code: DVC-01
+    process: 1
+    module: competency
+    name:
+      am: የተሸከርካሪ ምዝገባ ማከናወንና ሰሌዳ መስጠት
+      en: Register vehicles and issue plates
+  - code: DVC-02
+    process: 1
+    module: competency
+    name:
+      am: የተሸከርካሪ ቴክኒክ ምርመራ ማድረግና ቦ/ሎ መስጠት
+      en: Technical inspection of vehicles and issue of the bolo
+  - code: DVC-03
+    process: 1
+    module: competency
+    name:
+      am: አዲስ የአሽከርካሪ ብቃት ማረጋገጫ ፈቃድ ማዘጋጀትና ማሰራጨት
+      en: Prepare and distribute new driver qualification licences
+  - code: DVC-04
+    process: 1
+    module: competency
+    name:
+      am: ነባር የአሽከርካሪ ብቃት ማረጋገጫ ፈቃድ ማድስ
+      en: Renew existing driver licences
+  - code: DVC-05
+    process: 1
+    module: competency
+    name:
+      am: ዞኑን ለቀዉ ለሚሄዱ ተሸከርካሪዎች የማዛወር አገ/ት መስጠት
+      en: Transfer service for vehicles leaving the zone
+  - code: DVC-06
+    process: 1
+    module: competency
+    name:
+      am: ለጠፋ ሊበሬ ቦሎና ሰሌዳ ምትክ መስጠት
+      en: Replacement for a lost libre, bolo or plate
+  - code: DVC-07
+    process: 1
+    module: competency
+    name:
+      am: ማስልጠኛ ተቋማት በየጊዘዉ ስልጠና አሰጣጥና ክትትል ማድረግ
+      en: Periodic follow-up of how training institutes deliver training
+  - code: DVC-08
+    process: 1
+    module: competency
+    name:
+      am: ወደ ውጭ ሀገር ለሚወጡ አሽ/ች መንጃ ፈቃዳቸውን ኢንተር ናሽናል ማደርግ
+      en: Make the licence international for drivers going abroad
+  - code: DVC-09
+    process: 1
+    module: competency
+    name:
+      am: ከአገ/ት ተቀባዮች የገልግሎት ክፍያ መሰብሰብ
+      en: Collect service fees from service recipients
+  - code: DVC-10
+    process: 1
+    module: competency
+    name:
+      am: የዕጩ አሽከርካሪዎች ስልጠና አጠናቀው በማሰልጠኛ ተቋም በኩል ተረጋግጦ ሲቀር የንድፈ ሀሳብ (የኮምፒውተር) እና የሜዳ ፈተና ማከናወን
+      en: Hold the theory (computer) and field exams for candidates once the training institute has confirmed they completed training
+  - code: DVC-11
+    process: 1
+    module: competency
+    name:
+      am: ሥልጠና አጠናቀውና የንድፈ ሀሳብ(የኮምፒውተር) እና የሜዳ ፈተና የጠናቀቁ ሠልጣኞች መንጃ ፍቃድ እንዲታተምላቸው ለክልል ማስተላለፍና ታትሞ የመጣውን ማሰራጨት
+      en: Send the trainees who completed training and both exams to the region for licence printing, and distribute the printed licences
+  - code: FR-01
+    process: 3
+    module: freight
+    name:
+      am: ለአዲስ ለሚመጡ ከተሸከርካሪዎች ብቃት ማረጋገጫ የምስክር ወረቀት መሰጠት
+      en: Competency certificate for newly arriving vehicles
+  - code: FR-02
+    process: 3
+    module: freight
+    name:
+      am: ለነባር ተሸከርካሪዎች ማረጋገጫ የምስክር ወረቀት ዕድሳት ማድረግ
+      en: Certificate renewal for existing vehicles
+  - code: FR-03
+    process: 3
+    module: freight
+    name:
+      am: የጭነት ትራንስፖርት ማመላለሻ ማህበራት ፈቃድ ዕድሳት ማድረግ
+      en: Licence renewal of freight transport associations
+  - code: RQ-01
+    process: 5
+    module: road-quality
+    name:
+      am: የቀበሌ ተደራሽ መንገድ ነባር ፕሮጀክቶች ቀሪ የአፈር ሥራ ፣ጠጠር ዳምፕ የማድረግና ብተና ሥራ፣የስትራክቸር ሥራዎችን ማከናወን
+      en: Carry out the remaining earthworks, gravel dumping and spreading, and structure works of existing kebele access road projects
+  - code: RQ-02
+    process: 5
+    module: road-quality
+    name:
+      am: የግንባታ ቁጥጥር ማድረግ በቁጥር
+      en: Construction supervision, counted by number (a target of supervision visits)
+  - code: DC-01
+    process: 6
+    module: design-contracts
+    name:
+      am: አዳዲስ የመንገድ ፕሮጀክቶች ዲዛይን ስራዋች ማሰራት
+      en: Have design works done for new road projects
+  - code: DC-02
+    process: 6
+    module: design-contracts
+    name:
+      am: የተቋራጭና የአማካሪ የዉል ሰነድ ማዘጋጀት
+      en: Prepare contractor and consultant contract documents
+  - code: DC-03
+    process: 6
+    module: design-contracts
+    name:
+      am: አዲስ ለተመረጡ ፕሮጀክቶችን ዉል መስጠት
+      en: Award contracts for newly selected projects
+  - code: DC-04
+    process: 6
+    module: design-contracts
+    name:
+      am: የዲዛይን እና የሱፐርቪዥን የቁርጥ ዋጋ ማዘጋጀት
+      en: Prepare design and supervision unit rates
+  - code: DC-05
+    process: 6
+    module: design-contracts
+    name:
+      am: ደረጃቸዉ የሚሻሻሉ/Dc3/ መንገዶች መለየትና ለግንባታ ማዘጋጀት
+      en: Identify roads to be upgraded (DC3) and prepare them for construction
+  - code: DC-06
+    process: 6
+    module: design-contracts
+    name:
+      am: ለተሰራ የድልድይ ስራ ክፍያ ሰነድ ማዘጋጀት
+      en: Prepare payment documents for completed bridge works
+  - code: DC-07
+    process: 6
+    module: design-contracts
+    name:
+      am: ለአዲስ መንገድ ፕሮጀክቶች ግንባታ ቅድመ ክፍያ ሰነድ ማዘጋጀት
+      en: Prepare advance-payment documents for the construction of new road projects
+  - code: CP-01
+    process: 7
+    module: community
+    name:
+      am: በህብረተሰብ ተሳትፎ መደበኛ ጥገና ማከናወን
+      en: Routine maintenance through community participation
+  - code: CP-02
+    process: 7
+    module: community
+    name:
+      am: በህብረተሰብ ተሳትፎ ወቅታዊ ጥገና ማከናወን
+      en: Periodic maintenance through community participation
+  - code: CP-03
+    process: 7
+    module: community
+    name:
+      am: የህብረተሰብ ተሳትፎ በገንዘብ መተመን/መቀየር
+      en: Value or convert community participation into money
+  - code: CP-04
+    process: 7
+    module: community
+    name:
+      am: ካፒታል በጀት በወረዳና በዞን እንዲያዝ ማድረግ
+      en: Get capital budget allocated at woreda and zone level
+  - code: CP-05
+    process: 7
+    module: community
+    name:
+      am: የባለድርሻ አካላት ተሳትፎ ማሳደግ
+      en: Increase stakeholder participation
+  - code: LG-01
+    process: 8
+    module: logistics
+    name:
+      am: በመንገድ ግንባታ እና ጥገና ሥራ ላይ ለሚሳተፉ ጊዜያዊና ቋሚ የሥራ ዕድል መፍጠር
+      en: Create temporary and permanent jobs for people in road construction and maintenance
+  - code: LG-02
+    process: 8
+    module: logistics
+    name:
+      am: የአከባቢ ጥበቃ ሥራን ማሻሻልና መንገዶች በጎርግና በነፋስ እንዳይወድሙ ችግኞችን መትከል
+      en: Improve environmental protection and plant seedlings so that roads are not destroyed by floods and wind
+  - code: LG-03
+    process: 8
+    module: logistics
+    name:
+      am: የመንገድ ግንባታ ሥራን ለማከናወን የተገዙ ማሽነሪዎች ለተቋራጭ ውል በማስገባት በኪራይ እንዲጠቀሙ ማድረግ
+      en: Rent the machinery bought for road construction to contractors under contract
+  - code: HR-01
+    process: 9
+    module: hr
+    name:
+      am: የሰዉ ሃይል ማሟላት
+      en: Staffing (filling positions; Form 15)
+  - code: HR-02
+    process: 9
+    module: hr
+    name:
+      am: የዓመት ዕረፍት ጥያቄ ሲቀርብ ተቀብሎ ማስተናገድ
+      en: Receive and handle annual-leave requests
+  - code: HR-03
+    process: 9
+    module: hr
+    name:
+      am: የሰራተኞች እና አመራሮች ጥቅማ ጥቅም ማስከበር
+      en: Secure the benefits of staff and leaders
+  - code: HR-04
+    process: 9
+    module: hr
+    name:
+      am: የሰራተኞች በየወሩ ደሞዝ ለፋይናንስ ማስተላለፍ
+      en: Forward staff salaries to Finance every month (the payroll list, ADR-0016)
+  - code: HR-05
+    process: 9
+    module: hr
+    name:
+      am: የሰራተኞች መረጃ ለፐብሊክ ሰርቪስ ማስተላለፍ
+      en: Forward staff data to the civil service
+  - code: HR-06
+    process: 9
+    module: hr
+    name:
+      am: ጡረታ የሚወጡ ሰራተኞችን ጡረታ ማስወጣት
+      en: Process the retirement of retiring staff
+  - code: PB-01
+    process: 10
+    module: planning
+    name:
+      am: የሴክተሩን ዓመታዊ በጀት መረጃ ማዘጋጀት እና ማደራጀት
+      en: Prepare and organise the sector's annual budget data
+  - code: PB-02
+    process: 10
+    module: planning
+    name:
+      am: የበየሩብ ዓመቱ ዕቅድ አፈጻጸም ማዘጋጀት እና ለሚመለከተዉ አካል ማስተላለፍ
+      en: Prepare the quarterly plan performance and forward it to the concerned body
+  - code: PB-03
+    process: 10
+    module: planning
+    name:
+      am: የሴክተሩ ዓመታዊ ግዥ ዕቅድ ማዘጋጀት እና ለሚመለከተዉ አካላት ማቅረብ
+      en: Prepare the sector's annual procurement plan and submit it to the concerned bodies
+  - code: PB-04
+    process: 10
+    module: planning
+    name:
+      am: በሴክተር በጀት የሚሰሩ የካፕታል ፕሮጀክት ፊዝካል አፈጻጸም መከታተል አስፈላጊ መረጃዎችን ለሚመለከተዉ አካል ማስተላለፍ
+      en: Monitor the physical performance of capital projects funded by the sector budget and forward the needed data

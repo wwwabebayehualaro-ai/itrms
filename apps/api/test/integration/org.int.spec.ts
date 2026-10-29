@@ -432,27 +432,30 @@ describe('the admin API', () => {
     it('turns a service on for one unit, with a reason', async () => {
         await actAt('SER', 'WOL');
         const humbo = await unit('SER', 'WOL-HUMBO');
-        const res = await call('PUT', `/api/v1/org-units/${humbo.id}/services/DVC-03`, {
-            enabled: true,
-            reason: 'pilot'
-        });
+        const url = `/api/v1/org-units/${humbo.id}/services/DVC-03`;
+        // a change names the version it was based on (0: the unit has no exception of its own yet)
+        expect((await call('PUT', url, { enabled: true, reason: 'pilot' })).statusCode).toBe(400);
+        const res = await call('PUT', url, { enabled: true, reason: 'pilot' }, { 'if-match': '"0"' });
         expect(res.statusCode).toBe(200);
-        expect(res.json<{ services: string[] }>().services).toContain('DVC-03');
+        expect(res.json<{ services: string[]; overrides: unknown[] }>()).toMatchObject({
+            services: expect.arrayContaining(['DVC-03']) as unknown,
+            overrides: [{ code: 'DVC-03', enabled: true, reason: 'pilot', version: 1 }]
+        });
+        expect((await call('PUT', url, { enabled: false, reason: 'late' }, { 'if-match': '"0"' })).statusCode).toBe(
+            409
+        );
         const { rows } = await owner.query(
             "select 1 from kernel.audit_log where table_name = 'kernel.unit_service_overrides' and actor_id = $1",
             [principal?.userId]
         );
         expect(rows.length).toBeGreaterThan(0);
-        expect((await call('DELETE', `/api/v1/org-units/${humbo.id}/services/DVC-03`)).json()).toMatchObject({
+        expect((await call('DELETE', url, undefined, { 'if-match': '"1"' })).json()).toMatchObject({
             services: expect.not.arrayContaining(['DVC-03']) as unknown
         });
 
         // a unit never widens its own services
         await actAt('SER', 'WOL-HUMBO');
-        const own = await call('PUT', `/api/v1/org-units/${humbo.id}/services/DVC-03`, {
-            enabled: true,
-            reason: 'self'
-        });
+        const own = await call('PUT', url, { enabled: true, reason: 'self' }, { 'if-match': '"0"' });
         expect(own.statusCode).toBe(403);
     });
 });

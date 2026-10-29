@@ -103,7 +103,6 @@
   "workflow.refusal.not-an-action": "ጉዳዩ የሚጠብቀው ክስተትን ወይም የጊዜ ገደቡን ነው እንጂ የሰው ውሳኔን አይደለም።",
   "workflow.refusal.not-an-event": "ጉዳዩ ክስተትን እየጠበቀ አይደለም።",
   "workflow.refusal.not-claimed": "ይህን ደረጃ አልያዙትም።",
-  "workflow.refusal.not-startable": "ይህ የሥራ ፍሰት ተዘግቷል ወይም እስካሁን ስሪት የለውም።",
   "workflow.refusal.reject-not-allowed": "የእርስዎ ሚና ይህን ጉዳይ ውድቅ ማድረግ አይችልም።",
   "workflow.refusal.role-required": "ይህን ደረጃ የሚወስደው ሌላ ሚና ወይም ሌላ ጽ/ቤት ነው።",
   "workflow.refusal.separation-of-duties": "በዚህ ጉዳይ ቀደም ባለ ደረጃ ላይ ሠርተዋል፤ ይህን ደረጃ ሌላ ሰው ይወስደዋል።",

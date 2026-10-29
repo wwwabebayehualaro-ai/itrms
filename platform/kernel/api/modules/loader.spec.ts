@@ -226,6 +226,22 @@ describe('loadSlices', () => {
             'freight: message "kernel.nav.home" must start with "freight."',
             'freight: menu item "freight.permits" needs "permit:read", which no installed module defines'
         ]);
+
+        // a service nobody serves would hide the item for ever too (task 0.21b)
+        const served = (services: string[]) =>
+            slice({
+                key: 'freight',
+                layer: 'work-process',
+                version: '1.0.0',
+                title,
+                workProcess: 3,
+                services,
+                menu: [{ ...menu[0], requires: { services: ['FR-01'] } }]
+            } as ModuleManifestInput);
+        expect(problems([kernel, { ...served(['FR-01']), messages: texts }])).toEqual([]);
+        expect(problems([kernel, { ...served([]), messages: texts }])).toEqual([
+            'freight: menu item "freight.permits" needs service "FR-01", which no installed module serves'
+        ]);
     });
 
     it('needs every setting declared once, with a schema its default fits and a name in Amharic and English', () => {

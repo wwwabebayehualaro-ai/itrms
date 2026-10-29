@@ -14,6 +14,7 @@ export {
     getUnit,
     moveUnit,
     renameUnit,
+    serviceOverridesOf,
     setServiceOverride,
     subtree,
     type LevelDefinition,
@@ -34,6 +35,7 @@ export {
     type OrgImportResult
 } from './org-import';
 export { OrgAdminService, withinScope } from './org-admin.service';
+export { SERVICE_CATALOGUE, type ServiceCatalogue } from './service-catalogue';
 export { unitRefs, type UnitRef } from './unit-refs';
 export { OrgController } from './org.controller';
 export * from './org.table';

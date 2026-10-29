@@ -891,12 +891,23 @@
         {
           "id": "0.21b",
           "title": "Configuration inheritance, part 2: the service catalogue and frozen configuration",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.21b-service-catalogue",
+          "commits": [
+            "d94f47b"
+          ],
+          "evidence": [
+            "GitHub CI run 40832703591 on d94f47b (PR #23): all 9 jobs success — checks, dev stack + test:int, e2e, perf, stories/axe, Semgrep, gitleaks, Trivy, licence report",
+            "pnpm test:int (CI) → 22 files / 372 tests on PostgreSQL 16, incl. services.int.spec.ts (6: the catalogue of 54 and what an office offers; enablement checks the catalogue (422 unknown_service) with If-Match; publish only from a region seat, naming a form and workflow that exist, are on and are the region's own (unknown_form/unknown_workflow/workflow_not_regional), never backdated, defaults that fit; a woreda override (set from above: its own admin 403) of an allowed key holds for its own new cases only — Boditi and Test Zone B keep the bureau's, a disallowed key 422 setting_level_not_allowed, an unknown state, an oversized help text, 409 stale; the frozen config with its hash and sources, the step due on its SLA; a new version reports the overrides that no longer fit and open cases keep theirs; audit), workflow-inbox (10, on service requests), org (18, If-Match), isolation 50",
+            "Done when — a woreda override of an allowed key (SLA, help text) applies to that woreda's new cases only: services.int › a woreda's override …; configuration.spec precedence",
+            "Done when — a disallowed key is refused: services.int (422 setting_level_not_allowed for approval_unit; unknown_state; text too long); configuration.spec keyProblem",
+            "Done when — publishing a new bureau version re-checks the overrides and reports conflicts: services.int › a new bureau version … (help.remark not_allowed, sla.review unknown_state, sorted)",
+            "Done when — open cases keep their frozen config: services.int (the open case's config and serviceVersionId unchanged after v2 and after the override changed)",
+            "Unit: services 5 (configuration.spec), kernel 76 (loader: menu needs a served service), workflow 30, api 13 (catalogue.spec: 54 codes, every module's and seeded unit type's code), web 71; e2e (CI) 15 journeys on service requests; i18n complete; boundaries clean; check:slices ok; OpenAPI regenerated; migrations 0045–0046 applied from zero",
+            "task-verifier: ready with caveats (CI pending; a missing form test; the config hash) — closed in d94f47b. Reviewer: 1 high (a version could name a zone-owned workflow/form: other zones' 422, the zone could switch the region's service off), 2 medium (effective dates vs current version; unbounded texts → 500), 3 low (request 422 → 409, own-unit override, workflow README) — all fixed in d94f47b"
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "Design: catalogue (54, seed/catalogue.yaml generated from docs/service-catalogue.md), immutable service_versions (form/workflow version ids, defaults, override policy per key family, effective_from), service_overrides per unit; all class C. One resolver (kernel settings) with policy-driven allowed(); a value that no longer fits its version is passed over. Publish needs a region-root seat; checks form/workflow exist and are on, effects registered, defaults fit; reports conflicts below (sorted). Requests freeze config on the case (serviceVersionId, formVersionId, sla, help, approval_unit, templateHeader, sources); the engine reads sla.<state> first. POST /cases removed (inbox suite and e2e journeys request RS-01/02/03 instead). Kernel enablement: If-Match + catalogue via SERVICE_CATALOGUE port (ServicesModule is @Global). Cross-slice FKs (form/workflow versions) only in hand-written SQL (slices import only public entries; drizzle-kit can't load Nest entries). Follow-ups 110 (server actions → module effects) moved to 0.21c with 126; 113 to Phase 1 (no transfer exists). 2026-10-29: 5b5edd5 on PR #23: CI 1st run — integration 22 files/372 tests, 371 pass incl. services.int.spec (6) on the first run; 1 fail in forms-exports.int.spec (an audit-order tie: two events in one transaction share 'at'; pre-existing, fixed with order by at, id). task-verifier: ready with caveats (test a missing form version, assert the config hash) — added locally. Reviewer running."
         },
         {
           "id": "0.21c",
@@ -1799,7 +1810,8 @@
     {
       "foundIn": "0.8",
       "item": "Service overrides: If-Match on PUT/DELETE /org-units/{id}/services/{code}; codes checked against service_definitions; which units may override which services (allowed-overrides policy per service version)",
-      "movedTo": "0.21b"
+      "movedTo": "0.21b",
+      "closedIn": "0.21b: If-Match on PUT/DELETE /org-units/{id}/services/{code} (overrides[].version in the GET), codes checked against the catalogue through SERVICE_CATALOGUE; the version's policy governs the other keys (sla, approval_unit, help, templateHeader) of service overrides"
     },
     {
       "foundIn": "0.8",
@@ -1944,7 +1956,8 @@
     {
       "foundIn": "0.10b",
       "item": "Unknown service codes in menu requires are not checked against the service catalogue",
-      "movedTo": "0.21b"
+      "movedTo": "0.21b",
+      "closedIn": "0.21b: the loader refuses a menu item that needs a service no installed module serves; apps/api catalogue.spec checks every module's and seeded unit type's service codes against the catalogue"
     },
     {
       "foundIn": "0.11",
@@ -2101,7 +2114,7 @@
     {
       "foundIn": "0.16a",
       "item": "The legacy runtime.submit.serverAction is not run: a service version names module effects instead",
-      "movedTo": "0.21b"
+      "movedTo": "0.21c"
     },
     {
       "foundIn": "0.16a",
@@ -2116,7 +2129,7 @@
     {
       "foundIn": "0.16b",
       "item": "A transfer of a submission's handling unit must move its submission_values rows too (they carry handling_unit_id for their scope)",
-      "movedTo": "0.21b"
+      "movedTo": "Phase 1 (DVC-05 transfers; no transfer of a handling unit exists yet)"
     },
     {
       "foundIn": "0.16b",
@@ -2340,7 +2353,8 @@
     {
       "foundIn": "0.19a",
       "item": "Check that the effects (and workflow versions) named by seeded and published service versions exist: the EffectRegistry's keys, WorkflowDefinitionsService",
-      "movedTo": "0.21b"
+      "movedTo": "0.21b",
+      "closedIn": "0.21b: publishing a service version checks its form and workflow versions exist and are on, and the workflow's effects are in the EffectRegistry (no versions are seeded yet: DVC-03's comes with 0.24)"
     },
     {
       "foundIn": "0.19a",
@@ -2371,7 +2385,8 @@
     {
       "foundIn": "0.20b",
       "item": "POST /api/v1/cases starts any active workflow the office reads, with no service configuration (interim intake): restrict it to workflows a service enabled for the unit names, or remove it",
-      "movedTo": "0.21b"
+      "movedTo": "0.21b",
+      "closedIn": "0.21b: POST /api/v1/cases removed; POST /api/v1/service-requests starts a case only for a service the unit offers and is configured, on its frozen configuration"
     },
     {
       "foundIn": "0.20b",

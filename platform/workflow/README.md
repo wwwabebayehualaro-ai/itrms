@@ -62,10 +62,9 @@ Layer: platform. Shape, public entries and rules: [code-structure.md](../../docs
 
 ## Inbox, case page and comments (task 0.20b)
 
-- Intake starts a case on a workflow's newest version (`POST /api/v1/cases`, `case:create`, the records officer). This
-  is an interim, stated assumption until service requests (0.21): any active workflow the office reads (its own or one
-  above it) can be started, with no service configuration; 0.21 restricts it to the workflows a service enabled for the
-  unit names, or removes it.
+- Intake starts a case through its service (`POST /api/v1/service-requests`, `case:create`, the services slice,
+  task 0.21b): the service's version names the workflow version, and its configuration resolved for the unit is frozen
+  on the case (`config`, `config_hash`); the engine reads `approval_unit` and a step's SLA (`sla.<state>`) from it first.
 - The inbox (`GET /api/v1/me/tasks`) lists the open steps of the caller's active unit for the roles they hold there, by
   due time (overdue first, no SLA last), then the oldest; filters `claim` (all, mine, unclaimed), `sla` (overdue,
   due-soon: within `DUE_SOON_HOURS`), `state`, `number`; a cursor (`after`: the last task of the page before). A step
@@ -86,7 +85,7 @@ Layer: platform. Shape, public entries and rules: [code-structure.md](../../docs
 
 | Route | Permission |
 |---|---|
-| `POST /api/v1/cases` (a workflow's newest version, the caller's unit) | `case:create` |
+| `POST /api/v1/service-requests` (the services slice: a service the caller's unit offers) | `case:create` |
 | `GET /api/v1/me/tasks` | `case:act` |
 | `POST /api/v1/cases/{id}/tasks/{taskId}/claim`, `…/release` | `case:act`, then the step's role in its unit (release: its holder, or `case:reassign`) |
 | `POST /api/v1/cases/{id}/comments`, `GET /api/v1/cases/{id}/people` | `case:comment` |

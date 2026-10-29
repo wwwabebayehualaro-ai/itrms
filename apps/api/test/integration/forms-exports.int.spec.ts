@@ -235,7 +235,8 @@ describe('a background export', () => {
         });
         const events = await api.owner.query<{ event_type: string; diff: Record<string, unknown> }>(
             `select event_type, diff from kernel.audit_log
-              where event_type in ('submissions.exported', 'submissions.export_downloaded', 'file.downloaded') order by at`
+              where event_type in ('submissions.exported', 'submissions.export_downloaded', 'file.downloaded')
+              order by at, id`
         );
         expect(events.rows.map((e) => e.event_type)).toEqual([
             'submissions.exported',

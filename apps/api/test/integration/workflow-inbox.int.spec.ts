@@ -1,5 +1,6 @@
 /**
- * The inbox, claims and comments (task 0.20b), on a real PostgreSQL 16: intake starts a case; the inbox lists only the
+ * The inbox, claims and comments (task 0.20b), on a real PostgreSQL 16: intake starts a case through its service (a
+ * service version naming the workflow, task 0.21b); the inbox lists only the
  * open steps of the caller's unit for the roles they hold there (by due time, a page at a time, with its filters); one
  * of the role's holders takes a step on and the others may not act on it; separation of duties marks a step the caller
  * may not take; a comment's mentions must work on the case and are told once by the worker; all of it audited, and
@@ -64,8 +65,11 @@ let system: SystemDatabase;
 let workflowId: string;
 const as = {} as Record<keyof typeof SUB, As>;
 
+/** The service the suite's cases are requests for: offered by Damot Gale's type, configured with the suite's workflow. */
+const SERVICE = 'RS-01';
+
 async function start(who: As = as.damotRecords): Promise<CaseOut> {
-    const res = await api.call('POST', '/api/v1/cases', who, { workflowId });
+    const res = await api.call('POST', '/api/v1/service-requests', who, { serviceCode: SERVICE });
     expect(res.statusCode, res.body).toBe(201);
     return res.json<CaseOut>();
 }
@@ -135,6 +139,10 @@ beforeAll(async () => {
     });
     expect(res.statusCode, res.body).toBe(201);
     workflowId = res.json<{ id: string }>().id;
+    const published = await api.call('POST', `/api/v1/services/${SERVICE}/versions`, as.bureau, {
+        workflowVersionId: res.json<{ latestVersion: { id: string } }>().latestVersion.id
+    });
+    expect(published.statusCode, published.body).toBe(201);
 }, 240_000);
 
 afterAll(async () => {
@@ -144,7 +152,7 @@ afterAll(async () => {
 });
 
 describe('starting a case', () => {
-    it('is intake: a records officer starts one in their office; a head may not; an unknown workflow is 404', async () => {
+    it('is intake: a records officer starts one in their office; a head may not; an unknown service is 404', async () => {
         const c = await start();
         expect(c).toMatchObject({
             state: 'draft',
@@ -155,11 +163,16 @@ describe('starting a case', () => {
             canComment: true
         });
         expect(c.startedByName).toBe('Damot Gale Records Officer (demo)');
-        expect((await api.call('POST', '/api/v1/cases', as.damotHead, { workflowId })).statusCode).toBe(403);
-        const unknown = await api.call('POST', '/api/v1/cases', as.damotRecords, {
-            workflowId: '0199f0a0-0000-7000-8000-00000000beef'
-        });
+        expect(
+            (await api.call('POST', '/api/v1/service-requests', as.damotHead, { serviceCode: SERVICE })).statusCode
+        ).toBe(403);
+        const unknown = await api.call('POST', '/api/v1/service-requests', as.damotRecords, { serviceCode: 'ZZ-99' });
         expect(unknown.statusCode).toBe(404);
+        // a service the office does not offer (licences are a zone's or a licensing town's)
+        const elsewhere = await api.call('POST', '/api/v1/service-requests', as.damotRecords, {
+            serviceCode: 'DVC-03'
+        });
+        expect(elsewhere.statusCode).toBe(409);
     });
 });
 
