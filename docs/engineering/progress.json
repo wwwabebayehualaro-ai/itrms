@@ -913,10 +913,11 @@
         {
           "id": "0.21c",
           "title": "Configuration inheritance, part 3: service admin screens and requests at the counter",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.21c-service-screens",
           "commits": [
-            "6ace5f8"
+            "6ace5f8",
+            "d8b592a"
           ],
           "evidence": [
             "GitHub CI run 40864361117 on 6ace5f8 (PR #24): all 9 jobs success — checks, dev stack + test:int, e2e, perf, stories/axe, Semgrep, gitleaks, Trivy, licence report",
