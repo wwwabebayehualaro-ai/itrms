@@ -80,12 +80,56 @@ describe("an effect's input contract", () => {
         expect(
             contractInput(
                 licence,
-                { applicant: 'p1', licenceClass: 'b', medical: ['f1'], remark: 'x' },
+                { applicant: '0199f0a0-0000-7000-8000-0000000000a1', licenceClass: 'b', medical: ['f1'], remark: 'x' },
                 {
                     category: 'licenceClass'
                 }
             )
-        ).toEqual({ input: { applicant: 'p1', category: 'b', medical: ['f1'] }, missing: [] });
+        ).toEqual({
+            input: { applicant: '0199f0a0-0000-7000-8000-0000000000a1', category: 'b', medical: ['f1'] },
+            missing: [],
+            invalid: []
+        });
         expect(contractInput(licence, { applicant: 'p1', medical: [] }).missing).toEqual(['category', 'medical']);
+    });
+});
+
+describe('a contract field the server could let a request be filed without (review of 0.21d)', () => {
+    const want = { owner: { kind: 'text' as const } };
+    const panel = (extra: Record<string, unknown> = {}) =>
+        field('box', 'Panel', { layout: { options: { isContainer: true } }, ...extra });
+
+    it('is missing under a container taken out of the form', () => {
+        const fields = [panel({ removed: true }), required('owner', 'InputText', { parentId: 'box' })];
+        expect(checkContract(want, doc(fields))).toEqual([{ path: 'owner', key: 'owner', code: 'missing' }]);
+    });
+
+    it('is restricted when it, or its container, is kept from some roles', () => {
+        expect(
+            checkContract(want, doc([required('owner', 'InputText', { visibleToRoles: ['bureau_admin'] })]))
+        ).toEqual([{ path: 'owner', key: 'owner', code: 'restricted' }]);
+        const inside = [
+            panel({ visibleToRoles: ['bureau_admin'] }),
+            required('owner', 'InputText', { parentId: 'box' })
+        ];
+        expect(checkContract(want, doc(inside)).map((p) => p.code)).toEqual(['restricted']);
+    });
+
+    it('is conditional when a condition can disable it, and not required when it is not validated', () => {
+        const disabled = required('owner', 'InputText', {
+            behavior: {
+                validation: { supported: true },
+                enabledConditions: [{ field: 'remark', operator: 'equals', value: 'x' }]
+            }
+        });
+        expect(checkContract(want, doc([disabled])).map((p) => p.code)).toEqual(['conditional']);
+        const unvalidated = { id: 'owner', type: 'InputText', label: 'owner', props: { required: true } };
+        expect(checkContract(want, doc([unvalidated])).map((p) => p.code)).toEqual(['not_required']);
+    });
+
+    it('gives the effect only values of the kind asked, naming the others', () => {
+        expect(
+            contractInput({ owner: { kind: 'ref' }, plate: { kind: 'text' } }, { owner: 'Not an id', plate: 7 })
+        ).toEqual({ input: {}, missing: [], invalid: ['owner', 'plate'] });
     });
 });

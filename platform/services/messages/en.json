@@ -87,5 +87,8 @@
   "services.contract.kind.range": "range",
   "services.contract.kind.files": "file",
   "services.contract.kind.rows": "repeating rows",
-  "services.contract.kind.ref": "register lookup"
+  "services.contract.kind.ref": "register lookup",
+  "services.contract.restricted": "The effect {effect} needs \"{key}\" filled by everyone: it is kept from some roles.",
+  "services.contract.no_contract": "The effect {effect} reads nothing from the form: it takes no mapping.",
+  "services.contract.unknown_path": "The effect {effect} reads no \"{key}\": check the mapping."
 }

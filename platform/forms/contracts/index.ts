@@ -336,8 +336,9 @@ export const impactViewSchema = z.object({
 export const impactServiceSchema = z.object({
     code: z.string(),
     name: z.record(z.string(), z.string()),
-    /** its cases not yet closed (they keep the version they started with) */
+    /** its cases not yet closed (they keep the version they started with), in all and by service version number */
     openCases: z.number().int(),
+    byVersion: z.record(z.string(), z.number().int()).default({}),
     /** the effects of its workflow that read the form, by their input contracts */
     effects: z.array(z.string())
 });

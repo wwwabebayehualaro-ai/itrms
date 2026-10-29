@@ -47,5 +47,6 @@
   "kernel.settingOption.ui.density.comfortable": "ሰፊ",
   "kernel.settingOption.ui.density.compact": "የታመቀ",
   "kernel.errors.setting_level_not_allowed": "ይህ ቅንብር በዚህ ደረጃ ሊቀየር አይችልም።",
-  "kernel.nav.settings": "ቅንብሮች"
+  "kernel.nav.settings": "ቅንብሮች",
+  "kernel.errors.contract_unmet": "ጥያቄው ይህ ደረጃ የሚፈልገውን አልያዘም። የአገልግሎቱን አስተዳዳሪ ይጠይቁ።"
 }

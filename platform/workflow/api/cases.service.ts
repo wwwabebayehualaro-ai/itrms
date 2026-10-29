@@ -717,8 +717,9 @@ export class CasesService {
 
     /**
      * An effect's input by its contract (task 0.21d): the values of the case's request form (the version its service
-     * froze), read through the service version's input map. A required one missing (a request filed before the contract
-     * existed, a form changed outside the checks) refuses the transition: the effect never runs on less than it needs.
+     * froze), read through the service version's input map, each of the kind asked; the step's own answers are filed on
+     * the case, not given to a contracted effect. A required one missing or of another kind (a request filed before the
+     * contract changed) refuses the transition with 409 `contract_unmet`: the effect never runs on less than it needs.
      */
     private async contractedInput(
         tx: Tx,
@@ -736,11 +737,11 @@ export class CasesService {
                       .orderBy(asc(submissions.createdAt))
                       .limit(1)
                 : [];
-        const { input, missing } = contractInput(contract, request?.answers ?? {}, config.inputMap?.[key]);
-        if (missing.length)
-            throw new ValidationError('validation_failed', {
-                detail: `The effect ${key} needs values the request does not hold.`,
-                errors: missing.map((path) => ({ path: `input.${path}`, code: 'contract_unmet', message: path }))
+        const { input, missing, invalid } = contractInput(contract, request?.answers ?? {}, config.inputMap?.[key]);
+        // the request was filed and validated on its form: a gap here is the configuration's, never the actor's to fix
+        if (missing.length || invalid.length)
+            throw new ConflictError('contract_unmet', {
+                detail: `The effect ${key} cannot run on this request: ${[...missing, ...invalid].join(', ')}.`
             });
         return input;
     }

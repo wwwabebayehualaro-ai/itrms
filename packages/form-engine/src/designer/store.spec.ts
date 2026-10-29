@@ -375,3 +375,32 @@ describe('designer store: fields an effect reads (task 0.21d)', () => {
         expect(a.move('title', 'box', 0)).toBe(true);
     });
 });
+
+describe('designer store: a locked field keeps what an effect relies on (review of 0.21d)', () => {
+    it('keeps its kind settings, gets no condition or role, and is not dropped by a restored version', () => {
+        const store = createDesignerStore();
+        store.getState().actions.load(fromStored(stored).doc, { name: 'T', slug: 't', form_config: {} });
+        store
+            .getState()
+            .actions.setLocked(
+                new Map([
+                    ['title', { key: 'title', kind: 'text', required: true, effects: ['x.y'], services: ['RS-01'] }]
+                ])
+            );
+        const a = store.getState().actions;
+        a.update('title', (f) => {
+            f.visibleToRoles = ['bureau_admin'];
+            f.behavior = {
+                ...(f.behavior ?? {}),
+                visibilityConditions: [{ field: 'note', operator: 'eq', value: 'x' }]
+            };
+        });
+        const title = store.getState().doc.byId.title;
+        expect(title?.visibleToRoles).toBeUndefined();
+        expect(title?.behavior?.visibilityConditions).toBeUndefined();
+        // a version without the field is not taken in
+        const before = store.getState().doc;
+        a.replace(fromStored(stored.filter((x) => x.id !== 'title')).doc);
+        expect(store.getState().doc).toBe(before);
+    });
+});

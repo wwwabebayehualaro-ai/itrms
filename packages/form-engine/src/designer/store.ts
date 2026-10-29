@@ -104,7 +104,7 @@ export interface DesignerActions {
     setLocked: (locked: ReadonlyMap<string, FieldLock>) => void;
     /** The form's test cases (one undo step per call; calls with the same `key` in quick succession are one). */
     setTestCases: (cases: FormTestCase[], key?: string) => void;
-    /** Another document in place of this one (a restored version): one undo step, unsaved until saved. */
+    /** Another document in place of this one (a restored version): one undo step, unsaved until saved; refused when it lacks a locked field. */
     replace: (doc: DesignDoc) => void;
     setRuntime: (runtime: TemplateRuntimeConfig) => void;
     select: (id: string | null) => void;
@@ -117,6 +117,23 @@ export interface DesignerActions {
 export type DesignerStore = StoreApi<DesignerState & { actions: DesignerActions }>;
 
 const BLANK: FormTemplate = { name: '', slug: '', form_config: {} };
+
+/** The parts of a locked field an edit may not change (its kind, its conditions, its roles). */
+function lockedParts(f: FormField) {
+    const props = f.props ?? {};
+    return {
+        type: f.type,
+        props: Object.fromEntries(KIND_PROPS.filter((k) => k in props).map((k) => [k, props[k]])),
+        behavior: {
+            visibilityConditions: f.behavior?.visibilityConditions,
+            enabledConditions: f.behavior?.enabledConditions
+        },
+        visibleToRoles: f.visibleToRoles
+    };
+}
+
+/** The settings that decide a field's value kind (`valueKindOf`): a multiple choice, a range, a time. */
+const KIND_PROPS = ['multiple', 'range', 'showTime'] as const;
 
 /** Whether a container, or one it sits in, is a repeating section (its fields' values are the rows'). */
 function inRepeating(doc: DesignDoc, id: string): boolean {
@@ -260,12 +277,17 @@ export function createDesignerStore(
                     (d) => {
                         const f = d.byId[id];
                         if (!f) return;
-                        const type = f.type;
+                        const kept = lock ? lockedParts(f) : null;
                         recipe(f);
-                        // a locked field keeps its type and, where the contract requires it, stays required
-                        if (lock) {
-                            f.type = type;
-                            if (lock.required) f.props = { ...(f.props ?? {}), required: true };
+                        // a locked field keeps its type, the settings that decide its kind and, where the contract
+                        // requires it, its required-ness; it gets no condition or role that could hide or disable it
+                        if (lock && kept) {
+                            f.type = kept.type;
+                            f.props = { ...(f.props ?? {}), ...kept.props };
+                            if (lock.required) f.props.required = true;
+                            f.behavior = { ...(f.behavior ?? {}), ...kept.behavior };
+                            if (kept.visibleToRoles === undefined) delete f.visibleToRoles;
+                            else f.visibleToRoles = kept.visibleToRoles;
                         }
                     },
                     key ?? `field:${id}`
@@ -327,7 +349,11 @@ export function createDesignerStore(
                     if (cases.length) d.testCases = cases;
                     else delete d.testCases;
                 }, key),
-            replace: (next) => commit(next),
+            replace: (next) => {
+                // a version that lacks a field an effect reads is not taken in (the field would leave the form)
+                for (const key of get().locked.keys()) if (!next.byId[key] || next.byId[key].removed) return;
+                commit(next);
+            },
             setRuntime: (runtime) =>
                 edit((d) => {
                     d.runtime = runtime;

@@ -87,5 +87,8 @@
   "services.contract.kind.range": "ክልል",
   "services.contract.kind.files": "ፋይል",
   "services.contract.kind.rows": "ተደጋጋሚ ረድፎች",
-  "services.contract.kind.ref": "ከመዝገብ ፍለጋ"
+  "services.contract.kind.ref": "ከመዝገብ ፍለጋ",
+  "services.contract.restricted": "ተግባሩ {effect} \"{key}\" በሁሉም እንዲሞላ ይፈልጋል፤ ከአንዳንድ ሚናዎች ተደብቋል።",
+  "services.contract.no_contract": "ተግባሩ {effect} ከቅጹ ምንም አያነብም፤ ማዛመጃ አይወስድም።",
+  "services.contract.unknown_path": "ተግባሩ {effect} \"{key}\" አያነብም፤ ማዛመጃውን ያረጋግጡ።"
 }

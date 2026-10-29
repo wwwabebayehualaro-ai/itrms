@@ -19,7 +19,7 @@ import {
     type EffectContract,
     type InputMap
 } from '@itrms/schemas';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import am from '../messages/am.json';
 import en from '../messages/en.json';
@@ -99,8 +99,29 @@ export class ServiceFormGuard implements FormPublishGuard {
     async check(tx: Tx, formId: string, document: unknown, language: string): Promise<GuardResult> {
         const problems: CheckProblem[] = [];
         const services = [];
-        for (const r of await this.readers(tx, formId)) {
-            if (!r.reading.length) continue;
+        const readers = (await this.readers(tx, formId)).filter((r) => r.reading.length > 0);
+        // the cases not yet closed, by the service version they started on (they keep it), in one query
+        const open = readers.length
+            ? await tx
+                  .select({
+                      code: sql<string>`${cases.config} ->> 'serviceCode'`,
+                      version: serviceVersions.number,
+                      n: sql<number>`count(*)::int`
+                  })
+                  .from(cases)
+                  .innerJoin(serviceVersions, sql`${serviceVersions.id}::text = ${cases.config} ->> 'serviceVersionId'`)
+                  .where(
+                      and(
+                          isNull(cases.closedAt),
+                          inArray(
+                              sql<string>`${cases.config} ->> 'serviceCode'`,
+                              readers.map((r) => r.code)
+                          )
+                      )
+                  )
+                  .groupBy(sql`1`, serviceVersions.number)
+            : [];
+        for (const r of readers) {
             for (const { effect, problem } of contractFindings(
                 r.reading,
                 (e) => this.effects.contract(e),
@@ -114,18 +135,14 @@ export class ServiceFormGuard implements FormPublishGuard {
                     path: `document.fields.${problem.key}`,
                     message: `${r.code}: ${contractMessage(effect, problem, language)}`
                 });
-            // its cases not yet closed, whatever version they started on (they keep it)
-            const [open] = await tx
-                .select({ n: sql<number>`count(*)::int` })
-                .from(cases)
-                .where(
-                    and(
-                        eq(cases.regionId, r.regionId),
-                        isNull(cases.closedAt),
-                        sql`${cases.config} ->> 'serviceCode' = ${r.code}`
-                    )
-                );
-            services.push({ code: r.code, name: r.name, openCases: open?.n ?? 0, effects: r.reading });
+            const mine = open.filter((o) => o.code === r.code);
+            services.push({
+                code: r.code,
+                name: r.name,
+                openCases: mine.reduce((sum, o) => sum + o.n, 0),
+                byVersion: Object.fromEntries(mine.map((o) => [String(o.version), o.n])),
+                effects: r.reading
+            });
         }
         return { problems, services };
     }
@@ -140,6 +157,8 @@ export class ServiceFormGuard implements FormPublishGuard {
                     const known = byKey.get(lock.key);
                     if (known) {
                         known.required ||= lock.required;
+                        // two effects reading the key as different kinds: the builder says both
+                        if (!known.kind.split(' / ').includes(lock.kind)) known.kind = `${known.kind} / ${lock.kind}`;
                         if (!known.effects.includes(effect)) known.effects.push(effect);
                         if (!known.services.includes(r.code)) known.services.push(r.code);
                     } else

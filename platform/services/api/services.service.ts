@@ -373,13 +373,29 @@ export class ServicesService {
         language: string
     ): { path: string; code: string; message: string }[] {
         const out: { path: string; code: string; message: string }[] = [];
-        for (const effect of Object.keys(inputMap))
+        for (const [effect, map] of Object.entries(inputMap)) {
+            const contract = this.effects.contract(effect);
             if (!facts.effects.includes(effect))
                 out.push({
                     path: `inputMap.${effect}`,
                     code: 'unknown_effect',
                     message: servicesText('services.contract.unknown_effect', language, { effect })
                 });
+            else if (!contract)
+                out.push({
+                    path: `inputMap.${effect}`,
+                    code: 'no_contract',
+                    message: servicesText('services.contract.no_contract', language, { effect })
+                });
+            else
+                for (const path of Object.keys(map))
+                    if (!(path in contract))
+                        out.push({
+                            path: `inputMap.${effect}.${path}`,
+                            code: 'unknown_path',
+                            message: servicesText('services.contract.unknown_path', language, { effect, key: path })
+                        });
+        }
         const reading = facts.effects.filter((e) => this.effects.contract(e) !== undefined);
         if (facts.formDocument === null) {
             for (const effect of reading)

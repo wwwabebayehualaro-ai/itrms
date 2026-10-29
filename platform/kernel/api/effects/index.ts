@@ -59,6 +59,7 @@ export interface EffectOptions {
 
 /** Marks an injectable class as the effect `key`, with its input contract. */
 export function Effect(key: string, options: EffectOptions = {}) {
+    // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- EFFECT_KEY is anchored; its first run cannot match the '.' before the second (linear time), and the key is a decorator's literal, not user input
     if (!EFFECT_KEY.test(key)) throw new Error(`@Effect('${key}'): an effect key is <module>.<name>`);
     const contract = options.input === undefined ? undefined : effectContractSchema.safeParse(options.input);
     if (contract && !contract.success)

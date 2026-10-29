@@ -156,6 +156,12 @@ describe("a service version and its effects' input contracts", () => {
                 .json<{ errors: { code: string }[] }>()
                 .errors.map((e) => e.code)
         ).toContain('unknown_effect');
+        // a mapping naming a path the contract does not declare (a typo of the optional note)
+        expect(
+            (await publish({ ...base, inputMap: { 'test.issuePermit': { holder: 'owner', notee: 'remark' } } })).json<{
+                errors: { code: string; path: string }[];
+            }>().errors
+        ).toEqual([expect.objectContaining({ path: 'inputMap.test.issuePermit.notee', code: 'unknown_path' })]);
         // no request form at all
         expect((await publish({ workflowVersionId: ids.workflowVersion })).json()).toMatchObject({
             errors: [{ path: 'formVersionId', code: 'contract_no_form' }]
