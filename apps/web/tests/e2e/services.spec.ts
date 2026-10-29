@@ -42,7 +42,8 @@ test('the bureau publishes a version, the zone changes a woreda’s time limit, 
     test.setTimeout(300_000);
     const bureauPage = await signedIn(browser, PEOPLE.bureau);
     const bureau = api(bureauPage);
-    const workflowId = await journeyWorkflow(bureau, runName('services'));
+    // a name of its own per run (a key: lower-case letters, digits, hyphens)
+    const workflowId = await journeyWorkflow(bureau, `services-${Date.now().toString(36)}`);
     const formName = runName('Road safety report');
     await publishedForm(bureau, api(await signedIn(browser, PEOPLE.bureauHead)), formName, [
         field('InputText', 'plate', 'Plate', { props: { required: true } })
