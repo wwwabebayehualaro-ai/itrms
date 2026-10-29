@@ -509,7 +509,7 @@ describe("a step's form on the case", () => {
             { 'if-match': `"${atReview.version}"` }
         );
         expect(done.statusCode, done.body).toBe(200);
-        expect(done.json<CaseOut>().submissions).toEqual([
+        expect(done.json<CaseOut>().steps).toEqual([
             expect.objectContaining({ state: 'review', answers: { plate: 'ETH ABC 0009' } })
         ]);
     });
