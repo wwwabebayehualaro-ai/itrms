@@ -913,12 +913,21 @@
         {
           "id": "0.21c",
           "title": "Configuration inheritance, part 3: service admin screens and requests at the counter",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.21c-service-screens",
+          "commits": [
+            "6ace5f8"
+          ],
+          "evidence": [
+            "GitHub CI run 40864361117 on 6ace5f8 (PR #24): all 9 jobs success — checks, dev stack + test:int, e2e, perf, stories/axe, Semgrep, gitleaks, Trivy, licence report",
+            "pnpm test:int (CI) → 22 files / 375 tests on PostgreSQL 16, incl. services.int.spec.ts (9: + the counter: GET /services/{code}/request, the answers filed with the case in one transaction, a required answer refused on the server leaving no case, an unoffered service 409; a workflow switched off answers 409, only its owner or above switches it (zone 403, stale 409), the switch audited; a step's form named by its action and filed with the transition) and iam.int (14, the menu's New request)",
+            "Done when — an admin publishes a service version and a zone admin overrides a woreda's SLA from the screens: e2e services.spec (the bureau: menu → Services → RS-04 → publish the region's workflow and form, the version counted; the zone: Damot Gale's review time limit 3 working days, shown with its source)",
+            "Done when — a request filed at the counter starts a case of its service with its answers: e2e services.spec (Damot Gale's records officer: New request → RS-04 → Plate → the case page with its submit action); services.int › a request at the counter (the submission's answers and form version on the case; shown on the case at its start)",
+            "Unit: web 73 (+ serviceDetail.test: sources, the override with its version and the values a newer version refuses left out, withHelp), services 5, workflow 30, api 13, kernel 76; e2e (CI) 16 journeys (+ services.spec; shell and inbox journeys with the new menu entry); i18n am/en complete; boundaries clean; check:slices ok; OpenAPI regenerated; no migrations",
+            "task-verifier: ready with caveats (CI pending; a step-form test; the PATCH's audit) — closed. Reviewer: 1 high (FormRenderer without a template: neither a counter request nor a step form could be filed), 5 medium (request answers not on the case, override re-sending values a version refuses, help texts only am/en with hard-coded labels, unbounded answers, a journey not repeatable) and lows — all fixed in 3544360/0871bcd/6ace5f8; lists capped at 100 → follow-up (0.21e)"
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "Design: screens /services, /services/{code} (versions, publish with the region's own workflow and published form, policy checkboxes, an Ethiopian start date; the override editor per office of the subtree: each SLA per timed state and help text per field with its source; change and reset from above), /requests/new (offered+configured services; the service's form version with the office's help texts overlaid, FormRenderer, POST /service-requests {answers} → the case page), /admin/workflows (list, switch on/off via PATCH, check a pasted definition). API: GET /services/{code}/request; POST /service-requests files the answers (SubmissionsService.create with the case as step, same transaction); configuration returns timed states and form fields; case actions carry their step form {formId, versionId} and the case page fills it in the action dialog. Demo user demo.bureau.head (unit_head at SER) for maker-checker approvals of the region's forms in the journeys. Follow-ups 157, 160 closed; 110, 126 → 0.21d."
         },
         {
           "id": "0.21d",
@@ -2125,7 +2134,7 @@
     {
       "foundIn": "0.16a",
       "item": "The legacy runtime.submit.serverAction is not run: a service version names module effects instead",
-      "movedTo": "0.21c"
+      "movedTo": "0.21d (effects named by the service version, the contracts)"
     },
     {
       "foundIn": "0.16a",
@@ -2211,7 +2220,7 @@
     {
       "foundIn": "0.16c",
       "item": "Server actions on submit: the designer offers none until service configuration names module effects",
-      "movedTo": "0.21c"
+      "movedTo": "0.21d (effects named by the service version, the contracts)"
     },
     {
       "foundIn": "0.16c",
@@ -2370,7 +2379,8 @@
     {
       "foundIn": "0.19a",
       "item": "Workflow definitions admin: PATCH name/active (switch a workflow off), a definitions screen with the check's problems, and maker-checker if a stored version should need a second person before a service version can name it",
-      "movedTo": "0.21c"
+      "movedTo": "0.21c",
+      "closedIn": "0.21c: PATCH /workflow-definitions/{id} (name, active; If-Match); the workflows screen lists them with their owner and latest version, switches one on or off, and checks a pasted definition with the engine (its problems in the reader's language). A second person before a service version may name a stored version: not needed, the service version is the bureau's own decision"
     },
     {
       "foundIn": "0.19b",
@@ -2386,7 +2396,8 @@
     {
       "foundIn": "0.20b",
       "item": "Case page: an action that files the step's form is shown disabled; take it with the form where the service's request flow renders it",
-      "movedTo": "0.21c"
+      "movedTo": "0.21c",
+      "closedIn": "0.21c: a case action carries its step form (form and version); the case page fills it in the action dialog and sends the answers with the transition"
     },
     {
       "foundIn": "0.20b",
@@ -2448,6 +2459,11 @@
       "foundIn": "0.21a",
       "item": "The person's language and calendar preferences are not yet the settings i18n.language / calendar.display of the registry (org-and-unit-types.md §4 table)",
       "movedTo": "Phase 1"
+    },
+    {
+      "foundIn": "0.21c",
+      "item": "The publish screen's workflow and form lists read the first 100 (all offices, newest first) and keep the region's own in the browser: filter by owner on the server (an owner query on the workflow and form lists)",
+      "movedTo": "0.21e"
     }
   ]
 }

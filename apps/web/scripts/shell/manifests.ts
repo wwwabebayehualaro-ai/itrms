@@ -4,6 +4,7 @@ import competency from '@itrms/competency/manifest';
 import parties from '@itrms/parties/manifest';
 import forms from '@itrms/forms/manifest';
 import kernel from '@itrms/kernel/manifest';
+import services from '@itrms/services/manifest';
 import workflow from '@itrms/workflow/manifest';
 
-export const MENU_MANIFESTS = [kernel, forms, workflow, parties, competency];
+export const MENU_MANIFESTS = [kernel, forms, workflow, services, parties, competency];

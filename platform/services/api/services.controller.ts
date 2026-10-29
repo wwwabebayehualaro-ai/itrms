@@ -20,6 +20,7 @@ import {
 import { DATABASE } from '@itrms/kernel/api';
 import type { Database } from '@itrms/kernel/db';
 import { InvalidRequestError, versionFrom } from '@itrms/kernel/errors';
+import { currentContext } from '@itrms/kernel/context';
 import { currentPrincipal, Require, requestDbContext } from '@itrms/kernel/iam';
 import type { CaseActor } from '@itrms/workflow/api';
 import { createZodDto } from 'nestjs-zod';
@@ -40,6 +41,8 @@ const codeOf = (code: string): string => {
     if (!SERVICE_CODE.test(code)) throw new InvalidRequestError('invalid_request', { detail: 'Not a service code.' });
     return code;
 };
+
+const language = () => currentContext()?.language ?? 'am';
 
 const actor = (): CaseActor => {
     const { userId, unitId, roles, permissions } = currentPrincipal();
@@ -107,11 +110,21 @@ export class ServicesController {
         await this.db.scoped(ctx, (tx) => this.services.resetOverride(tx, ctx, id, codeOf(code), version));
     }
 
-    /** A request for a service at the person's unit: a case on the service's configuration, frozen for it. */
+    /** What the counter fills in for a request of a service at the person's unit (its form version, help texts). */
+    @Get('services/:code/request')
+    @Require('case:create')
+    requestForm(@Param('code') code: string) {
+        const ctx = requestDbContext();
+        return this.db.scoped(ctx, (tx) => this.services.requestForm(tx, ctx, codeOf(code)));
+    }
+
+    /** A request for a service at the person's unit: a case on its frozen configuration, filed with its answers. */
     @Post('service-requests')
     @Require('case:create')
     request(@Body() body: RequestDto) {
         const ctx = requestDbContext();
-        return this.db.scoped(ctx, (tx) => this.services.request(tx, ctx, actor(), body.serviceCode));
+        return this.db.scoped(ctx, (tx) =>
+            this.services.request(tx, ctx, actor(), body.serviceCode, body.answers, language())
+        );
     }
 }

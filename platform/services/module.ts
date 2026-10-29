@@ -8,5 +8,26 @@ export default defineModule({
     layer: 'platform',
     version: '0.0.0',
     dependsOn: ['kernel', 'forms', 'workflow'],
-    title: { am: 'አገልግሎቶች', en: 'Services' }
+    title: { am: 'አገልግሎቶች', en: 'Services' },
+    // a request at the counter (intake), and the catalogue with its versions and overrides (task 0.21c)
+    menu: [
+        {
+            key: 'services.request',
+            group: 'my-work',
+            order: 5,
+            label: 'services.nav.request',
+            icon: 'file-plus',
+            route: '/requests/new',
+            requires: { permission: 'case:create' }
+        },
+        {
+            key: 'services.catalogue',
+            group: 'administration',
+            order: 20,
+            label: 'services.nav.catalogue',
+            icon: 'list-checks',
+            route: '/services',
+            requires: { permission: 'service-config:update' }
+        }
+    ]
 });

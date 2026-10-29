@@ -39,9 +39,11 @@ test('switching the unit changes the menu and the data scope', async ({ page }) 
     await page.locator('[data-unit="WOL-DAMOT-GALE"]').click();
     await expect(topbar.locator('[data-active-unit]')).toHaveAttribute('data-active-unit', 'WOL-DAMOT-GALE');
     await expect(page.locator('[data-app-sidebar] [data-menu-item="competency.applications"]')).toHaveCount(0);
-    // no licensing items; the records officer's tasks; the register of people and organisations is read from every office
+    // no licensing items; the records officer's requests and tasks; the register of people and organisations is read
+    // from every office
     expect(await menuItems(page)).toEqual([
         'kernel.home',
+        'services.request',
         'workflow.inbox',
         'parties.persons',
         'parties.organisations'

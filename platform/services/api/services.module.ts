@@ -1,5 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { SERVICE_CATALOGUE } from '@itrms/kernel/org';
+import { FormsModule } from '@itrms/forms/api';
 import { WorkflowModule } from '@itrms/workflow/api';
 
 import { ServicesController } from './services.controller';
@@ -12,7 +13,7 @@ import { ServicesService } from './services.service';
  */
 @Global()
 @Module({
-    imports: [WorkflowModule],
+    imports: [FormsModule, WorkflowModule],
     controllers: [ServicesController],
     providers: [ServicesService, { provide: SERVICE_CATALOGUE, useExisting: ServicesService }],
     exports: [ServicesService, SERVICE_CATALOGUE]

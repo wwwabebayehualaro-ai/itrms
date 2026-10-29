@@ -31,6 +31,16 @@ export default defineModule({
             icon: 'inbox',
             route: '/inbox',
             requires: { permission: 'case:act' }
+        },
+        // the workflows and their versions, with the engine's check and switching one off (task 0.21c)
+        {
+            key: 'workflow.definitions',
+            group: 'administration',
+            order: 21,
+            label: 'workflow.nav.definitions',
+            icon: 'workflow',
+            route: '/admin/workflows',
+            requires: { permission: 'workflow-definition:read' }
         }
     ]
 });

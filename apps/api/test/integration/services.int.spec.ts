@@ -47,16 +47,29 @@ const workflow = (review: string) => ({
 let pg: TestPostgres;
 let api: TestApi;
 const as = {} as Record<keyof typeof SUB, As>;
-const ids = { v1Workflow: '', v2Workflow: '', v1Form: '', v2Form: '' };
+const ids = { v1Workflow: '', v2Workflow: '', v2WorkflowId: '', v1Form: '', v2Form: '' };
 
-const field = (id: string) => ({ id, type: 'InputText', label: id, props: {} });
+/** A text field; `plate*` is a required one. */
+const field = (id: string) => {
+    const required = id.endsWith('*');
+    const key = id.replace('*', '');
+    return {
+        id: key,
+        type: 'InputText',
+        label: key,
+        props: required ? { required: true } : {},
+        behavior: { validation: { supported: true } }
+    };
+};
+/** What a request at the counter fills in (both of the suite's forms have the plate). */
+const ANSWERS = { plate: 'ETH ABC 0001' };
 
 /** A form published by the bureau (maker-checker: a second administrator approves); its version's id. */
 async function publishedForm(key: string, fields: string[]): Promise<string> {
     const created = await api.call('POST', '/api/v1/forms', as.bureau, {
         key,
         name: { am: key, en: key },
-        document: { fields: fields.map(field) }
+        document: { schemaVersion: 2, fields: fields.map(field) }
     });
     expect(created.statusCode, created.body).toBe(201);
     const asked = (
@@ -74,13 +87,17 @@ async function publishedForm(key: string, fields: string[]): Promise<string> {
 }
 
 async function storedWorkflow(key: string, review: string): Promise<string> {
+    return (await storedWorkflowRef(key, review)).versionId;
+}
+async function storedWorkflowRef(key: string, review: string): Promise<{ id: string; versionId: string }> {
     const res = await api.call('POST', '/api/v1/workflow-definitions', as.bureau, {
         key,
         name: { am: key, en: key },
         definition: workflow(review)
     });
     expect(res.statusCode, res.body).toBe(201);
-    return res.json<{ latestVersion: { id: string } }>().latestVersion.id;
+    const out = res.json<{ id: string; latestVersion: { id: string } }>();
+    return { id: out.id, versionId: out.latestVersion.id };
 }
 
 const publish = (who: As, body: object, code = SERVICE) =>
@@ -98,7 +115,7 @@ const configuration = (who: As, unitId: string) =>
 
 /** A request at the person's office, and what its case froze (read as the owner: the case's own columns). */
 async function requested(who: As) {
-    const res = await api.call('POST', '/api/v1/service-requests', who, { serviceCode: SERVICE });
+    const res = await api.call('POST', '/api/v1/service-requests', who, { serviceCode: SERVICE, answers: ANSWERS });
     expect(res.statusCode, res.body).toBe(201);
     const c = res.json<CaseOut>();
     const submitted = await api.call(
@@ -165,9 +182,11 @@ beforeAll(async () => {
     as.boditiAdmin = { sub: SUB.boditiAdmin, unit: boditi };
     as.tzbAdmin = { sub: SUB.tzbAdmin, unit: await api.unit('SER', 'TZB') };
     ids.v1Form = await publishedForm('road-safety-report', ['plate', 'remark']);
-    ids.v2Form = await publishedForm('road-safety-report-2', ['plate']);
+    ids.v2Form = await publishedForm('road-safety-report-2', ['plate*']);
     ids.v1Workflow = await storedWorkflow('road-safety-review', 'review');
-    ids.v2Workflow = await storedWorkflow('road-safety-check', 'check');
+    const v2 = await storedWorkflowRef('road-safety-check', 'check');
+    ids.v2Workflow = v2.versionId;
+    ids.v2WorkflowId = v2.id;
 }, 240_000);
 
 afterAll(async () => {
@@ -378,6 +397,120 @@ describe('a new bureau version', () => {
             { table_name: 'services.service_definitions', action: 'update', n: 2 },
             { table_name: 'services.service_overrides', action: 'insert', n: 1 },
             { table_name: 'services.service_versions', action: 'insert', n: 2 }
+        ]);
+    });
+});
+
+describe('a request at the counter', () => {
+    it("files the request form's answers with its case, in one transaction: a refused answer starts no case", async () => {
+        const form = await api.call('GET', `/api/v1/services/${SERVICE}/request`, as.damotRecords);
+        expect(form.statusCode, form.body).toBe(200);
+        expect(form.json()).toMatchObject({ serviceCode: SERVICE, versionNumber: 2, form: { versionId: ids.v2Form } });
+        // a service the office does not offer
+        expect((await api.call('GET', '/api/v1/services/DVC-03/request', as.damotRecords)).statusCode).toBe(409);
+
+        const count = async () =>
+            Number((await api.owner.query<{ n: string }>('select count(*) as n from workflow.cases')).rows[0]?.n);
+        const before = await count();
+        const noAnswers = await api.call('POST', '/api/v1/service-requests', as.damotRecords, { serviceCode: SERVICE });
+        expect(noAnswers.json()).toMatchObject({ errors: [{ path: 'answers', code: 'required' }] });
+        // the plate is required by the form: refused on the server, and no case is left behind
+        const refused = await api.call('POST', '/api/v1/service-requests', as.damotRecords, {
+            serviceCode: SERVICE,
+            answers: {}
+        });
+        expect(refused.statusCode).toBe(422);
+        expect(refused.json()).toMatchObject({ errors: [{ path: 'plate' }] });
+        expect(await count()).toBe(before);
+
+        const filed = await requested(as.damotRecords);
+        const { rows } = await api.owner.query<{ answers: Record<string, unknown>; form_version_id: string }>(
+            'select answers, form_version_id from forms.submissions where case_id = $1',
+            [filed.id]
+        );
+        expect(rows).toEqual([{ answers: ANSWERS, form_version_id: ids.v2Form }]);
+    });
+
+    it("answers 409 while the service's workflow is switched off; only the region switches its own off", async () => {
+        const url = `/api/v1/workflow-definitions/${ids.v2WorkflowId}`;
+        const read = async () => (await api.call('GET', url, as.bureau)).json<{ version: number; active: boolean }>();
+        const current = await read();
+        expect(
+            (await api.call('PATCH', url, as.zoneAdmin, { active: false }, { 'if-match': `"${current.version}"` }))
+                .statusCode
+        ).toBe(403);
+        expect((await api.call('PATCH', url, as.bureau, { active: false }, { 'if-match': '"0"' })).statusCode).toBe(
+            409
+        );
+        const off = await api.call('PATCH', url, as.bureau, { active: false }, { 'if-match': `"${current.version}"` });
+        expect(off.statusCode, off.body).toBe(200);
+        expect(off.json()).toMatchObject({ active: false });
+        const refused = await api.call('POST', '/api/v1/service-requests', as.damotRecords, {
+            serviceCode: SERVICE,
+            answers: ANSWERS
+        });
+        expect(refused.statusCode).toBe(409);
+        expect(refused.json()).toMatchObject({ code: 'not_configured' });
+        // the switch is audited, in its transaction
+        const { rows: audited } = await api.owner.query<{ diff: { after: { active: boolean } } }>(
+            `select diff from kernel.audit_log where table_name = 'workflow.workflow_definitions' and row_id = $1
+                and action = 'update' order by at desc limit 1`,
+            [ids.v2WorkflowId]
+        );
+        expect(audited[0]?.diff.after).toMatchObject({ active: false });
+        const on = await api.call(
+            'PATCH',
+            url,
+            as.bureau,
+            { active: true },
+            { 'if-match': `"${(await read()).version}"` }
+        );
+        expect(on.statusCode).toBe(200);
+        await requested(as.damotRecords);
+    });
+});
+
+describe("a step's form on the case", () => {
+    it('is named by the action that needs it, and filed on the case with its answers', async () => {
+        // a review whose step files the region's first form (key@number)
+        const stepped = {
+            ...workflow('review'),
+            states: workflow('review').states.map((s) =>
+                s.key === 'review' ? { ...s, stepForm: 'road-safety-report@1' } : s
+            )
+        };
+        const res = await api.call('POST', '/api/v1/workflow-definitions', as.bureau, {
+            key: 'road-safety-stepped',
+            name: { am: 'ደረጃ ቅጽ', en: 'Stepped' },
+            definition: stepped
+        });
+        expect(res.statusCode, res.body).toBe(201);
+        const versionId = res.json<{ latestVersion: { id: string } }>().latestVersion.id;
+        expect((await publish(as.bureau, { workflowVersionId: versionId }, 'RS-02')).statusCode).toBe(201);
+        const started = await api.call('POST', '/api/v1/service-requests', as.damotRecords, { serviceCode: 'RS-02' });
+        const c = started.json<CaseOut>();
+        const submitted = await api.call(
+            'POST',
+            `/api/v1/cases/${c.id}/transitions`,
+            as.damotRecords,
+            { action: 'submit' },
+            { 'if-match': `"${c.version}"` }
+        );
+        expect(submitted.statusCode, submitted.body).toBe(200);
+        const atReview = submitted.json<CaseOut>();
+        // the reviewer (a second records officer would be kept apart by no rule here: the same office's role)
+        const close = atReview.actionDetails.find((a) => a.action === 'close');
+        expect(close).toMatchObject({ needsForm: true, form: { versionId: ids.v1Form } });
+        const done = await api.call(
+            'POST',
+            `/api/v1/cases/${c.id}/transitions`,
+            as.damotRecords,
+            { action: 'close', answers: { plate: 'ETH ABC 0009' } },
+            { 'if-match': `"${atReview.version}"` }
+        );
+        expect(done.statusCode, done.body).toBe(200);
+        expect(done.json<CaseOut>().steps).toEqual([
+            expect.objectContaining({ state: 'review', answers: { plate: 'ETH ABC 0009' } })
         ]);
     });
 });
