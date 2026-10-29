@@ -891,10 +891,11 @@
         {
           "id": "0.21b",
           "title": "Configuration inheritance, part 2: the service catalogue and frozen configuration",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.21b-service-catalogue",
           "commits": [
-            "d94f47b"
+            "d94f47b",
+            "0e00058"
           ],
           "evidence": [
             "GitHub CI run 40832703591 on d94f47b (PR #23): all 9 jobs success — checks, dev stack + test:int, e2e, perf, stories/axe, Semgrep, gitleaks, Trivy, licence report",
