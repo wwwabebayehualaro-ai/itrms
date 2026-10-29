@@ -933,10 +933,11 @@
         {
           "id": "0.21d",
           "title": "Form governance, part 2: effect input contracts",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.21d-effect-contracts",
           "commits": [
-            "f59917c"
+            "f59917c",
+            "8be9512"
           ],
           "evidence": [
             "GitHub CI run 40914708600 on f59917c (PR #25): all 9 jobs success (lint/typecheck/test/build/boundaries, dev stack + S3, e2e, Semgrep, Trivy, gitleaks, licence, performance, stories)",
