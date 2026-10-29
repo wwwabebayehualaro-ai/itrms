@@ -108,7 +108,11 @@ export const serviceOverrideInputSchema = z.strictObject({
 });
 
 /** A request for a service at the counter: the case starts at the person's unit on the service's frozen configuration. */
-export const serviceRequestSchema = z.strictObject({ serviceCode: serviceCodeSchema });
+export const serviceRequestSchema = z.strictObject({
+    serviceCode: serviceCodeSchema,
+    /** the request form's answers, when the service has one (validated on the server on the version it names) */
+    answers: z.record(z.string(), z.unknown()).optional()
+});
 
 /** A problem a new version finds in an override below it (shown to the bureau, the override is kept). */
 export interface OverrideConflict {

@@ -395,6 +395,9 @@ importers:
       '@itrms/schemas':
         specifier: workspace:*
         version: link:../../packages/schemas
+      '@itrms/services':
+        specifier: workspace:*
+        version: link:../../platform/services
       '@itrms/ui':
         specifier: workspace:*
         version: link:../../packages/ui

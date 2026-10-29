@@ -86,6 +86,7 @@ Layer: platform. Shape, public entries and rules: [code-structure.md](../../docs
 | Route | Permission |
 |---|---|
 | `POST /api/v1/service-requests` (the services slice: a service the caller's unit offers) | `case:create` |
+| `PATCH /api/v1/workflow-definitions/{id}` (name, `active`; If-Match: the workflow's version; its owner or an office above) | `workflow-definition:update` |
 | `GET /api/v1/me/tasks` | `case:act` |
 | `POST /api/v1/cases/{id}/tasks/{taskId}/claim`, `…/release` | `case:act`, then the step's role in its unit (release: its holder, or `case:reassign`) |
 | `POST /api/v1/cases/{id}/comments`, `GET /api/v1/cases/{id}/people` | `case:comment` |

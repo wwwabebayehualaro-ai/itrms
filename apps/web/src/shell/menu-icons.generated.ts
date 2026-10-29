@@ -5,14 +5,17 @@ import {
     Building2,
     Circle,
     ClipboardCheck,
+    FilePlus,
     GitMerge,
     House,
     IdCard,
     Inbox,
     Languages,
+    ListChecks,
     Printer,
     SlidersHorizontal,
-    Users
+    Users,
+    Workflow
 } from 'lucide-react';
 
 export const MENU_ICONS: Readonly<Record<string, LucideIcon>> = {
@@ -20,12 +23,15 @@ export const MENU_ICONS: Readonly<Record<string, LucideIcon>> = {
     'building-2': Building2,
     circle: Circle,
     'clipboard-check': ClipboardCheck,
+    'file-plus': FilePlus,
     'git-merge': GitMerge,
     house: House,
     'id-card': IdCard,
     inbox: Inbox,
     languages: Languages,
+    'list-checks': ListChecks,
     printer: Printer,
     'sliders-horizontal': SlidersHorizontal,
-    users: Users
+    users: Users,
+    workflow: Workflow
 };

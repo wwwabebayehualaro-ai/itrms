@@ -35,6 +35,7 @@ export interface Api {
     get<T = any>(path: string): Promise<T>;
     post<T = any>(path: string, body?: unknown, version?: number): Promise<T>;
     patch<T = any>(path: string, body: unknown, version: number): Promise<T>;
+    delete(path: string, version: number): Promise<unknown>;
 }
 
 /** The forms API as the page's person (`path` without `/api/`, e.g. `v1/forms`). */
@@ -57,7 +58,8 @@ export function api(page: Page): Api {
     return {
         get: (path) => call('GET', path),
         post: (path, body = {}, version) => call('POST', path, body, version),
-        patch: (path, body, version) => call('PATCH', path, body, version)
+        patch: (path, body, version) => call('PATCH', path, body, version),
+        delete: (path, version) => call('DELETE', path, undefined, version)
     };
 }
 

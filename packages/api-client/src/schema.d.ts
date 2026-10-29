@@ -1089,6 +1089,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/services/{code}/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ServicesController_requestForm"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/services/{code}/versions": {
         parameters: {
             query?: never;
@@ -1310,7 +1326,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["WorkflowDefinitionsController_update"];
         trace?: never;
     };
     "/api/v1/workflow-definitions/{id}/versions": {
@@ -1652,6 +1668,9 @@ export interface components {
             };
         };
         RequestDto: {
+            answers?: {
+                [key: string]: unknown;
+            };
             serviceCode: string;
         };
         RevealDto: {
@@ -2068,6 +2087,15 @@ export interface components {
             };
             key: string;
             name: {
+                am: string;
+                en: string;
+            } & {
+                [key: string]: string;
+            };
+        };
+        WorkflowUpdateDto: {
+            active?: boolean;
+            name?: {
                 am: string;
                 en: string;
             } & {
@@ -3856,6 +3884,25 @@ export interface operations {
             };
         };
     };
+    ServicesController_requestForm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     ServicesController_versions: {
         parameters: {
             query?: never;
@@ -4220,6 +4267,29 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    WorkflowDefinitionsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowUpdateDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {

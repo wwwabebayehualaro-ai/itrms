@@ -12,6 +12,13 @@ users:
       home: SER,
       roles: [{ unit: SER, role: bureau_admin }]
     }
+  - {
+      username: demo.bureau.head,
+      displayName: Bureau Head (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000002,
+      home: SER,
+      roles: [{ unit: SER, role: unit_head }]
+    }
 
   # Wolaita Zone department
   - {

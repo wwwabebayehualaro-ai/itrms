@@ -1416,6 +1416,13 @@
       "RequestDto": {
         "additionalProperties": false,
         "properties": {
+          "answers": {
+            "additionalProperties": {},
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
+          },
           "serviceCode": {
             "pattern": "^[A-Z]{2,5}-\\d{2}$",
             "type": "string"
@@ -3283,6 +3290,36 @@
           "name",
           "definition"
         ],
+        "type": "object"
+      },
+      "WorkflowUpdateDto": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "name": {
+            "additionalProperties": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "properties": {
+              "am": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "en": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "am",
+              "en"
+            ],
+            "type": "object"
+          }
+        },
         "type": "object"
       },
       "WorkflowVersionCreateDto": {
@@ -5793,6 +5830,29 @@
         ]
       }
     },
+    "/api/v1/services/{code}/request": {
+      "get": {
+        "operationId": "ServicesController_requestForm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Services"
+        ]
+      }
+    },
     "/api/v1/services/{code}/versions": {
       "get": {
         "operationId": "ServicesController_versions",
@@ -6300,6 +6360,37 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "WorkflowDefinitions"
+        ]
+      },
+      "patch": {
+        "operationId": "WorkflowDefinitionsController_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowUpdateDto"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": ""

@@ -12,7 +12,7 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@
 import { effectiveServices, withinScope, type OrgUnit } from '@itrms/kernel/org';
 import { orgUnits } from '@itrms/kernel/tables';
 import { publishedKeysOf } from '@itrms/form-engine/core';
-import { formDefinitions, formVersions } from '@itrms/forms/api';
+import { formDefinitions, formVersions, RegistryLookups, SubmissionsService } from '@itrms/forms/api';
 import { CasesService, workflowDefinitions, workflowDefinitionVersions, type CaseActor } from '@itrms/workflow/api';
 import { effectKeyOf, workflowDefinitionSchema, type I18nText } from '@itrms/schemas';
 import { and, asc, desc, eq, inArray, lte, sql } from 'drizzle-orm';
@@ -126,7 +126,9 @@ const versionOut = (v: Version): VersionOut => ({
 export class ServicesService {
     constructor(
         @Inject(EffectRegistry) private readonly effects: EffectRegistry,
-        @Inject(CasesService) private readonly cases: CasesService
+        @Inject(CasesService) private readonly cases: CasesService,
+        @Inject(SubmissionsService) private readonly submissions: SubmissionsService,
+        @Inject(RegistryLookups) private readonly lookups: RegistryLookups
     ) {}
 
     /** A service of the person's region by code (404 when the catalogue has none). */
@@ -430,9 +432,22 @@ export class ServicesService {
         const own = overrides.find((o) => o.unitId === unit.id);
         const level = unit.parentId === null ? 'region' : 'unit';
         const resolved = resolveConfig(version, chain);
+        // the steps an SLA may be set for, with their labels (the override editor names them)
+        const [workflow] = await tx
+            .select({ definition: workflowDefinitionVersions.definition })
+            .from(workflowDefinitionVersions)
+            .where(eq(workflowDefinitionVersions.id, v.workflowVersionId));
+        const parsed = workflowDefinitionSchema.safeParse(workflow?.definition);
+        const states = parsed.success
+            ? parsed.data.states
+                  .filter((st) => version.facts.timedStates.has(st.key))
+                  .map((st) => ({ key: st.key, label: st.label ?? null }))
+            : [];
         return {
             serviceCode: code,
             version: versionOut(v),
+            states,
+            fields: [...version.facts.fieldKeys].sort(),
             values: Object.fromEntries([...resolved].map(([key, r]) => [key, r])),
             own: own ? { values: own.values, reason: own.reason, version: own.rowVersion } : null,
             /** the problems of the unit's own values under this version */
@@ -552,7 +567,8 @@ export class ServicesService {
      * A request for a service at the person's unit: the service must be offered there and configured; the case starts
      * on its effective version's workflow with the configuration resolved for the unit, frozen on the case.
      */
-    async request(tx: Tx, ctx: DbContext, actor: CaseActor, code: string) {
+    /** The service as the person's unit offers it today: its version in effect, its configuration for the unit. */
+    private async offered(tx: Tx, ctx: DbContext, code: string) {
         const unit = await this.visibleUnit(tx, ctx.unitId ?? '');
         const d = await this.definition(tx, unit.regionId, code);
         if (!d.active || !(await effectiveServices(tx, unit.id)).includes(code))
@@ -566,7 +582,53 @@ export class ServicesService {
             serviceVersionId: v.id,
             formVersionId: v.formVersionId
         });
+        const [form] = v.formVersionId
+            ? await tx
+                  .select({ formId: formVersions.formId, versionId: formVersions.id })
+                  .from(formVersions)
+                  .where(eq(formVersions.id, v.formVersionId))
+            : [];
+        return { unit, d, v, config, form: form ?? null };
+    }
+
+    /** What the counter fills in for a request (task 0.21c): the service's form version and its help texts here. */
+    async requestForm(tx: Tx, ctx: DbContext, code: string) {
+        const { d, v, config, form } = await this.offered(tx, ctx, code);
+        return { serviceCode: code, name: d.name as I18nText, versionNumber: v.number, form, help: config.help };
+    }
+
+    /**
+     * A request for a service at the person's unit: the service must be offered there and configured; the case starts
+     * on its effective version's workflow with the configuration resolved for the unit, frozen on the case, and the
+     * request form's answers (validated on the server on the version the service names) are filed with it in the same
+     * transaction: a refused answer starts no case.
+     */
+    async request(
+        tx: Tx,
+        ctx: DbContext,
+        actor: CaseActor,
+        code: string,
+        answers: Record<string, unknown> | undefined,
+        language: string
+    ) {
+        const { unit, v, config, form } = await this.offered(tx, ctx, code);
+        if (form && answers === undefined)
+            throw fieldErrors([
+                { path: 'answers', code: 'required', message: 'The service has a request form to fill in.' }
+            ]);
+        if (!form && answers !== undefined)
+            throw fieldErrors([{ path: 'answers', code: 'invalid', message: 'The service has no request form.' }]);
         const { id } = await this.cases.start(tx, ctx, { definitionVersionId: v.workflowVersionId, config });
+        if (form && answers)
+            await this.submissions.create(
+                tx,
+                ctx,
+                actor.roles,
+                { formId: form.formId, formVersionId: form.versionId, answers },
+                this.lookups,
+                language,
+                { caseId: id, handlingUnitId: unit.id }
+            );
         return this.cases.get(tx, actor, id);
     }
 }

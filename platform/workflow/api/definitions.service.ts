@@ -16,6 +16,7 @@ import { parseStepForm, type WorkflowDefinition } from '@itrms/schemas';
 import type { z } from 'zod';
 
 import type {
+    WorkflowUpdate,
     WorkflowCheck,
     WorkflowCreate,
     WorkflowOut,
@@ -224,6 +225,19 @@ export class WorkflowDefinitionsService {
             .where(and(eq(workflowDefinitionVersions.id, versionId), eq(workflowDefinitionVersions.definitionId, id)));
         if (!row) throw new NotFoundError();
         return versionOf(row);
+    }
+
+    /** Renames a workflow or switches it on or off, based on the version read (If-Match): the caller's own or below. */
+    async update(
+        tx: Tx,
+        ctx: DbContext,
+        id: string,
+        expectedVersion: number,
+        changes: WorkflowUpdate
+    ): Promise<WorkflowOut> {
+        const row = await this.writable(tx, ctx, id);
+        await updateAudited(tx, workflowDefinitions, row.id, expectedVersion, changes);
+        return this.get(tx, id);
     }
 
     /** A workflow the caller's unit owns or is above, locked: one of an office above is read-only here. */

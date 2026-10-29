@@ -913,12 +913,12 @@
         {
           "id": "0.21c",
           "title": "Configuration inheritance, part 3: service admin screens and requests at the counter",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.21c-service-screens",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Design: screens /services, /services/{code} (versions, publish with the region's own workflow and published form, policy checkboxes, an Ethiopian start date; the override editor per office of the subtree: each SLA per timed state and help text per field with its source; change and reset from above), /requests/new (offered+configured services; the service's form version with the office's help texts overlaid, FormRenderer, POST /service-requests {answers} → the case page), /admin/workflows (list, switch on/off via PATCH, check a pasted definition). API: GET /services/{code}/request; POST /service-requests files the answers (SubmissionsService.create with the case as step, same transaction); configuration returns timed states and form fields; case actions carry their step form {formId, versionId} and the case page fills it in the action dialog. Demo user demo.bureau.head (unit_head at SER) for maker-checker approvals of the region's forms in the journeys. Follow-ups 157, 160 closed; 110, 126 → 0.21d."
         },
         {
           "id": "0.21d",
@@ -2125,7 +2125,7 @@
     {
       "foundIn": "0.16a",
       "item": "The legacy runtime.submit.serverAction is not run: a service version names module effects instead",
-      "movedTo": "0.21c"
+      "movedTo": "0.21d (effects named by the service version, the contracts)"
     },
     {
       "foundIn": "0.16a",
@@ -2211,7 +2211,7 @@
     {
       "foundIn": "0.16c",
       "item": "Server actions on submit: the designer offers none until service configuration names module effects",
-      "movedTo": "0.21c"
+      "movedTo": "0.21d (effects named by the service version, the contracts)"
     },
     {
       "foundIn": "0.16c",
@@ -2370,7 +2370,8 @@
     {
       "foundIn": "0.19a",
       "item": "Workflow definitions admin: PATCH name/active (switch a workflow off), a definitions screen with the check's problems, and maker-checker if a stored version should need a second person before a service version can name it",
-      "movedTo": "0.21c"
+      "movedTo": "0.21c",
+      "closedIn": "0.21c: PATCH /workflow-definitions/{id} (name, active; If-Match); the workflows screen lists them with their owner and latest version, switches one on or off, and checks a pasted definition with the engine (its problems in the reader's language). A second person before a service version may name a stored version: not needed, the service version is the bureau's own decision"
     },
     {
       "foundIn": "0.19b",
@@ -2386,7 +2387,8 @@
     {
       "foundIn": "0.20b",
       "item": "Case page: an action that files the step's form is shown disabled; take it with the form where the service's request flow renders it",
-      "movedTo": "0.21c"
+      "movedTo": "0.21c",
+      "closedIn": "0.21c: a case action carries its step form (form and version); the case page fills it in the action dialog and sends the answers with the transition"
     },
     {
       "foundIn": "0.20b",

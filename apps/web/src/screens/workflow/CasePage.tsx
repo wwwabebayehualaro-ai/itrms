@@ -6,9 +6,10 @@
  * 0.23). An action that files a step form is taken where the service's request flow shows the form (0.21).
  */
 import Link from 'next/link';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ArrowLeft, FileText, MessageSquare, Route, Send, Workflow } from 'lucide-react';
 import { PrintForm } from '@itrms/form-engine/print';
+import { FormRenderer } from '@itrms/form-engine/renderer';
 import {
     Button,
     DescriptionList,
@@ -19,6 +20,7 @@ import {
     DialogHeader,
     DialogTitle,
     EmptyState,
+    InlineStatus,
     Label,
     PageHeader,
     Skeleton,
@@ -32,6 +34,8 @@ import {
 } from '@itrms/ui';
 
 import { getApiErrorMessage } from '@/lib/api/errors';
+import { useFormVersion } from '@/lib/services';
+import { withHelp } from '@/form-templates/serviceForm';
 import { useAuthStore } from '@/lib/auth/authStore';
 import { formatMoment } from '@/lib/format';
 import { usePreferences, useText } from '@/lib/preferences';
@@ -199,8 +203,8 @@ function OpenStep({ c, stateName }: { c: CaseOut; stateName: (key: string | null
                             key={a.action}
                             data-action={a.action}
                             variant={a.action === 'reject' ? 'outline' : 'default'}
-                            disabled={a.needsForm}
-                            title={a.needsForm ? t('workflow.case.needsForm') : undefined}
+                            disabled={a.needsForm && !a.form}
+                            title={a.needsForm && !a.form ? t('workflow.case.needsForm') : undefined}
                             onClick={() => setActing(a)}
                         >
                             {a.label ? text(a.label) : a.action}
@@ -214,6 +218,39 @@ function OpenStep({ c, stateName }: { c: CaseOut; stateName: (key: string | null
 }
 
 /** Takes an action, with a comment (required where the workflow says so). */
+/**
+ * A step's form inside its action (task 0.21c): the version the step names, filled in the dialog; its
+ * answers go with the transition, which files them on the case (validated on the server).
+ */
+function StepForm({ c, action, comment, onDone }: { c: CaseOut; action: Action; comment: string; onDone: () => void }) {
+    const { t } = useText();
+    const transition = useTransition(c.id);
+    const version = useFormVersion(action.form);
+    const fields = useMemo(() => (version.data ? withHelp(version.data.document, {}) : null), [version.data]);
+    if (!fields) return <InlineStatus loading className="p-4" />;
+    return (
+        <div data-step-form={action.form?.formId}>
+            <p className="text-sm text-muted-foreground">{t('workflow.case.fillStep')}</p>
+            <FormRenderer
+                bare
+                silent
+                fields={fields}
+                submitLabel={action.label ? undefined : action.action}
+                onFormSubmit={async (submission) => {
+                    const after = await transition.mutateAsync({
+                        version: c.version,
+                        action: action.action,
+                        answers: submission.submission_data,
+                        ...(comment.trim() ? { comment: comment.trim() } : {})
+                    });
+                    onDone();
+                    return after;
+                }}
+            />
+        </div>
+    );
+}
+
 function ActionDialog({ c, action, onClose }: { c: CaseOut; action: Action; onClose: () => void }) {
     const { t, text } = useText();
     const transition = useTransition(c.id);
@@ -222,7 +259,7 @@ function ActionDialog({ c, action, onClose }: { c: CaseOut; action: Action; onCl
     const name = action.label ? text(action.label) : action.action;
     return (
         <Dialog open onOpenChange={(open) => !open && onClose()}>
-            <DialogContent data-action-dialog={action.action}>
+            <DialogContent data-action-dialog={action.action} className={action.form ? 'max-w-3xl' : undefined}>
                 <DialogHeader>
                     <DialogTitle>{name}</DialogTitle>
                     <DialogDescription>
@@ -242,6 +279,7 @@ function ActionDialog({ c, action, onClose }: { c: CaseOut; action: Action; onCl
                         onChange={(e) => setComment(e.target.value)}
                     />
                 </div>
+                {action.form && !missing && <StepForm c={c} action={action} comment={comment} onDone={onClose} />}
                 {transition.error && (
                     <p className="text-destructive text-sm" role="alert">
                         {getApiErrorMessage(transition.error)}
@@ -251,22 +289,24 @@ function ActionDialog({ c, action, onClose }: { c: CaseOut; action: Action; onCl
                     <Button variant="outline" onClick={onClose}>
                         {t('workflow.case.cancel')}
                     </Button>
-                    <Button
-                        disabled={missing || transition.isPending}
-                        onClick={() =>
-                            transition.mutate(
-                                {
-                                    version: c.version,
-                                    action: action.action,
-                                    ...(comment.trim() ? { comment: comment.trim() } : {})
-                                },
-                                { onSuccess: onClose }
-                            )
-                        }
-                    >
-                        <Send />
-                        {name}
-                    </Button>
+                    {!action.form && (
+                        <Button
+                            disabled={missing || transition.isPending}
+                            onClick={() =>
+                                transition.mutate(
+                                    {
+                                        version: c.version,
+                                        action: action.action,
+                                        ...(comment.trim() ? { comment: comment.trim() } : {})
+                                    },
+                                    { onSuccess: onClose }
+                                )
+                            }
+                        >
+                            <Send />
+                            {name}
+                        </Button>
+                    )}
                 </DialogFooter>
             </DialogContent>
         </Dialog>

@@ -51,6 +51,12 @@ export const workflowCreateSchema = z.strictObject({
 
 export const workflowVersionCreateSchema = z.strictObject({ definition: definitionInputSchema });
 
+/** A workflow renamed or switched off (task 0.21c): a switched-off workflow starts no case, its service answers 409. */
+export const workflowUpdateSchema = z
+    .strictObject({ name: workflowNameSchema.optional(), active: z.boolean().optional() })
+    .refine((u) => u.name !== undefined || u.active !== undefined, 'nothing to change');
+export type WorkflowUpdate = z.infer<typeof workflowUpdateSchema>;
+
 export const workflowCheckRequestSchema = z.strictObject({ definition: definitionInputSchema });
 
 export const workflowListQuerySchema = z.strictObject({
@@ -186,7 +192,9 @@ const caseActionSchema = z.object({
     label: z.record(z.string(), z.string()).nullable(),
     commentRequired: z.boolean(),
     /** the step's form must be filled in with it */
-    needsForm: z.boolean()
+    needsForm: z.boolean(),
+    /** the step's form (its form and version) the action files its answers on, when it needs one (task 0.21c) */
+    form: z.object({ formId: z.uuid(), versionId: z.uuid() }).nullable()
 });
 
 export const caseSchema = z.object({

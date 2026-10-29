@@ -16,6 +16,12 @@ export { api } from '../forms/support';
 export const PEOPLE = {
     /** the bureau: publishes the service versions the journeys' cases are requests for */
     bureau: { id: '0199f0a0-d000-7000-8000-000000000001', username: 'demo.bureau.admin', name: 'Bureau Admin (demo)' },
+    /** the bureau: approves the region's forms (maker-checker, unit_head) */
+    bureauHead: {
+        id: '0199f0a0-d000-7000-8000-000000000002',
+        username: 'demo.bureau.head',
+        name: 'Bureau Head (demo)'
+    },
     /** Wolaita Zone: writes the zone's workflows (unit_admin) */
     author: { id: '0199f0a0-d000-7000-8000-000000000102', username: 'demo.zone.admin', name: 'Zone Admin (demo)' },
     /** Damot Gale: starts cases and reviews them (records_officer) */

@@ -31,6 +31,15 @@ Layer: platform. Shape, public entries and rules: [code-structure.md](../../docs
   case on the version in effect today, its resolved configuration frozen on the case (`serviceVersionId`,
   `formVersionId`, `sla`, `help`, `approval_unit`, `sources`). The workflow engine reads a step's SLA from it first.
 
-API: `GET /services`, `GET|POST /services/{code}/versions`, `GET /org-units/{id}/services/{code}/configuration`,
-`PUT|DELETE /org-units/{id}/services/{code}/override` (If-Match), `POST /service-requests`. Screens: task 0.21c. Form
-overlays (an extra field): 0.21d.
+- **The counter** (task 0.21c): `GET /services/{code}/request` (`case:create`) answers what to fill in at the person's
+  office (the form version the service names, the help texts set for it); `POST /service-requests` takes the form's
+  `answers`, validated on the server on that version and filed with the new case in the same transaction (a refused
+  answer starts no case). A workflow or form switched off since, or an effect no longer installed, answers 409
+  `not_configured`.
+
+API: `GET /services`, `GET|POST /services/{code}/versions`, `GET /services/{code}/request`,
+`GET /org-units/{id}/services/{code}/configuration` (with the workflow's timed `states` and the form's `fields`),
+`PUT|DELETE /org-units/{id}/services/{code}/override` (If-Match), `POST /service-requests`.
+
+Screens (apps/web): `/services` (the catalogue), `/services/{code}` (its versions, publishing one, an office's
+configuration and its override), `/requests/new` (the counter). Form overlays (an extra field): 0.21d.

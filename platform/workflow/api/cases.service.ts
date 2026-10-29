@@ -892,6 +892,23 @@ export class CasesService {
                 ? []
                 : actionsFor(def, row.state, { kind: 'person', userId: actor.userId, rolesInUnit }, row.startedBy);
         const current = stateOf(def, row.state);
+        // each action's transition, and the step form it files its answers on (the version the step names)
+        const actionDetails = await Promise.all(
+            actions.map(async (action) => {
+                const t = def.transitions.find((x) => x.from === row.state && x.action === action);
+                const step =
+                    current && t && current.stepForm && needsForm(current, t, stateOf(def, t.to))
+                        ? parseStepForm(current.stepForm)
+                        : null;
+                const version = step ? await this.forms.stepVersion(tx, step.key, step.number) : null;
+                return {
+                    action,
+                    t,
+                    needs: step !== null,
+                    form: version ? { formId: version.formId, versionId: version.versionId } : null
+                };
+            })
+        );
         const [{ name: workflowName } = { name: {} }] = await tx
             .select({ name: workflowDefinitions.name })
             .from(workflowDefinitions)
@@ -935,15 +952,13 @@ export class CasesService {
             startedBy: row.startedBy,
             startedByName: names.get(row.startedBy) ?? null,
             actions,
-            actionDetails: actions.map((action) => {
-                const t = def.transitions.find((x) => x.from === row.state && x.action === action);
-                return {
-                    action,
-                    label: t?.label ?? null,
-                    commentRequired: t?.commentRequired === true,
-                    needsForm: Boolean(current && t && needsForm(current, t, stateOf(def, t.to)))
-                };
-            }),
+            actionDetails: actionDetails.map(({ action, t, needs, form }) => ({
+                action,
+                label: t?.label ?? null,
+                commentRequired: t?.commentRequired === true,
+                needsForm: needs,
+                form
+            })),
             tasks: tasks.map((t) => ({
                 id: t.id,
                 state: t.stateKey,
