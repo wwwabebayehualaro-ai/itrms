@@ -723,20 +723,19 @@ reach into the forms slice's validation and belong with the overlay tier; they m
 - **Tests:** resolution unit tests (precedence, disallowed keys, override conflicts) and integration tests across sibling
   units (Damot Gale, Boditi) and Test Zone B.
 
-### 0.21c Configuration inheritance, part 3: service admin screens and requests as cases
-Needs 0.21b.
+### 0.21c Configuration inheritance, part 3: service admin screens and requests at the counter
+Needs 0.21b. Split on 2026-10-29: the screens and the counter come first; what happens to a filed request (the request
+lists, changing it through its case) and the remaining follow-ups follow in **0.21e**.
 - **Do:**
   - Admin screens: the catalogue, version publish, the override editor showing what is inherited and what is
     overridden; the workflow definitions screen (with the check's problems, switching a workflow off).
-  - Requests started as cases at the counter through their service; the case page takes a step's form where the
-    service's request flow renders it; cross-form request lists by state; changing a filed request as a workflow
-    transition (re-validated on its version, keeping role-restricted values).
-  - The remaining follow-ups moved to 0.21: maker-checker on role grants (SEC-AC-6), lookup labels in a step's printed
-    answers, the release of unclassified answers (an ADR or a doc fix).
-- **Done when:** an admin publishes a service version and a woreda admin overrides its SLA from the screens; a request
-  filed at the counter starts a case of its service; a filed request changed through its case is re-validated and audited.
-- **Tests:** admin screen e2e journeys (catalogue, publish, override); a request-as-case e2e journey; integration tests
-  for the change-request transition and the role-grant confirmation.
+  - Requests started as cases at the counter through their service: its request form filled, validated on the server and
+    filed with the new case in one transaction; the case page takes a step's form where the service's request flow
+    renders it.
+- **Done when:** an admin publishes a service version and a zone admin overrides a woreda's SLA from the screens (an
+  office never overrides its own, 0.21b); a request filed at the counter starts a case of its service with its answers.
+- **Tests:** admin screen e2e journeys (catalogue, publish, override); a request-at-the-counter e2e journey; integration
+  tests for the request with its form and for switching a workflow off.
 
 ### 0.21d Form governance, part 2: effect contracts and form tiers
 Moved from 0.18a on 2026-10-26 (it needs cases, service versions and overlays); renamed from 0.21a when 0.21 was split on
@@ -757,6 +756,18 @@ Moved from 0.18a on 2026-10-26 (it needs cases, service versions and overlays); 
   - a woreda's extra field applies to its new cases only, and a new bureau form version re-applies it and reports
     conflicts.
 - **Tests:** contract checker unit tests; overlay tier tests; overlay re-application and conflict tests.
+
+### 0.21e Configuration inheritance, part 4: filed requests and the remaining follow-ups
+Split from 0.21c on 2026-10-29. Needs 0.21c.
+- **Do:**
+  - Cross-form request lists by state (waiting, recent) through the case workflow and its inbox.
+  - Changing a filed request as a workflow transition (re-validated on its version, keeping role-restricted values).
+  - The remaining follow-ups moved to 0.21: maker-checker on role grants (SEC-AC-6), lookup labels in a step's printed
+    answers, the release of unclassified answers (an ADR or a doc fix).
+- **Done when:** a filed request changed through its case is re-validated and audited; a role grant waits for a second
+  administrator's confirmation.
+- **Tests:** integration tests for the change-request transition and the role-grant confirmation; the request lists'
+  journey.
 
 ### 0.22 Fees, payment orders, cashier, receipts
 - **Do:**
@@ -840,7 +851,7 @@ Moved from 0.18a on 2026-10-26 (it needs cases, service versions and overlays); 
 - **Tests:** the restore drill script with checks; the smoke load test thresholds in CI (nightly).
 
 ## Phase acceptance criteria
-1. All tasks done (0.1–0.26 with 0.19 as 0.19a and 0.19b, 0.20 as 0.20a, 0.20b, 0.20c and 0.20d, 0.4a, 0.4b, 0.4c, 0.18a, and 0.21 as 0.21a, 0.21b, 0.21c and 0.21d), CI green on `main` (lint, typecheck, unit, integration on Postgres, isolation matrix, i18n keys,
+1. All tasks done (0.1–0.26 with 0.19 as 0.19a and 0.19b, 0.20 as 0.20a, 0.20b, 0.20c and 0.20d, 0.4a, 0.4b, 0.4c, 0.18a, and 0.21 as 0.21a, 0.21b, 0.21c, 0.21d and 0.21e), CI green on `main` (lint, typecheck, unit, integration on Postgres, isolation matrix, i18n keys,
    security scans, e2e).
 2. The demo journey runs in Amharic and English (Wolaytta with fallback) across Boditi, the zone and Damot Gale. A user of one office
    sees none of the other office's cases,

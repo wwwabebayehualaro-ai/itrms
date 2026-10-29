@@ -912,7 +912,7 @@
         },
         {
           "id": "0.21c",
-          "title": "Configuration inheritance, part 3: service admin screens and requests as cases",
+          "title": "Configuration inheritance, part 3: service admin screens and requests at the counter",
           "status": "planned",
           "branch": null,
           "commits": [],
@@ -923,6 +923,16 @@
         {
           "id": "0.21d",
           "title": "Form governance, part 2: effect contracts and form tiers",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.21e",
+          "title": "Configuration inheritance, part 4: filed requests and the remaining follow-ups",
           "status": "planned",
           "branch": null,
           "commits": [],
@@ -1894,7 +1904,7 @@
     {
       "foundIn": "0.10",
       "item": "Maker-checker on role grants (SEC-AC-6): a second administrator confirms; self-grant and own revocation are already refused",
-      "movedTo": "0.21c"
+      "movedTo": "0.21e"
     },
     {
       "foundIn": "0.10",
@@ -2196,7 +2206,7 @@
     {
       "foundIn": "0.16c",
       "item": "Cross-form request lists by state (waiting, recent) and changing a request after it is filed: the case workflow and its inbox",
-      "movedTo": "0.21c"
+      "movedTo": "0.21e"
     },
     {
       "foundIn": "0.16c",
@@ -2227,7 +2237,7 @@
     {
       "foundIn": "0.16c",
       "item": "Editing a filed request (PATCH, re-validated on its version, keeping role-restricted values) as a workflow transition",
-      "movedTo": "0.21c"
+      "movedTo": "0.21e"
     },
     {
       "foundIn": "0.16c",
@@ -2381,7 +2391,7 @@
     {
       "foundIn": "0.20b",
       "item": "Case page: a lookup answer in a step's printed answers shows the record's id, not its label (PrintForm refs)",
-      "movedTo": "0.21c"
+      "movedTo": "0.21e"
     },
     {
       "foundIn": "0.20b",
@@ -2422,7 +2432,7 @@
     {
       "foundIn": "0.20d",
       "item": "Decide unclassified answers in lists and exports: SEC-DC-1 says unlabelled is not released and the classification table masks Personal in exports, while unset counts as personal and is shown (Sensitive alone masked); an ADR or a doc fix",
-      "movedTo": "0.21c"
+      "movedTo": "0.21e"
     },
     {
       "foundIn": "0.20d",
