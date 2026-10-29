@@ -80,7 +80,7 @@ test('the bureau publishes a version, the zone changes a woreda’s time limit, 
     await review.getByRole('button', { name: 'ቀይር' }).click();
     const dialog = zonePage.getByRole('dialog');
     await dialog.getByLabel('መጠን').fill('3');
-    await dialog.getByLabel('የሥራ ሰዓት').click();
+    await dialog.getByLabel('የሚቆጠረው በ').click();
     await zonePage.getByRole('option', { name: 'የሥራ ቀን' }).click();
     await dialog.getByLabel('ምክንያት').fill('a woreda with one officer');
     await dialog.getByRole('button', { name: 'አስቀምጥ' }).click();
