@@ -9,9 +9,9 @@ import { PEOPLE, api, journeyService, journeyWorkflow, signedIn, submittedCase }
 
 test('a comment mentions a colleague, who is told and opens the case from the bell', async ({ browser }) => {
     test.setTimeout(300_000);
-    const author = await signedIn(browser, PEOPLE.author);
-    const workflowId = await journeyWorkflow(api(author), 'case-page');
-    const service = await journeyService(api(await signedIn(browser, PEOPLE.bureau)), 'RS-03', workflowId);
+    const bureau = api(await signedIn(browser, PEOPLE.bureau));
+    const workflowId = await journeyWorkflow(bureau, 'case-page');
+    const service = await journeyService(bureau, 'RS-03', workflowId);
     const page = await signedIn(browser, PEOPLE.records);
     const started = await submittedCase(api(page), service);
 

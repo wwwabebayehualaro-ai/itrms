@@ -65,7 +65,7 @@ const DEFINITION = {
     ]
 };
 
-/** The run's workflow, by the zone's admin; its id. */
+/** The run's workflow, by the bureau (a service version names the region's own workflows); its id. */
 export async function journeyWorkflow(author: Api, name: string): Promise<string> {
     const made = await author.post<{ id: string }>('v1/workflow-definitions', {
         key: `e2e-${name}-${randomUUID().slice(0, 6)}`,

@@ -114,9 +114,10 @@ async function requested(who: As) {
 async function frozen(caseId: string) {
     const { rows } = await api.owner.query<{
         config: { serviceVersionId: string; sla: Record<string, unknown>; help: Record<string, unknown> };
+        config_hash: string;
         due: Date | null;
     }>(
-        `select c.config, (select t.due_at from workflow.case_tasks t where t.case_id = c.id order by t.created_at limit 1) as due
+        `select c.config, c.config_hash, (select t.due_at from workflow.case_tasks t where t.case_id = c.id order by t.created_at limit 1) as due
            from workflow.cases c where c.id = $1`,
         [caseId]
     );
@@ -233,6 +234,25 @@ describe('a bureau version', () => {
         });
         expect(unknownWorkflow.statusCode).toBe(422);
         expect(unknownWorkflow.json()).toMatchObject({ errors: [{ code: 'unknown_workflow' }] });
+        const unknownForm = await publish(as.bureau, { ...v1, formVersionId: '0199f0a0-0000-7000-8000-00000000f00d' });
+        expect(unknownForm.statusCode).toBe(422);
+        expect(unknownForm.json()).toMatchObject({ errors: [{ path: 'formVersionId', code: 'unknown_form' }] });
+        // a workflow a zone owns: the other zones' offices could not read it, and the zone could switch it off
+        const zoneOwned = await api.call('POST', '/api/v1/workflow-definitions', as.zoneAdmin, {
+            key: 'zone-review',
+            name: { am: 'የዞን', en: 'Zone review' },
+            definition: workflow('review')
+        });
+        expect(zoneOwned.statusCode, zoneOwned.body).toBe(201);
+        const notRegional = await publish(as.bureau, {
+            ...v1,
+            workflowVersionId: zoneOwned.json<{ latestVersion: { id: string } }>().latestVersion.id
+        });
+        expect(notRegional.json()).toMatchObject({ errors: [{ code: 'workflow_not_regional' }] });
+        // never backdated: what cases froze is never rewritten
+        expect((await publish(as.bureau, { ...v1, effectiveFrom: '2020-01-01' })).json()).toMatchObject({
+            errors: [{ path: 'effectiveFrom', code: 'effective_too_early' }]
+        });
         const badDefault = await publish(as.bureau, { ...v1, defaults: { 'sla.payment': { businessHours: 4 } } });
         expect(badDefault.json()).toMatchObject({ errors: [{ path: 'defaults.sla.payment', code: 'unknown_state' }] });
 
@@ -248,11 +268,16 @@ describe("a woreda's override", () => {
     it('of an allowed key holds for its own new cases only; a sibling office and another zone keep the bureau value', async () => {
         const damot = as.damotRecords.unit.id;
         // a key the policy does not let a unit change, a state the workflow does not have
-        const notAllowed = await override(as.damotAdmin, damot, { approval_unit: 'region' }, 0);
+        // set from above: an office never loosens its own deadlines (Damot Gale's own administrator may not)
+        expect((await override(as.damotAdmin, damot, { 'sla.review': { businessDays: 3 } }, 0)).statusCode).toBe(403);
+        const notAllowed = await override(as.zoneAdmin, damot, { approval_unit: 'region' }, 0);
         expect(notAllowed.statusCode).toBe(422);
         expect(notAllowed.json()).toMatchObject({ code: 'setting_level_not_allowed' });
-        const unknownState = await override(as.damotAdmin, damot, { 'sla.payment': { businessHours: 1 } }, 0);
+        const unknownState = await override(as.zoneAdmin, damot, { 'sla.payment': { businessHours: 1 } }, 0);
         expect(unknownState.json()).toMatchObject({ errors: [{ code: 'unknown_state' }] });
+        // a help text longer than a screen can hold is refused as a value, never by the database
+        const long = await override(as.zoneAdmin, damot, { 'help.remark': help('x'.repeat(2001)) }, 0);
+        expect(long.statusCode).toBe(422);
         // above the seat, and a sibling's (not seen)
         expect(
             (await override(as.damotAdmin, as.zoneAdmin.unit.id, { 'sla.review': { businessDays: 3 } }, 0)).statusCode
@@ -261,14 +286,14 @@ describe("a woreda's override", () => {
 
         const before = await requested(as.damotRecords);
         const set = await override(
-            as.damotAdmin,
+            as.zoneAdmin,
             damot,
             { 'sla.review': { businessDays: 3 }, 'help.remark': help('Why the report is late') },
             0
         );
         expect(set.statusCode, set.body).toBe(200);
         expect(set.json()).toMatchObject({ version: 1 });
-        expect((await override(as.damotAdmin, damot, { 'sla.review': { businessDays: 4 } }, 0)).statusCode).toBe(409);
+        expect((await override(as.zoneAdmin, damot, { 'sla.review': { businessDays: 4 } }, 0)).statusCode).toBe(409);
 
         // the woreda's own new case: its SLA and help text, frozen with where they came from
         const mine = await requested(as.damotRecords);
@@ -278,6 +303,9 @@ describe("a woreda's override", () => {
             help: { plate: help('The plate as written on the vehicle'), remark: help('Why the report is late') },
             sources: { 'sla.review': { level: 'unit', unitId: damot }, 'help.plate': { level: 'default' } }
         });
+        // frozen with the hash of what it froze
+        expect(mine.config_hash).toMatch(/^[0-9a-f]{64}$/);
+        expect(mine.config_hash).not.toBe(before.config_hash);
         // a step due three business days out, later than the workflow's eight hours
         expect(Number(mine.due) - Number(before.due)).toBeGreaterThan(86_400_000);
         // the case started before keeps what it froze
@@ -290,13 +318,14 @@ describe("a woreda's override", () => {
         const tzb = await configuration(as.tzbAdmin, (await api.unit('SER', 'TZB-W1')).id);
         expect(tzb.statusCode, tzb.body).toBe(200);
         expect(tzb.json<{ values: Record<string, unknown> }>().values).not.toHaveProperty('sla.review');
-        // the woreda's configuration as its administrator sees it
-        expect((await configuration(as.damotAdmin, damot)).json()).toMatchObject({
+        // the woreda's configuration as the zone's administrator sees it (and changes it), and as its own (who may not)
+        expect((await configuration(as.zoneAdmin, damot)).json()).toMatchObject({
             values: { 'sla.review': { value: { businessDays: 3 }, source: { level: 'unit', unitId: damot } } },
             own: { version: 1 },
             problems: [],
             writable: true
         });
+        expect((await configuration(as.damotAdmin, damot)).json()).toMatchObject({ writable: false });
         expect((await configuration(as.boditiAdmin, damot)).statusCode).toBe(404);
     });
 });

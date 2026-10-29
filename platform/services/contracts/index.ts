@@ -43,12 +43,21 @@ export const configKeySchema = z.string().refine((key) => {
     return (family === 'approval_unit' || family === 'templateHeader') && part === undefined;
 }, 'is not a configuration key (sla.<state>, help.<field>, approval_unit, templateHeader)');
 
+/** A help text or a header line: at most this long in each language. */
+export const MAX_CONFIG_TEXT = 2000;
+/** The most a version's defaults or a unit's override may hold, as JSON (below the database's own caps). */
+export const MAX_CONFIG_BYTES = 60_000;
+const boundedText = i18nTextSchema.refine(
+    (t) => Object.values(t).every((v) => typeof v !== 'string' || v.length <= MAX_CONFIG_TEXT),
+    `at most ${MAX_CONFIG_TEXT} characters in each language`
+);
+
 /** The value schema of a key, by its family. */
 export const configValueSchemas: Record<OverrideFamily, z.ZodType> = {
     sla: workflowSlaSchema,
     approval_unit: workflowUnitRuleSchema.refine((r) => r !== '${approval_unit}', 'names a unit rule'),
-    help: i18nTextSchema,
-    templateHeader: i18nTextSchema
+    help: boundedText,
+    templateHeader: boundedText
 };
 
 export const configFamily = (key: string): OverrideFamily | undefined => {
@@ -69,7 +78,8 @@ export const configValuesSchema = z
                     ctx.addIssue({ code: 'custom', path: [key, ...issue.path], message: issue.message });
         }
     })
-    .refine((v) => Object.keys(v).length <= 500, 'too many keys');
+    .refine((v) => Object.keys(v).length <= 500, 'too many keys')
+    .refine((v) => JSON.stringify(v).length <= MAX_CONFIG_BYTES, `at most ${MAX_CONFIG_BYTES} bytes in all`);
 export type ConfigValues = z.infer<typeof configValuesSchema>;
 
 /** Which families a unit below may change, and at which levels (none listed: the bureau's value holds everywhere). */

@@ -177,14 +177,40 @@ export class ServicesService {
         return rows.map(versionOut);
     }
 
-    /** What a version is checked against: its workflow (its states, its effects) and its form (its field keys). */
+    /**
+     * What a version is checked against: its workflow (its states, its effects) and its form (its field keys). On publish
+     * (`regionPath`) both must be the region's own: a workflow or form a zone owns is not read by the other zones' offices,
+     * and its owner could switch the whole region's service off. At a request, a workflow or form switched off since, or
+     * an effect no longer installed, means the service cannot start (409), not a problem of what the person sent.
+     */
     private async facts(
         tx: Tx,
-        input: { workflowVersionId: string; formVersionId: string | null }
+        input: { workflowVersionId: string; formVersionId: string | null },
+        regionPath?: string
+    ): Promise<VersionFacts & { effects: string[] }> {
+        try {
+            return await this.checkedFacts(tx, input, regionPath);
+        } catch (error) {
+            if (regionPath === undefined && error instanceof ValidationError)
+                throw new ConflictError('not_configured', {
+                    detail: "The service's workflow or form is switched off, or names an effect no longer installed."
+                });
+            throw error;
+        }
+    }
+
+    private async checkedFacts(
+        tx: Tx,
+        input: { workflowVersionId: string; formVersionId: string | null },
+        regionPath?: string
     ): Promise<VersionFacts & { effects: string[] }> {
         const problems: { path: string; code: string; message: string }[] = [];
         const [workflow] = await tx
-            .select({ definition: workflowDefinitionVersions.definition, active: workflowDefinitions.active })
+            .select({
+                definition: workflowDefinitionVersions.definition,
+                active: workflowDefinitions.active,
+                orgPath: workflowDefinitions.orgPath
+            })
             .from(workflowDefinitionVersions)
             .innerJoin(workflowDefinitions, eq(workflowDefinitions.id, workflowDefinitionVersions.definitionId))
             .where(eq(workflowDefinitionVersions.id, input.workflowVersionId));
@@ -201,16 +227,32 @@ export class ServicesService {
                 code: 'workflow_off',
                 message: 'The workflow is switched off.'
             });
+        else if (regionPath !== undefined && workflow.orgPath !== regionPath)
+            problems.push({
+                path: 'workflowVersionId',
+                code: 'workflow_not_regional',
+                message: "The workflow is an office's own, not the region's."
+            });
         let fieldKeys: string[] = [];
         if (input.formVersionId) {
             const [form] = await tx
-                .select({ document: formVersions.document, active: formDefinitions.active })
+                .select({
+                    document: formVersions.document,
+                    active: formDefinitions.active,
+                    orgPath: formDefinitions.orgPath
+                })
                 .from(formVersions)
                 .innerJoin(formDefinitions, eq(formDefinitions.id, formVersions.formId))
                 .where(eq(formVersions.id, input.formVersionId));
             if (!form) problems.push({ path: 'formVersionId', code: 'unknown_form', message: 'No such form version.' });
             else if (!form.active)
                 problems.push({ path: 'formVersionId', code: 'form_off', message: 'The form is switched off.' });
+            else if (regionPath !== undefined && form.orgPath !== regionPath)
+                problems.push({
+                    path: 'formVersionId',
+                    code: 'form_not_regional',
+                    message: "The form is an office's own, not the region's."
+                });
             else fieldKeys = [...publishedKeysOf(form.document).keys()];
         }
         if (problems.length || !parsed?.success) throw fieldErrors(problems);
@@ -248,9 +290,9 @@ export class ServicesService {
      * reported, nothing is changed below.
      */
     async publish(tx: Tx, ctx: DbContext, code: string, input: ServiceVersionInput): Promise<PublishOut> {
-        await this.atRoot(tx, ctx);
+        const root = await this.atRoot(tx, ctx);
         const d = await this.definition(tx, ctx.regionId ?? '', code);
-        const facts = await this.facts(tx, input);
+        const facts = await this.facts(tx, input, root.path);
         const problems = Object.entries(input.defaults).flatMap(([key, value]) => {
             const problem = keyProblem(key, value, facts, input.overridePolicy, 'default');
             return problem
@@ -259,6 +301,20 @@ export class ServicesService {
         });
         if (problems.length) throw fieldErrors(problems);
         const effectiveFrom = input.effectiveFrom ?? addisToday();
+        // a version holds from today or later, never before the one before it: what cases froze is never rewritten, and
+        // the newest version is the one that holds last
+        const [latest] = await tx
+            .select({ from: sql<string | null>`max(${serviceVersions.effectiveFrom})::text` })
+            .from(serviceVersions)
+            .where(eq(serviceVersions.serviceId, d.id));
+        if (effectiveFrom < addisToday() || (latest?.from && effectiveFrom < latest.from))
+            throw fieldErrors([
+                {
+                    path: 'effectiveFrom',
+                    code: 'effective_too_early',
+                    message: `A version holds from today${latest?.from ? ` and from ${latest.from}` : ''} or later.`
+                }
+            ]);
         const content = {
             formVersionId: input.formVersionId,
             workflowVersionId: input.workflowVersionId,
@@ -384,16 +440,34 @@ export class ServicesService {
                 const problem = keyProblem(key, value, version.facts, version.policy, level);
                 return problem ? [{ key, problem }] : [];
             }),
-            writable: withinScope(unit.path, ctx.scopePath ?? '')
+            // strictly below the seat, as writableUnit (the region at its own root)
+            writable:
+                withinScope(unit.path, ctx.scopePath ?? '') && !(unit.path === ctx.scopePath && unit.parentId !== null)
         };
     }
 
-    /** The unit whose override changes: seen (else 404) and at or below the person's seat (else 403). */
+    /**
+     * The unit whose override changes: seen (else 404), and strictly below the person's seat (else 403): an office never
+     * loosens its own deadlines, as it never widens its own services; the region decides its own at its root.
+     */
     private async writableUnit(tx: Tx, ctx: DbContext, unitId: string): Promise<OrgUnit> {
         const unit = await this.visibleUnit(tx, unitId);
-        if (!withinScope(unit.path, ctx.scopePath ?? ''))
-            throw new ForbiddenError({ audit: { reason: 'service_override_above_scope', unit: unit.id } });
+        const scope = ctx.scopePath ?? '';
+        if (!withinScope(unit.path, scope) || (unit.path === scope && unit.parentId !== null))
+            throw new ForbiddenError({ audit: { reason: 'service_override_own_or_above', unit: unit.id } });
         return unit;
+    }
+
+    /** The versions an override must fit: the one in effect and any published to come into effect later. */
+    private async versionsToFit(tx: Tx, serviceId: string): Promise<Version[]> {
+        const effective = await this.effectiveVersion(tx, serviceId);
+        const later = await tx
+            .select()
+            .from(serviceVersions)
+            .where(
+                and(eq(serviceVersions.serviceId, serviceId), sql`${serviceVersions.effectiveFrom} > ${addisToday()}`)
+            );
+        return [...(effective ? [effective] : []), ...later];
     }
 
     /**
@@ -410,15 +484,19 @@ export class ServicesService {
     ) {
         const unit = await this.writableUnit(tx, ctx, unitId);
         const d = await this.definition(tx, unit.regionId, code);
-        const v = await this.effectiveVersion(tx, d.id);
-        if (!v) throw new ConflictError('not_configured', { detail: `${code} is not configured yet.` });
-        const version = await this.versionConfig(tx, v);
+        const versions = await this.versionsToFit(tx, d.id);
+        if (!versions.length) throw new ConflictError('not_configured', { detail: `${code} is not configured yet.` });
         const values = configValuesSchema.parse(input.values);
         const level = unit.parentId === null ? 'region' : 'unit';
-        const refused = Object.entries(values).flatMap(([key, value]) => {
-            const problem = keyProblem(key, value, version.facts, version.policy, level);
-            return problem ? [{ key, problem }] : [];
-        });
+        // each value must fit the version in effect and those to come (else it would quietly stop holding)
+        const refused: { key: string; problem: OverrideConflict['problem'] }[] = [];
+        for (const v of versions) {
+            const version = await this.versionConfig(tx, v);
+            for (const [key, value] of sortedEntries(values)) {
+                const problem = keyProblem(key, value, version.facts, version.policy, level);
+                if (problem && !refused.some((r) => r.key === key)) refused.push({ key, problem });
+            }
+        }
         if (refused.some((r) => r.problem === 'not_allowed'))
             throw new ValidationError('setting_level_not_allowed', {
                 detail: `The service's policy does not let this office change ${refused

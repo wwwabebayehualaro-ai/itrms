@@ -10,9 +10,9 @@ import { PEOPLE, api, journeyService, journeyWorkflow, signedIn, submittedCase }
 
 test("lists the office's steps for the person's role; a step is taken on and opened", async ({ browser }) => {
     test.setTimeout(300_000);
-    const author = await signedIn(browser, PEOPLE.author);
-    const workflowId = await journeyWorkflow(api(author), 'inbox');
-    const service = await journeyService(api(await signedIn(browser, PEOPLE.bureau)), 'RS-02', workflowId);
+    const bureau = api(await signedIn(browser, PEOPLE.bureau));
+    const workflowId = await journeyWorkflow(bureau, 'inbox');
+    const service = await journeyService(bureau, 'RS-02', workflowId);
     const page = await signedIn(browser, PEOPLE.records);
     const started = await submittedCase(api(page), service);
 
