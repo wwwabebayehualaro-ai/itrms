@@ -112,9 +112,13 @@ beforeAll(async () => {
         ],
         { slices: [probe], installationSettings: { 'i18n.languages': ['am', 'en', 'om'] } }
     );
-    [region, zone, damot, boditi, sodoZuria, tzb, tzbW1] = await Promise.all(
-        ['SER', 'WOL', 'WOL-DAMOT-GALE', 'WOL-BODITI', 'WOL-SODO-ZURIA', 'TZB', 'TZB-W1'].map((c) => api.unit('SER', c))
-    );
+    region = await api.unit('SER', 'SER');
+    zone = await api.unit('SER', 'WOL');
+    damot = await api.unit('SER', 'WOL-DAMOT-GALE');
+    boditi = await api.unit('SER', 'WOL-BODITI');
+    sodoZuria = await api.unit('SER', 'WOL-SODO-ZURIA');
+    tzb = await api.unit('SER', 'TZB');
+    tzbW1 = await api.unit('SER', 'TZB-W1');
 }, 240_000);
 
 afterAll(async () => {

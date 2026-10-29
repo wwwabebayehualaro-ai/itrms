@@ -689,8 +689,9 @@ contracts and form tiers) is now **0.21d**.
     user for a preference); the nearest value wins per key; a level a key does not allow is refused; the answer names
     where each value comes from. The service configuration (0.21b) uses the same resolver.
   - Settings declared once in code (key, Zod type, default, `overridableAt`, `userPreference`, `sensitive`) in the
-    manifests, checked at start-up; `settings_values` extended from one row per region to a scope (installation, org
-    unit, unit type, user), class C (a user's own preferences only for that user).
+    manifests, checked at start-up; `settings_values` extended from one row per region to a scope (org unit, unit
+    type), class C; the installation's values are its configuration (`INSTALLATION_SETTINGS`, checked at start-up) and a
+    person's own sit with their preferences (`users.preferences`, written only by them).
   - The API: a unit's effective settings with their source, set and reset at a level (If-Match, audited), a person's
     preferences; the workspace carries the effective settings.
   - The settings admin screen: each value with where it comes from, override and reset at the levels the admin may write.
