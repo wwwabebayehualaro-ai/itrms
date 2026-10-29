@@ -27,6 +27,7 @@ import {
     type QueryGroup
 } from '../contracts';
 import { formVersions, savedViews, type formDefinitions } from './forms.table';
+import type { GuardResult } from './publish-guard';
 
 type DefinitionRow = typeof formDefinitions.$inferSelect;
 type Reason = (typeof IMPACT_REASONS)[number];
@@ -108,13 +109,16 @@ export async function publishCheck(
     userId: string | undefined,
     form: Pick<DefinitionRow, 'id' | 'publishedVersionId'>,
     candidate: Candidate,
-    language: string
+    language: string,
+    /** what the services reading the form say about it (their effects' contracts, task 0.21d) */
+    guard?: GuardResult
 ): Promise<PublishCheck> {
     const base = await publishedVersion(tx, form);
     const lint = lintDocument(candidate.document, { dataSources: DATA_SOURCE_ALLOWLIST });
-    const problems = [...keyProblems(base?.document ?? null, candidate.document), ...lint].map((p) =>
-        problemOf(p, language)
-    );
+    const problems = [
+        ...[...keyProblems(base?.document ?? null, candidate.document), ...lint].map((p) => problemOf(p, language)),
+        ...(guard?.problems ?? [])
+    ];
     const tests = runTestCases(candidate.document).map((t) => ({
         id: t.id,
         name: t.name,
@@ -132,7 +136,7 @@ export async function publishCheck(
         problems,
         tests,
         diff,
-        impact: { views: await impact(tx, userId, form.id, changed) }
+        impact: { views: await impact(tx, userId, form.id, changed), services: guard?.services ?? [] }
     };
 }
 
@@ -145,9 +149,10 @@ export async function assertPublishable(
     userId: string | undefined,
     form: Pick<DefinitionRow, 'id' | 'publishedVersionId'>,
     candidate: Candidate,
-    language: string
+    language: string,
+    guard?: GuardResult
 ): Promise<PublishCheck> {
-    const check = await publishCheck(tx, userId, form, candidate, language);
+    const check = await publishCheck(tx, userId, form, candidate, language, guard);
     const errors = check.problems.filter((p) => p.severity === 'error');
     const failed = check.tests.filter((t) => !t.passed);
     log.log({
@@ -163,7 +168,11 @@ export async function assertPublishable(
         errors: [
             ...errors.map((p) => ({
                 path: p.path,
-                code: KEY_RULES.has(p.code) ? 'key_stability' : `lint.${p.code}`,
+                code: KEY_RULES.has(p.code)
+                    ? 'key_stability'
+                    : p.code === 'contract'
+                      ? 'contract_unmet'
+                      : `lint.${p.code}`,
                 message: p.message
             })),
             ...runTestCases(candidate.document).flatMap((r, i) => {

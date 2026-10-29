@@ -74,10 +74,13 @@ describe("a service's configuration for a unit", () => {
             unit('region'),
             unit('damot', { 'sla.review': { businessHours: 4 } })
         ]);
-        expect(frozenConfig(resolved, { serviceCode: 'RS-01', serviceVersionId: 'v1', formVersionId: null })).toEqual({
+        expect(
+            frozenConfig(resolved, { serviceCode: 'RS-01', serviceVersionId: 'v1', formVersionId: null, inputMap: {} })
+        ).toEqual({
             serviceCode: 'RS-01',
             serviceVersionId: 'v1',
             formVersionId: null,
+            inputMap: {},
             approval_unit: 'parent',
             sla: { review: { businessHours: 4 } },
             help: { plate: help('The plate as written') },

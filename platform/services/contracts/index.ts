@@ -1,6 +1,12 @@
 // Public entry of @itrms/services (code-structure.md §4): the shapes of the service catalogue, its versions and the
 // units' overrides (architecture.md §6.2, §7; task 0.21b).
-import { i18nTextSchema, workflowSlaSchema, workflowUnitRuleSchema, WORKFLOW_KEY } from '@itrms/schemas';
+import {
+    i18nTextSchema,
+    inputMapSchema,
+    workflowSlaSchema,
+    workflowUnitRuleSchema,
+    WORKFLOW_KEY
+} from '@itrms/schemas';
 import { answersSchema } from '@itrms/forms/contracts';
 import { z } from 'zod';
 
@@ -96,6 +102,8 @@ export const serviceVersionInputSchema = z.strictObject({
     workflowVersionId: z.uuid(),
     defaults: configValuesSchema.default({}),
     overridePolicy: overridePolicySchema,
+    /** each effect's contract paths mapped to the request form's keys (task 0.21d); a path maps to itself otherwise */
+    inputMap: inputMapSchema.default({}),
     /** an Ethiopian-calendar date entered, stored Gregorian (YYYY-MM-DD); today when left out */
     effectiveFrom: z.iso.date().optional(),
     note: z.string().trim().max(500).optional()

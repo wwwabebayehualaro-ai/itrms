@@ -114,6 +114,21 @@ export function usePublishedTemplate(id?: string) {
     return useQuery({ ...publishedOptions(client, id ?? ''), enabled: !!id });
 }
 
+/** The fields the services' effects read in a form, which the builder locks (task 0.21d). */
+export function useFormLocks(id?: string) {
+    const client = useFormsClient();
+    return useQuery({
+        queryKey: [...templateKeys.detail(id ?? ''), 'locks'] as const,
+        enabled: !!id,
+        queryFn: async ({ signal }) =>
+            (
+                await client.get<{
+                    items: { key: string; kind: string; required: boolean; effects: string[]; services: string[] }[];
+                }>(`${FORMS_API.forms}/${id}/locks`, { signal })
+            ).data.items
+    });
+}
+
 /** The versions of a form, newest first (the history sheet). */
 export function useVersions(id: string | undefined, enabled = true) {
     const client = useFormsClient();

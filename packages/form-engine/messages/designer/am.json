@@ -286,5 +286,9 @@
   "form-engine.designer.translations.setting.uploadButton": "መጫኛ ቁልፍ",
   "form-engine.designer.translations.text": "ጽሑፍ",
   "form-engine.designer.translations.toTranslate": "{count} የሚተረጎም",
-  "form-engine.designer.publish.area.classification": "የመረጃ ደረጃ"
+  "form-engine.designer.publish.area.classification": "የመረጃ ደረጃ",
+  "form-engine.designer.locked.badge": "ተቆልፏል",
+  "form-engine.designer.locked.title": "{effects} ({services}) ያነበዋል፤ ቁልፉ፣ ዓይነቱና ግዴታነቱ እንዳሉ ይቆያሉ።",
+  "form-engine.designer.publish.services": "ደረጃዎቻቸው ይህንን ቅጽ የሚያነቡ አገልግሎቶች",
+  "form-engine.designer.publish.serviceCases": "{count, plural, one {{count} ክፍት ጉዳይ ስሪቱን ይዞ ይቀጥላል} other {{count} ክፍት ጉዳዮች ስሪታቸውን ይዘው ይቀጥላሉ}}"
 }

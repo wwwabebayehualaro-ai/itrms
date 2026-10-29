@@ -84,6 +84,8 @@ export interface FrozenConfig extends Record<string, unknown> {
     serviceCode: string;
     serviceVersionId: string;
     formVersionId: string | null;
+    /** each effect's contract paths mapped to the request form's keys (the engine builds the effect's input with it) */
+    inputMap: Record<string, Record<string, string>>;
     approval_unit?: unknown;
     sla: Record<string, unknown>;
     help: Record<string, unknown>;
@@ -94,7 +96,12 @@ export interface FrozenConfig extends Record<string, unknown> {
 
 export function frozenConfig(
     resolved: ReadonlyMap<string, Resolved>,
-    ids: { serviceCode: string; serviceVersionId: string; formVersionId: string | null }
+    ids: {
+        serviceCode: string;
+        serviceVersionId: string;
+        formVersionId: string | null;
+        inputMap: Record<string, Record<string, string>>;
+    }
 ): FrozenConfig {
     const config: FrozenConfig = { ...ids, sla: {}, help: {}, sources: {} };
     for (const [key, { value, source }] of [...resolved].sort(([a], [b]) => a.localeCompare(b))) {

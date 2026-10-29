@@ -332,6 +332,26 @@ export const impactViewSchema = z.object({
     keys: z.array(z.object({ key: z.string(), reasons: z.array(z.enum(IMPACT_REASONS)) }))
 });
 
+/** A service whose effects read the form (task 0.21d): what a publication touches beyond the form's own views. */
+export const impactServiceSchema = z.object({
+    code: z.string(),
+    name: z.record(z.string(), z.string()),
+    /** its cases not yet closed (they keep the version they started with) */
+    openCases: z.number().int(),
+    /** the effects of its workflow that read the form, by their input contracts */
+    effects: z.array(z.string())
+});
+
+/** A field an effect's input contract locks in the builder: its key, type and required-ness stay (task 0.21d). */
+export const formLockSchema = z.object({
+    key: z.string(),
+    kind: z.string(),
+    required: z.boolean(),
+    /** the effects that read it, and the services they run in */
+    effects: z.array(z.string()),
+    services: z.array(z.string())
+});
+
 export const publishCheckSchema = z.object({
     /** no blocking problem, and every test case passes */
     canPublish: z.boolean(),
@@ -341,12 +361,14 @@ export const publishCheckSchema = z.object({
     problems: z.array(checkProblemSchema),
     tests: z.array(checkTestResultSchema),
     diff: formDiffSchema,
-    impact: z.object({ views: z.array(impactViewSchema) })
+    impact: z.object({ views: z.array(impactViewSchema), services: z.array(impactServiceSchema).default([]) })
 });
 
 export type CheckProblem = z.infer<typeof checkProblemSchema>;
 export type PublishCheck = z.infer<typeof publishCheckSchema>;
 export type ImpactView = z.infer<typeof impactViewSchema>;
+export type ImpactService = z.infer<typeof impactServiceSchema>;
+export type FormLock = z.infer<typeof formLockSchema>;
 
 export type FormSummary = z.infer<typeof formSummarySchema>;
 export type Form = z.infer<typeof formSchema>;

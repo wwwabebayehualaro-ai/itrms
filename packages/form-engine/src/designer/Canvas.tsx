@@ -10,7 +10,7 @@
  */
 import { createContext, memo, useContext, useMemo, type ReactNode } from 'react';
 import { useDraggable, useDroppable, type Over } from '@dnd-kit/core';
-import { ArrowDown, ArrowUp, Copy, GripVertical, Plus, Trash2, Undo2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Copy, GripVertical, Lock, Plus, Trash2, Undo2 } from 'lucide-react';
 import { Badge, Button, FieldDescription, Field as FieldShell, FieldLabel, IconButton, cn } from '@itrms/ui';
 import { initialValueOf, toEngineField, type EngineField, type StoredField } from '../core';
 import { text as plainText } from '../core/runtime/path';
@@ -18,7 +18,7 @@ import { useEngineText } from '../host/text';
 import { getFieldType, type ValueFieldDef } from '../renderer/kit';
 import { widthOf } from '../renderer/FieldTree';
 import { ROOT, parentOf, type DesignDoc } from './document';
-import { useDesigner, useDesignerActions } from './store';
+import { useDesigner, useDesignerActions, type FieldLock } from './store';
 
 export const LIST_PREFIX = 'list:';
 export const PALETTE_PREFIX = 'palette:';
@@ -112,6 +112,7 @@ function ListItem({ id, inRow, line }: { id: string; inRow: boolean; line: boole
 const DesignNode = memo(function DesignNode({ id, inRow }: { id: string; inRow: boolean }) {
     const stored = useDesigner((s) => s.doc.byId[id]);
     const selected = useDesigner((s) => s.selected === id);
+    const lock = useDesigner((s) => s.locked.get(id));
     const actions = useDesignerActions();
     const { activeId } = useContext(DragCtx);
     const language = useDesigner((s) => s.language);
@@ -184,11 +185,29 @@ const DesignNode = memo(function DesignNode({ id, inRow }: { id: string; inRow: 
             data-removed={field.removed || undefined}
         >
             {field.removed && <RemovedBar id={id} />}
+            {lock && <LockedBar lock={lock} />}
             {selected && <Toolbar id={id} label={def?.design ? word(def.design.label) : field.type} />}
             {body}
         </div>
     );
 });
+
+/** A field a service's effect reads (its input contract): its key, type and required-ness stay as they are. */
+function LockedBar({ lock }: { lock: FieldLock }) {
+    const { t } = useEngineText();
+    const title = t('form-engine.designer.locked.title', {
+        effects: lock.effects.join(', '),
+        services: lock.services.join(', ')
+    });
+    return (
+        <div className="mb-1 flex items-center gap-2">
+            <Badge variant="outline" data-locked-badge={lock.key} title={title} aria-label={title}>
+                <Lock />
+                {t('form-engine.designer.locked.badge')}
+            </Badge>
+        </div>
+    );
+}
 
 /** A published key taken out of the form: it stays (old answers stay readable) but people no longer see it. */
 function RemovedBar({ id }: { id: string }) {

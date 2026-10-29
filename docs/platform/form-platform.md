@@ -62,6 +62,15 @@ effects: {
 * The effect receives **validated, typed input** (as legacy server actions did), and never parses raw answers itself.
 * Result: a zone can reshape a licence application to match its paper form. It can't remove the medical certificate the
   law requires, or turn the licence category into free text.
+* **Built in task 0.21d:** the contract is declared with the effect (`@Effect(key, { input: { <field key>: { kind,
+  required } } })`, kinds = the engine's value kinds; `@itrms/schemas` `effectContractSchema`), checked by
+  `checkContract` (`@itrms/form-engine/core`): a required field must be at the form's top level, of the kind, required,
+  and not hidden by a condition. A service version's `inputMap` maps an effect's paths to the request form's keys; its
+  publish answers 422 `contract_<missing|wrong_kind|not_required|conditional|no_form>` in the reader's language. The
+  forms slice asks the services slice (its `FORM_PUBLISH_GUARD` port) before a form's version goes live: `contract`
+  problems block it, and the impact lists the services, their open cases and the bound effects; `GET /forms/{id}/locks`
+  feeds the builder's lock badge. The engine gives an effect with a contract its input from the case's request answers
+  (the version the case froze, through the frozen input map), refusing the transition when a required value is missing.
 
 ## 4. The change lifecycle (governance)
 

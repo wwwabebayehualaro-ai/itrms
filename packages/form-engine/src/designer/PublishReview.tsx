@@ -20,6 +20,7 @@ import {
 } from '@itrms/ui';
 
 import type { DiffChange, FormDiff } from '../core';
+import type { I18nText } from '@itrms/schemas';
 import { useEngineText } from '../host/text';
 import type { EngineMessageKey } from '../core/messages';
 import { usePublishCheck, useTemplateMutations } from '../api/templates';
@@ -152,7 +153,7 @@ export function DiffView({ diff }: { diff: FormDiff }) {
 }
 
 export function PublishReview({ check }: { check: PublishCheck }) {
-    const { t } = useEngineText();
+    const { t, word } = useEngineText();
     const errors = check.problems.filter((p) => p.severity === 'error');
     const warnings = check.problems.filter((p) => p.severity === 'warning');
     return (
@@ -206,6 +207,26 @@ export function PublishReview({ check }: { check: PublishCheck }) {
             <Section name="changes" title={t('form-engine.designer.publish.changes')}>
                 <DiffView diff={check.diff} />
             </Section>
+            {(check.impact.services ?? []).length > 0 && (
+                <Section
+                    name="services"
+                    title={t('form-engine.designer.publish.services')}
+                    count={check.impact.services?.length ?? 0}
+                >
+                    <ul className="grid gap-1 text-sm">
+                        {(check.impact.services ?? []).map((s) => (
+                            <li key={s.code} data-impact-service={s.code}>
+                                <span className="font-mono text-xs">{s.code}</span>{' '}
+                                <span className="font-medium">{word(s.name as I18nText)}</span>
+                                <span className="ms-2 text-xs text-muted-foreground">
+                                    {t('form-engine.designer.publish.serviceCases', { count: s.openCases })} ·{' '}
+                                    {s.effects.join(', ')}
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                </Section>
+            )}
             <Section name="views" title={t('form-engine.designer.publish.views')} count={check.impact.views.length}>
                 {check.impact.views.length === 0 ? (
                     <p className="text-sm text-muted-foreground">{t('form-engine.designer.publish.noViews')}</p>

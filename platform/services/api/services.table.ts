@@ -82,6 +82,11 @@ export const serviceVersions = withRls(
                     .default(sql`'[]'::jsonb`),
                 defaults: jsonb('defaults').$type<Record<string, unknown>>().notNull(),
                 overridePolicy: jsonb('override_policy').$type<Record<string, string[]>>().notNull(),
+                /** each effect's contract paths mapped to the request form's keys (task 0.21d; a path maps to itself otherwise) */
+                inputMap: jsonb('input_map')
+                    .$type<Record<string, Record<string, string>>>()
+                    .notNull()
+                    .default(sql`'{}'::jsonb`),
                 /** the first day (Addis Ababa) it holds for new cases */
                 effectiveFrom: date('effective_from').notNull(),
                 note: text('note')

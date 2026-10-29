@@ -4,7 +4,7 @@
  * again reuses it) and asks a second person to approve. Until they do, people keep filling in the version published
  * before. Every write goes through the audited helpers in the caller's transaction.
  */
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { and, desc, eq, ilike, inArray, lt, max, or, sql } from 'drizzle-orm';
 import { contextOfTx, insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { ConflictError, ForbiddenError, NotFoundError } from '@itrms/kernel/errors';
@@ -16,6 +16,7 @@ import type { z } from 'zod';
 
 import type {
     Form,
+    FormLock,
     FormSummary,
     FormVersion,
     FormVersionSummary,
@@ -38,6 +39,7 @@ import {
     required
 } from './support';
 import { assertKeysStable, assertPublishable, publishCheck, publishedDocument } from './governance';
+import { FORM_PUBLISH_GUARD, type FormPublishGuard, type GuardResult } from './publish-guard';
 import { filterableKinds } from './view-fields';
 
 type DefinitionRow = typeof formDefinitions.$inferSelect;
@@ -50,7 +52,23 @@ const escapeLike = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 @Injectable()
 export class FormsService {
-    constructor(@Inject(RegistryLookups) private readonly lookups: RegistryLookups = new RegistryLookups()) {}
+    constructor(
+        @Inject(RegistryLookups) private readonly lookups: RegistryLookups = new RegistryLookups(),
+        @Optional() @Inject(FORM_PUBLISH_GUARD) private readonly guard?: FormPublishGuard
+    ) {}
+
+    /** What the services reading the form say about a candidate version (task 0.21d); nothing without them. */
+    private guarded(tx: Tx, formId: string, document: unknown): Promise<GuardResult | undefined> {
+        return this.guard
+            ? this.guard.check(tx, formId, document, currentContext()?.language ?? 'am')
+            : Promise.resolve(undefined);
+    }
+
+    /** The fields the effects' input contracts lock in the builder (task 0.21d). */
+    async locks(tx: Tx, formId: string): Promise<FormLock[]> {
+        await this.get(tx, formId);
+        return this.guard ? this.guard.locks(tx, formId) : [];
+    }
 
     async list(tx: Tx, query: z.infer<typeof formListQuerySchema>): Promise<FormSummary[]> {
         const conditions = [];
@@ -250,7 +268,8 @@ export class FormsService {
             ctx.userId,
             form,
             { id: null, number: null, document: form.document },
-            currentContext()?.language ?? 'am'
+            currentContext()?.language ?? 'am',
+            await this.guarded(tx, formId, form.document)
         );
         const version = await this.snapshot(tx, form);
         if (version.id === form.publishedVersionId)
@@ -344,7 +363,8 @@ export class FormsService {
             ctx.userId,
             form,
             { id: same?.id ?? null, number: same?.number ?? null, document: form.document },
-            currentContext()?.language ?? 'am'
+            currentContext()?.language ?? 'am',
+            await this.guarded(tx, formId, form.document)
         );
     }
 
@@ -359,7 +379,8 @@ export class FormsService {
             ctx.userId,
             form,
             { id: candidate.id, number: candidate.number, document: candidate.document },
-            currentContext()?.language ?? 'am'
+            currentContext()?.language ?? 'am',
+            await this.guarded(tx, row.formId, candidate.document)
         );
     }
 
@@ -377,7 +398,8 @@ export class FormsService {
             ctx.userId,
             form,
             { id: candidate.id, number: candidate.number, document: candidate.document },
-            currentContext()?.language ?? 'am'
+            currentContext()?.language ?? 'am',
+            await this.guarded(tx, form.id, candidate.document)
         );
         const previousVersionId = form.publishedVersionId;
         // a key stays indexed only if the new version marks it filterable with the same kind as the previous one: its

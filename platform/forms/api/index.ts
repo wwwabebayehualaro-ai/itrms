@@ -2,6 +2,7 @@
 // (cases, task 0.19), and the tables.
 export { FormsModule } from './forms.module';
 export { FormsService } from './forms.service';
+export { FORM_PUBLISH_GUARD, type FormPublishGuard, type GuardResult } from './publish-guard';
 export { SubmissionsService } from './submissions.service';
 export { SubmissionQueryService } from './query.service';
 export { RegistryLookups } from './lookups';

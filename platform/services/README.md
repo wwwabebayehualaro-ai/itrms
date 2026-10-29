@@ -41,5 +41,10 @@ API: `GET /services`, `GET|POST /services/{code}/versions`, `GET /services/{code
 `GET /org-units/{id}/services/{code}/configuration` (with the workflow's timed `states` and the form's `fields`),
 `PUT|DELETE /org-units/{id}/services/{code}/override` (If-Match), `POST /service-requests`.
 
+- **Effect input contracts** (task 0.21d): a version's `inputMap` maps each effect's contract paths to the request
+  form's keys; publishing refuses a version whose form does not meet its effects' contracts; `ServiceFormGuard` is the
+  forms slice's `FORM_PUBLISH_GUARD` (a new version of a form a service reads is checked the same way, the impact names
+  the services, their open cases and effects, and the locks feed the builder).
+
 Screens (apps/web): `/services` (the catalogue), `/services/{code}` (its versions, publishing one, an office's
 configuration and its override), `/requests/new` (the counter). Form overlays (an extra field): 0.21d.

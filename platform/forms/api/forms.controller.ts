@@ -149,6 +149,13 @@ export class FormsController {
         return this.db.scoped(ctx, (tx) => this.savedViews.create(tx, ctx, canShare(), id, body));
     }
 
+    /** The fields the services' effects read, which the builder shows locked (key, type, required; task 0.21d). */
+    @Get(':id/locks')
+    @Require('form:read')
+    locks(@Param('id', ParseUUIDPipe) id: string) {
+        return this.db.scoped(requestDbContext(), async (tx) => ({ items: await this.forms.locks(tx, id) }));
+    }
+
     @Get(':id/versions')
     @Require('form:read')
     versions(@Param('id', ParseUUIDPipe) id: string) {
