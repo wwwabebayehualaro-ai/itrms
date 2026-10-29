@@ -868,10 +868,11 @@
         {
           "id": "0.21a",
           "title": "Configuration inheritance, part 1: the resolver and the settings registry",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.21a-settings-registry",
           "commits": [
-            "c72b1c9"
+            "c72b1c9",
+            "9264a1f"
           ],
           "evidence": [
             "GitHub CI run 40815040201 on c72b1c9 (PR #22): all 9 jobs success — checks, dev stack + test:int, e2e, perf, stories/axe, Semgrep, gitleaks, Trivy, licence report",
