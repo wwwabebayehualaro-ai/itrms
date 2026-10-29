@@ -230,12 +230,6 @@ export type SlaState = (typeof SLA_STATES)[number];
 
 // --- starting a case, the inbox, claims, comments (task 0.20b) -----------------------------------------------------
 
-/**
- * Starting a case on a workflow's newest version, handled by the caller's unit (`case:create`, intake). A service
- * request (0.21) starts one with the configuration it resolved.
- */
-export const caseStartSchema = z.strictObject({ workflowId: z.uuid() });
-
 export const inboxQuerySchema = z.strictObject({
     /** everyone's, the caller's own claims, or the ones nobody has claimed */
     claim: z.enum(['all', 'mine', 'unclaimed']).default('all'),

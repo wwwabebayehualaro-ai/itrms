@@ -295,6 +295,12 @@ effective(service, unit) = default(service_version) ⊕ override(ancestor_1) ⊕
   version ids). Later configuration changes never alter open cases.
 - Coded behaviour stays in modules: a service version names its effects (e.g. `competency.issueLicence`), and only effects a
   module registered can be named (checked on publish).
+- Built in task 0.21b ([platform/services/README.md](../platform/services/README.md)): the keys are families (`sla.<state>`,
+  `approval_unit`, `help.<field>`, `templateHeader`); the policy names, per family, the levels (`region`, `unit`) that may
+  change it; a unit-type layer for services is not used yet (service enablement per unit type is `unit_type_services`).
+  A new version reports the overrides below it that no longer fit (a state or field it lacks, a family it no longer
+  allows); they stay stored and are passed over. The frozen configuration is the case's `config` (with `config_hash`);
+  the engine reads a step's SLA from it before the workflow's. Form overlays follow in 0.21d.
 
 ## 8. Workflow engine
 

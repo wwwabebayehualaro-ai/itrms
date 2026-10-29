@@ -14,6 +14,8 @@ export { api } from '../forms/support';
 
 /** Demo accounts of apps/api/seed/users/wolaita.demo.yaml (generated people, never real ones). */
 export const PEOPLE = {
+    /** the bureau: publishes the service versions the journeys' cases are requests for */
+    bureau: { id: '0199f0a0-d000-7000-8000-000000000001', username: 'demo.bureau.admin', name: 'Bureau Admin (demo)' },
     /** Wolaita Zone: writes the zone's workflows (unit_admin) */
     author: { id: '0199f0a0-d000-7000-8000-000000000102', username: 'demo.zone.admin', name: 'Zone Admin (demo)' },
     /** Damot Gale: starts cases and reviews them (records_officer) */
@@ -78,9 +80,22 @@ export interface Started {
     number: number;
 }
 
-/** A case started at Damot Gale and submitted into its review. */
-export async function submittedCase(records: Api, workflowId: string): Promise<Started> {
-    const c = await records.post<{ id: string; number: number; version: number }>('v1/cases', { workflowId });
+/**
+ * The service a journey's cases are requests for (task 0.21b): one of Damot Gale's road-safety services, its version
+ * published by the bureau with the run's workflow. Each journey has a service of its own, so journeys running at the
+ * same time never start each other's workflow.
+ */
+export async function journeyService(bureau: Api, serviceCode: string, workflowId: string): Promise<string> {
+    const workflow = await bureau.get<{ latestVersion: { id: string } }>(`v1/workflow-definitions/${workflowId}`);
+    await bureau.post(`v1/services/${serviceCode}/versions`, { workflowVersionId: workflow.latestVersion.id });
+    return serviceCode;
+}
+
+/** A case requested at Damot Gale and submitted into its review. */
+export async function submittedCase(records: Api, serviceCode: string): Promise<Started> {
+    const c = await records.post<{ id: string; number: number; version: number }>('v1/service-requests', {
+        serviceCode
+    });
     await records.post(`v1/cases/${c.id}/transitions`, { action: 'submit' }, c.version);
     return { id: c.id, number: c.number };
 }

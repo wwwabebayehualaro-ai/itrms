@@ -891,12 +891,12 @@
         {
           "id": "0.21b",
           "title": "Configuration inheritance, part 2: the service catalogue and frozen configuration",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.21b-service-catalogue",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Design: catalogue (54, seed/catalogue.yaml generated from docs/service-catalogue.md), immutable service_versions (form/workflow version ids, defaults, override policy per key family, effective_from), service_overrides per unit; all class C. One resolver (kernel settings) with policy-driven allowed(); a value that no longer fits its version is passed over. Publish needs a region-root seat; checks form/workflow exist and are on, effects registered, defaults fit; reports conflicts below (sorted). Requests freeze config on the case (serviceVersionId, formVersionId, sla, help, approval_unit, templateHeader, sources); the engine reads sla.<state> first. POST /cases removed (inbox suite and e2e journeys request RS-01/02/03 instead). Kernel enablement: If-Match + catalogue via SERVICE_CATALOGUE port (ServicesModule is @Global). Cross-slice FKs (form/workflow versions) only in hand-written SQL (slices import only public entries; drizzle-kit can't load Nest entries). Follow-ups 110 (server actions → module effects) moved to 0.21c with 126; 113 to Phase 1 (no transfer exists)."
         },
         {
           "id": "0.21c",
@@ -1799,7 +1799,8 @@
     {
       "foundIn": "0.8",
       "item": "Service overrides: If-Match on PUT/DELETE /org-units/{id}/services/{code}; codes checked against service_definitions; which units may override which services (allowed-overrides policy per service version)",
-      "movedTo": "0.21b"
+      "movedTo": "0.21b",
+      "closedIn": "0.21b: If-Match on PUT/DELETE /org-units/{id}/services/{code} (overrides[].version in the GET), codes checked against the catalogue through SERVICE_CATALOGUE; the version's policy governs the other keys (sla, approval_unit, help, templateHeader) of service overrides"
     },
     {
       "foundIn": "0.8",
@@ -1944,7 +1945,8 @@
     {
       "foundIn": "0.10b",
       "item": "Unknown service codes in menu requires are not checked against the service catalogue",
-      "movedTo": "0.21b"
+      "movedTo": "0.21b",
+      "closedIn": "0.21b: the loader refuses a menu item that needs a service no installed module serves; apps/api catalogue.spec checks every module's and seeded unit type's service codes against the catalogue"
     },
     {
       "foundIn": "0.11",
@@ -2101,7 +2103,7 @@
     {
       "foundIn": "0.16a",
       "item": "The legacy runtime.submit.serverAction is not run: a service version names module effects instead",
-      "movedTo": "0.21b"
+      "movedTo": "0.21c"
     },
     {
       "foundIn": "0.16a",
@@ -2116,7 +2118,7 @@
     {
       "foundIn": "0.16b",
       "item": "A transfer of a submission's handling unit must move its submission_values rows too (they carry handling_unit_id for their scope)",
-      "movedTo": "0.21b"
+      "movedTo": "Phase 1 (DVC-05 transfers; no transfer of a handling unit exists yet)"
     },
     {
       "foundIn": "0.16b",
@@ -2340,7 +2342,8 @@
     {
       "foundIn": "0.19a",
       "item": "Check that the effects (and workflow versions) named by seeded and published service versions exist: the EffectRegistry's keys, WorkflowDefinitionsService",
-      "movedTo": "0.21b"
+      "movedTo": "0.21b",
+      "closedIn": "0.21b: publishing a service version checks its form and workflow versions exist and are on, and the workflow's effects are in the EffectRegistry (no versions are seeded yet: DVC-03's comes with 0.24)"
     },
     {
       "foundIn": "0.19a",
@@ -2371,7 +2374,8 @@
     {
       "foundIn": "0.20b",
       "item": "POST /api/v1/cases starts any active workflow the office reads, with no service configuration (interim intake): restrict it to workflows a service enabled for the unit names, or remove it",
-      "movedTo": "0.21b"
+      "movedTo": "0.21b",
+      "closedIn": "0.21b: POST /api/v1/cases removed; POST /api/v1/service-requests starts a case only for a service the unit offers and is configured, on its frozen configuration"
     },
     {
       "foundIn": "0.20b",

@@ -1,20 +1,6 @@
 {
   "components": {
     "schemas": {
-      "CaseStartDto": {
-        "additionalProperties": false,
-        "properties": {
-          "workflowId": {
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-            "type": "string"
-          }
-        },
-        "required": [
-          "workflowId"
-        ],
-        "type": "object"
-      },
       "CommentDto": {
         "additionalProperties": false,
         "properties": {
@@ -881,6 +867,28 @@
         },
         "type": "object"
       },
+      "OverrideDto": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {},
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "values",
+          "reason"
+        ],
+        "type": "object"
+      },
       "PersonCreateDto": {
         "additionalProperties": false,
         "properties": {
@@ -1402,6 +1410,19 @@
         },
         "required": [
           "name"
+        ],
+        "type": "object"
+      },
+      "RequestDto": {
+        "additionalProperties": false,
+        "properties": {
+          "serviceCode": {
+            "pattern": "^[A-Z]{2,5}-\\d{2}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "serviceCode"
         ],
         "type": "object"
       },
@@ -3135,6 +3156,74 @@
         ],
         "type": "object"
       },
+      "VersionDto": {
+        "additionalProperties": false,
+        "properties": {
+          "defaults": {
+            "additionalProperties": {},
+            "default": {},
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "effectiveFrom": {
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+            "type": "string"
+          },
+          "formVersionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "note": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "overridePolicy": {
+            "additionalProperties": {
+              "items": {
+                "enum": [
+                  "region",
+                  "unit"
+                ],
+                "type": "string"
+              },
+              "maxItems": 2,
+              "type": "array"
+            },
+            "default": {},
+            "propertyNames": {
+              "enum": [
+                "sla",
+                "approval_unit",
+                "help",
+                "templateHeader"
+              ],
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "workflowVersionId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflowVersionId"
+        ],
+        "type": "object"
+      },
       "WorkflowCheckDto": {
         "additionalProperties": false,
         "properties": {
@@ -3256,30 +3345,6 @@
         },
         "tags": [
           "Jobs"
-        ]
-      }
-    },
-    "/api/v1/cases": {
-      "post": {
-        "operationId": "CasesController_start",
-        "parameters": [],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CaseStartDto"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Cases"
         ]
       }
     },
@@ -4758,6 +4823,107 @@
         ]
       }
     },
+    "/api/v1/org-units/{id}/services/{code}/configuration": {
+      "get": {
+        "operationId": "ServicesController_configuration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Services"
+        ]
+      }
+    },
+    "/api/v1/org-units/{id}/services/{code}/override": {
+      "delete": {
+        "operationId": "ServicesController_resetOverride",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Services"
+        ]
+      },
+      "put": {
+        "operationId": "ServicesController_setOverride",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OverrideDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Services"
+        ]
+      }
+    },
     "/api/v1/org-units/{id}/settings": {
       "get": {
         "operationId": "SettingsController_forUnit",
@@ -5586,6 +5752,98 @@
         },
         "tags": [
           "SavedViews"
+        ]
+      }
+    },
+    "/api/v1/service-requests": {
+      "post": {
+        "operationId": "ServicesController_request",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Services"
+        ]
+      }
+    },
+    "/api/v1/services": {
+      "get": {
+        "operationId": "ServicesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Services"
+        ]
+      }
+    },
+    "/api/v1/services/{code}/versions": {
+      "get": {
+        "operationId": "ServicesController_versions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Services"
+        ]
+      },
+      "post": {
+        "operationId": "ServicesController_publish",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Services"
         ]
       }
     },

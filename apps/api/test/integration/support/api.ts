@@ -18,6 +18,8 @@ import type { ObjectStore } from '@itrms/kernel/files';
 import { rolePermissions } from '@itrms/kernel/iam';
 import { findUnitByCode, importOrg, orgUnits, parseOrgYaml, type OrgUnit } from '@itrms/kernel/org';
 import { importUsers, userImportSchema } from '@itrms/kernel/seed';
+import { importCatalogue } from '@itrms/services/api';
+import { parseCatalogue } from '@itrms/services/seed';
 import { and, eq, isNull } from 'drizzle-orm';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { Client } from 'pg';
@@ -29,6 +31,7 @@ import type { TestPostgres } from './postgres';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SEEDS = join(HERE, '..', '..', '..', 'seed');
 const FIXTURES = join(HERE, '..', '..', 'fixtures', 'org');
+const CATALOGUE = join(HERE, '..', '..', '..', '..', '..', 'platform', 'services', 'seed', 'catalogue.yaml');
 const ISSUER = 'http://keycloak.test/realms/itrms';
 const AUDIENCE = 'itrms-api';
 
@@ -86,6 +89,12 @@ export async function startApi(
         join(FIXTURES, 'region-without-zones.yaml')
     ])
         await installer.scoped({}, (tx) => importOrg(tx, parseOrgYaml(readFileSync(file, 'utf8'))));
+    // every region's service catalogue (task 0.21b), from the services slice's seed
+    const catalogue = parseCatalogue(readFileSync(CATALOGUE, 'utf8'));
+    await installer.scoped({}, async (tx) => {
+        for (const root of await tx.select().from(orgUnits).where(isNull(orgUnits.parentId)))
+            await importCatalogue(tx, root.id, catalogue);
+    });
     const demo = userImportSchema.parse(parseYaml(readFileSync(join(SEEDS, 'users', 'wolaita.demo.yaml'), 'utf8')));
     await installer.scoped({}, (tx) => importUsers(tx, demo));
     // Test Region X's district offices have no roles in their fixture: the suites may give them a records officer

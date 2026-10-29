@@ -103,7 +103,6 @@
   "workflow.refusal.not-an-action": "The case is waiting for an event or its time limit, not for a person's action.",
   "workflow.refusal.not-an-event": "The case is not waiting for an event.",
   "workflow.refusal.not-claimed": "You have not taken this step on.",
-  "workflow.refusal.not-startable": "This workflow is switched off or has no version yet.",
   "workflow.refusal.reject-not-allowed": "Your role may not reject this case.",
   "workflow.refusal.role-required": "This step is taken by another role or another office.",
   "workflow.refusal.separation-of-duties": "You acted on an earlier step of this case: another person takes this one.",

@@ -156,6 +156,7 @@ export function loadSlices<Module>(
             if (!catalogues[language]?.[key])
                 problems.push(`${owner.key}: ${what} "${key}" has no ${language} text in its messages`);
     };
+    const declaredServices = new Set(all.flatMap((m) => m.services));
     const kernelCatalogues = installed.get('kernel')?.messages ?? {};
     const kernelManifest = installed.get('kernel')?.manifest;
     for (const { manifest: m, messages: catalogues = {} } of enabled) {
@@ -167,11 +168,18 @@ export function loadSlices<Module>(
         for (const item of m.menu) {
             for (const label of [item.label, ...item.quickActions.map((a) => a.label)])
                 needs(m, catalogues, label, 'menu label');
-            for (const requires of [item.requires, ...item.quickActions.map((a) => a.requires)])
+            for (const requires of [item.requires, ...item.quickActions.map((a) => a.requires)]) {
                 if (requires.permission && !permissions.has(requires.permission))
                     problems.push(
                         `${m.key}: menu item "${item.key}" needs "${requires.permission}", which no installed module defines`
                     );
+                // a service a menu entry waits for is one a module serves (the catalogue's codes, task 0.21b)
+                for (const code of requires.services)
+                    if (!declaredServices.has(code))
+                        problems.push(
+                            `${m.key}: menu item "${item.key}" needs service "${code}", which no installed module serves`
+                        );
+            }
             if (item.group !== 'work-process' && kernelManifest)
                 needs(kernelManifest, kernelCatalogues, `kernel.nav.group.${item.group}`, 'menu group');
         }

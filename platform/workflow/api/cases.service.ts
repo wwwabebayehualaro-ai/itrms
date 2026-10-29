@@ -37,6 +37,7 @@ import {
     effectKeyOf,
     parseStepForm,
     workflowDefinitionSchema,
+    workflowSlaSchema,
     workflowUnitRuleSchema,
     type WorkflowDefinition,
     type WorkflowState,
@@ -87,12 +88,24 @@ export interface CaseActor {
 /** What only this service refuses (the engine's refusals are `Refusal`): a step someone else took on, or not taken on. */
 type ClaimRefusal = 'claimed' | 'not-claimed' | 'task-closed';
 
-/** The configuration a service freezes on a case (0.21 resolves it); the engine reads `approval_unit`. */
+/**
+ * The configuration a service freezes on a case (task 0.21b resolves it): the engine reads `approval_unit` and a step's
+ * SLA where the service set one (`sla.<state>`), before the workflow's own.
+ */
 export const caseConfigSchema = z
-    .object({ approval_unit: workflowUnitRuleSchema.optional() })
+    .object({
+        approval_unit: workflowUnitRuleSchema.optional(),
+        sla: z.record(z.string(), workflowSlaSchema).optional()
+    })
     .catchall(z.unknown())
     .refine((c) => c.approval_unit !== '${approval_unit}', 'approval_unit names a unit rule');
 export type CaseConfig = z.infer<typeof caseConfigSchema>;
+
+/** A state's SLA on a case: the one its service froze, else the workflow's. */
+export function slaOfState(config: unknown, state: WorkflowState) {
+    const parsed = caseConfigSchema.safeParse(config);
+    return (parsed.success ? parsed.data.sla?.[state.key] : undefined) ?? state.sla;
+}
 
 const CATALOGUES: Record<string, Record<string, string>> = { am, en };
 const text = (key: string, language: string): string =>
@@ -272,23 +285,6 @@ export class CasesService {
     }
 
     // --- starting, claiming, commenting (task 0.20b) -------------------------------------------------------------------
-
-    /** Starts a case on a workflow's newest version, handled by the caller's unit (intake; 0.21's requests add the config). */
-    async startOn(
-        tx: Tx,
-        ctx: DbContext,
-        workflowId: string,
-        language: string
-    ): Promise<{ id: string; number: number }> {
-        const [workflow] = await tx
-            .select({ active: workflowDefinitions.active, latest: workflowDefinitions.latestVersionId })
-            .from(workflowDefinitions)
-            .where(eq(workflowDefinitions.id, workflowId));
-        if (!workflow) throw new NotFoundError();
-        if (!workflow.active || !workflow.latest)
-            throw new ConflictError('not_configured', { detail: text('workflow.refusal.not-startable', language) });
-        return this.start(tx, ctx, { definitionVersionId: workflow.latest });
-    }
 
     /**
      * Takes an open step on: one of the role's holders in the step's unit, not kept off it by separation of duties. The
@@ -549,14 +545,14 @@ export class CasesService {
         if (!to) refuse('unknown-state', by.language, row.id);
         const closed = to.kind === 'end';
         // a wait with an SLA is due on the handling unit's calendar; its timeout is delivered then (0.20a)
-        const waitDue =
-            to.kind === 'wait' && to.sla
-                ? await dueAt(
-                      tx,
-                      (await this.chain(tx, row.handlingUnitId)).map((u) => u.id),
-                      to.sla
-                  )
-                : null;
+        const waitSla = to.kind === 'wait' ? slaOfState(row.config, to) : undefined;
+        const waitDue = waitSla
+            ? await dueAt(
+                  tx,
+                  (await this.chain(tx, row.handlingUnitId)).map((u) => u.id),
+                  waitSla
+              )
+            : null;
         await updateAudited(tx, cases, row.id, row.rowVersion, {
             state: to.key,
             facts,
@@ -635,12 +631,13 @@ export class CasesService {
             if (routed.hops > 0) routedFrom = assigned.unit.id;
         }
         const taskId = newId();
-        // its SLA on the calendar of the unit it is in
-        const due = state.sla
+        // its SLA (the service's for this case, else the workflow's) on the calendar of the unit it is in
+        const sla = slaOfState(row.config, state);
+        const due = sla
             ? await dueAt(
                   tx,
                   chain.slice(0, chain.findIndex((u) => u.id === unit.id) + 1).map((u) => u.id),
-                  state.sla
+                  sla
               )
             : null;
         const values = {

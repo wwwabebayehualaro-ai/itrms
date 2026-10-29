@@ -261,13 +261,18 @@ export async function effectiveServices(tx: Tx, unitId: string): Promise<string[
         .sort();
 }
 
-/** Turns a service on or off for one unit, against its type's default (an exception, with its reason). */
+/**
+ * Turns a service on or off for one unit, against its type's default (an exception, with its reason). With
+ * `expectedVersion` (the API's If-Match; 0 for none yet) another administrator's change since is refused, never
+ * overwritten; the seeds and tests leave it out.
+ */
 export async function setServiceOverride(
     tx: Tx,
     unitId: string,
     serviceCode: string,
     enabled: boolean,
-    reason: string
+    reason: string,
+    expectedVersion?: number
 ): Promise<void> {
     if (!SERVICE_CODE.test(serviceCode))
         invalid('serviceCode', 'unknown_service', `"${serviceCode}" is not a service code`);
@@ -276,7 +281,13 @@ export async function setServiceOverride(
         .select()
         .from(unitServiceOverrides)
         .where(and(eq(unitServiceOverrides.orgUnitId, unitId), eq(unitServiceOverrides.serviceCode, serviceCode)));
-    if (current) await updateAudited(tx, unitServiceOverrides, current.id, current.rowVersion, { enabled, reason });
+    if (current)
+        await updateAudited(tx, unitServiceOverrides, current.id, expectedVersion ?? current.rowVersion, {
+            enabled,
+            reason
+        });
+    else if (expectedVersion !== undefined && expectedVersion !== 0)
+        throw new ConflictError('stale_version', { detail: `Version ${expectedVersion} was changed; read it again.` });
     else
         await insertAudited(tx, unitServiceOverrides, {
             regionId: unit.regionId,
@@ -288,13 +299,28 @@ export async function setServiceOverride(
 }
 
 /** Back to the unit type's default for this service. */
-export async function clearServiceOverride(tx: Tx, unitId: string, serviceCode: string): Promise<void> {
+export async function clearServiceOverride(
+    tx: Tx,
+    unitId: string,
+    serviceCode: string,
+    expectedVersion?: number
+): Promise<void> {
     const [current] = await tx
         .select()
         .from(unitServiceOverrides)
         .where(and(eq(unitServiceOverrides.orgUnitId, unitId), eq(unitServiceOverrides.serviceCode, serviceCode)));
     if (!current) throw new NotFoundError();
-    await deleteAudited(tx, unitServiceOverrides, current.id, current.rowVersion);
+    await deleteAudited(tx, unitServiceOverrides, current.id, expectedVersion ?? current.rowVersion);
+}
+
+/** A unit's own exceptions to its type's services, with the version a change names. */
+export async function serviceOverridesOf(tx: Tx, unitId: string) {
+    const rows = await tx
+        .select()
+        .from(unitServiceOverrides)
+        .where(eq(unitServiceOverrides.orgUnitId, unitId))
+        .orderBy(asc(unitServiceOverrides.serviceCode));
+    return rows.map((r) => ({ code: r.serviceCode, enabled: r.enabled, reason: r.reason, version: r.rowVersion }));
 }
 
 /** What a screen shows of a unit: its level's name in the region's own words, its type and capabilities. */

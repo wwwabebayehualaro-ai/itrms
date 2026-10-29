@@ -130,7 +130,10 @@ level definitions and unit types.
 * **Admin API** `/api/v1/org-units`: `GET /{id}`, `GET /{id}/subtree`, `POST` (create), `PATCH /{id}` (rename),
   `POST /{id}/moves`, `POST /{id}/deactivations`, `GET|PUT|DELETE /{id}/services/{code}`. Writes send the row version in
   `If-Match`. A unit outside the caller's subtree is 404; moving or deactivating needs a unit strictly below the
-  caller's own.
+  caller's own. A service's on/off exception names the version of the unit's own exception (`overrides[].version` in
+  the GET; 0 for none) and a code of the region's catalogue (the services slice checks it through the kernel's
+  `SERVICE_CATALOGUE` port, task 0.21b); the other keys of a service (SLA, help texts …) are the services slice's
+  overrides.
 * **Import** (one document shape): YAML (the seeds; top-level `x-` keys hold anchors), CSV (units of an existing region:
   `code, parent, kind, level, type, category, name_am, name_en, name_<tag>…, to_confirm`), Excel (a `units` sheet like the
   CSV, optional `levels` and `unit_types` sheets). Idempotent by code and key, one transaction per file, errors name the
