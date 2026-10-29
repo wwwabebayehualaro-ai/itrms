@@ -2,7 +2,7 @@ import { defineModule } from '@itrms/module-sdk';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { buildSettingsRegistry, defaultsOf, registryRules, settingLabelKey } from './registry';
+import { buildSettingsRegistry, defaultsOf, registryRules, settingLabelKey, settingProblems } from './registry';
 import { resolve, resolveAll, unitChain, without, type ChainInput } from './resolve';
 import { installationValues, userValues } from './settings';
 
@@ -153,6 +153,19 @@ describe('the registry', () => {
     it("names each setting in its owner's catalogue", () => {
         expect(settingLabelKey('kernel', 'ui.theme')).toBe('kernel.setting.ui.theme');
         expect(settingLabelKey('forms', 'forms.exports.keepDays')).toBe('forms.setting.exports.keepDays');
+    });
+
+    it('refuses a sensitive setting a person could choose for themselves (no second factor there)', () => {
+        const manifest = defineModule({
+            key: 'probe',
+            layer: 'platform',
+            version: '1.0.0',
+            dependsOn: ['kernel'],
+            settings: [{ key: 'probe.pin', default: 1, userPreference: true, sensitive: true }]
+        });
+        expect(settingProblems([{ manifest, settings: { 'probe.pin': z.number() } }])).toEqual([
+            'probe: setting "probe.pin" cannot be both a personal choice and sensitive'
+        ]);
     });
 
     it("checks the installation's values: a key, a level and a value it allows, or the start stops", () => {

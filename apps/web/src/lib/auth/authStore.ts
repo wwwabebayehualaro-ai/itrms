@@ -39,6 +39,8 @@ export interface Workspace {
     permissions: string[];
     menu: MenuGroup[];
     settings: Record<string, unknown>;
+    /** The office's values of the settings a person may choose (without their own), task 0.21a. */
+    officeSettings?: Record<string, unknown>;
     /** The names of the roles in `roles` and `units[].roles`: a role key is never shown to a person. */
     roleLabels: Record<string, Text>;
     /** The person's own, saved on the server (task 0.13). */

@@ -567,7 +567,12 @@ export const EXPORT_KEEP_DAYS = 7;
 /** The value schemas of the forms' settings (ADR-0026; declared in the manifest). */
 export const FORMS_SETTINGS = {
     'forms.exports.keepDays': z.number().int().min(1).max(90),
-    'forms.exports.backgroundMaxRows': z.number().int().min(MAX_DIRECT_EXPORT_ROWS).max(MAX_BACKGROUND_EXPORT_ROWS)
+    // more than a direct export answers: below it the background would refuse what it is there for
+    'forms.exports.backgroundMaxRows': z
+        .number()
+        .int()
+        .min(MAX_DIRECT_EXPORT_ROWS + 1)
+        .max(MAX_BACKGROUND_EXPORT_ROWS)
 } as const;
 
 /** What the viewer shows, as a file: the same filter, search and sort, the chosen fields (all by default). */

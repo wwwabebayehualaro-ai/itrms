@@ -33,14 +33,20 @@ type Row = typeof settingsValues.$inferSelect;
 /** A value's JSON Schema, with the parts the screen's editor reads checked (the rest kept as it is). */
 const jsonSchema = z
     .object({
-        enum: z.array(z.string()).optional(),
+        enum: z.array(z.unknown()).optional(),
         items: z
-            .object({ enum: z.array(z.string()).optional() })
+            .object({ enum: z.array(z.unknown()).optional() })
             .loose()
             .optional()
     })
     .loose();
 type JsonSchema = z.infer<typeof jsonSchema>;
+
+/** A setting's JSON Schema for the screen; one the editor cannot read is offered as a bare value (never a failed page). */
+const jsonSchemaOf = (schema: z.ZodType): JsonSchema => {
+    const parsed = jsonSchema.safeParse(z.toJSONSchema(schema, { unrepresentable: 'any' }));
+    return parsed.success ? parsed.data : {};
+};
 
 /** The installation's values (`INSTALLATION_SETTINGS`), each checked against the registry; a problem stops the start. */
 export function installationValues(registry: SettingsRegistry, raw: Readonly<Record<string, unknown>>) {
@@ -89,6 +95,8 @@ export interface UnitSetting {
     source: Source;
     /** what the unit would have without its own value (its reset) */
     inherited: Resolved | null;
+    /** what a unit of its type would have without its own value and the type's (the type's reset) */
+    inheritedWithoutType: Resolved | null;
     /** the unit's own value, with the version a change names */
     own: { value: unknown; version: number } | null;
     /** the region's value for the unit's type */
@@ -113,10 +121,13 @@ export class SettingsService {
     readonly registry: SettingsRegistry;
     private readonly installation: ReadonlyMap<string, unknown>;
     private readonly messages: Catalogues;
+    /** each setting's JSON Schema, made once */
+    private readonly schemas: ReadonlyMap<string, JsonSchema>;
 
     constructor(@Inject(SHELL) shell: Shell, @Inject(KERNEL_CONFIG) config: KernelConfig) {
         this.registry = shell.settings ?? new Map();
         this.messages = shell.messages;
+        this.schemas = new Map([...this.registry].map(([key, e]) => [key, jsonSchemaOf(e.schema)]));
         this.installation = installationValues(this.registry, config.INSTALLATION_SETTINGS);
     }
 
@@ -202,7 +213,10 @@ export class SettingsService {
             const own = data.rows.find((r) => r.key === key && r.unitTypeId === null && r.unitId === unit.id);
             const forType = data.rows.find((r) => r.key === key && r.unitTypeId !== null);
             const found = resolve(key, chain, rules);
-            const schema = jsonSchema.parse(z.toJSONSchema(entry.schema, { unrepresentable: 'any' }));
+            const schema = this.schemas.get(key) ?? {};
+            const typeSource: Source | undefined = unit.unitTypeId
+                ? { level: 'unitType', unitTypeId: unit.unitTypeId }
+                : undefined;
             return {
                 key,
                 owner: entry.owner,
@@ -215,6 +229,10 @@ export class SettingsService {
                 value: found?.value ?? entry.declaration.default,
                 source: found?.source ?? { level: 'default' },
                 inherited: resolve(key, without(chain, self), rules) ?? null,
+                // what a unit of its type without a value of its own gets once the region resets the type's value
+                inheritedWithoutType: typeSource
+                    ? (resolve(key, without(without(chain, self), typeSource), rules) ?? null)
+                    : null,
                 own: own ? { value: own.value, version: own.rowVersion } : null,
                 unitType: forType ? { value: forType.value, version: forType.rowVersion } : null,
                 writable: {
@@ -239,18 +257,23 @@ export class SettingsService {
 
     /** A fixed list's choices (an enum, or a list of an enum's values), named by `<owner>.settingOption.<key>.<value>`. */
     private options(entry: SettingEntry, schema: JsonSchema): UnitSetting['options'] {
-        const values = schema.enum ?? schema.items?.enum;
-        if (!values) return null;
+        const listed = schema.enum ?? schema.items?.enum;
+        // a fixed list of words; other lists (numbers) are edited as values
+        if (!listed?.every((v): v is string => typeof v === 'string')) return null;
+        const values = listed;
         return values.map((value) => {
             const key = `${entry.label.replace('.setting.', '.settingOption.')}.${value}`;
             return { value, name: this.messages.en?.[key] ? textOf(this.messages, key) : null };
         });
     }
 
-    /** Checks a change: the key, the level, the value, the second factor for a sensitive setting. */
+    /**
+     * Checks a change: the key, the level, the value, the second factor for a sensitive setting. A reset (no value) is
+     * let through at a level the setting no longer allows, so a value stored before a release narrowed it can be removed.
+     */
     private checkChange(key: string, level: 'region' | 'unit' | 'unitType', value: unknown, authAge?: number) {
         const entry = this.entry(key);
-        if (!allowedAt(entry, level))
+        if (value !== undefined && !allowedAt(entry, level))
             throw new ValidationError('setting_level_not_allowed', {
                 detail: `"${key}" cannot be set for a ${level === 'unitType' ? 'unit type' : level}.`
             });

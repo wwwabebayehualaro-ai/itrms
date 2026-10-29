@@ -89,6 +89,14 @@ export class IamController {
                         .filter(([key]) => CLIENT_SETTINGS.test(key))
                         .map(([key, resolved]) => [key, resolved.value])
                 ),
+                // the office's values of the settings a person may choose: a choice equal to it is no choice of their
+                // own (the shell resets theirs, so a later change of the office's reaches them)
+                officeSettings: Object.fromEntries(
+                    [...(await this.settings.effective(tx, unit))]
+                        .filter(([key]) => this.settings.registry.get(key)?.declaration.userPreference)
+                        .filter(([key]) => CLIENT_SETTINGS.test(key))
+                        .map(([key, resolved]) => [key, resolved.value])
+                ),
                 // the person's own (language, calendar, favourites, recents): they follow them between PCs; their
                 // choices of settings are read above
                 preferences: storedPreferences.catch({}).parse(user?.preferences ?? {}),

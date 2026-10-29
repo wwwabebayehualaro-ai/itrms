@@ -203,12 +203,13 @@ export function SettingsAdmin() {
     const reset = async (setting: UnitSetting, which: 'unit' | 'unitType') => {
         const target = targetOf(which);
         const own = which === 'unit' ? setting.own : setting.unitType;
+        const after = which === 'unit' ? setting.inherited : setting.inheritedWithoutType;
         if (!target || !own) return;
         const sure = await confirmAction({
             header: t('shell.settings.resetTitle'),
             message: t('shell.settings.resetMessage', {
                 name: text(setting.name),
-                value: setting.inherited ? show(setting, setting.inherited.value) : ''
+                value: after ? show(setting, after.value) : ''
             }),
             acceptLabel: t('shell.settings.reset'),
             rejectLabel: t('shell.settings.cancel')

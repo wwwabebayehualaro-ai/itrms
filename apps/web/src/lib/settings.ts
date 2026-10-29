@@ -40,6 +40,7 @@ export interface UnitSetting {
     value: unknown;
     source: SettingSource;
     inherited: { value: unknown; source: SettingSource } | null;
+    inheritedWithoutType: { value: unknown; source: SettingSource } | null;
     own: { value: unknown; version: number } | null;
     unitType: { value: unknown; version: number } | null;
     writable: { unit: boolean; unitType: boolean };

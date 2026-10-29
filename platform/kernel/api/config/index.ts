@@ -52,7 +52,8 @@ const common = {
         .default('{}')
         .transform((v, ctx) => {
             try {
-                return JSON.parse(v) as unknown;
+                // an empty variable (`INSTALLATION_SETTINGS=` in an env file) sets nothing
+                return JSON.parse(v.trim() || '{}') as unknown;
             } catch {
                 ctx.addIssue({ code: 'custom', message: 'is not JSON' });
                 return z.NEVER;

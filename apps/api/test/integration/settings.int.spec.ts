@@ -203,6 +203,8 @@ describe('settings down the tree', () => {
         expect(await settingOf(bureau, sodoZuria, 'ui.density')).toMatchObject({
             value: 'compact',
             source: { level: 'unitType', unitTypeId: typeId },
+            // what the type's reset would bring its units back to
+            inheritedWithoutType: { value: 'comfortable', source: { level: 'unit', unitId: zone.id } },
             unitType: { value: 'compact', version: 1 },
             writable: { unit: true, unitType: true }
         });
@@ -328,9 +330,13 @@ describe("a person's own choice", () => {
         expect(mine.json()).toEqual({ key: 'ui.theme', value: 'dark' });
         const workspace = (await api.call('GET', '/api/v1/me/workspace', records)).json<{
             settings: Record<string, unknown>;
+            officeSettings: Record<string, unknown>;
             preferences: Record<string, unknown>;
         }>();
         expect(workspace.settings['ui.theme']).toBe('dark');
+        // the office's value beside it (a choice equal to it is reset by the shell), only for the personal choices
+        expect(workspace.officeSettings['ui.theme']).toBe('light');
+        expect(workspace.officeSettings).not.toHaveProperty('i18n.languages');
         // their other preferences are kept, and read as before
         expect(workspace.preferences).toEqual({ favourites: ['kernel.home'] });
         // nobody else's

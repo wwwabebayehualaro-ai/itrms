@@ -36,6 +36,9 @@ export function settingProblems(slices: readonly InstalledSlice[]): string[] {
             if (!schema) problems.push(`${m.key}: setting "${s.key}" has no value schema`);
             else if (!schema.safeParse(s.default).success)
                 problems.push(`${m.key}: setting "${s.key}": its default does not fit its schema`);
+            // a person's own choice needs no second factor: a sensitive setting is never one (SEC-SE-5)
+            if (s.userPreference && s.sensitive)
+                problems.push(`${m.key}: setting "${s.key}" cannot be both a personal choice and sensitive`);
         }
         for (const key of Object.keys(schemas))
             if (!m.settings.some((s) => s.key === key))
