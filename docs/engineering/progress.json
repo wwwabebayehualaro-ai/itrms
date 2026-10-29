@@ -2450,6 +2450,11 @@
       "foundIn": "0.21a",
       "item": "The person's language and calendar preferences are not yet the settings i18n.language / calendar.display of the registry (org-and-unit-types.md §4 table)",
       "movedTo": "Phase 1"
+    },
+    {
+      "foundIn": "0.21c",
+      "item": "The publish screen's workflow and form lists read the first 100 (all offices, newest first) and keep the region's own in the browser: filter by owner on the server (an owner query on the workflow and form lists)",
+      "movedTo": "0.21e"
     }
   ]
 }

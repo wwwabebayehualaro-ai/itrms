@@ -1,6 +1,7 @@
 // Public entry of @itrms/workflow (code-structure.md §4): the definitions API's DTOs (task 0.19a). The definition's own
 // schema is in @itrms/schemas (workflowDefinitionSchema); the API runs the engine's checks on what it is sent.
 import { i18nTextSchema, WORKFLOW_DEFINITION_KEY } from '@itrms/schemas';
+import { answersSchema } from '@itrms/forms/contracts';
 import { z } from 'zod';
 
 /** A stored definition is at most 512 KB of JSON (the table allows room for jsonb's encoding). */
@@ -115,7 +116,8 @@ export type WorkflowVersionOut = z.infer<typeof workflowVersionSchema>;
 /** A person's transition: the action, the step form's answers when the step has one, and a comment where one is required. */
 export const transitionSchema = z.strictObject({
     action: z.string().regex(/^[a-z][a-z0-9_]{0,62}$/, 'an action key'),
-    answers: z.record(z.string(), z.unknown()).optional(),
+    // bounded as every filing is (size, keys, depth: SEC-IN-2)
+    answers: answersSchema.optional(),
     comment: z.string().trim().min(1).max(2000).optional()
 });
 

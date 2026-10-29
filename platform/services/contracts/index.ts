@@ -1,6 +1,7 @@
 // Public entry of @itrms/services (code-structure.md §4): the shapes of the service catalogue, its versions and the
 // units' overrides (architecture.md §6.2, §7; task 0.21b).
 import { i18nTextSchema, workflowSlaSchema, workflowUnitRuleSchema, WORKFLOW_KEY } from '@itrms/schemas';
+import { answersSchema } from '@itrms/forms/contracts';
 import { z } from 'zod';
 
 /** A service code of the catalogue: DVC-03, PT-12. */
@@ -111,7 +112,7 @@ export const serviceOverrideInputSchema = z.strictObject({
 export const serviceRequestSchema = z.strictObject({
     serviceCode: serviceCodeSchema,
     /** the request form's answers, when the service has one (validated on the server on the version it names) */
-    answers: z.record(z.string(), z.unknown()).optional()
+    answers: answersSchema.optional()
 });
 
 /** A problem a new version finds in an override below it (shown to the bureau, the override is kept). */

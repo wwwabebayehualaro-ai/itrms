@@ -920,7 +920,13 @@ export class CasesService {
                 return typeof id === 'string' && e.fromState ? [[id, e.fromState] as const] : [];
             })
         );
-        const filed = (await this.submissions.ofCase(tx, actor.roles, row.id)).filter((s) => filedAt.has(s.id));
+        // the request form the case was started with (task 0.21c): filed with the case, by no transition
+        const requestVersion = (row.config as { formVersionId?: unknown }).formVersionId;
+        const startKey = def.states.find((s) => s.kind === 'start')?.key ?? '';
+        const filed = (await this.submissions.ofCase(tx, actor.roles, row.id)).filter(
+            (s) => filedAt.has(s.id) || (typeof requestVersion === 'string' && s.formVersion.id === requestVersion)
+        );
+        for (const s of filed) if (!filedAt.has(s.id)) filedAt.set(s.id, startKey);
         const mentionsOf = (e: (typeof events)[number]): string[] =>
             e.kind === 'comment' && Array.isArray(e.data?.mentions)
                 ? e.data.mentions.filter((m): m is string => typeof m === 'string')

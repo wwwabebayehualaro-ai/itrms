@@ -53,7 +53,13 @@ const ids = { v1Workflow: '', v2Workflow: '', v2WorkflowId: '', v1Form: '', v2Fo
 const field = (id: string) => {
     const required = id.endsWith('*');
     const key = id.replace('*', '');
-    return { id: key, type: 'InputText', label: key, props: required ? { required: true } : {} };
+    return {
+        id: key,
+        type: 'InputText',
+        label: key,
+        props: required ? { required: true } : {},
+        behavior: { validation: { supported: true } }
+    };
 };
 /** What a request at the counter fills in (both of the suite's forms have the plate). */
 const ANSWERS = { plate: 'ETH ABC 0001' };
@@ -63,7 +69,7 @@ async function publishedForm(key: string, fields: string[]): Promise<string> {
     const created = await api.call('POST', '/api/v1/forms', as.bureau, {
         key,
         name: { am: key, en: key },
-        document: { fields: fields.map(field) }
+        document: { schemaVersion: 2, fields: fields.map(field) }
     });
     expect(created.statusCode, created.body).toBe(201);
     const asked = (
@@ -445,6 +451,13 @@ describe('a request at the counter', () => {
         });
         expect(refused.statusCode).toBe(409);
         expect(refused.json()).toMatchObject({ code: 'not_configured' });
+        // the switch is audited, in its transaction
+        const { rows: audited } = await api.owner.query<{ diff: { after: { active: boolean } } }>(
+            `select diff from kernel.audit_log where table_name = 'workflow.workflow_definitions' and row_id = $1
+                and action = 'update' order by at desc limit 1`,
+            [ids.v2WorkflowId]
+        );
+        expect(audited[0]?.diff.after).toMatchObject({ active: false });
         const on = await api.call(
             'PATCH',
             url,
@@ -454,5 +467,50 @@ describe('a request at the counter', () => {
         );
         expect(on.statusCode).toBe(200);
         await requested(as.damotRecords);
+    });
+});
+
+describe("a step's form on the case", () => {
+    it('is named by the action that needs it, and filed on the case with its answers', async () => {
+        // a review whose step files the region's first form (key@number)
+        const stepped = {
+            ...workflow('review'),
+            states: workflow('review').states.map((s) =>
+                s.key === 'review' ? { ...s, stepForm: 'road-safety-report@1' } : s
+            )
+        };
+        const res = await api.call('POST', '/api/v1/workflow-definitions', as.bureau, {
+            key: 'road-safety-stepped',
+            name: { am: 'ደረጃ ቅጽ', en: 'Stepped' },
+            definition: stepped
+        });
+        expect(res.statusCode, res.body).toBe(201);
+        const versionId = res.json<{ latestVersion: { id: string } }>().latestVersion.id;
+        expect((await publish(as.bureau, { workflowVersionId: versionId }, 'RS-02')).statusCode).toBe(201);
+        const started = await api.call('POST', '/api/v1/service-requests', as.damotRecords, { serviceCode: 'RS-02' });
+        const c = started.json<CaseOut>();
+        const submitted = await api.call(
+            'POST',
+            `/api/v1/cases/${c.id}/transitions`,
+            as.damotRecords,
+            { action: 'submit' },
+            { 'if-match': `"${c.version}"` }
+        );
+        expect(submitted.statusCode, submitted.body).toBe(200);
+        const atReview = submitted.json<CaseOut>();
+        // the reviewer (a second records officer would be kept apart by no rule here: the same office's role)
+        const close = atReview.actionDetails.find((a) => a.action === 'close');
+        expect(close).toMatchObject({ needsForm: true, form: { versionId: ids.v1Form } });
+        const done = await api.call(
+            'POST',
+            `/api/v1/cases/${c.id}/transitions`,
+            as.damotRecords,
+            { action: 'close', answers: { plate: 'ETH ABC 0009' } },
+            { 'if-match': `"${atReview.version}"` }
+        );
+        expect(done.statusCode, done.body).toBe(200);
+        expect(done.json<CaseOut>().submissions).toEqual([
+            expect.objectContaining({ state: 'review', answers: { plate: 'ETH ABC 0009' } })
+        ]);
     });
 });

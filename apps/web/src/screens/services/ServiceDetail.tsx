@@ -41,7 +41,8 @@ import { isApiError } from '@/lib/api/client';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { useAuthStore } from '@/lib/auth/authStore';
 import { formatDay } from '@/lib/format';
-import { usePreferences, useText } from '@/lib/preferences';
+import { formLanguages, usePreferences, useText } from '@/lib/preferences';
+import { LANGUAGE_ENDONYMS } from '@itrms/schemas';
 import {
     OVERRIDE_FAMILIES,
     OVERRIDE_LEVELS,
@@ -264,8 +265,9 @@ function OverrideEditor({ code }: { code: string }) {
     const [editing, setEditing] = useState<Editing | null>(null);
     const [amount, setAmount] = useState('');
     const [per, setPer] = useState<'hours' | 'days'>('hours');
-    const [helpAm, setHelpAm] = useState('');
-    const [helpEn, setHelpEn] = useState('');
+    // a help text in each of the installation's languages (the ones not shown are kept as they are)
+    const languages = formLanguages(useAuthStore((s) => s.workspace?.settings['i18n.languages']));
+    const [help, setHelp] = useState<Record<string, string>>({});
     const [reason, setReason] = useState('');
     const unitName = (id?: string) => {
         const u = subtree.data?.find((x) => x.id === id);
@@ -290,9 +292,7 @@ function OverrideEditor({ code }: { code: string }) {
             setPer(s.businessDays ? 'days' : 'hours');
             setAmount(String(s.businessDays ?? s.businessHours ?? ''));
         } else {
-            const h = (current ?? {}) as Text;
-            setHelpAm(h.am ?? '');
-            setHelpEn(h.en ?? '');
+            setHelp({ ...((current ?? {}) as Record<string, string>) });
         }
         setReason(c.own?.reason ?? '');
         setEditing(e);
@@ -305,12 +305,16 @@ function OverrideEditor({ code }: { code: string }) {
                 ? per === 'days'
                     ? { businessDays: Number(amount) }
                     : { businessHours: Number(amount) }
-                : { am: helpAm, en: helpEn };
+                : Object.fromEntries(Object.entries(help).filter(([, v]) => v.trim() !== ''));
+        // the values a newer version no longer takes are left out: they would refuse the whole override
+        const kept = Object.fromEntries(
+            Object.entries(c.own?.values ?? {}).filter(([key]) => !c.problems.some((p) => p.key === key))
+        );
         try {
             await change.mutateAsync({
                 unitId: shown,
                 version: c.own?.version ?? 0,
-                values: { ...(c.own?.values ?? {}), [editing.key]: value },
+                values: { ...kept, [editing.key]: value },
                 reason
             });
             setEditing(null);
@@ -324,7 +328,7 @@ function OverrideEditor({ code }: { code: string }) {
         if (!c.own || !shown) return;
         const sure = await confirmAction({
             header: t('services.override.reset'),
-            message: t('services.override.resetDone'),
+            message: t('services.override.resetConfirm'),
             acceptLabel: t('services.override.reset'),
             rejectLabel: t('shell.settings.cancel')
         });
@@ -459,7 +463,7 @@ function OverrideEditor({ code }: { code: string }) {
                                                 />
                                             </div>
                                             <div className="flex flex-1 flex-col gap-2">
-                                                <Label htmlFor="sla-per">{t('services.override.unitHours')}</Label>
+                                                <Label htmlFor="sla-per">{t('services.override.per')}</Label>
                                                 <Select
                                                     value={per}
                                                     onValueChange={(v) => setPer(v as 'hours' | 'days')}
@@ -480,20 +484,22 @@ function OverrideEditor({ code }: { code: string }) {
                                         </div>
                                     ) : (
                                         <div className="flex flex-col gap-2">
-                                            <Label htmlFor="help-am">አማርኛ</Label>
-                                            <Textarea
-                                                id="help-am"
-                                                lang="am"
-                                                value={helpAm}
-                                                onChange={(e) => setHelpAm(e.target.value)}
-                                            />
-                                            <Label htmlFor="help-en">English</Label>
-                                            <Textarea
-                                                id="help-en"
-                                                lang="en"
-                                                value={helpEn}
-                                                onChange={(e) => setHelpEn(e.target.value)}
-                                            />
+                                            {languages.map((language) => (
+                                                <div key={language} className="flex flex-col gap-1">
+                                                    <Label htmlFor={`help-${language}`} lang={language}>
+                                                        {(LANGUAGE_ENDONYMS as Record<string, string>)[language] ??
+                                                            language}
+                                                    </Label>
+                                                    <Textarea
+                                                        id={`help-${language}`}
+                                                        lang={language}
+                                                        value={help[language] ?? ''}
+                                                        onChange={(e) =>
+                                                            setHelp((h) => ({ ...h, [language]: e.target.value }))
+                                                        }
+                                                    />
+                                                </div>
+                                            ))}
                                         </div>
                                     )}
                                     <div className="flex flex-col gap-2">
@@ -511,7 +517,12 @@ function OverrideEditor({ code }: { code: string }) {
                                         <Button
                                             type="button"
                                             onClick={() => void save(c)}
-                                            disabled={change.isPending || reason.trim().length < 3}
+                                            disabled={
+                                                change.isPending ||
+                                                reason.trim().length < 3 ||
+                                                (editing.kind === 'help' && (!help.am?.trim() || !help.en?.trim())) ||
+                                                (editing.kind === 'sla' && !(Number(amount) >= 1))
+                                            }
                                         >
                                             {t('services.override.save')}
                                         </Button>

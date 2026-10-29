@@ -312,3 +312,4 @@ Last updated: 2026-10-29. Planning: done (docs/reviews/2026-10-18-design-review.
 | 170 | 0.20d | The inbox count's 'unclaimed' counts claimed_by is null; the inbox shows a claim whose holder left as none: count those too | 0.26 (hardening) | open |
 | 171 | 0.21a | INSTALLATION_SETTINGS naming a key of a module switched off with MODULES_DISABLED stops the start (fail closed); decide whether it should warn instead | 0.26 | open |
 | 172 | 0.21a | The person's language and calendar preferences are not yet the settings i18n.language / calendar.display of the registry (org-and-unit-types.md §4 table) | Phase 1 | open |
+| 173 | 0.21c | The publish screen's workflow and form lists read the first 100 (all offices, newest first) and keep the region's own in the browser: filter by owner on the server (an owner query on the workflow and form lists) | 0.21e | open |

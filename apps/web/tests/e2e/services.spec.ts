@@ -42,7 +42,7 @@ test('the bureau publishes a version, the zone changes a woreda’s time limit, 
     test.setTimeout(300_000);
     const bureauPage = await signedIn(browser, PEOPLE.bureau);
     const bureau = api(bureauPage);
-    const workflowId = await journeyWorkflow(bureau, 'services');
+    const workflowId = await journeyWorkflow(bureau, runName('services'));
     const formName = runName('Road safety report');
     await publishedForm(bureau, api(await signedIn(browser, PEOPLE.bureauHead)), formName, [
         field('InputText', 'plate', 'Plate', { props: { required: true } })
@@ -62,8 +62,9 @@ test('the bureau publishes a version, the zone changes a woreda’s time limit, 
         .click();
     await publish.getByLabel('የጥያቄ ቅጽ').click();
     await bureauPage.getByRole('option', { name: new RegExp(formName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }).click();
+    const before = (await bureau.get<unknown[]>(`v1/services/${SERVICE}/versions`)).length;
     await publish.getByRole('button', { name: 'አትም' }).click();
-    await expect(bureauPage.locator('[data-versions] li').first()).toBeVisible();
+    await expect(bureauPage.locator('[data-versions] li')).toHaveCount(before + 1);
 
     // the zone: Damot Gale's time limit for the review, three working days
     const zonePage = await signedIn(browser, PEOPLE.author);

@@ -35,7 +35,7 @@ import {
 
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { useFormVersion } from '@/lib/services';
-import { withHelp } from '@/form-templates/serviceForm';
+import { templateFor, withHelp } from '@/form-templates/serviceForm';
 import { useAuthStore } from '@/lib/auth/authStore';
 import { formatMoment } from '@/lib/format';
 import { usePreferences, useText } from '@/lib/preferences';
@@ -222,12 +222,26 @@ function OpenStep({ c, stateName }: { c: CaseOut; stateName: (key: string | null
  * A step's form inside its action (task 0.21c): the version the step names, filled in the dialog; its
  * answers go with the transition, which files them on the case (validated on the server).
  */
-function StepForm({ c, action, comment, onDone }: { c: CaseOut; action: Action; comment: string; onDone: () => void }) {
+function StepForm({
+    c,
+    action,
+    name,
+    comment,
+    onDone
+}: {
+    c: CaseOut;
+    action: Action;
+    /** the action's label, on the form's submit */
+    name: string;
+    comment: string;
+    onDone: () => void;
+}) {
     const { t } = useText();
     const transition = useTransition(c.id);
     const version = useFormVersion(action.form);
     const fields = useMemo(() => (version.data ? withHelp(version.data.document, {}) : null), [version.data]);
-    if (!fields) return <InlineStatus loading className="p-4" />;
+    if (version.error) return <p className="text-destructive text-sm">{getApiErrorMessage(version.error)}</p>;
+    if (!fields || !action.form) return <InlineStatus loading className="p-4" />;
     return (
         <div data-step-form={action.form?.formId}>
             <p className="text-sm text-muted-foreground">{t('workflow.case.fillStep')}</p>
@@ -235,7 +249,8 @@ function StepForm({ c, action, comment, onDone }: { c: CaseOut; action: Action; 
                 bare
                 silent
                 fields={fields}
-                submitLabel={action.label ? undefined : action.action}
+                template={templateFor(action.form, fields)}
+                submitLabel={name}
                 onFormSubmit={async (submission) => {
                     const after = await transition.mutateAsync({
                         version: c.version,
@@ -279,7 +294,9 @@ function ActionDialog({ c, action, onClose }: { c: CaseOut; action: Action; onCl
                         onChange={(e) => setComment(e.target.value)}
                     />
                 </div>
-                {action.form && !missing && <StepForm c={c} action={action} comment={comment} onDone={onClose} />}
+                {action.form && !missing && (
+                    <StepForm c={c} action={action} name={name} comment={comment} onDone={onClose} />
+                )}
                 {transition.error && (
                     <p className="text-destructive text-sm" role="alert">
                         {getApiErrorMessage(transition.error)}

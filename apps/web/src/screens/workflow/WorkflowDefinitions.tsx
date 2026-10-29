@@ -37,6 +37,7 @@ function Check() {
     }>();
     const [notJson, setNotJson] = useState(false);
     const [busy, setBusy] = useState(false);
+    const [failed, setFailed] = useState<string>();
     const run = async () => {
         let parsed: unknown;
         try {
@@ -48,8 +49,12 @@ function Check() {
             return;
         }
         setBusy(true);
+        setFailed(undefined);
         try {
             setResult(await checkDefinition(parsed));
+        } catch (error) {
+            setResult(undefined);
+            setFailed(getApiErrorMessage(error));
         } finally {
             setBusy(false);
         }
@@ -75,6 +80,7 @@ function Check() {
                 </Button>
             </div>
             {notJson && <p className="text-sm text-destructive">{t('workflow.definitions.notJson')}</p>}
+            {failed && <p className="text-sm text-destructive">{failed}</p>}
             {result?.ok && (
                 <p className="text-sm" data-check-ok>
                     {t('workflow.definitions.ok')}

@@ -25,7 +25,7 @@ import {
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { useText } from '@/lib/preferences';
 import { fileRequest, useFormVersion, useRequestForm, useServices } from '@/lib/services';
-import { withHelp } from '@/form-templates/serviceForm';
+import { templateFor, withHelp } from '@/form-templates/serviceForm';
 
 function Request({ code }: { code: string }) {
     const { t } = useText();
@@ -44,7 +44,8 @@ function Request({ code }: { code: string }) {
         router.push(`/cases/${c.id}`);
     };
 
-    if (request.error) return <p className="text-sm text-destructive">{getApiErrorMessage(request.error)}</p>;
+    const failed = request.error ?? version.error;
+    if (failed) return <p className="text-sm text-destructive">{getApiErrorMessage(failed)}</p>;
     if (!request.data || (request.data.form && !fields)) return <InlineStatus loading className="p-4" />;
     if (!request.data.form)
         return (
@@ -72,6 +73,7 @@ function Request({ code }: { code: string }) {
             <FormRenderer
                 bare
                 fields={fields ?? []}
+                template={templateFor(request.data.form, fields ?? [])}
                 silent
                 submitLabel={t('services.request.start')}
                 onFormSubmit={async (submission) => {

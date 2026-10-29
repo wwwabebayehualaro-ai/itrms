@@ -200,13 +200,15 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
     // every office reads the register of people and organisations (task 0.14); whoever acts on cases has "My tasks" (0.20b)
     const REGISTER = ['parties.persons', 'parties.organisations'];
     const TASKS = 'workflow.inbox';
+    // whoever starts requests has "New request" (task 0.21c)
+    const REQUEST = 'services.request';
 
     it("shows no licensing at Damot Gale (no DVC services), and a Boditi competency officer's licensing", async () => {
         const damot = await unitAt('WOL-DAMOT-GALE');
         const atDamot = (
             await call('GET', '/api/v1/me/workspace', { token: await token(SUB.damotRecords), unit: damot.id })
         ).json<Workspace>();
-        expect(itemsOf(atDamot)).toEqual(['kernel.home', TASKS, ...REGISTER]);
+        expect(itemsOf(atDamot)).toEqual(['kernel.home', REQUEST, TASKS, ...REGISTER]);
 
         const boditi = await unitAt('WOL-BODITI');
         const officer = (
@@ -257,7 +259,7 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
         const atZone = (await call('GET', '/api/v1/me/workspace', { token: t, unit: zone.id })).json<Workspace>();
         const atDamot = (await call('GET', '/api/v1/me/workspace', { token: t, unit: damot.id })).json<Workspace>();
         expect(itemsOf(atZone)).toContain('competency.applications');
-        expect(itemsOf(atDamot)).toEqual(['kernel.home', TASKS, ...REGISTER]);
+        expect(itemsOf(atDamot)).toEqual(['kernel.home', REQUEST, TASKS, ...REGISTER]);
     });
 });
 

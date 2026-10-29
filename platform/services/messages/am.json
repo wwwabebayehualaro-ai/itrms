@@ -67,5 +67,7 @@
   "services.request.noForm": "ይህ አገልግሎት የሚሞላ ቅጽ የለውም፤ ጥያቄው ጉዳዩን ይጀምራል።",
   "services.request.start": "ጥያቄውን ጀምር",
   "services.request.none": "ይህ ጽ/ቤት እስካሁን የተዘጋጀ አገልግሎት አይሰጥም።",
-  "services.request.started": "ጥያቄ {number} ቀርቧል።"
+  "services.request.started": "ጥያቄ {number} ቀርቧል።",
+  "services.override.resetConfirm": "የጽ/ቤቱ የራሱ ለውጦች ይወገዳሉ፤ የሚወርሰውን እንደገና ያገኛል።",
+  "services.override.per": "የሚቆጠረው በ"
 }

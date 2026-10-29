@@ -67,5 +67,7 @@
   "services.request.noForm": "This service has no form to fill in: the request starts its case.",
   "services.request.start": "Start the request",
   "services.request.none": "This office offers no configured service yet.",
-  "services.request.started": "Request {number} is filed."
+  "services.request.started": "Request {number} is filed.",
+  "services.override.resetConfirm": "The office's own changes are removed: it gets what it inherits again.",
+  "services.override.per": "Counted in"
 }

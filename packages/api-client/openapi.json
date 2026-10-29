@@ -1419,6 +1419,7 @@
           "answers": {
             "additionalProperties": {},
             "propertyNames": {
+              "maxLength": 200,
               "type": "string"
             },
             "type": "object"
@@ -3148,6 +3149,7 @@
           "answers": {
             "additionalProperties": {},
             "propertyNames": {
+              "maxLength": 200,
               "type": "string"
             },
             "type": "object"

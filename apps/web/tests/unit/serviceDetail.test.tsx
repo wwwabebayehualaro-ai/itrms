@@ -42,7 +42,10 @@ beforeEach(() => {
     });
     api.put.mockReset().mockResolvedValue({ data: {} });
     useAuthStore.setState({
-        workspace: { activeUnit: { id: 'z1', regionId: 'r1', code: 'WOL', name: zone.name } } as unknown as Workspace,
+        workspace: {
+            activeUnit: { id: 'z1', regionId: 'r1', code: 'WOL', name: zone.name },
+            settings: { 'i18n.languages': ['am', 'en'] }
+        } as unknown as Workspace,
         status: 'authenticated',
         user: null
     });
