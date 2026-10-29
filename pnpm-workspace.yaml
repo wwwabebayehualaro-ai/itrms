@@ -26,6 +26,7 @@ minimumReleaseAge: 20160
 # Security fixes younger than the age rule (SEC-DV-1), each pinned to the lowest fixed release; drop an entry once it is
 # two weeks old. 2026-10-24: next (GHSA-2464-fhr4-w9xw, GHSA-673q-mjm6-r5xr, critical RCEs), storybook (GHSA-f2ph-cmg5-wxc8,
 # critical), zod (oversized collections, high), happy-dom (import alias code execution, high), undici (high, DoS).
+# 2026-10-29: re2js (GHSA-gg6h-894w-4m9c, quadratic-time lookbehind matching, high).
 minimumReleaseAgeExclude:
   - next@16.4.1
   - '@next/env@16.4.1'
@@ -50,6 +51,7 @@ minimumReleaseAgeExclude:
   - zod@4.6.6
   - happy-dom@21.0.4
   - undici@8.12.2
+  - re2js@2.8.7
 # seroval (via @tanstack/react-query-devtools, dev only) below 1.6.3 has GHSA-p6vx-979v-rg4c (critical) and
 # GHSA-jp82-f5mq-hwhp: pinned to a fixed release at least two weeks old. Remove once the devtools depend on it.
 overrides:
