@@ -301,15 +301,13 @@ export function lintDocument(raw: unknown, opts: LintOptions = {}): LintProblem[
     // reads-restricted: a formula or condition reading a field some of its readers may not see would store or show
     // something of it to them (a total over a salary, a field shown only when a restricted answer is yes)
     const rolesOf = (f: EngineField): Set<string> | null => {
-        let roles: Set<string> | null = null;
+        let roles: string[] | undefined;
         for (let p: EngineField | undefined = f, depth = 0; p && depth <= doc.fields.length; depth++) {
-            if (p.visibleToRoles?.length) {
-                const own = new Set(p.visibleToRoles);
-                roles = roles ? new Set([...roles].filter((r) => own.has(r))) : own;
-            }
+            const own = p.visibleToRoles;
+            if (own?.length) roles = roles === undefined ? [...own] : roles.filter((r) => own.includes(r));
             p = p.parentId ? byId.get(p.parentId) : undefined;
         }
-        return roles;
+        return roles === undefined ? null : new Set(roles);
     };
     // whether everyone who sees `reader` also sees `read` (null: everyone)
     const covers = (reader: Set<string> | null, read: Set<string> | null) =>
