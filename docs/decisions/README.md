@@ -43,5 +43,6 @@ one, write a new ADR that supersedes it. Format: context, decision, consequences
 | [0036](0036-form-engine-own-catalogues.md) | The form engine resolves its own words from its own catalogues (intl-messageformat), in the browser, the API and print | accepted (2026-10-26) |
 | [0037](0037-mandatory-data-classes-of-form-answers.md) | Mandatory data classes of form answers: a default class on new fields, no publish without one; Personal in clear to those who may read it, Sensitive masked | accepted (2026-10-31) |
 | [0038](0038-github-hosted-ci.md) | GitHub-hosted CI is the CI record again; `pnpm ci:local` reproduces failures (supersedes 0034) | accepted (2026-10-31) |
+| [0039](0039-form-overlays.md) | Form overlays: a unit adds `x_` fields after an anchor and narrows options of a bureau form; filed on composed versions (refines 0017) | accepted (2026-10-31) |
 
 All tool choices and the answers to the technical open questions: [`../tech-stack.md`](../tech-stack.md).

@@ -408,6 +408,539 @@
         ],
         "type": "object"
       },
+      "FormOverlayPutDto": {
+        "additionalProperties": false,
+        "properties": {
+          "patch": {
+            "additionalProperties": false,
+            "properties": {
+              "add": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "after": {
+                      "maxLength": 64,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "fields": {
+                      "items": {
+                        "additionalProperties": {},
+                        "properties": {
+                          "behavior": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": {},
+                                "properties": {
+                                  "actions": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": {
+                                          "items": {},
+                                          "type": "array"
+                                        },
+                                        "propertyNames": {
+                                          "type": "string"
+                                        },
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "enabledConditions": {
+                                    "anyOf": [
+                                      {
+                                        "items": {
+                                          "$ref": "#/components/schemas/FormOverlayPutDto__schema0"
+                                        },
+                                        "type": "array"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "validation": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": {},
+                                        "properties": {
+                                          "errorMessages": {
+                                            "anyOf": [
+                                              {
+                                                "additionalProperties": {},
+                                                "propertyNames": {
+                                                  "type": "string"
+                                                },
+                                                "type": "object"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "remote": {
+                                            "anyOf": [
+                                              {
+                                                "additionalProperties": {},
+                                                "properties": {
+                                                  "dataSourceId": {
+                                                    "type": "string"
+                                                  },
+                                                  "message": {}
+                                                },
+                                                "required": [
+                                                  "dataSourceId"
+                                                ],
+                                                "type": "object"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "requiredWhen": {
+                                            "anyOf": [
+                                              {
+                                                "additionalProperties": {},
+                                                "properties": {
+                                                  "expression": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "expression"
+                                                ],
+                                                "type": "object"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "rules": {
+                                            "anyOf": [
+                                              {
+                                                "additionalProperties": {},
+                                                "propertyNames": {
+                                                  "type": "string"
+                                                },
+                                                "type": "object"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "supported": {
+                                            "type": "boolean"
+                                          },
+                                          "types": {
+                                            "anyOf": [
+                                              {
+                                                "items": {
+                                                  "type": "string"
+                                                },
+                                                "type": "array"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "validWhen": {
+                                            "anyOf": [
+                                              {
+                                                "items": {
+                                                  "additionalProperties": {},
+                                                  "properties": {
+                                                    "expression": {
+                                                      "type": "string"
+                                                    },
+                                                    "message": {}
+                                                  },
+                                                  "required": [
+                                                    "expression"
+                                                  ],
+                                                  "type": "object"
+                                                },
+                                                "type": "array"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          }
+                                        },
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "visibilityConditions": {
+                                    "anyOf": [
+                                      {
+                                        "items": {
+                                          "$ref": "#/components/schemas/FormOverlayPutDto__schema0"
+                                        },
+                                        "type": "array"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "category": {
+                            "type": "string"
+                          },
+                          "classification": {
+                            "anyOf": [
+                              {
+                                "enum": [
+                                  "public",
+                                  "internal",
+                                  "personal",
+                                  "sensitive"
+                                ],
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "data": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": {},
+                                "properties": {
+                                  "computed": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": {},
+                                        "properties": {
+                                          "expression": {
+                                            "type": "string"
+                                          },
+                                          "readOnly": {
+                                            "type": "boolean"
+                                          }
+                                        },
+                                        "required": [
+                                          "expression"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "dataSource": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": {},
+                                        "properties": {
+                                          "staticData": {}
+                                        },
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "defaultProps": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": {},
+                                        "propertyNames": {
+                                          "type": "string"
+                                        },
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "optionsBinding": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": {},
+                                        "properties": {
+                                          "dataSourceId": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "dataSourceId"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "rowsBinding": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": {},
+                                        "properties": {
+                                          "dataSourceId": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "dataSourceId"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "filterable": {
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
+                          },
+                          "id": {
+                            "type": [
+                              "string",
+                              "number"
+                            ]
+                          },
+                          "label": {
+                            "anyOf": [
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "additionalProperties": {},
+                                    "propertyNames": {
+                                      "type": "string"
+                                    },
+                                    "type": "object"
+                                  }
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "layout": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": {},
+                                "properties": {
+                                  "options": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": {},
+                                        "properties": {
+                                          "isContainer": {
+                                            "type": "boolean"
+                                          }
+                                        },
+                                        "type": "object"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "metadata": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": {},
+                                "properties": {
+                                  "description": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "parentId": {
+                            "type": [
+                              "string",
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "props": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": {},
+                                "propertyNames": {
+                                  "type": "string"
+                                },
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "removed": {
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "visibleToRoles": {
+                            "anyOf": [
+                              {
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "type"
+                        ],
+                        "type": "object"
+                      },
+                      "maxItems": 50,
+                      "minItems": 1,
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "after",
+                    "fields"
+                  ],
+                  "type": "object"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              "options": {
+                "default": [],
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "key": {
+                      "maxLength": 64,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "values": {
+                      "items": {
+                        "type": [
+                          "string",
+                          "number"
+                        ]
+                      },
+                      "maxItems": 200,
+                      "minItems": 1,
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "values"
+                  ],
+                  "type": "object"
+                },
+                "maxItems": 100,
+                "type": "array"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "patch"
+        ],
+        "type": "object"
+      },
+      "FormOverlayPutDto__schema0": {
+        "additionalProperties": {},
+        "properties": {
+          "clientOnly": {
+            "type": "boolean"
+          },
+          "conditions": {
+            "items": {
+              "$ref": "#/components/schemas/FormOverlayPutDto__schema0"
+            },
+            "type": "array"
+          },
+          "field": {
+            "default": "",
+            "type": "string"
+          },
+          "logic": {
+            "enum": [
+              "and",
+              "or",
+              "xor"
+            ],
+            "type": "string"
+          },
+          "operator": {
+            "type": "string"
+          },
+          "serverOnly": {
+            "type": "boolean"
+          },
+          "value": {}
+        },
+        "required": [
+          "operator"
+        ],
+        "type": "object"
+      },
       "FormUpdateDto": {
         "additionalProperties": false,
         "properties": {
@@ -3248,7 +3781,8 @@
                 "sla",
                 "approval_unit",
                 "help",
-                "templateHeader"
+                "templateHeader",
+                "formOverlay"
               ],
               "type": "string"
             },
@@ -4276,6 +4810,117 @@
         ],
         "responses": {
           "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
+        ]
+      }
+    },
+    "/api/v1/forms/{id}/overlays/{unitId}": {
+      "get": {
+        "operationId": "FormsController_overlay",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "unitId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
+        ]
+      },
+      "put": {
+        "operationId": "FormsController_saveOverlay",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "unitId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FormOverlayPutDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
+        ]
+      }
+    },
+    "/api/v1/forms/{id}/overlays/{unitId}/publications": {
+      "post": {
+        "operationId": "FormsController_requestOverlayPublication",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "unitId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicationRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
             "description": ""
           }
         },

@@ -2411,12 +2411,14 @@
     {
       "foundIn": "0.18a",
       "item": "Impact analysis: filter saved views on the changed keys in SQL instead of reading the first 500 by name, and report views whose config no longer parses (now skipped silently)",
-      "movedTo": "0.21f"
+      "movedTo": "0.21f",
+      "closedIn": "0.21f: the publish impact keeps only views naming a changed key (SQL) and lists unreadable ones"
     },
     {
       "foundIn": "0.18a",
       "item": "Governance HTTP tests still missing: the approval re-check refusing (422, form and publication unchanged), key-moved into/out of a FormArray, restore of an old version through PATCH keeping published keys, the approver's review listing the approver's own private view and not the requester's",
-      "movedTo": "0.21f"
+      "movedTo": "0.21f",
+      "closedIn": "0.21f: governance HTTP cases — approval re-check refusing, key moved into/out of a FormArray, restore keeping published keys, the approver's own private view"
     },
     {
       "foundIn": "0.19a",
@@ -2529,17 +2531,20 @@
     {
       "foundIn": "0.21e",
       "item": "The builder's publish review shows the unclassified rule as an error now (ADR-0037): an e2e journey of publishing a form with an unclassified field refused",
-      "movedTo": "0.21f"
+      "movedTo": "0.21f",
+      "closedIn": "0.21f: builder e2e — a form with an unclassified field cannot be published"
     },
     {
       "foundIn": "0.21e",
       "item": "documentFor, openFieldsFor and the case timeline's field filter keep the children of a role-restricted container (fieldsFor filters only fields that carry visibleToRoles): one reachableFieldsFor that drops them, shared by all three",
-      "movedTo": "0.21f"
+      "movedTo": "0.21f",
+      "closedIn": "0.21f: fieldsForRoles drops the children of a restricted container at any depth (documentFor, openFieldsFor, the timeline filter)"
     },
     {
       "foundIn": "0.21e",
       "item": "A lint error for a computed field or condition that reads a field restricted to narrower roles than its own (an actor without access then stores a value computed from it)",
-      "movedTo": "0.21f"
+      "movedTo": "0.21f",
+      "closedIn": "0.21f: lint reads-restricted (an error)"
     },
     {
       "foundIn": "0.21e",
