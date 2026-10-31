@@ -39,7 +39,8 @@ export type LintRule =
     | 'key-moved'
     | 'unclassified'
     | 'sensitive-filterable'
-    | 'reads-restricted';
+    | 'reads-restricted'
+    | 'key-reserved';
 
 export interface LintProblem {
     rule: LintRule;

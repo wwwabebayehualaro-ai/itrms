@@ -6,6 +6,7 @@ import { Logger } from '@nestjs/common';
 import { and, eq, or } from 'drizzle-orm';
 import {
     checkKeyStability,
+    reservedKeyProblems,
     diffDocuments,
     engineText,
     lintDocument,
@@ -85,9 +86,14 @@ const problemOf = (p: LintProblem, language: string): CheckProblem => ({
     message: engineText(language, p.message, p.values)
 });
 
-/** The key-stability errors of a candidate against the published document (none when nothing was published). */
-const keyProblems = (published: unknown, candidate: unknown): LintProblem[] =>
-    published === null ? [] : checkKeyStability(published, candidate);
+/**
+ * The key errors of a candidate against the published document: key stability (none when nothing was published), and
+ * the keys reserved for overlays' fields (task 0.21f).
+ */
+const keyProblems = (published: unknown, candidate: unknown): LintProblem[] => [
+    ...(published === null ? [] : checkKeyStability(published, candidate)),
+    ...reservedKeyProblems(published, candidate)
+];
 
 /** 422 when the candidate drops, retypes or moves a key the published version holds (it must be flagged removed instead). */
 export function assertKeysStable(published: unknown, candidate: unknown, language: string): void {

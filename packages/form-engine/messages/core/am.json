@@ -73,5 +73,6 @@
   "form-engine.core.validation.yesOrNo": "እባክዎ አዎ ወይም አይደለም ይምረጡ",
   "form-engine.core.lint.unclassified": "\"{field}\" የመረጃ ደረጃ የለውም፤ ቅጹ ከመታተሙ በፊት ደረጃ ይሰጠው (ለአብዛኛው መልስ ግላዊ፤ ለስልክ፣ ለFIN ወይም ለሕክምና ውጤት ጥብቅ)።",
   "form-engine.core.lint.sensitive-filterable": "\"{field}\" ጥብቅ ነው፤ ማጣሪያ ሊሆን አይችልም (በእሱ ማጣራት እሴቱን ያሳውቃል)።",
-  "form-engine.core.lint.reads-restricted": "\"{field}\"ን ከሚያዩት አንዳንዶቹ የማያዩትን \"{key}\" ያነባል፤ ለተመሳሳይ ሚናዎች ይገድቡት ወይም ሌላ መስክ ያንብቡ"
+  "form-engine.core.lint.reads-restricted": "\"{field}\"ን ከሚያዩት አንዳንዶቹ የማያዩትን \"{key}\" ያነባል፤ ለተመሳሳይ ሚናዎች ይገድቡት ወይም ሌላ መስክ ያንብቡ",
+  "form-engine.core.lint.key-reserved": "\"{key}\" የሚለው ቁልፍ ጽ/ቤቶች በቅጽ ላይ ለሚጨምሯቸው መስኮች (x_…) የተያዘ ነው፤ ሌላ ይምረጡ"
 }

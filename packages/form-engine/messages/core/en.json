@@ -73,5 +73,6 @@
   "form-engine.core.validation.yesOrNo": "Please choose yes or no",
   "form-engine.core.lint.unclassified": "\"{field}\" has no data class: give it one before the form is published (personal for most answers; sensitive for a phone, a FIN or a medical result).",
   "form-engine.core.lint.sensitive-filterable": "\"{field}\" is sensitive: it cannot be filterable (filtering on it would tell its value).",
-  "form-engine.core.lint.reads-restricted": "It reads \"{key}\", which some of the people who see \"{field}\" may not see: restrict it to the same roles, or read another field"
+  "form-engine.core.lint.reads-restricted": "It reads \"{key}\", which some of the people who see \"{field}\" may not see: restrict it to the same roles, or read another field",
+  "form-engine.core.lint.key-reserved": "The key \"{key}\" is reserved for the fields an office adds to a form (x_…): choose another"
 }
