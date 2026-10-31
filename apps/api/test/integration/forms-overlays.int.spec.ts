@@ -228,6 +228,24 @@ describe('a form overlay', () => {
         expect(locked.statusCode).toBe(422);
         expect(locked.json()).toMatchObject({ errors: [{ code: 'overlay_locked' }] });
 
+        // a field with actions could set a bureau answer at the counter: refused
+        const acting = await overlay(as.zoneAdmin, ids.zone, {
+            add: [
+                {
+                    after: 'remark',
+                    fields: [
+                        field('x_zone_q', {
+                            behavior: {
+                                actions: { onChange: [{ type: 'setValue', payload: { field: 'owner', value: 'x' } }] }
+                            }
+                        })
+                    ]
+                }
+            ]
+        });
+        expect(acting.statusCode).toBe(422);
+        expect(acting.json()).toMatchObject({ errors: [{ code: 'overlay_not_allowed_property' }] });
+
         // an unreserved key, an anchor inside nothing: refused too
         const unreserved = await overlay(as.zoneAdmin, ids.zone, {
             add: [{ after: 'remark', fields: [field('zoneQ')] }]
@@ -242,6 +260,13 @@ describe('a form overlay', () => {
         expect(asked.statusCode, asked.body).toBe(201);
         const publication = asked.json<{ id: string; version: number; overlay: { unit: { id: string } } }>();
         expect(publication.overlay.unit.id).toBe(ids.zone);
+        // the approver reviews the form the zone's cases would fill in: its own fields are no reserved keys
+        const review = await api.call('GET', `/api/v1/form-publications/${publication.id}/review`, as.zoneHead);
+        expect(review.statusCode, review.body).toBe(200);
+        expect(review.json()).toMatchObject({ canPublish: true, problems: [] });
+        expect(review.json<{ diff: { added: { key: string }[] } }>().diff.added.map((f) => f.key)).toEqual([
+            'x_zone_q'
+        ]);
         // maker-checker: who asked never decides
         const own = await api.call(
             'POST',

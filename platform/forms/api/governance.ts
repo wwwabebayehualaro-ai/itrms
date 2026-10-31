@@ -120,13 +120,22 @@ export async function publishCheck(
     /** what the services reading the form say about it (their effects' contracts, task 0.21d) */
     guard?: GuardResult,
     /** the units' overlays it would re-apply, with their conflicts (task 0.21f) */
-    overlays: ImpactOverlay[] = []
+    overlays: ImpactOverlay[] = [],
+    /**
+     * an overlay's publication (task 0.21f): the form it is composed onto (the bureau's with the overlays above), and the
+     * overlay's own problems; its `x_` keys are then its own, never reserved ones
+     */
+    overlay?: { base: { id: string; number: number; document: unknown }; problems: CheckProblem[] }
 ): Promise<PublishCheck> {
-    const base = await publishedVersion(tx, form);
+    const base = overlay ? overlay.base : await publishedVersion(tx, form);
     const lint = lintDocument(candidate.document, { dataSources: DATA_SOURCE_ALLOWLIST });
+    const keys = overlay
+        ? checkKeyStability(base?.document ?? null, candidate.document)
+        : keyProblems(base?.document ?? null, candidate.document);
     const problems = [
-        ...[...keyProblems(base?.document ?? null, candidate.document), ...lint].map((p) => problemOf(p, language)),
-        ...(guard?.problems ?? [])
+        ...[...keys, ...lint].map((p) => problemOf(p, language)),
+        ...(guard?.problems ?? []),
+        ...(overlay?.problems ?? [])
     ];
     const tests = runTestCases(candidate.document).map((t) => ({
         id: t.id,

@@ -457,8 +457,26 @@ export class FormsService {
         const language = currentContext()?.language ?? 'am';
         const locks = await this.lockedKeys(tx, row.formId);
         if (row.overlayId) {
-            const document = await overlayCandidate(tx, row, locks);
-            return publishCheck(tx, ctx.userId, form, { id: null, number: null, document }, language);
+            const composed = await overlayCandidate(tx, row, locks);
+            return publishCheck(
+                tx,
+                ctx.userId,
+                form,
+                { id: null, number: null, document: composed.document },
+                language,
+                undefined,
+                [],
+                {
+                    base: composed.base,
+                    problems: composed.problems.map((p) => ({
+                        code: `overlay_${p.problem}`,
+                        severity: 'error' as const,
+                        fieldId: p.key,
+                        path: `patch.${p.op}`,
+                        message: `${p.key}: ${p.problem}`
+                    }))
+                }
+            );
         }
         const candidate = await this.version(tx, row.formId, row.formVersionId);
         return publishCheck(
@@ -646,7 +664,13 @@ export class FormsService {
                 await tx
                     .select({ formId: formPublications.formId })
                     .from(formPublications)
-                    .where(and(inArray(formPublications.formId, ids), eq(formPublications.status, 'pending')))
+                    .where(
+                        and(
+                            inArray(formPublications.formId, ids),
+                            eq(formPublications.status, 'pending'),
+                            isNull(formPublications.overlayId)
+                        )
+                    )
             ).map((p) => p.formId)
         );
         const units = await unitRefs(

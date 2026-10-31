@@ -11,8 +11,11 @@
  */
 import { OVERLAY_KEY, type FormOverlay, type OverlayConflictCode } from '@itrms/schemas';
 
+import { conditionReferences } from './conditions';
 import { lintDocument } from './lint';
 import { readDocument, rowScopedIds } from './model';
+import { extractReferences } from './runtime/expression';
+import { formulaReferences } from './runtime/formula';
 
 /** One overlay to compose, as its unit published it. */
 export interface OverlayLayer {
@@ -66,6 +69,48 @@ const isBound = (f: RawField) => {
     return !!data?.optionsBinding;
 };
 
+/** Any action at all, as stored (a record of event → actions; an old builder's plain list too). */
+function hasActions(actions: unknown): boolean {
+    if (Array.isArray(actions)) return actions.length > 0;
+    return (
+        !!actions &&
+        typeof actions === 'object' &&
+        Object.values(actions as Record<string, unknown>).some((a) => (Array.isArray(a) ? a.length > 0 : !!a))
+    );
+}
+
+const FORM_ROOTS = new Set(['form', 'row', 'root']);
+const SCOPE_ROOTS = new Set(['data', 'user', 'route', 'variables']);
+
+/** The field a reference names (`form.plate`, `row.qty`, `plate`), or none (the user, data sources…). */
+function nameOf(ref: string): string | null {
+    const parts = ref.split(/[.[]/);
+    const root = parts[0] ?? '';
+    if (SCOPE_ROOTS.has(root)) return null;
+    if (FORM_ROOTS.has(root)) return parts[1] || null;
+    return root || null;
+}
+
+/**
+ * The fields the form's own rules read: a field another field's condition, formula or rule reads. Narrowing such a
+ * field's options could keep a bureau field hidden, closed or never required, so an overlay never narrows it.
+ */
+function readByRules(base: unknown): Set<string> {
+    const out = new Set<string>();
+    for (const f of readDocument(base).fields) {
+        const refs: Iterable<string>[] = [conditionReferences(f.visibleWhen), conditionReferences(f.enabledWhen)];
+        if (f.computed) refs.push(extractReferences(f.computed.expression));
+        if (f.rules.requiredWhen) refs.push(formulaReferences(f.rules.requiredWhen));
+        for (const rule of f.rules.validWhen) refs.push(formulaReferences(rule.expression));
+        for (const list of refs)
+            for (const ref of list) {
+                const name = nameOf(ref);
+                if (name && name !== f.id) out.add(name);
+            }
+    }
+    return out;
+}
+
 /** What an added field may not carry (G8: no outside calls; indexing local fields is not offered yet). */
 function forbiddenProperty(f: RawField): boolean {
     const data = f.data as { optionsBinding?: unknown; rowsBinding?: unknown } | null | undefined;
@@ -74,7 +119,7 @@ function forbiddenProperty(f: RawField): boolean {
         f.filterable === true ||
         !!data?.optionsBinding ||
         !!data?.rowsBinding ||
-        (Array.isArray(behavior?.actions) && behavior.actions.length > 0) ||
+        hasActions(behavior?.actions) ||
         !!behavior?.validation?.remote
     );
 }
@@ -109,19 +154,21 @@ export function checkOverlay(
             if (forbiddenProperty(field)) problems.push({ op: 'add', key, problem: 'not_allowed_property' });
         }
     }
-    for (const change of patch.options) problems.push(...optionProblems(byId, change, opts.locks));
+    const read = readByRules(base);
+    for (const change of patch.options) problems.push(...optionProblems(byId, change, opts.locks, read));
     return problems;
 }
 
 function optionProblems(
     byId: ReadonlyMap<string, RawField>,
     change: FormOverlay['options'][number],
-    locks: ReadonlySet<string> | undefined
+    locks: ReadonlySet<string> | undefined,
+    read: ReadonlySet<string>
 ): { op: 'options'; key: string; problem: OverlayConflictCode }[] {
     const field = byId.get(change.key);
     const fail = (problem: OverlayConflictCode) => [{ op: 'options' as const, key: change.key, problem }];
     if (!field) return fail('field_missing');
-    if (locks?.has(change.key)) return fail('locked');
+    if (locks?.has(change.key) || read.has(change.key)) return fail('locked');
     const options = optionsOf(field);
     if (!options || isBound(field)) return fail('not_choice');
     const allowed = new Set(options.list.map((o) => JSON.stringify(optionValue(o))));
@@ -145,9 +192,11 @@ export function applyOverlays(
     base: unknown,
     layers: readonly OverlayLayer[],
     opts: { locks?: ReadonlySet<string> } = {}
-): { document: unknown; conflicts: OverlayConflict[] } {
+): { document: unknown; conflicts: OverlayConflict[]; applied: string[] } {
     let doc = rawDocument(base);
     const conflicts: OverlayConflict[] = [];
+    /** the overlay versions that changed the form (one passed over whole, or in every operation, did not) */
+    const applied: string[] = [];
     const baseErrors = layers.length ? errorsOf(doc) : new Set<string>();
     for (const layer of layers) {
         const next = rawDocument(doc);
@@ -187,8 +236,10 @@ export function applyOverlays(
             next.fields.splice(at + 1, 0, ...inserted);
         }
         const byId = new Map(next.fields.map((f) => [idOf(f), f]));
+        // the rules of the form as it stands before this layer (the bureau's and the layers above)
+        const read = readByRules(doc);
         for (const change of layer.patch.options) {
-            const problem = optionProblems(byId, change, opts.locks)[0];
+            const problem = optionProblems(byId, change, opts.locks, read)[0];
             if (problem) {
                 conflict('options', change.key, problem.problem);
                 continue;
@@ -216,7 +267,9 @@ export function applyOverlays(
             continue;
         }
         conflicts.push(...found);
+        const operations = layer.patch.add.length + layer.patch.options.length;
+        if (found.length < operations) applied.push(layer.versionId);
         doc = next;
     }
-    return { document: doc, conflicts };
+    return { document: doc, conflicts, applied };
 }

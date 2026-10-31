@@ -13,6 +13,7 @@ import { and, asc, eq, inArray, isNull, max, ne, sql } from 'drizzle-orm';
 import { contentHash, insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
 import { getUnit, unitRefs, withinScope, type OrgUnit, type UnitRef } from '@itrms/kernel/org';
+import { isUniqueViolation } from './support';
 import {
     applyOverlays,
     checkOverlay,
@@ -83,8 +84,8 @@ export async function composedFor(
 ): Promise<{ document: unknown; conflicts: OverlayConflict[]; layers: (OverlayLayer & { number: number })[] }> {
     const layers = (await chainOverlays(tx, form, unitPath)).filter((l) => allowed(l.path));
     if (layers.length === 0) return { document: base.document, conflicts: [], layers };
-    const { document, conflicts } = applyOverlays(base.document, layers, { locks });
-    return { document, conflicts, layers };
+    const { document, conflicts, applied } = applyOverlays(base.document, layers, { locks });
+    return { document, conflicts, layers: layers.filter((l) => applied.includes(l.versionId)) };
 }
 
 /**
@@ -254,12 +255,21 @@ export async function saveOverlay(
     const row = await overlayRow(tx, form.id, unitId);
     const values = { patch, patchHash: contentHash(patch), patchUpdatedBy: ctx.userId ?? null };
     if (!row) {
-        await insertAudited(tx, formOverlays, {
-            regionId: unit.regionId,
-            ownerUnitId: unit.id,
-            formId: form.id,
-            ...values
-        });
+        try {
+            await insertAudited(tx, formOverlays, {
+                regionId: unit.regionId,
+                ownerUnitId: unit.id,
+                formId: form.id,
+                ...values
+            });
+        } catch (error) {
+            if (isUniqueViolation(error, 'form_overlays_unit_uq'))
+                throw new ConflictError('stale_version', {
+                    detail: 'Someone else wrote this overlay meanwhile: read it again.',
+                    cause: error
+                });
+            throw error;
+        }
         return;
     }
     if (expected === null)
@@ -389,6 +399,8 @@ export async function approveOverlayPublication(
     if (!overlay || !asked) throw new NotFoundError();
     const [form] = await tx.select().from(formDefinitions).where(eq(formDefinitions.id, overlay.formId));
     if (!form) throw new NotFoundError();
+    if (!withinScope(overlay.orgPath, ctx.scopePath ?? '') && !withinScope(ctx.scopePath ?? '', overlay.orgPath))
+        throw new NotFoundError();
     await assertPublishableOverlay(
         tx,
         form,
@@ -415,7 +427,11 @@ export async function overlayCandidate(
     tx: Tx,
     publication: PublicationRow,
     locks: ReadonlySet<string>
-): Promise<unknown> {
+): Promise<{
+    document: unknown;
+    base: { id: string; number: number; document: unknown };
+    problems: ReturnType<typeof checkOverlay>;
+}> {
     if (!publication.overlayVersionId) throw new NotFoundError();
     const [asked] = await tx
         .select()
@@ -424,14 +440,13 @@ export async function overlayCandidate(
     const [form] = await tx.select().from(formDefinitions).where(eq(formDefinitions.id, publication.formId));
     if (!asked || !form) throw new NotFoundError();
     const unit = await getUnit(tx, asked.ownerUnitId);
-    const { document } = await overlayBase(tx, form, unit, locks);
-    return applyOverlays(
-        document,
-        [{ unitId: unit.id, versionId: asked.id, patch: formOverlaySchema.parse(asked.patch) }],
-        {
-            locks
-        }
-    ).document;
+    const { base, document } = await overlayBase(tx, form, unit, locks);
+    const patch = formOverlaySchema.parse(asked.patch);
+    return {
+        document: applyOverlays(document, [{ unitId: unit.id, versionId: asked.id, patch }], { locks }).document,
+        base: { id: base.id, number: base.number, document },
+        problems: checkOverlay(document, patch, { locks })
+    };
 }
 
 /**

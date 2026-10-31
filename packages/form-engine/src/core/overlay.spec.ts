@@ -178,6 +178,43 @@ describe('applyOverlays', () => {
     });
 });
 
+describe('what an overlay may never do', () => {
+    it('adds no field with actions (they could set a bureau answer or leave the form)', () => {
+        for (const actions of [
+            { onChange: [{ type: 'setValue', payload: { field: 'plate', value: 'x' } }] },
+            { onChange: [{ type: 'navigate', payload: { url: 'https://example.org' } }] },
+            [{ type: 'apiCall' }]
+        ])
+            expect(
+                checkOverlay(
+                    BASE,
+                    overlay({ add: [{ after: 'plate', fields: [F('x_act', { behavior: { actions } })] }] })
+                )
+            ).toEqual([{ op: 'add', key: 'x_act', problem: 'not_allowed_property' }]);
+    });
+
+    it('narrows no option a bureau rule reads (it could keep a bureau field hidden or never required)', () => {
+        const base = {
+            schemaVersion: 2,
+            fields: [
+                choice('category'),
+                F('detail', { behavior: { visibilityConditions: [{ field: 'category', operator: 'eq', value: 'a' }] } })
+            ]
+        };
+        expect(checkOverlay(base, overlay({ options: [{ key: 'category', values: ['b'] }] }))).toEqual([
+            { op: 'options', key: 'category', problem: 'locked' }
+        ]);
+        const composed = applyOverlays(base, [
+            { unitId: 'zone', versionId: 'z1', patch: overlay({ options: [{ key: 'category', values: ['b'] }] }) }
+        ]);
+        expect(composed.conflicts).toEqual([
+            { unitId: 'zone', versionId: 'z1', op: 'options', key: 'category', problem: 'locked' }
+        ]);
+        // nothing of it changed the form: it is not counted as applied
+        expect(composed.applied).toEqual([]);
+    });
+});
+
 describe('checkOverlay', () => {
     it('refuses unreserved, taken and misplaced keys, forbidden properties and options it may not narrow', () => {
         const problems = checkOverlay(

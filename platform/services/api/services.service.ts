@@ -5,7 +5,7 @@
  * it, frozen on the case. A new version re-checks every override below the region and reports what no longer fits; the
  * overrides stay (a value that does not fit is passed over), and open cases keep what they froze.
  */
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { contentHash, deleteAudited, insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { EffectRegistry } from '@itrms/kernel/effects';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
@@ -23,7 +23,7 @@ import {
 import { CasesService, workflowDefinitions, workflowDefinitionVersions, type CaseActor } from '@itrms/workflow/api';
 import { effectKeyOf, workflowDefinitionSchema, type I18nText, type InputMap } from '@itrms/schemas';
 import { currentContext } from '@itrms/kernel/context';
-import { and, asc, desc, eq, inArray, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, lte, sql } from 'drizzle-orm';
 
 import {
     configValuesSchema,
@@ -41,7 +41,7 @@ import {
     type VersionConfig,
     type VersionFacts
 } from './configuration';
-import { contractFindings, contractMessage, servicesText } from './contracts';
+import { contractFindings, contractMessage, ServiceFormGuard, servicesText } from './contracts';
 import { serviceDefinitions, serviceOverrides, serviceVersions } from './services.table';
 
 const currentLanguage = () => currentContext()?.language ?? 'am';
@@ -141,7 +141,8 @@ export class ServicesService {
         @Inject(EffectRegistry) private readonly effects: EffectRegistry,
         @Inject(CasesService) private readonly cases: CasesService,
         @Inject(SubmissionsService) private readonly submissions: SubmissionsService,
-        @Inject(RegistryLookups) private readonly lookups: RegistryLookups
+        @Inject(RegistryLookups) private readonly lookups: RegistryLookups,
+        @Optional() @Inject(ServiceFormGuard) private readonly guard?: ServiceFormGuard
     ) {}
 
     /** A service of the person's region by code (404 when the catalogue has none). */
@@ -259,7 +260,7 @@ export class ServicesService {
                 })
                 .from(formVersions)
                 .innerJoin(formDefinitions, eq(formDefinitions.id, formVersions.formId))
-                .where(eq(formVersions.id, input.formVersionId));
+                .where(and(eq(formVersions.id, input.formVersionId), isNull(formVersions.baseVersionId)));
             if (!form) problems.push({ path: 'formVersionId', code: 'unknown_form', message: 'No such form version.' });
             else if (!form.active)
                 problems.push({ path: 'formVersionId', code: 'form_off', message: 'The form is switched off.' });
@@ -686,7 +687,12 @@ export class ServicesService {
                           .from(formDefinitions)
                           .where(eq(formDefinitions.id, form.formId));
                       if (!definition) return null;
-                      const locks = new Set(Object.values(v.inputMap).flatMap((paths) => Object.values(paths)));
+                      // every field an effect of a service reading the form locks (mapped or by its own key)
+                      const locks = new Set(
+                          this.guard
+                              ? (await this.guard.locks(tx, form.formId)).map((l) => l.key)
+                              : Object.values(v.inputMap).flatMap((paths) => Object.values(paths))
+                      );
                       return composedFor(
                           tx,
                           definition,
