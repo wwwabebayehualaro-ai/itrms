@@ -954,10 +954,11 @@
         {
           "id": "0.21e",
           "title": "Configuration inheritance, part 4: filed requests and the remaining follow-ups",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.21e-filed-requests",
           "commits": [
-            "20be22e"
+            "20be22e",
+            "eb748c7"
           ],
           "evidence": [
             "GitHub Actions run 41205103582 on 20be22e (PR #26): all 9 jobs green (ADR-0038 CI record)",
@@ -974,7 +975,7 @@
         {
           "id": "0.21f",
           "title": "Form governance, part 3: form overlays and form tiers",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
