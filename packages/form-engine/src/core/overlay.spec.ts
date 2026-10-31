@@ -212,6 +212,23 @@ describe('what an overlay may never do', () => {
         ]);
         // nothing of it changed the form: it is not counted as applied
         expect(composed.applied).toEqual([]);
+
+        // a condition comparing with it through a binding reads it too
+        const bound = {
+            schemaVersion: 2,
+            fields: [
+                choice('category'),
+                F('kind'),
+                F('detail', {
+                    behavior: {
+                        visibilityConditions: [{ field: 'kind', operator: 'eq', value: '{{ form.category }}' }]
+                    }
+                })
+            ]
+        };
+        expect(checkOverlay(bound, overlay({ options: [{ key: 'category', values: ['b'] }] }))).toEqual([
+            { op: 'options', key: 'category', problem: 'locked' }
+        ]);
     });
 });
 

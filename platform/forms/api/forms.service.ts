@@ -47,6 +47,7 @@ import {
     notComposed,
     overlayCandidate,
     overlayImpact,
+    overlayMessage,
     overlayRefs,
     readOverlay,
     requestOverlayPublication,
@@ -468,13 +469,26 @@ export class FormsService {
                 [],
                 {
                     base: composed.base,
-                    problems: composed.problems.map((p) => ({
-                        code: `overlay_${p.problem}`,
-                        severity: 'error' as const,
-                        fieldId: p.key,
-                        path: `patch.${p.op}`,
-                        message: `${p.key}: ${p.problem}`
-                    }))
+                    problems: [
+                        ...composed.problems.map((p) => ({
+                            code: `overlay_${p.problem}`,
+                            severity: 'error' as const,
+                            fieldId: p.key,
+                            path: `patch.${p.op}`,
+                            message: `${p.key}: ${overlayMessage(p.problem, language)}`
+                        })),
+                        ...(composed.invalid
+                            ? [
+                                  {
+                                      code: 'overlay_invalid',
+                                      severity: 'error' as const,
+                                      fieldId: null,
+                                      path: 'patch',
+                                      message: overlayMessage('invalid', language)
+                                  }
+                              ]
+                            : [])
+                    ]
                 }
             );
         }

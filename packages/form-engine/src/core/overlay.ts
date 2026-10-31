@@ -91,6 +91,23 @@ function nameOf(ref: string): string | null {
     return root || null;
 }
 
+/** The bindings in conditions' values (`value: '{{ form.cat }}'` compares with another answer), nested ones too. */
+function valueReferences(conditions: unknown): string[] {
+    const out: string[] = [];
+    const walk = (c: unknown, depth: number) => {
+        if (depth > 20 || !c || typeof c !== 'object') return;
+        if (Array.isArray(c)) {
+            for (const x of c) walk(x, depth + 1);
+            return;
+        }
+        const { value, conditions: nested } = c as { value?: unknown; conditions?: unknown };
+        if (typeof value === 'string') out.push(...extractReferences(value));
+        walk(nested, depth + 1);
+    };
+    walk(conditions, 0);
+    return out;
+}
+
 /**
  * The fields the form's own rules read: a field another field's condition, formula or rule reads. Narrowing such a
  * field's options could keep a bureau field hidden, closed or never required, so an overlay never narrows it.
@@ -98,7 +115,12 @@ function nameOf(ref: string): string | null {
 function readByRules(base: unknown): Set<string> {
     const out = new Set<string>();
     for (const f of readDocument(base).fields) {
-        const refs: Iterable<string>[] = [conditionReferences(f.visibleWhen), conditionReferences(f.enabledWhen)];
+        const refs: Iterable<string>[] = [
+            conditionReferences(f.visibleWhen),
+            conditionReferences(f.enabledWhen),
+            valueReferences(f.visibleWhen),
+            valueReferences(f.enabledWhen)
+        ];
         if (f.computed) refs.push(extractReferences(f.computed.expression));
         if (f.rules.requiredWhen) refs.push(formulaReferences(f.rules.requiredWhen));
         for (const rule of f.rules.validWhen) refs.push(formulaReferences(rule.expression));

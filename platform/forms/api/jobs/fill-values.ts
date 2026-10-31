@@ -120,11 +120,13 @@ export async function fillValues(system: SystemDatabase, formId: string): Promis
             // no submission of the form is in flight from here on: those made while the batches ran (and any that read
             // the previous version before the publication) are swept
             await lockFormExclusive(tx, formId);
+            // a composed version made while the batches ran (task 0.21f) needs its base's open keys too
+            const swept: Plan = { ...plan, open: (await planOf(tx, formId)).open };
             const since = new Date(plan.startedAt.getTime() - IN_FLIGHT_MS);
             for (let after: string | null = null; ;) {
                 const batch: FillRow[] = (await nextBatch(tx, formId, plan.missing, { after, size: FILL_BATCH, since }))
                     .rows;
-                (await refill(tx, formId, plan, batch)).forEach((k) => overflow.add(k));
+                (await refill(tx, formId, swept, batch)).forEach((k) => overflow.add(k));
                 if (batch.length < FILL_BATCH) break;
                 after = batch[batch.length - 1]?.id ?? null;
             }

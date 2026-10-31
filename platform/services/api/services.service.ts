@@ -11,7 +11,7 @@ import { EffectRegistry } from '@itrms/kernel/effects';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
 import { effectiveServices, withinScope, type OrgUnit } from '@itrms/kernel/org';
 import { orgUnits } from '@itrms/kernel/tables';
-import { publishedKeysOf } from '@itrms/form-engine/core';
+import { contractLocks, publishedKeysOf } from '@itrms/form-engine/core';
 import {
     composedFor,
     formDefinitions,
@@ -41,7 +41,7 @@ import {
     type VersionConfig,
     type VersionFacts
 } from './configuration';
-import { contractFindings, contractMessage, ServiceFormGuard, servicesText } from './contracts';
+import { contractFindings, contractMessage, effectsOf, ServiceFormGuard, servicesText } from './contracts';
 import { serviceDefinitions, serviceOverrides, serviceVersions } from './services.table';
 
 const currentLanguage = () => currentContext()?.language ?? 'am';
@@ -687,12 +687,20 @@ export class ServicesService {
                           .from(formDefinitions)
                           .where(eq(formDefinitions.id, form.formId));
                       if (!definition) return null;
-                      // every field an effect of a service reading the form locks (mapped or by its own key)
-                      const locks = new Set(
-                          this.guard
-                              ? (await this.guard.locks(tx, form.formId)).map((l) => l.key)
-                              : Object.values(v.inputMap).flatMap((paths) => Object.values(paths))
-                      );
+                      // every field an effect locks (mapped or by its own key): of this version, the one filed on,
+                      // and of every service reading the form at its current version (the guard's)
+                      const [workflow] = await tx
+                          .select({ definition: workflowDefinitionVersions.definition })
+                          .from(workflowDefinitionVersions)
+                          .where(eq(workflowDefinitionVersions.id, v.workflowVersionId));
+                      const own = effectsOf(workflow?.definition).flatMap((effect) => {
+                          const contract = this.effects.contract(effect);
+                          return contract ? contractLocks(contract, v.inputMap[effect]).map((l) => l.key) : [];
+                      });
+                      const locks = new Set([
+                          ...own,
+                          ...(this.guard ? (await this.guard.locks(tx, form.formId)).map((l) => l.key) : [])
+                      ]);
                       return composedFor(
                           tx,
                           definition,

@@ -37,6 +37,9 @@ const COMPOSE_LOCK = 0x0f21;
 
 const EMPTY: FormOverlay = { add: [], options: [] };
 
+/** A conflict's or problem's message in the reader's language. */
+export const overlayMessage = (code: OverlayConflictCode, language: string): string => message(code, language);
+
 const message = (code: OverlayConflictCode, language: string): string => {
     const key = `forms.overlay.conflict.${code}` as keyof typeof en;
     return (language === 'en' ? en : am)[key] ?? key;
@@ -399,8 +402,8 @@ export async function approveOverlayPublication(
     if (!overlay || !asked) throw new NotFoundError();
     const [form] = await tx.select().from(formDefinitions).where(eq(formDefinitions.id, overlay.formId));
     if (!form) throw new NotFoundError();
-    if (!withinScope(overlay.orgPath, ctx.scopePath ?? '') && !withinScope(ctx.scopePath ?? '', overlay.orgPath))
-        throw new NotFoundError();
+    // the overlay's unit or one above it decides (never a unit below it)
+    if (!withinScope(overlay.orgPath, ctx.scopePath ?? '')) throw new NotFoundError();
     await assertPublishableOverlay(
         tx,
         form,
@@ -431,6 +434,8 @@ export async function overlayCandidate(
     document: unknown;
     base: { id: string; number: number; document: unknown };
     problems: ReturnType<typeof checkOverlay>;
+    /** the overlay would make the form unsound: it is passed over whole (the approval refuses it) */
+    invalid: boolean;
 }> {
     if (!publication.overlayVersionId) throw new NotFoundError();
     const [asked] = await tx
@@ -442,10 +447,12 @@ export async function overlayCandidate(
     const unit = await getUnit(tx, asked.ownerUnitId);
     const { base, document } = await overlayBase(tx, form, unit, locks);
     const patch = formOverlaySchema.parse(asked.patch);
+    const composed = applyOverlays(document, [{ unitId: unit.id, versionId: asked.id, patch }], { locks });
     return {
-        document: applyOverlays(document, [{ unitId: unit.id, versionId: asked.id, patch }], { locks }).document,
+        document: composed.document,
         base: { id: base.id, number: base.number, document },
-        problems: checkOverlay(document, patch, { locks })
+        problems: checkOverlay(document, patch, { locks }),
+        invalid: composed.conflicts.some((c) => c.problem === 'invalid')
     };
 }
 
