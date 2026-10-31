@@ -333,6 +333,40 @@ describe('the publication request', () => {
 });
 
 describe('the review of a change', () => {
+    it('finds the views that name a changed key in SQL, and names a view it can no longer read', async () => {
+        const form = await published();
+        // views that never name the key: never listed, however many there are
+        for (let i = 0; i < 3; i++)
+            expect(
+                (
+                    await api.call('POST', `/api/v1/forms/${form.id}/views`, as.damotHead, {
+                        name: `Names only${i}`,
+                        visibility: 'unit',
+                        config: { mode: 'table', columns: ['fullName'] }
+                    })
+                ).statusCode
+            ).toBe(201);
+        const broken = await addView(as.damotHead, form, 'Broken view', 'unit');
+        expect(broken.statusCode).toBe(201);
+        // its configuration no longer reads as a view (an older shape), though it still names the key
+        await api.owner.query(
+            'update forms.saved_views set config = \'{"mode":"table","columns":"office"}\'::jsonb where id = $1',
+            [broken.json<{ id: string }>().id]
+        );
+        expect((await addView(as.damotHead, form, 'Filters the office', 'unit')).statusCode).toBe(201);
+
+        const flagged = (
+            await patch(form, { ...BASE, fields: [BASE.fields[0], office({ removed: true })] })
+        ).json<FormOut>();
+        const views = (await api.call('GET', `/api/v1/forms/${flagged.id}/publish-check`, as.bureau)).json<{
+            impact: { views: { name: string; unreadable: boolean }[] };
+        }>().impact.views;
+        expect(views.map((v) => [v.name, v.unreadable]).sort()).toEqual([
+            ['Broken view', true],
+            ['Filters the office', false]
+        ]);
+    });
+
     it('lists a shared view and the caller own private view, never another person private view', async () => {
         const form = await published();
         expect((await addView(as.damotHead, form, 'Shared by the head', 'unit')).statusCode).toBe(201);

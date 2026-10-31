@@ -333,7 +333,9 @@ export const impactViewSchema = z.object({
     unit: unitRefSchema,
     /** the caller's own view */
     mine: z.boolean(),
-    keys: z.array(z.object({ key: z.string(), reasons: z.array(z.enum(IMPACT_REASONS)) }))
+    keys: z.array(z.object({ key: z.string(), reasons: z.array(z.enum(IMPACT_REASONS)) })),
+    /** its configuration no longer reads as a view (it names a changed key, but what it does with it is unknown) */
+    unreadable: z.boolean().default(false)
 });
 
 /** A service whose effects read the form (task 0.21d): what a publication touches beyond the form's own views. */

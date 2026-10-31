@@ -3,7 +3,7 @@
  * a publication changes (the diff) and whom it affects (saved views that use a changed key).
  */
 import { Logger } from '@nestjs/common';
-import { and, eq, or } from 'drizzle-orm';
+import { and, eq, or, sql } from 'drizzle-orm';
 import {
     checkKeyStability,
     reservedKeyProblems,
@@ -236,7 +236,14 @@ export async function impact(
                 eq(savedViews.formId, formId),
                 userId
                     ? or(eq(savedViews.visibility, 'unit'), eq(savedViews.createdBy, userId))
-                    : eq(savedViews.visibility, 'unit')
+                    : eq(savedViews.visibility, 'unit'),
+                // only the views that name a changed key somewhere in their configuration (follow-up from 0.18a: the
+                // limit then counts views that matter, never the first ones by name)
+                sql`exists (select 1 from jsonb_path_query(${savedViews.config}, 'strict $.**') s
+                             where jsonb_typeof(s) = 'string' and s #>> '{}' = any(array[${sql.join(
+                                 [...changedKeys].map((k) => sql`${k}`),
+                                 sql`, `
+                             )}]::text[]))`
             )
         )
         .orderBy(savedViews.name, savedViews.id)
@@ -248,7 +255,18 @@ export async function impact(
     const out: ImpactView[] = [];
     for (const row of rows) {
         const config = viewConfigSchema.safeParse(row.config);
-        if (!config.success) continue;
+        const view = {
+            id: row.id,
+            name: row.name,
+            visibility: row.visibility,
+            unit: units.get(row.unitId) ?? { id: row.unitId, code: '', name: {} },
+            mine: row.createdBy === userId
+        };
+        // a view this version no longer reads is named, never skipped: its owner should know
+        if (!config.success) {
+            out.push({ ...view, keys: [], unreadable: true });
+            continue;
+        }
         const used = new Map<string, Set<Reason>>();
         const note = (key: string, reason: Reason) => {
             if (!changedKeys.has(key)) return;
@@ -266,12 +284,9 @@ export async function impact(
         for (const k of inOptions) note(k, 'option');
         if (used.size === 0) continue;
         out.push({
-            id: row.id,
-            name: row.name,
-            visibility: row.visibility,
-            unit: units.get(row.unitId) ?? { id: row.unitId, code: '', name: {} },
-            mine: row.createdBy === userId,
-            keys: [...used].map(([key, reasons]) => ({ key, reasons: [...reasons] }))
+            ...view,
+            keys: [...used].map(([key, reasons]) => ({ key, reasons: [...reasons] })),
+            unreadable: false
         });
     }
     return out;
