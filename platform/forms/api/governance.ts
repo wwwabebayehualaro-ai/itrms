@@ -24,6 +24,7 @@ import {
     viewConfigSchema,
     type CheckProblem,
     type ImpactView,
+    type ImpactOverlay,
     type PublishCheck,
     type QueryGroup
 } from '../contracts';
@@ -117,7 +118,9 @@ export async function publishCheck(
     candidate: Candidate,
     language: string,
     /** what the services reading the form say about it (their effects' contracts, task 0.21d) */
-    guard?: GuardResult
+    guard?: GuardResult,
+    /** the units' overlays it would re-apply, with their conflicts (task 0.21f) */
+    overlays: ImpactOverlay[] = []
 ): Promise<PublishCheck> {
     const base = await publishedVersion(tx, form);
     const lint = lintDocument(candidate.document, { dataSources: DATA_SOURCE_ALLOWLIST });
@@ -142,7 +145,7 @@ export async function publishCheck(
         problems,
         tests,
         diff,
-        impact: { views: await impact(tx, userId, form.id, changed), services: guard?.services ?? [] }
+        impact: { views: await impact(tx, userId, form.id, changed), services: guard?.services ?? [], overlays }
     };
 }
 

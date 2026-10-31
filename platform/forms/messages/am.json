@@ -48,5 +48,18 @@
   "forms.setting.exports.keepDays": "ከበስተጀርባ የተዘጋጀ ፋይል የሚቆይባቸው ቀናት",
   "forms.setting.exports.backgroundMaxRows": "ከበስተጀርባ በሚዘጋጅ ፋይል ውስጥ የሚገቡ ከፍተኛ ረድፎች",
   "forms.validation.sectionHasHiddenAnswers": "ይህ ክፍል እርስዎ የማያዩት ወይም የማይቀይሩት መልስ ይዟል፤ እንደገባ ይቆያል። እንዲቀየር ጥያቄውን ያስገባውን ጽ/ቤት ይጠይቁ።",
-  "forms.validation.notEditable": "ይህንን መልስ እዚህ መቀየር አይችሉም፤ ጥያቄውን ያስገባውን ጽ/ቤት ይጠይቁ።"
+  "forms.validation.notEditable": "ይህንን መልስ እዚህ መቀየር አይችሉም፤ ጥያቄውን ያስገባውን ጽ/ቤት ይጠይቁ።",
+  "forms.overlay.testCaseFails": "ከተጨማሪው ጋር ይህ የቢሮው ቅጽ የሙከራ ጉዳይ አያልፍም (የሚጨመር መስክ አማራጭ ወይም ነባሪ እሴት ያለው መሆን አለበት)",
+  "forms.overlay.conflict.anchor_missing": "የሚጨመርበት መስክ በቅጹ ላይ የለም",
+  "forms.overlay.conflict.anchor_in_rows": "በሚደጋገም ክፍል ውስጥ መስክ መጨመር አይቻልም",
+  "forms.overlay.conflict.key_taken": "ቁልፉ የቅጹ ነው",
+  "forms.overlay.conflict.key_reserved": "ጽ/ቤት የሚጨምረው መስክ በ x_ የሚጀምር ቁልፍ ያስፈልገዋል",
+  "forms.overlay.conflict.nested_outside": "በመያዣ ውስጥ ያለ መስክ ከመያዣው ጋር መጨመር አለበት",
+  "forms.overlay.conflict.not_allowed_property": "ጽ/ቤት የሚጨምረው መስክ ማጣሪያ፣ የመረጃ ምንጭ ወይም ድርጊት ሊኖረው አይችልም",
+  "forms.overlay.conflict.locked": "የአገልግሎት ውጤት የሚያነበው መስክ ሊቀየር አይችልም",
+  "forms.overlay.conflict.field_missing": "መስኩ በቅጹ ላይ የለም",
+  "forms.overlay.conflict.not_choice": "ምርጫዎቹ ሊጠበቡ የሚችሉት የምርጫ መስክ ብቻ ነው",
+  "forms.overlay.conflict.option_not_allowed": "ቅጹ የማያቀርበው ምርጫ ሊቆይ አይችልም",
+  "forms.overlay.conflict.invalid": "ከተጨማሪው ጋር ቅጹ ትክክል አይሆንም፤ ስለዚህ ተጨማሪው አይተገበርም",
+  "forms.overlay.conflict.not_allowed": "አገልግሎቱ ተጨማሪ አይፈቅድም"
 }

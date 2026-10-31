@@ -7,7 +7,7 @@
 import { engineTranslator } from '@itrms/form-engine/core';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
-import { PEOPLE, api, runName, signedIn, switchOff } from './support';
+import { PEOPLE, api, field, runName, signedIn, switchOff } from './support';
 
 // the page runs in Amharic, so the engine's own words are looked up in its Amharic catalogue
 const am = engineTranslator('am');
@@ -181,5 +181,38 @@ test('a form built in the builder is published once a second person approves, th
         await expect(dialog.getByText('Office type')).toBeVisible();
     } finally {
         if (formId) await switchOff(author, formId);
+    }
+});
+
+test('a form with a field that has no data class cannot be published: the review lists it as an error', async ({
+    browser
+}) => {
+    test.setTimeout(180_000);
+    const name = runName('Unclassified journey');
+    const page = await signedIn(browser, PEOPLE.author);
+    const author = api(page);
+    // the builder always gives a field a class, so the form is one saved before classes existed (written through the API)
+    const form = await author.post<{ id: string }>('v1/forms', {
+        key: `e2e-unclassified-${Date.now().toString(36)}`,
+        name: { am: `ቅጽ ${name}`, en: name },
+        document: {
+            schemaVersion: 2,
+            fields: [field('InputText', 'fullName', 'Full name', { classification: undefined })]
+        }
+    });
+    try {
+        await page.goto('/dynamic-template/saved-templates');
+        await page.getByRole('button', { name: `Publish ቅጽ ${name}` }).click();
+        const review = page.locator('[data-publish-dialog]');
+        await expect(review.locator('[data-publish-review]')).toHaveAttribute('data-can-publish', 'false');
+        await expect(review.locator('[data-review-section="errors"] [data-problem="unclassified"]')).toContainText(
+            'fullName'
+        );
+        // publishing is refused: the request button is off and no publication was made
+        await expect(review.locator('[data-request-publication]')).toBeDisabled();
+        const asked = await author.get<{ items: unknown[] }>(`v1/form-publications?formId=${form.id}`);
+        expect(asked.items).toHaveLength(0);
+    } finally {
+        await switchOff(author, form.id);
     }
 });

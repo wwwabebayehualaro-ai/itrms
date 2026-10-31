@@ -72,6 +72,8 @@ export interface RequestForm {
     name: Text;
     versionNumber: number;
     form: { formId: string; versionId: string } | null;
+    /** the form with this office's overlays composed in (null: the version as the service names it) */
+    document?: unknown;
     help: Record<string, Text>;
 }
 

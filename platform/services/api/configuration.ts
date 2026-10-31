@@ -85,7 +85,11 @@ export interface FrozenConfig extends Record<string, unknown> {
     /** the service's name when the case started (the request lists show it, task 0.21e) */
     serviceName?: Record<string, string>;
     serviceVersionId: string;
+    /** the version the request is filed on: the service's form version, or that version composed with the unit's overlays */
     formVersionId: string | null;
+    /** a composed request form (task 0.21f): the service's form version it was composed from, and the overlays applied */
+    baseFormVersionId?: string | null;
+    overlayVersionIds?: string[];
     /** each effect's contract paths mapped to the request form's keys (the engine builds the effect's input with it) */
     inputMap: Record<string, Record<string, string>>;
     approval_unit?: unknown;

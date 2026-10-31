@@ -12,7 +12,14 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@
 import { effectiveServices, withinScope, type OrgUnit } from '@itrms/kernel/org';
 import { orgUnits } from '@itrms/kernel/tables';
 import { publishedKeysOf } from '@itrms/form-engine/core';
-import { formDefinitions, formVersions, RegistryLookups, SubmissionsService } from '@itrms/forms/api';
+import {
+    composedFor,
+    formDefinitions,
+    formVersions,
+    materialize,
+    RegistryLookups,
+    SubmissionsService
+} from '@itrms/forms/api';
 import { CasesService, workflowDefinitions, workflowDefinitionVersions, type CaseActor } from '@itrms/workflow/api';
 import { effectKeyOf, workflowDefinitionSchema, type I18nText, type InputMap } from '@itrms/schemas';
 import { currentContext } from '@itrms/kernel/context';
@@ -659,17 +666,59 @@ export class ServicesService {
         });
         const [form] = v.formVersionId
             ? await tx
-                  .select({ formId: formVersions.formId, versionId: formVersions.id })
+                  .select({
+                      formId: formVersions.formId,
+                      versionId: formVersions.id,
+                      number: formVersions.number,
+                      document: formVersions.document
+                  })
                   .from(formVersions)
                   .where(eq(formVersions.id, v.formVersionId))
             : [];
-        return { unit, d, v, config, form: form ?? null };
+        // the units' overlays the policy lets apply here (task 0.21f), composed onto the service's form version; the
+        // fields its effects read are locked (an overlay never narrows them)
+        const levels = new Set(version.policy.formOverlay ?? []);
+        const composed =
+            form && levels.size > 0
+                ? await (async () => {
+                      const [definition] = await tx
+                          .select({ id: formDefinitions.id, ownerUnitId: formDefinitions.ownerUnitId })
+                          .from(formDefinitions)
+                          .where(eq(formDefinitions.id, form.formId));
+                      if (!definition) return null;
+                      const locks = new Set(Object.values(v.inputMap).flatMap((paths) => Object.values(paths)));
+                      return composedFor(
+                          tx,
+                          definition,
+                          { id: form.versionId, document: form.document },
+                          unit.path,
+                          locks,
+                          (path) => levels.has(path.split('.').length <= 2 ? 'region' : 'unit')
+                      );
+                  })()
+                : null;
+        return {
+            unit,
+            d,
+            v,
+            config,
+            form: form ? { formId: form.formId, versionId: form.versionId, number: form.number } : null,
+            composed: composed && composed.layers.length > 0 ? composed : null
+        };
     }
 
     /** What the counter fills in for a request (task 0.21c): the service's form version and its help texts here. */
     async requestForm(tx: Tx, ctx: DbContext, code: string) {
-        const { d, v, config, form } = await this.offered(tx, ctx, code);
-        return { serviceCode: code, name: d.name as I18nText, versionNumber: v.number, form, help: config.help };
+        const { d, v, config, form, composed } = await this.offered(tx, ctx, code);
+        return {
+            serviceCode: code,
+            name: d.name as I18nText,
+            versionNumber: v.number,
+            form: form ? { formId: form.formId, versionId: form.versionId } : null,
+            // the form as this office fills it in: with its overlays (none: the service's version as it is)
+            document: composed?.document ?? null,
+            help: config.help
+        };
     }
 
     /**
@@ -686,20 +735,40 @@ export class ServicesService {
         answers: Record<string, unknown> | undefined,
         language: string
     ) {
-        const { unit, v, config, form } = await this.offered(tx, ctx, code);
+        const { unit, v, config, form, composed } = await this.offered(tx, ctx, code);
         if (form && answers === undefined)
             throw fieldErrors([
                 { path: 'answers', code: 'required', message: 'The service has a request form to fill in.' }
             ]);
         if (!form && answers !== undefined)
             throw fieldErrors([{ path: 'answers', code: 'invalid', message: 'The service has no request form.' }]);
-        const { id } = await this.cases.start(tx, ctx, { definitionVersionId: v.workflowVersionId, config });
-        if (form && answers)
+        // the request is filed on the form as this office has it (its overlays composed in): stored once, then frozen
+        const formVersionId =
+            form && composed
+                ? await materialize(
+                      tx,
+                      { id: form.formId },
+                      { id: form.versionId, number: form.number },
+                      unit,
+                      composed
+                  )
+                : (form?.versionId ?? null);
+        const frozen =
+            form && composed && formVersionId
+                ? {
+                      ...config,
+                      formVersionId,
+                      baseFormVersionId: form.versionId,
+                      overlayVersionIds: composed.layers.map((l) => l.versionId)
+                  }
+                : config;
+        const { id } = await this.cases.start(tx, ctx, { definitionVersionId: v.workflowVersionId, config: frozen });
+        if (form && answers && formVersionId)
             await this.submissions.create(
                 tx,
                 ctx,
                 actor.roles,
-                { formId: form.formId, formVersionId: form.versionId, answers },
+                { formId: form.formId, formVersionId, answers },
                 this.lookups,
                 language,
                 { caseId: id, handlingUnitId: unit.id }

@@ -6,8 +6,16 @@
  *                      writes; a woreda fills in the bureau's forms and cannot change them).
  *   form_versions      immutable, content-hashed snapshots of a working copy (class C, beside their definition). No UPDATE
  *                      or DELETE: grants and a trigger refuse them; only a unit move rewrites `org_path`.
+ *                      A composed version (task 0.21f) is a bureau version with a unit's overlays applied: it names its
+ *                      `base_version_id` and `overlay_version_ids`, belongs to the filing unit, and is what that unit's
+ *                      new cases are filed and validated on.
+ *   form_overlays      a unit's additions to a bureau form (fields after an anchor, a choice's options narrowed) and its
+ *                      working copy (class C at the unit; task 0.21f, form-platform.md §4).
+ *   form_overlay_versions  immutable, content-hashed snapshots of an overlay (class C, beside it), published through
+ *                      form_publications like a form's.
  *   form_publications  a request to make a version the one people fill in, decided by a second person (class T at the
- *                      owner unit: its subtree asks, its heads and those above decide).
+ *                      owner unit: its subtree asks, its heads and those above decide). An overlay's names the overlay
+ *                      version and the bureau version it was checked against.
  *   submissions        answers, pinned to the version they were filled on (class T at the handling unit). `case_id` gets
  *                      its foreign key when cases exist (task 0.19). A case's request changes only through its workflow
  *                      (task 0.21e): its answers are replaced, re-validated on their version.
@@ -95,18 +103,86 @@ export const formVersions = withRls(
                 formId: uuid('form_id')
                     .notNull()
                     .references(() => formDefinitions.id),
-                /** 1, 2, 3 … per form, in the order versions were made */
+                /** 1, 2, 3 … per form, in the order versions were made (a composed version: its base's) */
                 number: integer('number').notNull(),
                 contentHash: text('content_hash').notNull(),
-                document: jsonb('document').notNull()
+                document: jsonb('document').notNull(),
+                /** a composed version (task 0.21f): the bureau version the overlays were applied to */
+                baseVersionId: uuid('base_version_id').references((): AnyPgColumn => formVersions.id),
+                /** a composed version: the overlay versions applied, root side first */
+                overlayVersionIds: uuid('overlay_version_ids').array()
             },
             (t) => [
-                uniqueIndex('form_versions_content_uq').on(t.formId, t.contentHash),
-                uniqueIndex('form_versions_number_uq').on(t.formId, t.number),
+                uniqueIndex('form_versions_content_uq')
+                    .on(t.formId, t.contentHash)
+                    .where(sql`base_version_id is null`),
+                uniqueIndex('form_versions_number_uq')
+                    .on(t.formId, t.number)
+                    .where(sql`base_version_id is null`),
+                uniqueIndex('form_versions_composed_uq')
+                    .on(t.ownerUnitId, t.baseVersionId, t.contentHash)
+                    .where(sql`base_version_id is not null`),
                 index('form_versions_org_path_gist').using('gist', t.orgPath)
             ]
         ),
         { omit: ['document'] }
+    ),
+    'config'
+);
+
+/** A unit's overlay on a bureau form (task 0.21f): its working copy and the version its new cases are filed with. */
+export const formOverlays = withRls(
+    audited(
+        formsSchema.table(
+            'form_overlays',
+            {
+                ...baseColumns(),
+                ...owned(),
+                formId: uuid('form_id')
+                    .notNull()
+                    .references(() => formDefinitions.id),
+                /** the working copy (@itrms/schemas formOverlaySchema): what the next publication snapshots */
+                patch: jsonb('patch').notNull(),
+                patchHash: text('patch_hash').notNull(),
+                /** who last changed the working copy: they cannot approve its publication (SEC-AC-6) */
+                patchUpdatedBy: uuid('patch_updated_by'),
+                publishedVersionId: uuid('published_version_id').references((): AnyPgColumn => formOverlayVersions.id),
+                publishedAt: timestamp('published_at', { withTimezone: true })
+            },
+            (t) => [
+                uniqueIndex('form_overlays_unit_uq').on(t.formId, t.ownerUnitId),
+                index('form_overlays_org_path_gist').using('gist', t.orgPath)
+            ]
+        ),
+        { omit: ['patch'] }
+    ),
+    'config'
+);
+
+export const formOverlayVersions = withRls(
+    audited(
+        formsSchema.table(
+            'form_overlay_versions',
+            {
+                ...baseColumns(),
+                ...owned(),
+                overlayId: uuid('overlay_id')
+                    .notNull()
+                    .references(() => formOverlays.id),
+                formId: uuid('form_id')
+                    .notNull()
+                    .references(() => formDefinitions.id),
+                number: integer('number').notNull(),
+                contentHash: text('content_hash').notNull(),
+                patch: jsonb('patch').notNull()
+            },
+            (t) => [
+                uniqueIndex('form_overlay_versions_number_uq').on(t.overlayId, t.number),
+                uniqueIndex('form_overlay_versions_content_uq').on(t.overlayId, t.contentHash),
+                index('form_overlay_versions_org_path_gist').using('gist', t.orgPath)
+            ]
+        ),
+        { omit: ['patch'] }
     ),
     'config'
 );
@@ -130,6 +206,12 @@ export const formPublications = withRls(
                 formVersionId: uuid('form_version_id')
                     .notNull()
                     .references(() => formVersions.id),
+                /**
+                 * an overlay's publication (task 0.21f): the overlay, and its version asked for (`form_version_id` is
+                 * then the bureau version it was checked against)
+                 */
+                overlayId: uuid('overlay_id').references(() => formOverlays.id),
+                overlayVersionId: uuid('overlay_version_id').references(() => formOverlayVersions.id),
                 /** who last changed the content asked for: neither they nor the requester decide */
                 contentBy: uuid('content_by'),
                 status: text('status', { enum: ['pending', 'approved', 'rejected', 'withdrawn'] })
@@ -141,10 +223,13 @@ export const formPublications = withRls(
                 decisionNote: text('decision_note')
             },
             (t) => [
-                // one open request per form
+                // one open request per form, and one per overlay
                 uniqueIndex('form_publications_pending_uq')
                     .on(t.formId)
-                    .where(sql`${t.status} = 'pending'`),
+                    .where(sql`${t.status} = 'pending' and overlay_id is null`),
+                uniqueIndex('form_publications_overlay_pending_uq')
+                    .on(t.overlayId)
+                    .where(sql`${t.status} = 'pending' and overlay_id is not null`),
                 index('form_publications_org_path_gist').using('gist', t.orgPath)
             ]
         )

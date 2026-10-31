@@ -20,7 +20,8 @@ const INTAKE = [
 ];
 // forms (@itrms/forms, task 0.16a): the bureau and unit administrators author them; a second person approves a
 // publication (SEC-AC-6). Submissions follow the `case` column of roles-and-permissions.md §2 until cases exist (0.19).
-const AUTHOR_FORMS = ['form:create', 'form:update', 'form:publish'];
+// an office overlays the bureau's forms itself (task 0.21f); a second person still approves its publication
+const AUTHOR_FORMS = ['form:create', 'form:update', 'form:publish', 'form:overlay'];
 // workflow definitions (@itrms/workflow, task 0.19a): authored by the same administrators as forms; a version stored is
 // not live until a service version names it (0.21)
 const AUTHOR_WORKFLOWS = ['workflow-definition:read', 'workflow-definition:create', 'workflow-definition:update'];

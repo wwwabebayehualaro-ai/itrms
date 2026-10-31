@@ -5,16 +5,18 @@
  * before. Every write goes through the audited helpers in the caller's transaction.
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import { and, desc, eq, ilike, inArray, lt, max, or, sql } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, isNull, lt, max, or, sql } from 'drizzle-orm';
 import { contextOfTx, insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { ConflictError, ForbiddenError, NotFoundError } from '@itrms/kernel/errors';
 import { unitRefs, withinScope, type UnitRef } from '@itrms/kernel/org';
 import { users } from '@itrms/kernel/tables';
 import { currentContext } from '@itrms/kernel/context';
 import { emit } from '@itrms/kernel/outbox';
+import type { FormOverlay } from '@itrms/schemas';
 import type { z } from 'zod';
 
 import type {
+    FormOverlayOut,
     Form,
     FormLock,
     FormSummary,
@@ -40,6 +42,16 @@ import {
 } from './support';
 import { assertKeysStable, assertPublishable, publishCheck, publishedDocument } from './governance';
 import { FORM_PUBLISH_GUARD, type FormPublishGuard, type GuardResult } from './publish-guard';
+import {
+    approveOverlayPublication,
+    notComposed,
+    overlayCandidate,
+    overlayImpact,
+    overlayRefs,
+    readOverlay,
+    requestOverlayPublication,
+    saveOverlay
+} from './overlays';
 import { filterableKinds } from './view-fields';
 
 type DefinitionRow = typeof formDefinitions.$inferSelect;
@@ -62,6 +74,52 @@ export class FormsService {
         return this.guard
             ? this.guard.check(tx, formId, document, currentContext()?.language ?? 'am')
             : Promise.resolve(undefined);
+    }
+
+    /** The keys the effects' input contracts lock (an overlay never narrows them, task 0.21f). */
+    async lockedKeys(tx: Tx, formId: string): Promise<Set<string>> {
+        return new Set((this.guard ? await this.guard.locks(tx, formId) : []).map((l) => l.key));
+    }
+
+    /** A unit's overlay on a bureau form, with what of it does not fit the form now (task 0.21f). */
+    async overlay(tx: Tx, formId: string, unitId: string): Promise<FormOverlayOut> {
+        const form = await this.definition(tx, formId);
+        return readOverlay(tx, form, unitId, await this.lockedKeys(tx, formId), currentContext()?.language ?? 'am');
+    }
+
+    /** The unit writes its overlay's working copy (If-Match: its version; none for the first). */
+    async saveOverlay(
+        tx: Tx,
+        ctx: DbContext,
+        formId: string,
+        unitId: string,
+        patch: FormOverlay,
+        version: number | null
+    ): Promise<FormOverlayOut> {
+        const form = await this.definition(tx, formId);
+        await saveOverlay(tx, ctx, form, unitId, patch, version);
+        return this.overlay(tx, formId, unitId);
+    }
+
+    /** Snapshot the unit's overlay and ask a second person to publish it. */
+    async requestOverlayPublication(
+        tx: Tx,
+        ctx: DbContext,
+        formId: string,
+        unitId: string,
+        note?: string
+    ): Promise<Publication> {
+        const form = await this.definition(tx, formId);
+        const row = await requestOverlayPublication(
+            tx,
+            ctx,
+            form,
+            unitId,
+            await this.lockedKeys(tx, formId),
+            currentContext()?.language ?? 'am',
+            note
+        );
+        return (await this.publicationsOf(tx, [row]))[0] as Publication;
     }
 
     /** The fields the effects' input contracts lock in the builder (task 0.21d). */
@@ -162,14 +220,20 @@ export class FormsService {
                 createdBy: formVersions.createdBy
             })
             .from(formVersions)
-            .where(eq(formVersions.formId, formId))
+            .where(and(eq(formVersions.formId, formId), notComposed()))
             .orderBy(desc(formVersions.number))
             .limit(LIST_LIMIT);
         // when each version last went live: its latest approved publication
         const live = await tx
             .select({ formVersionId: formPublications.formVersionId, at: max(formPublications.decidedAt) })
             .from(formPublications)
-            .where(and(eq(formPublications.formId, formId), eq(formPublications.status, 'approved')))
+            .where(
+                and(
+                    eq(formPublications.formId, formId),
+                    eq(formPublications.status, 'approved'),
+                    isNull(formPublications.overlayId)
+                )
+            )
             .groupBy(formPublications.formVersionId);
         const publishedAt = new Map(live.map((l) => [l.formVersionId, l.at]));
         const people = await namesOf(
@@ -205,6 +269,7 @@ export class FormsService {
                     inArray(formDefinitions.key, [...new Set(refs.map((r) => r.key))]),
                     inArray(formVersions.number, [...new Set(refs.map((r) => r.number))]),
                     eq(formDefinitions.active, true),
+                    notComposed(),
                     sql`${formDefinitions.orgPath} @> ${ownerPath}::ltree`
                 )
             );
@@ -225,7 +290,12 @@ export class FormsService {
             .from(formVersions)
             .innerJoin(formDefinitions, eq(formDefinitions.id, formVersions.formId))
             .where(
-                and(eq(formDefinitions.key, key), eq(formVersions.number, number), eq(formDefinitions.active, true))
+                and(
+                    eq(formDefinitions.key, key),
+                    eq(formVersions.number, number),
+                    eq(formDefinitions.active, true),
+                    notComposed()
+                )
             );
         return row && (await approvedVersions(tx, [row.versionId])).has(row.versionId) ? row : null;
     }
@@ -256,7 +326,13 @@ export class FormsService {
         const [pending] = await tx
             .select({ id: formPublications.id })
             .from(formPublications)
-            .where(and(eq(formPublications.formId, formId), eq(formPublications.status, 'pending')));
+            .where(
+                and(
+                    eq(formPublications.formId, formId),
+                    eq(formPublications.status, 'pending'),
+                    isNull(formPublications.overlayId)
+                )
+            );
         if (pending)
             throw new ConflictError('invalid_transition', {
                 detail: 'A publication of this form already waits for approval.'
@@ -358,14 +434,18 @@ export class FormsService {
         const [same] = await tx
             .select({ id: formVersions.id, number: formVersions.number })
             .from(formVersions)
-            .where(and(eq(formVersions.formId, formId), eq(formVersions.contentHash, form.documentHash)));
+            .where(
+                and(eq(formVersions.formId, formId), eq(formVersions.contentHash, form.documentHash), notComposed())
+            );
+        const language = currentContext()?.language ?? 'am';
         return publishCheck(
             tx,
             ctx.userId,
             form,
             { id: same?.id ?? null, number: same?.number ?? null, document: form.document },
-            currentContext()?.language ?? 'am',
-            await this.guarded(tx, formId, form.document)
+            language,
+            await this.guarded(tx, formId, form.document),
+            await overlayImpact(tx, form, form.document, await this.lockedKeys(tx, formId), language)
         );
     }
 
@@ -374,19 +454,38 @@ export class FormsService {
         const [row] = await tx.select().from(formPublications).where(eq(formPublications.id, id));
         if (!row) throw new NotFoundError();
         const form = await this.definition(tx, row.formId);
+        const language = currentContext()?.language ?? 'am';
+        const locks = await this.lockedKeys(tx, row.formId);
+        if (row.overlayId) {
+            const document = await overlayCandidate(tx, row, locks);
+            return publishCheck(tx, ctx.userId, form, { id: null, number: null, document }, language);
+        }
         const candidate = await this.version(tx, row.formId, row.formVersionId);
         return publishCheck(
             tx,
             ctx.userId,
             form,
             { id: candidate.id, number: candidate.number, document: candidate.document },
-            currentContext()?.language ?? 'am',
-            await this.guarded(tx, row.formId, candidate.document)
+            language,
+            await this.guarded(tx, row.formId, candidate.document),
+            await overlayImpact(tx, form, candidate.document, locks, language)
         );
     }
 
     async approve(tx: Tx, ctx: DbContext, id: string, version: number, note?: string): Promise<Publication> {
         const publication = await this.pending(tx, ctx, id);
+        if (publication.overlayId) {
+            const decided = await approveOverlayPublication(
+                tx,
+                ctx,
+                publication,
+                version,
+                await this.lockedKeys(tx, publication.formId),
+                currentContext()?.language ?? 'am',
+                note
+            );
+            return (await this.publicationsOf(tx, [decided]))[0] as Publication;
+        }
         const form = await this.writable(tx, ctx, publication.formId, { lock: true });
         if (!form.active)
             throw new ConflictError('invalid_transition', {
@@ -494,12 +593,14 @@ export class FormsService {
         const [existing] = await tx
             .select()
             .from(formVersions)
-            .where(and(eq(formVersions.formId, form.id), eq(formVersions.contentHash, form.documentHash)));
+            .where(
+                and(eq(formVersions.formId, form.id), eq(formVersions.contentHash, form.documentHash), notComposed())
+            );
         if (existing) return existing;
         const [last] = await tx
             .select({ number: max(formVersions.number) })
             .from(formVersions)
-            .where(eq(formVersions.formId, form.id));
+            .where(and(eq(formVersions.formId, form.id), notComposed()));
         return insertAudited(tx, formVersions, {
             regionId: form.regionId,
             ownerUnitId: form.ownerUnitId,
@@ -592,6 +693,7 @@ export class FormsService {
             tx,
             rows.flatMap((r) => [r.createdBy, r.decidedBy])
         );
+        const overlays = await overlayRefs(tx, rows);
         const me = contextOfTx(tx).userId;
         // what the caller's roles let them do with it (the routes enforce it again; this only tells the screens)
         const granted = currentContext()?.principal?.permissions;
@@ -612,7 +714,8 @@ export class FormsService {
             canDecide: r.status === 'pending' && r.createdBy !== me && r.contentBy !== me && may('form:approve'),
             canWithdraw: r.status === 'pending' && r.createdBy === me && may('form:publish'),
             decidedAt: r.decidedAt?.toISOString() ?? null,
-            decisionNote: r.decisionNote
+            decisionNote: r.decisionNote,
+            overlay: r.overlayVersionId ? (overlays.get(r.overlayVersionId) ?? null) : null
         }));
     }
 }

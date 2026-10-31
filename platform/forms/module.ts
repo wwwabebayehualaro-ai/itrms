@@ -10,7 +10,8 @@ export default defineModule({
     dependsOn: ['kernel'],
     title: { am: 'ቅጾች', en: 'Forms' },
     permissions: {
-        form: ['read', 'create', 'update', 'publish', 'approve'],
+        // overlay: a unit's additions to a bureau form (task 0.21f), published through `approve` like a form
+        form: ['read', 'create', 'update', 'publish', 'approve', 'overlay'],
         // export: leaving the system with data is a right of its own (roles-and-permissions.md §2 `export`)
         submission: ['read', 'create', 'update', 'export'],
         // share: a saved view for the whole office, or the office's default view
