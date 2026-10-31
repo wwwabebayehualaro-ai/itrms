@@ -975,10 +975,11 @@
         {
           "id": "0.21f",
           "title": "Form governance, part 3: form overlays and form tiers",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.21f-form-overlays",
           "commits": [
-            "fbded5c"
+            "fbded5c",
+            "0f07687"
           ],
           "evidence": [
             "GitHub Actions run 41229940021 on fbded5c (PR #27): all 9 jobs green (ADR-0038 CI record); earlier runs 41227203230 (b7ba00c) and 41228077325 (7067043) green",
@@ -995,7 +996,7 @@
         {
           "id": "0.21g",
           "title": "Request changes, part 2: stable rows",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
