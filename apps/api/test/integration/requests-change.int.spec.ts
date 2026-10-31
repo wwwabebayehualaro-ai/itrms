@@ -124,6 +124,15 @@ const KEPT_FORM = {
             type: 'InputNumber',
             data: { defaultProps: {}, computed: { expression: '{{= form.qty * 2 }}', readOnly: true } }
         }),
+        // rows with a Sensitive column the server computes
+        text('incomes', { type: 'FormArray', props: {}, layout: { options: { isContainer: true } } }),
+        text('amount', { parentId: 'incomes', type: 'InputNumber' }),
+        text('taxDue', {
+            parentId: 'incomes',
+            type: 'InputNumber',
+            classification: 'sensitive',
+            data: { defaultProps: {}, computed: { expression: '{{= row.amount * 2 }}', readOnly: true } }
+        }),
         // rows whose derived column reads the root's quantity
         text('lines', { type: 'FormArray', props: {}, layout: { options: { isContainer: true } } }),
         text('lineAmount', { parentId: 'lines', type: 'InputNumber' }),
@@ -576,8 +585,8 @@ describe('a filed request', () => {
         expect(vin.json()).toMatchObject({ errors: [{ path: 'vehicles', code: 'not_editable' }] });
 
         // the head's rules hide the remark (it stays as filed); the auditor's required column is no one's here to fill;
-        // the head's own result is stored at the default their form showed; the records officer's check stays at its
-        // default in the rows
+        // the head's own result is stored at the default their form showed; the records officer's check, at its default,
+        // is left out of the rows (as a filing leaves it: its default stands for it)
         const corrected = await act({
             action: 'correct',
             comment: 'plate and vehicle corrected',
@@ -589,7 +598,7 @@ describe('a filed request', () => {
             plate: 'ETH ABC 0301',
             intakeRemark: 'saw the libre',
             result: 'pass',
-            vehicles: [{ vplate: 'A 2', verified: false }]
+            vehicles: [{ vplate: 'A 2' }]
         });
     });
 
@@ -649,11 +658,20 @@ describe('a filed request', () => {
                 qty: 5,
                 double: 10,
                 insured: 'yes',
-                lines: [{ lineAmount: 3, lineTotal: 6 }]
+                lines: [{ lineAmount: 3, lineTotal: 6 }],
+                // a row as the browser sends it: its Sensitive computed column computed there too
+                incomes: [{ amount: 100, taxDue: 200 }]
             }
         });
         expect(corrected.statusCode, corrected.body).toBe(200);
-        const recomputed = { ...filed, qty: 5, total: 10, double: 10, lines: [{ lineAmount: 3, lineTotal: 15 }] };
+        const recomputed = {
+            ...filed,
+            qty: 5,
+            total: 10,
+            double: 10,
+            lines: [{ lineAmount: 3, lineTotal: 15 }],
+            incomes: [{ amount: 100, taxDue: 200 }]
+        };
         expect(await stored()).toEqual(recomputed);
 
         // the Sensitive section's rows are nobody's here to replace

@@ -340,24 +340,36 @@ export class SubmissionsService {
                 blank(value) || (locked(f) && canonicalJson(value) === canonicalJson(initialValueOf(f, all) ?? null))
             );
         };
-        // rows that give a Sensitive column an answer (other than its default), at any depth: a Sensitive answer changed
-        const givesSensitive = (section: EngineField, value: unknown): boolean =>
-            Array.isArray(value) &&
-            value.some(
-                (row) =>
-                    row !== null &&
-                    typeof row === 'object' &&
-                    all.some((c) => {
-                        if (!holdsValue(c) || sectionOf(c) !== section.id) return false;
-                        const v = (row as Record<string, unknown>)[c.id];
-                        if (isFormArray(c)) return givesSensitive(c, v);
-                        return (
-                            sensitive(c) &&
-                            !blank(v) &&
-                            canonicalJson(v) !== canonicalJson(initialValueOf(c, all) ?? null)
-                        );
-                    })
-            );
+        // a section's own columns (each section's worked out once)
+        const columnsOf = new Map<string, EngineField[]>();
+        const columns = (section: EngineField): EngineField[] => {
+            let found = columnsOf.get(section.id);
+            if (!found) {
+                found = all.filter((c) => holdsValue(c) && sectionOf(c) === section.id);
+                columnsOf.set(section.id, found);
+            }
+            return found;
+        };
+        // rows that give a Sensitive column of the caller's an answer (other than its default), at any depth: a Sensitive
+        // answer changed. Read as the caller's form holds them (capped rows, their columns only); a computed column is
+        // the server's, whatever is sent for it
+        const givesSensitive = (section: EngineField, value: unknown): boolean => {
+            const rows = knownValues(visible, { [section.id]: value })[section.id];
+            return Array.isArray(rows) && rows.some((row) => sensitiveIn(section, row));
+        };
+        const sensitiveIn = (section: EngineField, row: unknown): boolean =>
+            row !== null &&
+            typeof row === 'object' &&
+            columns(section).some((c) => {
+                const v = (row as Record<string, unknown>)[c.id];
+                if (isFormArray(c)) return Array.isArray(v) && v.some((r) => sensitiveIn(c, r));
+                return (
+                    !c.computed?.readOnly &&
+                    sensitive(c) &&
+                    !blank(v) &&
+                    canonicalJson(v) !== canonicalJson(initialValueOf(c, all) ?? null)
+                );
+            });
         const patch: Record<string, unknown> = {};
         const refused: AnswerProblem[] = [];
         for (const [key, value] of Object.entries(input.answers)) {
@@ -379,21 +391,19 @@ export class SubmissionsService {
             if (Object.hasOwn(settled, id)) merged[id] = settled[id];
             else delete merged[id];
         };
-        // a patched section's rows get back the columns the caller may not see or change at their defaults (it was
-        // patchable only because those held nothing else)
-        const withDefaults = (section: EngineField, rows: unknown): unknown =>
+        // a patched section's rows hold none of the columns the caller may not see or change: it was patchable only because
+        // those held nothing but blanks and defaults, which an answer left out stands for (as when filing); a computed
+        // column keeps what the server computed
+        const withoutGuarded = (section: EngineField, rows: unknown): unknown =>
             Array.isArray(rows)
                 ? rows.map((row: unknown) => {
                       if (row === null || typeof row !== 'object') return row;
                       const out = { ...(row as Record<string, unknown>) };
-                      for (const c of all.filter((x) => holdsValue(x) && sectionOf(x) === section.id)) {
+                      const shut = new Set(guarded(section).map((g) => g.id));
+                      for (const c of columns(section)) {
                           if (isFormArray(c)) {
-                              if (Object.hasOwn(out, c.id)) out[c.id] = withDefaults(c, out[c.id]);
-                          } else if (guarded(section).some((g) => g.id === c.id)) {
-                              const initial = initialValueOf(c, all);
-                              if (initial === undefined) delete out[c.id];
-                              else out[c.id] = initial;
-                          }
+                              if (Object.hasOwn(out, c.id)) out[c.id] = withoutGuarded(c, out[c.id]);
+                          } else if (shut.has(c.id) && !answerDerived(c)) delete out[c.id];
                       }
                       return out;
                   })
@@ -401,7 +411,7 @@ export class SubmissionsService {
         for (const key of Object.keys(patch)) {
             take(key);
             const f = byId.get(key);
-            if (f && isFormArray(f) && Object.hasOwn(merged, key)) merged[key] = withDefaults(f, merged[key]);
+            if (f && isFormArray(f) && Object.hasOwn(merged, key)) merged[key] = withoutGuarded(f, merged[key]);
         }
         // a field derived from the answers alone is computed again (one the caller's rules leave alone), and so are the
         // derived columns of the rows the patch left as they were (their rows stand where they stood)
@@ -461,7 +471,15 @@ export class SubmissionsService {
             const names = path.split(/[.[\]]/).filter((s) => s !== '' && !/^\d+$/.test(s));
             const root = byId.get(names[0] ?? '');
             const leaf = byId.get(names[names.length - 1] ?? '');
-            return root !== undefined && leaf !== undefined && mine(leaf) && mine(root) && !locked(root);
+            // a Sensitive column of a row is nobody's to answer here (its rows are refused): not theirs to fix
+            return (
+                root !== undefined &&
+                leaf !== undefined &&
+                mine(leaf) &&
+                mine(root) &&
+                !locked(root) &&
+                !(leaf !== root && sensitive(leaf))
+            );
         };
         const problems: AnswerProblem[] = submitted.problems.filter((p) => Object.hasOwn(patch, rootOf(p.path)));
         for (const [path, message] of Object.entries(validateForm(all, submitted.answers, scope, { language })))
