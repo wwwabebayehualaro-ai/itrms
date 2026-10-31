@@ -57,8 +57,11 @@ export async function resolveFiles(
     language: string,
     /** who submits: only a file they uploaded themselves is taken */
     userId: string | null | undefined,
-    /** a changed request's own record (task 0.21e): a file it already holds stays as it is, whoever uploaded it */
-    filedOn?: { table: string; id: string }
+    /**
+     * a changed request's own record (task 0.21e): a file it already holds, in the field that holds it, stays as it is,
+     * whoever uploaded it
+     */
+    filedOn?: { table: string; id: string; holds: (fieldId: string, fileId: string) => boolean }
 ): Promise<{ answers: Record<string, unknown>; problems: AnswerProblem[]; files: TakenFile[] }> {
     const problems: AnswerProblem[] = [];
     const taken = new Map<string, TakenFile>();
@@ -88,7 +91,11 @@ export async function resolveFiles(
             if (error instanceof NotFoundError) return unusable('forms.validation.fileNotUsable');
             throw error;
         }
-        const held = filedOn !== undefined && row.linkedTable === filedOn.table && row.linkedId === filedOn.id;
+        const held =
+            filedOn !== undefined &&
+            row.linkedTable === filedOn.table &&
+            row.linkedId === filedOn.id &&
+            filedOn.holds(field.id, row.id);
         // a generated file (an export) or another person's upload is not for a submission to take
         if (
             held

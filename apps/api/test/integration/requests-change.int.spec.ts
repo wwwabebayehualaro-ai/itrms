@@ -59,6 +59,8 @@ const HIDDEN_FORM = {
         text('plate', { required: true }),
         text('phone', { classification: 'sensitive' }),
         text('scan', { type: 'FileUpload' }),
+        text('idScan', { type: 'FileUpload', classification: 'sensitive' }),
+        text('attachments', { type: 'FileUpload' }),
         text('people', { type: 'FormArray', props: {}, layout: { options: { isContainer: true } } }),
         text('name', { parentId: 'people' }),
         text('idNo', { parentId: 'people', classification: 'sensitive' }),
@@ -76,9 +78,13 @@ const RULED_FORM = {
                 visibilityConditions: [{ field: 'user.roles', operator: 'contains', value: 'records_officer' }]
             }
         }),
+        // the head's own result, required, with a default the filer never saw
+        text('result', { visibleToRoles: ['unit_head'], props: { required: true, value: 'pass' } }),
         text('vehicles', { type: 'FormArray', props: {}, layout: { options: { isContainer: true } } }),
         text('vplate', { parentId: 'vehicles' }),
         text('inspector', { parentId: 'vehicles', required: true, visibleToRoles: ['auditor'] }),
+        // a Sensitive column nobody answered: nobody here gives it one
+        text('vin', { parentId: 'vehicles', classification: 'sensitive' }),
         // the records officer's check, at its default: no answer that would lock the section
         text('verified', {
             parentId: 'vehicles',
@@ -112,6 +118,19 @@ const KEPT_FORM = {
             type: 'InputNumber',
             visibleToRoles: ['records_officer'],
             data: { defaultProps: {}, computed: { expression: '{{= form.qty * 2 }}', readOnly: true } }
+        }),
+        // the same, seen by everyone: the browser sends it computed again, the server computes it itself
+        text('double', {
+            type: 'InputNumber',
+            data: { defaultProps: {}, computed: { expression: '{{= form.qty * 2 }}', readOnly: true } }
+        }),
+        // rows whose derived column reads the root's quantity
+        text('lines', { type: 'FormArray', props: {}, layout: { options: { isContainer: true } } }),
+        text('lineAmount', { parentId: 'lines', type: 'InputNumber' }),
+        text('lineTotal', {
+            parentId: 'lines',
+            type: 'InputNumber',
+            data: { defaultProps: {}, computed: { expression: '{{= row.lineAmount * root.qty }}', readOnly: true } }
         }),
         // the records officer's answer, shown only while the vehicle is insured
         text('insured'),
@@ -428,20 +447,26 @@ describe('a filed request', () => {
     });
 
     it('keeps the files, the Sensitive answers and the rows its corrector may not see or change', async () => {
-        const fileId = randomUUID();
         const damot = as.damotRecords.unit;
-        await api.owner.query(
-            `insert into kernel.files (id, region_id, unit_id, status, filename, content_type, size, sha256, object_key,
-                 confirmed_at, origin, created_by)
-             values ($1, $2, $3, 'stored', 'libre.pdf', 'application/pdf', 10, repeat('a', 64), $4, now(), 'upload', $5)`,
-            [fileId, damot.regionId, damot.id, `files/${damot.regionId}/${fileId}`, await api.userId(SUB.damotRecords)]
-        );
+        const upload = async () => {
+            const id = randomUUID();
+            await api.owner.query(
+                `insert into kernel.files (id, region_id, unit_id, status, filename, content_type, size, sha256, object_key,
+                     confirmed_at, origin, created_by)
+                 values ($1, $2, $3, 'stored', 'libre.pdf', 'application/pdf', 10, repeat('a', 64), $4, now(), 'upload', $5)`,
+                [id, damot.regionId, damot.id, `files/${damot.regionId}/${id}`, await api.userId(SUB.damotRecords)]
+            );
+            return id;
+        };
+        const fileId = await upload();
+        const idScanId = await upload();
         const started = await api.call('POST', '/api/v1/service-requests', as.damotRecords, {
             serviceCode: HIDDEN_SERVICE,
             answers: {
                 plate: 'ETH ABC 0200',
                 phone: '0911000000',
                 scan: [{ file_id: fileId }],
+                idScan: [{ file_id: idScanId }],
                 people: [{ name: 'Generated Person', idNo: 'ID-1', checkedBy: 'records' }]
             }
         });
@@ -477,6 +502,15 @@ describe('a filed request', () => {
         expect(corrected.statusCode, corrected.body).toBe(200);
         expect(c.events.findLast((e) => e.action === 'correct')?.amended).toEqual(['plate']);
         expect((await stored())?.answers).toEqual({ ...filed?.answers, plate: 'ETH ABC 0201' });
+
+        // a file the request holds is never moved: the Sensitive ID scan does not become a visible attachment
+        const moved = await act({
+            action: 'correct',
+            comment: 'attached the scan',
+            answers: { ...theirs, plate: 'ETH ABC 0201', attachments: [{ file_id: idScanId }] }
+        });
+        expect(moved.statusCode).toBe(422);
+        expect(moved.json()).toMatchObject({ errors: [{ path: 'attachments', code: 'invalid_file' }] });
 
         // the rows cannot be changed by someone who does not see all of them: refused, nothing lost
         const rows = await act({
@@ -532,18 +566,30 @@ describe('a filed request', () => {
             vehicles: [{ vplate: 'A 1', verified: false }]
         });
 
-        // the head's rules hide the remark (it stays as filed); the auditor's required column is no one's here to fill
+        // a Sensitive column's answer is nobody's to give here
+        const vin = await act({
+            action: 'correct',
+            comment: 'vin added',
+            answers: { plate: 'ETH ABC 0301', result: 'pass', vehicles: [{ vplate: 'A 2', vin: 'VIN-1' }] }
+        });
+        expect(vin.statusCode).toBe(422);
+        expect(vin.json()).toMatchObject({ errors: [{ path: 'vehicles', code: 'not_editable' }] });
+
+        // the head's rules hide the remark (it stays as filed); the auditor's required column is no one's here to fill;
+        // the head's own result is stored at the default their form showed; the records officer's check stays at its
+        // default in the rows
         const corrected = await act({
             action: 'correct',
             comment: 'plate and vehicle corrected',
-            answers: { plate: 'ETH ABC 0301', vehicles: [{ vplate: 'A 2' }] }
+            answers: { plate: 'ETH ABC 0301', result: 'pass', vehicles: [{ vplate: 'A 2' }] }
         });
         expect(corrected.statusCode, corrected.body).toBe(200);
-        expect(c.events.findLast((e) => e.action === 'correct')?.amended).toEqual(['plate', 'vehicles']);
+        expect(c.events.findLast((e) => e.action === 'correct')?.amended).toEqual(['plate', 'result', 'vehicles']);
         expect(await stored()).toEqual({
             plate: 'ETH ABC 0301',
             intakeRemark: 'saw the libre',
-            vehicles: [{ vplate: 'A 2' }]
+            result: 'pass',
+            vehicles: [{ vplate: 'A 2', verified: false }]
         });
     });
 
@@ -555,6 +601,7 @@ describe('a filed request', () => {
                 secretNote: 'the owner asked for discretion',
                 family: [{ relation: 'spouse' }],
                 qty: 2,
+                lines: [{ lineAmount: 3 }],
                 insured: 'yes',
                 insuranceNo: 'INS-1'
             }
@@ -575,7 +622,12 @@ describe('a filed request', () => {
                 )
             ).rows[0]?.answers;
         const filed = await stored();
-        expect(filed).toMatchObject({ total: 4, secretNote: 'the owner asked for discretion' });
+        expect(filed).toMatchObject({
+            total: 4,
+            double: 4,
+            lines: [{ lineAmount: 3, lineTotal: 6 }],
+            secretNote: 'the owner asked for discretion'
+        });
 
         // a Sensitive answer is nobody's to change here: sent changed, it is refused by name (nothing changes)
         const secret = await act({
@@ -587,14 +639,22 @@ describe('a filed request', () => {
         expect(secret.json()).toMatchObject({ errors: [{ path: 'secretNote', code: 'not_editable' }] });
         expect(await stored()).toEqual(filed);
 
-        // left out (the head's form shows it masked), it stays as filed; the derived total follows the quantity
+        // left out (the head's form shows it masked), it stays as filed; the derived fields follow the quantity, the
+        // rows' derived column too, and what the browser computed for one is no answer
         const corrected = await act({
             action: 'correct',
             comment: 'quantity corrected',
-            answers: { plate: 'ETH ABC 0400', qty: 5, insured: 'yes' }
+            answers: {
+                plate: 'ETH ABC 0400',
+                qty: 5,
+                double: 10,
+                insured: 'yes',
+                lines: [{ lineAmount: 3, lineTotal: 6 }]
+            }
         });
         expect(corrected.statusCode, corrected.body).toBe(200);
-        expect(await stored()).toEqual({ ...filed, qty: 5, total: 10 });
+        const recomputed = { ...filed, qty: 5, total: 10, double: 10, lines: [{ lineAmount: 3, lineTotal: 15 }] };
+        expect(await stored()).toEqual(recomputed);
 
         // the Sensitive section's rows are nobody's here to replace
         const family = await act({
@@ -614,6 +674,6 @@ describe('a filed request', () => {
         });
         expect(uninsured.statusCode, uninsured.body).toBe(200);
         expect(c.events.findLast((e) => e.action === 'correct')?.amended).toEqual(['insured']);
-        expect(await stored()).toEqual({ ...filed, qty: 5, total: 10, insured: 'no' });
+        expect(await stored()).toEqual({ ...recomputed, insured: 'no' });
     });
 });

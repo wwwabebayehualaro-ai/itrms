@@ -2524,6 +2524,16 @@
       "foundIn": "0.21e",
       "item": "A repeating section whose rows hold a Sensitive answer can't be changed through its case by anyone, even a role that may reveal it (fail-safe; with stable row ids, merge the revealed rows)",
       "movedTo": "0.21f"
+    },
+    {
+      "foundIn": "0.21e",
+      "item": "A request change: a repeating section with a column computed from the user (addedBy = user.name) counts as ruled out for every corrector but the filer, so a real change to it is refused; compare only columns that do not read the user",
+      "movedTo": "0.21f"
+    },
+    {
+      "foundIn": "0.21e",
+      "item": "A request change: a derived field is recomputed over the patch's settled answers, where an input the patch newly disabled is at its default while the stored input keeps its value; compute derived fields over the stored answers plus the patch without resetting unpatched inputs",
+      "movedTo": "0.21f"
     }
   ]
 }

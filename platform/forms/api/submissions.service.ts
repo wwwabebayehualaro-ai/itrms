@@ -317,52 +317,143 @@ export class SubmissionsService {
                 (c) => !mine(c) || sensitive(c),
                 (c) => initialValueOf(c, all)
             );
-        // a field the caller sees but may not change: a computed one; a Sensitive answer (shown masked); one their own
-        // rules hide or close to them; a repeating section holding answers they may not see or change (its rows have no
-        // identity to merge them by)
-        const locked = (f: EngineField): boolean =>
-            f.computed?.readOnly === true || masked.has(f.id) || ruledOut(f.id) || hidesAnswers(f);
-        // what the caller sends back as it was shown (or a form's default for an answer never given) is no change
+        // a field the caller sees but may not change: a Sensitive answer (shown masked); one their own rules hide or close
+        // to them; a repeating section holding answers they may not see or change (its rows have no identity to merge
+        // them by). A computed field is the server's: whatever is sent for it is no answer, as when filing.
+        const locked = (f: EngineField): boolean => masked.has(f.id) || ruledOut(f.id) || hidesAnswers(f);
+        // the nearest repeating section a column's answers sit in
+        const sectionOf = (c: EngineField): string | undefined =>
+            chain(c)
+                .slice(1)
+                .find((p) => isFormArray(p))?.id;
+        // a section's columns (its own rows', not a nested section's) the caller may not see or change
+        const guarded = (section: EngineField): EngineField[] =>
+            all.filter((c) => holdsValue(c) && sectionOf(c) === section.id && (!mine(c) || sensitive(c)));
+        // what the caller sends back as it was shown is no change; so is a form's default for a locked answer never given
         const unchanged = (f: EngineField, value: unknown): boolean => {
             if (masked.has(f.id)) return blank(value);
             if (isFormArray(f))
                 return canonicalJson(shownAs(f.id, value)) === canonicalJson(shownAs(f.id, stored[f.id]));
             if (canonicalJson(value ?? null) === canonicalJson(stored[f.id] ?? null)) return true;
+            if (Object.hasOwn(stored, f.id)) return false;
             return (
-                !Object.hasOwn(stored, f.id) &&
-                (blank(value) || canonicalJson(value) === canonicalJson(initialValueOf(f, all) ?? null))
+                blank(value) || (locked(f) && canonicalJson(value) === canonicalJson(initialValueOf(f, all) ?? null))
             );
         };
+        // rows that give a Sensitive column an answer (other than its default), at any depth: a Sensitive answer changed
+        const givesSensitive = (section: EngineField, value: unknown): boolean =>
+            Array.isArray(value) &&
+            value.some(
+                (row) =>
+                    row !== null &&
+                    typeof row === 'object' &&
+                    all.some((c) => {
+                        if (!holdsValue(c) || sectionOf(c) !== section.id) return false;
+                        const v = (row as Record<string, unknown>)[c.id];
+                        if (isFormArray(c)) return givesSensitive(c, v);
+                        return (
+                            sensitive(c) &&
+                            !blank(v) &&
+                            canonicalJson(v) !== canonicalJson(initialValueOf(c, all) ?? null)
+                        );
+                    })
+            );
         const patch: Record<string, unknown> = {};
         const refused: AnswerProblem[] = [];
         for (const [key, value] of Object.entries(input.answers)) {
             const f = byId.get(key);
-            if (!f || inRows.has(key) || !holdsValue(f) || !mine(f) || unchanged(f, value)) continue;
-            if (!locked(f)) patch[key] = value;
-            else
-                refused.push(
-                    hidesAnswers(f)
-                        ? { path: key, code: 'hidden_answers', message: sectionKept(language) }
-                        : { path: key, code: 'not_editable', message: notEditable(language) }
-                );
+            if (!f || inRows.has(key) || !holdsValue(f) || !mine(f) || f.computed?.readOnly === true) continue;
+            if (unchanged(f, value)) continue;
+            if (hidesAnswers(f)) refused.push({ path: key, code: 'hidden_answers', message: sectionKept(language) });
+            else if (locked(f) || (isFormArray(f) && givesSensitive(f, value)))
+                refused.push({ path: key, code: 'not_editable', message: notEditable(language) });
+            else patch[key] = value;
         }
         if (refused.length)
             throw new ValidationError('validation_failed', { detail: 'Some answers are not valid.', errors: refused });
 
-        // the patch settled as a filing's answers are; every other answer as filed, but a field derived from the answers
-        // alone (one the caller's rules leave alone) computed again
+        // the patch settled as a filing's answers are; every other answer as filed
         const settled = submittedValues(all, { ...stored, ...knownValues(visible, patch) }, scope);
         const merged: Record<string, unknown> = { ...stored };
         const take = (id: string) => {
             if (Object.hasOwn(settled, id)) merged[id] = settled[id];
             else delete merged[id];
         };
-        for (const key of Object.keys(patch)) take(key);
-        for (const f of all) if (!inRows.has(f.id) && answerDerived(f) && !ruledOut(f.id)) take(f.id);
+        // a patched section's rows get back the columns the caller may not see or change at their defaults (it was
+        // patchable only because those held nothing else)
+        const withDefaults = (section: EngineField, rows: unknown): unknown =>
+            Array.isArray(rows)
+                ? rows.map((row: unknown) => {
+                      if (row === null || typeof row !== 'object') return row;
+                      const out = { ...(row as Record<string, unknown>) };
+                      for (const c of all.filter((x) => holdsValue(x) && sectionOf(x) === section.id)) {
+                          if (isFormArray(c)) {
+                              if (Object.hasOwn(out, c.id)) out[c.id] = withDefaults(c, out[c.id]);
+                          } else if (guarded(section).some((g) => g.id === c.id)) {
+                              const initial = initialValueOf(c, all);
+                              if (initial === undefined) delete out[c.id];
+                              else out[c.id] = initial;
+                          }
+                      }
+                      return out;
+                  })
+                : rows;
+        for (const key of Object.keys(patch)) {
+            take(key);
+            const f = byId.get(key);
+            if (f && isFormArray(f) && Object.hasOwn(merged, key)) merged[key] = withDefaults(f, merged[key]);
+        }
+        // a field derived from the answers alone is computed again (one the caller's rules leave alone), and so are the
+        // derived columns of the rows the patch left as they were (their rows stand where they stood)
+        const derivedRows = (section: EngineField, rows: unknown, again: unknown): unknown => {
+            if (!Array.isArray(rows) || !Array.isArray(again) || rows.length !== again.length) return rows;
+            return rows.map((row: unknown, i) => {
+                const fresh = again[i] as Record<string, unknown> | undefined;
+                if (row === null || typeof row !== 'object' || !fresh || typeof fresh !== 'object') return row;
+                const out = { ...(row as Record<string, unknown>) };
+                for (const c of all.filter((x) => sectionOf(x) === section.id)) {
+                    if (isFormArray(c)) out[c.id] = derivedRows(c, out[c.id], fresh[c.id]);
+                    else if (answerDerived(c)) {
+                        if (Object.hasOwn(fresh, c.id)) out[c.id] = fresh[c.id];
+                        else delete out[c.id];
+                    }
+                }
+                return out;
+            });
+        };
+        for (const f of all) {
+            if (inRows.has(f.id) || ruledOut(f.id)) continue;
+            if (answerDerived(f)) take(f.id);
+            else if (isFormArray(f) && !Object.hasOwn(patch, f.id) && Object.hasOwn(merged, f.id))
+                merged[f.id] = derivedRows(f, merged[f.id], settled[f.id]);
+        }
 
+        // a file the request holds stays usable only where it is held (never moved to another field)
+        const heldFiles = new Map<string, Set<string>>();
+        const collectFiles = (values: unknown) => {
+            if (Array.isArray(values)) for (const row of values) collectFiles(row);
+            else if (values !== null && typeof values === 'object')
+                for (const [key, v] of Object.entries(values as Record<string, unknown>)) {
+                    const f = byId.get(key);
+                    if (f?.type === 'FileUpload' && Array.isArray(v))
+                        for (const entry of v)
+                            if (
+                                entry &&
+                                typeof entry === 'object' &&
+                                typeof (entry as { file_id?: unknown }).file_id === 'string'
+                            )
+                                heldFiles.set(
+                                    key,
+                                    (heldFiles.get(key) ?? new Set()).add((entry as { file_id: string }).file_id)
+                                );
+                    if (f && isFormArray(f)) collectFiles(v);
+                }
+        };
+        collectFiles(stored);
         const submitted = await resolveFiles(tx, all, merged, language, ctx.userId, {
             table: 'forms.submissions',
-            id: before.id
+            id: before.id,
+            holds: (fieldId, fileId) => heldFiles.get(fieldId)?.has(fileId) === true
         });
         const rootOf = (path: string) => /^[^.[]+/.exec(path)?.[0] ?? path;
         // the caller's to fix: what they changed (files, references), or a field they may change that is wanting now
