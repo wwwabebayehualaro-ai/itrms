@@ -44,7 +44,7 @@ export class CasesController {
     @Get()
     @Require('case:read')
     list(@Query() query: CaseListQueryDto) {
-        return this.db.scoped(requestDbContext(), (tx) => this.cases.list(tx, actor(), query));
+        return this.db.scoped(requestDbContext(), (tx) => this.cases.list(tx, actor(), query, language()));
     }
 
     @Get(':id')

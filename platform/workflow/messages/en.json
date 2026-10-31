@@ -156,5 +156,6 @@
   "workflow.requests.emptyHint": "A request started at the counter appears here with its case.",
   "workflow.requests.col.state": "Where it stands",
   "workflow.requests.col.with": "With",
-  "workflow.requests.col.started": "Started"
+  "workflow.requests.col.started": "Started",
+  "workflow.refusal.bad-cursor": "This is not a page of this list: start the list again."
 }

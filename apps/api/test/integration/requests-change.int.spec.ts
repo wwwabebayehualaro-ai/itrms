@@ -26,6 +26,8 @@ const SUB = {
 const SERVICE = 'RS-05';
 /** the request with what its corrector may not see or change */
 const HIDDEN_SERVICE = 'RS-06';
+/** the request with fields other roles' rules show, and a column nobody here sees */
+const RULED_SERVICE = 'RS-07';
 
 let pg: TestPostgres;
 let api: TestApi;
@@ -59,6 +61,22 @@ const HIDDEN_FORM = {
         text('name', { parentId: 'people' }),
         text('idNo', { parentId: 'people', classification: 'sensitive' }),
         text('checkedBy', { parentId: 'people', visibleToRoles: ['records_officer'] })
+    ]
+};
+// a remark the records officer's rules show (no role restriction), and a column only an auditor sees, required
+const RULED_FORM = {
+    schemaVersion: 2,
+    fields: [
+        text('plate', { required: true }),
+        text('intakeRemark', {
+            behavior: {
+                validation: { supported: true },
+                visibilityConditions: [{ field: 'user.roles', operator: 'contains', value: 'records_officer' }]
+            }
+        }),
+        text('vehicles', { type: 'FormArray', props: {}, layout: { options: { isContainer: true } } }),
+        text('vplate', { parentId: 'vehicles' }),
+        text('inspector', { parentId: 'vehicles', required: true, visibleToRoles: ['auditor'] })
     ]
 };
 const ifMatch = (version: number) => ({ 'if-match': `"${version}"` });
@@ -141,7 +159,8 @@ beforeAll(async () => {
     const workflowVersionId = workflow.json<{ latestVersion: { id: string } }>().latestVersion.id;
     for (const [code, form] of [
         [SERVICE, formVersionId],
-        [HIDDEN_SERVICE, await publishedForm('hidden-request', HIDDEN_FORM)]
+        [HIDDEN_SERVICE, await publishedForm('hidden-request', HIDDEN_FORM)],
+        [RULED_SERVICE, await publishedForm('ruled-request', RULED_FORM)]
     ] as const) {
         const published = await api.call('POST', `/api/v1/services/${code}/versions`, as.bureau, {
             workflowVersionId,
@@ -355,6 +374,9 @@ describe('a filed request', () => {
         expect((await list(as.boditiHead, `after=${page1.nextCursor ?? ''}`)).items).toEqual([]);
         const forged = await api.call('GET', `/api/v1/cases?after=${first.id}`, as.damotRecords);
         expect(forged.statusCode).toBe(422);
+        // a cursor of a day that does not exist is refused too, never a database error
+        const impossible = Buffer.from(JSON.stringify(['2026-02-30T00:00:00.000000Z', first.id])).toString('base64url');
+        expect((await api.call('GET', `/api/v1/cases?after=${impossible}`, as.damotRecords)).statusCode).toBe(422);
     });
 
     it('keeps the files, the Sensitive answers and the rows its corrector may not see or change', async () => {
@@ -430,5 +452,46 @@ describe('a filed request', () => {
         expect(same.statusCode, same.body).toBe(200);
         expect(c.events.findLast((e) => e.action === 'correct')?.amended).toEqual([]);
         expect(await revisions()).toBe(1);
+    });
+
+    it("keeps what other roles' rules show, and never asks for a column nobody here may fill", async () => {
+        const started = await api.call('POST', '/api/v1/service-requests', as.damotRecords, {
+            serviceCode: RULED_SERVICE,
+            answers: { plate: 'ETH ABC 0300', intakeRemark: 'saw the libre', vehicles: [{ vplate: 'A 1' }] }
+        });
+        expect(started.statusCode, started.body).toBe(201);
+        let c = started.json<CaseOut>();
+        const act = async (body: object, who: As = as.damotHead) => {
+            const res = await api.call('POST', `/api/v1/cases/${c.id}/transitions`, who, body, ifMatch(c.version));
+            if (res.statusCode === 200) c = res.json<CaseOut>();
+            return res;
+        };
+        expect((await act({ action: 'submit' }, as.damotRecords)).statusCode).toBe(200);
+        const stored = async () =>
+            (
+                await api.owner.query<{ answers: Record<string, unknown> }>(
+                    'select answers from forms.submissions where case_id = $1',
+                    [c.id]
+                )
+            ).rows[0]?.answers;
+        expect(await stored()).toEqual({
+            plate: 'ETH ABC 0300',
+            intakeRemark: 'saw the libre',
+            vehicles: [{ vplate: 'A 1' }]
+        });
+
+        // the head's rules hide the remark (it stays as filed); the auditor's required column is no one's here to fill
+        const corrected = await act({
+            action: 'correct',
+            comment: 'plate and vehicle corrected',
+            answers: { plate: 'ETH ABC 0301', vehicles: [{ vplate: 'A 2' }] }
+        });
+        expect(corrected.statusCode, corrected.body).toBe(200);
+        expect(c.events.findLast((e) => e.action === 'correct')?.amended).toEqual(['plate', 'vehicles']);
+        expect(await stored()).toEqual({
+            plate: 'ETH ABC 0301',
+            intakeRemark: 'saw the libre',
+            vehicles: [{ vplate: 'A 2' }]
+        });
     });
 });

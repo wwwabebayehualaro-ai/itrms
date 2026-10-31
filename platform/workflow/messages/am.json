@@ -156,5 +156,6 @@
   "workflow.requests.emptyHint": "በመስኮቱ የተጀመረ ጥያቄ ከጉዳዩ ጋር እዚህ ይታያል።",
   "workflow.requests.col.state": "ያለበት ደረጃ",
   "workflow.requests.col.with": "በማን እጅ",
-  "workflow.requests.col.started": "የተጀመረው"
+  "workflow.requests.col.started": "የተጀመረው",
+  "workflow.refusal.bad-cursor": "ይህ የዚህ ዝርዝር ገጽ አይደለም፤ ዝርዝሩን እንደገና ይጀምሩ።"
 }

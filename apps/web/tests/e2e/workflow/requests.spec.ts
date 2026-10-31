@@ -74,10 +74,11 @@ test('a request waits in the office’s list, is corrected through its case and 
 
     // the waiting requests, from the menu: the one the officer filed, found by its number
     await page.locator('[data-app-sidebar] [data-menu-item="workflow.requests"]').click();
-    await expect(page.getByRole('heading', { name: 'ጥያቄዎች' })).toBeVisible();
+    const requests = page.locator('[data-screen="requests"]');
+    await expect(requests.getByRole('heading', { name: 'ጥያቄዎች' })).toBeVisible();
     await page.locator('[data-filter="mine"]').click();
-    await page.getByLabel('የጉዳይ ቁጥር').fill(String(filed.number));
-    await page.getByRole('button', { name: 'ፈልግ' }).click();
+    await requests.getByLabel('የጉዳይ ቁጥር').fill(String(filed.number));
+    await requests.getByRole('search').getByRole('button', { name: 'ፈልግ' }).click();
     const row = page.locator(`[data-requests="waiting"] [data-case="${filed.id}"]`);
     await expect(row).toHaveAttribute('data-state', 'review');
     await expect(row).toContainText(PEOPLE.records.name);
@@ -102,9 +103,9 @@ test('a request waits in the office’s list, is corrected through its case and 
     const forwarded = await head.get<{ version: number }>(`v1/cases/${filed.id}`);
     await head.post(`v1/cases/${filed.id}/transitions`, { action: 'approve' }, forwarded.version);
     await page.goto('/requests');
-    await page.getByLabel('የጉዳይ ቁጥር').fill(String(filed.number));
-    await page.getByRole('button', { name: 'ፈልግ' }).click();
-    await expect(page.getByText('የሚጠብቅ ጥያቄ የለም')).toBeVisible();
+    await requests.getByLabel('የጉዳይ ቁጥር').fill(String(filed.number));
+    await requests.getByRole('search').getByRole('button', { name: 'ፈልግ' }).click();
+    await expect(requests.getByText('የሚጠብቅ ጥያቄ የለም')).toBeVisible();
     await page.locator('[data-list="recent"]').click();
     await expect(page.locator('[data-requests="recent"] tbody tr').first()).toHaveAttribute('data-case', filed.id);
 });

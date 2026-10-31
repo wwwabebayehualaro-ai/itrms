@@ -483,13 +483,13 @@ export class CasesService {
      * The requests of the active office and those below it (RLS), across services (task 0.21e): those waiting (open, the
      * longest waiting first) or the recent ones (the last changed first), a page at a time.
      */
-    async list(tx: Tx, actor: CaseActor, query: CaseListQuery): Promise<CaseList> {
+    async list(tx: Tx, actor: CaseActor, query: CaseListQuery, language = 'am'): Promise<CaseList> {
         const waiting = query.list === 'waiting';
         const service = sql<string | null>`${cases.config} ->> 'serviceCode'`;
         // the page is keyed on what it is sorted by, as the database holds it (microseconds): a case changed between two
         // pages never moves where the next one starts
         const sortedBy = waiting ? cases.createdAt : cases.updatedAt;
-        const after = query.after ? cursorOf(query.after) : null;
+        const after = query.after ? cursorOf(query.after, language) : null;
         const position = after
             ? waiting
                 ? sql`(${cases.createdAt}, ${cases.id}) > (${after.at}::timestamptz, ${after.id}::uuid)`
@@ -497,7 +497,7 @@ export class CasesService {
             : undefined;
         const rows = await tx
             .select({
-                key: sql<string>`${sortedBy}::text`,
+                key: sql<string>`to_char(${sortedBy} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
                 row: cases,
                 workflowId: workflowDefinitions.id,
                 workflowName: workflowDefinitions.name
@@ -1219,15 +1219,21 @@ export class CasesService {
     }
 }
 
-const CURSOR_AT = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{1,6})?[+-]\d{2}(:\d{2})?$/;
+const CURSOR_AT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
 const CURSOR_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-/** A list's cursor: its last case's sort key (as the database wrote it) and id, opaque to the caller. */
+/** A list's cursor: its last case's sort key (UTC, to the microsecond, as the database wrote it) and id, opaque. */
 function cursorFor(at: string, id: string): string {
     return Buffer.from(JSON.stringify([at, id])).toString('base64url');
 }
 
-function cursorOf(cursor: string): { at: string; id: string } {
+/** A moment that exists (the database would refuse 2026-02-30 with an error, not as no cursor). */
+function existing(at: string): boolean {
+    const day = new Date(`${at.slice(0, 23)}Z`);
+    return !Number.isNaN(day.getTime()) && day.toISOString().slice(0, 23) === at.slice(0, 23);
+}
+
+function cursorOf(cursor: string, language: string): { at: string; id: string } {
     let parsed: unknown;
     try {
         parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
@@ -1235,9 +1241,9 @@ function cursorOf(cursor: string): { at: string; id: string } {
         parsed = null;
     }
     const [at, id] = Array.isArray(parsed) ? (parsed as unknown[]) : [];
-    if (typeof at !== 'string' || typeof id !== 'string' || !CURSOR_AT.test(at) || !CURSOR_ID.test(id))
+    if (typeof at !== 'string' || typeof id !== 'string' || !CURSOR_AT.test(at) || !existing(at) || !CURSOR_ID.test(id))
         throw new ValidationError('validation_failed', {
-            errors: [{ path: 'after', code: 'invalid', message: 'not a cursor of this list' }]
+            errors: [{ path: 'after', code: 'invalid', message: text('workflow.refusal.bad-cursor', language) }]
         });
     return { at, id };
 }

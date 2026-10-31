@@ -2509,6 +2509,21 @@
       "foundIn": "0.21e",
       "item": "The builder's publish review shows the unclassified rule as an error now (ADR-0037): an e2e journey of publishing a form with an unclassified field refused",
       "movedTo": "0.21f"
+    },
+    {
+      "foundIn": "0.21e",
+      "item": "documentFor, openFieldsFor and the case timeline's field filter keep the children of a role-restricted container (fieldsFor filters only fields that carry visibleToRoles): one reachableFieldsFor that drops them, shared by all three",
+      "movedTo": "0.21f"
+    },
+    {
+      "foundIn": "0.21e",
+      "item": "A lint error for a computed field or condition that reads a field restricted to narrower roles than its own (an actor without access then stores a value computed from it)",
+      "movedTo": "0.21f"
+    },
+    {
+      "foundIn": "0.21e",
+      "item": "A repeating section whose rows hold a Sensitive answer can't be changed through its case by anyone, even a role that may reveal it (fail-safe; with stable row ids, merge the revealed rows)",
+      "movedTo": "0.21f"
     }
   ]
 }

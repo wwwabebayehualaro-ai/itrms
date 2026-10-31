@@ -190,6 +190,7 @@ export class SubmissionsService {
      * A change of a filed request (`change`, task 0.21e) runs the rules over every answer, those the caller keeps as filed
      * too (a condition or a formula may read a field they may not see), takes from the caller only the answers of their
      * fields, and checks only those: what they keep was checked when it was filed, and may name records they cannot see.
+     * What they keep is put back after the rules ran, as it was filed: the caller's rules never drop or reset it.
      */
     private async checked(
         tx: Tx,
@@ -199,27 +200,30 @@ export class SubmissionsService {
         raw: Record<string, unknown>,
         lookups: RegistryLookups,
         language: string,
-        change?: { submissionId: string; kept: Record<string, unknown> }
+        change?: { submissionId: string; kept: Record<string, unknown>; mine: (fieldId: string) => boolean }
     ) {
         const visible = fieldsFor(document, roles, language);
         const fields = change ? readDocument(document, { language }).fields : visible;
-        const input = change ? { ...knownValues(visible, raw), ...change.kept } : raw;
         const scope = scopeFor(ctx, roles);
+        const settled = change
+            ? { ...submittedValues(fields, { ...knownValues(visible, raw), ...change.kept }, scope), ...change.kept }
+            : submittedValues(fields, raw, scope);
         const submitted = await resolveFiles(
             tx,
             fields,
-            submittedValues(fields, input, scope),
+            settled,
             language,
             ctx.userId,
             change ? { table: 'forms.submissions', id: change.submissionId } : undefined
         );
         const answers = submitted.answers;
-        // the caller's to fix: a problem of a field they may see and do not keep as filed
-        const seen = new Set(visible.map((f) => f.id));
+        // the caller's to fix: a problem of a field they may change (its container chain theirs, a section's column too),
+        // not kept as filed
         const theirs = (path: string): boolean => {
             if (!change) return true;
-            const root = /^[^.[]+/.exec(path)?.[0] ?? path;
-            return seen.has(root) && !Object.hasOwn(change.kept, root);
+            const names = path.split(/[.[\]]/).filter((s) => s !== '' && !/^\d+$/.test(s));
+            const root = names[0] ?? path;
+            return change.mine(names[names.length - 1] ?? root) && !Object.hasOwn(change.kept, root);
         };
         const problems: AnswerProblem[] = submitted.problems.filter((p) => theirs(p.path));
         for (const [path, message] of Object.entries(validateForm(fields, answers, scope, { language })))
@@ -301,9 +305,13 @@ export class SubmissionsService {
         const inRows = rowScopedIds(all);
         const shown = (values: Record<string, unknown>) => maskSensitive(visible, knownValues(visible, values));
         const masked = new Set(shown(before.answers).masked);
-        // what the caller keeps as filed: what they may not see; a Sensitive answer shown masked that they leave blank; a
-        // repeating section holding answers they may not see or change (its rows have no identity to merge them by:
-        // changing such a section is refused, never a loss of what it holds)
+        // the answers the caller's own rules would drop or reset as filed (a field shown or open only to other roles by
+        // its condition): another role's to change
+        const settledBefore = submittedValues(all, before.answers, scopeFor(ctx, roles));
+        const ruledOut = (id: string) => canonicalJson(settledBefore[id] ?? null) !== canonicalJson(before.answers[id]);
+        // what the caller keeps as filed: what they may not see or change; a Sensitive answer shown masked that they leave
+        // blank; a repeating section holding answers they may not see or change (its rows have no identity to merge them
+        // by: changing such a section is refused, never a loss of what it holds)
         const kept: Record<string, unknown> = {};
         for (const f of all) {
             if (inRows.has(f.id) || !Object.hasOwn(before.answers, f.id)) continue;
@@ -311,7 +319,11 @@ export class SubmissionsService {
             if (!mine(f)) kept[f.id] = stored;
             else if (masked.has(f.id)) {
                 if (blank(input.answers[f.id])) kept[f.id] = stored;
-            } else if (isFormArray(f) && holdsHidden(all, f, stored, (c) => !mine(c) || sensitive(c))) {
+            } else if (!isFormArray(f) && ruledOut(f.id)) kept[f.id] = stored;
+            else if (
+                isFormArray(f) &&
+                (ruledOut(f.id) || holdsHidden(all, f, stored, (c) => !mine(c) || sensitive(c)))
+            ) {
                 const sent = Object.hasOwn(input.answers, f.id) ? input.answers[f.id] : stored;
                 if (
                     canonicalJson(withoutBlanks(shown({ [f.id]: sent }).values[f.id]) ?? null) !==
@@ -326,7 +338,11 @@ export class SubmissionsService {
         }
         const checked = await this.checked(tx, ctx, roles, version.document, input.answers, lookups, language, {
             submissionId: before.id,
-            kept
+            kept,
+            mine: (id) => {
+                const f = byId.get(id);
+                return f !== undefined && mine(f);
+            }
         });
         const answers = checked.answers;
         const changed = [...new Set([...Object.keys(before.answers), ...Object.keys(answers)])]
