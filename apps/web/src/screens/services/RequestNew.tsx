@@ -32,10 +32,13 @@ function Request({ code }: { code: string }) {
     const router = useRouter();
     const notify = useNotify();
     const request = useRequestForm(code);
-    const version = useFormVersion(request.data?.form ?? null);
+    // the form as this office fills it in: with its overlays when it has any (task 0.21f), else the service's version
+    const composed = request.data?.document ?? null;
+    const version = useFormVersion(composed ? null : (request.data?.form ?? null));
+    const document = composed ?? version.data?.document;
     const fields = useMemo(
-        () => (version.data && request.data ? withHelp(version.data.document, request.data.help) : null),
-        [version.data, request.data]
+        () => (document && request.data ? withHelp(document, request.data.help) : null),
+        [document, request.data]
     );
     const [busy, setBusy] = useState(false);
 

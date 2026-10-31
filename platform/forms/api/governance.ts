@@ -3,9 +3,10 @@
  * a publication changes (the diff) and whom it affects (saved views that use a changed key).
  */
 import { Logger } from '@nestjs/common';
-import { and, eq, or } from 'drizzle-orm';
+import { and, eq, or, sql } from 'drizzle-orm';
 import {
     checkKeyStability,
+    reservedKeyProblems,
     diffDocuments,
     engineText,
     lintDocument,
@@ -23,6 +24,7 @@ import {
     viewConfigSchema,
     type CheckProblem,
     type ImpactView,
+    type ImpactOverlay,
     type PublishCheck,
     type QueryGroup
 } from '../contracts';
@@ -85,9 +87,14 @@ const problemOf = (p: LintProblem, language: string): CheckProblem => ({
     message: engineText(language, p.message, p.values)
 });
 
-/** The key-stability errors of a candidate against the published document (none when nothing was published). */
-const keyProblems = (published: unknown, candidate: unknown): LintProblem[] =>
-    published === null ? [] : checkKeyStability(published, candidate);
+/**
+ * The key errors of a candidate against the published document: key stability (none when nothing was published), and
+ * the keys reserved for overlays' fields (task 0.21f).
+ */
+const keyProblems = (published: unknown, candidate: unknown): LintProblem[] => [
+    ...(published === null ? [] : checkKeyStability(published, candidate)),
+    ...reservedKeyProblems(published, candidate)
+];
 
 /** 422 when the candidate drops, retypes or moves a key the published version holds (it must be flagged removed instead). */
 export function assertKeysStable(published: unknown, candidate: unknown, language: string): void {
@@ -111,13 +118,24 @@ export async function publishCheck(
     candidate: Candidate,
     language: string,
     /** what the services reading the form say about it (their effects' contracts, task 0.21d) */
-    guard?: GuardResult
+    guard?: GuardResult,
+    /** the units' overlays it would re-apply, with their conflicts (task 0.21f) */
+    overlays: ImpactOverlay[] = [],
+    /**
+     * an overlay's publication (task 0.21f): the form it is composed onto (the bureau's with the overlays above), and the
+     * overlay's own problems; its `x_` keys are then its own, never reserved ones
+     */
+    overlay?: { base: { id: string; number: number; document: unknown }; problems: CheckProblem[] }
 ): Promise<PublishCheck> {
-    const base = await publishedVersion(tx, form);
+    const base = overlay ? overlay.base : await publishedVersion(tx, form);
     const lint = lintDocument(candidate.document, { dataSources: DATA_SOURCE_ALLOWLIST });
+    const keys = overlay
+        ? checkKeyStability(base?.document ?? null, candidate.document)
+        : keyProblems(base?.document ?? null, candidate.document);
     const problems = [
-        ...[...keyProblems(base?.document ?? null, candidate.document), ...lint].map((p) => problemOf(p, language)),
-        ...(guard?.problems ?? [])
+        ...[...keys, ...lint].map((p) => problemOf(p, language)),
+        ...(guard?.problems ?? []),
+        ...(overlay?.problems ?? [])
     ];
     const tests = runTestCases(candidate.document).map((t) => ({
         id: t.id,
@@ -136,7 +154,7 @@ export async function publishCheck(
         problems,
         tests,
         diff,
-        impact: { views: await impact(tx, userId, form.id, changed), services: guard?.services ?? [] }
+        impact: { views: await impact(tx, userId, form.id, changed), services: guard?.services ?? [], overlays }
     };
 }
 
@@ -227,7 +245,14 @@ export async function impact(
                 eq(savedViews.formId, formId),
                 userId
                     ? or(eq(savedViews.visibility, 'unit'), eq(savedViews.createdBy, userId))
-                    : eq(savedViews.visibility, 'unit')
+                    : eq(savedViews.visibility, 'unit'),
+                // only the views that name a changed key somewhere in their configuration (follow-up from 0.18a: the
+                // limit then counts views that matter, never the first ones by name)
+                sql`exists (select 1 from jsonb_path_query(${savedViews.config}, 'strict $.**') s
+                             where jsonb_typeof(s) = 'string' and s #>> '{}' = any(array[${sql.join(
+                                 [...changedKeys].map((k) => sql`${k}`),
+                                 sql`, `
+                             )}]::text[]))`
             )
         )
         .orderBy(savedViews.name, savedViews.id)
@@ -239,7 +264,18 @@ export async function impact(
     const out: ImpactView[] = [];
     for (const row of rows) {
         const config = viewConfigSchema.safeParse(row.config);
-        if (!config.success) continue;
+        const view = {
+            id: row.id,
+            name: row.name,
+            visibility: row.visibility,
+            unit: units.get(row.unitId) ?? { id: row.unitId, code: '', name: {} },
+            mine: row.createdBy === userId
+        };
+        // a view this version no longer reads is named, never skipped: its owner should know
+        if (!config.success) {
+            out.push({ ...view, keys: [], unreadable: true });
+            continue;
+        }
         const used = new Map<string, Set<Reason>>();
         const note = (key: string, reason: Reason) => {
             if (!changedKeys.has(key)) return;
@@ -257,12 +293,9 @@ export async function impact(
         for (const k of inOptions) note(k, 'option');
         if (used.size === 0) continue;
         out.push({
-            id: row.id,
-            name: row.name,
-            visibility: row.visibility,
-            unit: units.get(row.unitId) ?? { id: row.unitId, code: '', name: {} },
-            mine: row.createdBy === userId,
-            keys: [...used].map(([key, reasons]) => ({ key, reasons: [...reasons] }))
+            ...view,
+            keys: [...used].map(([key, reasons]) => ({ key, reasons: [...reasons] })),
+            unreadable: false
         });
     }
     return out;

@@ -89,9 +89,16 @@ export const configValuesSchema = z
     .refine((v) => JSON.stringify(v).length <= MAX_CONFIG_BYTES, `at most ${MAX_CONFIG_BYTES} bytes in all`);
 export type ConfigValues = z.infer<typeof configValuesSchema>;
 
+/**
+ * What a policy may open besides the families of values: `formOverlay`, the units at these levels may add their overlay
+ * to the service's request form (task 0.21f; the overlay itself is the forms slice's, published by a second person).
+ */
+export const POLICY_FAMILIES = [...OVERRIDE_FAMILIES, 'formOverlay'] as const;
+export type PolicyFamily = (typeof POLICY_FAMILIES)[number];
+
 /** Which families a unit below may change, and at which levels (none listed: the bureau's value holds everywhere). */
 export const overridePolicySchema = z
-    .partialRecord(z.enum(OVERRIDE_FAMILIES), z.array(z.enum(OVERRIDE_LEVELS)).max(OVERRIDE_LEVELS.length))
+    .partialRecord(z.enum(POLICY_FAMILIES), z.array(z.enum(OVERRIDE_LEVELS)).max(OVERRIDE_LEVELS.length))
     .default({});
 export type OverridePolicy = z.infer<typeof overridePolicySchema>;
 

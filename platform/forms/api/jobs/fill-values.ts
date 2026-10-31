@@ -10,7 +10,7 @@
  * holds the form's lock exclusively (submissions hold it shared), sweeps what was made meanwhile, and records the keys
  * the version published now still marks. A key with an answer of too many choices stays on the answers.
  */
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import { updateAudited, type Tx } from '@itrms/kernel/db';
 import type { SystemDatabase } from '@itrms/kernel/db/system';
 import type { OutboxHandler } from '@itrms/kernel/api/worker';
@@ -43,9 +43,18 @@ async function planOf(tx: Tx, formId: string): Promise<Plan> {
     const rows = await tx
         .select({ id: formVersions.id, document: formVersions.document })
         .from(formVersions)
-        .where(eq(formVersions.formId, formId));
+        .where(and(eq(formVersions.formId, formId), isNull(formVersions.baseVersionId)));
     // never a Sensitive field's values (task 0.20d: nothing may query them)
     const versions = new Map(rows.map((v) => [v.id, openFieldsFor(v.document, [])]));
+    // a composed version (task 0.21f) holds its base's bureau fields as they are: its base's are its open keys
+    const composed = await tx
+        .select({ id: formVersions.id, baseVersionId: formVersions.baseVersionId })
+        .from(formVersions)
+        .where(and(eq(formVersions.formId, formId), isNotNull(formVersions.baseVersionId)));
+    for (const c of composed) {
+        const base = c.baseVersionId ? versions.get(c.baseVersionId) : undefined;
+        if (base) versions.set(c.id, base);
+    }
     const published = (form?.publishedVersionId && versions.get(form.publishedVersionId)) || [];
     const kinds = filterableKinds(published);
     const open = new Map([...versions].map(([id, fields]) => [id, new Set(valueFields(fields).map((f) => f.key))]));
@@ -111,11 +120,13 @@ export async function fillValues(system: SystemDatabase, formId: string): Promis
             // no submission of the form is in flight from here on: those made while the batches ran (and any that read
             // the previous version before the publication) are swept
             await lockFormExclusive(tx, formId);
+            // a composed version made while the batches ran (task 0.21f) needs its base's open keys too
+            const swept: Plan = { ...plan, open: (await planOf(tx, formId)).open };
             const since = new Date(plan.startedAt.getTime() - IN_FLIGHT_MS);
             for (let after: string | null = null; ;) {
                 const batch: FillRow[] = (await nextBatch(tx, formId, plan.missing, { after, size: FILL_BATCH, since }))
                     .rows;
-                (await refill(tx, formId, plan, batch)).forEach((k) => overflow.add(k));
+                (await refill(tx, formId, swept, batch)).forEach((k) => overflow.add(k));
                 if (batch.length < FILL_BATCH) break;
                 after = batch[batch.length - 1]?.id ?? null;
             }

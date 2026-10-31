@@ -6,7 +6,7 @@
  * A definition holds a working copy (`document`). Publishing snapshots it as an immutable, content-hashed version; a second
  * person approves before people fill it in (SEC-AC-6). A submission names the version it was filled on and keeps it.
  */
-import { i18nTextSchema } from '@itrms/schemas';
+import { formOverlaySchema, i18nTextSchema, OVERLAY_CONFLICTS } from '@itrms/schemas';
 import { z } from 'zod';
 
 /** A stored form is at most this big as JSON (under the API's 1 MiB body limit; the contract caps it at 1000 fields). */
@@ -175,7 +175,9 @@ export const publicationSchema = z.object({
     /** the caller asked for it and may take it back (pending, `form:publish`) */
     canWithdraw: z.boolean(),
     decidedAt: z.string().nullable(),
-    decisionNote: z.string().nullable()
+    decisionNote: z.string().nullable(),
+    /** an overlay's publication (task 0.21f): whose overlay, and its version asked for */
+    overlay: z.object({ id: z.uuid(), unit: unitRefSchema, number: z.number().int() }).nullable().default(null)
 });
 
 /** Answers keyed by field id, as the engine writes them; only the form's own fields are kept. */
@@ -331,7 +333,9 @@ export const impactViewSchema = z.object({
     unit: unitRefSchema,
     /** the caller's own view */
     mine: z.boolean(),
-    keys: z.array(z.object({ key: z.string(), reasons: z.array(z.enum(IMPACT_REASONS)) }))
+    keys: z.array(z.object({ key: z.string(), reasons: z.array(z.enum(IMPACT_REASONS)) })),
+    /** its configuration no longer reads as a view (it names a changed key, but what it does with it is unknown) */
+    unreadable: z.boolean().default(false)
 });
 
 /** A service whose effects read the form (task 0.21d): what a publication touches beyond the form's own views. */
@@ -355,6 +359,24 @@ export const formLockSchema = z.object({
     services: z.array(z.string())
 });
 
+/** One operation of an overlay passed over on a version of its form, or refused when it was written (task 0.21f). */
+export const overlayConflictSchema = z.object({
+    unit: unitRefSchema,
+    overlayVersionId: z.uuid().nullable(),
+    op: z.enum(['add', 'options', 'overlay']),
+    key: z.string().nullable(),
+    problem: z.enum(OVERLAY_CONFLICTS),
+    /** in the reader's language */
+    message: z.string()
+});
+
+/** An overlay a publication re-applies, and what of it no longer fits the candidate. */
+export const impactOverlaySchema = z.object({
+    unit: unitRefSchema,
+    overlayVersion: z.object({ id: z.uuid(), number: z.number().int() }),
+    conflicts: z.array(overlayConflictSchema)
+});
+
 export const publishCheckSchema = z.object({
     /** no blocking problem, and every test case passes */
     canPublish: z.boolean(),
@@ -364,8 +386,33 @@ export const publishCheckSchema = z.object({
     problems: z.array(checkProblemSchema),
     tests: z.array(checkTestResultSchema),
     diff: formDiffSchema,
-    impact: z.object({ views: z.array(impactViewSchema), services: z.array(impactServiceSchema).default([]) })
+    impact: z.object({
+        views: z.array(impactViewSchema),
+        services: z.array(impactServiceSchema).default([]),
+        /** the units' overlays the candidate would re-apply, with their conflicts (task 0.21f) */
+        overlays: z.array(impactOverlaySchema).default([])
+    })
 });
+
+/** A unit's overlay on a bureau form, as the unit (and those above it) read it (task 0.21f). */
+export const formOverlayOutSchema = z.object({
+    /** null: the unit has written none yet */
+    id: z.uuid().nullable(),
+    version: z.number().int().nullable(),
+    formId: z.uuid(),
+    unit: unitRefSchema,
+    patch: formOverlaySchema,
+    status: z.enum(['none', 'draft', 'pending', 'published']),
+    publishedVersion: z.object({ id: z.uuid(), number: z.number().int() }).nullable(),
+    /** what of the working copy does not fit the form's published version (the unit fixes it, or it is passed over) */
+    conflicts: z.array(overlayConflictSchema)
+});
+
+export const formOverlayPutSchema = z.strictObject({ patch: formOverlaySchema });
+
+export type OverlayConflictOut = z.infer<typeof overlayConflictSchema>;
+export type ImpactOverlay = z.infer<typeof impactOverlaySchema>;
+export type FormOverlayOut = z.infer<typeof formOverlayOutSchema>;
 
 export type CheckProblem = z.infer<typeof checkProblemSchema>;
 export type PublishCheck = z.infer<typeof publishCheckSchema>;

@@ -385,6 +385,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/forms/{id}/overlays/{unitId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["FormsController_overlay"];
+        put: operations["FormsController_saveOverlay"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/forms/{id}/overlays/{unitId}/publications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["FormsController_requestOverlayPublication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/forms/{id}/publications": {
         parameters: {
             query?: never;
@@ -1514,6 +1546,129 @@ export interface components {
             } & {
                 [key: string]: string;
             };
+        };
+        FormOverlayPutDto: {
+            patch: {
+                add?: {
+                    after: string;
+                    fields: ({
+                        behavior?: ({
+                            actions?: {
+                                [key: string]: unknown[];
+                            } | null;
+                            enabledConditions?: components["schemas"]["FormOverlayPutDto__schema0"][] | null;
+                            validation?: ({
+                                errorMessages?: {
+                                    [key: string]: unknown;
+                                } | null;
+                                remote?: ({
+                                    dataSourceId: string;
+                                    message?: unknown;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                requiredWhen?: ({
+                                    expression: string;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                rules?: {
+                                    [key: string]: unknown;
+                                } | null;
+                                supported?: boolean;
+                                types?: string[] | null;
+                                validWhen?: ({
+                                    expression: string;
+                                    message?: unknown;
+                                } & {
+                                    [key: string]: unknown;
+                                })[] | null;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            visibilityConditions?: components["schemas"]["FormOverlayPutDto__schema0"][] | null;
+                        } & {
+                            [key: string]: unknown;
+                        }) | null;
+                        category?: string;
+                        classification?: ("public" | "internal" | "personal" | "sensitive") | null;
+                        data?: ({
+                            computed?: ({
+                                expression: string;
+                                readOnly?: boolean;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            dataSource?: ({
+                                staticData?: unknown;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            defaultProps?: {
+                                [key: string]: unknown;
+                            } | null;
+                            optionsBinding?: ({
+                                dataSourceId: string;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            rowsBinding?: ({
+                                dataSourceId: string;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                        } & {
+                            [key: string]: unknown;
+                        }) | null;
+                        filterable?: boolean | null;
+                        id: string | number;
+                        label?: (string | {
+                            [key: string]: unknown;
+                        }) | null;
+                        layout?: ({
+                            options?: ({
+                                isContainer?: boolean;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                        } & {
+                            [key: string]: unknown;
+                        }) | null;
+                        metadata?: ({
+                            description?: string;
+                        } & {
+                            [key: string]: unknown;
+                        }) | null;
+                        parentId?: string | number | null;
+                        props?: {
+                            [key: string]: unknown;
+                        } | null;
+                        removed?: boolean | null;
+                        type: string;
+                        visibleToRoles?: string[] | null;
+                    } & {
+                        [key: string]: unknown;
+                    })[];
+                }[];
+                /** @default [] */
+                options: {
+                    key: string;
+                    values: (string | number)[];
+                }[];
+            };
+        };
+        FormOverlayPutDto__schema0: {
+            clientOnly?: boolean;
+            conditions?: components["schemas"]["FormOverlayPutDto__schema0"][];
+            /** @default  */
+            field: string;
+            /** @enum {string} */
+            logic?: "and" | "or" | "xor";
+            operator: string;
+            serverOnly?: boolean;
+            value?: unknown;
+        } & {
+            [key: string]: unknown;
         };
         FormUpdateDto: {
             active?: boolean;
@@ -2781,6 +2936,74 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FormsController_overlay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                unitId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FormsController_saveOverlay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                unitId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FormOverlayPutDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FormsController_requestOverlayPublication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                unitId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicationRequestDto"];
+            };
+        };
+        responses: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

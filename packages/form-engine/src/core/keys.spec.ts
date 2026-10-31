@@ -2,7 +2,7 @@
 // Key stability (task 0.18a): a published key stays, keeps its kind and its row scope.
 import { describe, expect, it } from 'vitest';
 
-import { checkKeyStability, keepPublishedKeys, publishedKeysOf, readDocument } from './';
+import { checkKeyStability, keepPublishedKeys, publishedKeysOf, readDocument, reservedKeyProblems } from './';
 
 const F = (id: string, type = 'InputText', extra: Record<string, unknown> = {}) => ({
     id,
@@ -87,6 +87,20 @@ describe('checkKeyStability', () => {
             rowQty()
         );
         expect(checkKeyStability(base, into).map((p) => p.rule)).toEqual(['key-moved']);
+    });
+});
+
+describe('reservedKeyProblems', () => {
+    const doc = (...ids: string[]) => ({ fields: ids.map((id) => ({ id, type: 'InputText', props: {} })) });
+
+    it('refuses a new x_ key (reserved for overlays), keeps one already published', () => {
+        expect(reservedKeyProblems(null, doc('plate', 'x_local')).map((p) => [p.rule, p.fieldId])).toEqual([
+            ['key-reserved', 'x_local']
+        ]);
+        expect(reservedKeyProblems(doc('x_old'), doc('x_old', 'x_new', 'other')).map((p) => p.fieldId)).toEqual([
+            'x_new'
+        ]);
+        expect(reservedKeyProblems(doc('plate'), doc('plate', 'xray'))).toEqual([]);
     });
 });
 

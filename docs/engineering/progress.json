@@ -975,7 +975,27 @@
         {
           "id": "0.21f",
           "title": "Form governance, part 3: form overlays and form tiers",
-          "status": "ready",
+          "status": "in review",
+          "branch": "task/0.21f-form-overlays",
+          "commits": [
+            "fbded5c"
+          ],
+          "evidence": [
+            "GitHub Actions run 41229940021 on fbded5c (PR #27): all 9 jobs green (ADR-0038 CI record); earlier runs 41227203230 (b7ba00c) and 41228077325 (7067043) green",
+            "checks: turbo 66/66 (lint, typecheck, test, build); unit 668 passed, 2 skipped; boundaries, slices, i18n am/en, format OK",
+            "integration (dev stack, PostgreSQL 16): 25 files, 396 tests + S3 contract 20; incl. forms-overlays.int.spec.ts (4: zone adds a field, can't touch a locked one, maker-checker, review; woreda's field on its own new cases only, validated at filing, audited, sibling and bureau unaffected; new bureau version re-applies and reports conflicts, open case keeps its form; tiers and policy) and forms-governance.int.spec.ts (15, with follow-ups 154/155); isolation matrix covers the new tables",
+            "unit: form-engine overlay.spec.ts (8: composition, stacking, passing over, locks, actions, rules read, applied), roles.spec.ts, lint.spec.ts (reads-restricted), keys.spec.ts (key-reserved)",
+            "e2e: 18 passed, incl. builder-publish.spec.ts unclassified-field case (follow-up 176)",
+            "security: Semgrep 0 findings; gitleaks no leaks; Trivy passed; perf 14 passed; stories 474 passed",
+            "reviews: architect design; reviewer (Opus) three passes, every high and medium finding fixed with tests; task-verifier ready (its two test gaps closed)"
+          ],
+          "blockers": [],
+          "notes": "Scope: the phase file's overlays and tiers, the governance follow-ups (154, 155) and three 0.21e follow-ups that are form governance (176 builder e2e for unclassified, 177 reachableFieldsFor, 178 lint for formulas reading narrower roles). The four request-change follow-ups (175, 179-181) moved to the new task 0.21g (stable rows). Product owner decided (2026-10-31): an office authors its own form overlay (maker-checker approval at that office or above); overlay field keys are reserved with the x_ prefix (new bureau and unit-local keys may not use it). Design by the architect agent (overlays in the forms slice, composed versions, policy family formOverlay). Reviewer (Opus) three passes: 1 high (added fields' actions were not refused), several medium (filing-time locks, review false errors, narrowing a field bureau rules read) and lows, all fixed with tests. Task-verifier: ready; added the overlay validation-at-filing and audit assertions it asked for."
+        },
+        {
+          "id": "0.21g",
+          "title": "Request changes, part 2: stable rows",
+          "status": "planned",
           "branch": null,
           "commits": [],
           "evidence": [],
@@ -2401,12 +2421,14 @@
     {
       "foundIn": "0.18a",
       "item": "Impact analysis: filter saved views on the changed keys in SQL instead of reading the first 500 by name, and report views whose config no longer parses (now skipped silently)",
-      "movedTo": "0.21f"
+      "movedTo": "0.21f",
+      "closedIn": "0.21f: the publish impact keeps only views naming a changed key (SQL) and lists unreadable ones"
     },
     {
       "foundIn": "0.18a",
       "item": "Governance HTTP tests still missing: the approval re-check refusing (422, form and publication unchanged), key-moved into/out of a FormArray, restore of an old version through PATCH keeping published keys, the approver's review listing the approver's own private view and not the requester's",
-      "movedTo": "0.21f"
+      "movedTo": "0.21f",
+      "closedIn": "0.21f: governance HTTP cases — approval re-check refusing, key moved into/out of a FormArray, restore keeping published keys, the approver's own private view"
     },
     {
       "foundIn": "0.19a",
@@ -2514,37 +2536,40 @@
     {
       "foundIn": "0.21e",
       "item": "A filed request's repeating section holding answers its corrector may not see or change is refused, not merged (its rows have no identity): stable row ids in the engine would let such rows be changed",
-      "movedTo": "0.21f"
+      "movedTo": "0.21g"
     },
     {
       "foundIn": "0.21e",
       "item": "The builder's publish review shows the unclassified rule as an error now (ADR-0037): an e2e journey of publishing a form with an unclassified field refused",
-      "movedTo": "0.21f"
+      "movedTo": "0.21f",
+      "closedIn": "0.21f: builder e2e — a form with an unclassified field cannot be published"
     },
     {
       "foundIn": "0.21e",
       "item": "documentFor, openFieldsFor and the case timeline's field filter keep the children of a role-restricted container (fieldsFor filters only fields that carry visibleToRoles): one reachableFieldsFor that drops them, shared by all three",
-      "movedTo": "0.21f"
+      "movedTo": "0.21f",
+      "closedIn": "0.21f: fieldsForRoles drops the children of a restricted container at any depth (documentFor, openFieldsFor, the timeline filter)"
     },
     {
       "foundIn": "0.21e",
       "item": "A lint error for a computed field or condition that reads a field restricted to narrower roles than its own (an actor without access then stores a value computed from it)",
-      "movedTo": "0.21f"
+      "movedTo": "0.21f",
+      "closedIn": "0.21f: lint reads-restricted (an error)"
     },
     {
       "foundIn": "0.21e",
       "item": "A repeating section whose rows hold a Sensitive answer can't be changed through its case by anyone, even a role that may reveal it (fail-safe; with stable row ids, merge the revealed rows)",
-      "movedTo": "0.21f"
+      "movedTo": "0.21g"
     },
     {
       "foundIn": "0.21e",
       "item": "A request change: a repeating section with a column computed from the user (addedBy = user.name) counts as ruled out for every corrector but the filer, so a real change to it is refused; compare only columns that do not read the user",
-      "movedTo": "0.21f"
+      "movedTo": "0.21g"
     },
     {
       "foundIn": "0.21e",
       "item": "A request change: a derived field is recomputed over the patch's settled answers, where an input the patch newly disabled is at its default while the stored input keeps its value; compute derived fields over the stored answers plus the patch without resetting unpatched inputs",
-      "movedTo": "0.21f"
+      "movedTo": "0.21g"
     }
   ]
 }

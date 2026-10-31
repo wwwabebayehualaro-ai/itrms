@@ -4,7 +4,7 @@
  * shows, takes nor checks it, and old answers stay readable). These helpers compare a candidate document with the published
  * one; the API and the builder both run them.
  */
-import { storedFieldsOf, type FormField } from '@itrms/schemas';
+import { OVERLAY_KEY, storedFieldsOf, type FormField } from '@itrms/schemas';
 
 import { valueKindOf } from './kinds';
 import type { LintProblem } from './lint';
@@ -92,6 +92,29 @@ export function checkKeyStability(base: unknown, candidate: unknown): LintProble
                 message: 'form-engine.core.lint.key-moved',
                 values: { key }
             });
+    }
+    return out;
+}
+
+/**
+ * Keys a bureau or unit-local form may not take (task 0.21f): `x_…` is reserved for the fields an overlay adds, so a local
+ * field can never collide with one of the form's. A key the published version already has keeps it.
+ */
+export function reservedKeyProblems(published: unknown, candidate: unknown): LintProblem[] {
+    const before =
+        published === null || published === undefined ? new Map<string, PublishedKey>() : publishedKeysOf(published);
+    const out: LintProblem[] = [];
+    for (const f of storedFieldsOf(candidate)) {
+        const key = String(f.id);
+        if (!OVERLAY_KEY.test(key) || before.has(key)) continue;
+        out.push({
+            rule: 'key-reserved',
+            severity: 'error',
+            fieldId: key,
+            path: `fields[${indexOfKey(candidate, key)}].id`,
+            message: 'form-engine.core.lint.key-reserved',
+            values: { key }
+        });
     }
     return out;
 }

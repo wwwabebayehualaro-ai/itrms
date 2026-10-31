@@ -293,9 +293,22 @@ export function childrenOf(fields: EngineField[], parentId: string | null): Engi
     return fields.filter((f) => f.parentId === parentId);
 }
 
-/** The fields the caller may see: a field with `visibleToRoles` only for those roles (its children go with a restricted container). */
-export const fieldsForRoles = (fields: EngineField[], roles: readonly string[]): EngineField[] =>
-    fields.filter((f) => !f.visibleToRoles?.length || f.visibleToRoles.some((r) => roles.includes(r)));
+/**
+ * The fields the caller may see: a field with `visibleToRoles` only for those roles, and its children go with a
+ * restricted container at any depth (their labels, options and answers are as much another role's as the container's).
+ */
+export function fieldsForRoles(fields: EngineField[], roles: readonly string[]): EngineField[] {
+    const byId = new Map(fields.map((f) => [f.id, f]));
+    const allowed = (f: EngineField) => !f.visibleToRoles?.length || f.visibleToRoles.some((r) => roles.includes(r));
+    const reachable = (f: EngineField): boolean => {
+        // a document's parents never loop (readDocument refuses that), but a stored one is not trusted with the stack
+        for (let p: EngineField | undefined = f, depth = 0; p && depth <= fields.length; depth++)
+            if (!allowed(p)) return false;
+            else p = p.parentId ? byId.get(p.parentId) : undefined;
+        return true;
+    };
+    return fields.filter(reachable);
+}
 
 export const isFormArray = (f: Pick<EngineField, 'type'>) => f.type === 'FormArray';
 

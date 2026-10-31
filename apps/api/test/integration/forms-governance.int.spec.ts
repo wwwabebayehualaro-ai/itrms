@@ -168,6 +168,65 @@ describe('key stability', () => {
         const form = await create();
         expect((await patch(form, { ...BASE, fields: [BASE.fields[0]] })).statusCode).toBe(200);
     });
+
+    // a repeating section keeps its answers in rows: a key that changes side no longer reads the old answers
+    const lines = (extra: Record<string, unknown> = {}) => ({
+        id: 'lines',
+        type: 'FormArray',
+        classification: 'personal',
+        label: { am: 'መስመሮች', en: 'Lines' },
+        props: {},
+        layout: { options: { isContainer: true } },
+        ...extra
+    });
+    const SECTIONED = { ...BASE, fields: [...BASE.fields, lines(), text('qty', { parentId: 'lines' })] };
+
+    it('refuses to move a published top-level key into a repeating section', async () => {
+        const form = await published(SECTIONED);
+        const moved = SECTIONED.fields.map((f) => (f.id === 'fullName' ? { ...f, parentId: 'lines' } : f));
+        const res = await patch(form, { ...SECTIONED, fields: moved });
+        expect(res.statusCode, res.body).toBe(422);
+        expect(res.json<Problem>()).toMatchObject({ code: 'validation_failed' });
+        expect(res.json<Problem>().errors[0]).toMatchObject({
+            code: 'key_stability',
+            path: 'document.fields[0].parentId'
+        });
+    });
+
+    it('refuses to move a published column of a repeating section out to the top', async () => {
+        const form = await published(SECTIONED);
+        const moved = SECTIONED.fields.map((f) => (f.id === 'qty' ? { ...f, parentId: null } : f));
+        const res = await patch(form, { ...SECTIONED, fields: moved });
+        expect(res.statusCode, res.body).toBe(422);
+        expect(res.json<Problem>().errors[0]).toMatchObject({
+            code: 'key_stability',
+            path: 'document.fields[3].parentId'
+        });
+    });
+
+    it('keeps the published keys when an old version is restored: the later key stays, flagged removed', async () => {
+        const v1 = { ...BASE, fields: [text('a'), text('b')] };
+        const v2 = { ...BASE, fields: [text('a'), text('b'), text('c')] };
+        const form = await published(v1);
+        const widened = await patch(form, v2);
+        expect(widened.statusCode, widened.body).toBe(200);
+        const asked = await request(widened.json<FormOut>());
+        expect(asked.statusCode, asked.body).toBe(201);
+        expect((await approve(asked.json<PublicationOut>())).statusCode).toBe(200);
+        const live = (await api.call('GET', `/api/v1/forms/${form.id}`, as.bureau)).json<FormOut>();
+
+        // the old content as it is would drop c: refused (the builder adds the key flagged removed before it saves)
+        const plain = await patch(live, v1);
+        expect(plain.statusCode, plain.body).toBe(422);
+        expect(plain.json<Problem>().errors.map((e) => e.code)).toContain('key_stability');
+
+        const kept = await patch(live, { ...v1, fields: [...v1.fields, text('c', { removed: true })] });
+        expect(kept.statusCode, kept.body).toBe(200);
+        expect(kept.json<FormOut>().document.fields.find((f) => f.id === 'c')).toMatchObject({ removed: true });
+        const again = await request(kept.json<FormOut>());
+        expect(again.statusCode, again.body).toBe(201);
+        expect((await approve(again.json<PublicationOut>())).statusCode).toBe(200);
+    });
 });
 
 describe('the publication request', () => {
@@ -233,9 +292,81 @@ describe('the publication request', () => {
         expect(versions.find((v) => v.id === first.id)).toMatchObject({ published: true });
         expect(versions.find((v) => v.id === first.id)?.publishedAt).not.toBeNull();
     });
+
+    it('is checked again at the approval: a candidate that no longer fits the published version is refused, nothing changes', async () => {
+        const form = await published();
+        const first = (await api.call('GET', `/api/v1/forms/${form.id}/versions/published`, as.bureau)).json<{
+            id: string;
+        }>();
+        // version 2 adds a key and goes live
+        const widened = (await patch(form, { ...BASE, fields: [...BASE.fields, text('extra')] })).json<FormOut>();
+        const live = (await approve((await request(widened)).json<PublicationOut>())).json<{
+            formVersion: { id: string };
+        }>().formVersion.id;
+        // a third version waits for approval; before the second person decides, its content is swapped for version 1,
+        // which lacks the key version 2 made live (what a request that went stale looks like)
+        const current = (await api.call('GET', `/api/v1/forms/${form.id}`, as.bureau)).json<FormOut>();
+        const next = (
+            await patch(current, { ...BASE, fields: [...BASE.fields, text('extra'), text('more')] })
+        ).json<FormOut>();
+        const asked = (await request(next)).json<PublicationOut>();
+        await api.owner.query('update forms.form_publications set form_version_id = $1 where id = $2', [
+            first.id,
+            asked.id
+        ]);
+
+        const res = await approve(asked);
+        expect(res.statusCode, res.body).toBe(422);
+        expect(res.json<Problem>().errors.map((e) => e.code)).toContain('key_stability');
+
+        const publication = await api.owner.query<{ status: string; decided_by: string | null }>(
+            'select status, decided_by from forms.form_publications where id = $1',
+            [asked.id]
+        );
+        expect(publication.rows[0]).toMatchObject({ status: 'pending', decided_by: null });
+        const definition = await api.owner.query<{ published_version_id: string }>(
+            'select published_version_id from forms.form_definitions where id = $1',
+            [form.id]
+        );
+        expect(definition.rows[0]?.published_version_id).toBe(live);
+    });
 });
 
 describe('the review of a change', () => {
+    it('finds the views that name a changed key in SQL, and names a view it can no longer read', async () => {
+        const form = await published();
+        // views that never name the key: never listed, however many there are
+        for (let i = 0; i < 3; i++)
+            expect(
+                (
+                    await api.call('POST', `/api/v1/forms/${form.id}/views`, as.damotHead, {
+                        name: `Names only${i}`,
+                        visibility: 'unit',
+                        config: { mode: 'table', columns: ['fullName'] }
+                    })
+                ).statusCode
+            ).toBe(201);
+        const broken = await addView(as.damotHead, form, 'Broken view', 'unit');
+        expect(broken.statusCode).toBe(201);
+        // its configuration no longer reads as a view (an older shape), though it still names the key
+        await api.owner.query(
+            'update forms.saved_views set config = \'{"mode":"table","columns":"office"}\'::jsonb where id = $1',
+            [broken.json<{ id: string }>().id]
+        );
+        expect((await addView(as.damotHead, form, 'Filters the office', 'unit')).statusCode).toBe(201);
+
+        const flagged = (
+            await patch(form, { ...BASE, fields: [BASE.fields[0], office({ removed: true })] })
+        ).json<FormOut>();
+        const views = (await api.call('GET', `/api/v1/forms/${flagged.id}/publish-check`, as.bureau)).json<{
+            impact: { views: { name: string; unreadable: boolean }[] };
+        }>().impact.views;
+        expect(views.map((v) => [v.name, v.unreadable]).sort()).toEqual([
+            ['Broken view', true],
+            ['Filters the office', false]
+        ]);
+    });
+
     it('lists a shared view and the caller own private view, never another person private view', async () => {
         const form = await published();
         expect((await addView(as.damotHead, form, 'Shared by the head', 'unit')).statusCode).toBe(201);
@@ -261,6 +392,21 @@ describe('the review of a change', () => {
         expect(seen).toContain('Shared by the head');
         expect(seen).not.toContain('Private of the officer');
         expect(seen).not.toContain('Private of the bureau');
+    });
+
+    it('shows the approver their own private view on the request, not the requester one', async () => {
+        const form = await published();
+        expect((await addView(as.bureau, form, 'Private of the requester', 'private')).statusCode).toBe(201);
+        expect((await addView(as.bureau2, form, 'Private of the approver', 'private')).statusCode).toBe(201);
+        const flagged = (
+            await patch(form, { ...BASE, fields: [BASE.fields[0], office({ removed: true })] })
+        ).json<FormOut>();
+        const asked = (await request(flagged)).json<PublicationOut>();
+        const review = await api.call('GET', `/api/v1/form-publications/${asked.id}/review`, as.bureau2);
+        expect(review.statusCode, review.body).toBe(200);
+        const views = review.json<CheckOut>().impact.views;
+        expect(views.map((v) => v.name)).toEqual(['Private of the approver']);
+        expect(views[0]).toMatchObject({ mine: true });
     });
 
     it('answers a malformed id with 400, never 500', async () => {

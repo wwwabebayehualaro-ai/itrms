@@ -59,7 +59,7 @@ product default (code)  →  installation  →  each ancestor unit on the tree p
 ```
 One resolver serves settings and service configuration ([architecture.md](../architecture.md) §7). It walks the real
 ltree ancestors, so regions without zones, special woredas and cities with sub-cities need no special case. Service keys
-(`approval_unit`, SLAs, form overlays) live only in service overrides; the settings registry refers to them.
+(`approval_unit`, SLAs) live only in service overrides (form overlays are the forms slice's, ADR-0039); the settings registry refers to them.
 
 * Every setting is declared once in code: the manifest names its key, default, **the levels where it may be overridden**
   (`overridableAt`: `installation`, `region`, `unit` (any unit below the region; its value holds in its subtree),

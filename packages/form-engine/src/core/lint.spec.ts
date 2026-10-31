@@ -69,6 +69,54 @@ describe('lintDocument', () => {
         });
     });
 
+    describe('reads-restricted', () => {
+        const computed = (id: string, expression: string, extra: Record<string, unknown> = {}) =>
+            F(id, 'InputNumber', { data: { defaultProps: {}, computed: { expression, readOnly: true } }, ...extra });
+
+        it('refuses a formula or condition that reads a field some of its readers may not see', () => {
+            const problems = lintDocument(
+                doc([
+                    F('salary', 'InputNumber', { visibleToRoles: ['finance_officer'] }),
+                    computed('annual', '{{= form.salary * 12 }}'),
+                    F('note', 'InputText', show({ field: 'salary', operator: 'gt', value: 0 })),
+                    // inside a restricted panel: the reader's roles are the panel's
+                    panel('office', { visibleToRoles: ['records_officer'] }),
+                    F('stamp', 'InputText', { parentId: 'office' }),
+                    computed('stampCopy', '{{= form.stamp }}')
+                ])
+            );
+            expect(ofRule(problems, 'reads-restricted')).toEqual([
+                expect.objectContaining({
+                    severity: 'error',
+                    fieldId: 'annual',
+                    values: expect.objectContaining({ key: 'salary' }) as unknown
+                }),
+                expect.objectContaining({
+                    severity: 'error',
+                    fieldId: 'note',
+                    values: expect.objectContaining({ key: 'salary' }) as unknown
+                }),
+                expect.objectContaining({
+                    severity: 'error',
+                    fieldId: 'stampCopy',
+                    values: expect.objectContaining({ key: 'stamp' }) as unknown
+                })
+            ]);
+        });
+
+        it('allows it when everyone who sees the reader also sees what it reads', () => {
+            const problems = lintDocument(
+                doc([
+                    F('salary', 'InputNumber', { visibleToRoles: ['finance_officer', 'unit_head'] }),
+                    computed('annual', '{{= form.salary * 12 }}', { visibleToRoles: ['finance_officer'] }),
+                    F('qty', 'InputNumber'),
+                    computed('double', '{{= form.qty * 2 }}', { visibleToRoles: ['finance_officer'] })
+                ])
+            );
+            expect(ofRule(problems, 'reads-restricted')).toEqual([]);
+        });
+    });
+
     describe('sensitive-filterable', () => {
         it('refuses a Sensitive field marked filterable (task 0.20d)', () => {
             const problems = lintDocument(

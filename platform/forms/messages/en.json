@@ -48,5 +48,18 @@
   "forms.setting.exports.keepDays": "Days a background export is kept",
   "forms.setting.exports.backgroundMaxRows": "Most rows in a background export",
   "forms.validation.sectionHasHiddenAnswers": "This section holds answers you may not see or change: it stays as it was filed. Ask the office that filed the request to change it.",
-  "forms.validation.notEditable": "You may not change this answer here: ask the office that filed the request."
+  "forms.validation.notEditable": "You may not change this answer here: ask the office that filed the request.",
+  "forms.overlay.testCaseFails": "with the overlay, this test case of the bureau's form no longer passes (a field it adds must be optional or have a default)",
+  "forms.overlay.conflict.anchor_missing": "the field it is added after is no longer on the form",
+  "forms.overlay.conflict.anchor_in_rows": "fields cannot be added inside a repeating section",
+  "forms.overlay.conflict.key_taken": "the key is already the form's",
+  "forms.overlay.conflict.key_reserved": "a field an office adds needs a key starting with x_",
+  "forms.overlay.conflict.nested_outside": "a field inside a container must be added with its container",
+  "forms.overlay.conflict.not_allowed_property": "a field an office adds cannot be filterable, read a data source or run actions",
+  "forms.overlay.conflict.locked": "a field a service's effect reads cannot be changed",
+  "forms.overlay.conflict.field_missing": "the field is no longer on the form",
+  "forms.overlay.conflict.not_choice": "only a choice field's options can be narrowed",
+  "forms.overlay.conflict.option_not_allowed": "an option the form does not offer cannot be kept",
+  "forms.overlay.conflict.invalid": "with the overlay the form is no longer sound, so the overlay is not applied",
+  "forms.overlay.conflict.not_allowed": "the service does not allow overlays"
 }

@@ -7,7 +7,7 @@
  * caller's subtree (RLS). The whole request has 10 s: each statement gets what is left (`statement_timeout`).
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { eq, sql, type SQL } from 'drizzle-orm';
+import { and, eq, isNull, sql, type SQL } from 'drizzle-orm';
 import type { Tx } from '@itrms/kernel/db';
 import { ConflictError, InvalidRequestError } from '@itrms/kernel/errors';
 import { textIn } from '@itrms/schemas';
@@ -320,7 +320,7 @@ export class SubmissionQueryService {
             await tx
                 .select({ id: formVersions.id, document: formVersions.document })
                 .from(formVersions)
-                .where(eq(formVersions.formId, formId))
+                .where(and(eq(formVersions.formId, formId), isNull(formVersions.baseVersionId)))
         ).map((v) => {
             // never a Sensitive field: it would show, sort or filter by its values (task 0.20d)
             const seen = valueFields(openFieldsFor(v.document, roles, language));

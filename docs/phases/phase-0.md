@@ -781,6 +781,18 @@ Split from 0.21d on 2026-10-29. Needs 0.21d.
     conflicts.
 - **Tests:** overlay tier tests; overlay re-application and conflict tests.
 
+### 0.21g Request changes, part 2: stable rows
+Added on 2026-10-31 from 0.21e's review follow-ups (they were moved to 0.21f, and are not form governance). Needs 0.21e.
+- **Do:**
+  - Stable row ids in the engine's repeating sections, so a request change merges rows holding answers its corrector
+    may not see or change (another role's columns, Sensitive ones a reveal shows) instead of refusing the section.
+  - A section column computed from the user is not "ruled out" for every corrector but the filer.
+  - Derived fields recomputed over the stored answers plus the patch, without resetting inputs the patch did not touch.
+- **Done when:** a woreda head corrects a row of a section holding a records officer's column, and that column's
+  answers stay with their rows.
+- **Tests:** row-id round-trip and upgrade tests (stored answers without ids stay readable, G3); request-change
+  integration tests for merged rows.
+
 ### 0.22 Fees, payment orders, cashier, receipts
 - **Do:**
   - Fee rules (versioned JSON, shared formula evaluator, integer santim, explicit rounding).

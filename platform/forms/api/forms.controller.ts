@@ -13,6 +13,7 @@ import {
     Param,
     ParseUUIDPipe,
     Patch,
+    Put,
     Post,
     Query,
     Res
@@ -36,6 +37,7 @@ import {
     publicationDecisionSchema,
     publicationRejectionSchema,
     publicationListQuerySchema,
+    formOverlayPutSchema,
     publicationRequestSchema,
     revealSchema,
     savedViewCreateSchema,
@@ -59,6 +61,7 @@ class FormCreateDto extends createZodDto(formCreateSchema) {}
 class FormUpdateDto extends createZodDto(formUpdateSchema) {}
 class FormListDto extends createZodDto(formListQuerySchema) {}
 class PublicationRequestDto extends createZodDto(publicationRequestSchema) {}
+class FormOverlayPutDto extends createZodDto(formOverlayPutSchema) {}
 class PublicationDecisionDto extends createZodDto(publicationDecisionSchema) {}
 class PublicationRejectionDto extends createZodDto(publicationRejectionSchema) {}
 class PublicationListDto extends createZodDto(publicationListQuerySchema) {}
@@ -154,6 +157,39 @@ export class FormsController {
     @Require('form:read')
     locks(@Param('id', ParseUUIDPipe) id: string) {
         return this.db.scoped(requestDbContext(), async (tx) => ({ items: await this.forms.locks(tx, id) }));
+    }
+
+    /** A unit's overlay on a bureau form (task 0.21f): its working copy, where it stands, what of it does not fit. */
+    @Get(':id/overlays/:unitId')
+    @Require('form:read')
+    overlay(@Param('id', ParseUUIDPipe) id: string, @Param('unitId', ParseUUIDPipe) unitId: string) {
+        return this.db.scoped(requestDbContext(), (tx) => this.forms.overlay(tx, id, unitId));
+    }
+
+    /** The unit writes its overlay (If-Match: the version it changed; none for the first). */
+    @Put(':id/overlays/:unitId')
+    @Require('form:overlay')
+    saveOverlay(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Param('unitId', ParseUUIDPipe) unitId: string,
+        @Headers('if-match') ifMatch: string | undefined,
+        @Body() body: FormOverlayPutDto
+    ) {
+        const ctx = requestDbContext();
+        const version = ifMatch === undefined ? null : versionFrom(ifMatch);
+        return this.db.scoped(ctx, (tx) => this.forms.saveOverlay(tx, ctx, id, unitId, body.patch, version));
+    }
+
+    /** Ask a second person to publish the unit's overlay (decided like a form's publication). */
+    @Post(':id/overlays/:unitId/publications')
+    @Require('form:overlay')
+    requestOverlayPublication(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Param('unitId', ParseUUIDPipe) unitId: string,
+        @Body() body: PublicationRequestDto
+    ) {
+        const ctx = requestDbContext();
+        return this.db.scoped(ctx, (tx) => this.forms.requestOverlayPublication(tx, ctx, id, unitId, body.note));
     }
 
     @Get(':id/versions')
