@@ -13,6 +13,9 @@ import { ConflictError, NotFoundError, ValidationError } from '@itrms/kernel/err
 import { unitRefs } from '@itrms/kernel/org';
 import {
     knownValues,
+    answerDerived,
+    holdsValue,
+    initialValueOf,
     isFormArray,
     maskSensitive,
     onlySensitive,
@@ -40,8 +43,7 @@ import en from '../messages/en.json';
 /** The 422 message of a field with more choices than the filterable values keep, in the caller's language. */
 const sectionKept = (language: string): string =>
     (language === 'en' ? en : am)['forms.validation.sectionHasHiddenAnswers'];
-const keptAffected = (language: string): string =>
-    (language === 'en' ? en : am)['forms.validation.keptAnswersAffected'];
+const notEditable = (language: string): string => (language === 'en' ? en : am)['forms.validation.notEditable'];
 
 /** No answer: what a form sends for a field left empty. */
 const blank = (v: unknown): boolean =>
@@ -67,7 +69,8 @@ function holdsHidden(
     fields: readonly EngineField[],
     section: EngineField,
     stored: unknown,
-    hidden: (f: EngineField) => boolean
+    hidden: (f: EngineField) => boolean,
+    defaultOf: (f: EngineField) => unknown
 ): boolean {
     if (!Array.isArray(stored)) return false;
     const byId = new Map(fields.map((f) => [f.id, f]));
@@ -90,7 +93,9 @@ function holdsHidden(
             Object.entries(row as Record<string, unknown>).some(([key, v]) => {
                 const column = columns.get(key);
                 if (!column || blank(v)) return false;
-                return hidden(column) || (isFormArray(column) && holdsHidden(fields, column, v, hidden));
+                const initial = defaultOf(column);
+                if (initial !== undefined && canonicalJson(v) === canonicalJson(initial)) return false;
+                return hidden(column) || (isFormArray(column) && holdsHidden(fields, column, v, hidden, defaultOf));
             })
     );
 }
@@ -188,11 +193,6 @@ export class SubmissionsService {
      * The answers as the server keeps them, checked with the engine on the version's fields the caller may see (G1): the
      * files read from their rows first (validation then sees real names and sizes), the references last; 422 with every
      * problem. With the rows of the filterable fields' values to write (ADR-0035).
-     *
-     * A change of a filed request (`change`, task 0.21e) runs the rules over every answer, those the caller keeps as filed
-     * too (a condition or a formula may read a field they may not see), takes from the caller only the answers of their
-     * fields, and checks only those: what they keep was checked when it was filed, and may name records they cannot see.
-     * What they keep is put back after the rules ran, as it was filed: the caller's rules never drop or reset it.
      */
     private async checked(
         tx: Tx,
@@ -201,77 +201,43 @@ export class SubmissionsService {
         document: unknown,
         raw: Record<string, unknown>,
         lookups: RegistryLookups,
-        language: string,
-        change?: {
-            submissionId: string;
-            kept: Record<string, unknown>;
-            /** the stored answers as the caller's rules settle them: what a kept answer must still be after the change */
-            settledBefore: Record<string, unknown>;
-            mine: (fieldId: string) => boolean;
-        }
+        language: string
     ) {
-        const visible = fieldsFor(document, roles, language);
-        const fields = change ? readDocument(document, { language }).fields : visible;
+        const fields = fieldsFor(document, roles, language);
         const scope = scopeFor(ctx, roles);
-        let settled = submittedValues(fields, change ? { ...knownValues(visible, raw), ...change.kept } : raw, scope);
-        if (change) {
-            // a kept answer stays exactly as filed; a change that would hide, reset or recompute one is refused, never a
-            // silent loss of another role's answer (a derived field is not kept: it follows the answers it reads)
-            const affected = Object.keys(change.kept).filter(
-                (k) => canonicalJson(settled[k] ?? null) !== canonicalJson(change.settledBefore[k] ?? null)
-            );
-            if (affected.length)
-                throw new ValidationError('validation_failed', {
-                    detail: 'Some answers are not valid.',
-                    errors: affected.map((k) => ({
-                        // a field the caller may not see is not named to them
-                        path: change.mine(k) ? k : '',
-                        code: 'kept_answers',
-                        message: keptAffected(language)
-                    }))
-                });
-            settled = { ...settled, ...change.kept };
-        }
-        const submitted = await resolveFiles(
-            tx,
-            fields,
-            settled,
-            language,
-            ctx.userId,
-            change ? { table: 'forms.submissions', id: change.submissionId } : undefined
-        );
-        const answers = submitted.answers;
-        // the caller's to fix: a problem of a field they may change (its container chain theirs, a section's column too),
-        // not kept as filed
-        const theirs = (path: string): boolean => {
-            if (!change) return true;
-            const names = path.split(/[.[\]]/).filter((s) => s !== '' && !/^\d+$/.test(s));
-            const root = names[0] ?? path;
-            return change.mine(names[names.length - 1] ?? root) && !Object.hasOwn(change.kept, root);
-        };
-        const problems: AnswerProblem[] = submitted.problems.filter((p) => theirs(p.path));
-        for (const [path, message] of Object.entries(validateForm(fields, answers, scope, { language })))
-            if (theirs(path) && !problems.some((p) => p.path === path))
-                problems.push({ path, code: 'invalid', message });
+        const submitted = await resolveFiles(tx, fields, submittedValues(fields, raw, scope), language, ctx.userId);
+        const problems: AnswerProblem[] = [...submitted.problems];
+        for (const [path, message] of Object.entries(validateForm(fields, submitted.answers, scope, { language })))
+            if (!problems.some((p) => p.path === path)) problems.push({ path, code: 'invalid', message });
         problems.push(
-            ...(
-                await checkReferences(
-                    tx,
-                    lookups,
-                    fields,
-                    answers,
-                    scope,
-                    language,
-                    new Set(problems.map((p) => p.path))
-                )
-            ).filter((p) => theirs(p.path))
+            ...(await checkReferences(
+                tx,
+                lookups,
+                fields,
+                submitted.answers,
+                scope,
+                language,
+                new Set(problems.map((p) => p.path))
+            ))
         );
-        // the filterable fields' values (ADR-0035), from the version's fields nobody is restricted from, never a Sensitive
-        // one (no copy of it in clear: nothing may query it, task 0.20d)
+        return this.finished(document, submitted, problems, language);
+    }
+
+    /**
+     * Checked answers with their filterable fields' values (ADR-0035), from the version's fields nobody is restricted
+     * from, never a Sensitive one (no copy of it in clear: nothing may query it, task 0.20d); or 422 with every problem.
+     */
+    private finished(
+        document: unknown,
+        submitted: { answers: Record<string, unknown>; files: { id: string; documentType: string | null }[] },
+        problems: AnswerProblem[],
+        language: string
+    ) {
         const open = openFieldsFor(document, []);
         const values = (all: Record<string, unknown>, owner: Owner) =>
             valueRows(open, filterableKinds(open), all, owner);
-        for (const key of values(answers, { submissionId: '', formId: '', regionId: '', handlingUnitId: '' }).overflow)
+        for (const key of values(submitted.answers, { submissionId: '', formId: '', regionId: '', handlingUnitId: '' })
+            .overflow)
             if (!problems.some((p) => p.path === key))
                 problems.push({ path: key, code: 'invalid', message: tooManyChoices(language) });
         if (problems.length)
@@ -280,19 +246,22 @@ export class SubmissionsService {
                 errors: problems
             });
         return {
-            answers,
+            answers: submitted.answers,
             files: submitted.files,
-            values: (owner: Owner, all: Record<string, unknown> = answers) => values(all, owner)
+            values: (owner: Owner, all: Record<string, unknown> = submitted.answers) => values(all, owner)
         };
     }
 
     /**
      * Changes a case's request (task 0.21e): only through its workflow (an action that `amendsRequest`), on the version it
-     * was filed on, checked again as a new request is. The caller changes only the answers they may see and change:
-     * what other roles' fields, rules and Sensitive answers hold stays exactly as filed, a change that would alter it is
-     * refused (422), and a derived (computed) field follows the answers it reads. The answers it replaces go to
-     * `submission_revisions` first, and the filterable values are written again, in the caller's transaction. Answers
-     * the names of the fields whose answers changed, never their values.
+     * was filed on. A change is a patch: what the caller changed, of the fields they may see and change, settled and
+     * checked as a filing's answers are; every other answer stays exactly as it was filed (other roles' fields, Sensitive
+     * answers, what the caller's own rules hide or close to them, a repeating section holding answers they may not see),
+     * and a field derived from the answers alone is computed again. A field they may see but not change, sent changed, is
+     * refused by name; a field they may not see is no answer of theirs (dropped, as when filing). A problem is reported
+     * only where the caller can fix it. The answers it replaces go to `submission_revisions` first, and the filterable
+     * values are written again, in the caller's transaction. Answers the names of the fields whose answers changed, never
+     * their values.
      */
     async amend(
         tx: Tx,
@@ -314,8 +283,8 @@ export class SubmissionsService {
             .from(formVersions)
             .where(eq(formVersions.id, before.formVersionId));
         if (!version) throw new NotFoundError();
-        // every field holding a top-level answer (not a repeating section's column); the caller's are those they may
-        // see with every container around them
+        const stored = before.answers;
+        // every field; the caller's are those they may see with every container around them
         const all = readDocument(version.document, { language }).fields;
         const byId = new Map(all.map((f) => [f.id, f]));
         const visible = fieldsFor(version.document, roles, language);
@@ -329,52 +298,98 @@ export class SubmissionsService {
         const sensitive = (f: EngineField): boolean => chain(f).some((p) => p.classification === 'sensitive');
         const inRows = rowScopedIds(all);
         const scope = scopeFor(ctx, roles);
-        const masked = new Set(maskSensitive(visible, knownValues(visible, before.answers)).masked);
-        // the stored answers as the caller's own rules settle them: a field shown or open only to other roles by its
-        // condition is dropped or reset here, so it is another role's to change
-        const settledBefore = submittedValues(all, before.answers, scope);
-        const ruledOut = (id: string) => canonicalJson(settledBefore[id] ?? null) !== canonicalJson(before.answers[id]);
-        // a section as the caller's form shows it, through the same rules (what they could send back unchanged)
+        const masked = new Set(maskSensitive(visible, knownValues(visible, stored)).masked);
+        // the stored answers as the caller's own rules settle them: one they drop or reset is shown or open to other roles
+        const settledBefore = submittedValues(all, stored, scope);
+        const ruledOut = (id: string) => canonicalJson(settledBefore[id] ?? null) !== canonicalJson(stored[id] ?? null);
+        // a section as the caller's form shows it, through the same rules (what they send back when they change nothing)
         const shownAs = (id: string, value: unknown) =>
             withoutBlanks(
-                maskSensitive(
-                    visible,
-                    knownValues(visible, submittedValues(all, { ...before.answers, [id]: value }, scope))
-                ).values[id]
+                maskSensitive(visible, knownValues(visible, submittedValues(all, { ...stored, [id]: value }, scope)))
+                    .values[id]
             ) ?? null;
-        const derived = (f: EngineField) => !isFormArray(f) && f.computed?.readOnly === true && !!f.computed.expression;
-        // what the caller keeps as filed, decided in this order: a derived field never (it follows its answers); what
-        // they may not see; a repeating section holding answers they may not see or change, Sensitive ones included (its
-        // rows have no identity to merge them by: changing it is refused, never a loss of what it holds); what their own
-        // rules hide or close to them; a Sensitive answer shown masked that they leave blank
-        const kept: Record<string, unknown> = {};
-        for (const f of all) {
-            if (inRows.has(f.id) || !Object.hasOwn(before.answers, f.id) || derived(f)) continue;
-            const stored = before.answers[f.id];
-            if (!mine(f)) kept[f.id] = stored;
-            else if (isFormArray(f)) {
-                if (!ruledOut(f.id) && !holdsHidden(all, f, stored, (c) => !mine(c) || sensitive(c))) continue;
-                const sent = Object.hasOwn(input.answers, f.id) ? input.answers[f.id] : stored;
-                // a section shown masked whole shows nothing to compare: any rows sent for it are a change
-                const sentMasked = masked.has(f.id) && Object.hasOwn(input.answers, f.id) && !blank(sent);
-                if (sentMasked || canonicalJson(shownAs(f.id, sent)) !== canonicalJson(shownAs(f.id, stored)))
-                    throw new ValidationError('validation_failed', {
-                        detail: 'Some answers are not valid.',
-                        errors: [{ path: f.id, code: 'hidden_answers', message: sectionKept(language) }]
-                    });
-                kept[f.id] = stored;
-            } else if (ruledOut(f.id)) kept[f.id] = stored;
-            else if (masked.has(f.id) && blank(input.answers[f.id])) kept[f.id] = stored;
+        const hidesAnswers = (f: EngineField) =>
+            isFormArray(f) &&
+            holdsHidden(
+                all,
+                f,
+                stored[f.id],
+                (c) => !mine(c) || sensitive(c),
+                (c) => initialValueOf(c, all)
+            );
+        // a field the caller sees but may not change: a computed one; a Sensitive answer (shown masked); one their own
+        // rules hide or close to them; a repeating section holding answers they may not see or change (its rows have no
+        // identity to merge them by)
+        const locked = (f: EngineField): boolean =>
+            f.computed?.readOnly === true || masked.has(f.id) || ruledOut(f.id) || hidesAnswers(f);
+        // what the caller sends back as it was shown (or a form's default for an answer never given) is no change
+        const unchanged = (f: EngineField, value: unknown): boolean => {
+            if (masked.has(f.id)) return blank(value);
+            if (isFormArray(f))
+                return canonicalJson(shownAs(f.id, value)) === canonicalJson(shownAs(f.id, stored[f.id]));
+            if (canonicalJson(value ?? null) === canonicalJson(stored[f.id] ?? null)) return true;
+            return (
+                !Object.hasOwn(stored, f.id) &&
+                (blank(value) || canonicalJson(value) === canonicalJson(initialValueOf(f, all) ?? null))
+            );
+        };
+        const patch: Record<string, unknown> = {};
+        const refused: AnswerProblem[] = [];
+        for (const [key, value] of Object.entries(input.answers)) {
+            const f = byId.get(key);
+            if (!f || inRows.has(key) || !holdsValue(f) || !mine(f) || unchanged(f, value)) continue;
+            if (!locked(f)) patch[key] = value;
+            else
+                refused.push(
+                    hidesAnswers(f)
+                        ? { path: key, code: 'hidden_answers', message: sectionKept(language) }
+                        : { path: key, code: 'not_editable', message: notEditable(language) }
+                );
         }
-        const checked = await this.checked(tx, ctx, roles, version.document, input.answers, lookups, language, {
-            submissionId: before.id,
-            kept,
-            settledBefore,
-            mine: (id) => {
-                const f = byId.get(id);
-                return f !== undefined && mine(f);
-            }
+        if (refused.length)
+            throw new ValidationError('validation_failed', { detail: 'Some answers are not valid.', errors: refused });
+
+        // the patch settled as a filing's answers are; every other answer as filed, but a field derived from the answers
+        // alone (one the caller's rules leave alone) computed again
+        const settled = submittedValues(all, { ...stored, ...knownValues(visible, patch) }, scope);
+        const merged: Record<string, unknown> = { ...stored };
+        const take = (id: string) => {
+            if (Object.hasOwn(settled, id)) merged[id] = settled[id];
+            else delete merged[id];
+        };
+        for (const key of Object.keys(patch)) take(key);
+        for (const f of all) if (!inRows.has(f.id) && answerDerived(f) && !ruledOut(f.id)) take(f.id);
+
+        const submitted = await resolveFiles(tx, all, merged, language, ctx.userId, {
+            table: 'forms.submissions',
+            id: before.id
         });
+        const rootOf = (path: string) => /^[^.[]+/.exec(path)?.[0] ?? path;
+        // the caller's to fix: what they changed (files, references), or a field they may change that is wanting now
+        const theirs = (path: string): boolean => {
+            const names = path.split(/[.[\]]/).filter((s) => s !== '' && !/^\d+$/.test(s));
+            const root = byId.get(names[0] ?? '');
+            const leaf = byId.get(names[names.length - 1] ?? '');
+            return root !== undefined && leaf !== undefined && mine(leaf) && mine(root) && !locked(root);
+        };
+        const problems: AnswerProblem[] = submitted.problems.filter((p) => Object.hasOwn(patch, rootOf(p.path)));
+        for (const [path, message] of Object.entries(validateForm(all, submitted.answers, scope, { language })))
+            if (theirs(path) && !problems.some((p) => p.path === path))
+                problems.push({ path, code: 'invalid', message });
+        problems.push(
+            ...(
+                await checkReferences(
+                    tx,
+                    lookups,
+                    all,
+                    submitted.answers,
+                    scope,
+                    language,
+                    new Set(problems.map((p) => p.path))
+                )
+            ).filter((p) => Object.hasOwn(patch, rootOf(p.path)))
+        );
+        const checked = this.finished(version.document, submitted, problems, language);
         const answers = checked.answers;
         const changed = [...new Set([...Object.keys(before.answers), ...Object.keys(answers)])]
             .filter((k) => canonicalJson(before.answers[k] ?? null) !== canonicalJson(answers[k] ?? null))

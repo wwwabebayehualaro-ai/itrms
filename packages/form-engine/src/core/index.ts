@@ -48,6 +48,7 @@ export {
     pruneHidden,
     knownValues,
     settledValues,
+    answerDerived,
     submittedValues,
     withoutSensitive,
     maskSensitive,

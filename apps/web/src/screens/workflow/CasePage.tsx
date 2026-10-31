@@ -39,7 +39,7 @@ import { templateFor, withHelp } from '@/form-templates/serviceForm';
 import { useAuthStore } from '@/lib/auth/authStore';
 import { formatMoment } from '@/lib/format';
 import { usePreferences, useText } from '@/lib/preferences';
-import { lookupIds } from '@/lib/caseAnswers';
+import { amendable, lookupIds } from '@/lib/caseAnswers';
 import { useCase, useClaim, useTransition, type CaseOut, type SlaState } from '@/lib/workflow';
 import { CommentBox } from './CommentBox';
 
@@ -240,10 +240,10 @@ function StepForm({
     const { t } = useText();
     const transition = useTransition(c.id);
     // the request an action changes (task 0.21e) is filled in again as the person sees it: its fields without those of
-    // other roles, its answers without the Sensitive ones (left out, they keep theirs)
+    // other roles, and without its Sensitive ones (shown masked, nobody changes them here: the server keeps them as filed)
     const request = action.amends ? c.steps.find((s) => s.submissionId === action.amends) : undefined;
     const version = useFormVersion(request ? null : action.form);
-    const document = request ? request.form : version.data?.document;
+    const document = request ? amendable(request.form, request.masked) : version.data?.document;
     const fields = useMemo(() => (document ? withHelp(document, {}) : null), [document]);
     if (version.error) return <p className="text-destructive text-sm">{getApiErrorMessage(version.error)}</p>;
     if (!fields || !action.form) return <InlineStatus loading className="p-4" />;
@@ -263,9 +263,7 @@ function StepForm({
                     const after = await transition.mutateAsync({
                         version: c.version,
                         action: action.action,
-                        answers: request
-                            ? keptMasked(submission.submission_data, request.masked)
-                            : submission.submission_data,
+                        answers: submission.submission_data,
                         ...(comment.trim() ? { comment: comment.trim() } : {})
                     });
                     onDone();
@@ -274,12 +272,6 @@ function StepForm({
             />
         </div>
     );
-}
-
-/** A changed request's answers without the Sensitive ones left blank: shown masked, those keep their stored answer. */
-function keptMasked(answers: Record<string, unknown>, masked: readonly string[]): Record<string, unknown> {
-    const blank = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
-    return Object.fromEntries(Object.entries(answers).filter(([k, v]) => !(masked.includes(k) && blank(v))));
 }
 
 function ActionDialog({ c, action, onClose }: { c: CaseOut; action: Action; onClose: () => void }) {

@@ -260,6 +260,16 @@ export const keepsServerOnly = (fields: EngineField[]): boolean =>
 /** Roots a computed field may read wherever the form is checked: the server has no data sources, route or variables. */
 const PORTABLE_ROOTS = new Set(['form', 'row', 'root', 'user']);
 
+/**
+ * A read-only computed field derived from the answers alone (its formula reads the form and its rows, never the user):
+ * whoever changes the answers it reads, it is computed again the same way (a request changed through its case, task
+ * 0.21e). One that reads the user would take the changer's identity; one that reads data sources is not computed here.
+ */
+export function answerDerived(f: EngineField): boolean {
+    if (!holdsValue(f) || !f.computed?.readOnly || !f.computed.expression) return false;
+    return [...bindingRoots(f.computed.expression)].every((r) => r === 'form' || r === 'row' || r === 'root');
+}
+
 /** The most passes `settledValues` makes over computed fields that read each other (more than that is a cycle). */
 const MAX_SETTLE_PASSES = 10;
 

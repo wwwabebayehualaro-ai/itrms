@@ -20,7 +20,7 @@ import type { RegistryLookups } from './lookups';
 import am from '../messages/am.json';
 import en from '../messages/en.json';
 
-export type ProblemCode = 'invalid' | 'invalid_reference' | 'invalid_file';
+export type ProblemCode = 'invalid' | 'invalid_reference' | 'invalid_file' | 'not_editable' | 'hidden_answers';
 
 /** One refused answer: where (`members[0].photo`), why (a code the screens translate) and the message in the caller's language. */
 export interface AnswerProblem {

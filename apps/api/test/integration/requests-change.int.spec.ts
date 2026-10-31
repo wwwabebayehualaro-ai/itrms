@@ -78,7 +78,14 @@ const RULED_FORM = {
         }),
         text('vehicles', { type: 'FormArray', props: {}, layout: { options: { isContainer: true } } }),
         text('vplate', { parentId: 'vehicles' }),
-        text('inspector', { parentId: 'vehicles', required: true, visibleToRoles: ['auditor'] })
+        text('inspector', { parentId: 'vehicles', required: true, visibleToRoles: ['auditor'] }),
+        // the records officer's check, at its default: no answer that would lock the section
+        text('verified', {
+            parentId: 'vehicles',
+            type: 'InputSwitch',
+            props: { value: false },
+            visibleToRoles: ['records_officer']
+        })
     ]
 };
 const recordsOnly = [{ field: 'user.roles', operator: 'contains', value: 'records_officer' }];
@@ -498,7 +505,11 @@ describe('a filed request', () => {
     it("keeps what other roles' rules show, and never asks for a column nobody here may fill", async () => {
         const started = await api.call('POST', '/api/v1/service-requests', as.damotRecords, {
             serviceCode: RULED_SERVICE,
-            answers: { plate: 'ETH ABC 0300', intakeRemark: 'saw the libre', vehicles: [{ vplate: 'A 1' }] }
+            answers: {
+                plate: 'ETH ABC 0300',
+                intakeRemark: 'saw the libre',
+                vehicles: [{ vplate: 'A 1', verified: false }]
+            }
         });
         expect(started.statusCode, started.body).toBe(201);
         let c = started.json<CaseOut>();
@@ -518,7 +529,7 @@ describe('a filed request', () => {
         expect(await stored()).toEqual({
             plate: 'ETH ABC 0300',
             intakeRemark: 'saw the libre',
-            vehicles: [{ vplate: 'A 1' }]
+            vehicles: [{ vplate: 'A 1', verified: false }]
         });
 
         // the head's rules hide the remark (it stays as filed); the auditor's required column is no one's here to fill
@@ -566,11 +577,21 @@ describe('a filed request', () => {
         const filed = await stored();
         expect(filed).toMatchObject({ total: 4, secretNote: 'the owner asked for discretion' });
 
-        // a Sensitive answer the head's rules hide is kept even when they send one; the derived total follows the quantity
+        // a Sensitive answer is nobody's to change here: sent changed, it is refused by name (nothing changes)
+        const secret = await act({
+            action: 'correct',
+            comment: 'note corrected',
+            answers: { plate: 'ETH ABC 0400', secretNote: 'overwritten', qty: 5, insured: 'yes' }
+        });
+        expect(secret.statusCode).toBe(422);
+        expect(secret.json()).toMatchObject({ errors: [{ path: 'secretNote', code: 'not_editable' }] });
+        expect(await stored()).toEqual(filed);
+
+        // left out (the head's form shows it masked), it stays as filed; the derived total follows the quantity
         const corrected = await act({
             action: 'correct',
             comment: 'quantity corrected',
-            answers: { plate: 'ETH ABC 0400', secretNote: 'overwritten', qty: 5, insured: 'yes' }
+            answers: { plate: 'ETH ABC 0400', qty: 5, insured: 'yes' }
         });
         expect(corrected.statusCode, corrected.body).toBe(200);
         expect(await stored()).toEqual({ ...filed, qty: 5, total: 10 });
@@ -584,14 +605,15 @@ describe('a filed request', () => {
         expect(family.statusCode).toBe(422);
         expect(family.json()).toMatchObject({ errors: [{ path: 'family', code: 'hidden_answers' }] });
 
-        // un-insuring would hide the records officer's insurance number: refused, the field not named to the head
-        const hide = await act({
+        // a change is a patch: un-insuring leaves the records officer's insurance number as filed (it is theirs, and
+        // the revision keeps every earlier state); nothing the head may not see is named or probed
+        const uninsured = await act({
             action: 'correct',
             comment: 'not insured',
             answers: { plate: 'ETH ABC 0400', qty: 5, insured: 'no' }
         });
-        expect(hide.statusCode).toBe(422);
-        expect(hide.json()).toMatchObject({ errors: [{ path: '', code: 'kept_answers' }] });
-        expect(await stored()).toEqual({ ...filed, qty: 5, total: 10 });
+        expect(uninsured.statusCode, uninsured.body).toBe(200);
+        expect(c.events.findLast((e) => e.action === 'correct')?.amended).toEqual(['insured']);
+        expect(await stored()).toEqual({ ...filed, qty: 5, total: 10, insured: 'no' });
     });
 });

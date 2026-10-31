@@ -32,3 +32,23 @@ export function lookupIds(steps: CaseOut['steps']): Map<string, string[]> {
     }
     return wanted;
 }
+
+/**
+ * A request's form as its change is filled in (task 0.21e): without the fields shown masked and what they hold (a Sensitive
+ * section's columns), so a form's defaults never stand in for answers the person does not see.
+ */
+export function amendable(document: unknown, masked: readonly string[]): unknown {
+    const fields = (document as { fields?: { id?: unknown; parentId?: unknown }[] } | null)?.fields;
+    if (!Array.isArray(fields) || masked.length === 0) return document;
+    const out = new Set(masked);
+    // a field inside one left out goes with it (stored parent first or not: repeat until nothing more goes)
+    for (let grew = true; grew;) {
+        grew = false;
+        for (const f of fields)
+            if (typeof f.id === 'string' && !out.has(f.id) && typeof f.parentId === 'string' && out.has(f.parentId)) {
+                out.add(f.id);
+                grew = true;
+            }
+    }
+    return { ...(document as object), fields: fields.filter((f) => !(typeof f.id === 'string' && out.has(f.id))) };
+}

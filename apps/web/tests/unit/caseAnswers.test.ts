@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { lookupIds } from '@/lib/caseAnswers';
+import { amendable, lookupIds } from '@/lib/caseAnswers';
 import type { CaseOut } from '@/lib/workflow';
 
 const step = (fields: unknown[], answers: Record<string, unknown>) =>
@@ -28,5 +28,26 @@ describe('lookupIds', () => {
         expect(lookupIds([step([{ id: 'plate', type: 'InputText' }], { plate: 'x' })]).size).toBe(0);
         expect(lookupIds([step([lookup('owner', 'person')], { owner: 7 })]).size).toBe(0);
         expect(lookupIds([step([lookup('owner', 'person')], {})]).size).toBe(0);
+    });
+});
+
+describe('amendable', () => {
+    it('leaves out the masked fields and what they hold, wherever they are stored', () => {
+        const document = {
+            schemaVersion: 2,
+            fields: [
+                { id: 'relation', parentId: 'family' },
+                { id: 'plate' },
+                { id: 'phone' },
+                { id: 'family' },
+                { id: 'note', parentId: 'box' },
+                { id: 'box' }
+            ]
+        };
+        expect(amendable(document, ['phone', 'family'])).toEqual({
+            schemaVersion: 2,
+            fields: [{ id: 'plate' }, { id: 'note', parentId: 'box' }, { id: 'box' }]
+        });
+        expect(amendable(document, [])).toBe(document);
     });
 });
