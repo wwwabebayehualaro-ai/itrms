@@ -19,6 +19,7 @@ import {
     isEnabledIn,
     isRequiredIn,
     isVisibleIn,
+    rowIdOf,
     type EngineDocument,
     type EngineField
 } from '../core';
@@ -319,9 +320,10 @@ function Section({ field, scope, disabled }: { field: EngineField; scope: Scope;
                     )}
                 </div>
             )}
-            {rows.map((_, index) => (
+            {rows.map((row, index) => (
                 <div
-                    key={index}
+                    // a row keeps its place in the page by its id (ADR-0040) when another is removed
+                    key={rowIdOf(row) ?? index}
                     className="rounded-lg border bg-card p-4"
                     role="group"
                     aria-label={t('form-engine.renderer.rows.title', { item: noun, number: String(index + 1) })}

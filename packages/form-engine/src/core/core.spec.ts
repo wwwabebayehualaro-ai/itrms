@@ -149,7 +149,8 @@ describe('validation and submitted values', () => {
             req(field('InputNumber', 'qty', { parentId: 'lines' }))
         ]);
         const init = initialValues(doc.fields);
-        expect(init).toEqual({ lines: [{}] }); // minItems blank rows; a blank number box holds no value
+        // minItems blank rows, each with its id (ADR-0040); a blank number box holds no value
+        expect(init).toEqual({ lines: [{ _id: expect.any(String) as unknown }] });
         expect(validateForm(doc.fields, { lines: [] })).toEqual({ lines: 'lines: at least 1 row required' });
         expect(validateForm(doc.fields, { lines: [{}, {}, {}] })).toEqual({ lines: 'lines: at most 2 rows allowed' });
         expect(validateForm(doc.fields, { lines: [{ what: 'pen', qty: 2 }, { what: '' }] })).toEqual({

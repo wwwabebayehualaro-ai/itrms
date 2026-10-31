@@ -14,15 +14,19 @@ import { unitRefs } from '@itrms/kernel/org';
 import {
     knownValues,
     answerDerived,
+    derivedValues,
     holdsValue,
     initialValueOf,
     isFormArray,
     maskSensitive,
     onlySensitive,
     readDocument,
+    ROW_ID,
+    rowIdOf,
     rowScopedIds,
     submittedValues,
     validateForm,
+    withRowIds,
     type EngineField
 } from '@itrms/form-engine/core';
 import type { z } from 'zod';
@@ -44,6 +48,7 @@ import en from '../messages/en.json';
 const sectionKept = (language: string): string =>
     (language === 'en' ? en : am)['forms.validation.sectionHasHiddenAnswers'];
 const notEditable = (language: string): string => (language === 'en' ? en : am)['forms.validation.notEditable'];
+const rowKept = (language: string): string => (language === 'en' ? en : am)['forms.validation.rowHasHiddenAnswers'];
 
 /** No answer: what a form sends for a field left empty. */
 const blank = (v: unknown): boolean =>
@@ -205,7 +210,14 @@ export class SubmissionsService {
     ) {
         const fields = fieldsFor(document, roles, language);
         const scope = scopeFor(ctx, roles);
-        const submitted = await resolveFiles(tx, fields, submittedValues(fields, raw, scope), language, ctx.userId);
+        // every row filed gets its id (ADR-0040): a later change finds it again
+        const submitted = await resolveFiles(
+            tx,
+            fields,
+            withRowIds(fields, submittedValues(fields, raw, scope)),
+            language,
+            ctx.userId
+        );
         const problems: AnswerProblem[] = [...submitted.problems];
         for (const [path, message] of Object.entries(validateForm(fields, submitted.answers, scope, { language })))
             if (!problems.some((p) => p.path === path)) problems.push({ path, code: 'invalid', message });
@@ -301,25 +313,64 @@ export class SubmissionsService {
         const masked = new Set(maskSensitive(visible, knownValues(visible, stored)).masked);
         // the stored answers as the caller's own rules settle them: one they drop or reset is shown or open to other roles
         const settledBefore = submittedValues(all, stored, scope);
-        const ruledOut = (id: string) => canonicalJson(settledBefore[id] ?? null) !== canonicalJson(stored[id] ?? null);
+        // a column computed from the person (`addedBy = user.name`) reads the caller's own identity: not their rules
+        const personal = (c: EngineField) => c.computed?.readOnly === true && !answerDerived(c);
+        const withoutPersonal = (value: unknown): unknown =>
+            Array.isArray(value)
+                ? value.map((row: unknown) =>
+                      row !== null && typeof row === 'object'
+                          ? Object.fromEntries(
+                                Object.entries(row as Record<string, unknown>)
+                                    .filter(([k]) => {
+                                        const c = byId.get(k);
+                                        return !c || !personal(c);
+                                    })
+                                    .map(([k, v]) => [k, withoutPersonal(v)])
+                            )
+                          : row
+                  )
+                : value;
+        const ruledOut = (id: string) => {
+            const f = byId.get(id);
+            const a = f && isFormArray(f) ? withoutPersonal(settledBefore[id]) : settledBefore[id];
+            const b = f && isFormArray(f) ? withoutPersonal(stored[id]) : stored[id];
+            return canonicalJson(a ?? null) !== canonicalJson(b ?? null);
+        };
         // a section as the caller's form shows it, through the same rules (what they send back when they change nothing)
         const shownAs = (id: string, value: unknown) =>
             withoutBlanks(
                 maskSensitive(visible, knownValues(visible, submittedValues(all, { ...stored, [id]: value }, scope)))
                     .values[id]
             ) ?? null;
-        const hidesAnswers = (f: EngineField) =>
-            isFormArray(f) &&
+        const holds = (f: EngineField, rows: unknown) =>
             holdsHidden(
                 all,
                 f,
-                stored[f.id],
+                rows,
                 (c) => !mine(c) || sensitive(c),
                 (c) => initialValueOf(c, all)
             );
+        // a section whose rows merge by id (ADR-0040): every stored row has its own id, and no section inside its rows
+        // holds answers the caller may not see or change (those would need their own merge)
+        const mergeable = (f: EngineField): boolean => {
+            const rows = stored[f.id];
+            if (!Array.isArray(rows)) return true;
+            const ids = rows.map((r) => rowIdOf(r));
+            if (ids.some((id) => id === undefined) || new Set(ids).size !== ids.length) return false;
+            const nested = all.filter(
+                (c) =>
+                    isFormArray(c) &&
+                    c.id !== f.id &&
+                    chain(c)
+                        .slice(1)
+                        .some((p) => p.id === f.id)
+            );
+            return !nested.some((n) => rows.some((r) => holds(n, (r as Record<string, unknown>)[n.id])));
+        };
+        const hidesAnswers = (f: EngineField) => isFormArray(f) && holds(f, stored[f.id]) && !mergeable(f);
         // a field the caller sees but may not change: a Sensitive answer (shown masked); one their own rules hide or close
-        // to them; a repeating section holding answers they may not see or change (its rows have no identity to merge
-        // them by). A computed field is the server's: whatever is sent for it is no answer, as when filing.
+        // to them; a repeating section holding answers they may not see or change whose rows cannot be merged by id (rows
+        // filed before ids). A computed field is the server's: whatever is sent for it is no answer, as when filing.
         const locked = (f: EngineField): boolean => masked.has(f.id) || ruledOut(f.id) || hidesAnswers(f);
         // the nearest repeating section a column's answers sit in
         const sectionOf = (c: EngineField): string | undefined =>
@@ -370,6 +421,14 @@ export class SubmissionsService {
                     canonicalJson(v) !== canonicalJson(initialValueOf(c, all) ?? null)
                 );
             });
+        // a stored row the caller leaves out is deleted, unless it holds an answer they may not see or change
+        const dropsHidden = (f: EngineField, value: unknown): boolean => {
+            const rows = stored[f.id];
+            if (!Array.isArray(rows) || !mergeable(f)) return false;
+            const sent = knownValues(visible, { [f.id]: value })[f.id];
+            const kept = new Set(Array.isArray(sent) ? sent.map((r) => rowIdOf(r)).filter(Boolean) : []);
+            return rows.some((r) => !kept.has(rowIdOf(r)) && holds(f, [r]));
+        };
         const patch: Record<string, unknown> = {};
         const refused: AnswerProblem[] = [];
         for (const [key, value] of Object.entries(input.answers)) {
@@ -379,6 +438,8 @@ export class SubmissionsService {
             if (hidesAnswers(f)) refused.push({ path: key, code: 'hidden_answers', message: sectionKept(language) });
             else if (locked(f) || (isFormArray(f) && givesSensitive(f, value)))
                 refused.push({ path: key, code: 'not_editable', message: notEditable(language) });
+            else if (isFormArray(f) && dropsHidden(f, value))
+                refused.push({ path: key, code: 'hidden_answers', message: rowKept(language) });
             else patch[key] = value;
         }
         if (refused.length)
@@ -408,35 +469,57 @@ export class SubmissionsService {
                       return out;
                   })
                 : rows;
-        for (const key of Object.keys(patch)) {
-            take(key);
-            const f = byId.get(key);
-            if (f && isFormArray(f) && Object.hasOwn(merged, key)) merged[key] = withoutGuarded(f, merged[key]);
-        }
-        // a field derived from the answers alone is computed again (one the caller's rules leave alone), and so are the
-        // derived columns of the rows the patch left as they were (their rows stand where they stood)
-        const derivedRows = (section: EngineField, rows: unknown, again: unknown): unknown => {
-            if (!Array.isArray(rows) || !Array.isArray(again) || rows.length !== again.length) return rows;
-            return rows.map((row: unknown, i) => {
-                const fresh = again[i] as Record<string, unknown> | undefined;
-                if (row === null || typeof row !== 'object' || !fresh || typeof fresh !== 'object') return row;
+        // a patched section's rows merged by id (ADR-0040): a row sent with a stored id gets back that row's answers the
+        // caller may not see or change, and what is computed from the person who filed it; a new row holds none
+        const mergeRows = (section: EngineField, rows: unknown): unknown => {
+            if (!Array.isArray(rows)) return rows;
+            const storedRows = Array.isArray(stored[section.id]) ? (stored[section.id] as unknown[]) : [];
+            const byRow = new Map(storedRows.flatMap((r) => (rowIdOf(r) ? [[rowIdOf(r) as string, r]] : [])));
+            const keep = new Set(
+                columns(section)
+                    .filter(
+                        (c) => !isFormArray(c) && ((guarded(section).includes(c) && !answerDerived(c)) || personal(c))
+                    )
+                    .map((c) => c.id)
+            );
+            const used = new Set<string>();
+            return rows.map((row: unknown) => {
+                if (row === null || typeof row !== 'object') return row;
+                const id = rowIdOf(row);
+                const before = id && !used.has(id) ? (byRow.get(id) as Record<string, unknown> | undefined) : undefined;
+                if (!id || !before) {
+                    // a new row: none of the guarded answers, and its own id (given below), never one it was sent with
+                    const fresh = { ...(withoutGuarded(section, [row]) as Record<string, unknown>[])[0] };
+                    delete fresh[ROW_ID];
+                    return fresh;
+                }
+                used.add(id);
                 const out = { ...(row as Record<string, unknown>) };
-                for (const c of all.filter((x) => sectionOf(x) === section.id)) {
-                    if (isFormArray(c)) out[c.id] = derivedRows(c, out[c.id], fresh[c.id]);
-                    else if (answerDerived(c)) {
-                        if (Object.hasOwn(fresh, c.id)) out[c.id] = fresh[c.id];
-                        else delete out[c.id];
-                    }
+                for (const key of keep) {
+                    if (Object.hasOwn(before, key)) out[key] = before[key];
+                    else delete out[key];
                 }
                 return out;
             });
         };
+        for (const key of Object.keys(patch)) {
+            take(key);
+            const f = byId.get(key);
+            if (f && isFormArray(f) && Object.hasOwn(merged, key))
+                merged[key] = mergeable(f) ? mergeRows(f, merged[key]) : withoutGuarded(f, merged[key]);
+        }
+        // fields derived from the answers alone computed again over the stored answers plus the patch, nothing else
+        // settled (an input the patch did not touch keeps its filed answer, follow-up from 0.21e); not those the caller's
+        // rules rule out (another role's to see)
+        const recomputed = derivedValues(all, merged);
         for (const f of all) {
             if (inRows.has(f.id) || ruledOut(f.id)) continue;
-            if (answerDerived(f)) take(f.id);
-            else if (isFormArray(f) && !Object.hasOwn(patch, f.id) && Object.hasOwn(merged, f.id))
-                merged[f.id] = derivedRows(f, merged[f.id], settled[f.id]);
+            if (!answerDerived(f) && !isFormArray(f)) continue;
+            if (Object.hasOwn(recomputed, f.id)) merged[f.id] = recomputed[f.id];
+            else delete merged[f.id];
         }
+        // every row has its id (a new one for a row added now)
+        Object.assign(merged, withRowIds(all, merged));
 
         // a file the request holds stays usable only where it is held (never moved to another field)
         const heldFiles = new Map<string, Set<string>>();

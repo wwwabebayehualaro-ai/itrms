@@ -996,8 +996,8 @@
         {
           "id": "0.21g",
           "title": "Request changes, part 2: stable rows",
-          "status": "ready",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.21g-stable-rows",
           "commits": [],
           "evidence": [],
           "blockers": [],

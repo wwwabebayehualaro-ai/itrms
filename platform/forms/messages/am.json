@@ -48,6 +48,7 @@
   "forms.setting.exports.keepDays": "ከበስተጀርባ የተዘጋጀ ፋይል የሚቆይባቸው ቀናት",
   "forms.setting.exports.backgroundMaxRows": "ከበስተጀርባ በሚዘጋጅ ፋይል ውስጥ የሚገቡ ከፍተኛ ረድፎች",
   "forms.validation.sectionHasHiddenAnswers": "ይህ ክፍል እርስዎ የማያዩት ወይም የማይቀይሩት መልስ ይዟል፤ እንደገባ ይቆያል። እንዲቀየር ጥያቄውን ያስገባውን ጽ/ቤት ይጠይቁ።",
+  "forms.validation.rowHasHiddenAnswers": "የዚህ ክፍል አንድ ረድፍ እርስዎ የማያዩት ወይም የማይቀይሩት መልስ ይዟል፤ ሊሰረዝ አይችልም። እንዲሰረዝ ጥያቄውን ያስገባውን ጽ/ቤት ይጠይቁ።",
   "forms.validation.notEditable": "ይህንን መልስ እዚህ መቀየር አይችሉም፤ ጥያቄውን ያስገባውን ጽ/ቤት ይጠይቁ።",
   "forms.overlay.testCaseFails": "ከተጨማሪው ጋር ይህ የቢሮው ቅጽ የሙከራ ጉዳይ አያልፍም (የሚጨመር መስክ አማራጭ ወይም ነባሪ እሴት ያለው መሆን አለበት)",
   "forms.overlay.conflict.anchor_missing": "የሚጨመርበት መስክ በቅጹ ላይ የለም",

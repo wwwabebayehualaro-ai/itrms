@@ -26,6 +26,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
 import { SLICES } from '../../src/slices';
+import { noIds } from './support/answers';
 import { startPostgres, type TestPostgres } from './support/postgres';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -909,7 +910,7 @@ describe('the shared validation cases (packages/form-engine/test/cases.json)', (
         );
         if (Object.keys(c.errors).length === 0) {
             expect(res.statusCode, res.body).toBe(201);
-            expect(res.json<SubmissionOut>().answers).toEqual(c.stored);
+            expect(noIds(res.json<SubmissionOut>().answers)).toEqual(c.stored);
         } else {
             expect(res.statusCode, res.body).toBe(422);
             const errors = res.json<{ errors: { path: string; message: string }[] }>().errors;
@@ -1041,19 +1042,23 @@ describe('conditional rules, the Ethiopian date and recomputed values (task 0.17
         // a forged line total and a forged grand total
         const res = await submitTo(form.id, versionId, {
             lines: [
-                { amount: 100, lineTotal: 1 },
-                { amount: 50, lineTotal: 999 }
+                { _id: 'row-00000001', amount: 100, lineTotal: 1 },
+                { _id: 'row-00000001', amount: 50, lineTotal: 999 }
             ],
             total: 7
         });
         expect(res.statusCode, res.body).toBe(201);
-        expect(res.json<SubmissionOut>().answers).toEqual({
+        expect(noIds(res.json<SubmissionOut>().answers)).toEqual({
             lines: [
                 { amount: 100, lineTotal: 200 },
                 { amount: 50, lineTotal: 100 }
             ],
             total: 300
         });
+        // every row filed has its own id (ADR-0040): one sent is kept, a repeated one is replaced
+        const ids = (res.json<SubmissionOut>().answers.lines as { _id: string }[]).map((r) => r._id);
+        expect(ids[0]).toBe('row-00000001');
+        expect(ids[1]).toMatch(/^[0-9a-f-]{36}$/);
     });
 
     it('takes a day picked on the Ethiopian calendar as the Gregorian date, and exports it in both calendars', async () => {

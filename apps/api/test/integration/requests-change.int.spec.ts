@@ -12,6 +12,7 @@ import type { CaseList, CaseOut } from '@itrms/workflow/contracts';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { noIds } from './support/answers';
 import { startApi, type As, type TestApi } from './support/api';
 import { startPostgres, type TestPostgres } from './support/postgres';
 
@@ -30,6 +31,8 @@ const HIDDEN_SERVICE = 'RS-06';
 const RULED_SERVICE = 'RS-07';
 /** the request with Sensitive answers other roles' rules show, a derived total and a field the corrector cannot hide */
 const KEPT_SERVICE = 'RS-01';
+/** the request with a column computed from the person who adds the row */
+const PERSONAL_SERVICE = 'RS-04';
 
 let pg: TestPostgres;
 let api: TestApi;
@@ -152,6 +155,19 @@ const KEPT_FORM = {
         })
     ]
 };
+const PERSONAL_FORM = {
+    schemaVersion: 2,
+    fields: [
+        text('plate', { required: true }),
+        text('items', { type: 'FormArray', props: {}, layout: { options: { isContainer: true } } }),
+        text('item', { parentId: 'items' }),
+        // who added the row: computed from the person, never typed (follow-up 180)
+        text('addedBy', {
+            parentId: 'items',
+            data: { defaultProps: {}, computed: { expression: '{{user.id}}', readOnly: true } }
+        })
+    ]
+};
 const ifMatch = (version: number) => ({ 'if-match': `"${version}"` });
 
 /** A form published by the bureau (asked by one administrator, approved by another); its version's id. */
@@ -234,7 +250,8 @@ beforeAll(async () => {
         [SERVICE, formVersionId],
         [HIDDEN_SERVICE, await publishedForm('hidden-request', HIDDEN_FORM)],
         [RULED_SERVICE, await publishedForm('ruled-request', RULED_FORM)],
-        [KEPT_SERVICE, await publishedForm('kept-request', KEPT_FORM)]
+        [KEPT_SERVICE, await publishedForm('kept-request', KEPT_FORM)],
+        [PERSONAL_SERVICE, await publishedForm('personal-request', PERSONAL_FORM)]
     ] as const) {
         const published = await api.call('POST', `/api/v1/services/${code}/versions`, as.bureau, {
             workflowVersionId,
@@ -500,7 +517,7 @@ describe('a filed request', () => {
         const page = (await api.call('GET', `/api/v1/cases/${c.id}`, as.damotHead)).json<CaseOut>();
         const theirs = page.steps.find((s) => s.submissionId === filed?.id)?.answers ?? {};
         expect(theirs).not.toHaveProperty('phone');
-        expect(theirs.people).toEqual([{ name: 'Generated Person' }]);
+        expect(theirs.people).toEqual([{ _id: expect.any(String) as unknown, name: 'Generated Person' }]);
 
         // sent back as shown, the plate corrected: the file, the phone and the rows stay as filed
         const corrected = await act({
@@ -521,15 +538,6 @@ describe('a filed request', () => {
         expect(moved.statusCode).toBe(422);
         expect(moved.json()).toMatchObject({ errors: [{ path: 'attachments', code: 'invalid_file' }] });
 
-        // the rows cannot be changed by someone who does not see all of them: refused, nothing lost
-        const rows = await act({
-            action: 'correct',
-            comment: 'the name was misspelt',
-            answers: { ...theirs, plate: 'ETH ABC 0201', people: [{ name: 'Generated Persons' }] }
-        });
-        expect(rows.statusCode).toBe(422);
-        expect(rows.json()).toMatchObject({ errors: [{ path: 'people', code: 'hidden_answers' }] });
-
         // a change that changes nothing writes nothing
         const revisions = async () =>
             (await api.owner.query('select 1 from forms.submission_revisions where submission_id = $1', [filed?.id]))
@@ -543,6 +551,56 @@ describe('a filed request', () => {
         expect(same.statusCode, same.body).toBe(200);
         expect(c.events.findLast((e) => e.action === 'correct')?.amended).toEqual([]);
         expect(await revisions()).toBe(1);
+
+        // the head corrects a row (ADR-0040): the records officer's column and the Sensitive id stay with their row
+        const rowId = (theirs.people as { _id: string }[])[0]?._id;
+        const renamed = await act({
+            action: 'correct',
+            comment: 'the name was misspelt',
+            answers: { ...theirs, plate: 'ETH ABC 0201', people: [{ _id: rowId, name: 'Generated Persons' }] }
+        });
+        expect(renamed.statusCode, renamed.body).toBe(200);
+        expect(c.events.findLast((e) => e.action === 'correct')?.amended).toEqual(['people']);
+        expect((await stored())?.answers.people).toEqual([
+            { _id: rowId, name: 'Generated Persons', idNo: 'ID-1', checkedBy: 'records' }
+        ]);
+
+        // a row added now holds none of another role's answers, and gets its own id
+        const added = await act({
+            action: 'correct',
+            comment: 'a second person',
+            answers: {
+                ...theirs,
+                plate: 'ETH ABC 0201',
+                people: [
+                    { _id: rowId, name: 'Generated Persons' },
+                    { name: 'Second Person', checkedBy: 'forged' }
+                ]
+            }
+        });
+        expect(added.statusCode, added.body).toBe(200);
+        const people = (await stored())?.answers.people as Record<string, unknown>[];
+        expect(people).toHaveLength(2);
+        expect(people[1]).toEqual({ _id: expect.any(String) as unknown, name: 'Second Person' });
+        expect(people[1]?._id).not.toBe(rowId);
+
+        // a row holding the records officer's answers is never deleted through the change; one holding none may be
+        const dropped = await act({
+            action: 'correct',
+            comment: 'only the second',
+            answers: { ...theirs, plate: 'ETH ABC 0201', people: [{ _id: people[1]?._id, name: 'Second Person' }] }
+        });
+        expect(dropped.statusCode).toBe(422);
+        expect(dropped.json()).toMatchObject({ errors: [{ path: 'people', code: 'hidden_answers' }] });
+        const second = await act({
+            action: 'correct',
+            comment: 'the second was a mistake',
+            answers: { ...theirs, plate: 'ETH ABC 0201', people: [{ _id: rowId, name: 'Generated Persons' }] }
+        });
+        expect(second.statusCode, second.body).toBe(200);
+        expect((await stored())?.answers.people).toEqual([
+            { _id: rowId, name: 'Generated Persons', idNo: 'ID-1', checkedBy: 'records' }
+        ]);
     });
 
     it("keeps what other roles' rules show, and never asks for a column nobody here may fill", async () => {
@@ -569,7 +627,7 @@ describe('a filed request', () => {
                     [c.id]
                 )
             ).rows[0]?.answers;
-        expect(await stored()).toEqual({
+        expect(noIds(await stored())).toEqual({
             plate: 'ETH ABC 0300',
             intakeRemark: 'saw the libre',
             vehicles: [{ vplate: 'A 1', verified: false }]
@@ -594,7 +652,7 @@ describe('a filed request', () => {
         });
         expect(corrected.statusCode, corrected.body).toBe(200);
         expect(c.events.findLast((e) => e.action === 'correct')?.amended).toEqual(['plate', 'result', 'vehicles']);
-        expect(await stored()).toEqual({
+        expect(noIds(await stored())).toEqual({
             plate: 'ETH ABC 0301',
             intakeRemark: 'saw the libre',
             result: 'pass',
@@ -672,7 +730,7 @@ describe('a filed request', () => {
             lines: [{ lineAmount: 3, lineTotal: 15 }],
             incomes: [{ amount: 100, taxDue: 200 }]
         };
-        expect(await stored()).toEqual(recomputed);
+        expect(noIds(await stored())).toEqual(noIds(recomputed));
 
         // the Sensitive section's rows are nobody's here to replace
         const family = await act({
@@ -681,7 +739,7 @@ describe('a filed request', () => {
             answers: { plate: 'ETH ABC 0400', qty: 5, insured: 'yes', family: [{ relation: 'child' }] }
         });
         expect(family.statusCode).toBe(422);
-        expect(family.json()).toMatchObject({ errors: [{ path: 'family', code: 'hidden_answers' }] });
+        expect(family.json()).toMatchObject({ errors: [{ path: 'family', code: 'not_editable' }] });
 
         // a change is a patch: un-insuring leaves the records officer's insurance number as filed (it is theirs, and
         // the revision keeps every earlier state); nothing the head may not see is named or probed
@@ -692,6 +750,143 @@ describe('a filed request', () => {
         });
         expect(uninsured.statusCode, uninsured.body).toBe(200);
         expect(c.events.findLast((e) => e.action === 'correct')?.amended).toEqual(['insured']);
-        expect(await stored()).toEqual({ ...recomputed, insured: 'no' });
+        expect(noIds(await stored())).toEqual(noIds({ ...recomputed, insured: 'no' }));
+    });
+
+    it('reads rows filed before row ids, keeps such a section whole as before, and gives its rows ids once changed', async () => {
+        const started = await api.call('POST', '/api/v1/service-requests', as.damotRecords, {
+            serviceCode: HIDDEN_SERVICE,
+            answers: { plate: 'ETH ABC 0400', people: [{ name: 'Earlier Person', idNo: 'ID-9', checkedBy: 'records' }] }
+        });
+        expect(started.statusCode, started.body).toBe(201);
+        let c = started.json<CaseOut>();
+        const act = async (body: object) => {
+            const res = await api.call(
+                'POST',
+                `/api/v1/cases/${c.id}/transitions`,
+                as.damotHead,
+                body,
+                ifMatch(c.version)
+            );
+            if (res.statusCode === 200) c = res.json<CaseOut>();
+            return res;
+        };
+        const submitted = await api.call(
+            'POST',
+            `/api/v1/cases/${c.id}/transitions`,
+            as.damotRecords,
+            { action: 'submit' },
+            ifMatch(c.version)
+        );
+        expect(submitted.statusCode, submitted.body).toBe(200);
+        c = submitted.json<CaseOut>();
+        // the rows as a request filed before ADR-0040 holds them: no ids
+        const earlier = [{ name: 'Earlier Person', idNo: 'ID-9', checkedBy: 'records' }];
+        await api.owner.query(
+            `update forms.submissions set answers = jsonb_set(answers, '{people}', $2::jsonb) where case_id = $1`,
+            [c.id, JSON.stringify(earlier)]
+        );
+        const stored = async () =>
+            (
+                await api.owner.query<{ answers: Record<string, unknown> }>(
+                    'select answers from forms.submissions where case_id = $1',
+                    [c.id]
+                )
+            ).rows[0]?.answers;
+        const shown = async () => {
+            const page = (await api.call('GET', `/api/v1/cases/${c.id}`, as.damotHead)).json<CaseOut>();
+            return page.steps.find((s) => s.answers && 'plate' in s.answers)?.answers ?? {};
+        };
+
+        // still readable (G3), and its rows cannot be changed by someone who does not see all of them
+        const theirs = await shown();
+        expect(theirs.people).toEqual([{ name: 'Earlier Person' }]);
+        const refused = await act({
+            action: 'correct',
+            comment: 'the name was misspelt',
+            answers: { ...theirs, people: [{ name: 'Earlier Persons' }] }
+        });
+        expect(refused.statusCode).toBe(422);
+        expect(refused.json()).toMatchObject({ errors: [{ path: 'people', code: 'hidden_answers' }] });
+        expect(await stored()).toMatchObject({ people: earlier });
+
+        // another answer changed: the rows get their ids, as filed otherwise
+        const plate = await act({
+            action: 'correct',
+            comment: 'the plate was misread',
+            answers: { ...theirs, plate: 'ETH ABC 0401' }
+        });
+        expect(plate.statusCode, plate.body).toBe(200);
+        expect((await stored())?.people).toEqual([{ _id: expect.any(String) as unknown, ...earlier[0] }]);
+
+        // from then on a row is merged by its id
+        const again = await shown();
+        const renamed = await act({
+            action: 'correct',
+            comment: 'the name was misspelt',
+            answers: {
+                ...again,
+                people: (again.people as Record<string, unknown>[]).map((r) => ({ ...r, name: 'Earlier Persons' }))
+            }
+        });
+        expect(renamed.statusCode, renamed.body).toBe(200);
+        expect(noIds((await stored())?.people)).toEqual([{ ...earlier[0], name: 'Earlier Persons' }]);
+    });
+
+    it('keeps who added a row as filed, and names the corrector on a row they add (follow-up 180)', async () => {
+        const started = await api.call('POST', '/api/v1/service-requests', as.damotRecords, {
+            serviceCode: PERSONAL_SERVICE,
+            answers: { plate: 'ETH ABC 0500', items: [{ item: 'Tyre' }] }
+        });
+        expect(started.statusCode, started.body).toBe(201);
+        let c = started.json<CaseOut>();
+        const submitted = await api.call(
+            'POST',
+            `/api/v1/cases/${c.id}/transitions`,
+            as.damotRecords,
+            { action: 'submit' },
+            ifMatch(c.version)
+        );
+        expect(submitted.statusCode, submitted.body).toBe(200);
+        c = submitted.json<CaseOut>();
+        const records = await api.userId(SUB.damotRecords);
+        const head = await api.userId(SUB.damotHead);
+        const stored = async () =>
+            (
+                await api.owner.query<{ answers: Record<string, unknown> }>(
+                    'select answers from forms.submissions where case_id = $1',
+                    [c.id]
+                )
+            ).rows[0]?.answers;
+        expect(noIds(await stored())).toEqual({ plate: 'ETH ABC 0500', items: [{ item: 'Tyre', addedBy: records }] });
+
+        // the head's change to the rows is theirs to make, though the column reads another person for them
+        const page = (await api.call('GET', `/api/v1/cases/${c.id}`, as.damotHead)).json<CaseOut>();
+        const theirs = page.steps.find((s) => s.answers && 'plate' in s.answers)?.answers ?? {};
+        const [tyre] = theirs.items as Record<string, unknown>[];
+        const changed = await api.call(
+            'POST',
+            `/api/v1/cases/${c.id}/transitions`,
+            as.damotHead,
+            {
+                action: 'correct',
+                comment: 'a spare tyre, and a jack',
+                answers: {
+                    ...theirs,
+                    items: [
+                        { ...tyre, item: 'Spare tyre', addedBy: head },
+                        { item: 'Jack', addedBy: records }
+                    ]
+                }
+            },
+            ifMatch(c.version)
+        );
+        expect(changed.statusCode, changed.body).toBe(200);
+        expect(changed.json<CaseOut>().events.findLast((e) => e.action === 'correct')?.amended).toEqual(['items']);
+        const items = (await stored())?.items as Record<string, unknown>[];
+        expect(items).toEqual([
+            { _id: tyre?._id, item: 'Spare tyre', addedBy: records },
+            { _id: expect.any(String) as unknown, item: 'Jack', addedBy: head }
+        ]);
     });
 });
