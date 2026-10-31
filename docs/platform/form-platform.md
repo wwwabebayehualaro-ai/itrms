@@ -111,8 +111,30 @@ draft ─► automatic checks ─► test cases ─► review (maker ≠ checker
 | Form tier | Owner | Can change | Examples |
 |---|---|---|---|
 | Bureau service forms | bureau (`bureau_admin` + form-author role) | everything except contract-locked parts | licence application, bolo checklist |
-| Zone/unit overlays | zone or unit admin, where the service's override policy allows | add fields after anchors, help texts, local options, layout | a local question, a zone-specific attachment |
+| Zone/unit overlays | zone or unit admin, where the service's override policy allows | add `x_` fields after anchors, narrow options (help texts and layout later) | a local question, a zone-specific attachment |
 | Unit-local forms | unit admin | everything (C services only, not bound to effects) | campaign reports, club registers, internal checklists |
+
+* **Built in task 0.21f** ([ADR-0039](../decisions/0039-form-overlays.md)):
+  * An overlay adds fields right after an anchor field and narrows a choice field's options. It never changes, hides or
+    removes a bureau field, and never touches a field an effect contract locks. Layout changes and help texts are not
+    overlay operations yet.
+  * Added keys must match `x_…`. A bureau or unit-local form may not take a new `x_` key (lint rule `key-reserved`; keys
+    already published keep it).
+  * The office writes its own overlay (`form:overlay`: `bureau_admin`, `unit_admin`) through `PUT
+    /forms/{id}/overlays/{unitId}`. The bureau never overlays; a unit-local form takes none. Publishing is maker-checker
+    (`form_publications`): a second person with `form:approve` at that office or above approves.
+  * Storage: `forms.form_overlays` (working copy) and `forms.form_overlay_versions` (immutable), class C. A unit's new
+    case is filed on a composed `form_versions` row (`base_version_id`, `overlay_version_ids`, root side first), made once
+    and reused. Open cases keep their frozen version.
+  * Applies: the published overlays of the units on the filing unit's chain below the form's owner, root side first, where
+    the service version's policy opens `formOverlay` at that level (`region` directly below the root, `unit` deeper).
+  * Composition never fails. An operation that no longer fits is passed over and reported; an overlay that would add a lint
+    error is passed over whole. The publish impact lists each overlay and its conflicts.
+  * Also: lint rule `reads-restricted` (a formula or condition reading a field restricted to roles some of its readers
+    lack is an error); `fieldsForRoles` drops the children of a restricted container; the publish impact finds saved views
+    in SQL and names unreadable ones.
+  * Not yet: an overlay editor screen, overlay fields in the data viewer and filter index, columns in repeating sections
+    (task 0.21g), adding at the top of a form, overlay drafts at the counter, an explicit delete (publish an empty overlay).
 
 ## 5. Field catalogue (generic + Ethiopia- and domain-specific)
 

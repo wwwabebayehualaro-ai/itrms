@@ -256,9 +256,11 @@ records are **deactivated**, never deleted); `timestamptz` stored in UTC, busine
 |---|---|
 | `service_definitions` | the catalogue (54 rows at the start): code (e.g. `DVC-LIC-NEW`), work process, name `I18nText`, subject kind (person, vehicle, association, project, none), module key |
 | `service_versions` | a bureau default: form version, workflow definition version, fee rule version, document template versions, override policy (which keys a lower unit may change), effective dates |
-| `service_overrides` | per org unit: a patch of allowed keys (enabled, SLA hours, extra form overlay, help texts, template header); class C |
+| `service_overrides` | per org unit: a patch of allowed keys (enabled, SLA hours, help texts, template header); class C. Form overlays are not here (see `form_overlays`) |
 | `form_definitions`, `form_versions` | the engine's documents (content-hashed, immutable versions; `I18nText` labels) |
-| `form_publications` | a request to make a form version the published one, decided by a second person (SEC-AC-6); class T at the form's owner unit |
+| `form_publications` | a request to make a form version the published one (or a unit's overlay version), decided by a second person (SEC-AC-6); class T at the form's owner unit |
+| `form_overlays` | a unit's working copy of its additions to a bureau form (task 0.21f, ADR-0039); class C at the unit |
+| `form_overlay_versions` | immutable published versions of an overlay; class C at the unit. A case is filed on a **composed** `form_versions` row (`base_version_id`, `overlay_version_ids`), made once per filing unit and reused |
 | `cases` | one service request: number, service version, resolved-config hash, applicant party, **subject refs** (`vehicle_id`, `person_id`, `licence_id`, `association_id`, `project_id`; typed FKs, nullable), handling unit, state, timestamps; class T |
 | `submission_revisions` | the answers a case's request held before each change through its workflow (task 0.21e): append-only, class T at the handling unit. A change (an action with `amendsRequest`) is a **patch**: the answers the actor changed, of fields they may see and change, settled and checked on the version it was filed on; every other answer stays as filed (other roles' fields, Sensitive answers, what the actor's own rules hide or close, a repeating section holding answers they may not see), and a field derived from the answers alone is computed again. A field the actor sees but may not change is refused by name |
 | `submissions` | form answers: `case_id`, `form_version_id`, `step_key`, `answers JSONB`, `submitted_by`; answers hold **ids** of registry records picked by lookup fields, never copies |
@@ -288,10 +290,14 @@ effective(service, unit) = default(service_version) ⊕ override(ancestor_1) ⊕
 ```
 
 - The **same resolver** serves the settings registry ([platform/org-and-unit-types.md](platform/org-and-unit-types.md)
-  §4). Service keys (`approval_unit`, SLAs, form overlays, help texts) live **only** in service overrides; the settings
+  §4). Service keys (`approval_unit`, SLAs, help texts) live **only** in service overrides; the settings
   registry references them and never stores them twice.
-- Form overrides are **overlays** (add fields after an anchor, change help texts or options within the allowed set). They
-  are not forks: when the bureau publishes a new form version, the overlays are re-applied and checked at publish time.
+- Form overrides are **overlays** (task 0.21f, [ADR-0039](decisions/0039-form-overlays.md)): add `x_` fields after an
+  anchor, or narrow a choice field's options. They are not forks. They are **not** service overrides: they live in the
+  forms slice (`form_overlays`, `form_overlay_versions`), written by the office (`form:overlay`) and published by a second
+  person. The service version's policy only opens the `formOverlay` family per level. A unit's new case is filed on a
+  composed form version (bureau version + overlay versions). When the bureau publishes a new form version, the overlays
+  are re-applied (what no longer fits is passed over and reported) and the publish impact lists them.
 - When a case is created, the effective configuration is resolved and **frozen** on the case (`resolved_config_hash` + the
   version ids). Later configuration changes never alter open cases.
 - Coded behaviour stays in modules: a service version names its effects (e.g. `competency.issueLicence`), and only effects a
@@ -301,7 +307,7 @@ effective(service, unit) = default(service_version) ⊕ override(ancestor_1) ⊕
   change it; a unit-type layer for services is not used yet (service enablement per unit type is `unit_type_services`).
   A new version reports the overrides below it that no longer fit (a state or field it lacks, a family it no longer
   allows); they stay stored and are passed over. The frozen configuration is the case's `config` (with `config_hash`);
-  the engine reads a step's SLA from it before the workflow's. Form overlays follow in 0.21d.
+  the engine reads a step's SLA from it before the workflow's. Form overlays are built in 0.21f.
 
 ## 8. Workflow engine
 
