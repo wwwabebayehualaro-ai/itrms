@@ -38,7 +38,8 @@ export type LintRule =
     | 'key-retyped'
     | 'key-moved'
     | 'unclassified'
-    | 'sensitive-filterable';
+    | 'sensitive-filterable'
+    | 'reads-restricted';
 
 export interface LintProblem {
     rule: LintRule;
@@ -294,6 +295,35 @@ export function lintDocument(raw: unknown, opts: LintOptions = {}): LintProblem[
                     flagged.add(`r|${read.path}|${name}`);
                     add('reads-removed', 'warning', f, read.path, { key: name });
                 }
+            }
+    }
+
+    // reads-restricted: a formula or condition reading a field some of its readers may not see would store or show
+    // something of it to them (a total over a salary, a field shown only when a restricted answer is yes)
+    const rolesOf = (f: EngineField): Set<string> | null => {
+        let roles: Set<string> | null = null;
+        for (let p: EngineField | undefined = f, depth = 0; p && depth <= doc.fields.length; depth++) {
+            if (p.visibleToRoles?.length) {
+                const own = new Set(p.visibleToRoles);
+                roles = roles ? new Set([...roles].filter((r) => own.has(r))) : own;
+            }
+            p = p.parentId ? byId.get(p.parentId) : undefined;
+        }
+        return roles;
+    };
+    // whether everyone who sees `reader` also sees `read` (null: everyone)
+    const covers = (reader: Set<string> | null, read: Set<string> | null) =>
+        read === null || (reader !== null && [...reader].every((r) => read.has(r)));
+    for (const f of subjects) {
+        const flagged = new Set<string>();
+        for (const read of readsOf(f))
+            for (const ref of read.refs) {
+                const name = nameOf(ref);
+                const target = name ? byId.get(name) : undefined;
+                if (!target || target.id === f.id || flagged.has(`${read.path}|${target.id}`)) continue;
+                if (covers(rolesOf(f), rolesOf(target))) continue;
+                flagged.add(`${read.path}|${target.id}`);
+                add('reads-restricted', 'error', f, read.path, { field: f.label || f.id, key: target.id });
             }
     }
 
