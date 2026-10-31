@@ -40,6 +40,8 @@ import en from '../messages/en.json';
 /** The 422 message of a field with more choices than the filterable values keep, in the caller's language. */
 const sectionKept = (language: string): string =>
     (language === 'en' ? en : am)['forms.validation.sectionHasHiddenAnswers'];
+const keptAffected = (language: string): string =>
+    (language === 'en' ? en : am)['forms.validation.keptAnswersAffected'];
 
 /** No answer: what a form sends for a field left empty. */
 const blank = (v: unknown): boolean =>
@@ -200,14 +202,36 @@ export class SubmissionsService {
         raw: Record<string, unknown>,
         lookups: RegistryLookups,
         language: string,
-        change?: { submissionId: string; kept: Record<string, unknown>; mine: (fieldId: string) => boolean }
+        change?: {
+            submissionId: string;
+            kept: Record<string, unknown>;
+            /** the stored answers as the caller's rules settle them: what a kept answer must still be after the change */
+            settledBefore: Record<string, unknown>;
+            mine: (fieldId: string) => boolean;
+        }
     ) {
         const visible = fieldsFor(document, roles, language);
         const fields = change ? readDocument(document, { language }).fields : visible;
         const scope = scopeFor(ctx, roles);
-        const settled = change
-            ? { ...submittedValues(fields, { ...knownValues(visible, raw), ...change.kept }, scope), ...change.kept }
-            : submittedValues(fields, raw, scope);
+        let settled = submittedValues(fields, change ? { ...knownValues(visible, raw), ...change.kept } : raw, scope);
+        if (change) {
+            // a kept answer stays exactly as filed; a change that would hide, reset or recompute one is refused, never a
+            // silent loss of another role's answer (a derived field is not kept: it follows the answers it reads)
+            const affected = Object.keys(change.kept).filter(
+                (k) => canonicalJson(settled[k] ?? null) !== canonicalJson(change.settledBefore[k] ?? null)
+            );
+            if (affected.length)
+                throw new ValidationError('validation_failed', {
+                    detail: 'Some answers are not valid.',
+                    errors: affected.map((k) => ({
+                        // a field the caller may not see is not named to them
+                        path: change.mine(k) ? k : '',
+                        code: 'kept_answers',
+                        message: keptAffected(language)
+                    }))
+                });
+            settled = { ...settled, ...change.kept };
+        }
         const submitted = await resolveFiles(
             tx,
             fields,
@@ -264,10 +288,11 @@ export class SubmissionsService {
 
     /**
      * Changes a case's request (task 0.21e): only through its workflow (an action that `amendsRequest`), on the version it
-     * was filed on, checked again as a new request is. What the caller may not see (a field restricted to other roles)
-     * keeps its stored answer, and so does a Sensitive one they leave out (it is shown masked); the answers it replaces
-     * go to `submission_revisions` first, and the filterable values are written again, in the caller's transaction.
-     * Answers the names of the fields whose answers changed, never their values.
+     * was filed on, checked again as a new request is. The caller changes only the answers they may see and change:
+     * what other roles' fields, rules and Sensitive answers hold stays exactly as filed, a change that would alter it is
+     * refused (422), and a derived (computed) field follows the answers it reads. The answers it replaces go to
+     * `submission_revisions` first, and the filterable values are written again, in the caller's transaction. Answers
+     * the names of the fields whose answers changed, never their values.
      */
     async amend(
         tx: Tx,
@@ -303,42 +328,48 @@ export class SubmissionsService {
         const mine = (f: EngineField): boolean => chain(f).every((p) => seen.has(p.id));
         const sensitive = (f: EngineField): boolean => chain(f).some((p) => p.classification === 'sensitive');
         const inRows = rowScopedIds(all);
-        const shown = (values: Record<string, unknown>) => maskSensitive(visible, knownValues(visible, values));
-        const masked = new Set(shown(before.answers).masked);
-        // the answers the caller's own rules would drop or reset as filed (a field shown or open only to other roles by
-        // its condition): another role's to change
-        const settledBefore = submittedValues(all, before.answers, scopeFor(ctx, roles));
+        const scope = scopeFor(ctx, roles);
+        const masked = new Set(maskSensitive(visible, knownValues(visible, before.answers)).masked);
+        // the stored answers as the caller's own rules settle them: a field shown or open only to other roles by its
+        // condition is dropped or reset here, so it is another role's to change
+        const settledBefore = submittedValues(all, before.answers, scope);
         const ruledOut = (id: string) => canonicalJson(settledBefore[id] ?? null) !== canonicalJson(before.answers[id]);
-        // what the caller keeps as filed: what they may not see or change; a Sensitive answer shown masked that they leave
-        // blank; a repeating section holding answers they may not see or change (its rows have no identity to merge them
-        // by: changing such a section is refused, never a loss of what it holds)
+        // a section as the caller's form shows it, through the same rules (what they could send back unchanged)
+        const shownAs = (id: string, value: unknown) =>
+            withoutBlanks(
+                maskSensitive(
+                    visible,
+                    knownValues(visible, submittedValues(all, { ...before.answers, [id]: value }, scope))
+                ).values[id]
+            ) ?? null;
+        const derived = (f: EngineField) => !isFormArray(f) && f.computed?.readOnly === true && !!f.computed.expression;
+        // what the caller keeps as filed, decided in this order: a derived field never (it follows its answers); what
+        // they may not see; a repeating section holding answers they may not see or change, Sensitive ones included (its
+        // rows have no identity to merge them by: changing it is refused, never a loss of what it holds); what their own
+        // rules hide or close to them; a Sensitive answer shown masked that they leave blank
         const kept: Record<string, unknown> = {};
         for (const f of all) {
-            if (inRows.has(f.id) || !Object.hasOwn(before.answers, f.id)) continue;
+            if (inRows.has(f.id) || !Object.hasOwn(before.answers, f.id) || derived(f)) continue;
             const stored = before.answers[f.id];
             if (!mine(f)) kept[f.id] = stored;
-            else if (masked.has(f.id)) {
-                if (blank(input.answers[f.id])) kept[f.id] = stored;
-            } else if (!isFormArray(f) && ruledOut(f.id)) kept[f.id] = stored;
-            else if (
-                isFormArray(f) &&
-                (ruledOut(f.id) || holdsHidden(all, f, stored, (c) => !mine(c) || sensitive(c)))
-            ) {
+            else if (isFormArray(f)) {
+                if (!ruledOut(f.id) && !holdsHidden(all, f, stored, (c) => !mine(c) || sensitive(c))) continue;
                 const sent = Object.hasOwn(input.answers, f.id) ? input.answers[f.id] : stored;
-                if (
-                    canonicalJson(withoutBlanks(shown({ [f.id]: sent }).values[f.id]) ?? null) !==
-                    canonicalJson(withoutBlanks(shown({ [f.id]: stored }).values[f.id]) ?? null)
-                )
+                // a section shown masked whole shows nothing to compare: any rows sent for it are a change
+                const sentMasked = masked.has(f.id) && Object.hasOwn(input.answers, f.id) && !blank(sent);
+                if (sentMasked || canonicalJson(shownAs(f.id, sent)) !== canonicalJson(shownAs(f.id, stored)))
                     throw new ValidationError('validation_failed', {
                         detail: 'Some answers are not valid.',
                         errors: [{ path: f.id, code: 'hidden_answers', message: sectionKept(language) }]
                     });
                 kept[f.id] = stored;
-            }
+            } else if (ruledOut(f.id)) kept[f.id] = stored;
+            else if (masked.has(f.id) && blank(input.answers[f.id])) kept[f.id] = stored;
         }
         const checked = await this.checked(tx, ctx, roles, version.document, input.answers, lookups, language, {
             submissionId: before.id,
             kept,
+            settledBefore,
             mine: (id) => {
                 const f = byId.get(id);
                 return f !== undefined && mine(f);

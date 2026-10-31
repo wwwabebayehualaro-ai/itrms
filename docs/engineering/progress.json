@@ -959,7 +959,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Product owner chose the SOTA, enterprise-grade data-class approach (ADR-0037) and CI on GitHub-hosted runners (ADR-0038, supersedes 0034). Reviewer (Opus) found 8 issues in the first draft (repeating sections with hidden columns wiped, files refused on change, clear/masked mismatch, JSON key-order diffs, rules without kept answers, no DB four-eyes, moving recent cursor, expired requests blocking); all fixed with tests."
+          "notes": "Product owner chose the SOTA, enterprise-grade data-class approach (ADR-0037) and CI on GitHub-hosted runners (ADR-0038, supersedes 0034). Reviewer (Opus) found 8 issues in the first draft (repeating sections with hidden columns wiped, files refused on change, clear/masked mismatch, JSON key-order diffs, rules without kept answers, no DB four-eyes, moving recent cursor, expired requests blocking); all fixed with tests. CI run 41198185881 on 83d5903 green (PR #26). Task-verifier: ready with caveats (evidence to record; lookup labels had no test). Added lookupIds unit test (apps/web/tests/unit/caseAnswers.test.ts, 2 passed; helper moved to apps/web/src/lib/caseAnswers.ts). Waiting on the reviewer's pass over 83d5903 before moving to in review."
         },
         {
           "id": "0.21f",

@@ -39,6 +39,7 @@ import { templateFor, withHelp } from '@/form-templates/serviceForm';
 import { useAuthStore } from '@/lib/auth/authStore';
 import { formatMoment } from '@/lib/format';
 import { usePreferences, useText } from '@/lib/preferences';
+import { lookupIds } from '@/lib/caseAnswers';
 import { useCase, useClaim, useTransition, type CaseOut, type SlaState } from '@/lib/workflow';
 import { CommentBox } from './CommentBox';
 
@@ -449,33 +450,4 @@ function Steps({ c, stateName }: { c: CaseOut; stateName: (key: string | null) =
             ))}
         </div>
     );
-}
-
-/** The registry records the steps' lookup answers name, by registry (a repeating section's rows too). */
-function lookupIds(steps: CaseOut['steps']): Map<string, string[]> {
-    const wanted = new Map<string, string[]>();
-    for (const s of steps) {
-        const fields =
-            (s.form as { fields?: { id?: unknown; type?: unknown; props?: unknown }[] } | null)?.fields ?? [];
-        const providers = new Map<string, string>();
-        for (const f of fields) {
-            const provider = (f.props as { provider?: unknown } | null | undefined)?.provider;
-            if (f.type === 'RegistryLookup' && typeof f.id === 'string' && typeof provider === 'string')
-                providers.set(f.id, provider);
-        }
-        if (providers.size === 0) continue;
-        const collect = (values: Record<string, unknown>) => {
-            for (const [key, v] of Object.entries(values)) {
-                const provider = providers.get(key);
-                if (provider && typeof v === 'string' && v !== '')
-                    wanted.set(provider, [...(wanted.get(provider) ?? []), v]);
-                else if (Array.isArray(v))
-                    for (const row of v)
-                        if (row && typeof row === 'object' && !Array.isArray(row))
-                            collect(row as Record<string, unknown>);
-            }
-        };
-        collect(s.answers);
-    }
-    return wanted;
 }

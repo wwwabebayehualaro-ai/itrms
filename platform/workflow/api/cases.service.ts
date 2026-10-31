@@ -1230,7 +1230,10 @@ function cursorFor(at: string, id: string): string {
 /** A moment that exists (the database would refuse 2026-02-30 with an error, not as no cursor). */
 function existing(at: string): boolean {
     const day = new Date(`${at.slice(0, 23)}Z`);
-    return !Number.isNaN(day.getTime()) && day.toISOString().slice(0, 23) === at.slice(0, 23);
+    // the database has no year 0 (JavaScript does)
+    return (
+        !Number.isNaN(day.getTime()) && day.getUTCFullYear() >= 1 && day.toISOString().slice(0, 23) === at.slice(0, 23)
+    );
 }
 
 function cursorOf(cursor: string, language: string): { at: string; id: string } {

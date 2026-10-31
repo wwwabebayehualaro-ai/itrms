@@ -28,6 +28,8 @@ const SERVICE = 'RS-05';
 const HIDDEN_SERVICE = 'RS-06';
 /** the request with fields other roles' rules show, and a column nobody here sees */
 const RULED_SERVICE = 'RS-07';
+/** the request with Sensitive answers other roles' rules show, a derived total and a field the corrector cannot hide */
+const KEPT_SERVICE = 'RS-01';
 
 let pg: TestPostgres;
 let api: TestApi;
@@ -77,6 +79,42 @@ const RULED_FORM = {
         text('vehicles', { type: 'FormArray', props: {}, layout: { options: { isContainer: true } } }),
         text('vplate', { parentId: 'vehicles' }),
         text('inspector', { parentId: 'vehicles', required: true, visibleToRoles: ['auditor'] })
+    ]
+};
+const recordsOnly = [{ field: 'user.roles', operator: 'contains', value: 'records_officer' }];
+const KEPT_FORM = {
+    schemaVersion: 2,
+    fields: [
+        text('plate', { required: true }),
+        // Sensitive, and shown only to the records officer by its rule
+        text('secretNote', {
+            classification: 'sensitive',
+            behavior: { validation: { supported: true }, visibilityConditions: recordsOnly }
+        }),
+        // a Sensitive section: its rows hold what nobody here may change
+        text('family', {
+            type: 'FormArray',
+            classification: 'sensitive',
+            props: {},
+            layout: { options: { isContainer: true } }
+        }),
+        text('relation', { parentId: 'family' }),
+        // a total derived from a quantity, seen by the records officer alone
+        text('qty', { type: 'InputNumber' }),
+        text('total', {
+            type: 'InputNumber',
+            visibleToRoles: ['records_officer'],
+            data: { defaultProps: {}, computed: { expression: '{{= form.qty * 2 }}', readOnly: true } }
+        }),
+        // the records officer's answer, shown only while the vehicle is insured
+        text('insured'),
+        text('insuranceNo', {
+            visibleToRoles: ['records_officer'],
+            behavior: {
+                validation: { supported: true },
+                visibilityConditions: [{ field: 'insured', operator: 'eq', value: 'yes' }]
+            }
+        })
     ]
 };
 const ifMatch = (version: number) => ({ 'if-match': `"${version}"` });
@@ -160,7 +198,8 @@ beforeAll(async () => {
     for (const [code, form] of [
         [SERVICE, formVersionId],
         [HIDDEN_SERVICE, await publishedForm('hidden-request', HIDDEN_FORM)],
-        [RULED_SERVICE, await publishedForm('ruled-request', RULED_FORM)]
+        [RULED_SERVICE, await publishedForm('ruled-request', RULED_FORM)],
+        [KEPT_SERVICE, await publishedForm('kept-request', KEPT_FORM)]
     ] as const) {
         const published = await api.call('POST', `/api/v1/services/${code}/versions`, as.bureau, {
             workflowVersionId,
@@ -376,6 +415,8 @@ describe('a filed request', () => {
         expect(forged.statusCode).toBe(422);
         // a cursor of a day that does not exist is refused too, never a database error
         const impossible = Buffer.from(JSON.stringify(['2026-02-30T00:00:00.000000Z', first.id])).toString('base64url');
+        const yearZero = Buffer.from(JSON.stringify(['0000-01-01T00:00:00.000000Z', first.id])).toString('base64url');
+        expect((await api.call('GET', `/api/v1/cases?after=${yearZero}`, as.damotRecords)).statusCode).toBe(422);
         expect((await api.call('GET', `/api/v1/cases?after=${impossible}`, as.damotRecords)).statusCode).toBe(422);
     });
 
@@ -493,5 +534,64 @@ describe('a filed request', () => {
             intakeRemark: 'saw the libre',
             vehicles: [{ vplate: 'A 2' }]
         });
+    });
+
+    it("keeps Sensitive answers of other roles' rules, follows a derived total, and never hides another role's answer", async () => {
+        const started = await api.call('POST', '/api/v1/service-requests', as.damotRecords, {
+            serviceCode: KEPT_SERVICE,
+            answers: {
+                plate: 'ETH ABC 0400',
+                secretNote: 'the owner asked for discretion',
+                family: [{ relation: 'spouse' }],
+                qty: 2,
+                insured: 'yes',
+                insuranceNo: 'INS-1'
+            }
+        });
+        expect(started.statusCode, started.body).toBe(201);
+        let c = started.json<CaseOut>();
+        const act = async (body: object, who: As = as.damotHead) => {
+            const res = await api.call('POST', `/api/v1/cases/${c.id}/transitions`, who, body, ifMatch(c.version));
+            if (res.statusCode === 200) c = res.json<CaseOut>();
+            return res;
+        };
+        expect((await act({ action: 'submit' }, as.damotRecords)).statusCode).toBe(200);
+        const stored = async () =>
+            (
+                await api.owner.query<{ answers: Record<string, unknown> }>(
+                    'select answers from forms.submissions where case_id = $1',
+                    [c.id]
+                )
+            ).rows[0]?.answers;
+        const filed = await stored();
+        expect(filed).toMatchObject({ total: 4, secretNote: 'the owner asked for discretion' });
+
+        // a Sensitive answer the head's rules hide is kept even when they send one; the derived total follows the quantity
+        const corrected = await act({
+            action: 'correct',
+            comment: 'quantity corrected',
+            answers: { plate: 'ETH ABC 0400', secretNote: 'overwritten', qty: 5, insured: 'yes' }
+        });
+        expect(corrected.statusCode, corrected.body).toBe(200);
+        expect(await stored()).toEqual({ ...filed, qty: 5, total: 10 });
+
+        // the Sensitive section's rows are nobody's here to replace
+        const family = await act({
+            action: 'correct',
+            comment: 'relation corrected',
+            answers: { plate: 'ETH ABC 0400', qty: 5, insured: 'yes', family: [{ relation: 'child' }] }
+        });
+        expect(family.statusCode).toBe(422);
+        expect(family.json()).toMatchObject({ errors: [{ path: 'family', code: 'hidden_answers' }] });
+
+        // un-insuring would hide the records officer's insurance number: refused, the field not named to the head
+        const hide = await act({
+            action: 'correct',
+            comment: 'not insured',
+            answers: { plate: 'ETH ABC 0400', qty: 5, insured: 'no' }
+        });
+        expect(hide.statusCode).toBe(422);
+        expect(hide.json()).toMatchObject({ errors: [{ path: '', code: 'kept_answers' }] });
+        expect(await stored()).toEqual({ ...filed, qty: 5, total: 10 });
     });
 });
