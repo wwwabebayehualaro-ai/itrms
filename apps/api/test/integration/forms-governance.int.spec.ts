@@ -19,6 +19,7 @@ const SUB = {
 const text = (id: string, extra: Record<string, unknown> = {}) => ({
     id,
     type: 'InputText',
+    classification: 'personal',
     label: { am: `${id} አ`, en: `${id} en` },
     props: {},
     behavior: { validation: { supported: true } },
@@ -29,6 +30,7 @@ const office = (extra: Record<string, unknown> = {}) => ({
     type: 'Dropdown',
     label: { am: 'ጽ/ቤት', en: 'Office' },
     props: {},
+    classification: 'personal',
     data: {
         dataSource: {
             staticData: [

@@ -42,6 +42,7 @@ const ids = { form: '', formVersion: '', workflowVersion: '' };
 const text = (id: string, required = false) => ({
     id,
     type: 'InputText',
+    classification: 'personal',
     label: id,
     props: required ? { required: true } : {},
     behavior: { validation: { supported: true } }

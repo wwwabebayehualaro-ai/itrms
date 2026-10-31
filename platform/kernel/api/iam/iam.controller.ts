@@ -3,7 +3,7 @@
  * the person is, the unit they act for (its services and capabilities), the units they can switch to, and their roles and
  * permissions there. The menu and settings join it in task 0.10b.
  */
-import { Body, Controller, Get, Headers, Inject, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Inject, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { userPreferencesSchema } from '../../contracts';
 import { eq, sql } from 'drizzle-orm';
 import { createZodDto } from 'nestjs-zod';
@@ -16,7 +16,7 @@ import { DATABASE } from '../observability/tokens';
 import { withinScope } from '../org/org-admin.service';
 import { describeUnit, effectiveServices, getUnit } from '../org/org-tree';
 import { currentPrincipal, Require, requestDbContext, SignedIn } from './access';
-import { assignmentsOf, grantRole, revokeRole } from './assignments';
+import { assignmentsOf, confirmGrant, pendingRequests, rejectGrant, requestGrant, revokeRole } from './assignments';
 import { CLIENT_SETTINGS, effectiveMenu, roleLabels } from './menu';
 import { SHELL, type Shell } from './shell';
 import { SettingsService, userValues } from '../settings/settings';
@@ -33,7 +33,11 @@ class GrantDto extends createZodDto(
     })
 ) {}
 
-/** Granting and revoking roles need a second factor entered in the last 5 minutes (SEC-SE-5). */
+class DecisionDto extends createZodDto(z.strictObject({ reason: z.string().trim().min(3).max(500) })) {}
+
+class RequestsQuery extends createZodDto(z.strictObject({ unitId: z.uuid().optional() })) {}
+
+/** Asking for, confirming and revoking roles need a second factor entered in the last 5 minutes (SEC-SE-5). */
 const STEP_UP = 300;
 
 class PreferencesDto extends createZodDto(userPreferencesSchema) {}
@@ -155,19 +159,48 @@ export class IamController {
         });
     }
 
-    @Post('role-assignments')
+    /** A grant is asked for here and takes effect when a second administrator confirms it (SEC-AC-6). */
+    @Post('role-grant-requests')
     @Require('role-assignment:grant', { recentAuth: STEP_UP })
-    grant(@Body() body: GrantDto) {
+    requestGrant(@Body() body: GrantDto) {
         const ctx = requestDbContext();
         return this.db.scoped(ctx, async (tx) => {
             const unit = await getUnit(tx, body.unitId);
             if (!withinScope(unit.path, ctx.scopePath ?? '')) throw new NotFoundError();
-            return grantRole(tx, currentPrincipal(), {
+            return requestGrant(tx, currentPrincipal(), {
                 ...body,
                 validFrom: body.validFrom ? new Date(body.validFrom) : undefined,
                 validTo: body.validTo ? new Date(body.validTo) : undefined
             });
         });
+    }
+
+    /** The requests waiting in the active unit's subtree (or one unit's), for the administrator who confirms them. */
+    @Get('role-grant-requests')
+    @Require('role-assignment:read')
+    grantRequests(@Query() query: RequestsQuery) {
+        return this.db.scoped(requestDbContext(), (tx) => pendingRequests(tx, query.unitId));
+    }
+
+    @Post('role-grant-requests/:id/confirmations')
+    @Require('role-assignment:grant', { recentAuth: STEP_UP })
+    confirmGrant(@Param('id', ParseUUIDPipe) id: string, @Headers('if-match') ifMatch: string) {
+        return this.db.scoped(requestDbContext(), (tx) =>
+            confirmGrant(tx, currentPrincipal(), id, versionFrom(ifMatch))
+        );
+    }
+
+    /** Refused by another administrator, or withdrawn by the one who asked; it gives nobody anything (no step-up). */
+    @Post('role-grant-requests/:id/rejections')
+    @Require('role-assignment:grant')
+    rejectGrant(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Headers('if-match') ifMatch: string,
+        @Body() body: DecisionDto
+    ) {
+        return this.db.scoped(requestDbContext(), (tx) =>
+            rejectGrant(tx, currentPrincipal(), id, versionFrom(ifMatch), body.reason)
+        );
     }
 
     @Post('role-assignments/:id/revocations')

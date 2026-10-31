@@ -652,6 +652,7 @@ export class ServicesService {
         const { chain } = await this.chainUnits(tx, unit, d.id);
         const config = frozenConfig(resolveConfig(version, chain), {
             serviceCode: code,
+            serviceName: d.name,
             serviceVersionId: v.id,
             formVersionId: v.formVersionId,
             inputMap: v.inputMap

@@ -184,6 +184,7 @@ export class WorkflowDefinitionsService {
         const like = query.q ? `%${escapeLike(query.q)}%` : undefined;
         const conditions = [
             query.active === undefined ? undefined : eq(workflowDefinitions.active, query.active === 'true'),
+            query.owner ? eq(workflowDefinitions.ownerUnitId, query.owner) : undefined,
             like
                 ? or(
                       ilike(workflowDefinitions.key, like),

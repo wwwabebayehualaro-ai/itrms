@@ -119,15 +119,13 @@ function Publish({ code }: { code: string }) {
     const { t, text, language } = useText();
     const notify = useNotify();
     const regionId = useAuthStore((s) => s.workspace?.activeUnit.regionId);
-    const workflows = useWorkflows();
-    const forms = usePublishedForms();
+    // a version names the region's own workflow and form (other zones could not read a zone's): the server filters them
+    const workflows = useWorkflows(regionId ?? null);
+    const forms = usePublishedForms(regionId ?? null);
     const publish = usePublishVersion(code);
     const dateLabels = useDateLabels();
-    // a version names the region's own workflow and form (other zones could not read a zone's)
-    const ownWorkflows = (workflows.data ?? []).filter(
-        (w) => w.active && w.latestVersion && w.ownerUnit.id === regionId
-    );
-    const ownForms = (forms.data ?? []).filter((f) => f.ownerUnit.id === regionId);
+    const ownWorkflows = (workflows.data ?? []).filter((w) => w.active && w.latestVersion);
+    const ownForms = forms.data ?? [];
     const [workflowVersionId, setWorkflow] = useState<string>();
     const [formVersionId, setForm] = useState<string>(NO_FORM);
     const [policy, setPolicy] = useState<Partial<Record<OverrideFamily, OverrideLevel[]>>>({ sla: ['unit'] });

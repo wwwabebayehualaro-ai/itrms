@@ -200,6 +200,8 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
     // every office reads the register of people and organisations (task 0.14); whoever acts on cases has "My tasks" (0.20b)
     const REGISTER = ['parties.persons', 'parties.organisations'];
     const TASKS = 'workflow.inbox';
+    // whoever reads cases has the office's requests (task 0.21e)
+    const REQUESTS = 'workflow.requests';
     // whoever starts requests has "New request" (task 0.21c)
     const REQUEST = 'services.request';
 
@@ -208,7 +210,7 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
         const atDamot = (
             await call('GET', '/api/v1/me/workspace', { token: await token(SUB.damotRecords), unit: damot.id })
         ).json<Workspace>();
-        expect(itemsOf(atDamot)).toEqual(['kernel.home', REQUEST, TASKS, ...REGISTER]);
+        expect(itemsOf(atDamot)).toEqual(['kernel.home', REQUEST, TASKS, REQUESTS, ...REGISTER]);
 
         const boditi = await unitAt('WOL-BODITI');
         const officer = (
@@ -220,6 +222,7 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
         expect(itemsOf(officer)).toEqual([
             'kernel.home',
             TASKS,
+            REQUESTS,
             'competency.applications',
             'competency.exams',
             ...REGISTER
@@ -243,7 +246,7 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
         });
         try {
             // the same person and role: only the unit's services changed
-            expect(await officerMenu()).toEqual(['kernel.home', TASKS, ...REGISTER]);
+            expect(await officerMenu()).toEqual(['kernel.home', TASKS, REQUESTS, ...REGISTER]);
         } finally {
             await installer.scoped({}, async (tx) => {
                 for (const code of licensing) await clearServiceOverride(tx, boditi.id, code);
@@ -259,7 +262,7 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
         const atZone = (await call('GET', '/api/v1/me/workspace', { token: t, unit: zone.id })).json<Workspace>();
         const atDamot = (await call('GET', '/api/v1/me/workspace', { token: t, unit: damot.id })).json<Workspace>();
         expect(itemsOf(atZone)).toContain('competency.applications');
-        expect(itemsOf(atDamot)).toEqual(['kernel.home', REQUEST, TASKS, ...REGISTER]);
+        expect(itemsOf(atDamot)).toEqual(['kernel.home', REQUEST, TASKS, REQUESTS, ...REGISTER]);
     });
 });
 
@@ -349,7 +352,7 @@ describe('the guards and the scope', () => {
 });
 
 describe('granting and revoking', () => {
-    it('grants only delegable roles of the unit type, never to oneself, never backdated', async () => {
+    it('asks only for delegable roles of the unit type, never for oneself, never backdated', async () => {
         const damotGale = await unitAt('WOL-DAMOT-GALE');
         const zoneAdmin = await token(SUB.zoneAdmin);
         const { rows } = await owner.query<{ id: string }>(
@@ -359,7 +362,7 @@ describe('granting and revoking', () => {
         const grant = (roleKey: string) =>
             call(
                 'POST',
-                '/api/v1/role-assignments',
+                '/api/v1/role-grant-requests',
                 { token: zoneAdmin },
                 { userId, unitId: damotGale.id, roleKey, reason: 'cover for leave' }
             );
@@ -374,14 +377,14 @@ describe('granting and revoking', () => {
         );
         const selfGrant = await call(
             'POST',
-            '/api/v1/role-assignments',
+            '/api/v1/role-grant-requests',
             { token: zoneAdmin },
             { userId: self[0]?.id, unitId: damotGale.id, roleKey: 'records_officer', reason: 'myself' }
         );
         expect(selfGrant.statusCode).toBe(403);
         const backdated = await call(
             'POST',
-            '/api/v1/role-assignments',
+            '/api/v1/role-grant-requests',
             { token: zoneAdmin },
             {
                 userId,
@@ -394,7 +397,152 @@ describe('granting and revoking', () => {
         expect(backdated.json()).toMatchObject({ status: 422, errors: [{ code: 'backdated' }] });
         const ok = await grant('road_safety.officer');
         expect(ok.statusCode).toBe(201);
+        expect(ok.json()).toMatchObject({ state: 'pending', roleKey: 'road_safety.officer' });
+        // one request waits per person, unit and role
         expect((await grant('road_safety.officer')).statusCode).toBe(409);
+    });
+
+    it('takes effect only when a second administrator confirms it (maker-checker, SEC-AC-6)', async () => {
+        const damotGale = await unitAt('WOL-DAMOT-GALE');
+        const zoneAdmin = await token(SUB.zoneAdmin);
+        const bureauAdmin = await token(SUB.bureauAdmin);
+        const target = await owner.query<{ id: string; keycloak_sub: string }>(
+            "SELECT id, keycloak_sub FROM kernel.users WHERE username = 'demo.damot.records'"
+        );
+        const grantee = target.rows[0];
+        const asked = await call(
+            'POST',
+            '/api/v1/role-grant-requests',
+            { token: zoneAdmin },
+            { userId: grantee?.id, unitId: damotGale.id, roleKey: 'viewer', reason: 'reads the dashboards' }
+        );
+        expect(asked.statusCode).toBe(201);
+        const request = asked.json<{ id: string; rowVersion: number }>();
+        const audited = await owner.query(
+            "SELECT 1 FROM kernel.audit_log WHERE table_name = 'kernel.role_grant_requests' AND row_id = $1",
+            [request.id]
+        );
+        expect(audited.rowCount).toBe(1);
+
+        // nothing is granted yet: the person acting for Damot Gale has no viewer role there
+        const before = await call('GET', '/api/v1/me/workspace', {
+            token: await token(grantee?.keycloak_sub ?? ''),
+            unit: damotGale.id
+        });
+        expect(before.json<{ roles: string[] }>().roles).not.toContain('viewer');
+
+        // the bureau sees it waiting; the zone administrator sees their own
+        const waiting = await call('GET', '/api/v1/role-grant-requests', { token: bureauAdmin });
+        expect(waiting.json<{ id: string; requestedByName: string }[]>()).toContainEqual(
+            expect.objectContaining({ id: request.id, requestedByName: expect.any(String) as unknown })
+        );
+        const listed = await call('GET', `/api/v1/role-grant-requests?unitId=${damotGale.id}`, { token: zoneAdmin });
+        expect(listed.json<{ id: string }[]>().map((r) => r.id)).toContain(request.id);
+
+        const confirm = (as: string, version = request.rowVersion) =>
+            call('POST', `/api/v1/role-grant-requests/${request.id}/confirmations`, { token: as }, undefined, {
+                'if-match': String(version)
+            });
+        // the maker never confirms their own request
+        const since = await mark();
+        expect((await confirm(zoneAdmin)).statusCode).toBe(403);
+        expect((await deniedEvents(since)).map((d) => d.diff)).toEqual([
+            expect.objectContaining({ reason: 'own_request' })
+        ]);
+        // a stale version is refused
+        expect((await confirm(bureauAdmin, request.rowVersion + 1)).statusCode).toBe(409);
+        const confirmed = await confirm(bureauAdmin);
+        expect(confirmed.statusCode).toBe(201);
+        const { assignment } = confirmed.json<{ assignment: { id: string } }>();
+        const row = await owner.query<{ granted_by: string; confirmed_by: string }>(
+            'SELECT granted_by, confirmed_by FROM kernel.role_assignments WHERE id = $1',
+            [assignment.id]
+        );
+        const ids = await owner.query<{ username: string; id: string }>(
+            "SELECT username, id FROM kernel.users WHERE username IN ('demo.zone.admin', 'demo.bureau.admin')"
+        );
+        const idOf = (u: string) => ids.rows.find((r) => r.username === u)?.id;
+        expect(row.rows[0]).toEqual({ granted_by: idOf('demo.zone.admin'), confirmed_by: idOf('demo.bureau.admin') });
+
+        const after = await call('GET', '/api/v1/me/workspace', {
+            token: await token(grantee?.keycloak_sub ?? ''),
+            unit: damotGale.id
+        });
+        expect(after.json<{ roles: string[] }>().roles).toContain('viewer');
+        // decided once
+        expect((await confirm(bureauAdmin, request.rowVersion + 1)).statusCode).toBe(409);
+        expect(
+            (await call('GET', '/api/v1/role-grant-requests', { token: bureauAdmin }))
+                .json<{ id: string }[]>()
+                .map((r) => r.id)
+        ).not.toContain(request.id);
+    });
+
+    it('is refused by another administrator or withdrawn by the one who asked, and never confirmed after', async () => {
+        const boditi = await unitAt('WOL-BODITI');
+        const zoneAdmin = await token(SUB.zoneAdmin);
+        const bureauAdmin = await token(SUB.bureauAdmin);
+        const { rows } = await owner.query<{ id: string }>(
+            "SELECT id FROM kernel.users WHERE username = 'demo.damot.head'"
+        );
+        const ask = async (roleKey: string) =>
+            (
+                await call(
+                    'POST',
+                    '/api/v1/role-grant-requests',
+                    { token: zoneAdmin },
+                    { userId: rows[0]?.id, unitId: boditi.id, roleKey, reason: 'cover for leave' }
+                )
+            ).json<{ id: string; rowVersion: number }>();
+        const decide = (as: string, r: { id: string; rowVersion: number }, kind: string, body?: object) =>
+            call('POST', `/api/v1/role-grant-requests/${r.id}/${kind}`, { token: as }, body, {
+                'if-match': String(r.rowVersion)
+            });
+
+        const refused = await ask('viewer');
+        expect((await decide(bureauAdmin, refused, 'rejections', { reason: 'no' })).statusCode).toBe(422);
+        const rejected = await decide(bureauAdmin, refused, 'rejections', { reason: 'not needed at Boditi' });
+        expect(rejected.statusCode).toBe(201);
+        expect(rejected.json()).toMatchObject({ state: 'rejected', decisionReason: 'not needed at Boditi' });
+        expect(
+            (await decide(bureauAdmin, { ...refused, rowVersion: refused.rowVersion + 1 }, 'confirmations')).statusCode
+        ).toBe(409);
+
+        const withdrawn = await ask('records_officer');
+        const back = await decide(zoneAdmin, withdrawn, 'rejections', { reason: 'asked by mistake' });
+        expect(back.json()).toMatchObject({ state: 'withdrawn' });
+        // a decided request is no longer waiting, so the same grant may be asked for again
+        const again = await ask('records_officer');
+        expect(again.id).toBeDefined();
+
+        // decided once, and four eyes, in the database too (whatever writes to it)
+        await expect(
+            owner.query(
+                "UPDATE kernel.role_grant_requests SET state = 'withdrawn', decided_by = created_by WHERE id = $1",
+                [refused.id]
+            )
+        ).rejects.toThrow(/decided once/);
+        await expect(
+            owner.query(
+                `UPDATE kernel.role_grant_requests SET state = 'rejected', decided_by = created_by, decided_at = now(),
+                        decision_reason = 'by myself' WHERE id = $1`,
+                [again.id]
+            )
+        ).rejects.toThrow(/role_grant_requests_four_eyes_check/);
+
+        // one left past its time can no longer be confirmed; asking again closes it as expired, by nobody
+        await owner.query(
+            "UPDATE kernel.role_grant_requests SET created_at = now() - interval '15 days' WHERE id = $1",
+            [again.id]
+        );
+        expect((await decide(bureauAdmin, again, 'confirmations')).statusCode).toBe(409);
+        const renewed = await ask('records_officer');
+        expect(renewed.id).not.toBe(again.id);
+        const expired = await owner.query<{ state: string; decided_by: string | null }>(
+            'SELECT state, decided_by FROM kernel.role_grant_requests WHERE id = $1',
+            [again.id]
+        );
+        expect(expired.rows[0]).toEqual({ state: 'expired', decided_by: null });
     });
 
     it('needs a second factor entered in the last 5 minutes (step-up, RFC 9470)', async () => {
@@ -412,7 +560,7 @@ describe('granting and revoking', () => {
             await sign({ sub: SUB.zoneAdmin, ...access, auth_time: now - 420 }, { issuedAt: now - 240 })
         ];
         for (const old of stale) {
-            const res = await call('POST', '/api/v1/role-assignments', { token: old }, body);
+            const res = await call('POST', '/api/v1/role-grant-requests', { token: old }, body);
             expect(res.statusCode).toBe(401);
             expect(res.json()).toMatchObject({ code: 'step_up_required' });
             expect(res.headers['www-authenticate']).toBe(
@@ -421,7 +569,12 @@ describe('granting and revoking', () => {
         }
         // asking for a fresh sign-in is not a denial
         expect(await deniedEvents(since)).toEqual([]);
-        const fresh = await call('POST', '/api/v1/role-assignments', { token: await token(SUB.zoneAdmin, 299) }, body);
+        const fresh = await call(
+            'POST',
+            '/api/v1/role-grant-requests',
+            { token: await token(SUB.zoneAdmin, 299) },
+            body
+        );
         expect(fresh.statusCode).toBe(201);
     });
 

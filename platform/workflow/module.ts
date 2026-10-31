@@ -32,6 +32,16 @@ export default defineModule({
             route: '/inbox',
             requires: { permission: 'case:act' }
         },
+        // the office's requests across services, waiting or recent (task 0.21e)
+        {
+            key: 'workflow.requests',
+            group: 'my-work',
+            order: 15,
+            label: 'workflow.nav.requests',
+            icon: 'list-checks',
+            route: '/requests',
+            requires: { permission: 'case:read' }
+        },
         // the workflows and their versions, with the engine's check and switching one off (task 0.21c)
         {
             key: 'workflow.definitions',

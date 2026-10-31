@@ -4,7 +4,7 @@
  * A row is written only when the field is of the kind the form's published version compares it as: a field whose kind
  * changed between versions is never mixed in one index.
  */
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { Tx } from '@itrms/kernel/db';
 import type { EngineField } from '@itrms/form-engine/core';
 
@@ -104,6 +104,11 @@ export function valueRows(
 
 export async function writeValues(tx: Tx, rows: ValueRow[]): Promise<void> {
     for (let i = 0; i < rows.length; i += 1000) await tx.insert(submissionValues).values(rows.slice(i, i + 1000));
+}
+
+/** Removes every row of one submission (a changed request's are written again from its new answers, task 0.21e). */
+export async function clearSubmissionValues(tx: Tx, submissionId: string): Promise<void> {
+    await tx.delete(submissionValues).where(eq(submissionValues.submissionId, submissionId));
 }
 
 /** Removes the rows of `keys` for these submissions (the fill writes them again from the answers). */

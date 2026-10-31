@@ -337,6 +337,27 @@
       "when": 1793286684138,
       "tag": "0047_service_input_map",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793296462300,
+      "tag": "0048_role_grant_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1793297194452,
+      "tag": "0049_submission_revisions",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1793297982073,
+      "tag": "0050_case_lists",
+      "breakpoints": true
     }
   ]
 }

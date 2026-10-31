@@ -6,6 +6,8 @@
  *
  * users: class R (the region reads the names; the home unit's subtree administers them).
  * role_assignments: class T (the unit's subtree).
+ * role_grant_requests: class T. A grant is asked for by one administrator and takes effect only when a second one
+ * confirms it (security.md SEC-AC-6): the assignment then names both (`granted_by` asked, `confirmed_by` confirmed).
  */
 import { sql } from 'drizzle-orm';
 import { boolean, index, jsonb, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
@@ -67,7 +69,10 @@ export const roleAssignments = withRls(
                 roleKey: text('role_key').notNull(),
                 validFrom: timestamp('valid_from', { withTimezone: true }).notNull().defaultNow(),
                 validTo: timestamp('valid_to', { withTimezone: true }),
+                /** who asked for the grant (null: the installation's seeds) */
                 grantedBy: uuid('granted_by'),
+                /** the second administrator who confirmed it (SEC-AC-6; null: seeds, and grants made before task 0.21e) */
+                confirmedBy: uuid('confirmed_by'),
                 reason: text('reason').notNull()
             },
             (t) => [
@@ -77,6 +82,49 @@ export const roleAssignments = withRls(
                 uniqueIndex('role_assignments_open_uq')
                     .on(t.userId, t.unitId, t.roleKey)
                     .where(sql`valid_to is null`)
+            ]
+        )
+    ),
+    'transaction'
+);
+
+export const GRANT_REQUEST_STATES = ['pending', 'confirmed', 'rejected', 'withdrawn', 'expired'] as const;
+export type GrantRequestState = (typeof GRANT_REQUEST_STATES)[number];
+
+/** A role grant waiting for a second administrator (who asked: `created_by`). Decided once, never deleted. */
+export const roleGrantRequests = withRls(
+    audited(
+        kernelSchema.table(
+            'role_grant_requests',
+            {
+                ...baseColumns(),
+                regionId: uuid('region_id').notNull(),
+                /** set by trigger from the unit */
+                orgPath: ltree('org_path').notNull().default(''),
+                userId: uuid('user_id')
+                    .notNull()
+                    .references(() => users.id),
+                unitId: uuid('unit_id')
+                    .notNull()
+                    .references(() => orgUnits.id),
+                roleKey: text('role_key').notNull(),
+                /** the start asked for (null: when it is confirmed) */
+                validFrom: timestamp('valid_from', { withTimezone: true }),
+                validTo: timestamp('valid_to', { withTimezone: true }),
+                reason: text('reason').notNull(),
+                state: text('state').$type<GrantRequestState>().notNull().default('pending'),
+                decidedBy: uuid('decided_by'),
+                decidedAt: timestamp('decided_at', { withTimezone: true }),
+                decisionReason: text('decision_reason'),
+                /** the assignment a confirmation made */
+                assignmentId: uuid('assignment_id').references(() => roleAssignments.id)
+            },
+            (t) => [
+                index('role_grant_requests_unit_idx').on(t.unitId, t.state),
+                // one request waiting per person, unit and role
+                uniqueIndex('role_grant_requests_pending_uq')
+                    .on(t.userId, t.unitId, t.roleKey)
+                    .where(sql`state = 'pending'`)
             ]
         )
     ),

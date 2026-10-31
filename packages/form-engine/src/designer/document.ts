@@ -19,7 +19,7 @@ import { getFieldType } from '../renderer/kit';
 import { wordIn, type EngineWord } from '../core/messages';
 import { keyFromLabel, renameFieldKey, renameInRuntime } from './fieldKeys';
 import { SCHEMA_VERSION } from '../core';
-import { EMPTY_RUNTIME, type TemplateRuntimeConfig } from '@itrms/schemas';
+import { DEFAULT_FIELD_CLASSIFICATION, EMPTY_RUNTIME, type TemplateRuntimeConfig } from '@itrms/schemas';
 
 export const ROOT = '';
 
@@ -200,7 +200,8 @@ export function uniqueKey(
 /**
  * A new field of `type`, as the field kit describes it: a readable key from its label, the type's starting settings, and what
  * the engine needs to place it (`category`: a value, a container or data; `layout.options.isContainer`). Choices start with two
- * options whose stored values follow their labels.
+ * options whose stored values follow their labels. A field holding an answer starts with the default data class (a
+ * default label, SEC-DC-1): its author changes it, and a version is never published without one.
  */
 export function createField(
     doc: DesignDoc,
@@ -224,7 +225,8 @@ export function createField(
         props: { ...(def.design.defaults ?? {}) },
         data: { defaultProps: {} },
         behavior: def.kind === 'value' ? { validation: { supported: true } } : {},
-        layout: { options: { isContainer } }
+        layout: { options: { isContainer } },
+        ...(def.kind === 'value' || type === 'FormArray' ? { classification: DEFAULT_FIELD_CLASSIFICATION } : {})
     };
     for (const key of textPropsOf(type)) {
         const value = field.props[key];

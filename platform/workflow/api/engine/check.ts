@@ -5,7 +5,8 @@
  *
  * Structure: one start; states and transitions name known states; every state reachable from the start; an end reachable
  * from every state; a task left only by actions, a wait only by events or its timeout, an end never; separation of duties
- * names task (or start) states; a timeout leaves only a wait with an SLA.
+ * names task (or start) states; a timeout leaves only a wait with an SLA; an action that changes the request leaves no
+ * state with a step form (it would file two).
  */
 import {
     effectKeyOf,
@@ -36,7 +37,8 @@ export const CHECK_CODES = [
     'sod-state',
     'unknown-role',
     'unknown-effect',
-    'unknown-step-form'
+    'unknown-step-form',
+    'amend-step-form'
 ] as const;
 export type CheckCode = (typeof CHECK_CODES)[number];
 
@@ -116,6 +118,9 @@ function structureProblems(def: WorkflowDefinition): CheckProblem[] {
             if (state.kind === 'wait' && t.action) add('wait-action', `${at}.action`, { state: from });
             if (t.on === 'timeout' && state.kind === 'wait' && !state.sla)
                 add('timeout-without-sla', `${at}.on`, { state: from });
+            // one action files one form: the request's changes, or the step's own
+            if (t.amendsRequest && state.stepForm && byKey.get(t.to)?.kind !== 'start')
+                add('amend-step-form', `${at}.amendsRequest`, { state: from });
             // on one trigger out of one state the first transition whose guard holds is taken: one after an unguarded
             // one could never be taken (a last unguarded one is the fallback)
             const trigger = `${from}\u0000${t.action ?? t.on ?? ''}`;

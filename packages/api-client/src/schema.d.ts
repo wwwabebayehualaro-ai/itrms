@@ -33,6 +33,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CasesController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/cases/{id}": {
         parameters: {
             query?: never;
@@ -1025,22 +1041,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/role-assignments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["IamController_grant"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/role-assignments/{id}/revocations": {
         parameters: {
             query?: never;
@@ -1051,6 +1051,54 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["IamController_revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/role-grant-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["IamController_grantRequests"];
+        put?: never;
+        post: operations["IamController_requestGrant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/role-grant-requests/{id}/confirmations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["IamController_confirmGrant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/role-grant-requests/{id}/rejections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["IamController_rejectGrant"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1402,6 +1450,9 @@ export interface components {
             parentId: string;
             /** Format: uuid */
             unitTypeId?: string;
+        };
+        DecisionDto: {
+            reason: string;
         };
         DraftCreateDto: {
             answers: {
@@ -2174,6 +2225,31 @@ export interface operations {
             };
         };
     };
+    CasesController_list: {
+        parameters: {
+            query?: {
+                list?: "waiting" | "recent";
+                service?: string;
+                state?: string;
+                number?: number;
+                mine?: "true" | "false";
+                after?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     CasesController_get: {
         parameters: {
             query?: never;
@@ -2613,6 +2689,7 @@ export interface operations {
             query?: {
                 q?: string;
                 active?: "true" | "false";
+                owner?: string;
                 limit?: number;
             };
             header?: never;
@@ -3803,7 +3880,47 @@ export interface operations {
             };
         };
     };
-    IamController_grant: {
+    IamController_revoke: {
+        parameters: {
+            query?: never;
+            header: {
+                "if-match": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IamController_grantRequests: {
+        parameters: {
+            query?: {
+                unitId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IamController_requestGrant: {
         parameters: {
             query?: never;
             header?: never;
@@ -3824,7 +3941,7 @@ export interface operations {
             };
         };
     };
-    IamController_revoke: {
+    IamController_confirmGrant: {
         parameters: {
             query?: never;
             header: {
@@ -3836,6 +3953,31 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IamController_rejectGrant: {
+        parameters: {
+            query?: never;
+            header: {
+                "if-match": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionDto"];
+            };
+        };
         responses: {
             201: {
                 headers: {
@@ -4240,6 +4382,7 @@ export interface operations {
             query?: {
                 q?: string;
                 active?: "true" | "false";
+                owner?: string;
                 limit?: number;
             };
             header?: never;

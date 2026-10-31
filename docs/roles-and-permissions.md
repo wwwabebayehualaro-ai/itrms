@@ -117,6 +117,12 @@ change only through the workflow effects of a case (architecture §8).
 5. **Every denial is audited** with the actor, unit, resource and reason.
 6. **Delegation:** a `unit_admin` can assign only roles that the bureau marked delegable, and only inside its subtree. It can
    never assign `bureau_admin` or `unit_admin` at a higher level.
+7. **Maker-checker on role grants** (SEC-AC-6, task 0.21e): an administrator only asks for a grant
+   (`POST /v1/role-grant-requests`). It takes effect when a second administrator with authority over the unit confirms
+   it; in a small office, that is one of a unit above. The checker is never the maker nor the person granted. Every
+   delegation rule is checked again with the checker's authority, and the assignment names both (`granted_by` asked,
+   `confirmed_by` confirmed). A request not decided within 14 days can only be refused or withdrawn. A revocation takes
+   rights away and needs one administrator.
 
 ## 4. Seed for the demo (task 0.10 / 0.25)
 | Unit | Users (generated names, not real people) |

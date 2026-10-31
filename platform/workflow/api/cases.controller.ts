@@ -1,5 +1,5 @@
 /**
- * The cases API (tasks 0.19b, 0.20b): a case as the caller sees it, a person's transition out of its current state,
+ * The cases API (tasks 0.19b, 0.20b, 0.21e): the requests of the office (waiting, recent), a case as the caller sees it, a person's transition out of its current state,
  * taking a step on and giving it back, comments on its timeline, and the caller's inbox. Thin
  * handlers: who may take which step is the engine's (CasesService). A transition names the case version it was based on
  * (If-Match); every POST is idempotent (the kernel's interceptor).
@@ -12,13 +12,20 @@ import { versionFrom } from '@itrms/kernel/errors';
 import { Require, currentPrincipal, requestDbContext } from '@itrms/kernel/iam';
 import { createZodDto } from 'nestjs-zod';
 
-import { casePeopleQuerySchema, commentCreateSchema, inboxQuerySchema, transitionSchema } from '../contracts';
+import {
+    caseListQuerySchema,
+    casePeopleQuerySchema,
+    commentCreateSchema,
+    inboxQuerySchema,
+    transitionSchema
+} from '../contracts';
 import { CasesService, type CaseActor } from './cases.service';
 
 class TransitionDto extends createZodDto(transitionSchema) {}
 class CommentDto extends createZodDto(commentCreateSchema) {}
 class PeopleQueryDto extends createZodDto(casePeopleQuerySchema) {}
 class InboxQueryDto extends createZodDto(inboxQuerySchema) {}
+class CaseListQueryDto extends createZodDto(caseListQuerySchema) {}
 
 const actor = (): CaseActor => {
     const { userId, unitId, roles, permissions } = currentPrincipal();
@@ -32,6 +39,13 @@ export class CasesController {
         @Inject(DATABASE) private readonly db: Database,
         private readonly cases: CasesService
     ) {}
+
+    /** The requests of the office and those below it, across services: waiting, or the recent ones (task 0.21e). */
+    @Get()
+    @Require('case:read')
+    list(@Query() query: CaseListQueryDto) {
+        return this.db.scoped(requestDbContext(), (tx) => this.cases.list(tx, actor(), query));
+    }
 
     @Get(':id')
     @Require('case:read')

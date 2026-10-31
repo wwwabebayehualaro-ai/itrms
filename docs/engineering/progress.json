@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-10-29",
+  "updated": "2026-10-31",
   "statuses": [
     "planned",
     "ready",
@@ -954,12 +954,12 @@
         {
           "id": "0.21e",
           "title": "Configuration inheritance, part 4: filed requests and the remaining follow-ups",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.21e-filed-requests",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Product owner chose the SOTA, enterprise-grade data-class approach (ADR-0037) and CI on GitHub-hosted runners (ADR-0038, supersedes 0034). Reviewer (Opus) found 8 issues in the first draft (repeating sections with hidden columns wiped, files refused on change, clear/masked mismatch, JSON key-order diffs, rules without kept answers, no DB four-eyes, moving recent cursor, expired requests blocking); all fixed with tests."
         },
         {
           "id": "0.21f",
@@ -1935,7 +1935,8 @@
     {
       "foundIn": "0.10",
       "item": "Maker-checker on role grants (SEC-AC-6): a second administrator confirms; self-grant and own revocation are already refused",
-      "movedTo": "0.21e"
+      "movedTo": "0.21e",
+      "closedIn": "0.21e: role grants are asked for and take effect on a second administrator's confirmation (role_grant_requests; four eyes and decide-once in the database)"
     },
     {
       "foundIn": "0.10",
@@ -2238,7 +2239,8 @@
     {
       "foundIn": "0.16c",
       "item": "Cross-form request lists by state (waiting, recent) and changing a request after it is filed: the case workflow and its inbox",
-      "movedTo": "0.21e"
+      "movedTo": "0.21e",
+      "closedIn": "0.21e: GET /v1/cases waiting/recent across services (Requests screen); a request changes through its case"
     },
     {
       "foundIn": "0.16c",
@@ -2270,7 +2272,8 @@
     {
       "foundIn": "0.16c",
       "item": "Editing a filed request (PATCH, re-validated on its version, keeping role-restricted values) as a workflow transition",
-      "movedTo": "0.21e"
+      "movedTo": "0.21e",
+      "closedIn": "0.21e: an amendsRequest transition re-validates the request on its version, keeps restricted, Sensitive and file answers, revisions append-only"
     },
     {
       "foundIn": "0.16c",
@@ -2426,7 +2429,8 @@
     {
       "foundIn": "0.20b",
       "item": "Case page: a lookup answer in a step's printed answers shows the record's id, not its label (PrintForm refs)",
-      "movedTo": "0.21e"
+      "movedTo": "0.21e",
+      "closedIn": "0.21e: the case page prints a lookup answer by its record's label (useLookupLabels)"
     },
     {
       "foundIn": "0.20b",
@@ -2467,7 +2471,8 @@
     {
       "foundIn": "0.20d",
       "item": "Decide unclassified answers in lists and exports: SEC-DC-1 says unlabelled is not released and the classification table masks Personal in exports, while unset counts as personal and is shown (Sensitive alone masked); an ADR or a doc fix",
-      "movedTo": "0.21e"
+      "movedTo": "0.21e",
+      "closedIn": "0.21e: ADR-0037 — a default class on new fields, no publish without one; Personal in clear to those who may read it, Sensitive masked"
     },
     {
       "foundIn": "0.20d",
@@ -2487,12 +2492,23 @@
     {
       "foundIn": "0.21c",
       "item": "The publish screen's workflow and form lists read the first 100 (all offices, newest first) and keep the region's own in the browser: filter by owner on the server (an owner query on the workflow and form lists)",
-      "movedTo": "0.21e"
+      "movedTo": "0.21e",
+      "closedIn": "0.21e: the workflow and form lists take an owner filter; the publish screen asks for the region's own"
     },
     {
       "foundIn": "0.21d",
       "item": "The service publish screen: map an effect's contract paths to the form's keys (the API takes inputMap; the screen sends none, so a path reads the same key)",
       "movedTo": "0.24"
+    },
+    {
+      "foundIn": "0.21e",
+      "item": "A filed request's repeating section holding answers its corrector may not see or change is refused, not merged (its rows have no identity): stable row ids in the engine would let such rows be changed",
+      "movedTo": "0.21f"
+    },
+    {
+      "foundIn": "0.21e",
+      "item": "The builder's publish review shows the unclassified rule as an error now (ADR-0037): an e2e journey of publishing a form with an unclassified field refused",
+      "movedTo": "0.21f"
     }
   ]
 }

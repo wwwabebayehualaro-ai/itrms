@@ -131,6 +131,11 @@ export const cases = withRls(
                 uniqueIndex('cases_number_uq').on(t.regionId, t.number),
                 index('cases_org_path_gist').using('gist', t.orgPath),
                 index('cases_state_idx').on(t.regionId, t.state),
+                // the request lists (task 0.21e): those waiting, the longest first; the last changed
+                index('cases_waiting_idx')
+                    .on(t.createdAt, t.id)
+                    .where(sql`closed_at is null`),
+                index('cases_recent_idx').on(t.updatedAt, t.id),
                 index('cases_due_idx')
                     .on(t.dueAt)
                     .where(sql`due_at is not null and closed_at is null`)

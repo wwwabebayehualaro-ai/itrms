@@ -34,8 +34,8 @@ A task may start only when:
 ## 3. Definition of done (all must hold)
 1. **Acceptance:** every "Done when" item of the task is demonstrated.
 2. **Tests:** the task's listed tests exist and pass. Lint, typecheck, unit, integration (real PostgreSQL 16) and the
-   affected e2e journeys are green locally and on CI. "On CI" is GitHub Actions for the commit, or a complete, passing local
-   Linux CI record (`pnpm ci:local`, ADR-0034) for the commit that is merged. No test is skipped or deleted to get green.
+   affected e2e journeys are green locally and on CI. "On CI" is the GitHub Actions run of the task's pull request (ADR-0038),
+   or, only while hosted runners are unavailable, a complete local Linux CI record (`pnpm ci:local`, ADR-0034). No test is skipped or deleted to get green.
 3. **Isolation:** every new or changed tenant table has RLS policies of its class (`TO itrms_app`, null-safe), and the
    isolation matrix covers it, including the no-context case on a reused connection.
 4. **Audit:** every new write path writes audit rows in the same transaction, with sensitive fields masked (test asserts

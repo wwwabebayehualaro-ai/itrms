@@ -41,6 +41,33 @@ describe('checkDefinition', () => {
         );
     });
 
+    it('changes the request only on a person’s action, never with a step form of its own (task 0.21e)', () => {
+        const d = clone();
+        d.transitions.push(
+            { from: 'review', to: 'review', action: 'correct', amendsRequest: true },
+            { from: 'exam', to: 'exam', action: 'correct', amendsRequest: true }
+        );
+        const { problems } = checkDefinition(d, KNOWN);
+        // review has no step form: its correction is fine; exam's would file two forms
+        expect(problems).toEqual([
+            { code: 'amend-step-form', path: 'transitions[11].amendsRequest', values: { state: 'exam' } }
+        ]);
+        // a step form's state may still send the request back to its start, where nothing is filed
+        const back = clone();
+        back.transitions.push({ from: 'exam', to: 'draft', action: 'reopen', amendsRequest: true });
+        expect(codes(checkDefinition(back, KNOWN).problems)).toEqual([]);
+
+        const wrong = clone();
+        wrong.transitions.push(
+            { from: 'national', to: 'approval', on: 'event:x.y', actor: 'system:x', amendsRequest: true },
+            { from: 'review', to: 'rejected', action: 'reject', rejectRoles: ['competency.lead'], amendsRequest: true }
+        );
+        expect(checkDefinition(wrong).problems.map((p) => p.path)).toEqual([
+            'transitions.10.amendsRequest',
+            'transitions.11.amendsRequest'
+        ]);
+    });
+
     it('finds a state no transition reaches', () => {
         const d = clone();
         d.states.push({ key: 'orphan', kind: 'task', assignee: { role: 'cashier', unit: 'handling' } });

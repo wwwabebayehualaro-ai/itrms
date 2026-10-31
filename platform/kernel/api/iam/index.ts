@@ -18,7 +18,15 @@ export {
 export { OidcAuthenticator, type OidcOptions } from './oidc-authenticator';
 export { permissionsOf, rolePermissions, type RolePermissions } from './roles';
 // granting and revoking are the IamController's alone (they hold the delegation rules); seeds use @itrms/kernel/seed
-export { assignmentsOf, type Grant, type RoleAssignment, type User } from './assignments';
+export {
+    assignmentsOf,
+    pendingRequests,
+    REQUEST_DAYS,
+    type Grant,
+    type RoleAssignment,
+    type RoleGrantRequest,
+    type User
+} from './assignments';
 export { IamController } from './iam.controller';
 export {
     allowed,

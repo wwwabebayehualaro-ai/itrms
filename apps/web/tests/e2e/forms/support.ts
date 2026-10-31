@@ -105,6 +105,8 @@ export const field = (type: string, id: string, label: string, extra: Record<str
         data: { defaultProps: {} },
         behavior: { validation: { supported: true } },
         layout: { options: { isContainer: container } },
+        // a repeating section holds answers too; only a panel has nothing to classify
+        ...(type === 'Panel' ? {} : { classification: 'personal' }),
         ...extra
     };
 };

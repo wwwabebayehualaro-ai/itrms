@@ -7,14 +7,17 @@
 import { Injectable } from '@nestjs/common';
 import { and, asc, desc, eq, inArray, lt } from 'drizzle-orm';
 import { users } from '@itrms/kernel/tables';
-import { auditLog, insertAudited, type DbContext, type Tx } from '@itrms/kernel/db';
+import { auditLog, canonicalJson, insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { linkFile } from '@itrms/kernel/files';
 import { ConflictError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
 import { unitRefs } from '@itrms/kernel/org';
 import {
     knownValues,
+    isFormArray,
     maskSensitive,
     onlySensitive,
+    readDocument,
+    rowScopedIds,
     submittedValues,
     validateForm,
     type EngineField
@@ -22,12 +25,12 @@ import {
 import type { z } from 'zod';
 
 import type { HistoryEntry, Submission, submissionCreateSchema, submissionListQuerySchema } from '../contracts';
-import { formDefinitions, formVersions, submissions } from './forms.table';
+import { formDefinitions, formVersions, submissionRevisions, submissions } from './forms.table';
 import type { RegistryLookups } from './lookups';
 import { fileDraft } from './drafts.service';
 import { namesOf, unitOf } from './forms.service';
 import { checkReferences, resolveFiles, type AnswerProblem } from './submission-refs';
-import { lockFormShared, valueRows, writeValues, type Owner } from './submission-values';
+import { clearSubmissionValues, lockFormShared, valueRows, writeValues, type Owner } from './submission-values';
 import { approvedVersions, documentFor, fieldsFor, openFieldsFor, required, scopeFor } from './support';
 import { filterableKinds, MAX_INDEXED_CHOICES } from './view-fields';
 
@@ -35,6 +38,61 @@ import am from '../messages/am.json';
 import en from '../messages/en.json';
 
 /** The 422 message of a field with more choices than the filterable values keep, in the caller's language. */
+const sectionKept = (language: string): string =>
+    (language === 'en' ? en : am)['forms.validation.sectionHasHiddenAnswers'];
+
+/** No answer: what a form sends for a field left empty. */
+const blank = (v: unknown): boolean =>
+    v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
+
+/** A section's rows without their empty answers (a form sends a column left empty in several ways). */
+function withoutBlanks(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map(withoutBlanks);
+    if (value !== null && typeof value === 'object')
+        return Object.fromEntries(
+            Object.entries(value as Record<string, unknown>)
+                .filter(([, v]) => !blank(v))
+                .map(([k, v]) => [k, withoutBlanks(v)])
+        );
+    return value;
+}
+
+/**
+ * Whether a section's stored rows hold an answer of a column `hidden` names (one the caller may not see or change),
+ * at any depth: a column inside a layout container of the section sits in its rows too, a nested section's in its own.
+ */
+function holdsHidden(
+    fields: readonly EngineField[],
+    section: EngineField,
+    stored: unknown,
+    hidden: (f: EngineField) => boolean
+): boolean {
+    if (!Array.isArray(stored)) return false;
+    const byId = new Map(fields.map((f) => [f.id, f]));
+    const inSection = (f: EngineField): boolean => {
+        for (
+            let p = f.parentId ? byId.get(f.parentId) : undefined;
+            p;
+            p = p.parentId ? byId.get(p.parentId) : undefined
+        ) {
+            if (p.id === section.id) return true;
+            if (isFormArray(p)) return false;
+        }
+        return false;
+    };
+    const columns = new Map(fields.filter(inSection).map((f) => [f.id, f]));
+    return stored.some(
+        (row) =>
+            row !== null &&
+            typeof row === 'object' &&
+            Object.entries(row as Record<string, unknown>).some(([key, v]) => {
+                const column = columns.get(key);
+                if (!column || blank(v)) return false;
+                return hidden(column) || (isFormArray(column) && holdsHidden(fields, column, v, hidden));
+            })
+    );
+}
+
 const tooManyChoices = (language: string): string =>
     (language === 'en' ? en : am)['forms.validation.tooManyChoices'].replace('{max}', String(MAX_INDEXED_CHOICES));
 
@@ -82,43 +140,15 @@ export class SubmissionsService {
         )
             throw new ConflictError('not_configured', { detail: 'This version of the form was never approved.' });
 
-        const fields = fieldsFor(version.document, roles, language);
-        const scope = scopeFor(ctx, roles);
-        // the files are read from their rows first (validation then sees real names and sizes), the references last
-        const submitted = await resolveFiles(
+        const { answers, files, values } = await this.checked(
             tx,
-            fields,
-            submittedValues(fields, input.answers, scope),
-            language,
-            ctx.userId
+            ctx,
+            roles,
+            version.document,
+            input.answers,
+            lookups,
+            language
         );
-        const answers = submitted.answers;
-        const problems: AnswerProblem[] = [...submitted.problems];
-        for (const [path, message] of Object.entries(validateForm(fields, answers, scope, { language })))
-            if (!problems.some((p) => p.path === path)) problems.push({ path, code: 'invalid', message });
-        problems.push(
-            ...(await checkReferences(
-                tx,
-                lookups,
-                fields,
-                answers,
-                scope,
-                language,
-                new Set(problems.map((p) => p.path))
-            ))
-        );
-        // the filterable fields' values (ADR-0035), from the version's fields nobody is restricted from, never a Sensitive
-        // one (no copy of it in clear: nothing may query it, task 0.20d)
-        const open = openFieldsFor(version.document, []);
-        const values = (owner: Owner) => valueRows(open, filterableKinds(open), answers, owner);
-        for (const key of values({ submissionId: '', formId: '', regionId: '', handlingUnitId: '' }).overflow)
-            if (!problems.some((p) => p.path === key))
-                problems.push({ path: key, code: 'invalid', message: tooManyChoices(language) });
-        if (problems.length)
-            throw new ValidationError('validation_failed', {
-                detail: 'Some answers are not valid.',
-                errors: problems
-            });
 
         const row = await insertAudited(tx, submissions, {
             regionId: required(ctx.regionId),
@@ -140,7 +170,7 @@ export class SubmissionsService {
             }).rows
         );
         // the files now belong to the submission: they no longer expire
-        for (const file of submitted.files)
+        for (const file of files)
             await linkFile(tx, file.id, {
                 table: 'forms.submissions',
                 id: row.id,
@@ -150,6 +180,196 @@ export class SubmissionsService {
         if (input.draftId) await fileDraft(tx, ctx, input.draftId, form.id);
         // a step's answers go on to the workflow's effects in clear; a person's request answers as it is shown
         return (await this.present(tx, roles, [row], { clear: !!step }))[0] as Submission;
+    }
+
+    /**
+     * The answers as the server keeps them, checked with the engine on the version's fields the caller may see (G1): the
+     * files read from their rows first (validation then sees real names and sizes), the references last; 422 with every
+     * problem. With the rows of the filterable fields' values to write (ADR-0035).
+     *
+     * A change of a filed request (`change`, task 0.21e) runs the rules over every answer, those the caller keeps as filed
+     * too (a condition or a formula may read a field they may not see), takes from the caller only the answers of their
+     * fields, and checks only those: what they keep was checked when it was filed, and may name records they cannot see.
+     */
+    private async checked(
+        tx: Tx,
+        ctx: DbContext,
+        roles: readonly string[],
+        document: unknown,
+        raw: Record<string, unknown>,
+        lookups: RegistryLookups,
+        language: string,
+        change?: { submissionId: string; kept: Record<string, unknown> }
+    ) {
+        const visible = fieldsFor(document, roles, language);
+        const fields = change ? readDocument(document, { language }).fields : visible;
+        const input = change ? { ...knownValues(visible, raw), ...change.kept } : raw;
+        const scope = scopeFor(ctx, roles);
+        const submitted = await resolveFiles(
+            tx,
+            fields,
+            submittedValues(fields, input, scope),
+            language,
+            ctx.userId,
+            change ? { table: 'forms.submissions', id: change.submissionId } : undefined
+        );
+        const answers = submitted.answers;
+        // the caller's to fix: a problem of a field they may see and do not keep as filed
+        const seen = new Set(visible.map((f) => f.id));
+        const theirs = (path: string): boolean => {
+            if (!change) return true;
+            const root = /^[^.[]+/.exec(path)?.[0] ?? path;
+            return seen.has(root) && !Object.hasOwn(change.kept, root);
+        };
+        const problems: AnswerProblem[] = submitted.problems.filter((p) => theirs(p.path));
+        for (const [path, message] of Object.entries(validateForm(fields, answers, scope, { language })))
+            if (theirs(path) && !problems.some((p) => p.path === path))
+                problems.push({ path, code: 'invalid', message });
+        problems.push(
+            ...(
+                await checkReferences(
+                    tx,
+                    lookups,
+                    fields,
+                    answers,
+                    scope,
+                    language,
+                    new Set(problems.map((p) => p.path))
+                )
+            ).filter((p) => theirs(p.path))
+        );
+        // the filterable fields' values (ADR-0035), from the version's fields nobody is restricted from, never a Sensitive
+        // one (no copy of it in clear: nothing may query it, task 0.20d)
+        const open = openFieldsFor(document, []);
+        const values = (all: Record<string, unknown>, owner: Owner) =>
+            valueRows(open, filterableKinds(open), all, owner);
+        for (const key of values(answers, { submissionId: '', formId: '', regionId: '', handlingUnitId: '' }).overflow)
+            if (!problems.some((p) => p.path === key))
+                problems.push({ path: key, code: 'invalid', message: tooManyChoices(language) });
+        if (problems.length)
+            throw new ValidationError('validation_failed', {
+                detail: 'Some answers are not valid.',
+                errors: problems
+            });
+        return {
+            answers,
+            files: submitted.files,
+            values: (owner: Owner, all: Record<string, unknown> = answers) => values(all, owner)
+        };
+    }
+
+    /**
+     * Changes a case's request (task 0.21e): only through its workflow (an action that `amendsRequest`), on the version it
+     * was filed on, checked again as a new request is. What the caller may not see (a field restricted to other roles)
+     * keeps its stored answer, and so does a Sensitive one they leave out (it is shown masked); the answers it replaces
+     * go to `submission_revisions` first, and the filterable values are written again, in the caller's transaction.
+     * Answers the names of the fields whose answers changed, never their values.
+     */
+    async amend(
+        tx: Tx,
+        ctx: DbContext,
+        roles: readonly string[],
+        input: { submissionId: string; answers: Record<string, unknown> },
+        lookups: RegistryLookups,
+        language = 'am'
+    ): Promise<{ submission: Submission; changed: string[] }> {
+        await lockFormShared(tx, (await this.rowOf(tx, input.submissionId)).formId);
+        const [before] = await tx
+            .select()
+            .from(submissions)
+            .where(eq(submissions.id, input.submissionId))
+            .for('update');
+        if (!before) throw new NotFoundError();
+        const [version] = await tx
+            .select({ document: formVersions.document })
+            .from(formVersions)
+            .where(eq(formVersions.id, before.formVersionId));
+        if (!version) throw new NotFoundError();
+        // every field holding a top-level answer (not a repeating section's column); the caller's are those they may
+        // see with every container around them
+        const all = readDocument(version.document, { language }).fields;
+        const byId = new Map(all.map((f) => [f.id, f]));
+        const visible = fieldsFor(version.document, roles, language);
+        const seen = new Set(visible.map((f) => f.id));
+        const chain = (f: EngineField): EngineField[] => {
+            const out: EngineField[] = [];
+            for (let p: EngineField | undefined = f; p; p = p.parentId ? byId.get(p.parentId) : undefined) out.push(p);
+            return out;
+        };
+        const mine = (f: EngineField): boolean => chain(f).every((p) => seen.has(p.id));
+        const sensitive = (f: EngineField): boolean => chain(f).some((p) => p.classification === 'sensitive');
+        const inRows = rowScopedIds(all);
+        const shown = (values: Record<string, unknown>) => maskSensitive(visible, knownValues(visible, values));
+        const masked = new Set(shown(before.answers).masked);
+        // what the caller keeps as filed: what they may not see; a Sensitive answer shown masked that they leave blank; a
+        // repeating section holding answers they may not see or change (its rows have no identity to merge them by:
+        // changing such a section is refused, never a loss of what it holds)
+        const kept: Record<string, unknown> = {};
+        for (const f of all) {
+            if (inRows.has(f.id) || !Object.hasOwn(before.answers, f.id)) continue;
+            const stored = before.answers[f.id];
+            if (!mine(f)) kept[f.id] = stored;
+            else if (masked.has(f.id)) {
+                if (blank(input.answers[f.id])) kept[f.id] = stored;
+            } else if (isFormArray(f) && holdsHidden(all, f, stored, (c) => !mine(c) || sensitive(c))) {
+                const sent = Object.hasOwn(input.answers, f.id) ? input.answers[f.id] : stored;
+                if (
+                    canonicalJson(withoutBlanks(shown({ [f.id]: sent }).values[f.id]) ?? null) !==
+                    canonicalJson(withoutBlanks(shown({ [f.id]: stored }).values[f.id]) ?? null)
+                )
+                    throw new ValidationError('validation_failed', {
+                        detail: 'Some answers are not valid.',
+                        errors: [{ path: f.id, code: 'hidden_answers', message: sectionKept(language) }]
+                    });
+                kept[f.id] = stored;
+            }
+        }
+        const checked = await this.checked(tx, ctx, roles, version.document, input.answers, lookups, language, {
+            submissionId: before.id,
+            kept
+        });
+        const answers = checked.answers;
+        const changed = [...new Set([...Object.keys(before.answers), ...Object.keys(answers)])]
+            .filter((k) => canonicalJson(before.answers[k] ?? null) !== canonicalJson(answers[k] ?? null))
+            .sort();
+        // the workflow's effects read the request in clear, whether it changed or not
+        if (changed.length === 0)
+            return { submission: (await this.present(tx, roles, [before], { clear: true }))[0] as Submission, changed };
+        await insertAudited(tx, submissionRevisions, {
+            regionId: before.regionId,
+            handlingUnitId: before.handlingUnitId,
+            submissionId: before.id,
+            revision: before.rowVersion,
+            formVersionId: before.formVersionId,
+            answers: before.answers
+        });
+        const after = await updateAudited(tx, submissions, before.id, before.rowVersion, { answers });
+        await clearSubmissionValues(tx, before.id);
+        await writeValues(
+            tx,
+            checked.values(
+                {
+                    submissionId: after.id,
+                    formId: after.formId,
+                    regionId: after.regionId,
+                    handlingUnitId: after.handlingUnitId
+                },
+                answers
+            ).rows
+        );
+        for (const file of checked.files)
+            await linkFile(tx, file.id, {
+                table: 'forms.submissions',
+                id: after.id,
+                ...(file.documentType ? { documentType: file.documentType } : {})
+            });
+        return { submission: (await this.present(tx, roles, [after], { clear: true }))[0] as Submission, changed };
+    }
+
+    private async rowOf(tx: Tx, id: string): Promise<SubmissionRow> {
+        const [row] = await tx.select().from(submissions).where(eq(submissions.id, id));
+        if (!row) throw new NotFoundError();
+        return row;
     }
 
     /**

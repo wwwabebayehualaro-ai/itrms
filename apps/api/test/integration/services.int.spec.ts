@@ -56,6 +56,7 @@ const field = (id: string) => {
     return {
         id: key,
         type: 'InputText',
+        classification: 'personal',
         label: key,
         props: required ? { required: true } : {},
         behavior: { validation: { supported: true } }

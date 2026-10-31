@@ -390,6 +390,7 @@ describe('step forms', () => {
                     {
                         id: 'photo',
                         type: 'InputText',
+                        classification: 'personal',
                         label: { am: 'ፎቶ', en: 'Photo' },
                         props: { required: true },
                         behavior: { validation: { supported: true } }
@@ -429,11 +430,18 @@ describe('step forms', () => {
                         {
                             id: 'photo',
                             type: 'InputText',
+                            classification: 'personal',
                             label: { am: 'ፎቶ', en: 'Photo' },
                             props: { required: true },
                             behavior: { validation: { supported: true } }
                         },
-                        { id: 'note', type: 'InputText', label: { am: 'ማስታወሻ', en: 'Note' }, props: {} }
+                        {
+                            id: 'note',
+                            type: 'InputText',
+                            classification: 'personal',
+                            label: { am: 'ማስታወሻ', en: 'Note' },
+                            props: {}
+                        }
                     ]
                 }
             },

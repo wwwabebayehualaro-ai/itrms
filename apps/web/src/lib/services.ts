@@ -168,13 +168,15 @@ export interface WorkflowSummary {
     latestVersion: { id: string; number: number } | null;
 }
 
-export const useWorkflows = () =>
+/** The workflows the caller sees, the last changed first; `owner`: only one unit's (the server filters, task 0.21e); null: that unit is not known yet. */
+export const useWorkflows = (owner?: string | null) =>
     useQuery({
-        queryKey: ['workflow-definitions'],
+        queryKey: ['workflow-definitions', { owner }],
+        enabled: owner !== null,
         queryFn: async ({ signal }) =>
             (
                 await client.get<{ items: WorkflowSummary[] }>('v1/workflow-definitions', {
-                    params: { limit: 100 },
+                    params: { limit: 100, ...(owner ? { owner } : {}) },
                     signal
                 })
             ).data.items
@@ -237,11 +239,16 @@ export interface FormSummary {
     publishedVersion: { id: string; number: number } | null;
 }
 
-export const usePublishedForms = () =>
+/** The active forms with a published version; `owner`: only one unit's (the server filters, task 0.21e); null: that unit is not known yet. */
+export const usePublishedForms = (owner?: string | null) =>
     useQuery({
-        queryKey: ['forms', 'published'],
+        queryKey: ['forms', 'published', { owner }],
+        enabled: owner !== null,
         queryFn: async ({ signal }) =>
             (
-                await client.get<{ items: FormSummary[] }>('v1/forms', { params: { limit: 100 }, signal })
-            ).data.items.filter((f) => f.active && f.publishedVersion)
+                await client.get<{ items: FormSummary[] }>('v1/forms', {
+                    params: { limit: 100, active: 'true', ...(owner ? { owner } : {}) },
+                    signal
+                })
+            ).data.items.filter((f) => f.publishedVersion)
     });
