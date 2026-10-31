@@ -954,10 +954,20 @@
         {
           "id": "0.21e",
           "title": "Configuration inheritance, part 4: filed requests and the remaining follow-ups",
-          "status": "in progress",
+          "status": "in review",
           "branch": "task/0.21e-filed-requests",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "20be22e"
+          ],
+          "evidence": [
+            "GitHub Actions run 41205103582 on 20be22e (PR #26): all 9 jobs green (ADR-0038 CI record)",
+            "checks: turbo 66/66 (lint, typecheck, test, build); unit 655 passed, 2 skipped; boundaries no violations; 10 slices OK; i18n am/en complete; format OK",
+            "integration (dev stack, PostgreSQL 16): 24 files, 386 tests passed + S3 contract 20; incl. requests-change.int.spec.ts (6: change re-validated and audited, outside-a-case trigger, lists by state and scope, files/Sensitive/hidden rows kept, other roles' rules, derived fields and patch refusals) and iam.int.spec.ts (16: maker-checker request, confirm, refuse, withdraw, four eyes and decide-once in the DB, expiry)",
+            "e2e: 17 passed, incl. workflow/requests.spec.ts (the request lists' journey: waiting list, correct through the case, recent list) and shell.spec.ts menu",
+            "security: Semgrep 0 findings (225 rules); gitleaks no leaks; Trivy passed; perf 14 passed; stories 474 passed",
+            "unit: form-engine derived.spec.ts (answerDerived), lint.spec.ts (unclassified is an error, ADR-0037); web caseAnswers.test.ts (lookup labels, amendable form)",
+            "reviews: task-verifier ready (bookkeeping only); reviewer (Opus) six passes, every high and medium finding fixed with tests; lows recorded as 0.21f follow-ups"
+          ],
           "blockers": [],
           "notes": "Product owner chose the SOTA, enterprise-grade data-class approach (ADR-0037) and CI on GitHub-hosted runners (ADR-0038, supersedes 0034). Reviewer (Opus) found 8 issues in the first draft (repeating sections with hidden columns wiped, files refused on change, clear/masked mismatch, JSON key-order diffs, rules without kept answers, no DB four-eyes, moving recent cursor, expired requests blocking); all fixed with tests. CI run 41198185881 on 83d5903 green (PR #26). Task-verifier: ready with caveats (evidence to record; lookup labels had no test). Added lookupIds unit test (apps/web/tests/unit/caseAnswers.test.ts, 2 passed; helper moved to apps/web/src/lib/caseAnswers.ts). Waiting on the reviewer's pass over 83d5903 before moving to in review."
         },
