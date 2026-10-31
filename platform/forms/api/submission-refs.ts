@@ -20,7 +20,7 @@ import type { RegistryLookups } from './lookups';
 import am from '../messages/am.json';
 import en from '../messages/en.json';
 
-export type ProblemCode = 'invalid' | 'invalid_reference' | 'invalid_file';
+export type ProblemCode = 'invalid' | 'invalid_reference' | 'invalid_file' | 'not_editable' | 'hidden_answers';
 
 /** One refused answer: where (`members[0].photo`), why (a code the screens translate) and the message in the caller's language. */
 export interface AnswerProblem {
@@ -56,7 +56,12 @@ export async function resolveFiles(
     answers: Record<string, unknown>,
     language: string,
     /** who submits: only a file they uploaded themselves is taken */
-    userId: string | null | undefined
+    userId: string | null | undefined,
+    /**
+     * a changed request's own record (task 0.21e): a file it already holds, in the field that holds it, stays as it is,
+     * whoever uploaded it
+     */
+    filedOn?: { table: string; id: string; holds: (fieldId: string, fileId: string) => boolean }
 ): Promise<{ answers: Record<string, unknown>; problems: AnswerProblem[]; files: TakenFile[] }> {
     const problems: AnswerProblem[] = [];
     const taken = new Map<string, TakenFile>();
@@ -86,20 +91,28 @@ export async function resolveFiles(
             if (error instanceof NotFoundError) return unusable('forms.validation.fileNotUsable');
             throw error;
         }
+        const held =
+            filedOn !== undefined &&
+            row.linkedTable === filedOn.table &&
+            row.linkedId === filedOn.id &&
+            filedOn.holds(field.id, row.id);
         // a generated file (an export) or another person's upload is not for a submission to take
         if (
-            row.origin !== 'upload' ||
-            !userId ||
-            row.createdBy !== userId ||
-            row.status !== 'stored' ||
-            row.linkedId !== null ||
-            (row.expiresAt !== null && row.expiresAt.getTime() <= Date.now())
+            held
+                ? row.status !== 'stored'
+                : row.origin !== 'upload' ||
+                  !userId ||
+                  row.createdBy !== userId ||
+                  row.status !== 'stored' ||
+                  row.linkedId !== null ||
+                  (row.expiresAt !== null && row.expiresAt.getTime() <= Date.now())
         )
             return unusable('forms.validation.fileNotUsable');
         const wanted = field.props.docType;
         if (typeof wanted === 'string' && wanted !== '' && row.documentType !== wanted)
             return unusable('forms.validation.wrongDocumentType');
-        taken.set(row.id, { id: row.id, documentType: row.documentType });
+        // a file the record holds already is linked to it: nothing to take
+        if (!held) taken.set(row.id, { id: row.id, documentType: row.documentType });
         return {
             file_id: row.id,
             name: row.filename,

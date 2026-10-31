@@ -233,7 +233,13 @@ describe('storing a definition', () => {
             expect(approved.statusCode, approved.body).toBe(200);
             if (pending) {
                 const form = (await api.call('GET', `/api/v1/forms/${id}`, maker)).json<{ version: number }>();
-                const field = { id: 'score', type: 'InputNumber', label: { am: 'ውጤት', en: 'Score' }, props: {} };
+                const field = {
+                    id: 'score',
+                    type: 'InputNumber',
+                    classification: 'personal',
+                    label: { am: 'ውጤት', en: 'Score' },
+                    props: {}
+                };
                 const changed = await api.call(
                     'PATCH',
                     `/api/v1/forms/${id}`,

@@ -34,6 +34,7 @@ const field = (id: string, type: string, extra: Record<string, unknown> = {}) =>
     type,
     label: id,
     props: {},
+    classification: 'personal',
     ...extra
 });
 const choices = {

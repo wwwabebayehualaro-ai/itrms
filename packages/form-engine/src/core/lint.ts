@@ -447,10 +447,12 @@ export function lintDocument(raw: unknown, opts: LintOptions = {}): LintProblem[
         if (holdsValue(f) && f.classification === 'sensitive' && f.filterable)
             add('sensitive-filterable', 'error', f, `${at(f)}.filterable`, { field: f.label || f.id });
 
-    // unclassified: an answer's data class decides what may leave the server (SEC-DC-1); unset counts as personal
+    // unclassified: an answer's data class decides what may leave the server; a version is never published with a field
+    // without one (SEC-DC-1, mandatory labelling: the builder gives a new field the default class). A version published
+    // before classes existed still counts an unset one as personal, and as Sensitive for the browser's drafts.
     for (const f of subjects)
         if (holdsValue(f) && !f.source.classification)
-            add('unclassified', 'warning', f, `${at(f)}.classification`, { field: f.label || f.id });
+            add('unclassified', 'error', f, `${at(f)}.classification`, { field: f.label || f.id });
 
     return [...out.filter((p) => p.severity === 'error'), ...out.filter((p) => p.severity === 'warning')];
 }

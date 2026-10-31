@@ -94,6 +94,8 @@ export const formUpdateSchema = z
 export const formListQuerySchema = z.strictObject({
     q: z.string().trim().max(100).optional(),
     active: z.enum(['true', 'false']).optional(),
+    /** only those this unit owns (the publish screen's: the region's own, task 0.21e) */
+    owner: z.uuid().optional(),
     limit: z.coerce.number().int().min(1).max(100).default(50)
 });
 

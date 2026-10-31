@@ -250,6 +250,7 @@ interface SubmissionOut {
 const text = (id: string, extra: Record<string, unknown> = {}) => ({
     id,
     type: 'InputText',
+    classification: 'personal',
     props: {},
     behavior: { validation: { supported: true } },
     ...extra
@@ -890,7 +891,13 @@ describe('the shared validation cases (packages/form-engine/test/cases.json)', (
     };
 
     it.each(cases.map((c, i) => [c.name, c, i] as const))('%s: the server answers as the browser', async (_n, c, i) => {
-        const form = await createForm(as.bureau(), `case-${i + 1}`, { fields: c.fields });
+        // the cases are about validation: their fields get the default data class a form needs to be published
+        const fields = c.fields.map((field) =>
+            field && typeof field === 'object' && !('classification' in field)
+                ? { ...field, classification: 'personal' }
+                : field
+        );
+        const form = await createForm(as.bureau(), `case-${i + 1}`, { fields });
         const versionId = (await publish(form.id, as.bureau(), as.bureau2())).formVersion.id;
         // the language the cases' messages are written in
         const res = await call(

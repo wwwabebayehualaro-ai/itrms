@@ -82,6 +82,8 @@ export function resolveConfig(version: VersionConfig, units: readonly ChainUnit[
 /** The configuration a case freezes: the values grouped by family, and the versions it runs on. */
 export interface FrozenConfig extends Record<string, unknown> {
     serviceCode: string;
+    /** the service's name when the case started (the request lists show it, task 0.21e) */
+    serviceName?: Record<string, string>;
     serviceVersionId: string;
     formVersionId: string | null;
     /** each effect's contract paths mapped to the request form's keys (the engine builds the effect's input with it) */
@@ -98,6 +100,7 @@ export function frozenConfig(
     resolved: ReadonlyMap<string, Resolved>,
     ids: {
         serviceCode: string;
+        serviceName?: Record<string, string>;
         serviceVersionId: string;
         formVersionId: string | null;
         inputMap: Record<string, Record<string, string>>;

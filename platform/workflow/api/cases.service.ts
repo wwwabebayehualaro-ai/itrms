@@ -49,6 +49,9 @@ import { z } from 'zod';
 
 import {
     DUE_SOON_HOURS,
+    type CaseList,
+    type CaseListItem,
+    type CaseListQuery,
     type CaseOut,
     type CommentCreate,
     type Inbox,
@@ -239,6 +242,7 @@ export class CasesService {
             task,
             input: filed.answers,
             submissionId: filed.submissionId,
+            amended: filed.amended,
             comment: input.comment,
             history,
             language
@@ -475,6 +479,113 @@ export class CasesService {
         };
     }
 
+    /**
+     * The requests of the active office and those below it (RLS), across services (task 0.21e): those waiting (open, the
+     * longest waiting first) or the recent ones (the last changed first), a page at a time.
+     */
+    async list(tx: Tx, actor: CaseActor, query: CaseListQuery, language = 'am'): Promise<CaseList> {
+        const waiting = query.list === 'waiting';
+        const service = sql<string | null>`${cases.config} ->> 'serviceCode'`;
+        // the page is keyed on what it is sorted by, as the database holds it (microseconds): a case changed between two
+        // pages never moves where the next one starts
+        const sortedBy = waiting ? cases.createdAt : cases.updatedAt;
+        const after = query.after ? cursorOf(query.after, language) : null;
+        const position = after
+            ? waiting
+                ? sql`(${cases.createdAt}, ${cases.id}) > (${after.at}::timestamptz, ${after.id}::uuid)`
+                : sql`(${cases.updatedAt}, ${cases.id}) < (${after.at}::timestamptz, ${after.id}::uuid)`
+            : undefined;
+        const rows = await tx
+            .select({
+                key: sql<string>`to_char(${sortedBy} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+                row: cases,
+                workflowId: workflowDefinitions.id,
+                workflowName: workflowDefinitions.name
+            })
+            .from(cases)
+            .innerJoin(workflowDefinitionVersions, eq(workflowDefinitionVersions.id, cases.definitionVersionId))
+            .innerJoin(workflowDefinitions, eq(workflowDefinitions.id, workflowDefinitionVersions.definitionId))
+            .where(
+                and(
+                    waiting ? isNull(cases.closedAt) : undefined,
+                    query.service ? sql`${service} = ${query.service}` : undefined,
+                    query.state ? eq(cases.state, query.state) : undefined,
+                    query.number ? eq(cases.number, query.number) : undefined,
+                    query.mine ? eq(cases.startedBy, actor.userId) : undefined,
+                    position
+                )
+            )
+            .orderBy(
+                ...(waiting
+                    ? [asc(cases.createdAt), asc(cases.id)]
+                    : [sql`${cases.updatedAt} desc`, sql`${cases.id} desc`])
+            )
+            .limit(query.limit + 1);
+        const page = rows.slice(0, query.limit);
+        const defs = await this.definitions(
+            tx,
+            page.map((r) => r.row.definitionVersionId)
+        );
+        // the open step of each, as far as the caller's scope sees it (RLS)
+        const open = page.length
+            ? await tx
+                  .select()
+                  .from(caseTasks)
+                  .where(
+                      and(
+                          eq(caseTasks.status, 'open'),
+                          inArray(
+                              caseTasks.caseId,
+                              page.map((r) => r.row.id)
+                          )
+                      )
+                  )
+            : [];
+        const openOf = new Map(open.map((t) => [t.caseId, t]));
+        const units = await unitRefs(tx, [...page.map((r) => r.row.handlingUnitId), ...open.map((t) => t.unitId)]);
+        const label = (id: string): UnitLabel => units.get(id) ?? { id, code: '', name: {} };
+        const names = await namesOf(
+            tx,
+            page.map((r) => r.row.startedBy)
+        );
+        const now = new Date(
+            (await tx.execute<{ now: Date | string }>(sql`select now() as now`)).rows[0]?.now ?? Date.now()
+        ).getTime();
+        return {
+            items: page.map(({ row, workflowId, workflowName }): CaseListItem => {
+                const def = defs.get(row.definitionVersionId);
+                const state = def ? stateOf(def, row.state) : undefined;
+                const task = openOf.get(row.id);
+                return {
+                    id: row.id,
+                    number: row.number,
+                    service: serviceOf(row.config),
+                    workflow: { id: workflowId, name: workflowName },
+                    state: row.state,
+                    stateLabel: state?.label ?? null,
+                    closed: row.closedAt !== null,
+                    handlingUnit: label(row.handlingUnitId),
+                    startedByName: names.get(row.startedBy) ?? null,
+                    openStep: task
+                        ? {
+                              role: task.role,
+                              unit: label(task.unitId),
+                              dueAt: task.dueAt?.toISOString() ?? null,
+                              sla: slaOf(task.dueAt, now)
+                          }
+                        : null,
+                    createdAt: row.createdAt.toISOString(),
+                    updatedAt: row.updatedAt.toISOString(),
+                    closedAt: row.closedAt?.toISOString() ?? null
+                };
+            }),
+            nextCursor: (() => {
+                const last = page[page.length - 1];
+                return rows.length > query.limit && last ? cursorFor(last.key, last.row.id) : null;
+            })()
+        };
+    }
+
     /** The inbox's counts: the caller's open steps (as `inbox` lists them), those overdue, those nobody took on. */
     async inboxCount(tx: Tx, actor: CaseActor): Promise<{ open: number; overdue: number; unclaimed: number }> {
         if (actor.roles.length === 0) return { open: 0, overdue: 0, unclaimed: 0 };
@@ -509,8 +620,10 @@ export class CasesService {
             system?: string;
             task?: TaskRow;
             input: Record<string, unknown>;
-            /** the step form's answers filed with it, shown on the case page as that step's */
+            /** the step form's answers filed with it, shown on the case page as that step's (or the request it changed) */
             submissionId?: string;
+            /** the request's fields it changed (task 0.21e) */
+            amended?: string[];
             comment?: string;
             history: readonly StepHistory[];
             language: string;
@@ -584,7 +697,8 @@ export class CasesService {
                 t.effects?.length || by.submissionId
                     ? {
                           ...(t.effects?.length ? { effects: t.effects } : {}),
-                          ...(by.submissionId ? { submissionId: by.submissionId } : {})
+                          ...(by.submissionId ? { submissionId: by.submissionId } : {}),
+                          ...(by.amended ? { amended: by.amended } : {})
                       }
                     : null
         });
@@ -727,16 +841,8 @@ export class CasesService {
         key: string,
         contract: EffectContract
     ): Promise<Record<string, unknown>> {
-        const config = row.config as { formVersionId?: unknown; inputMap?: Record<string, Record<string, string>> };
-        const [request] =
-            typeof config.formVersionId === 'string'
-                ? await tx
-                      .select({ answers: submissions.answers })
-                      .from(submissions)
-                      .where(and(eq(submissions.caseId, row.id), eq(submissions.formVersionId, config.formVersionId)))
-                      .orderBy(asc(submissions.createdAt))
-                      .limit(1)
-                : [];
+        const config = row.config as { inputMap?: Record<string, Record<string, string>> };
+        const request = await this.requestOf(tx, row);
         const { input, missing, invalid } = contractInput(contract, request?.answers ?? {}, config.inputMap?.[key]);
         // the request was filed and validated on its form: a gap here is the configuration's, never the actor's to fix
         if (missing.length || invalid.length)
@@ -746,7 +852,35 @@ export class CasesService {
         return input;
     }
 
-    /** The step form's answers, filed on the case as a submission of the version the step names. */
+    /**
+     * The case's request: the first submission filed with it on the request form's version its service froze (the
+     * answers it was started with, as later changed through its workflow). None for a case started without a form.
+     */
+    private async requestOf(
+        tx: Tx,
+        row: CaseRow
+    ): Promise<{ id: string; formId: string; formVersionId: string; answers: Record<string, unknown> } | undefined> {
+        const { formVersionId } = row.config as { formVersionId?: unknown };
+        if (typeof formVersionId !== 'string') return undefined;
+        const [request] = await tx
+            .select({
+                id: submissions.id,
+                formId: submissions.formId,
+                formVersionId: submissions.formVersionId,
+                answers: submissions.answers
+            })
+            .from(submissions)
+            .where(and(eq(submissions.caseId, row.id), eq(submissions.formVersionId, formVersionId)))
+            .orderBy(asc(submissions.createdAt), asc(submissions.id))
+            .limit(1);
+        return request;
+    }
+
+    /**
+     * The step form's answers, filed on the case as a submission of the version the step names; or, on an action that
+     * changes the request (task 0.21e), the request's new answers, checked again on its version (the forms slice keeps
+     * what the actor may not see). The timeline names the fields changed, never their answers.
+     */
     private async stepAnswers(
         tx: Tx,
         ctx: DbContext,
@@ -757,7 +891,27 @@ export class CasesService {
         to: WorkflowState,
         input: Transition,
         language: string
-    ): Promise<{ answers: Record<string, unknown>; submissionId?: string }> {
+    ): Promise<{ answers: Record<string, unknown>; submissionId?: string; amended?: string[] }> {
+        if (t.amendsRequest) {
+            if (input.answers === undefined)
+                throw new ValidationError('validation_failed', {
+                    errors: [
+                        { path: 'answers', code: 'required', message: text('workflow.refusal.form-needed', language) }
+                    ]
+                });
+            const request = await this.requestOf(tx, row);
+            if (!request)
+                throw new ConflictError('not_configured', { detail: text('workflow.refusal.no-request', language) });
+            const { submission, changed } = await this.submissions.amend(
+                tx,
+                ctx,
+                actor.roles,
+                { submissionId: request.id, answers: input.answers },
+                this.lookups,
+                language
+            );
+            return { answers: submission.answers, submissionId: submission.id, amended: changed };
+        }
         const wanted = needsForm(state, t, to) && state.stepForm ? parseStepForm(state.stepForm) : null;
         if (!wanted) {
             if (input.answers !== undefined)
@@ -926,10 +1080,20 @@ export class CasesService {
                 ? []
                 : actionsFor(def, row.state, { kind: 'person', userId: actor.userId, rolesInUnit }, row.startedBy);
         const current = stateOf(def, row.state);
-        // each action's transition, and the step form it files its answers on (the version the step names)
+        const request = await this.requestOf(tx, row);
+        // each action's transition, and the step form it files its answers on (the version the step names), or the
+        // request it changes
         const actionDetails = await Promise.all(
             actions.map(async (action) => {
                 const t = def.transitions.find((x) => x.from === row.state && x.action === action);
+                if (t?.amendsRequest)
+                    return {
+                        action,
+                        t,
+                        needs: true,
+                        form: request ? { formId: request.formId, versionId: request.formVersionId } : null,
+                        amends: request?.id ?? null
+                    };
                 const step =
                     current && t && current.stepForm && needsForm(current, t, stateOf(def, t.to))
                         ? parseStepForm(current.stepForm)
@@ -939,7 +1103,8 @@ export class CasesService {
                     action,
                     t,
                     needs: step !== null,
-                    form: version ? { formId: version.formId, versionId: version.versionId } : null
+                    form: version ? { formId: version.formId, versionId: version.versionId } : null,
+                    amends: null
                 };
             })
         );
@@ -947,20 +1112,23 @@ export class CasesService {
             .select({ name: workflowDefinitions.name })
             .from(workflowDefinitions)
             .where(eq(workflowDefinitions.id, version.id));
-        // the step forms filed on the case, by the transition that filed each
+        // the step forms filed on the case, by the transition that filed each (one that changed the request filed none)
         const filedAt = new Map(
             events.flatMap((e) => {
                 const id = e.data?.submissionId;
-                return typeof id === 'string' && e.fromState ? [[id, e.fromState] as const] : [];
+                return typeof id === 'string' && e.fromState && !e.data?.amended ? [[id, e.fromState] as const] : [];
             })
         );
         // the request form the case was started with (task 0.21c): filed with the case, by no transition
-        const requestVersion = (row.config as { formVersionId?: unknown }).formVersionId;
         const startKey = def.states.find((s) => s.kind === 'start')?.key ?? '';
         const filed = (await this.submissions.ofCase(tx, actor.roles, row.id)).filter(
-            (s) => filedAt.has(s.id) || (typeof requestVersion === 'string' && s.formVersion.id === requestVersion)
+            (s) => filedAt.has(s.id) || s.id === request?.id
         );
         for (const s of filed) if (!filedAt.has(s.id)) filedAt.set(s.id, startKey);
+        // the request's fields the caller sees: a change names only those
+        const requestDocument = filed.find((s) => s.id === request?.id)?.document as
+            { fields?: { id?: unknown }[] } | undefined;
+        const requestKeys = new Set((requestDocument?.fields ?? []).map((f) => String(f.id)));
         const mentionsOf = (e: (typeof events)[number]): string[] =>
             e.kind === 'comment' && Array.isArray(e.data?.mentions)
                 ? e.data.mentions.filter((m): m is string => typeof m === 'string')
@@ -992,12 +1160,13 @@ export class CasesService {
             startedBy: row.startedBy,
             startedByName: names.get(row.startedBy) ?? null,
             actions,
-            actionDetails: actionDetails.map(({ action, t, needs, form }) => ({
+            actionDetails: actionDetails.map(({ action, t, needs, form, amends }) => ({
                 action,
                 label: t?.label ?? null,
                 commentRequired: t?.commentRequired === true,
                 needsForm: needs,
-                form
+                form,
+                amends
             })),
             tasks: tasks.map((t) => ({
                 id: t.id,
@@ -1027,6 +1196,9 @@ export class CasesService {
                 comment: e.comment,
                 mentions: mentionsOf(e).flatMap((id) => personOf(names, id) ?? []),
                 visibility: e.kind === 'comment' ? 'internal' : null,
+                amended: Array.isArray(e.data?.amended)
+                    ? e.data.amended.filter((k): k is string => typeof k === 'string' && requestKeys.has(k))
+                    : null,
                 at: e.createdAt.toISOString()
             })),
             steps: filed.map((s) => ({
@@ -1045,6 +1217,51 @@ export class CasesService {
             closedAt: row.closedAt?.toISOString() ?? null
         };
     }
+}
+
+const CURSOR_AT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
+const CURSOR_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** A list's cursor: its last case's sort key (UTC, to the microsecond, as the database wrote it) and id, opaque. */
+function cursorFor(at: string, id: string): string {
+    return Buffer.from(JSON.stringify([at, id])).toString('base64url');
+}
+
+/** A moment that exists (the database would refuse 2026-02-30 with an error, not as no cursor). */
+function existing(at: string): boolean {
+    const day = new Date(`${at.slice(0, 23)}Z`);
+    // the database has no year 0 (JavaScript does)
+    return (
+        !Number.isNaN(day.getTime()) && day.getUTCFullYear() >= 1 && day.toISOString().slice(0, 23) === at.slice(0, 23)
+    );
+}
+
+function cursorOf(cursor: string, language: string): { at: string; id: string } {
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+    } catch {
+        parsed = null;
+    }
+    const [at, id] = Array.isArray(parsed) ? (parsed as unknown[]) : [];
+    if (typeof at !== 'string' || typeof id !== 'string' || !CURSOR_AT.test(at) || !existing(at) || !CURSOR_ID.test(id))
+        throw new ValidationError('validation_failed', {
+            errors: [{ path: 'after', code: 'invalid', message: text('workflow.refusal.bad-cursor', language) }]
+        });
+    return { at, id };
+}
+
+/** The service a case froze: its code and its name then. */
+function serviceOf(config: Record<string, unknown>): { code: string; name: Record<string, string> } | null {
+    const { serviceCode, serviceName } = config;
+    if (typeof serviceCode !== 'string') return null;
+    const name =
+        serviceName && typeof serviceName === 'object'
+            ? Object.fromEntries(
+                  Object.entries(serviceName).filter((e): e is [string, string] => typeof e[1] === 'string')
+              )
+            : {};
+    return { code: serviceCode, name };
 }
 
 /** Where an open step stands against its due time at `now` (the database's clock, as the inbox says it). */

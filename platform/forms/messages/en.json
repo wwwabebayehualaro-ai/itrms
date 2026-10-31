@@ -46,5 +46,7 @@
   "forms.sensitive.cancel": "Cancel",
   "forms.sensitive.show": "Show",
   "forms.setting.exports.keepDays": "Days a background export is kept",
-  "forms.setting.exports.backgroundMaxRows": "Most rows in a background export"
+  "forms.setting.exports.backgroundMaxRows": "Most rows in a background export",
+  "forms.validation.sectionHasHiddenAnswers": "This section holds answers you may not see or change: it stays as it was filed. Ask the office that filed the request to change it.",
+  "forms.validation.notEditable": "You may not change this answer here: ask the office that filed the request."
 }

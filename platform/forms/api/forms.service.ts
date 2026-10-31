@@ -73,6 +73,7 @@ export class FormsService {
     async list(tx: Tx, query: z.infer<typeof formListQuerySchema>): Promise<FormSummary[]> {
         const conditions = [];
         if (query.active) conditions.push(eq(formDefinitions.active, query.active === 'true'));
+        if (query.owner) conditions.push(eq(formDefinitions.ownerUnitId, query.owner));
         if (query.q) {
             const like = `%${escapeLike(query.q)}%`;
             conditions.push(

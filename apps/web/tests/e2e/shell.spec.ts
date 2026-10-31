@@ -45,6 +45,7 @@ test('switching the unit changes the menu and the data scope', async ({ page }) 
         'kernel.home',
         'services.request',
         'workflow.inbox',
+        'workflow.requests',
         'parties.persons',
         'parties.organisations'
     ]);

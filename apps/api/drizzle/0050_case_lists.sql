@@ -1,0 +1,2 @@
+CREATE INDEX "cases_waiting_idx" ON "workflow"."cases" USING btree ("created_at","id") WHERE closed_at is null;--> statement-breakpoint
+CREATE INDEX "cases_recent_idx" ON "workflow"."cases" USING btree ("updated_at","id");

@@ -63,6 +63,8 @@ export const workflowCheckRequestSchema = z.strictObject({ definition: definitio
 export const workflowListQuerySchema = z.strictObject({
     q: z.string().trim().max(100).optional(),
     active: z.enum(['true', 'false']).optional(),
+    /** only those this unit owns (the publish screen's: the region's own, task 0.21e) */
+    owner: z.uuid().optional(),
     limit: z.coerce.number().int().min(1).max(100).default(50)
 });
 
@@ -168,6 +170,8 @@ const caseEventSchema = z.object({
     /** a comment's: the people it mentions, and who may read it */
     mentions: z.array(personRefSchema),
     visibility: z.enum(COMMENT_VISIBILITIES).nullable(),
+    /** a transition that changed the request (task 0.21e): the fields it changed that the caller may see */
+    amended: z.array(z.string()).nullable(),
     at: z.string()
 });
 
@@ -196,7 +200,12 @@ const caseActionSchema = z.object({
     /** the step's form must be filled in with it */
     needsForm: z.boolean(),
     /** the step's form (its form and version) the action files its answers on, when it needs one (task 0.21c) */
-    form: z.object({ formId: z.uuid(), versionId: z.uuid() }).nullable()
+    form: z.object({ formId: z.uuid(), versionId: z.uuid() }).nullable(),
+    /**
+     * The request (its submission, among `steps`) the action changes, filled in again with it (task 0.21e); `form` is then
+     * the request's.
+     */
+    amends: z.uuid().nullable()
 });
 
 export const caseSchema = z.object({
@@ -276,6 +285,57 @@ export const inboxItemSchema = z.object({
 /** The caller's inbox: by due time (overdue first, no SLA last), then the oldest. */
 export const inboxSchema = z.object({ items: z.array(inboxItemSchema), nextCursor: z.string().nullable() });
 
+/**
+ * The requests (cases) of the active office and those below it, across services (task 0.21e): `waiting` are open,
+ * the longest waiting first; `recent` are every case, the last changed first.
+ */
+export const caseListQuerySchema = z.strictObject({
+    list: z.enum(['waiting', 'recent']).default('waiting'),
+    /** a service's code (its cases froze it) */
+    service: z
+        .string()
+        .regex(/^[A-Z]{2,5}-[0-9]{2}$/, 'a service code')
+        .optional(),
+    state: z
+        .string()
+        .regex(/^[a-z][a-z0-9_]{0,62}$/, 'a state key')
+        .optional(),
+    number: z.coerce.number().int().min(1).max(Number.MAX_SAFE_INTEGER).optional(),
+    /** only the cases the caller started (at the counter) */
+    mine: z
+        .enum(['true', 'false'])
+        .transform((v) => v === 'true')
+        .optional(),
+    /** the previous page's `nextCursor` (opaque) */
+    after: z
+        .string()
+        .regex(/^[A-Za-z0-9_-]{1,200}$/, 'a cursor')
+        .optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(50)
+});
+
+export const caseListItemSchema = z.object({
+    id: z.uuid(),
+    number: z.number().int(),
+    /** the service it was started for, as named then (null: started on a workflow alone) */
+    service: z.object({ code: z.string(), name: z.record(z.string(), z.string()) }).nullable(),
+    workflow: z.object({ id: z.uuid(), name: z.record(z.string(), z.string()) }),
+    state: z.string(),
+    stateLabel: z.record(z.string(), z.string()).nullable(),
+    closed: z.boolean(),
+    handlingUnit: unitRefSchema,
+    startedByName: z.string().nullable(),
+    /** the step open now, where the caller's scope sees it: whose role, in which office, by when */
+    openStep: z
+        .object({ role: z.string(), unit: unitRefSchema, dueAt: z.string().nullable(), sla: z.enum(SLA_STATES) })
+        .nullable(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+    closedAt: z.string().nullable()
+});
+
+export const caseListSchema = z.object({ items: z.array(caseListItemSchema), nextCursor: z.string().nullable() });
+
 export const commentCreateSchema = z.strictObject({
     text: z.string().trim().min(1).max(2000),
     /** the people the text mentions (`@name`): each must work on the case; each is told */
@@ -286,6 +346,9 @@ export const casePeopleQuerySchema = z.strictObject({ q: z.string().trim().min(1
 export const casePeopleSchema = z.object({ items: z.array(personRefSchema) });
 
 export type InboxQuery = z.infer<typeof inboxQuerySchema>;
+export type CaseListQuery = z.infer<typeof caseListQuerySchema>;
+export type CaseListItem = z.infer<typeof caseListItemSchema>;
+export type CaseList = z.infer<typeof caseListSchema>;
 export type InboxItem = z.infer<typeof inboxItemSchema>;
 export type Inbox = z.infer<typeof inboxSchema>;
 export type CommentCreate = z.infer<typeof commentCreateSchema>;

@@ -55,13 +55,16 @@ unless INSA approves the cryptography for it (CMCSRS 6.18).
 |---|---|---|
 | **Public** | Verification result (masked), published tariffs, service list | May be shown without sign-in |
 | **Internal** | Cases, registry records, reports, configuration | Signed-in staff of the unit's subtree; RLS |
-| **Personal** | Names, addresses, licence and vehicle links | Internal rules + masked in exports and logs; PDP duties |
+| **Personal** | Names, addresses, licence and vehicle links | Internal rules; in clear only to staff who may read the record, in lists and in exports (every export and download on record); HMAC-masked in audit diffs, never in logs; PDP duties |
 | **Sensitive personal** | Fayda FIN/FAN, phone, full birth date, medical results, salary, bank account | Field-encrypted tables; `reveal()` with a reason, audited; never in logs, URLs or search engines |
 | **Secret** | Passwords, keys, tokens, session ids, signing keys | Never stored in plain text, never logged, never in the repository; rotated |
 
 * **SEC-DC-1** Every new table and every new form field is given a level in its slice's `contracts/` (a `classification`
   on the Zod schema or the form field). An unlabelled field is a review failure (CMCSRS 6.17(d): unclassified assets are
-  not released).
+  not released). Form fields have **mandatory labelling** (ADR-0037): a new field starts with the default class
+  (Personal), and a form version with an answer-holding field without a class is never published (the lint rule
+  `unclassified` is an error). A version published before classes existed counts an unset field as Personal on screen
+  and as Sensitive for what leaves the server (the browser's drafts).
 * **SEC-DC-2** The level drives masking in exports, audit diffs (HMAC-masked) and logs automatically; slices do not
   hand-mask.
 
@@ -203,7 +206,9 @@ The BFF holds the session (ADR-0021). The browser never sees an access or refres
 
 * **SEC-PD-1** Sensitive personal fields live in separate, field-encrypted tables, read only through the audited
   `reveal()` with a reason (ADR-0031).
-* **SEC-PD-2** **Masked by default** in lists, exports, audit diffs and logs.
+* **SEC-PD-2** **Masked by default:** Sensitive personal data in lists, exports, audit diffs and logs (its clear value only
+  through the audited reveal); Personal data in audit diffs and logs, and in lists and exports shown only to staff who may
+  read the record (ADR-0037).
 * **SEC-PD-3** **Retention per record type** with automatic deletion or anonymisation jobs; legal holds stop deletion.
 * **SEC-PD-4** Data-subject requests: a "what we hold about you" report and a "who accessed my data" report from the
   audit.
@@ -434,7 +439,7 @@ is possible whenever INSA or a bureau asks.
 | SEC-IF-1, SEC-IF-2 (containers, networks) | a Compose policy test (Trivy has no Compose scanner; it checks Dockerfiles once there are any) | 0.26 |
 | SEC-PD-1, SEC-PD-2, SEC-CR-1 (encrypted fields, masked by default, one crypto module) | `@itrms/kernel/crypto`: AES-256-GCM per region (data keys wrapped by `FIELD_KEYS`), HMAC blind indexes (`BLIND_INDEX_KEY`), `reveal()` recording who and why first; `apps/api/test/integration/parties.int.spec.ts`: no clear value in the tables, the audit log or the idempotency records, a viewer never sees FIN or phone, reveal needs `pii:reveal`, a reason and a factor in the last 5 minutes | 0.14 |
 | SEC-IN-9 and uploads (server keys, declared size and type, quarantine) | `@itrms/kernel/files`: keys `quarantine/<region>/<id>` and `files/<region>/<id>`; POST policy and signed part lengths, so S3 refuses more bytes or another type; size, first bytes and SHA-256 checked before a file leaves quarantine; `apps/api/test/integration/files.int.spec.ts` (sibling unit 404, type mismatch, too large, parts, quota, purge) and `files-nginx.int.spec.ts` (listing and unsigned requests refused by Nginx) | 0.15 |
-| SEC-DC-1 (classification of fields) | slice check (`check:slices`); until then the audit policy's `omit`/`mask` per table | 0.21 |
+| SEC-DC-1 (classification of fields) | form fields: the builder's default class and the publish check (lint `unclassified` is an error, `packages/form-engine/src/core/lint.spec.ts`, ADR-0037); tables: slice check (`check:slices`), until then the audit policy's `omit`/`mask` per table | 0.21e |
 
 [insa-aeg]: https://www.insa.gov.et/pdf/cyber-security-audit-and-evaluation
 

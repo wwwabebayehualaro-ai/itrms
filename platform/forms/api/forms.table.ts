@@ -9,7 +9,10 @@
  *   form_publications  a request to make a version the one people fill in, decided by a second person (class T at the
  *                      owner unit: its subtree asks, its heads and those above decide).
  *   submissions        answers, pinned to the version they were filled on (class T at the handling unit). `case_id` gets
- *                      its foreign key when cases exist (task 0.19).
+ *                      its foreign key when cases exist (task 0.19). A case's request changes only through its workflow
+ *                      (task 0.21e): its answers are replaced, re-validated on their version.
+ *   submission_revisions  the answers a request held before each change (class T at the handling unit, with it):
+ *                      append-only, so what was filed, and what each change replaced, stays on record.
  *   submission_values  the typed values of filterable fields, for the data viewer's indexes (ADR-0035, task 0.16b).
  *   submission_drafts  a person's request in the making, on the version they started (class T, its creator's: 0.20c).
  *
@@ -180,6 +183,38 @@ export const submissions = withRls(
                     .on(t.caseId)
                     .where(sql`${t.caseId} is not null`),
                 index('submissions_org_path_gist').using('gist', t.orgPath)
+            ]
+        ),
+        { mask: ['answers'] }
+    ),
+    'transaction'
+);
+
+/** A request's answers as they were before a change (task 0.21e); `revision` is the submission's row version then. */
+export const submissionRevisions = withRls(
+    audited(
+        formsSchema.table(
+            'submission_revisions',
+            {
+                ...baseColumns(),
+                regionId: uuid('region_id').notNull(),
+                handlingUnitId: uuid('handling_unit_id')
+                    .notNull()
+                    .references(() => orgUnits.id),
+                /** set by trigger from the handling unit */
+                orgPath: ltree('org_path').notNull().default(''),
+                submissionId: uuid('submission_id')
+                    .notNull()
+                    .references(() => submissions.id),
+                revision: integer('revision').notNull(),
+                formVersionId: uuid('form_version_id')
+                    .notNull()
+                    .references(() => formVersions.id),
+                answers: jsonb('answers').$type<Record<string, unknown>>().notNull()
+            },
+            (t) => [
+                uniqueIndex('submission_revisions_uq').on(t.submissionId, t.revision),
+                index('submission_revisions_org_path_gist').using('gist', t.orgPath)
             ]
         ),
         { mask: ['answers'] }

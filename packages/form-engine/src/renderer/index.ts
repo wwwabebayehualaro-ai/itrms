@@ -26,6 +26,9 @@ export type {
     ServerFormErrors
 } from '../host/client';
 
+// registry records by name, for answers shown outside a form (a case's printed steps)
+export { useLookupLabels } from '../host/lookups';
+
 // ---- render a saved template as a working form ------------------------------------------------------
 export { default as FormRenderer } from './FormRenderer';
 export type { EngineSubmission } from './EngineForm';

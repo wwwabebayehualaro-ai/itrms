@@ -138,7 +138,7 @@ can't run it). Available now (task 0.2):
 - `pnpm i` · `pnpm turbo run lint typecheck test build` · `pnpm boundaries` (dependency-cruiser layer rules)
 - `pnpm check:slices` (slice shape) · `pnpm test:tools` (boundary fixtures, scaffold) · `pnpm format` / `format:check`
 - `pnpm gen module|feature|screen|effect` (turbo gen) · `pnpm licences:report`
-- `pnpm ci:local [--ref <commit>]` (the CI jobs in Linux containers; the CI record while hosted runners are unavailable, ADR-0034)
+- `pnpm ci:local [--ref <commit>]` (the CI jobs in Linux containers: reproduces a CI failure; the CI record is the PR's GitHub Actions run, ADR-0038)
 - `pnpm dev:infra [--observability]` · `dev:infra:status|down|reset --yes` (Compose dev stack, task 0.3; see
   `infra/compose/README.md`) · `pnpm test:int` (integration tests against it)
 
@@ -205,7 +205,7 @@ The full rules, including the definition of ready and the evidence to record, ar
 [`docs/engineering/workflow.md`](docs/engineering/workflow.md). The summary: a task is done only when all of these hold, its
 "Done when" items are demonstrated, and the evidence is recorded in `docs/engineering/progress.md`:
 1. **Tests pass:** lint, typecheck, unit and integration (real PostgreSQL 16) and the affected e2e journeys, locally and on
-   CI (GitHub Actions, or the local Linux CI record from `pnpm ci:local`, ADR-0034).
+   CI (the pull request's GitHub Actions run, ADR-0038).
 2. **Tenant-isolation tests pass:** every new or changed tenant table has RLS policies of its class, and the isolation
    matrix (own, child, parent, sibling, other zone, other region, no context) covers it.
 3. **i18n keys are present** in `am` and `en` (`pnpm i18n:check`; optional languages reported), and new data names are `I18nText`.

@@ -1,6 +1,6 @@
 # ADR 0034: Local Linux CI while GitHub-hosted runners are unavailable
 
-* Status: accepted (2026-10-19). It **amends ADR-0009** (testing and CI): the CI record can come from a local Linux run.
+* Status: superseded by [ADR-0038](0038-github-hosted-ci.md) (2026-10-31); accepted (2026-10-19). It **amends ADR-0009** (testing and CI): the CI record can come from a local Linux run.
 
 ## Context
 * GitHub Actions jobs don't start: the account's billing blocks them (follow-up 11), and the company can't pay for it now.

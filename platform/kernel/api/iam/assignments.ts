@@ -6,10 +6,16 @@
  * - `unit_admin` only in a unit below the granter's own (never at their own level or above, §3.6);
  * - from now on, never backdated (it would rewrite who held a role when).
  * Revoking follows the same rules, never ends one's own assignment, and never the region's last bureau admin.
- * A revocation ends the assignment; nothing is deleted. Maker-checker on grants (SEC-AC-6) comes with configuration
- * publication (task 0.21).
+ * A revocation ends the assignment; nothing is deleted.
+ *
+ * Maker-checker (SEC-AC-6, task 0.21e): an administrator only asks for a grant; it takes effect when a second
+ * administrator with authority over the unit confirms it (in a small office, one of a unit above: their subtree holds
+ * it, ADR-0031). The checker is never the maker nor the person granted, every rule is checked again with the checker's
+ * authority, and a request not decided within REQUEST_DAYS can only be refused. A revocation takes rights away and needs
+ * no second person: one administrator ends an assignment at once.
  */
 import { and, asc, count, eq, gt, isNull, or, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 
 import type { Principal } from '../context';
@@ -20,10 +26,14 @@ import { emit } from '../outbox/outbox';
 import { withinScope } from '../org/org-admin.service';
 import { findUnitByCode, getUnit, type OrgUnit } from '../org/org-tree';
 import { orgUnits, unitTypeRoles } from '../org/org.table';
-import { roleAssignments, users } from './iam.table';
+import { roleAssignments, roleGrantRequests, users } from './iam.table';
 
 export type RoleAssignment = typeof roleAssignments.$inferSelect;
 export type User = typeof users.$inferSelect;
+export type RoleGrantRequest = typeof roleGrantRequests.$inferSelect;
+
+/** How long a grant request waits for its confirmation. */
+export const REQUEST_DAYS = 14;
 
 const invalid = (path: string, code: string, message: string): never => {
     throw new ValidationError('validation_failed', { errors: [{ path, code, message }] satisfies FieldError[] });
@@ -69,7 +79,8 @@ async function checkAuthority(tx: Tx, granter: Granter | typeof INSTALLER, unit:
         refuse('unit_admin_at_own_level');
 }
 
-export async function grantRole(tx: Tx, granter: Granter | typeof INSTALLER, grant: Grant) {
+/** Whether this granter may give this grant now: who, where, which role, from when. */
+async function checkGrant(tx: Tx, granter: Granter | typeof INSTALLER, grant: Grant): Promise<OrgUnit> {
     if (granter !== INSTALLER && granter.userId === grant.userId) refuse('self_grant');
     const unit = await getUnit(tx, grant.unitId);
     if (!unit.active) invalid('unitId', 'unit_inactive', 'the unit is deactivated');
@@ -85,6 +96,17 @@ export async function grantRole(tx: Tx, granter: Granter | typeof INSTALLER, gra
             .then((r) => r.rows);
         if (past) invalid('validFrom', 'backdated', 'an assignment starts now or later');
     }
+    return unit;
+}
+
+/** Grants at once: the installation's seeds, and a confirmed request (`requestedBy`: who asked for it). */
+async function grantRole(
+    tx: Tx,
+    granter: Granter | typeof INSTALLER,
+    grant: Grant,
+    requestedBy?: string | null
+): Promise<RoleAssignment> {
+    const unit = await checkGrant(tx, granter, grant);
     try {
         const assignment = await insertAudited(tx, roleAssignments, {
             regionId: unit.regionId,
@@ -94,16 +116,185 @@ export async function grantRole(tx: Tx, granter: Granter | typeof INSTALLER, gra
             // the database's clock, not this process's: validity is checked against now() in the database
             ...(grant.validFrom ? { validFrom: grant.validFrom } : {}),
             validTo: grant.validTo ?? null,
-            grantedBy: granter === INSTALLER ? null : granter.userId,
+            grantedBy: requestedBy !== undefined ? requestedBy : granter === INSTALLER ? null : granter.userId,
+            confirmedBy: granter === INSTALLER ? null : granter.userId,
             reason: grant.reason
         });
         await assignmentChanged(tx, assignment, 'granted');
         return assignment;
     } catch (error) {
-        if ((error as { cause?: { code?: string } }).cause?.code === '23505')
-            throw new ConflictError('duplicate_reference', { detail: 'The person already holds this role here.' });
+        if ((error as { cause?: { code?: string } }).cause?.code === '23505') throw alreadyHeld();
         throw error;
     }
+}
+
+/** Whether the person holds the role in the unit (an assignment open now or later). */
+async function holds(tx: Tx, userId: string, unitId: string, roleKey: string): Promise<boolean> {
+    const [open] = await tx
+        .select({ id: roleAssignments.id })
+        .from(roleAssignments)
+        .where(
+            and(
+                eq(roleAssignments.userId, userId),
+                eq(roleAssignments.unitId, unitId),
+                eq(roleAssignments.roleKey, roleKey),
+                or(isNull(roleAssignments.validTo), gt(roleAssignments.validTo, sql`now()`))
+            )
+        );
+    return open !== undefined;
+}
+
+function alreadyHeld(): ConflictError {
+    return new ConflictError('duplicate_reference', { detail: 'The person already holds this role here.' });
+}
+
+/** Asks for a grant (the maker): refused now if the maker could not give it, else it waits for a second administrator. */
+export async function requestGrant(tx: Tx, maker: Granter, grant: Grant): Promise<RoleGrantRequest> {
+    const unit = await checkGrant(tx, maker, grant);
+    if (await holds(tx, grant.userId, grant.unitId, grant.roleKey)) throw alreadyHeld();
+    // one left past its time can no longer be confirmed: it is closed as expired, so asking again is possible
+    const stale = await tx
+        .select({ id: roleGrantRequests.id, version: roleGrantRequests.rowVersion })
+        .from(roleGrantRequests)
+        .where(
+            and(
+                eq(roleGrantRequests.userId, grant.userId),
+                eq(roleGrantRequests.unitId, grant.unitId),
+                eq(roleGrantRequests.roleKey, grant.roleKey),
+                eq(roleGrantRequests.state, 'pending'),
+                sql`${roleGrantRequests.createdAt} <= now() - make_interval(days => ${REQUEST_DAYS})`
+            )
+        );
+    for (const old of stale)
+        await updateAudited(tx, roleGrantRequests, old.id, old.version, {
+            state: 'expired',
+            decidedAt: sql`now()` as unknown as Date
+        });
+    try {
+        return await insertAudited(tx, roleGrantRequests, {
+            regionId: unit.regionId,
+            userId: grant.userId,
+            unitId: grant.unitId,
+            roleKey: grant.roleKey,
+            validFrom: grant.validFrom ?? null,
+            validTo: grant.validTo ?? null,
+            reason: grant.reason
+        });
+    } catch (error) {
+        if ((error as { cause?: { code?: string } }).cause?.code === '23505')
+            throw new ConflictError('duplicate_reference', {
+                detail: 'This grant is already waiting for confirmation.'
+            });
+        throw error;
+    }
+}
+
+/** A request still waiting, with what the database's clock says of it. */
+async function pendingRequest(tx: Tx, id: string) {
+    const [row] = await tx
+        .select({
+            request: roleGrantRequests,
+            expired: sql<boolean>`${roleGrantRequests.createdAt} <= now() - make_interval(days => ${REQUEST_DAYS})`,
+            started: sql<boolean>`coalesce(${roleGrantRequests.validFrom} <= now(), true)`,
+            ended: sql<boolean>`coalesce(${roleGrantRequests.validTo} <= now(), false)`
+        })
+        .from(roleGrantRequests)
+        .where(eq(roleGrantRequests.id, id));
+    if (!row) throw new NotFoundError();
+    if (row.request.state !== 'pending')
+        throw new ConflictError('invalid_transition', { detail: `The request is already ${row.request.state}.` });
+    return row;
+}
+
+/** Confirms a request (the checker): every rule again, with the checker's authority; the assignment names both. */
+export async function confirmGrant(
+    tx: Tx,
+    checker: Granter,
+    id: string,
+    version: number
+): Promise<{ request: RoleGrantRequest; assignment: RoleAssignment }> {
+    const { request, expired, started, ended } = await pendingRequest(tx, id);
+    // maker ≠ checker: whoever asked cannot also confirm (SEC-AC-6)
+    if (request.createdBy === checker.userId) refuse('own_request');
+    if (expired)
+        throw new ConflictError('invalid_transition', {
+            detail: `The request waited more than ${REQUEST_DAYS} days: ask for the grant again.`
+        });
+    if (ended) throw new ConflictError('invalid_transition', { detail: 'The period asked for has already ended.' });
+    if (await holds(tx, request.userId, request.unitId, request.roleKey)) throw alreadyHeld();
+    const assignment = await grantRole(
+        tx,
+        checker,
+        {
+            userId: request.userId,
+            unitId: request.unitId,
+            roleKey: request.roleKey,
+            // a start asked for that has passed while the request waited: from now
+            validFrom: started ? undefined : (request.validFrom ?? undefined),
+            validTo: request.validTo,
+            reason: request.reason
+        },
+        request.createdBy
+    );
+    const decided = await updateAudited(tx, roleGrantRequests, id, version, {
+        state: 'confirmed',
+        decidedBy: checker.userId,
+        decidedAt: sql`now()` as unknown as Date,
+        assignmentId: assignment.id
+    });
+    return { request: decided, assignment };
+}
+
+/** Refuses a request (another administrator with authority over it), or withdraws it (the one who asked). */
+export async function rejectGrant(
+    tx: Tx,
+    actor: Granter,
+    id: string,
+    version: number,
+    reason: string
+): Promise<RoleGrantRequest> {
+    const { request } = await pendingRequest(tx, id);
+    const own = request.createdBy === actor.userId;
+    if (!own) {
+        if (request.userId === actor.userId) refuse('self_grant');
+        await checkAuthority(tx, actor, await getUnit(tx, request.unitId), request.roleKey);
+    }
+    return updateAudited(tx, roleGrantRequests, id, version, {
+        state: own ? 'withdrawn' : 'rejected',
+        decidedBy: actor.userId,
+        decidedAt: sql`now()` as unknown as Date,
+        decisionReason: reason
+    });
+}
+
+/** The grant requests waiting in the caller's scope (RLS: the subtree), oldest first, with whom they name. */
+export async function pendingRequests(tx: Tx, unitId?: string) {
+    const maker = alias(users, 'maker');
+    return tx
+        .select({
+            id: roleGrantRequests.id,
+            userId: roleGrantRequests.userId,
+            displayName: users.displayName,
+            username: users.username,
+            unitId: roleGrantRequests.unitId,
+            unitCode: orgUnits.code,
+            unitName: orgUnits.name,
+            roleKey: roleGrantRequests.roleKey,
+            validFrom: roleGrantRequests.validFrom,
+            validTo: roleGrantRequests.validTo,
+            reason: roleGrantRequests.reason,
+            requestedBy: roleGrantRequests.createdBy,
+            requestedByName: maker.displayName,
+            requestedAt: roleGrantRequests.createdAt,
+            expiresAt: sql<string>`${roleGrantRequests.createdAt} + make_interval(days => ${REQUEST_DAYS})`,
+            version: roleGrantRequests.rowVersion
+        })
+        .from(roleGrantRequests)
+        .innerJoin(users, eq(users.id, roleGrantRequests.userId))
+        .innerJoin(orgUnits, eq(orgUnits.id, roleGrantRequests.unitId))
+        .leftJoin(maker, eq(maker.id, roleGrantRequests.createdBy))
+        .where(and(eq(roleGrantRequests.state, 'pending'), unitId ? eq(roleGrantRequests.unitId, unitId) : undefined))
+        .orderBy(asc(roleGrantRequests.createdAt), asc(roleGrantRequests.id));
 }
 
 /** Ends an assignment now (one that has not started yet ends before it starts). */

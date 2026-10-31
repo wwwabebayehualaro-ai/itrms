@@ -46,5 +46,7 @@
   "forms.sensitive.cancel": "ተው",
   "forms.sensitive.show": "አሳይ",
   "forms.setting.exports.keepDays": "ከበስተጀርባ የተዘጋጀ ፋይል የሚቆይባቸው ቀናት",
-  "forms.setting.exports.backgroundMaxRows": "ከበስተጀርባ በሚዘጋጅ ፋይል ውስጥ የሚገቡ ከፍተኛ ረድፎች"
+  "forms.setting.exports.backgroundMaxRows": "ከበስተጀርባ በሚዘጋጅ ፋይል ውስጥ የሚገቡ ከፍተኛ ረድፎች",
+  "forms.validation.sectionHasHiddenAnswers": "ይህ ክፍል እርስዎ የማያዩት ወይም የማይቀይሩት መልስ ይዟል፤ እንደገባ ይቆያል። እንዲቀየር ጥያቄውን ያስገባውን ጽ/ቤት ይጠይቁ።",
+  "forms.validation.notEditable": "ይህንን መልስ እዚህ መቀየር አይችሉም፤ ጥያቄውን ያስገባውን ጽ/ቤት ይጠይቁ።"
 }

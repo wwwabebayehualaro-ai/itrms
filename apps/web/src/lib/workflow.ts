@@ -7,6 +7,9 @@
  */
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+    CaseList,
+    CaseListItem,
+    CaseListQuery,
     CaseOut,
     CommentCreate,
     Inbox,
@@ -21,7 +24,8 @@ import client from './api/client';
 import { createKeys } from './query/keys';
 import { workspaceKeys } from './workspace';
 
-export type { CaseOut, Inbox, InboxItem, PersonRef, SlaState };
+export type { CaseList, CaseListItem, CaseOut, Inbox, InboxItem, PersonRef, SlaState };
+export type CaseListFilters = Partial<Pick<CaseListQuery, 'list' | 'service' | 'state' | 'number' | 'mine'>>;
 export type InboxFilters = Partial<Pick<InboxQuery, 'claim' | 'sla' | 'state' | 'number'>>;
 
 export const caseKeys = createKeys('cases');
@@ -44,6 +48,26 @@ export function useInbox(filters: InboxFilters, after: string | null) {
     });
 }
 
+/** The requests of the office and those below it (task 0.21e): waiting or recent, a page at a time. */
+export function useCaseList(filters: CaseListFilters, after: string | null) {
+    return useQuery({
+        queryKey: caseKeys.list({ ...filters, after }),
+        placeholderData: keepPreviousData,
+        queryFn: async ({ signal }) =>
+            (
+                await client.get<CaseList>('v1/cases', {
+                    params: {
+                        ...filters,
+                        ...(filters.mine ? { mine: 'true' } : { mine: undefined }),
+                        ...(after ? { after } : {}),
+                        limit: 25
+                    },
+                    signal
+                })
+            ).data
+    });
+}
+
 export function useCase(id: string) {
     return useQuery({
         queryKey: caseKeys.detail(id),
@@ -59,6 +83,7 @@ function useCaseChange<V>(id: string, run: (input: V) => Promise<CaseOut>) {
         onSuccess: (after) => {
             queries.setQueryData(caseKeys.detail(id), after);
             void queries.invalidateQueries({ queryKey: inboxKeys.all });
+            void queries.invalidateQueries({ queryKey: caseKeys.lists() });
             void queries.invalidateQueries({ queryKey: workspaceKeys.all });
         }
     });

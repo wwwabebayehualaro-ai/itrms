@@ -166,6 +166,11 @@ export const workflowTransitionSchema = z
         guard: workflowGuardSchema.optional(),
         effects: z.array(z.string().regex(WORKFLOW_EFFECT, 'must be <module>.<effect>')).max(20).optional(),
         commentRequired: z.boolean().optional(),
+        /**
+         * A person's action that changes the case's request (task 0.21e): its answers replace the request form's, checked
+         * again on the version the case froze; what the actor may not see is kept as it was.
+         */
+        amendsRequest: z.boolean().optional(),
         /** reject only: who may reject (anyone else may not, the step's own role included) */
         rejectRoles: z.array(role).min(1).max(20).optional()
     })
@@ -181,6 +186,12 @@ export const workflowTransitionSchema = z
             ctx.addIssue({ code: 'custom', path: ['actor'], message: 'an event transition names its system actor' });
         if (t.actor && !t.on?.startsWith('event:'))
             ctx.addIssue({ code: 'custom', path: ['actor'], message: 'only an event transition has a system actor' });
+        if (t.amendsRequest && (t.action === undefined || t.action === 'reject'))
+            ctx.addIssue({
+                code: 'custom',
+                path: ['amendsRequest'],
+                message: "only a person's action other than reject changes the request"
+            });
         if ((t.action === 'reject') !== (t.rejectRoles !== undefined))
             ctx.addIssue({
                 code: 'custom',

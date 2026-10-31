@@ -52,7 +52,7 @@ describe('lintDocument', () => {
     });
 
     describe('unclassified', () => {
-        it('warns of a field that holds an answer and has no data class, and only of it', () => {
+        it('refuses a field that holds an answer and has no data class, and only it (mandatory labelling)', () => {
             const problems = lintDocument(
                 doc([
                     F('phone', 'InputText', { classification: undefined }),
@@ -61,10 +61,10 @@ describe('lintDocument', () => {
                 ])
             );
             expect(ofRule(problems, 'unclassified')).toEqual([
-                expect.objectContaining({ severity: 'warning', fieldId: 'phone', path: 'fields[0].classification' })
+                expect.objectContaining({ severity: 'error', fieldId: 'phone', path: 'fields[0].classification' })
             ]);
             expect(engineText('en', 'form-engine.core.lint.unclassified', { field: 'phone' })).toContain(
-                'the browser keeps no draft'
+                'before the form is published'
             );
         });
     });
