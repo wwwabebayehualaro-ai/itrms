@@ -279,11 +279,25 @@ describe('a form overlay', () => {
         await approve(as.zoneHead, publication);
         const read = await api.call('GET', `/api/v1/forms/${ids.form}/overlays/${ids.zone}`, as.zoneHead);
         expect(read.json()).toMatchObject({ status: 'published', publishedVersion: { number: 1 }, conflicts: [] });
+
+        // every write is on the audit log, the overlay's content only as its hash (never the fields it adds)
+        const { rows: audit } = await api.owner.query<{ table_name: string; action: string; diff: unknown }>(
+            "select table_name, action, diff from kernel.audit_log where table_name in ('forms.form_overlays', 'forms.form_overlay_versions') and row_id in (select id from forms.form_overlays where owner_unit_id = $1 union select id from forms.form_overlay_versions where owner_unit_id = $1) order by at, id",
+            [ids.zone]
+        );
+        expect(audit.map((a) => `${a.table_name} ${a.action}`)).toEqual(
+            expect.arrayContaining([
+                'forms.form_overlays insert',
+                'forms.form_overlay_versions insert',
+                'forms.form_overlays update'
+            ])
+        );
+        expect(JSON.stringify(audit)).not.toContain('x_zone_q');
     });
 
     it("applies a woreda's field to its own new cases only, with the zone's, and keeps the bureau's form as it is", async () => {
         const asked = await overlay(as.damotAdmin, ids.damot, {
-            add: [{ after: 'x_zone_q', fields: [field('x_damot_q')] }]
+            add: [{ after: 'x_zone_q', fields: [field('x_damot_q', { type: 'InputNumber' })] }]
         });
         expect(asked.statusCode, asked.body).toBe(201);
         await approve(as.damotHead, asked.json<{ id: string; version: number }>());
@@ -294,10 +308,18 @@ describe('a form overlay', () => {
         }>();
         expect(keysOf(form.document)).toEqual(['plate', 'owner', 'remark', 'x_zone_q', 'x_damot_q', 'category']);
 
+        // the woreda's field is checked on the server like the bureau's: a number it is not is refused, nothing filed
+        const refused = await api.call('POST', '/api/v1/service-requests', as.damotRecords, {
+            serviceCode: SERVICE,
+            answers: { plate: 'ETH ABC 0499', owner: 'Generated Owner', x_damot_q: 'yes' }
+        });
+        expect(refused.statusCode).toBe(422);
+        expect(refused.json()).toMatchObject({ errors: [{ path: 'x_damot_q' }] });
+
         const damot = await file(as.damotRecords, {
             plate: 'ETH ABC 0500',
             owner: 'Generated Owner',
-            x_damot_q: 'yes',
+            x_damot_q: 1,
             x_zone_q: 'zone'
         });
         const damotForm = await filedOn(damot.id);
@@ -338,7 +360,7 @@ describe('a form overlay', () => {
         const open = await file(as.damotRecords, {
             plate: 'ETH ABC 0700',
             owner: 'Generated Owner',
-            x_damot_q: 'before'
+            x_damot_q: 2
         });
         const openForm = await filedOn(open.id);
 
@@ -385,7 +407,7 @@ describe('a form overlay', () => {
         const next = await file(as.damotRecords, {
             plate: 'ETH ABC 0701',
             owner: 'Generated Owner',
-            x_damot_q: 'after'
+            x_damot_q: 3
         });
         const nextForm = await filedOn(next.id);
         expect(nextForm?.base).toBe(publication.formVersion.id);
