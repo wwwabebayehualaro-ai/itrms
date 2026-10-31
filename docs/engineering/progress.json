@@ -975,12 +975,22 @@
         {
           "id": "0.21f",
           "title": "Form governance, part 3: form overlays and form tiers",
-          "status": "in progress",
+          "status": "in review",
           "branch": "task/0.21f-form-overlays",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "fbded5c"
+          ],
+          "evidence": [
+            "GitHub Actions run 41229940021 on fbded5c (PR #27): all 9 jobs green (ADR-0038 CI record); earlier runs 41227203230 (b7ba00c) and 41228077325 (7067043) green",
+            "checks: turbo 66/66 (lint, typecheck, test, build); unit 668 passed, 2 skipped; boundaries, slices, i18n am/en, format OK",
+            "integration (dev stack, PostgreSQL 16): 25 files, 396 tests + S3 contract 20; incl. forms-overlays.int.spec.ts (4: zone adds a field, can't touch a locked one, maker-checker, review; woreda's field on its own new cases only, validated at filing, audited, sibling and bureau unaffected; new bureau version re-applies and reports conflicts, open case keeps its form; tiers and policy) and forms-governance.int.spec.ts (15, with follow-ups 154/155); isolation matrix covers the new tables",
+            "unit: form-engine overlay.spec.ts (8: composition, stacking, passing over, locks, actions, rules read, applied), roles.spec.ts, lint.spec.ts (reads-restricted), keys.spec.ts (key-reserved)",
+            "e2e: 18 passed, incl. builder-publish.spec.ts unclassified-field case (follow-up 176)",
+            "security: Semgrep 0 findings; gitleaks no leaks; Trivy passed; perf 14 passed; stories 474 passed",
+            "reviews: architect design; reviewer (Opus) three passes, every high and medium finding fixed with tests; task-verifier ready (its two test gaps closed)"
+          ],
           "blockers": [],
-          "notes": "Scope: the phase file's overlays and tiers, the governance follow-ups (154, 155) and three 0.21e follow-ups that are form governance (176 builder e2e for unclassified, 177 reachableFieldsFor, 178 lint for formulas reading narrower roles). The four request-change follow-ups (175, 179-181) moved to the new task 0.21g (stable rows). Paused 2026-10-31 at the usage limit: branch created, plan split committed (c8bcaba). Next: get the overlay design (architect brief: data model, composition in form-engine core, which unit's overlay applies, re-application conflicts in the impact analysis, tier permissions, API and minimal UI, tests), then follow-up 177 (reachableFieldsFor in platform/forms/api/support.ts: drop children of restricted containers in documentFor/openFieldsFor and the case timeline's requestKeys), 178, 154, 155, 176. Product owner decided (2026-10-31): an office authors its own form overlay (maker-checker approval at that office or above); overlay field keys are reserved with the x_ prefix (new bureau and unit-local keys may not use it)."
+          "notes": "Scope: the phase file's overlays and tiers, the governance follow-ups (154, 155) and three 0.21e follow-ups that are form governance (176 builder e2e for unclassified, 177 reachableFieldsFor, 178 lint for formulas reading narrower roles). The four request-change follow-ups (175, 179-181) moved to the new task 0.21g (stable rows). Product owner decided (2026-10-31): an office authors its own form overlay (maker-checker approval at that office or above); overlay field keys are reserved with the x_ prefix (new bureau and unit-local keys may not use it). Design by the architect agent (overlays in the forms slice, composed versions, policy family formOverlay). Reviewer (Opus) three passes: 1 high (added fields' actions were not refused), several medium (filing-time locks, review false errors, narrowing a field bureau rules read) and lows, all fixed with tests. Task-verifier: ready; added the overlay validation-at-filing and audit assertions it asked for."
         },
         {
           "id": "0.21g",
