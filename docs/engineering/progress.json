@@ -1018,10 +1018,21 @@
         {
           "id": "0.22a",
           "title": "Fees, part 1: fee rules and the Fee field",
-          "status": "in progress",
+          "status": "in review",
           "branch": "task/0.22a-fee-rules",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "f0a8ad7",
+            "ae2ddbd",
+            "5b71b90",
+            "743ca40"
+          ],
+          "evidence": [
+            "GitHub Actions run 41288237950 on 743ca40 (PR #29): all 9 jobs green (ADR-0038 CI record), e2e 18 passed, stories 474 passed; the run on ae2ddbd failed only gitleaks (7 generic-api-key matches on fee rule keys such as key: dvc-04-renewal), fixed with .gitleaks.toml (default rules plus an allowlist of that pattern; local gitleaks on the PR range clean)",
+            "pnpm turbo run lint typecheck test build → 66/66; boundaries 0 violations (1144 modules); check:slices 10 slices; i18n complete am/en; OpenAPI regenerated",
+            "unit: form-engine 43 files, 356 passed (core/fees.spec.ts golden renewal with penalty months 0/1/2/3, cap 24, over a year, lost card, replacement, half-up shares, too_large, a fast-check property money stays bigint and total = sum of lines, startedMonths/startedEthMonths incl. Pagume; contract.spec standalone; lint fee-duplicate error, fee-in-rows; renderer/fee.spec.tsx Fee field component 8); platform/fees seed.spec.ts 3 (demo rules)",
+            "integration (PostgreSQL 16): fees.int.spec.ts 7: maker-checker (self-approval 403 on record, approver-role setting, second decision 409, fact inputs and rejected content refused, audit without the document), publish refusals (not approved, Fee field without rule, Sensitive input and by container, wrong kind, conditional optional input, no Fee field, no fees.assess), seed idempotent and demo-only approval, preview = filed figure (lines, total, sum of lines in the typed tables, preview writes no audit or idempotency rows, a Fee value ignored), 409 fee_changed starts no case, 422 fee_not_shown, reassessment only when the fee changes, another office 404, case_fees append-only; related specs 81 passed; full pnpm test:int 403/404 (forms-lookups query timeout under load, 24/24 alone)",
+            "reviews: architect design; reviewer (Opus) pass 1: 1 high (preview vs filing over partial answers), 3 medium, 4 low, all fixed with tests; pass 2: 1 low (two Fee fields), fixed; task-verifier: ready with caveats (bookkeeping, no Playwright journey: moved to 0.22b)"
+          ],
           "blockers": [],
           "notes": "Product owner decided (2026-11-01): who approves a fee rule version is configuration (a region setting of approver roles; default by Ethiopian practice: bureau_admin or a regional finance_officer, never the version's author), and the date a reworked fee counts the penalty to is configuration (per fee rule: the filing date by default, or the date it is worked out again). How a started month is counted is also the rule's choice (30-day periods or Ethiopian calendar months), until the bureau's fee schedule wording is known. Design by the architect agent: rule document in packages/schemas, evaluator in form-engine core (money never in formulas: formulas give booleans and whole quantities), fee_rules/fee_rule_versions/fee_rule_approvals (class C, region root), case_fees + lines (class T, append-only), POST /fees/preview (NotReplayable), the filing echo check (409 fee_changed), the fees.assess effect for request changes, the Fee field (display only)."
         },
@@ -2612,6 +2623,21 @@
       "foundIn": "0.21g",
       "item": "A request change: rows of a nested repeating section are not merged by id one by one; a nested section holding another role's answers, or a column computed from the person, keeps its outer section as filed (fail-safe)",
       "movedTo": "Phase 1 (form engine, nested sections)"
+    },
+    {
+      "foundIn": "0.22a",
+      "item": "Service-version publication is a single person's step; SEC-AC-6 lists configuration publication as maker-checker (the money part is covered by the fee rule's approval)",
+      "movedTo": "0.26 (hardening)"
+    },
+    {
+      "foundIn": "0.22a",
+      "item": "A Playwright journey of the Fee field at the counter (component and API tests cover 0.22a)",
+      "movedTo": "0.22b"
+    },
+    {
+      "foundIn": "0.22a",
+      "item": "Fee inputs from case facts (from: 'fact'): refused until cases carry facts at filing",
+      "movedTo": "0.24"
     }
   ]
 }
