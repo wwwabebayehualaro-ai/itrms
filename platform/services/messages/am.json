@@ -77,6 +77,7 @@
   "services.contract.wrong_kind": "ተግባሩ {effect} \"{key}\" የ{expected} መስክ እንዲሆን ይፈልጋል፤ የ{actual} መስክ ነው።",
   "services.contract.not_required": "ተግባሩ {effect} \"{key}\" ግዴታ እንዲሆን ይፈልጋል።",
   "services.contract.conditional": "ተግባሩ {effect} \"{key}\" ሁልጊዜ እንዲታይ ይፈልጋል፤ ሁኔታ ሊደብቀው ይችላል።",
+  "services.contract.computed": "ተግባሩ {effect} \"{key}\" ራሱን ችሎ እንዲመለስ ይፈልጋል፤ ከሌሎች መስኮች ይሰላል።",
   "services.contract.no_form": "ተግባሩ {effect} የጥያቄ ቅጹን ያነባል፤ ስሪቱ ቅጽ አልሰየመም።",
   "services.contract.unknown_effect": "የሥራ ፍሰቱ {effect} የሚባል ተግባር አያካሂድም።",
   "services.contract.kind.text": "ጽሑፍ",
@@ -100,5 +101,7 @@
   "services.contract.fee_rule_not_regional": "የክፍያ ደንቡ የአንድ ጽ/ቤት ነው እንጂ የክልሉ አይደለም።",
   "services.contract.fee_input_sensitive": "ክፍያው «{key}» የተባለውን ሚስጥራዊ መስክ ያነባል፤ ክፍያ ሚስጥራዊ መልሶችን ማንበብ አይችልም።",
   "services.contract.fee_not_reassessed": "የሥራ ፍሰቱ ጥያቄውን ሲቀይር ክፍያውን እንደገና አያሰላም፤ ጥያቄውን በሚቀይር እያንዳንዱ ሽግግር ላይ {effect} የሚለውን ተግባር ያክሉ።",
-  "services.contract.fee_field_without_rule": "ቅጹ ክፍያ ያሳያል፤ ስሪቱ ግን የክፍያ ደንብ አልሰየመም።"
+  "services.contract.fee_field_without_rule": "ቅጹ ክፍያ ያሳያል፤ ስሪቱ ግን የክፍያ ደንብ አልሰየመም።",
+  "services.contract.fee_field_conditional": "የክፍያ መስኩ ሁልጊዜ መታየት አለበት፤ ሁኔታ ወይም የሚና ገደብ ይደብቀዋል።",
+  "services.contract.fee_field_missing": "ስሪቱ ክፍያ ያስከፍላል፤ ቅጹ ግን ክፍያ አያሳይም። ባለሙያው የሚያስገባውን ክፍያ እንዲያይ የክፍያ መስክ ያክሉ።"
 }

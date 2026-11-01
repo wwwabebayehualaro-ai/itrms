@@ -16,8 +16,8 @@ import { FeesService } from './fees.service';
 export class AssessFeeEffect implements WorkflowEffect {
     constructor(@Inject(FeesService) private readonly fees: FeesService) {}
 
-    async run({ tx, caseId }: EffectRun) {
-        const fee = await this.fees.reassess(tx, caseId, currentContext()?.language ?? 'am');
+    async run({ tx, caseId, handlingUnitId }: EffectRun) {
+        const fee = await this.fees.reassess(tx, caseId, handlingUnitId, currentContext()?.language ?? 'am');
         return fee ? { facts: { fee: { id: fee.id, totalSantim: fee.totalSantim } } } : undefined;
     }
 }

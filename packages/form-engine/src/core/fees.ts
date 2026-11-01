@@ -94,12 +94,16 @@ const failed = (line: FeeLine, code: FeeProblemCode): FeeResult => ({
     problems: [{ line: line.key, code }]
 });
 
+/** The most units a line charges (a case keeps the quantity as a 32-bit integer). */
+const MAX_UNITS = 2_147_483_647;
+
 /** A whole, non-negative number of units, or the reason it is not one. */
 function units(src: string | undefined, scope: Record<string, unknown>): number | { code: FeeProblemCode } {
     if (src === undefined) return 1;
     const q = evalFormula(src, scope);
     if (q === undefined || q === null) return { code: 'formula_failed' };
     if (typeof q !== 'number' || !Number.isSafeInteger(q) || q < 0) return { code: 'quantity_not_whole' };
+    if (q > MAX_UNITS) return { code: 'too_large' };
     return q;
 }
 

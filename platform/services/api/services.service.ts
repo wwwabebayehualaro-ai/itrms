@@ -485,18 +485,39 @@ export class ServicesService implements FeeRequestSource {
             if (Object.values(contract).some((c) => c.required ?? true))
                 say('formVersionId', 'no_form', { effect: FEE_INPUTS });
         } else {
-            for (const problem of checkContract(contract, facts.formDocument, map))
+            // the preview reads the inputs alone: each settles the same with or without the rest of the form
+            for (const problem of checkContract(contract, facts.formDocument, map, { standalone: true }))
                 out.push({
                     path: `inputMap.${FEE_INPUTS}.${problem.path}`,
                     code: `contract_${problem.code}`,
                     message: contractMessage(FEE_INPUTS, problem, language)
                 });
             const byKey = new Map(fields.map((f) => [f.id, f]));
+            const chainOf = (f: (typeof fields)[number] | undefined) => {
+                const out: (typeof fields)[number][] = [];
+                for (let p = f; p; p = p.parentId ? byKey.get(p.parentId) : undefined) out.push(p);
+                return out;
+            };
+            // Sensitive by itself or by a container it sits in
             for (const path of Object.keys(contract)) {
                 const key = map?.[path] ?? path;
-                if (byKey.get(key)?.classification === 'sensitive')
+                if (chainOf(byKey.get(key)).some((f) => f.classification === 'sensitive'))
                     say(`inputMap.${FEE_INPUTS}.${path}`, 'fee_input_sensitive', { key });
             }
+            // the counter sees the fee it files: a Fee field, always shown, to every role
+            const shown = fields.filter((f) => f.type === 'Fee' && !chainOf(f).some((p) => p.removed));
+            if (shown.length === 0) say('formVersionId', 'fee_field_missing');
+            else if (
+                !shown.some((f) =>
+                    chainOf(f).every(
+                        (p) =>
+                            p.visibleWhen.length === 0 &&
+                            p.enabledWhen.length === 0 &&
+                            (p.visibleToRoles?.length ?? 0) === 0
+                    )
+                )
+            )
+                say('formVersionId', 'fee_field_conditional');
         }
         if (!facts.reassessed) say('workflowVersionId', 'fee_not_reassessed', { effect: FEE_ASSESS_EFFECT });
         return out;
@@ -874,6 +895,9 @@ export class ServicesService implements FeeRequestSource {
                       { caseId: id, handlingUnitId: unit.id }
                   )
                 : null;
+        // a fee shown for a version that no longer charges one: the clerk sees that first
+        if (!v.feeRuleVersionId && fee)
+            throw new ConflictError('fee_changed', { detail: 'The service charges no fee now.' });
         // the fee worked out from the answers as filed, kept with the case in its transaction (task 0.22a)
         if (v.feeRuleVersionId)
             await this.fees.assessFiled(
@@ -886,7 +910,9 @@ export class ServicesService implements FeeRequestSource {
                     answers: filed?.answers ?? {}
                 },
                 fee,
-                language
+                language,
+                // a request with a form shows its fee (publication requires a Fee field): it is filed at the figure seen
+                form !== null
             );
         return this.cases.get(tx, actor, id);
     }

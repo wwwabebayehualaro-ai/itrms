@@ -209,6 +209,22 @@ describe('a fee that cannot be worked out', () => {
         });
     });
 
+    it('fails on a quantity a case cannot keep (beyond a 32-bit integer)', () => {
+        const many = rule({
+            schemaVersion: 1,
+            inputs: { n: { kind: 'number' } },
+            lines: [{ key: 'per', label: t('Per'), kind: 'perUnit', amount: '1', quantity: 'input.n' }]
+        });
+        expect(evaluateFee(many, { answers: { n: 3_000_000_000 }, asOf: '2026-01-01' })).toEqual({
+            status: 'failed',
+            problems: [{ line: 'per', code: 'too_large' }]
+        });
+        expect(evaluateFee(many, { answers: { n: 2_147_483_647 }, asOf: '2026-01-01' })).toMatchObject({
+            status: 'complete',
+            total: 2_147_483_647n
+        });
+    });
+
     it('reads a fact of the case', () => {
         const byFact = rule({
             schemaVersion: 1,

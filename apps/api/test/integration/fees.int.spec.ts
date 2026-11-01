@@ -214,6 +214,16 @@ describe('a fee rule', () => {
         ).toBe(1);
         expect((await decide(as.damotRecords)).statusCode).toBe(403);
 
+        // a rule reading a case's fact cannot be worked out yet (a new case has none): refused
+        const fact = await api.call('POST', `/api/v1/fee-rules/${ruleId}/versions`, as.bureau, {
+            document: {
+                ...RULE,
+                inputs: { ...RULE.inputs, age: { kind: 'number', from: 'fact', fact: 'vehicle.age' } }
+            }
+        });
+        expect(fact.statusCode).toBe(422);
+        expect(fact.json()).toMatchObject({ errors: [{ path: 'document.inputs.age.from', code: 'fact_input' }] });
+
         // a formula reading what is not the rule's is refused before anything is stored
         const bad = await api.call('POST', `/api/v1/fee-rules/${ruleId}/versions`, as.bureau, {
             document: { ...RULE, lines: [{ ...RULE.lines[2], when: 'form.secret' }] }
@@ -257,6 +267,25 @@ describe('a fee rule', () => {
         );
         expect(back.statusCode, back.body).toBe(200);
 
+        // content rejected is not proposed again as it was
+        const third = await api.call('POST', `/api/v1/fee-rules/${ruleId}/versions`, as.bureau, {
+            document: { ...RULE, basis: 'rejected' }
+        });
+        const thirdId = third.json<{ id: string }>().id;
+        expect(
+            (
+                await api.call('POST', `/api/v1/fee-rules/${ruleId}/versions/${thirdId}/approval`, as.bureau2, {
+                    decision: 'rejected',
+                    reason: 'wrong amounts'
+                })
+            ).statusCode
+        ).toBe(201);
+        const again = await api.call('POST', `/api/v1/fee-rules/${ruleId}/versions`, as.bureau, {
+            document: { ...RULE, basis: 'rejected' }
+        });
+        expect(again.statusCode).toBe(422);
+        expect(again.json()).toMatchObject({ errors: [{ path: 'document', code: 'fee_rule_rejected' }] });
+
         // every write on record, a version's content never in it
         const audit = await api.owner.query<{ table_name: string; diff: Record<string, unknown> }>(
             `select table_name, diff from kernel.audit_log where table_name like 'fees.%' order by at, id`
@@ -296,6 +325,49 @@ describe('a fee rule', () => {
                 inputMap: { 'fees.rule': { grade: 'plate' } }
             })
         ).toContain('contract_wrong_kind');
+        // an optional input a condition can hide: the preview, reading the inputs alone, would not see what files
+        const conditional = await publishedForm('renewal-conditional', {
+            ...FORM,
+            fields: [
+                ...FORM.fields.filter((f) => f.id !== 'lost'),
+                field('reason', 'InputText'),
+                field('lost', 'InputSwitch', {
+                    behavior: {
+                        validation: { supported: true },
+                        visibilityConditions: [{ field: 'reason', operator: 'eq', value: 'lost' }]
+                    }
+                })
+            ]
+        });
+        expect(await problems({ ...base, formVersionId: conditional, feeRuleVersionId: approvedVersionId })).toContain(
+            'contract_conditional'
+        );
+        // Sensitive through the section it sits in
+        const hidden = await publishedForm('renewal-sensitive-section', {
+            ...FORM,
+            fields: [
+                ...FORM.fields.map((f) => (f.id === 'grade' ? { ...f, parentId: 'private' } : f)),
+                {
+                    id: 'private',
+                    type: 'Panel',
+                    label: t('Private'),
+                    classification: 'sensitive',
+                    props: {},
+                    layout: { options: { isContainer: true } }
+                }
+            ]
+        });
+        expect(await problems({ ...base, formVersionId: hidden, feeRuleVersionId: approvedVersionId })).toContain(
+            'fee_input_sensitive'
+        );
+        // the counter must see the fee it files
+        const silent = await publishedForm('renewal-no-fee-field', {
+            ...FORM,
+            fields: FORM.fields.filter((f) => f.type !== 'Fee')
+        });
+        expect(await problems({ ...base, formVersionId: silent, feeRuleVersionId: approvedVersionId })).toContain(
+            'fee_field_missing'
+        );
         const unchecked = await workflow('renewal-unchecked', []);
         expect(
             await problems({ ...base, workflowVersionId: unchecked, feeRuleVersionId: approvedVersionId })
@@ -325,6 +397,20 @@ describe('the demo fee rules', () => {
         const seed = () =>
             api.installer.scoped({}, (tx) => importFeeRules(tx, { id: root.id, regionId: root.regionId }, rules));
         expect(await seed()).toBe(3);
+        expect(await seed()).toBe(0);
+        // a real schedule waits for a person's decision
+        const real = rules.map((r) =>
+            r.key === 'dvc-06-replacement' ? { ...r, document: { ...r.document, demo: false, basis: 'schedule' } } : r
+        );
+        expect(
+            await api.installer.scoped({}, (tx) => importFeeRules(tx, { id: root.id, regionId: root.regionId }, real))
+        ).toBe(1);
+        const pending = await api.owner.query(
+            `select 1 from fees.fee_rules r left join fees.fee_rule_approvals a on a.version_id = r.latest_version_id
+              where r.key = 'dvc-06-replacement' and a.id is null`
+        );
+        expect(pending.rowCount).toBe(1);
+        // back to the demo version for what follows
         expect(await seed()).toBe(0);
         const { rows } = await api.owner.query<{ key: string; decision: string; decided_by: string | null }>(
             `select r.key, a.decision, a.decided_by from fees.fee_rules r
@@ -428,10 +514,23 @@ describe('a request', () => {
         expect(await countOf('select count(*)::int as n from workflow.cases')).toBe(cases);
     });
 
-    it('is assessed again when a correction changes its fee, and only then', async () => {
-        const filed = await api.call('POST', '/api/v1/service-requests', as.damotRecords, {
+    it('is refused when it sends no fee shown, as the counter always shows one', async () => {
+        const cases = await countOf('select count(*)::int as n from workflow.cases');
+        const unseen = await api.call('POST', '/api/v1/service-requests', as.damotRecords, {
             serviceCode: SERVICE,
             answers
+        });
+        expect(unseen.statusCode).toBe(422);
+        expect(unseen.json()).toMatchObject({ errors: [{ path: 'fee', code: 'fee_not_shown' }] });
+        expect(await countOf('select count(*)::int as n from workflow.cases')).toBe(cases);
+    });
+
+    it('is assessed again when a correction changes its fee, and only then', async () => {
+        const shown = (await preview(answers)).json<{ feeRuleVersionId: string; totalSantim: string }>();
+        const filed = await api.call('POST', '/api/v1/service-requests', as.damotRecords, {
+            serviceCode: SERVICE,
+            answers,
+            fee: { ruleVersionId: shown.feeRuleVersionId, totalSantim: shown.totalSantim }
         });
         expect(filed.statusCode, filed.body).toBe(201);
         let c = filed.json<CaseOut>();

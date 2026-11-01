@@ -51,14 +51,14 @@ export class FeesController {
     @HttpCode(200)
     @Require('fee-rule:create')
     check(@Body() body: FeeRuleCheckDto) {
-        return this.rules.check(body.document);
+        return this.rules.check(body.document, language());
     }
 
     @Post('fee-rules')
     @Require('fee-rule:create')
     create(@Body() body: FeeRuleCreateDto) {
         const ctx = requestDbContext();
-        return this.db.scoped(ctx, (tx) => this.rules.create(tx, ctx, body));
+        return this.db.scoped(ctx, (tx) => this.rules.create(tx, ctx, body, language()));
     }
 
     @Get('fee-rules/:id')
@@ -77,7 +77,7 @@ export class FeesController {
     @Require('fee-rule:create')
     addVersion(@Param('id', ParseUUIDPipe) id: string, @Body() body: FeeRuleVersionDto) {
         const ctx = requestDbContext();
-        return this.db.scoped(ctx, (tx) => this.rules.addVersion(tx, ctx, id, body.document));
+        return this.db.scoped(ctx, (tx) => this.rules.addVersion(tx, ctx, id, body.document, language()));
     }
 
     @Get('fee-rules/:id/versions/:versionId')

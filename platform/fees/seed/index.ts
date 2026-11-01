@@ -1,7 +1,9 @@
 /**
- * Fee rules from a seed file (task 0.22a): a region's demo rules, written at its root and approved as the installation's
- * own step (no actor: `decided_by` stays null, as an installation's writes do). Idempotent by key and content: a file run
- * again stores nothing new, and a changed rule becomes its next version. Amounts in a demo file are placeholders.
+ * Fee rules from a seed file (task 0.22a): written at the region's root, checked as a person's version is. A demo rule's
+ * version (placeholder amounts) is approved as the installation's own step (no actor: `decided_by` stays null, as an
+ * installation's writes do); any other waits for a person's decision (maker-checker, SEC-AC-6: a real schedule is never
+ * approved by a seed). Idempotent by key and content: a file run again stores nothing new, and a changed rule becomes its
+ * next version.
  */
 import { and, eq, max } from 'drizzle-orm';
 import { contentHash, insertAudited, updateAudited, type Tx } from '@itrms/kernel/db';
@@ -10,6 +12,7 @@ import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 
 import { FEE_RULE_KEY } from '../contracts';
+import { feeRuleProblems } from '../api/fee-rules.service';
 import { feeRuleApprovals, feeRules, feeRuleVersions } from '../api/fees.table';
 
 export const feeRuleSeedSchema = z.object({
@@ -33,6 +36,9 @@ export async function importFeeRules(
 ): Promise<number> {
     let stored = 0;
     for (const entry of entries) {
+        const problems = feeRuleProblems(entry.document, 'en');
+        if (problems.length)
+            throw new Error(`fee rule ${entry.key}: ${problems.map((p) => `${p.path} ${p.message}`).join('; ')}`);
         let [rule] = await tx
             .select()
             .from(feeRules)
@@ -66,14 +72,15 @@ export async function importFeeRules(
                 document: entry.document,
                 demo: entry.document.demo
             });
-            await insertAudited(tx, feeRuleApprovals, {
-                regionId: rule.regionId,
-                ownerUnitId: rule.ownerUnitId,
-                versionId: version.id,
-                decision: 'approved',
-                reason: 'installation seed',
-                decidedBy: null
-            });
+            if (entry.document.demo)
+                await insertAudited(tx, feeRuleApprovals, {
+                    regionId: rule.regionId,
+                    ownerUnitId: rule.ownerUnitId,
+                    versionId: version.id,
+                    decision: 'approved',
+                    reason: 'installation seed (demo amounts)',
+                    decidedBy: null
+                });
             stored += 1;
         }
         await updateAudited(tx, feeRules, rule.id, rule.rowVersion, { latestVersionId: version.id });

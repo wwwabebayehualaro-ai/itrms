@@ -148,6 +148,8 @@ export function useFeePreview(answers: Record<string, unknown>) {
     useEffect(() => {
         setLatest(ruleVersionId !== null && total !== null ? { ruleVersionId, totalSantim: total } : null);
     }, [ruleVersionId, total, setLatest]);
+    // a Fee field no longer on screen (its section hidden) shows no figure: none is sent with the filing
+    useEffect(() => () => setLatest(null), [setLatest]);
 
     return { preview, isFetching: query.isFetching, isError: query.isError, refetch: query.refetch };
 }

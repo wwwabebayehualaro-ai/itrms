@@ -21,6 +21,7 @@ import am from '../messages/am.json';
 import en from '../messages/en.json';
 
 const needsAnswer = (language: string): string => (language === 'en' ? en : am)['fees.validation.needsAnswer'];
+const notShown = (language: string): string => (language === 'en' ? en : am)['fees.validation.notShown'];
 
 type CaseFeeRow = typeof caseFees.$inferSelect;
 
@@ -80,14 +81,22 @@ export class FeesService {
     /**
      * The fee of a request just filed with its case, kept as the case's first assessment: refused (422, no case) when it
      * cannot be worked out, and (409) when the counter showed another figure (`shown`): the clerk sees the new one first.
+     * `mustShow`: the request has a form showing the fee, so a filing that sends no figure shown is refused (422): a case
+     * is never filed at a fee the clerk did not see.
      */
     async assessFiled(
         tx: Tx,
         target: { caseId: string; regionId: string; handlingUnitId: string; submissionId: string | null },
         request: FeeRequest & { feeRuleVersionId: string },
         shown: FeeShown | undefined,
-        language: string
+        language: string,
+        mustShow = false
     ): Promise<CaseFee> {
+        if (mustShow && shown === undefined)
+            throw new ValidationError('validation_failed', {
+                detail: 'The fee was not shown.',
+                errors: [{ path: 'fee', code: 'fee_not_shown', message: notShown(language) }]
+            });
         const asOf = addisToday();
         const usable = await this.rules.usable(tx, request.feeRuleVersionId);
         if (!usable.ok)
@@ -118,9 +127,10 @@ export class FeesService {
     /**
      * A corrected request's fee worked out again (the `fees.assess` effect): on the version the case was filed on, over
      * the request's answers as they are now, counting to the filing day or today as the rule says. A new assessment only
-     * when the figure changed. Nothing for a case without a fee.
+     * when the figure changed, at the case's handling unit now. Nothing for a case without a fee; a fee'd case whose
+     * request cannot be read here refuses the transition (never a correction that silently keeps the old fee).
      */
-    async reassess(tx: Tx, caseId: string, language = 'am'): Promise<CaseFee | null> {
+    async reassess(tx: Tx, caseId: string, handlingUnitId: string, language = 'am'): Promise<CaseFee | null> {
         const first = await this.assessment(tx, caseId, 'first');
         const latest = await this.assessment(tx, caseId, 'latest');
         if (!first || !latest) return null;
@@ -131,7 +141,7 @@ export class FeesService {
                   .from(submissions)
                   .where(eq(submissions.id, first.submissionId))
             : [{ answers: {} }];
-        if (!request) return null;
+        if (!request) throw new ConflictError('not_configured', { detail: "The case's request cannot be read here." });
         const asOf = rule.rule.reassessAsOf === 'filing' ? first.asOf : addisToday();
         const result = evaluateFee(rule.rule, { answers: request.answers, asOf, inputMap: first.inputMap });
         if (result.status !== 'complete')
@@ -145,12 +155,7 @@ export class FeesService {
             return before;
         return this.keep(
             tx,
-            {
-                caseId,
-                regionId: first.regionId,
-                handlingUnitId: first.handlingUnitId,
-                submissionId: first.submissionId
-            },
+            { caseId, regionId: first.regionId, handlingUnitId, submissionId: first.submissionId },
             rule,
             first.inputMap,
             asOf,

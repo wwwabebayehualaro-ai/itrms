@@ -15,6 +15,8 @@ import { feeRuleSchema, type FeeRule } from '@itrms/schemas';
 
 import { FEE_APPROVER_ROLES_SETTING, type FeeRuleCreate, type FeeRuleOut, type FeeRuleVersionOut } from '../contracts';
 import { feeRuleApprovals, feeRules, feeRuleVersions } from './fees.table';
+import am from '../messages/am.json';
+import en from '../messages/en.json';
 
 type RuleRow = typeof feeRules.$inferSelect;
 type VersionRow = typeof feeRuleVersions.$inferSelect;
@@ -32,6 +34,30 @@ export interface ApprovedFeeRule {
 /** Why a version cannot be charged by (a service version's publication names the problem). */
 export type FeeRuleUnusable = 'fee_rule_unknown' | 'fee_rule_off' | 'fee_rule_not_approved' | 'fee_rule_not_regional';
 
+/**
+ * A rule's problems beyond its schema: its formulas (the engine's check), and an input read from the case's facts, which
+ * neither the preview nor the filing has yet (a new case has none): such a rule could never be worked out.
+ */
+/** A rule's problem: where (`lines.2.when`), its code, and what to fix. */
+export interface RuleProblem {
+    path: string;
+    code: string;
+    message: string;
+}
+
+export function feeRuleProblems(rule: FeeRule, language = 'am'): RuleProblem[] {
+    return [
+        ...checkFeeRule(rule),
+        ...Object.entries(rule.inputs)
+            .filter(([, i]) => i.from === 'fact')
+            .map(([key]) => ({
+                path: `inputs.${key}.from`,
+                code: 'fact_input',
+                message: (language === 'en' ? en : am)['fees.validation.factInput']
+            }))
+    ];
+}
+
 const isUniqueViolation = (error: unknown, constraint: string): boolean => {
     for (let e: unknown = error; e; e = (e as { cause?: unknown }).cause) {
         const { code, constraint: name } = e as { code?: string; constraint?: string };
@@ -45,8 +71,8 @@ export class FeeRulesService {
     constructor(@Inject(SettingsService) private readonly settings: SettingsService) {}
 
     /** The rule's problems beyond its schema (its formulas), as a 422 listing every one. */
-    private valid(document: FeeRule): FeeRule {
-        const problems = checkFeeRule(document);
+    private valid(document: FeeRule, language: string): FeeRule {
+        const problems = feeRuleProblems(document, language);
         if (problems.length)
             throw new ValidationError('validation_failed', {
                 detail: 'The fee rule is not valid: fix what is listed.',
@@ -56,8 +82,8 @@ export class FeeRulesService {
     }
 
     /** A rule checked without storing it. */
-    check(document: FeeRule) {
-        return { problems: checkFeeRule(document) };
+    check(document: FeeRule, language = 'am') {
+        return { problems: feeRuleProblems(document, language) };
     }
 
     /** The region's root, if the person's seat is there: fee rules are the bureau's. */
@@ -72,9 +98,9 @@ export class FeeRulesService {
         return root;
     }
 
-    async create(tx: Tx, ctx: DbContext, input: FeeRuleCreate): Promise<FeeRuleOut> {
+    async create(tx: Tx, ctx: DbContext, input: FeeRuleCreate, language = 'am'): Promise<FeeRuleOut> {
         const root = await this.atRoot(tx, ctx);
-        const document = this.valid(feeRuleSchema.parse(input.document));
+        const document = this.valid(feeRuleSchema.parse(input.document), language);
         let row: RuleRow;
         try {
             row = await insertAudited(tx, feeRules, {
@@ -97,13 +123,29 @@ export class FeeRulesService {
     }
 
     /** A new version, numbered after the last; the same content names the version that holds it. */
-    async addVersion(tx: Tx, ctx: DbContext, id: string, raw: FeeRule): Promise<FeeRuleVersionOut> {
+    async addVersion(tx: Tx, ctx: DbContext, id: string, raw: FeeRule, language = 'am'): Promise<FeeRuleVersionOut> {
         await this.atRoot(tx, ctx);
-        const document = this.valid(raw);
+        const document = this.valid(raw, language);
         // locked: two versions stored at once are numbered one after the other
         const [rule] = await tx.select().from(feeRules).where(eq(feeRules.id, id)).for('update');
         if (!rule) throw new NotFoundError();
         const version = await this.store(tx, rule, document);
+        // content rejected before is not proposed again as it was (its version is decided for good)
+        const [decided] = await tx
+            .select({ decision: feeRuleApprovals.decision })
+            .from(feeRuleApprovals)
+            .where(eq(feeRuleApprovals.versionId, version.id));
+        if (decided?.decision === 'rejected')
+            throw new ValidationError('validation_failed', {
+                detail: 'This content was rejected.',
+                errors: [
+                    {
+                        path: 'document',
+                        code: 'fee_rule_rejected',
+                        message: (language === 'en' ? en : am)['fees.validation.rejected']
+                    }
+                ]
+            });
         if (rule.latestVersionId !== version.id)
             await updateAudited(tx, feeRules, rule.id, rule.rowVersion, { latestVersionId: version.id });
         return this.version(tx, id, version.id);

@@ -2,7 +2,7 @@
 // above (services files a request's fee), the request-source port, and the tables.
 export { FeesModule } from './fees.module';
 export { FeesService, addisToday } from './fees.service';
-export { FeeRulesService, type ApprovedFeeRule, type FeeRuleUnusable } from './fee-rules.service';
+export { FeeRulesService, feeRuleProblems, type ApprovedFeeRule, type FeeRuleUnusable } from './fee-rules.service';
 export { FEE_REQUEST_SOURCE, type FeeRequest, type FeeRequestSource } from './request-source';
 export { AssessFeeEffect } from './assess.effect';
 export * from './fees.table';
