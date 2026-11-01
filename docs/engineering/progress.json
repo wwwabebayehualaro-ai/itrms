@@ -996,12 +996,13 @@
         {
           "id": "0.21g",
           "title": "Request changes, part 2: stable rows",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.21g-stable-rows",
           "commits": [
             "55e7996",
             "abcde6f",
-            "e264293"
+            "e264293",
+            "3856d67"
           ],
           "evidence": [
             "GitHub Actions run 41271939311 on e264293 (PR #28): all 9 jobs green (ADR-0038 CI record), e2e 18 passed; the earlier run 41242290889 on 55e7996 failed only the data-viewer calendar journey at the UTC/Addis month boundary, fixed with Playwright timezoneId Africa/Addis_Ababa",
