@@ -1045,7 +1045,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Product owner decided (2026-11-01): receipt numbers are configurable, ITRMS by default (gapless per office and fiscal year from the counters); an office may instead record the serial of a controlled pre-printed pad (issued ranges, checked and reconciled). Who collects is configurable per service: the office cashier by default; a service may be set to paid elsewhere (revenue office or bank, 0.22c) where the office has no till."
         },
         {
           "id": "0.22c",
