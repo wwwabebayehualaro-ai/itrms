@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-10-31",
+  "updated": "2026-11-01",
   "statuses": [
     "planned",
     "ready",
@@ -996,10 +996,21 @@
         {
           "id": "0.21g",
           "title": "Request changes, part 2: stable rows",
-          "status": "in progress",
+          "status": "in review",
           "branch": "task/0.21g-stable-rows",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "55e7996",
+            "abcde6f",
+            "e264293"
+          ],
+          "evidence": [
+            "GitHub Actions run 41271939311 on e264293 (PR #28): all 9 jobs green (ADR-0038 CI record), e2e 18 passed; the earlier run 41242290889 on 55e7996 failed only the data-viewer calendar journey at the UTC/Addis month boundary, fixed with Playwright timezoneId Africa/Addis_Ababa",
+            "pnpm turbo run lint typecheck test build → 66/66; boundaries, check:slices, format:check, i18n:check (am/en, new key forms.validation.rowHasHiddenAnswers) pass",
+            "form-engine unit: 41 files, 327 passed, incl. rows.spec.ts (ids through knownValues/submittedValues/withoutSensitive; withRowIds; derivedValues keeps a disabled input that filing resets and gives hidden derived fields no value; withoutRowIds)",
+            "integration (PostgreSQL 16 testcontainers, dev stack up): requests-change.int.spec.ts 8 passed: the Done-when (a woreda head corrects a row of a section holding a records officer's column and a Sensitive column; both stay with the row), an added row, a refused deletion, a section hidden through another answer refused, rows filed before ids (G3: readable, old refusal, no revision on a no-op, ids with the next written change, then merged), a column computed from the person (180, inside a row's panel; legacy rows refused); forms*, files, requests-change: 215 passed; full pnpm test:int 397/398",
+            "flakes under load, all passed alone: files.int (409 vs 200, once in the full run), kernel health.spec/problem.filter.spec hook timeouts (full turbo with integration in parallel), form-engine node.spec.ts cold-run timeout (verifier's run)",
+            "reviews: reviewer (Opus) two passes (pass 1: 1 high, 2 medium, 2 low; pass 2: 1 low), all fixed with tests, one checked to fail without its fix; task-verifier: ready for review"
+          ],
           "blockers": [],
           "notes": "Design (ADR-0040): row ids are the reserved key _id in each row (field keys start with a letter); the server gives ids at filing and at every change; a request change merges rows by id, restoring guarded and user-computed columns from the stored row; deleting a stored row holding hidden answers is refused with its own message (forms.validation.rowHasHiddenAnswers); rows filed before ids keep the whole-section refusal until the next change gives them ids. Renderer keys rows by id. Closes follow-ups 175, 179, 180, 181."
         },
@@ -2537,7 +2548,8 @@
     {
       "foundIn": "0.21e",
       "item": "A filed request's repeating section holding answers its corrector may not see or change is refused, not merged (its rows have no identity): stable row ids in the engine would let such rows be changed",
-      "movedTo": "0.21g"
+      "movedTo": "0.21g",
+      "closedIn": "0.21g: rows merged by id (ADR-0040)"
     },
     {
       "foundIn": "0.21e",
@@ -2560,17 +2572,20 @@
     {
       "foundIn": "0.21e",
       "item": "A repeating section whose rows hold a Sensitive answer can't be changed through its case by anyone, even a role that may reveal it (fail-safe; with stable row ids, merge the revealed rows)",
-      "movedTo": "0.21g"
+      "movedTo": "0.21g",
+      "closedIn": "0.21g: Sensitive columns of a row keep their stored answers through a merge"
     },
     {
       "foundIn": "0.21e",
       "item": "A request change: a repeating section with a column computed from the user (addedBy = user.name) counts as ruled out for every corrector but the filer, so a real change to it is refused; compare only columns that do not read the user",
-      "movedTo": "0.21g"
+      "movedTo": "0.21g",
+      "closedIn": "0.21g: a column computed from the person rules nothing out in a mergeable section's own rows"
     },
     {
       "foundIn": "0.21e",
       "item": "A request change: a derived field is recomputed over the patch's settled answers, where an input the patch newly disabled is at its default while the stored input keeps its value; compute derived fields over the stored answers plus the patch without resetting unpatched inputs",
-      "movedTo": "0.21g"
+      "movedTo": "0.21g",
+      "closedIn": "0.21g: derivedValues over the stored answers plus the patch, no resets"
     },
     {
       "foundIn": "0.21g",
