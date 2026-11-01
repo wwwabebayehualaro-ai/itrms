@@ -368,3 +368,11 @@ describe('removed fields (task 0.18a)', () => {
         expect(knownValues(f, { old: 'x' })).toEqual({ old: 'x' });
     });
 });
+
+describe('the Fee field (task 0.22a)', () => {
+    it('holds no answer: a value sent under its id is dropped, as is one in the known values', () => {
+        const f = doc(F('name', 'InputText', { category: 'Input' }), F('fee', 'Fee', { category: 'Data' }));
+        expect(submittedValues(f, { name: 'a', fee: '125000' })).toEqual({ name: 'a' });
+        expect(knownValues(f, { name: 'a', fee: '125000' })).toEqual({ name: 'a' });
+    });
+});

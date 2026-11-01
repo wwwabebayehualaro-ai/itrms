@@ -264,6 +264,1198 @@
         ],
         "type": "object"
       },
+      "FeePreviewDto": {
+        "additionalProperties": false,
+        "properties": {
+          "answers": {
+            "additionalProperties": {},
+            "default": {},
+            "propertyNames": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "serviceCode": {
+            "pattern": "^[A-Z]{2,5}-\\d{2}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "serviceCode"
+        ],
+        "type": "object"
+      },
+      "FeeRuleCheckDto": {
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "additionalProperties": false,
+            "properties": {
+              "basis": {
+                "maxLength": 300,
+                "type": "string"
+              },
+              "demo": {
+                "default": false,
+                "type": "boolean"
+              },
+              "inputs": {
+                "additionalProperties": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "fact": {
+                      "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}(\\.[A-Za-z_][A-Za-z0-9_]{0,63}){0,4}$",
+                      "type": "string"
+                    },
+                    "from": {
+                      "default": "answer",
+                      "enum": [
+                        "answer",
+                        "fact"
+                      ],
+                      "type": "string"
+                    },
+                    "kind": {
+                      "enum": [
+                        "text",
+                        "number",
+                        "boolean",
+                        "date",
+                        "ethdate",
+                        "choice",
+                        "multi"
+                      ],
+                      "type": "string"
+                    },
+                    "required": {
+                      "default": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ],
+                  "type": "object"
+                },
+                "propertyNames": {
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "lines": {
+                "items": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "amount": {
+                          "pattern": "^(0|[1-9]\\d{0,16})$",
+                          "type": "string"
+                        },
+                        "key": {
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "fixed",
+                          "type": "string"
+                        },
+                        "label": {
+                          "additionalProperties": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "properties": {
+                            "am": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "en": {
+                              "minLength": 1,
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "am",
+                            "en"
+                          ],
+                          "type": "object"
+                        },
+                        "when": {
+                          "maxLength": 500,
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "kind",
+                        "amount"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "input": {
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                          "type": "string"
+                        },
+                        "key": {
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "table",
+                          "type": "string"
+                        },
+                        "label": {
+                          "additionalProperties": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "properties": {
+                            "am": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "en": {
+                              "minLength": 1,
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "am",
+                            "en"
+                          ],
+                          "type": "object"
+                        },
+                        "otherwise": {
+                          "pattern": "^(0|[1-9]\\d{0,16})$",
+                          "type": "string"
+                        },
+                        "rows": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "amount": {
+                                "pattern": "^(0|[1-9]\\d{0,16})$",
+                                "type": "string"
+                              },
+                              "value": {
+                                "anyOf": [
+                                  {
+                                    "maxLength": 100,
+                                    "minLength": 1,
+                                    "type": "string"
+                                  },
+                                  {
+                                    "maximum": 9007199254740991,
+                                    "minimum": -9007199254740991,
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "boolean"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "value",
+                              "amount"
+                            ],
+                            "type": "object"
+                          },
+                          "maxItems": 100,
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        "when": {
+                          "maxLength": 500,
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "kind",
+                        "input",
+                        "rows"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "amount": {
+                          "pattern": "^(0|[1-9]\\d{0,16})$",
+                          "type": "string"
+                        },
+                        "key": {
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "perUnit",
+                          "type": "string"
+                        },
+                        "label": {
+                          "additionalProperties": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "properties": {
+                            "am": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "en": {
+                              "minLength": 1,
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "am",
+                            "en"
+                          ],
+                          "type": "object"
+                        },
+                        "maxAmount": {
+                          "pattern": "^(0|[1-9]\\d{0,16})$",
+                          "type": "string"
+                        },
+                        "maxUnits": {
+                          "maximum": 10000,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "quantity": {
+                          "maxLength": 500,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "when": {
+                          "maxLength": 500,
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "kind",
+                        "amount",
+                        "quantity"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "basisPoints": {
+                          "maximum": 100000,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "key": {
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "percent",
+                          "type": "string"
+                        },
+                        "label": {
+                          "additionalProperties": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "properties": {
+                            "am": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "en": {
+                              "minLength": 1,
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "am",
+                            "en"
+                          ],
+                          "type": "object"
+                        },
+                        "maxAmount": {
+                          "pattern": "^(0|[1-9]\\d{0,16})$",
+                          "type": "string"
+                        },
+                        "maxUnits": {
+                          "maximum": 10000,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "of": {
+                          "items": {
+                            "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                            "type": "string"
+                          },
+                          "maxItems": 20,
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        "quantity": {
+                          "maxLength": 500,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "when": {
+                          "maxLength": 500,
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "kind",
+                        "of",
+                        "basisPoints"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "maxItems": 20,
+                "minItems": 1,
+                "type": "array"
+              },
+              "reassessAsOf": {
+                "default": "filing",
+                "enum": [
+                  "filing",
+                  "reassessment"
+                ],
+                "type": "string"
+              },
+              "schemaVersion": {
+                "const": 1,
+                "type": "number"
+              }
+            },
+            "required": [
+              "schemaVersion",
+              "inputs",
+              "lines"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "type": "object"
+      },
+      "FeeRuleCreateDto": {
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "additionalProperties": false,
+            "properties": {
+              "basis": {
+                "maxLength": 300,
+                "type": "string"
+              },
+              "demo": {
+                "default": false,
+                "type": "boolean"
+              },
+              "inputs": {
+                "additionalProperties": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "fact": {
+                      "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}(\\.[A-Za-z_][A-Za-z0-9_]{0,63}){0,4}$",
+                      "type": "string"
+                    },
+                    "from": {
+                      "default": "answer",
+                      "enum": [
+                        "answer",
+                        "fact"
+                      ],
+                      "type": "string"
+                    },
+                    "kind": {
+                      "enum": [
+                        "text",
+                        "number",
+                        "boolean",
+                        "date",
+                        "ethdate",
+                        "choice",
+                        "multi"
+                      ],
+                      "type": "string"
+                    },
+                    "required": {
+                      "default": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ],
+                  "type": "object"
+                },
+                "propertyNames": {
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "lines": {
+                "items": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "amount": {
+                          "pattern": "^(0|[1-9]\\d{0,16})$",
+                          "type": "string"
+                        },
+                        "key": {
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "fixed",
+                          "type": "string"
+                        },
+                        "label": {
+                          "additionalProperties": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "properties": {
+                            "am": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "en": {
+                              "minLength": 1,
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "am",
+                            "en"
+                          ],
+                          "type": "object"
+                        },
+                        "when": {
+                          "maxLength": 500,
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "kind",
+                        "amount"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "input": {
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                          "type": "string"
+                        },
+                        "key": {
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "table",
+                          "type": "string"
+                        },
+                        "label": {
+                          "additionalProperties": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "properties": {
+                            "am": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "en": {
+                              "minLength": 1,
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "am",
+                            "en"
+                          ],
+                          "type": "object"
+                        },
+                        "otherwise": {
+                          "pattern": "^(0|[1-9]\\d{0,16})$",
+                          "type": "string"
+                        },
+                        "rows": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "amount": {
+                                "pattern": "^(0|[1-9]\\d{0,16})$",
+                                "type": "string"
+                              },
+                              "value": {
+                                "anyOf": [
+                                  {
+                                    "maxLength": 100,
+                                    "minLength": 1,
+                                    "type": "string"
+                                  },
+                                  {
+                                    "maximum": 9007199254740991,
+                                    "minimum": -9007199254740991,
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "boolean"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "value",
+                              "amount"
+                            ],
+                            "type": "object"
+                          },
+                          "maxItems": 100,
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        "when": {
+                          "maxLength": 500,
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "kind",
+                        "input",
+                        "rows"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "amount": {
+                          "pattern": "^(0|[1-9]\\d{0,16})$",
+                          "type": "string"
+                        },
+                        "key": {
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "perUnit",
+                          "type": "string"
+                        },
+                        "label": {
+                          "additionalProperties": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "properties": {
+                            "am": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "en": {
+                              "minLength": 1,
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "am",
+                            "en"
+                          ],
+                          "type": "object"
+                        },
+                        "maxAmount": {
+                          "pattern": "^(0|[1-9]\\d{0,16})$",
+                          "type": "string"
+                        },
+                        "maxUnits": {
+                          "maximum": 10000,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "quantity": {
+                          "maxLength": 500,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "when": {
+                          "maxLength": 500,
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "kind",
+                        "amount",
+                        "quantity"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "basisPoints": {
+                          "maximum": 100000,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "key": {
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "percent",
+                          "type": "string"
+                        },
+                        "label": {
+                          "additionalProperties": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "properties": {
+                            "am": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "en": {
+                              "minLength": 1,
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "am",
+                            "en"
+                          ],
+                          "type": "object"
+                        },
+                        "maxAmount": {
+                          "pattern": "^(0|[1-9]\\d{0,16})$",
+                          "type": "string"
+                        },
+                        "maxUnits": {
+                          "maximum": 10000,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "of": {
+                          "items": {
+                            "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                            "type": "string"
+                          },
+                          "maxItems": 20,
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        "quantity": {
+                          "maxLength": 500,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "when": {
+                          "maxLength": 500,
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "kind",
+                        "of",
+                        "basisPoints"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "maxItems": 20,
+                "minItems": 1,
+                "type": "array"
+              },
+              "reassessAsOf": {
+                "default": "filing",
+                "enum": [
+                  "filing",
+                  "reassessment"
+                ],
+                "type": "string"
+              },
+              "schemaVersion": {
+                "const": 1,
+                "type": "number"
+              }
+            },
+            "required": [
+              "schemaVersion",
+              "inputs",
+              "lines"
+            ],
+            "type": "object"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9-]{1,62}$",
+            "type": "string"
+          },
+          "name": {
+            "additionalProperties": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "properties": {
+              "am": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "en": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "am",
+              "en"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "document"
+        ],
+        "type": "object"
+      },
+      "FeeRuleDecisionDto": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "approved",
+              "rejected"
+            ],
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "type": "object"
+      },
+      "FeeRuleVersionDto": {
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "additionalProperties": false,
+            "properties": {
+              "basis": {
+                "maxLength": 300,
+                "type": "string"
+              },
+              "demo": {
+                "default": false,
+                "type": "boolean"
+              },
+              "inputs": {
+                "additionalProperties": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "fact": {
+                      "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}(\\.[A-Za-z_][A-Za-z0-9_]{0,63}){0,4}$",
+                      "type": "string"
+                    },
+                    "from": {
+                      "default": "answer",
+                      "enum": [
+                        "answer",
+                        "fact"
+                      ],
+                      "type": "string"
+                    },
+                    "kind": {
+                      "enum": [
+                        "text",
+                        "number",
+                        "boolean",
+                        "date",
+                        "ethdate",
+                        "choice",
+                        "multi"
+                      ],
+                      "type": "string"
+                    },
+                    "required": {
+                      "default": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ],
+                  "type": "object"
+                },
+                "propertyNames": {
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "lines": {
+                "items": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "amount": {
+                          "pattern": "^(0|[1-9]\\d{0,16})$",
+                          "type": "string"
+                        },
+                        "key": {
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "fixed",
+                          "type": "string"
+                        },
+                        "label": {
+                          "additionalProperties": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "properties": {
+                            "am": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "en": {
+                              "minLength": 1,
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "am",
+                            "en"
+                          ],
+                          "type": "object"
+                        },
+                        "when": {
+                          "maxLength": 500,
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "kind",
+                        "amount"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "input": {
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                          "type": "string"
+                        },
+                        "key": {
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "table",
+                          "type": "string"
+                        },
+                        "label": {
+                          "additionalProperties": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "properties": {
+                            "am": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "en": {
+                              "minLength": 1,
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "am",
+                            "en"
+                          ],
+                          "type": "object"
+                        },
+                        "otherwise": {
+                          "pattern": "^(0|[1-9]\\d{0,16})$",
+                          "type": "string"
+                        },
+                        "rows": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "amount": {
+                                "pattern": "^(0|[1-9]\\d{0,16})$",
+                                "type": "string"
+                              },
+                              "value": {
+                                "anyOf": [
+                                  {
+                                    "maxLength": 100,
+                                    "minLength": 1,
+                                    "type": "string"
+                                  },
+                                  {
+                                    "maximum": 9007199254740991,
+                                    "minimum": -9007199254740991,
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "boolean"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "value",
+                              "amount"
+                            ],
+                            "type": "object"
+                          },
+                          "maxItems": 100,
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        "when": {
+                          "maxLength": 500,
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "kind",
+                        "input",
+                        "rows"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "amount": {
+                          "pattern": "^(0|[1-9]\\d{0,16})$",
+                          "type": "string"
+                        },
+                        "key": {
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "perUnit",
+                          "type": "string"
+                        },
+                        "label": {
+                          "additionalProperties": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "properties": {
+                            "am": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "en": {
+                              "minLength": 1,
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "am",
+                            "en"
+                          ],
+                          "type": "object"
+                        },
+                        "maxAmount": {
+                          "pattern": "^(0|[1-9]\\d{0,16})$",
+                          "type": "string"
+                        },
+                        "maxUnits": {
+                          "maximum": 10000,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "quantity": {
+                          "maxLength": 500,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "when": {
+                          "maxLength": 500,
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "kind",
+                        "amount",
+                        "quantity"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "basisPoints": {
+                          "maximum": 100000,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "key": {
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "percent",
+                          "type": "string"
+                        },
+                        "label": {
+                          "additionalProperties": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "properties": {
+                            "am": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "en": {
+                              "minLength": 1,
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "am",
+                            "en"
+                          ],
+                          "type": "object"
+                        },
+                        "maxAmount": {
+                          "pattern": "^(0|[1-9]\\d{0,16})$",
+                          "type": "string"
+                        },
+                        "maxUnits": {
+                          "maximum": 10000,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "of": {
+                          "items": {
+                            "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+                            "type": "string"
+                          },
+                          "maxItems": 20,
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        "quantity": {
+                          "maxLength": 500,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "when": {
+                          "maxLength": 500,
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "label",
+                        "kind",
+                        "of",
+                        "basisPoints"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "maxItems": 20,
+                "minItems": 1,
+                "type": "array"
+              },
+              "reassessAsOf": {
+                "default": "filing",
+                "enum": [
+                  "filing",
+                  "reassessment"
+                ],
+                "type": "string"
+              },
+              "schemaVersion": {
+                "const": 1,
+                "type": "number"
+              }
+            },
+            "required": [
+              "schemaVersion",
+              "inputs",
+              "lines"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "type": "object"
+      },
       "FileConfirmDto": {
         "additionalProperties": false,
         "properties": {
@@ -1969,6 +3161,25 @@
               "maxLength": 200,
               "type": "string"
             },
+            "type": "object"
+          },
+          "fee": {
+            "additionalProperties": false,
+            "properties": {
+              "ruleVersionId": {
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                "type": "string"
+              },
+              "totalSantim": {
+                "pattern": "^(0|[1-9]\\d{0,16})$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "ruleVersionId",
+              "totalSantim"
+            ],
             "type": "object"
           },
           "serviceCode": {
@@ -3728,6 +4939,19 @@
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
             "type": "string"
           },
+          "feeRuleVersionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
           "formVersionId": {
             "anyOf": [
               {
@@ -4041,6 +5265,29 @@
         ]
       }
     },
+    "/api/v1/cases/{caseId}/fee": {
+      "get": {
+        "operationId": "FeesController_forCase",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Fees"
+        ]
+      }
+    },
     "/api/v1/cases/{id}": {
       "get": {
         "operationId": "CasesController_get",
@@ -4222,6 +5469,239 @@
         },
         "tags": [
           "Cases"
+        ]
+      }
+    },
+    "/api/v1/fee-rules": {
+      "get": {
+        "operationId": "FeesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Fees"
+        ]
+      },
+      "post": {
+        "operationId": "FeesController_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeeRuleCreateDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Fees"
+        ]
+      }
+    },
+    "/api/v1/fee-rules/check": {
+      "post": {
+        "operationId": "FeesController_check",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeeRuleCheckDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Fees"
+        ]
+      }
+    },
+    "/api/v1/fee-rules/{id}": {
+      "get": {
+        "operationId": "FeesController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Fees"
+        ]
+      }
+    },
+    "/api/v1/fee-rules/{id}/versions": {
+      "get": {
+        "operationId": "FeesController_versions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Fees"
+        ]
+      },
+      "post": {
+        "operationId": "FeesController_addVersion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeeRuleVersionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Fees"
+        ]
+      }
+    },
+    "/api/v1/fee-rules/{id}/versions/{versionId}": {
+      "get": {
+        "operationId": "FeesController_version",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "versionId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Fees"
+        ]
+      }
+    },
+    "/api/v1/fee-rules/{id}/versions/{versionId}/approval": {
+      "post": {
+        "operationId": "FeesController_decide",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "versionId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeeRuleDecisionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Fees"
+        ]
+      }
+    },
+    "/api/v1/fees/preview": {
+      "post": {
+        "operationId": "FeesController_preview",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeePreviewDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Fees"
         ]
       }
     },

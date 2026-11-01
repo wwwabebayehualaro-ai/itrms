@@ -96,7 +96,9 @@ export class ConflictError extends AppError {
             | 'invalid_transition'
             | 'duplicate_reference'
             | 'not_configured'
-            | 'contract_unmet',
+            | 'contract_unmet'
+            // the fee worked out now is not the one the counter showed (task 0.22a): show the new one, then file
+            | 'fee_changed',
         options?: AppErrorOptions
     ) {
         super(code, options);

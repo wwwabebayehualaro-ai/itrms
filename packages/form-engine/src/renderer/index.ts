@@ -29,6 +29,10 @@ export type {
 // registry records by name, for answers shown outside a form (a case's printed steps)
 export { useLookupLabels } from '../host/lookups';
 
+// the fee a service's rule works out for the answers so far: the screen names the service, and files the figure it showed
+export { FeeSourceProvider, useFeeSource, useFeePreview, useLatestFee } from '../host/fees';
+export type { FeeSource, FeePreview, FeePreviewLine, LatestFee } from '../host/fees';
+
 // ---- render a saved template as a working form ------------------------------------------------------
 export { default as FormRenderer } from './FormRenderer';
 export type { EngineSubmission } from './EngineForm';

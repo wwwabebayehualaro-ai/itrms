@@ -8,6 +8,8 @@
  * Grammar (lowest → highest precedence):  ?:  ||  &&  == !=  < <= > >=  + -  * / %  unary(- !)  call/ref/literal
  * Arithmetic treats empty inputs like a spreadsheet: null / undefined / '' / non-numeric → 0.
  */
+import { daysInEthiopianMonth, toEthiopian } from '@itrms/ethiopian-calendar';
+
 import { getByPath, str, text } from './path';
 
 const MAX_LENGTH = 500;
@@ -228,8 +230,40 @@ const FUNCTIONS: Record<string, (args: unknown[]) => unknown> = {
         const from = isoDay(a);
         const to = isoDay(b);
         return from === null || to === null ? null : to - from;
+    },
+    /**
+     * Months begun from a to b, a month being 30 days (a fee's penalty per started month; ADR-0041): 0 when b is not after
+     * a, 1 from the next day to the 30th, 2 from the 31st; null when either is not a date.
+     */
+    startedMonths: ([a, b]) => {
+        const from = isoDay(a);
+        const to = isoDay(b);
+        if (from === null || to === null) return null;
+        return to <= from ? 0 : Math.floor((to - from + 29) / 30);
+    },
+    /**
+     * Months begun from a to b on the Ethiopian calendar: a month is up on the same day of a later month (the month's last
+     * day when it is shorter, as Pagume is); 0 when b is not after a, null when either is not a date.
+     */
+    startedEthMonths: ([a, b]) => {
+        const from = isoDay(a);
+        const to = isoDay(b);
+        if (from === null || to === null) return null;
+        if (to <= from) return 0;
+        const ea = ethiopianDay(from);
+        const eb = ethiopianDay(to);
+        let full = (eb.year - ea.year) * 13 + (eb.month - ea.month);
+        const due = Math.min(ea.day, daysInEthiopianMonth(eb.year, eb.month));
+        if (eb.day < due) full -= 1;
+        return eb.day === due ? full : full + 1;
     }
 };
+
+/** A UTC day number's date on the Ethiopian calendar. */
+function ethiopianDay(day: number) {
+    const d = new Date(day * DAY_MS);
+    return toEthiopian({ year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() });
+}
 
 function run(n: Node, scope: Record<string, unknown>): unknown {
     switch (n.k) {

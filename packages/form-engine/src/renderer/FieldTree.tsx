@@ -47,6 +47,18 @@ const useTree = () => {
     return tree;
 };
 
+/** The form's current values, for a display field that works something out from them (the fee). */
+export function useFormValues(): Values {
+    const { form } = useTree();
+    return useSelector(form.store, (s: { values: Values }) => s.values);
+}
+
+/** field id -> its label in the form's language, to name a field in a message. */
+export function useFieldLabels(): ReadonlyMap<string, string> {
+    const { byId } = useTree();
+    return useMemo(() => new Map([...byId].map(([id, f]) => [id, f.label])), [byId]);
+}
+
 /** Where a field's values live: the form (`rowPath` '') or one row of a section (`items[2]`), and the section that row belongs to. */
 interface Scope {
     rowPath: string;

@@ -21,6 +21,9 @@
   "services.publish.workflow": "የሥራ ፍሰት",
   "services.publish.form": "የጥያቄ ቅጽ",
   "services.publish.noForm": "የጥያቄ ቅጽ የለም",
+  "services.publish.feeRule": "የክፍያ ደንብ",
+  "services.publish.noFee": "ክፍያ የለም",
+  "services.publish.feeDemo": "የሙከራ መጠን",
   "services.publish.policy": "ከሥሩ ያሉ ጽ/ቤቶች ሊቀይሩት የሚችሉት",
   "services.publish.family.sla": "የደረጃዎቹ የጊዜ ገደብ",
   "services.publish.family.help": "የቅጹ የእገዛ ጽሑፎች",
@@ -74,6 +77,7 @@
   "services.contract.wrong_kind": "ተግባሩ {effect} \"{key}\" የ{expected} መስክ እንዲሆን ይፈልጋል፤ የ{actual} መስክ ነው።",
   "services.contract.not_required": "ተግባሩ {effect} \"{key}\" ግዴታ እንዲሆን ይፈልጋል።",
   "services.contract.conditional": "ተግባሩ {effect} \"{key}\" ሁልጊዜ እንዲታይ ይፈልጋል፤ ሁኔታ ሊደብቀው ይችላል።",
+  "services.contract.computed": "ተግባሩ {effect} \"{key}\" ራሱን ችሎ እንዲመለስ ይፈልጋል፤ ከሌሎች መስኮች ይሰላል።",
   "services.contract.no_form": "ተግባሩ {effect} የጥያቄ ቅጹን ያነባል፤ ስሪቱ ቅጽ አልሰየመም።",
   "services.contract.unknown_effect": "የሥራ ፍሰቱ {effect} የሚባል ተግባር አያካሂድም።",
   "services.contract.kind.text": "ጽሑፍ",
@@ -90,5 +94,14 @@
   "services.contract.kind.ref": "ከመዝገብ ፍለጋ",
   "services.contract.restricted": "ተግባሩ {effect} \"{key}\" በሁሉም እንዲሞላ ይፈልጋል፤ ከአንዳንድ ሚናዎች ተደብቋል።",
   "services.contract.no_contract": "ተግባሩ {effect} ከቅጹ ምንም አያነብም፤ ማዛመጃ አይወስድም።",
-  "services.contract.unknown_path": "ተግባሩ {effect} \"{key}\" አያነብም፤ ማዛመጃውን ያረጋግጡ።"
+  "services.contract.unknown_path": "ተግባሩ {effect} \"{key}\" አያነብም፤ ማዛመጃውን ያረጋግጡ።",
+  "services.contract.fee_rule_unknown": "እንደዚህ ያለ የክፍያ ደንብ ስሪት የለም።",
+  "services.contract.fee_rule_off": "የክፍያ ደንቡ ጠፍቷል።",
+  "services.contract.fee_rule_not_approved": "የክፍያ ደንቡ ስሪት ገና አልጸደቀም፤ መጀመሪያ ሌላ ሰው ያጽድቀው።",
+  "services.contract.fee_rule_not_regional": "የክፍያ ደንቡ የአንድ ጽ/ቤት ነው እንጂ የክልሉ አይደለም።",
+  "services.contract.fee_input_sensitive": "ክፍያው «{key}» የተባለውን ሚስጥራዊ መስክ ያነባል፤ ክፍያ ሚስጥራዊ መልሶችን ማንበብ አይችልም።",
+  "services.contract.fee_not_reassessed": "የሥራ ፍሰቱ ጥያቄውን ሲቀይር ክፍያውን እንደገና አያሰላም፤ ጥያቄውን በሚቀይር እያንዳንዱ ሽግግር ላይ {effect} የሚለውን ተግባር ያክሉ።",
+  "services.contract.fee_field_without_rule": "ቅጹ ክፍያ ያሳያል፤ ስሪቱ ግን የክፍያ ደንብ አልሰየመም።",
+  "services.contract.fee_field_conditional": "የክፍያ መስኩ ሁልጊዜ መታየት አለበት፤ ሁኔታ ወይም የሚና ገደብ ይደብቀዋል።",
+  "services.contract.fee_field_missing": "ስሪቱ ክፍያ ያስከፍላል፤ ቅጹ ግን ክፍያ አያሳይም። ባለሙያው የሚያስገባውን ክፍያ እንዲያይ የክፍያ መስክ ያክሉ።"
 }

@@ -25,6 +25,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@itrms/fees": "workspace:*",
     "@itrms/form-engine": "workspace:*",
     "@itrms/forms": "workspace:*",
     "@itrms/kernel": "workspace:*",

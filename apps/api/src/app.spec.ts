@@ -28,6 +28,8 @@ describe('POSTs kept out of the idempotency records (@NotReplayable)', () => {
         expect(notReplayableHandlers()).toEqual([
             // a background export's download link: short-lived, never kept for a replay (each download is on record)
             'ExportsController.download',
+            // a fee preview (task 0.22a): a read sent as POST (the answers are a body); it stores nothing and is safe to repeat
+            'FeesController.preview',
             // confirming an upload: checked against the object outside a transaction, and safe to repeat by its state
             'FilesController.confirm',
             // the duplicate check and the FIN/phone lookup: a sensitive value in the request

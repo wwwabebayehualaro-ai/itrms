@@ -1,1 +1,7 @@
-{}
+{
+  "fees.setting.rules.approverRoles": "የክፍያ ደንብ ስሪትን የሚያጸድቁ ሚናዎች",
+  "fees.validation.needsAnswer": "ያለዚህ መልስ ክፍያውን ማስላት አይቻልም።",
+  "fees.validation.notShown": "ክፍያው እስኪታይ ይጠብቁ፤ ከዚያ ጥያቄውን ያስገቡ።",
+  "fees.validation.rejected": "ይህ ይዘት በቀድሞ ስሪት ውድቅ ተደርጓል፤ እንደገና ከመላክዎ በፊት ይቀይሩት።",
+  "fees.validation.factInput": "ክፍያ የጉዳዩን መረጃ ገና ማንበብ አይችልም፤ በምትኩ የጥያቄውን መልስ ያንብብ።"
+}

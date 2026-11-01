@@ -28,6 +28,8 @@
   "form-engine.palette.type.Dropdown.label": "Pick one",
   "form-engine.palette.type.EthDate.hint": "A day picked on the Ethiopian calendar (stored as the Gregorian date).",
   "form-engine.palette.type.EthDate.label": "Date (Ethiopian calendar)",
+  "form-engine.palette.type.Fee.hint": "Shows the fee the service charges under its fee rule, worked out from the answers so far.",
+  "form-engine.palette.type.Fee.label": "Fee",
   "form-engine.palette.type.Fieldset.hint": "A light frame with a title on its border.",
   "form-engine.palette.type.Fieldset.label": "Group",
   "form-engine.palette.type.FileUpload.hint": "Attachments: receipts, scans, documents.",

@@ -21,11 +21,16 @@ function* chainOf(field: EngineField, byId: ReadonlyMap<string, EngineField>): G
     for (let f: EngineField | undefined = field; f; f = f.parentId ? byId.get(f.parentId) : undefined) yield f;
 }
 
-/** What the form lacks for the contract: empty when the form meets it. */
+/**
+ * What the form lacks for the contract: empty when the form meets it. `standalone`: the contract's values are read without
+ * the rest of the form (a fee preview sends only them, task 0.22a), so an optional field must also be unconditional, open to
+ * every role and not computed from other fields: it settles the same with or without the others.
+ */
 export function checkContract(
     contract: EffectContract,
     document: unknown,
-    map?: Readonly<Record<string, string>>
+    map?: Readonly<Record<string, string>>,
+    options: { standalone?: boolean } = {}
 ): ContractProblem[] {
     // every field, removed ones too: a field under a removed container is gone from the form with it
     const fields = readDocument(document).fields;
@@ -47,13 +52,14 @@ export function checkContract(
             problems.push({ path, key, code: 'wrong_kind', expected: want.kind, actual: kind });
             continue;
         }
-        if (!required) continue;
+        if (!required && !options.standalone) continue;
         const enforced = isFormArray(field) ? field.rules.required || field.rules.minItems > 0 : field.rules.required;
-        if (!field.validated || !enforced) problems.push({ path, key, code: 'not_required' });
+        if (required && (!field.validated || !enforced)) problems.push({ path, key, code: 'not_required' });
         else if (chain.some((f) => (f.visibleToRoles?.length ?? 0) > 0))
             problems.push({ path, key, code: 'restricted' });
         else if (chain.some((f) => f.visibleWhen.length > 0 || f.enabledWhen.length > 0))
             problems.push({ path, key, code: 'conditional' });
+        else if (options.standalone && field.computed) problems.push({ path, key, code: 'computed' });
     }
     return problems;
 }

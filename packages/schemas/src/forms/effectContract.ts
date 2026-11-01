@@ -48,7 +48,14 @@ export const inputMapSchema = z.record(
 export type InputMap = z.infer<typeof inputMapSchema>;
 
 /** Why a form does not meet a contract field. */
-export const CONTRACT_PROBLEMS = ['missing', 'wrong_kind', 'not_required', 'restricted', 'conditional'] as const;
+export const CONTRACT_PROBLEMS = [
+    'missing',
+    'wrong_kind',
+    'not_required',
+    'restricted',
+    'conditional',
+    'computed'
+] as const;
 export type ContractProblemCode = (typeof CONTRACT_PROBLEMS)[number];
 
 export interface ContractProblem {

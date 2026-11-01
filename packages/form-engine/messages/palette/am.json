@@ -28,6 +28,8 @@
   "form-engine.palette.type.Dropdown.label": "አንድ ይምረጡ",
   "form-engine.palette.type.EthDate.hint": "በኢትዮጵያ ዘመን አቆጣጠር የሚመረጥ ቀን (እንደ ግሪጎሪያን ቀን ይቀመጣል)።",
   "form-engine.palette.type.EthDate.label": "ቀን (የኢትዮጵያ ዘመን አቆጣጠር)",
+  "form-engine.palette.type.Fee.hint": "አገልግሎቱ በክፍያ ደንቡ መሠረት የሚያስከፍለውን ክፍያ እስካሁን በተሞላው መረጃ ያሰላና ያሳያል።",
+  "form-engine.palette.type.Fee.label": "ክፍያ",
   "form-engine.palette.type.Fieldset.hint": "በዳርቻው ላይ ርዕስ ያለው ቀላል ክፈፍ።",
   "form-engine.palette.type.Fieldset.label": "ቡድን",
   "form-engine.palette.type.FileUpload.hint": "አባሪዎች፦ ደረሰኞች፣ ስካኖች፣ ሰነዶች።",

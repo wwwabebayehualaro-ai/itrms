@@ -1,0 +1,9 @@
+# gitleaks (the CI secrets job and the pre-commit hook read this at the repository root): the default rules, and the
+# names that look like keys to its generic rule but are none. Add an entry only with a reason.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Fee rule keys (task 0.22a): a service code and a word, as dvc-04-renewal; a name, never a secret"
+regexTarget = "secret"
+regexes = ['''^[a-z]{2,5}-\d{2}-[a-z][a-z-]*$''']

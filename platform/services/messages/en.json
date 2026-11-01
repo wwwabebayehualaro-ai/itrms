@@ -21,6 +21,9 @@
   "services.publish.workflow": "Workflow",
   "services.publish.form": "Request form",
   "services.publish.noForm": "No request form",
+  "services.publish.feeRule": "Fee rule",
+  "services.publish.noFee": "No fee",
+  "services.publish.feeDemo": "demo amounts",
   "services.publish.policy": "What offices below may change",
   "services.publish.family.sla": "Time limits of the steps",
   "services.publish.family.help": "Help texts of the form",
@@ -74,6 +77,7 @@
   "services.contract.wrong_kind": "The effect {effect} needs \"{key}\" to be a {expected} field; it is a {actual} field.",
   "services.contract.not_required": "The effect {effect} needs \"{key}\" to be required.",
   "services.contract.conditional": "The effect {effect} needs \"{key}\" always shown: a condition can hide it.",
+  "services.contract.computed": "The effect {effect} needs \"{key}\" answered on its own: it is computed from other fields.",
   "services.contract.no_form": "The effect {effect} reads the request form: the version names none.",
   "services.contract.unknown_effect": "The workflow runs no effect {effect}.",
   "services.contract.kind.text": "text",
@@ -90,5 +94,14 @@
   "services.contract.kind.ref": "register lookup",
   "services.contract.restricted": "The effect {effect} needs \"{key}\" filled by everyone: it is kept from some roles.",
   "services.contract.no_contract": "The effect {effect} reads nothing from the form: it takes no mapping.",
-  "services.contract.unknown_path": "The effect {effect} reads no \"{key}\": check the mapping."
+  "services.contract.unknown_path": "The effect {effect} reads no \"{key}\": check the mapping.",
+  "services.contract.fee_rule_unknown": "No such fee rule version.",
+  "services.contract.fee_rule_off": "The fee rule is switched off.",
+  "services.contract.fee_rule_not_approved": "The fee rule version is not approved yet: another person approves it first.",
+  "services.contract.fee_rule_not_regional": "The fee rule is an office's own, not the region's.",
+  "services.contract.fee_input_sensitive": "The fee reads \"{key}\", a Sensitive field: a fee may not read Sensitive answers.",
+  "services.contract.fee_not_reassessed": "The workflow changes the request without working its fee out again: add the effect {effect} to each transition that changes the request.",
+  "services.contract.fee_field_without_rule": "The form shows a fee, but the version names no fee rule.",
+  "services.contract.fee_field_conditional": "The Fee field must always be shown: a condition or a role restriction hides it.",
+  "services.contract.fee_field_missing": "The version charges a fee, but its form shows none: add a Fee field, so the counter sees the fee it files."
 }

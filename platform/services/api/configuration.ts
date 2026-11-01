@@ -92,6 +92,8 @@ export interface FrozenConfig extends Record<string, unknown> {
     overlayVersionIds?: string[];
     /** each effect's contract paths mapped to the request form's keys (the engine builds the effect's input with it) */
     inputMap: Record<string, Record<string, string>>;
+    /** the fee rule version the case is charged by (task 0.22a); none: it charges nothing */
+    feeRuleVersionId?: string | null;
     approval_unit?: unknown;
     sla: Record<string, unknown>;
     help: Record<string, unknown>;
@@ -108,6 +110,7 @@ export function frozenConfig(
         serviceVersionId: string;
         formVersionId: string | null;
         inputMap: Record<string, Record<string, string>>;
+        feeRuleVersionId?: string | null;
     }
 ): FrozenConfig {
     const config: FrozenConfig = { ...ids, sla: {}, help: {}, sources: {} };

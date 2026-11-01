@@ -127,6 +127,29 @@ describe('a contract field the server could let a request be filed without (revi
         expect(checkContract(want, doc([unvalidated])).map((p) => p.code)).toEqual(['not_required']);
     });
 
+    it('read alone (a fee preview), wants an optional field unconditional, open to every role and not computed too', () => {
+        const optional = { lost: { kind: 'boolean' as const, required: false } };
+        const shown = field('lost', 'InputSwitch', {
+            behavior: {
+                validation: { supported: true },
+                visibilityConditions: [{ field: 'reason', operator: 'eq', value: 'lost' }]
+            }
+        });
+        expect(checkContract(optional, doc([shown]))).toEqual([]);
+        expect(checkContract(optional, doc([shown]), undefined, { standalone: true }).map((p) => p.code)).toEqual([
+            'conditional'
+        ]);
+        const computed = field('lost', 'InputSwitch', {
+            data: { defaultProps: {}, computed: { expression: "{{= form.reason == 'lost' }}", readOnly: true } }
+        });
+        expect(checkContract(optional, doc([computed]), undefined, { standalone: true }).map((p) => p.code)).toEqual([
+            'computed'
+        ]);
+        expect(checkContract(optional, doc([field('lost', 'InputSwitch')]), undefined, { standalone: true })).toEqual(
+            []
+        );
+    });
+
     it('gives the effect only values of the kind asked, naming the others', () => {
         expect(
             contractInput({ owner: { kind: 'ref' }, plate: { kind: 'text' } }, { owner: 'Not an id', plate: 7 })

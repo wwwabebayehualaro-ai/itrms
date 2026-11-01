@@ -7,6 +7,7 @@ import {
     workflowUnitRuleSchema,
     WORKFLOW_KEY
 } from '@itrms/schemas';
+import { feeShownSchema } from '@itrms/fees/contracts';
 import { answersSchema } from '@itrms/forms/contracts';
 import { z } from 'zod';
 
@@ -107,6 +108,8 @@ export const serviceVersionInputSchema = z.strictObject({
     /** a published form version (none: a service without a request form) */
     formVersionId: z.uuid().nullable().default(null),
     workflowVersionId: z.uuid(),
+    /** the approved fee rule version the service charges by (task 0.22a); none: it charges nothing */
+    feeRuleVersionId: z.uuid().nullable().default(null),
     defaults: configValuesSchema.default({}),
     overridePolicy: overridePolicySchema,
     /** each effect's contract paths mapped to the request form's keys (task 0.21d); a path maps to itself otherwise */
@@ -127,7 +130,9 @@ export const serviceOverrideInputSchema = z.strictObject({
 export const serviceRequestSchema = z.strictObject({
     serviceCode: serviceCodeSchema,
     /** the request form's answers, when the service has one (validated on the server on the version it names) */
-    answers: answersSchema.optional()
+    answers: answersSchema.optional(),
+    /** the fee the counter showed (task 0.22a): a different figure now refuses the filing (409 fee_changed) */
+    fee: feeShownSchema.optional()
 });
 
 /** A problem a new version finds in an override below it (shown to the bureau, the override is kept). */

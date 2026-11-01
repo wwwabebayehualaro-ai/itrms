@@ -49,6 +49,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cases/{caseId}/fee": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["FeesController_forCase"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/cases/{id}": {
         parameters: {
             query?: never;
@@ -139,6 +155,118 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["CasesController_transition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fee-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["FeesController_list"];
+        put?: never;
+        post: operations["FeesController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fee-rules/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["FeesController_check"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fee-rules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["FeesController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fee-rules/{id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["FeesController_versions"];
+        put?: never;
+        post: operations["FeesController_addVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fee-rules/{id}/versions/{versionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["FeesController_version"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fee-rules/{id}/versions/{versionId}/approval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["FeesController_decide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fees/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["FeesController_preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1519,6 +1647,292 @@ export interface components {
                 phone?: string | null;
             };
         };
+        FeePreviewDto: {
+            /** @default {} */
+            answers: {
+                [key: string]: unknown;
+            };
+            serviceCode: string;
+        };
+        FeeRuleCheckDto: {
+            document: {
+                basis?: string;
+                /** @default false */
+                demo: boolean;
+                inputs: {
+                    [key: string]: {
+                        fact?: string;
+                        /**
+                         * @default answer
+                         * @enum {string}
+                         */
+                        from: "answer" | "fact";
+                        /** @enum {string} */
+                        kind: "text" | "number" | "boolean" | "date" | "ethdate" | "choice" | "multi";
+                        /** @default true */
+                        required: boolean;
+                    };
+                };
+                lines: ({
+                    amount: string;
+                    key: string;
+                    /** @constant */
+                    kind: "fixed";
+                    label: {
+                        am: string;
+                        en: string;
+                    } & {
+                        [key: string]: string;
+                    };
+                    when?: string;
+                } | {
+                    input: string;
+                    key: string;
+                    /** @constant */
+                    kind: "table";
+                    label: {
+                        am: string;
+                        en: string;
+                    } & {
+                        [key: string]: string;
+                    };
+                    otherwise?: string;
+                    rows: {
+                        amount: string;
+                        value: string | number | boolean;
+                    }[];
+                    when?: string;
+                } | {
+                    amount: string;
+                    key: string;
+                    /** @constant */
+                    kind: "perUnit";
+                    label: {
+                        am: string;
+                        en: string;
+                    } & {
+                        [key: string]: string;
+                    };
+                    maxAmount?: string;
+                    maxUnits?: number;
+                    quantity: string;
+                    when?: string;
+                } | {
+                    basisPoints: number;
+                    key: string;
+                    /** @constant */
+                    kind: "percent";
+                    label: {
+                        am: string;
+                        en: string;
+                    } & {
+                        [key: string]: string;
+                    };
+                    maxAmount?: string;
+                    maxUnits?: number;
+                    of: string[];
+                    quantity?: string;
+                    when?: string;
+                })[];
+                /**
+                 * @default filing
+                 * @enum {string}
+                 */
+                reassessAsOf: "filing" | "reassessment";
+                /** @constant */
+                schemaVersion: 1;
+            };
+        };
+        FeeRuleCreateDto: {
+            document: {
+                basis?: string;
+                /** @default false */
+                demo: boolean;
+                inputs: {
+                    [key: string]: {
+                        fact?: string;
+                        /**
+                         * @default answer
+                         * @enum {string}
+                         */
+                        from: "answer" | "fact";
+                        /** @enum {string} */
+                        kind: "text" | "number" | "boolean" | "date" | "ethdate" | "choice" | "multi";
+                        /** @default true */
+                        required: boolean;
+                    };
+                };
+                lines: ({
+                    amount: string;
+                    key: string;
+                    /** @constant */
+                    kind: "fixed";
+                    label: {
+                        am: string;
+                        en: string;
+                    } & {
+                        [key: string]: string;
+                    };
+                    when?: string;
+                } | {
+                    input: string;
+                    key: string;
+                    /** @constant */
+                    kind: "table";
+                    label: {
+                        am: string;
+                        en: string;
+                    } & {
+                        [key: string]: string;
+                    };
+                    otherwise?: string;
+                    rows: {
+                        amount: string;
+                        value: string | number | boolean;
+                    }[];
+                    when?: string;
+                } | {
+                    amount: string;
+                    key: string;
+                    /** @constant */
+                    kind: "perUnit";
+                    label: {
+                        am: string;
+                        en: string;
+                    } & {
+                        [key: string]: string;
+                    };
+                    maxAmount?: string;
+                    maxUnits?: number;
+                    quantity: string;
+                    when?: string;
+                } | {
+                    basisPoints: number;
+                    key: string;
+                    /** @constant */
+                    kind: "percent";
+                    label: {
+                        am: string;
+                        en: string;
+                    } & {
+                        [key: string]: string;
+                    };
+                    maxAmount?: string;
+                    maxUnits?: number;
+                    of: string[];
+                    quantity?: string;
+                    when?: string;
+                })[];
+                /**
+                 * @default filing
+                 * @enum {string}
+                 */
+                reassessAsOf: "filing" | "reassessment";
+                /** @constant */
+                schemaVersion: 1;
+            };
+            key: string;
+            name: {
+                am: string;
+                en: string;
+            } & {
+                [key: string]: string;
+            };
+        };
+        FeeRuleDecisionDto: {
+            /** @enum {string} */
+            decision: "approved" | "rejected";
+            reason?: string;
+        };
+        FeeRuleVersionDto: {
+            document: {
+                basis?: string;
+                /** @default false */
+                demo: boolean;
+                inputs: {
+                    [key: string]: {
+                        fact?: string;
+                        /**
+                         * @default answer
+                         * @enum {string}
+                         */
+                        from: "answer" | "fact";
+                        /** @enum {string} */
+                        kind: "text" | "number" | "boolean" | "date" | "ethdate" | "choice" | "multi";
+                        /** @default true */
+                        required: boolean;
+                    };
+                };
+                lines: ({
+                    amount: string;
+                    key: string;
+                    /** @constant */
+                    kind: "fixed";
+                    label: {
+                        am: string;
+                        en: string;
+                    } & {
+                        [key: string]: string;
+                    };
+                    when?: string;
+                } | {
+                    input: string;
+                    key: string;
+                    /** @constant */
+                    kind: "table";
+                    label: {
+                        am: string;
+                        en: string;
+                    } & {
+                        [key: string]: string;
+                    };
+                    otherwise?: string;
+                    rows: {
+                        amount: string;
+                        value: string | number | boolean;
+                    }[];
+                    when?: string;
+                } | {
+                    amount: string;
+                    key: string;
+                    /** @constant */
+                    kind: "perUnit";
+                    label: {
+                        am: string;
+                        en: string;
+                    } & {
+                        [key: string]: string;
+                    };
+                    maxAmount?: string;
+                    maxUnits?: number;
+                    quantity: string;
+                    when?: string;
+                } | {
+                    basisPoints: number;
+                    key: string;
+                    /** @constant */
+                    kind: "percent";
+                    label: {
+                        am: string;
+                        en: string;
+                    } & {
+                        [key: string]: string;
+                    };
+                    maxAmount?: string;
+                    maxUnits?: number;
+                    of: string[];
+                    quantity?: string;
+                    when?: string;
+                })[];
+                /**
+                 * @default filing
+                 * @enum {string}
+                 */
+                reassessAsOf: "filing" | "reassessment";
+                /** @constant */
+                schemaVersion: 1;
+            };
+        };
         FileConfirmDto: {
             parts?: {
                 etag: string;
@@ -1892,6 +2306,11 @@ export interface components {
         RequestDto: {
             answers?: {
                 [key: string]: unknown;
+            };
+            fee?: {
+                /** Format: uuid */
+                ruleVersionId: string;
+                totalSantim: string;
             };
             serviceCode: string;
         };
@@ -2289,6 +2708,8 @@ export interface components {
             /** Format: date */
             effectiveFrom?: string;
             /** @default null */
+            feeRuleVersionId: string | null;
+            /** @default null */
             formVersionId: string | null;
             /** @default {} */
             inputMap: {
@@ -2393,6 +2814,25 @@ export interface operations {
             };
             header?: never;
             path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FeesController_forCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                caseId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2520,6 +2960,191 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["TransitionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FeesController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FeesController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeeRuleCreateDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FeesController_check: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeeRuleCheckDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FeesController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FeesController_versions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FeesController_addVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeeRuleVersionDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FeesController_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FeesController_decide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeeRuleDecisionDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FeesController_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeePreviewDto"];
             };
         };
         responses: {

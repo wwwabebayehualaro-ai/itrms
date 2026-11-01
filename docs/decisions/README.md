@@ -45,5 +45,6 @@ one, write a new ADR that supersedes it. Format: context, decision, consequences
 | [0038](0038-github-hosted-ci.md) | GitHub-hosted CI is the CI record again; `pnpm ci:local` reproduces failures (supersedes 0034) | accepted (2026-10-31) |
 | [0039](0039-form-overlays.md) | Form overlays: a unit adds `x_` fields after an anchor and narrows options of a bureau form; filed on composed versions (refines 0017) | accepted (2026-10-31) |
 | [0040](0040-stable-row-ids.md) | Stable row ids in repeating sections (`_id`): a request change merges rows by id, keeping the answers its corrector may not see or change | accepted (2026-10-31) |
+| [0041](0041-fee-rules.md) | Fee rules: versioned, approved by another person in a role the region names; money never in a formula; one evaluator for the preview and the filing; the case keeps its fee | accepted (2026-11-01) |
 
 All tool choices and the answers to the technical open questions: [`../tech-stack.md`](../tech-stack.md).
