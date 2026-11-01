@@ -133,10 +133,10 @@ describe('lintDocument', () => {
         const section = (id: string) =>
             F(id, 'FormArray', { category: 'Input', layout: { options: { isContainer: true } } });
 
-        it('warns of a second Fee field, not of the first', () => {
+        it('refuses a second Fee field, not the first', () => {
             const problems = lintDocument(doc([fee('fee'), fee('fee2')]));
             expect(ofRule(problems, 'fee-duplicate')).toEqual([
-                expect.objectContaining({ severity: 'warning', fieldId: 'fee2', path: 'fields[1]' })
+                expect.objectContaining({ severity: 'error', fieldId: 'fee2', path: 'fields[1]' })
             ]);
             expect(ofRule(lintDocument(doc([fee('fee')])), 'fee-duplicate')).toEqual([]);
         });

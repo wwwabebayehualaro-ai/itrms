@@ -485,9 +485,10 @@ export function lintDocument(raw: unknown, opts: LintOptions = {}): LintProblem[
         if (holdsValue(f) && !f.source.classification)
             add('unclassified', 'error', f, `${at(f)}.classification`, { field: f.label || f.id });
 
-    // fee-duplicate / fee-in-rows: the fee is one figure for the whole request, shown once and never per row
+    // fee-duplicate / fee-in-rows: the fee is one figure for the whole request, shown once and never per row (the screen
+    // files the figure its one Fee field shows: a second, hidden or shown, would make two of it)
     const fees = subjects.filter((f) => f.type === 'Fee');
-    for (const f of fees.slice(1)) add('fee-duplicate', 'warning', f, at(f));
+    for (const f of fees.slice(1)) add('fee-duplicate', 'error', f, at(f));
     const inRows = rowScopedIds(doc.fields);
     for (const f of fees) if (inRows.has(f.id)) add('fee-in-rows', 'error', f, at(f));
 

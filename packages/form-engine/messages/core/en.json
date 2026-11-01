@@ -75,6 +75,6 @@
   "form-engine.core.lint.sensitive-filterable": "\"{field}\" is sensitive: it cannot be filterable (filtering on it would tell its value).",
   "form-engine.core.lint.reads-restricted": "It reads \"{key}\", which some of the people who see \"{field}\" may not see: restrict it to the same roles, or read another field",
   "form-engine.core.lint.key-reserved": "The key \"{key}\" is reserved for the fields an office adds to a form (x_…): choose another",
-  "form-engine.core.lint.fee-duplicate": "The form has more than one Fee field: one shows the whole fee",
+  "form-engine.core.lint.fee-duplicate": "The form has more than one Fee field: the fee is shown once, in one field",
   "form-engine.core.lint.fee-in-rows": "A Fee field cannot sit inside a repeatable section: the fee is for the whole request"
 }

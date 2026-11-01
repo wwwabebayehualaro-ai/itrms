@@ -75,6 +75,6 @@
   "form-engine.core.lint.sensitive-filterable": "\"{field}\" ጥብቅ ነው፤ ማጣሪያ ሊሆን አይችልም (በእሱ ማጣራት እሴቱን ያሳውቃል)።",
   "form-engine.core.lint.reads-restricted": "\"{field}\"ን ከሚያዩት አንዳንዶቹ የማያዩትን \"{key}\" ያነባል፤ ለተመሳሳይ ሚናዎች ይገድቡት ወይም ሌላ መስክ ያንብቡ",
   "form-engine.core.lint.key-reserved": "\"{key}\" የሚለው ቁልፍ ጽ/ቤቶች በቅጽ ላይ ለሚጨምሯቸው መስኮች (x_…) የተያዘ ነው፤ ሌላ ይምረጡ",
-  "form-engine.core.lint.fee-duplicate": "ከአንድ በላይ የክፍያ መስክ አለ፤ አንዱ ሙሉውን ክፍያ ያሳያል",
+  "form-engine.core.lint.fee-duplicate": "ከአንድ በላይ የክፍያ መስክ አለ፤ ክፍያው አንድ ጊዜ፣ በአንድ መስክ ይታያል",
   "form-engine.core.lint.fee-in-rows": "የክፍያ መስክ በሚደገም ክፍል ውስጥ ሊሆን አይችልም፤ ክፍያው ለሙሉ ጥያቄው ነው"
 }
