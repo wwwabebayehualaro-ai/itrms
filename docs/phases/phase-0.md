@@ -793,23 +793,47 @@ Added on 2026-10-31 from 0.21e's review follow-ups (they were moved to 0.21f, an
 - **Tests:** row-id round-trip and upgrade tests (stored answers without ids stay readable, G3); request-change
   integration tests for merged rows.
 
-### 0.22 Fees, payment orders, cashier, receipts
+### 0.22a Fees, part 1: fee rules and the Fee field
+Split from 0.22 on 2026-11-01 (it did not fit one session). Needs 0.21b (a service version names its fee rule version).
 - **Do:**
-  - Fee rules (versioned JSON, shared formula evaluator, integer santim, explicit rounding).
-  - `fees.createPaymentOrder` effect; cashier screen (record cash / bank-slip payment); receipt numbers from counters; the
-    receipt PDF (via 0.23, a placeholder until then).
-  - **Paid elsewhere:** `external_payment_refs`, unique per issuer + reference + fiscal year, state `pending_verification`.
-    A `finance_officer` other than the person who entered it verifies the reference, or it is matched against an imported
-    daily statement. Only verified references settle a case.
-  - Reversal with a reason and a second person's approval.
-  - The `payment.settled` guard for workflows.
-  - The form engine's `Fee` field (moved from 0.18): a preview of the server-computed fee via `POST /fees/preview`, updated
-    when its inputs change.
-- **Done when:** the fee preview equals the server figure on submit; a payment order total equals the sum of the rule's lines in santim; receipt numbers are gapless per unit
-  and fiscal year under concurrency; a reversal keeps the original number and shows on the case; the same external
-  reference can't settle two cases; an unverified reference can't settle any.
-- **Tests:** fee rule golden tests (renewal with penalty months, replacement), concurrency tests on receipts, reversal SoD
-  test; a component test of the Fee field and an API test of fee preview and submit consistency.
+  - Fee rules: versioned JSON (`packages/schemas`), published by the bureau and frozen with a case's configuration. Lines
+    are a base fee by category or grade, a penalty per started month, a replacement fee, a fixed fee; inputs are answers
+    and case facts. Evaluated with the shared formula evaluator (`packages/form-engine/core`), integer santim, explicit
+    half-up rounding once per line (ADR-0014).
+  - `POST /fees/preview`: the lines and total for a service's rule over the given answers. Filing a request computes the
+    same figure on the server and keeps it with the case (the fact the payment order reads in 0.22b).
+  - The form engine's `Fee` field (moved from 0.18): a preview of the server-computed fee, updated when its inputs
+    change; never an answer.
+  - Demo fee rules for the competency services, amounts marked as placeholders (Council of Ministers Regulation
+    572/2025 sets the real ones).
+- **Done when:** the fee preview equals the server figure on submit; a fee's total equals the sum of its lines in santim.
+- **Tests:** fee rule golden tests (renewal with penalty months, replacement); evaluator tests (no floats, rounding);
+  a component test of the Fee field and an API test of fee preview and submit consistency.
+
+### 0.22b Fees, part 2: payment orders, the cashier and receipts
+Split from 0.22 on 2026-11-01. Needs 0.22a.
+- **Do:**
+  - The `fees.createPaymentOrder` effect: the case's fee lines, total and due date.
+  - The cashier screen: record a cash or bank-slip payment against an order; a receipt with a number from the counters
+    (per unit and fiscal year); the receipt PDF a placeholder until 0.23.
+  - Reversal with a reason and a second person's approval (a `finance_officer`, never the cashier who asked); the
+    original number is kept.
+  - The `payment.settled` guard fact for workflows; payments and reversals on the case timeline.
+- **Done when:** a payment order total equals the sum of the rule's lines in santim; receipt numbers are gapless per unit
+  and fiscal year under concurrency; a reversal keeps the original number and shows on the case.
+- **Tests:** concurrency tests on receipts, reversal SoD test, the effect run twice makes one order; the isolation
+  matrix covers the new tables.
+
+### 0.22c Fees, part 3: paid elsewhere
+Split from 0.22 on 2026-11-01. Needs 0.22b.
+- **Do:**
+  - `external_payment_refs`: issuer, reference, fiscal year, amount; unique per issuer + reference + fiscal year; state
+    `pending_verification`, entered at the counter.
+  - A `finance_officer` other than the person who entered it verifies or rejects the reference, or it is matched
+    against an imported daily statement (a CSV of a placeholder layout until a bank's is known). Only verified references
+    settle a case.
+- **Done when:** the same external reference can't settle two cases; an unverified reference can't settle any.
+- **Tests:** uniqueness under concurrency, verification SoD, statement import and matching.
 
 ### 0.23 Document templates, PDF worker, QR verification
 - **Do:**

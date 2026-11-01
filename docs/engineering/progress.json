@@ -1016,8 +1016,28 @@
           "notes": "Design (ADR-0040): row ids are the reserved key _id in each row (field keys start with a letter); the server gives ids at filing and at every change; a request change merges rows by id, restoring guarded and user-computed columns from the stored row; deleting a stored row holding hidden answers is refused with its own message (forms.validation.rowHasHiddenAnswers); rows filed before ids keep the whole-section refusal until the next change gives them ids. Renderer keys rows by id. Closes follow-ups 175, 179, 180, 181."
         },
         {
-          "id": "0.22",
-          "title": "Fees, payment orders, cashier, receipts",
+          "id": "0.22a",
+          "title": "Fees, part 1: fee rules and the Fee field",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.22b",
+          "title": "Fees, part 2: payment orders, the cashier and receipts",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.22c",
+          "title": "Fees, part 3: paid elsewhere",
           "status": "planned",
           "branch": null,
           "commits": [],
@@ -1819,7 +1839,7 @@
     {
       "foundIn": "0.4c",
       "item": "MoneyInput announces a refused keystroke or paste (aria-describedby message; needs a catalogue key)",
-      "movedTo": "0.22"
+      "movedTo": "0.22b"
     },
     {
       "foundIn": "0.4c",
