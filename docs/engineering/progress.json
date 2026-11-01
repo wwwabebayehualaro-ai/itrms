@@ -1018,13 +1018,14 @@
         {
           "id": "0.22a",
           "title": "Fees, part 1: fee rules and the Fee field",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.22a-fee-rules",
           "commits": [
             "f0a8ad7",
             "ae2ddbd",
             "5b71b90",
-            "743ca40"
+            "743ca40",
+            "d691bde"
           ],
           "evidence": [
             "GitHub Actions run 41288237950 on 743ca40 (PR #29): all 9 jobs green (ADR-0038 CI record), e2e 18 passed, stories 474 passed; the run on ae2ddbd failed only gitleaks (7 generic-api-key matches on fee rule keys such as key: dvc-04-renewal), fixed with .gitleaks.toml (default rules plus an allowlist of that pattern; local gitleaks on the PR range clean)",
