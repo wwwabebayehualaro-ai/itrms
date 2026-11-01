@@ -325,7 +325,7 @@ export class SubmissionsService {
                           ? Object.fromEntries(
                                 Object.entries(row as Record<string, unknown>).filter(([k]) => {
                                     const c = byId.get(k);
-                                    return !c || !personal(c) || c.parentId !== section.id;
+                                    return !c || !personal(c) || sectionOf(c) !== section.id;
                                 })
                             )
                           : row

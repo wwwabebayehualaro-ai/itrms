@@ -171,9 +171,10 @@ const PERSONAL_FORM = {
         text('plate', { required: true }),
         text('items', { type: 'FormArray', props: {}, layout: { options: { isContainer: true } } }),
         text('item', { parentId: 'items' }),
-        // who added the row: computed from the person, never typed (follow-up 180)
+        // who added the row: computed from the person, never typed (follow-up 180), in a box of the row
+        text('itemBox', { type: 'Panel', parentId: 'items', props: {}, layout: { options: { isContainer: true } } }),
         text('addedBy', {
-            parentId: 'items',
+            parentId: 'itemBox',
             data: { defaultProps: {}, computed: { expression: '{{user.id}}', readOnly: true } }
         })
     ]

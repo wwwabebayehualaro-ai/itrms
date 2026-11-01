@@ -17,7 +17,13 @@ export default defineConfig({
     workers: 1,
     retries: process.env.CI ? 1 : 0,
     reporter: process.env.CI ? 'github' : 'list',
-    use: { baseURL: WEB, trace: 'retain-on-failure', screenshot: 'only-on-failure' },
+    // the browser keeps Ethiopian time, as its users' do: a journey's 'this month' is the bureau's, not the runner's
+    use: {
+        baseURL: WEB,
+        timezoneId: 'Africa/Addis_Ababa',
+        trace: 'retain-on-failure',
+        screenshot: 'only-on-failure'
+    },
     projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
     webServer: process.env.E2E_WEB
         ? undefined
