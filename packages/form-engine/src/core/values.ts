@@ -49,6 +49,15 @@ const ROW_ID_PATTERN = /^[A-Za-z0-9-]{8,64}$/;
 /** A new row id. */
 export const newRowId = (): string => globalThis.crypto.randomUUID();
 
+/** The values without their rows' ids, at any depth (what tells whether answers changed). */
+export function withoutRowIds(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map(withoutRowIds);
+    if (!isRecord(value)) return value;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) if (k !== ROW_ID) out[k] = withoutRowIds(v);
+    return out;
+}
+
 /** A row's id, when it has a well-formed one. */
 export function rowIdOf(row: unknown): string | undefined {
     const id = row && typeof row === 'object' ? (row as Record<string, unknown>)[ROW_ID] : undefined;
@@ -381,20 +390,33 @@ export function settledValues(
 
 /**
  * The values with every field derived from the answers alone (`answerDerived`) computed again over them, at the top level
- * and in every row, and nothing else touched: no default put back, nothing hidden taken out (a request change recomputes
- * what its patch reads without settling the answers it left as filed, task 0.21g). Chains settle as in `settledValues`.
+ * and in every row, and nothing else touched: no default put back, no input taken out (a request change recomputes what
+ * its patch reads without settling the answers it left as filed, task 0.21g). A derived field its rules hide (or a removed
+ * one) holds no value, as when filing; a hidden section's rows are left as they are. Chains settle as in `settledValues`.
  */
-export function derivedValues(fields: EngineField[], values: Record<string, unknown>): Record<string, unknown> {
+export function derivedValues(
+    fields: EngineField[],
+    values: Record<string, unknown>,
+    scope: Scope = {}
+): Record<string, unknown> {
+    const byId = new Map(fields.map((f) => [f.id, f]));
     const pass = (input: Record<string, unknown>) => {
         const top = { ...input };
+        const ctx = { ...scope, root: top };
         const settle = (parentId: string | null, current: Record<string, unknown>) => {
             for (const f of scopeFields(fields, parentId)) {
                 if (!holdsValue(f)) continue;
                 if (answerDerived(f) && f.computed) {
-                    const v = resolveString(f.computed.expression, { form: current, row: current, root: top });
+                    const v = isVisibleIn(f, byId, current, ctx, parentId)
+                        ? resolveString(f.computed.expression, { form: current, row: current, root: top })
+                        : undefined;
                     if (v === undefined) delete current[f.id];
                     else current[f.id] = v;
-                } else if (isFormArray(f) && Array.isArray(current[f.id]))
+                } else if (
+                    isFormArray(f) &&
+                    Array.isArray(current[f.id]) &&
+                    isVisibleIn(f, byId, current, ctx, parentId)
+                )
                     current[f.id] = (current[f.id] as unknown[]).map((row) =>
                         isRecord(row) ? settle(f.id, { ...row }) : row
                     );

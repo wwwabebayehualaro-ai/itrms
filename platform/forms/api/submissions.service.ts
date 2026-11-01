@@ -26,6 +26,7 @@ import {
     rowScopedIds,
     submittedValues,
     validateForm,
+    withoutRowIds,
     withRowIds,
     type EngineField
 } from '@itrms/form-engine/core';
@@ -313,27 +314,28 @@ export class SubmissionsService {
         const masked = new Set(maskSensitive(visible, knownValues(visible, stored)).masked);
         // the stored answers as the caller's own rules settle them: one they drop or reset is shown or open to other roles
         const settledBefore = submittedValues(all, stored, scope);
-        // a column computed from the person (`addedBy = user.name`) reads the caller's own identity: not their rules
+        // a column computed from the person (`addedBy = user.id`) reads the caller's own identity, not their rules: in a
+        // section whose rows merge by id it keeps each row's stored answer (`mergeRows`), so it rules nothing out. Only the
+        // section's own columns: a nested section's rows are not merged one by one, and rows filed before ids not at all
         const personal = (c: EngineField) => c.computed?.readOnly === true && !answerDerived(c);
-        const withoutPersonal = (value: unknown): unknown =>
+        const withoutPersonal = (section: EngineField, value: unknown): unknown =>
             Array.isArray(value)
                 ? value.map((row: unknown) =>
                       row !== null && typeof row === 'object'
                           ? Object.fromEntries(
-                                Object.entries(row as Record<string, unknown>)
-                                    .filter(([k]) => {
-                                        const c = byId.get(k);
-                                        return !c || !personal(c);
-                                    })
-                                    .map(([k, v]) => [k, withoutPersonal(v)])
+                                Object.entries(row as Record<string, unknown>).filter(([k]) => {
+                                    const c = byId.get(k);
+                                    return !c || !personal(c) || c.parentId !== section.id;
+                                })
                             )
                           : row
                   )
                 : value;
         const ruledOut = (id: string) => {
             const f = byId.get(id);
-            const a = f && isFormArray(f) ? withoutPersonal(settledBefore[id]) : settledBefore[id];
-            const b = f && isFormArray(f) ? withoutPersonal(stored[id]) : stored[id];
+            const merges = f !== undefined && isFormArray(f) && mergeable(f);
+            const a = merges ? withoutPersonal(f, settledBefore[id]) : settledBefore[id];
+            const b = merges ? withoutPersonal(f, stored[id]) : stored[id];
             return canonicalJson(a ?? null) !== canonicalJson(b ?? null);
         };
         // a section as the caller's form shows it, through the same rules (what they send back when they change nothing)
@@ -511,13 +513,56 @@ export class SubmissionsService {
         // fields derived from the answers alone computed again over the stored answers plus the patch, nothing else
         // settled (an input the patch did not touch keeps its filed answer, follow-up from 0.21e); not those the caller's
         // rules rule out (another role's to see)
-        const recomputed = derivedValues(all, merged);
+        const recomputed = derivedValues(all, merged, scope);
         for (const f of all) {
             if (inRows.has(f.id) || ruledOut(f.id)) continue;
             if (!answerDerived(f) && !isFormArray(f)) continue;
             if (Object.hasOwn(recomputed, f.id)) merged[f.id] = recomputed[f.id];
             else delete merged[f.id];
         }
+        // whatever the patch settled (a section its rules now hide, a row left out), every stored row holding answers the
+        // caller may not see or change is still there with those answers: never a loss of another role's answer (ADR-0040)
+        const lost: AnswerProblem[] = [];
+        const withoutDerived = (value: unknown): unknown =>
+            Array.isArray(value)
+                ? value.map(withoutDerived)
+                : value !== null && typeof value === 'object'
+                  ? Object.fromEntries(
+                        Object.entries(value as Record<string, unknown>)
+                            .filter(([k]) => {
+                                const c = byId.get(k);
+                                return k !== ROW_ID && !(c && answerDerived(c));
+                            })
+                            .map(([k, v]) => [k, withoutDerived(v)])
+                    )
+                  : value;
+        for (const f of all) {
+            if (!isFormArray(f) || inRows.has(f.id) || !Array.isArray(stored[f.id]) || !holds(f, stored[f.id]))
+                continue;
+            const now = Array.isArray(merged[f.id]) ? (merged[f.id] as unknown[]) : [];
+            let kept: boolean;
+            if (!mergeable(f))
+                // never patched: as filed, but for what is computed from the answers
+                kept =
+                    canonicalJson(withoutDerived(merged[f.id] ?? null)) === canonicalJson(withoutDerived(stored[f.id]));
+            else {
+                const byRow = new Map(now.map((r) => [rowIdOf(r), r as Record<string, unknown>]));
+                const keep = columns(f).filter(
+                    (c) => !isFormArray(c) && ((guarded(f).includes(c) && !answerDerived(c)) || personal(c))
+                );
+                kept = (stored[f.id] as Record<string, unknown>[]).every((r) => {
+                    if (!holds(f, [r])) return true;
+                    const after = byRow.get(rowIdOf(r));
+                    return (
+                        after !== undefined &&
+                        keep.every((c) => canonicalJson(after[c.id] ?? null) === canonicalJson(r[c.id] ?? null))
+                    );
+                });
+            }
+            if (!kept) lost.push({ path: f.id, code: 'hidden_answers', message: rowKept(language) });
+        }
+        if (lost.length)
+            throw new ValidationError('validation_failed', { detail: 'Some answers are not valid.', errors: lost });
         // every row has its id (a new one for a row added now)
         Object.assign(merged, withRowIds(all, merged));
 
@@ -584,7 +629,12 @@ export class SubmissionsService {
         const checked = this.finished(version.document, submitted, problems, language);
         const answers = checked.answers;
         const changed = [...new Set([...Object.keys(before.answers), ...Object.keys(answers)])]
-            .filter((k) => canonicalJson(before.answers[k] ?? null) !== canonicalJson(answers[k] ?? null))
+            // a row's id alone is no change (rows filed before ids get theirs with the next change written)
+            .filter(
+                (k) =>
+                    canonicalJson(withoutRowIds(before.answers[k] ?? null)) !==
+                    canonicalJson(withoutRowIds(answers[k] ?? null))
+            )
             .sort();
         // the workflow's effects read the request in clear, whether it changed or not
         if (changed.length === 0)

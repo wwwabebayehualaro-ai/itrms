@@ -11,6 +11,7 @@ import {
     readDocument,
     rowIdOf,
     submittedValues,
+    withoutRowIds,
     withoutSensitive,
     withRowIds
 } from './';
@@ -34,11 +35,20 @@ const { fields } = readDocument({
             parentId: 'lines',
             data: { defaultProps: {}, computed: { expression: '{{= row.qty * root.rate }}', readOnly: true } }
         }),
+        F('member', { parentId: 'lines' }),
+        // a member's discount: hidden, it holds no value
+        F('discount', {
+            type: 'InputNumber',
+            parentId: 'lines',
+            behavior: { visibilityConditions: [{ field: 'member', operator: 'eq', value: 'yes' }] },
+            data: { defaultProps: {}, computed: { expression: '{{= row.qty * 3 }}', readOnly: true } }
+        }),
         F('rate', { type: 'InputNumber' }),
-        F('switchedOff', { enabledWhen: [{ field: 'rate', operator: 'eq', value: 99 }] })
+        F('switchedOff', { behavior: { enabledConditions: [{ field: 'rate', operator: 'eq', value: 99 }] } })
     ]
 });
 const ID = '0199f0a0-0000-7000-8000-000000000001';
+const OTHER = '0199f0a0-0000-7000-8000-000000000002';
 
 describe('row ids', () => {
     it('are made for a new row and kept through the value helpers', () => {
@@ -74,6 +84,32 @@ describe('derivedValues', () => {
             // a disabled input is not put back to its default: it is the filer's answer
             switchedOff: 'kept as filed',
             lines: [{ _id: ID, qty: 2, lineTotal: 10 }]
+        });
+        // where filing settles it back (a disabled field holds its default)
+        expect(submittedValues(fields, values).switchedOff).toBeUndefined();
+    });
+
+    it('gives a derived field its rules hide no value, as filing does', () => {
+        const values = {
+            rate: 1,
+            lines: [
+                { _id: ID, qty: 2, member: 'no', discount: 6 },
+                { _id: OTHER, qty: 4, member: 'yes' }
+            ]
+        };
+        expect(derivedValues(fields, values).lines).toEqual([
+            { _id: ID, qty: 2, member: 'no', lineTotal: 2 },
+            { _id: OTHER, qty: 4, member: 'yes', lineTotal: 4, discount: 12 }
+        ]);
+    });
+});
+
+describe('withoutRowIds', () => {
+    it('takes the ids out at any depth, and nothing else', () => {
+        expect(
+            withoutRowIds({ _id: 'top-level-x', lines: [{ _id: ID, qty: 1, parts: [{ _id: OTHER, n: 2 }] }] })
+        ).toEqual({
+            lines: [{ qty: 1, parts: [{ n: 2 }] }]
         });
     });
 });

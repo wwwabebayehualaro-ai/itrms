@@ -18,13 +18,19 @@
 2. **A request change merges rows by id**: a row sent with a stored id is that row, changed in the columns the corrector
    may change. The columns they may not see or change (another role's, Sensitive ones, computed from the person) keep the
    stored answers of that row. A row sent without a known id is new. A stored row the corrector leaves out is deleted,
-   unless it holds an answer they may not see or change: then the change is refused, never a loss of that answer.
+   unless it holds an answer they may not see or change: then the change is refused, never a loss of that answer. The
+   server checks this on the result, whatever removed the row (a section the change hides through another answer too).
+   A derived column its rules hide holds no value, as when filing.
 3. **Sensitive columns** of a row keep their stored answers through a change (the corrector sees them masked); the row's
    other columns can be changed. A whole Sensitive section still cannot be changed through its case.
 4. **Rows stored before this decision** (no ids) keep the earlier rule: a section holding answers the corrector may not
-   see or change is refused whole. They stay readable as they are (G3); ids are given when such a section is next filed.
+   see or change is refused whole, and so is one with a column computed from the person (its rows cannot keep who added
+   each). They stay readable as they are (G3); their rows get ids with the request's next change that is written (ids
+   alone are no change: no revision, nothing named as changed).
 
 ## Consequences
 * A woreda head corrects a row of a section holding a records officer's column; that column's answers stay with their rows.
 * The row id is part of the stored answers: it must survive every value helper (taken values, settled values, drafts).
 * Deleting another role's row through a correction is refused; that office deletes it, or the case's workflow does.
+* A column computed from the person counts as kept only in a section's own rows: one in a nested section still keeps
+  that section as filed (nested rows are not merged one by one).

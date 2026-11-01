@@ -64,7 +64,17 @@ const HIDDEN_FORM = {
         text('scan', { type: 'FileUpload' }),
         text('idScan', { type: 'FileUpload', classification: 'sensitive' }),
         text('attachments', { type: 'FileUpload' }),
-        text('people', { type: 'FormArray', props: {}, layout: { options: { isContainer: true } } }),
+        // the people are listed unless the corrector says otherwise: hiding them never drops another role's answers
+        text('listed'),
+        text('people', {
+            type: 'FormArray',
+            props: {},
+            layout: { options: { isContainer: true } },
+            behavior: {
+                validation: { supported: true },
+                visibilityConditions: [{ field: 'listed', operator: 'neq', value: 'no' }]
+            }
+        }),
         text('name', { parentId: 'people' }),
         text('idNo', { parentId: 'people', classification: 'sensitive' }),
         text('checkedBy', { parentId: 'people', visibleToRoles: ['records_officer'] })
@@ -565,6 +575,18 @@ describe('a filed request', () => {
             { _id: rowId, name: 'Generated Persons', idNo: 'ID-1', checkedBy: 'records' }
         ]);
 
+        // a section the change hides with another answer still holds the records officer's answers: refused, nothing lost
+        const hidden = await act({
+            action: 'correct',
+            comment: 'nobody is listed',
+            answers: { ...theirs, plate: 'ETH ABC 0201', listed: 'no', people: [{ _id: rowId, name: 'Someone Else' }] }
+        });
+        expect(hidden.statusCode).toBe(422);
+        expect(hidden.json()).toMatchObject({ errors: [{ path: 'people', code: 'hidden_answers' }] });
+        expect((await stored())?.answers.people).toEqual([
+            { _id: rowId, name: 'Generated Persons', idNo: 'ID-1', checkedBy: 'records' }
+        ]);
+
         // a row added now holds none of another role's answers, and gets its own id
         const added = await act({
             action: 'correct',
@@ -810,13 +832,20 @@ describe('a filed request', () => {
         expect(refused.json()).toMatchObject({ errors: [{ path: 'people', code: 'hidden_answers' }] });
         expect(await stored()).toMatchObject({ people: earlier });
 
-        // another answer changed: the rows get their ids, as filed otherwise
+        // sent back as shown: no change, no revision (ids alone are none)
+        const same = await act({ action: 'correct', comment: 'looked again', answers: theirs });
+        expect(same.statusCode, same.body).toBe(200);
+        expect(c.events.findLast((e) => e.action === 'correct')?.amended).toEqual([]);
+        expect(await stored()).toMatchObject({ people: earlier });
+
+        // another answer changed: the rows get their ids with it, and only the plate is named as changed
         const plate = await act({
             action: 'correct',
             comment: 'the plate was misread',
             answers: { ...theirs, plate: 'ETH ABC 0401' }
         });
         expect(plate.statusCode, plate.body).toBe(200);
+        expect(c.events.findLast((e) => e.action === 'correct')?.amended).toEqual(['plate']);
         expect((await stored())?.people).toEqual([{ _id: expect.any(String) as unknown, ...earlier[0] }]);
 
         // from then on a row is merged by its id
@@ -888,5 +917,27 @@ describe('a filed request', () => {
             { _id: tyre?._id, item: 'Spare tyre', addedBy: records },
             { _id: expect.any(String) as unknown, item: 'Jack', addedBy: head }
         ]);
+
+        // rows filed before ids: who added each cannot be kept by row, so the section stays as filed (the earlier rule)
+        await api.owner.query(
+            `update forms.submissions set answers = jsonb_set(answers, '{items}', $2::jsonb) where case_id = $1`,
+            [c.id, JSON.stringify([{ item: 'Spare tyre', addedBy: records }])]
+        );
+        const later = (await api.call('GET', `/api/v1/cases/${c.id}`, as.damotHead)).json<CaseOut>();
+        const again = later.steps.find((s) => s.answers && 'plate' in s.answers)?.answers ?? {};
+        const legacy = await api.call(
+            'POST',
+            `/api/v1/cases/${c.id}/transitions`,
+            as.damotHead,
+            {
+                action: 'correct',
+                comment: 'a wheel',
+                answers: { ...again, items: [{ item: 'Wheel', addedBy: records }] }
+            },
+            ifMatch(later.version)
+        );
+        expect(legacy.statusCode).toBe(422);
+        expect(legacy.json()).toMatchObject({ errors: [{ path: 'items', code: 'not_editable' }] });
+        expect((await stored())?.items).toEqual([{ item: 'Spare tyre', addedBy: records }]);
     });
 });

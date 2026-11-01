@@ -53,6 +53,7 @@ export {
     newRowId,
     ROW_ID,
     rowIdOf,
+    withoutRowIds,
     withRowIds,
     submittedValues,
     withoutSensitive,

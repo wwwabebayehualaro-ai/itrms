@@ -1001,7 +1001,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Design (ADR-0040): row ids are the reserved key _id in each row (field keys start with a letter); the server gives ids at filing and at every change; a request change merges rows by id, restoring guarded and user-computed columns from the stored row; deleting a stored row holding hidden answers is refused with its own message (forms.validation.rowHasHiddenAnswers); rows filed before ids keep the whole-section refusal until the next change gives them ids. Renderer keys rows by id. Closes follow-ups 175, 179, 180, 181."
         },
         {
           "id": "0.22",
@@ -2571,6 +2571,11 @@
       "foundIn": "0.21e",
       "item": "A request change: a derived field is recomputed over the patch's settled answers, where an input the patch newly disabled is at its default while the stored input keeps its value; compute derived fields over the stored answers plus the patch without resetting unpatched inputs",
       "movedTo": "0.21g"
+    },
+    {
+      "foundIn": "0.21g",
+      "item": "A request change: rows of a nested repeating section are not merged by id one by one; a nested section holding another role's answers, or a column computed from the person, keeps its outer section as filed (fail-safe)",
+      "movedTo": "Phase 1 (form engine, nested sections)"
     }
   ]
 }
