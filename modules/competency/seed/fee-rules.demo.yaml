@@ -1,0 +1,89 @@
+# Demo fee rules of the driver and vehicle competency services (task 0.22a, ADR-0041). The amounts are PLACEHOLDERS
+# (demo: true): the regional fee schedule for licences has not been received (docs/README.md B2), and Council of
+# Ministers Regulation 572/2025 sets only the federal MoTL fees. A bureau's real amounts change this file, never code.
+# Amounts are in santim (100 santim = 1 Birr). Seed: `pnpm --filter @itrms/api seed:fees <this file> --region <code>`.
+rules:
+  - key: dvc-03-new-licence
+    name: { am: አዲስ መንጃ ፈቃድ, en: New driver licence }
+    document:
+      schemaVersion: 1
+      demo: true
+      basis: placeholder until the regional schedule (Regulation 572/2025 for MoTL services)
+      inputs:
+        grade: { kind: choice }
+      lines:
+        - key: base
+          label: { am: የፈቃድ ክፍያ, en: Licence fee }
+          kind: table
+          input: grade
+          rows:
+            - { value: motorcycle, amount: '20000' }
+            - { value: automobile, amount: '30000' }
+            - { value: public-1, amount: '40000' }
+            - { value: dry-cargo-1, amount: '45000' }
+          otherwise: '50000'
+        - key: exam
+          label: { am: የፈተና ክፍያ, en: Examination }
+          kind: fixed
+          amount: '15000'
+        - key: card
+          label: { am: የካርድ ክፍያ, en: Licence card }
+          kind: fixed
+          amount: '10000'
+  - key: dvc-04-renewal
+    name: { am: የመንጃ ፈቃድ እድሳት, en: Driver licence renewal }
+    document:
+      schemaVersion: 1
+      demo: true
+      basis: placeholder until the regional schedule
+      # a corrected request keeps the penalty it was filed with (the office's delay never adds to it)
+      reassessAsOf: filing
+      inputs:
+        grade: { kind: choice }
+        expiry: { kind: date }
+        lost: { kind: boolean, required: false }
+      lines:
+        - key: base
+          label: { am: የእድሳት ክፍያ, en: Renewal }
+          kind: table
+          input: grade
+          rows:
+            - { value: motorcycle, amount: '15000' }
+            - { value: automobile, amount: '20000' }
+            - { value: public-1, amount: '25000' }
+          otherwise: '30000'
+        - key: penalty
+          label: { am: የዘገየ እድሳት (በተጀመረ ወር), en: 'Late renewal, per started month' }
+          kind: perUnit
+          amount: '5000'
+          # Ethiopian calendar months; `startedMonths` counts 30-day months instead (the bureau's wording decides)
+          quantity: startedEthMonths(input.expiry, asOf)
+          maxUnits: 24
+          when: days(input.expiry, asOf) > 0
+        - key: overAYear
+          label: { am: ከአንድ ዓመት በላይ የዘገየ, en: Expired more than a year }
+          kind: fixed
+          amount: '20000'
+          when: days(input.expiry, asOf) > 365
+        - key: card
+          label: { am: ምትክ ካርድ, en: Replacement card }
+          kind: fixed
+          amount: '10000'
+          when: input.lost
+  - key: dvc-06-replacement
+    name: { am: የጠፋ ሊብሬ፣ ቦሎ ወይም ሰሌዳ ምትክ, en: 'Replacement of a lost libre, bolo or plate' }
+    document:
+      schemaVersion: 1
+      demo: true
+      basis: placeholder until the regional schedule
+      inputs:
+        item: { kind: choice }
+      lines:
+        - key: item
+          label: { am: የምትክ ክፍያ, en: Replacement }
+          kind: table
+          input: item
+          rows:
+            - { value: libre, amount: '25000' }
+            - { value: bolo, amount: '10000' }
+            - { value: plate, amount: '35000' }

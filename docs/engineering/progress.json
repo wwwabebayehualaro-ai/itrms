@@ -1018,12 +1018,12 @@
         {
           "id": "0.22a",
           "title": "Fees, part 1: fee rules and the Fee field",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.22a-fee-rules",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Product owner decided (2026-11-01): who approves a fee rule version is configuration (a region setting of approver roles; default by Ethiopian practice: bureau_admin or a regional finance_officer, never the version's author), and the date a reworked fee counts the penalty to is configuration (per fee rule: the filing date by default, or the date it is worked out again). How a started month is counted is also the rule's choice (30-day periods or Ethiopian calendar months), until the bureau's fee schedule wording is known. Design by the architect agent: rule document in packages/schemas, evaluator in form-engine core (money never in formulas: formulas give booleans and whole quantities), fee_rules/fee_rule_versions/fee_rule_approvals (class C, region root), case_fees + lines (class T, append-only), POST /fees/preview (NotReplayable), the filing echo check (409 fee_changed), the fees.assess effect for request changes, the Fee field (display only)."
         },
         {
           "id": "0.22b",

@@ -1,1 +1,4 @@
-{}
+{
+  "fees.setting.rules.approverRoles": "የክፍያ ደንብ ስሪትን የሚያጸድቁ ሚናዎች",
+  "fees.validation.needsAnswer": "ያለዚህ መልስ ክፍያውን ማስላት አይቻልም።"
+}

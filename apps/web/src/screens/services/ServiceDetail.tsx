@@ -47,6 +47,7 @@ import {
     OVERRIDE_FAMILIES,
     OVERRIDE_LEVELS,
     useChangeOverride,
+    useApprovedFeeRules,
     usePublishedForms,
     usePublishVersion,
     useServiceConfiguration,
@@ -64,6 +65,7 @@ import { useSubtree } from '@/lib/settings';
 
 type Text = Readonly<Partial<Record<string, string>>>;
 const NO_FORM = '-';
+const NO_FEE = '-';
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Addis_Ababa' }).format(new Date());
 
 function useDateLabels() {
@@ -122,12 +124,14 @@ function Publish({ code }: { code: string }) {
     // a version names the region's own workflow and form (other zones could not read a zone's): the server filters them
     const workflows = useWorkflows(regionId ?? null);
     const forms = usePublishedForms(regionId ?? null);
+    const feeRules = useApprovedFeeRules();
     const publish = usePublishVersion(code);
     const dateLabels = useDateLabels();
     const ownWorkflows = (workflows.data ?? []).filter((w) => w.active && w.latestVersion);
     const ownForms = forms.data ?? [];
     const [workflowVersionId, setWorkflow] = useState<string>();
     const [formVersionId, setForm] = useState<string>(NO_FORM);
+    const [feeRuleVersionId, setFee] = useState<string>(NO_FEE);
     const [policy, setPolicy] = useState<Partial<Record<OverrideFamily, OverrideLevel[]>>>({ sla: ['unit'] });
     const [effectiveFrom, setFrom] = useState<string | null>(null);
     const [conflicts, setConflicts] = useState<OverrideConflict[]>([]);
@@ -146,6 +150,7 @@ function Publish({ code }: { code: string }) {
             const out = await publish.mutateAsync({
                 workflowVersionId,
                 formVersionId: formVersionId === NO_FORM ? null : formVersionId,
+                feeRuleVersionId: feeRuleVersionId === NO_FEE ? null : feeRuleVersionId,
                 overridePolicy: Object.fromEntries(Object.entries(policy).filter(([, levels]) => levels?.length)),
                 ...(effectiveFrom ? { effectiveFrom } : {})
             });
@@ -191,6 +196,24 @@ function Publish({ code }: { code: string }) {
                                 <SelectItem key={f.id} value={f.publishedVersion?.id ?? f.id}>
                                     {text(f.name)} ·{' '}
                                     {t('services.service.version', { number: String(f.publishedVersion?.number ?? 0) })}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="flex flex-col gap-2">
+                    <Label htmlFor="publish-fee">{t('services.publish.feeRule')}</Label>
+                    <Select value={feeRuleVersionId} onValueChange={setFee}>
+                        <SelectTrigger id="publish-fee" className="w-full">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value={NO_FEE}>{t('services.publish.noFee')}</SelectItem>
+                            {(feeRules.data ?? []).map((r) => (
+                                <SelectItem key={r.id} value={r.latestVersion?.id ?? r.id}>
+                                    {text(r.name)} ·{' '}
+                                    {t('services.service.version', { number: String(r.latestVersion?.number ?? 0) })}
+                                    {r.latestVersion?.demo ? ` · ${t('services.publish.feeDemo')}` : ''}
                                 </SelectItem>
                             ))}
                         </SelectContent>

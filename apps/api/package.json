@@ -17,6 +17,7 @@
     "seed:org": "node --enable-source-maps dist/seed.cjs org",
     "seed:users": "node --enable-source-maps dist/seed.cjs users",
     "seed:services": "node --enable-source-maps dist/seed.cjs services",
+    "seed:fees": "node --enable-source-maps dist/seed.cjs fees",
     "dev:start": "node --env-file=.env.http.local --enable-source-maps dist/main.cjs",
     "dev:worker": "node --env-file=.env.worker.local --enable-source-maps dist/worker.cjs",
     "dev:migrate": "node --env-file=.env.migrate.local --enable-source-maps dist/migrate.cjs",

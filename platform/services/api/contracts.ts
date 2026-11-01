@@ -8,12 +8,15 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Tx } from '@itrms/kernel/db';
 import { EffectRegistry } from '@itrms/kernel/effects';
-import { checkContract, contractLocks } from '@itrms/form-engine/core';
+import { checkContract, contractLocks, feeAnswerContract } from '@itrms/form-engine/core';
+import { FEE_INPUTS } from '@itrms/fees/contracts';
+import { feeRuleVersions } from '@itrms/fees/api';
 import { formVersions, type FormPublishGuard, type GuardResult } from '@itrms/forms/api';
 import type { CheckProblem, FormLock } from '@itrms/forms/contracts';
 import { cases, workflowDefinitionVersions } from '@itrms/workflow/api';
 import {
     effectKeyOf,
+    feeRuleSchema,
     workflowDefinitionSchema,
     type ContractProblem,
     type EffectContract,
@@ -42,6 +45,12 @@ export function contractMessage(effect: string, p: ContractProblem, language: st
         expected: kind(p.expected),
         actual: kind(p.actual)
     });
+}
+
+/** The answer inputs of a stored fee rule version, as an input contract (none for a document that is not a rule). */
+export function feeContractOf(document: unknown): EffectContract | undefined {
+    const parsed = feeRuleSchema.safeParse(document);
+    return parsed.success ? feeAnswerContract(parsed.data) : undefined;
 }
 
 /** The effects a workflow's transitions name. */
@@ -83,17 +92,28 @@ export class ServiceFormGuard implements FormPublishGuard {
                 name: serviceDefinitions.name,
                 regionId: serviceDefinitions.regionId,
                 inputMap: serviceVersions.inputMap,
-                definition: workflowDefinitionVersions.definition
+                definition: workflowDefinitionVersions.definition,
+                feeRule: feeRuleVersions.document
             })
             .from(serviceDefinitions)
             .innerJoin(serviceVersions, eq(serviceVersions.id, serviceDefinitions.currentVersionId))
             .innerJoin(formVersions, eq(formVersions.id, serviceVersions.formVersionId))
             .innerJoin(workflowDefinitionVersions, eq(workflowDefinitionVersions.id, serviceVersions.workflowVersionId))
+            .leftJoin(feeRuleVersions, eq(feeRuleVersions.id, serviceVersions.feeRuleVersionId))
             .where(eq(formVersions.formId, formId));
-        return rows.map((r) => ({
-            ...r,
-            reading: effectsOf(r.definition).filter((e) => this.effects.contract(e) !== undefined)
-        }));
+        return rows.map((r) => {
+            // the fee rule reads the form as an effect does (task 0.22a), under its own input map entry
+            const fee = r.feeRule === null ? undefined : feeContractOf(r.feeRule);
+            const contractOf = (e: string) => (e === FEE_INPUTS ? fee : this.effects.contract(e));
+            return {
+                ...r,
+                contractOf,
+                reading: [
+                    ...effectsOf(r.definition).filter((e) => this.effects.contract(e) !== undefined),
+                    ...(fee ? [FEE_INPUTS] : [])
+                ]
+            };
+        });
     }
 
     async check(tx: Tx, formId: string, document: unknown, language: string): Promise<GuardResult> {
@@ -122,12 +142,7 @@ export class ServiceFormGuard implements FormPublishGuard {
                   .groupBy(sql`1`, serviceVersions.number)
             : [];
         for (const r of readers) {
-            for (const { effect, problem } of contractFindings(
-                r.reading,
-                (e) => this.effects.contract(e),
-                document,
-                r.inputMap
-            ))
+            for (const { effect, problem } of contractFindings(r.reading, r.contractOf, document, r.inputMap))
                 problems.push({
                     code: 'contract',
                     severity: 'error',
@@ -151,7 +166,7 @@ export class ServiceFormGuard implements FormPublishGuard {
         const byKey = new Map<string, FormLock>();
         for (const r of await this.readers(tx, formId))
             for (const effect of r.reading) {
-                const contract = this.effects.contract(effect);
+                const contract = r.contractOf(effect);
                 if (!contract) continue;
                 for (const lock of contractLocks(contract, r.inputMap[effect])) {
                     const known = byKey.get(lock.key);

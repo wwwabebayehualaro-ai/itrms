@@ -11,7 +11,15 @@ import { EffectRegistry } from '@itrms/kernel/effects';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
 import { effectiveServices, withinScope, type OrgUnit } from '@itrms/kernel/org';
 import { orgUnits } from '@itrms/kernel/tables';
-import { contractLocks, publishedKeysOf } from '@itrms/form-engine/core';
+import {
+    checkContract,
+    contractLocks,
+    feeAnswerContract,
+    publishedKeysOf,
+    readDocument
+} from '@itrms/form-engine/core';
+import { FEE_ASSESS_EFFECT, FEE_INPUTS, type FeeShown } from '@itrms/fees/contracts';
+import { FeeRulesService, FeesService, type FeeRequest, type FeeRequestSource } from '@itrms/fees/api';
 import {
     composedFor,
     formDefinitions,
@@ -108,6 +116,7 @@ export interface VersionOut {
     number: number;
     formVersionId: string | null;
     workflowVersionId: string;
+    feeRuleVersionId: string | null;
     defaults: Record<string, unknown>;
     overridePolicy: OverridePolicy;
     inputMap: InputMap;
@@ -127,6 +136,7 @@ const versionOut = (v: Version): VersionOut => ({
     number: v.number,
     formVersionId: v.formVersionId,
     workflowVersionId: v.workflowVersionId,
+    feeRuleVersionId: v.feeRuleVersionId,
     defaults: v.defaults,
     overridePolicy: overridePolicySchema.parse(v.overridePolicy),
     inputMap: v.inputMap,
@@ -136,12 +146,14 @@ const versionOut = (v: Version): VersionOut => ({
 });
 
 @Injectable()
-export class ServicesService {
+export class ServicesService implements FeeRequestSource {
     constructor(
         @Inject(EffectRegistry) private readonly effects: EffectRegistry,
         @Inject(CasesService) private readonly cases: CasesService,
         @Inject(SubmissionsService) private readonly submissions: SubmissionsService,
         @Inject(RegistryLookups) private readonly lookups: RegistryLookups,
+        @Inject(FeeRulesService) private readonly feeRules: FeeRulesService,
+        @Inject(FeesService) private readonly fees: FeesService,
         @Optional() @Inject(ServiceFormGuard) private readonly guard?: ServiceFormGuard
     ) {}
 
@@ -203,7 +215,7 @@ export class ServicesService {
         tx: Tx,
         input: { workflowVersionId: string; formVersionId: string | null },
         regionPath?: string
-    ): Promise<VersionFacts & { effects: string[]; formDocument: unknown }> {
+    ): Promise<VersionFacts & { effects: string[]; formDocument: unknown; reassessed: boolean }> {
         try {
             return await this.checkedFacts(tx, input, regionPath);
         } catch (error) {
@@ -219,7 +231,7 @@ export class ServicesService {
         tx: Tx,
         input: { workflowVersionId: string; formVersionId: string | null },
         regionPath?: string
-    ): Promise<VersionFacts & { effects: string[]; formDocument: unknown }> {
+    ): Promise<VersionFacts & { effects: string[]; formDocument: unknown; reassessed: boolean }> {
         const problems: { path: string; code: string; message: string }[] = [];
         const [workflow] = await tx
             .select({
@@ -289,7 +301,11 @@ export class ServicesService {
                     message: `The workflow names the effect "${effect}", which no installed module provides.`
                 });
         if (problems.length) throw fieldErrors(problems);
-        return { ...factsOf(definition, fieldKeys), effects, formDocument };
+        // a correction of the request changes its fee only through `fees.assess` on that transition (task 0.22a)
+        const reassessed = definition.transitions.every(
+            (t) => !t.amendsRequest || (t.effects ?? []).some((e) => effectKeyOf(e) === FEE_ASSESS_EFFECT)
+        );
+        return { ...factsOf(definition, fieldKeys), effects, formDocument, reassessed };
     }
 
     /** The region's root, if the person's seat is there (a bureau's decision); else 403. */
@@ -322,6 +338,7 @@ export class ServicesService {
             }
         );
         problems.push(...this.contractProblems(facts, input.inputMap, currentLanguage()));
+        problems.push(...(await this.feeProblems(tx, facts, input, root.path, currentLanguage())));
         if (problems.length) throw fieldErrors(problems);
         const effectiveFrom = input.effectiveFrom ?? addisToday();
         // a version holds from today or later, never before the one before it: what cases froze is never rewritten, and
@@ -341,6 +358,7 @@ export class ServicesService {
         const content = {
             formVersionId: input.formVersionId,
             workflowVersionId: input.workflowVersionId,
+            feeRuleVersionId: input.feeRuleVersionId,
             defaults: input.defaults,
             overridePolicy: input.overridePolicy,
             inputMap: input.inputMap,
@@ -359,6 +377,7 @@ export class ServicesService {
             contentHash: contentHash(content),
             formVersionId: input.formVersionId,
             workflowVersionId: input.workflowVersionId,
+            feeRuleVersionId: input.feeRuleVersionId,
             defaults: input.defaults,
             overridePolicy: input.overridePolicy,
             inputMap: input.inputMap,
@@ -382,6 +401,7 @@ export class ServicesService {
     ): { path: string; code: string; message: string }[] {
         const out: { path: string; code: string; message: string }[] = [];
         for (const [effect, map] of Object.entries(inputMap)) {
+            if (effect === FEE_INPUTS) continue;
             const contract = this.effects.contract(effect);
             if (!facts.effects.includes(effect))
                 out.push({
@@ -426,6 +446,59 @@ export class ServicesService {
                 code: `contract_${problem.code}`,
                 message: contractMessage(effect, problem, language)
             });
+        return out;
+    }
+
+    /**
+     * What a version's fee rule (task 0.22a) refuses: the version must be approved, of an active rule of the region's own;
+     * the request form must hold the rule's answer inputs as an effect's contract (through `inputMap['fees.rule']`), none
+     * of them Sensitive (a preview is no audited read); every transition that changes the request works the fee out again;
+     * a form showing a fee needs a rule.
+     */
+    private async feeProblems(
+        tx: Tx,
+        facts: { formDocument: unknown; reassessed: boolean },
+        input: ServiceVersionInput,
+        regionPath: string,
+        language: string
+    ): Promise<{ path: string; code: string; message: string }[]> {
+        const out: { path: string; code: string; message: string }[] = [];
+        const say = (path: string, code: string, values: Record<string, string> = {}) =>
+            out.push({ path, code, message: servicesText(`services.contract.${code}`, language, values) });
+        const fields = facts.formDocument === null ? [] : readDocument(facts.formDocument).fields;
+        if (input.feeRuleVersionId === null) {
+            if (fields.some((f) => f.type === 'Fee')) say('feeRuleVersionId', 'fee_field_without_rule');
+            if (input.inputMap[FEE_INPUTS]) say(`inputMap.${FEE_INPUTS}`, 'unknown_effect', { effect: FEE_INPUTS });
+            return out;
+        }
+        const usable = await this.feeRules.usable(tx, input.feeRuleVersionId, regionPath);
+        if (!usable.ok) {
+            say('feeRuleVersionId', usable.problem);
+            return out;
+        }
+        const contract = feeAnswerContract(usable.rule.rule);
+        const map = input.inputMap[FEE_INPUTS];
+        for (const path of Object.keys(map ?? {}))
+            if (!(path in contract))
+                say(`inputMap.${FEE_INPUTS}.${path}`, 'unknown_path', { effect: FEE_INPUTS, key: path });
+        if (facts.formDocument === null) {
+            if (Object.values(contract).some((c) => c.required ?? true))
+                say('formVersionId', 'no_form', { effect: FEE_INPUTS });
+        } else {
+            for (const problem of checkContract(contract, facts.formDocument, map))
+                out.push({
+                    path: `inputMap.${FEE_INPUTS}.${problem.path}`,
+                    code: `contract_${problem.code}`,
+                    message: contractMessage(FEE_INPUTS, problem, language)
+                });
+            const byKey = new Map(fields.map((f) => [f.id, f]));
+            for (const path of Object.keys(contract)) {
+                const key = map?.[path] ?? path;
+                if (byKey.get(key)?.classification === 'sensitive')
+                    say(`inputMap.${FEE_INPUTS}.${path}`, 'fee_input_sensitive', { key });
+            }
+        }
+        if (!facts.reassessed) say('workflowVersionId', 'fee_not_reassessed', { effect: FEE_ASSESS_EFFECT });
         return out;
     }
 
@@ -663,7 +736,8 @@ export class ServicesService {
             serviceName: d.name,
             serviceVersionId: v.id,
             formVersionId: v.formVersionId,
-            inputMap: v.inputMap
+            inputMap: v.inputMap,
+            feeRuleVersionId: v.feeRuleVersionId
         });
         const [form] = v.formVersionId
             ? await tx
@@ -697,6 +771,14 @@ export class ServicesService {
                           const contract = this.effects.contract(effect);
                           return contract ? contractLocks(contract, v.inputMap[effect]).map((l) => l.key) : [];
                       });
+                      // and the fee rule's inputs (task 0.22a)
+                      if (v.feeRuleVersionId)
+                          own.push(
+                              ...contractLocks(
+                                  feeAnswerContract((await this.feeRules.stored(tx, v.feeRuleVersionId)).rule),
+                                  v.inputMap[FEE_INPUTS]
+                              ).map((l) => l.key)
+                          );
                       const locks = new Set([
                           ...own,
                           ...(this.guard ? (await this.guard.locks(tx, form.formId)).map((l) => l.key) : [])
@@ -716,7 +798,9 @@ export class ServicesService {
             d,
             v,
             config,
-            form: form ? { formId: form.formId, versionId: form.versionId, number: form.number } : null,
+            form: form
+                ? { formId: form.formId, versionId: form.versionId, number: form.number, document: form.document }
+                : null,
             composed: composed && composed.layers.length > 0 ? composed : null
         };
     }
@@ -747,7 +831,8 @@ export class ServicesService {
         actor: CaseActor,
         code: string,
         answers: Record<string, unknown> | undefined,
-        language: string
+        language: string,
+        fee?: FeeShown
     ) {
         const { unit, v, config, form, composed } = await this.offered(tx, ctx, code);
         if (form && answers === undefined)
@@ -777,17 +862,55 @@ export class ServicesService {
                   }
                 : config;
         const { id } = await this.cases.start(tx, ctx, { definitionVersionId: v.workflowVersionId, config: frozen });
-        if (form && answers && formVersionId)
-            await this.submissions.create(
+        const filed =
+            form && answers && formVersionId
+                ? await this.submissions.create(
+                      tx,
+                      ctx,
+                      actor.roles,
+                      { formId: form.formId, formVersionId, answers },
+                      this.lookups,
+                      language,
+                      { caseId: id, handlingUnitId: unit.id }
+                  )
+                : null;
+        // the fee worked out from the answers as filed, kept with the case in its transaction (task 0.22a)
+        if (v.feeRuleVersionId)
+            await this.fees.assessFiled(
                 tx,
-                ctx,
-                actor.roles,
-                { formId: form.formId, formVersionId, answers },
-                this.lookups,
-                language,
-                { caseId: id, handlingUnitId: unit.id }
+                { caseId: id, regionId: unit.regionId, handlingUnitId: unit.id, submissionId: filed?.id ?? null },
+                {
+                    serviceVersionId: v.id,
+                    feeRuleVersionId: v.feeRuleVersionId,
+                    inputMap: v.inputMap[FEE_INPUTS] ?? {},
+                    answers: filed?.answers ?? {}
+                },
+                fee,
+                language
             );
         return this.cases.get(tx, actor, id);
+    }
+
+    /**
+     * The fee preview's request (FeeRequestSource): the service as the person's unit offers it today, and the answers as
+     * filing would store them on the form this office fills in.
+     */
+    async feeRequest(
+        tx: Tx,
+        ctx: DbContext,
+        roles: readonly string[],
+        code: string,
+        answers: Record<string, unknown>,
+        language: string
+    ): Promise<FeeRequest> {
+        const { v, form, composed } = await this.offered(tx, ctx, code);
+        const document = composed?.document ?? form?.document ?? null;
+        return {
+            serviceVersionId: v.id,
+            feeRuleVersionId: v.feeRuleVersionId,
+            inputMap: v.inputMap[FEE_INPUTS] ?? {},
+            answers: document === null ? {} : this.submissions.settledAnswers(ctx, roles, document, answers, language)
+        };
     }
 }
 

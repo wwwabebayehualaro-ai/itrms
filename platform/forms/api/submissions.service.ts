@@ -196,6 +196,21 @@ export class SubmissionsService {
     }
 
     /**
+     * The answers as filing would store them, before any check: the version's fields the caller may see, what nobody types
+     * settled, hidden fields' answers dropped (a fee preview reads the same answers the filing will, task 0.22a).
+     */
+    settledAnswers(
+        ctx: DbContext,
+        roles: readonly string[],
+        document: unknown,
+        raw: Record<string, unknown>,
+        language: string
+    ): Record<string, unknown> {
+        const fields = fieldsFor(document, roles, language);
+        return submittedValues(fields, raw, scopeFor(ctx, roles));
+    }
+
+    /**
      * The answers as the server keeps them, checked with the engine on the version's fields the caller may see (G1): the
      * files read from their rows first (validation then sees real names and sizes), the references last; 422 with every
      * problem. With the rows of the filterable fields' values to write (ADR-0035).

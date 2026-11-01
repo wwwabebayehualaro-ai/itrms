@@ -128,6 +128,27 @@ describe('lintDocument', () => {
         });
     });
 
+    describe('fee fields (task 0.22a)', () => {
+        const fee = (id: string, extra: Record<string, unknown> = {}) => F(id, 'Fee', { category: 'Data', ...extra });
+        const section = (id: string) =>
+            F(id, 'FormArray', { category: 'Input', layout: { options: { isContainer: true } } });
+
+        it('warns of a second Fee field, not of the first', () => {
+            const problems = lintDocument(doc([fee('fee'), fee('fee2')]));
+            expect(ofRule(problems, 'fee-duplicate')).toEqual([
+                expect.objectContaining({ severity: 'warning', fieldId: 'fee2', path: 'fields[1]' })
+            ]);
+            expect(ofRule(lintDocument(doc([fee('fee')])), 'fee-duplicate')).toEqual([]);
+        });
+
+        it('refuses a Fee field inside a repeatable section', () => {
+            const problems = lintDocument(doc([section('lines'), fee('fee', { parentId: 'lines' }), fee('top')]));
+            expect(ofRule(problems, 'fee-in-rows')).toEqual([
+                expect.objectContaining({ severity: 'error', fieldId: 'fee' })
+            ]);
+        });
+    });
+
     describe('unknown-reference', () => {
         it('fires for a condition, a computed field, requiredWhen and validWhen that name no field', () => {
             const problems = lintDocument(

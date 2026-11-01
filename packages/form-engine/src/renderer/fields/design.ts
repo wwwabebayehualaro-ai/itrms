@@ -33,7 +33,8 @@ import {
     Type,
     TextSearch,
     Group,
-    PanelTop
+    PanelTop,
+    Receipt
 } from 'lucide-react';
 import { DOCUMENT_TYPES } from '@itrms/schemas';
 import { describeFieldType, setting, type SettingMeta } from '../kit';
@@ -485,5 +486,17 @@ describeFieldType('DataTable', {
         showView: flag({ title: 'form-engine.settings.DataTable.showView.title', advanced: true }),
         showEdit: flag({ title: 'form-engine.settings.DataTable.showEdit.title', advanced: true }),
         showDelete: flag({ title: 'form-engine.settings.DataTable.showDelete.title', advanced: true })
+    })
+});
+
+describeFieldType('Fee', {
+    label: 'form-engine.palette.type.Fee.label',
+    defaults: { showLines: true },
+    icon: Receipt,
+    group: 'data',
+    hint: 'form-engine.palette.type.Fee.hint',
+    keywords: ['fee', 'payment', 'price', 'ክፍያ'],
+    settings: z.object({
+        showLines: flag({ title: 'form-engine.settings.Fee.showLines.title' })
     })
 });

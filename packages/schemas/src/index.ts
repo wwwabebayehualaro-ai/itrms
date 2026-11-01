@@ -6,6 +6,7 @@
  * - Search folding: Ethiopic homophones and Wolaytta apostrophes match.
  * - Forms: the stored form (`form_config`) as types and Zod schemas, the backend contract, and the forms API's DTOs.
  * - Workflows: the definition a case runs on (states, transitions, guards), task 0.19a.
+ * - Money: santim as `bigint` (text on the wire), and fee rules (task 0.22a).
  */
 export * from './forms/conditions';
 export * from './forms/runtime';
@@ -20,3 +21,5 @@ export * from './problem';
 export * from './search';
 export * from './workflow/definition';
 export * from './forms/effectContract';
+export * from './money';
+export * from './fees/rule';

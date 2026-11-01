@@ -22,6 +22,7 @@
   "form-engine.settings.Divider.type.dashed": "Dashed",
   "form-engine.settings.Divider.type.solid": "Solid",
   "form-engine.settings.Divider.type.title": "Line",
+  "form-engine.settings.Fee.showLines.title": "Show the fee lines",
   "form-engine.settings.Fieldset.legend.description": "Shown instead of the label when set.",
   "form-engine.settings.Fieldset.legend.title": "Title",
   "form-engine.settings.FileUpload.chooseLabel.placeholder": "Choose files",

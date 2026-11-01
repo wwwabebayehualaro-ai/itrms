@@ -124,7 +124,7 @@ export class ServicesController {
     request(@Body() body: RequestDto) {
         const ctx = requestDbContext();
         return this.db.scoped(ctx, (tx) =>
-            this.services.request(tx, ctx, actor(), body.serviceCode, body.answers, language())
+            this.services.request(tx, ctx, actor(), body.serviceCode, body.answers, language(), body.fee)
         );
     }
 }

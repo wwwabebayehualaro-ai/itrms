@@ -21,6 +21,9 @@
   "services.publish.workflow": "Workflow",
   "services.publish.form": "Request form",
   "services.publish.noForm": "No request form",
+  "services.publish.feeRule": "Fee rule",
+  "services.publish.noFee": "No fee",
+  "services.publish.feeDemo": "demo amounts",
   "services.publish.policy": "What offices below may change",
   "services.publish.family.sla": "Time limits of the steps",
   "services.publish.family.help": "Help texts of the form",
@@ -90,5 +93,12 @@
   "services.contract.kind.ref": "register lookup",
   "services.contract.restricted": "The effect {effect} needs \"{key}\" filled by everyone: it is kept from some roles.",
   "services.contract.no_contract": "The effect {effect} reads nothing from the form: it takes no mapping.",
-  "services.contract.unknown_path": "The effect {effect} reads no \"{key}\": check the mapping."
+  "services.contract.unknown_path": "The effect {effect} reads no \"{key}\": check the mapping.",
+  "services.contract.fee_rule_unknown": "No such fee rule version.",
+  "services.contract.fee_rule_off": "The fee rule is switched off.",
+  "services.contract.fee_rule_not_approved": "The fee rule version is not approved yet: another person approves it first.",
+  "services.contract.fee_rule_not_regional": "The fee rule is an office's own, not the region's.",
+  "services.contract.fee_input_sensitive": "The fee reads \"{key}\", a Sensitive field: a fee may not read Sensitive answers.",
+  "services.contract.fee_not_reassessed": "The workflow changes the request without working its fee out again: add the effect {effect} to each transition that changes the request.",
+  "services.contract.fee_field_without_rule": "The form shows a fee, but the version names no fee rule."
 }

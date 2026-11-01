@@ -3,11 +3,13 @@
 /**
  * A request at the counter (task 0.21c): the services the office offers and that are configured; the chosen service's
  * request form (the version its configuration names, with the help texts set for this office), filled and filed with
- * the new case in one transaction (`POST /api/v1/service-requests`, validated on the server); then the case page.
+ * the new case in one transaction (`POST /api/v1/service-requests`, validated on the server); then the case page. A form
+ * with a Fee field shows the server's preview of the fee, and the filing sends the figure shown (task 0.22a).
  */
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { FormRenderer } from '@itrms/form-engine/renderer';
+import { FeeSourceProvider, FormRenderer, useLatestFee, type FormField } from '@itrms/form-engine/renderer';
+import { useQueryClient } from '@tanstack/react-query';
 import {
     Button,
     EmptyState,
@@ -73,20 +75,48 @@ function Request({ code }: { code: string }) {
         );
     return (
         <div data-request-form={code}>
-            <FormRenderer
-                bare
-                fields={fields ?? []}
-                template={templateFor(request.data.form, fields ?? [])}
-                silent
-                submitLabel={t('services.request.start')}
-                onFormSubmit={async (submission) => {
-                    // the server validates the answers on the version the service names, and files them with the case
-                    const c = await fileRequest(code, submission.submission_data);
-                    filed(c);
-                    return c;
-                }}
-            />
+            <FeeSourceProvider source={{ kind: 'request', serviceCode: code }}>
+                <RequestForm code={code} fields={fields ?? []} form={request.data.form} onFiled={filed} />
+            </FeeSourceProvider>
         </div>
+    );
+}
+
+/** The form filled in, filed with the fee it shows (the server refuses a figure that is no longer the fee). */
+function RequestForm({
+    code,
+    fields,
+    form,
+    onFiled
+}: {
+    code: string;
+    fields: FormField[];
+    form: Parameters<typeof templateFor>[0];
+    onFiled: (c: { id: string; number: number }) => void;
+}) {
+    const { t } = useText();
+    const fee = useLatestFee();
+    const queryClient = useQueryClient();
+    return (
+        <FormRenderer
+            bare
+            fields={fields}
+            template={templateFor(form, fields)}
+            silent
+            submitLabel={t('services.request.start')}
+            onFormSubmit={async (submission) => {
+                // the server validates the answers on the version the service names, and files them with the case
+                try {
+                    const c = await fileRequest(code, submission.submission_data, fee);
+                    onFiled(c);
+                    return c;
+                } catch (error) {
+                    // a fee changed since it was shown is worked out again before the next try
+                    await queryClient.invalidateQueries({ queryKey: ['fees'] });
+                    throw error;
+                }
+            }}
+        />
     );
 }
 

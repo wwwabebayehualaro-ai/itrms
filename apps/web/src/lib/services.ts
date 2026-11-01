@@ -93,6 +93,8 @@ export const useServiceVersions = (code: string) =>
 export interface PublishInput {
     workflowVersionId: string;
     formVersionId: string | null;
+    /** the approved fee rule version the service charges by (task 0.22a); null: it charges nothing */
+    feeRuleVersionId?: string | null;
     overridePolicy: Partial<Record<OverrideFamily, OverrideLevel[]>>;
     defaults?: Record<string, unknown>;
     effectiveFrom?: string;
@@ -155,8 +157,19 @@ export const useRequestForm = (code: string | undefined) =>
         queryFn: async ({ signal }) => (await client.get<RequestForm>(`v1/services/${code}/request`, { signal })).data
     });
 
-export const fileRequest = async (serviceCode: string, answers?: Record<string, unknown>) =>
-    (await client.post<{ id: string; number: number }>('v1/service-requests', { serviceCode, answers })).data;
+/** Files a request; `fee`: the figure the counter showed (task 0.22a), refused with 409 `fee_changed` when it is no longer the fee. */
+export const fileRequest = async (
+    serviceCode: string,
+    answers?: Record<string, unknown>,
+    fee?: { ruleVersionId: string; totalSantim: string } | null
+) =>
+    (
+        await client.post<{ id: string; number: number }>('v1/service-requests', {
+            serviceCode,
+            answers,
+            ...(fee ? { fee } : {})
+        })
+    ).data;
 
 // --- the workflows a version names (the workflow slice's API) ------------------------------------------------------
 
@@ -240,6 +253,25 @@ export interface FormSummary {
     ownerUnit: { id: string };
     publishedVersion: { id: string; number: number } | null;
 }
+
+export interface FeeRuleSummary {
+    id: string;
+    key: string;
+    name: Text;
+    active: boolean;
+    latestVersion: { id: string; number: number; status: 'pending' | 'approved' | 'rejected'; demo: boolean } | null;
+}
+
+/** The region's active fee rules whose latest version is approved: what a service version may charge by (task 0.22a). */
+export const useApprovedFeeRules = (enabled = true) =>
+    useQuery({
+        queryKey: ['fee-rules', 'approved'],
+        enabled,
+        queryFn: async ({ signal }) =>
+            (await client.get<{ items: FeeRuleSummary[] }>('v1/fee-rules', { signal })).data.items.filter(
+                (r) => r.active && r.latestVersion?.status === 'approved'
+            )
+    });
 
 /** The active forms with a published version; `owner`: only one unit's (the server filters, task 0.21e); null: that unit is not known yet. */
 export const usePublishedForms = (owner?: string | null) =>

@@ -9,7 +9,12 @@ import competencyAm from '@itrms/competency/messages/am';
 import competencyEn from '@itrms/competency/messages/en';
 import competencyWal from '@itrms/competency/messages/wal-Latn';
 import documents from '@itrms/documents/manifest';
+import { AssessFeeEffect, FeesModule } from '@itrms/fees/api';
+import { FEES_SETTINGS } from '@itrms/fees/contracts';
 import fees from '@itrms/fees/manifest';
+import feesAm from '@itrms/fees/messages/am';
+import feesEn from '@itrms/fees/messages/en';
+import feesWal from '@itrms/fees/messages/wal-Latn';
 import { FormsModule } from '@itrms/forms/api';
 import { FORMS_EVENTS, FORMS_SETTINGS } from '@itrms/forms/contracts';
 import forms from '@itrms/forms/manifest';
@@ -18,6 +23,7 @@ import formsEn from '@itrms/forms/messages/en';
 import formsWal from '@itrms/forms/messages/wal-Latn';
 import integrations from '@itrms/integrations/manifest';
 import { KERNEL_EVENTS, KERNEL_SETTINGS } from '@itrms/kernel/contracts';
+import { effectKeys } from '@itrms/kernel/effects';
 import kernel from '@itrms/kernel/manifest';
 import kernelAm from '@itrms/kernel/messages/am';
 import kernelEn from '@itrms/kernel/messages/en';
@@ -60,7 +66,14 @@ export const SLICES: ApiSlice[] = [
         // its menu entry and its notices (an export ready) are read in the person's language (tasks 0.20b, 0.20d)
         messages: { am: formsAm, en: formsEn, 'wal-Latn': formsWal }
     },
-    ...[fees, documents].map((manifest) => ({ manifest })),
+    {
+        manifest: fees,
+        module: FeesModule,
+        effects: effectKeys([AssessFeeEffect]),
+        settings: FEES_SETTINGS,
+        messages: { am: feesAm, en: feesEn, 'wal-Latn': feesWal }
+    },
+    { manifest: documents },
     {
         manifest: workflow,
         module: WorkflowModule,

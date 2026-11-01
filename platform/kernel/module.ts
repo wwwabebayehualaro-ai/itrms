@@ -29,6 +29,9 @@ const AUTHOR_WORKFLOWS = ['workflow-definition:read', 'workflow-definition:creat
 // step's role in its unit); `case:act` lets the operational roles try, and comment on the timeline (0.20b); intake starts
 // cases (`case:create`)
 const CASE_READ = ['case:read'];
+// fee rules (@itrms/fees, task 0.22a): the bureau writes them at the region's root; another person approves each version,
+// in a role the region's `fees.rules.approverRoles` names (the bureau's administrator or finance officer by default)
+const FEE_RULES = ['fee-rule:read', 'fee-rule:create', 'fee-rule:approve'];
 const CASE_ACT = ['case:read', 'case:act', 'case:comment'];
 
 export default defineModule({
@@ -69,6 +72,7 @@ export default defineModule({
             ...AUTHOR_FORMS,
             ...AUTHOR_WORKFLOWS,
             'form:approve',
+            ...FEE_RULES,
             'submission:read',
             'submission:export',
             'submission-view:share',
@@ -86,7 +90,8 @@ export default defineModule({
             // the unit's own settings and its subtree's, where a setting allows a unit's value (task 0.21a)
             'setting:update',
             ...AUTHOR_FORMS,
-            ...AUTHOR_WORKFLOWS
+            ...AUTHOR_WORKFLOWS,
+            'fee-rule:read'
         ],
         unit_head: [
             ...READ_ORG,
@@ -115,13 +120,22 @@ export default defineModule({
             'submission:read'
         ],
         cashier: [...READ_ORG, ...REGISTER, ...CASE_ACT, 'submission:read'],
-        finance_officer: [...READ_ORG, ...REGISTER, ...CASE_ACT, 'submission:read', 'submission:export'],
+        finance_officer: [
+            ...READ_ORG,
+            ...REGISTER,
+            ...CASE_ACT,
+            'submission:read',
+            'submission:export',
+            'fee-rule:read',
+            'fee-rule:approve'
+        ],
         auditor: [
             ...READ_ORG,
             ...REGISTER,
             'role-assignment:read',
             'audit-log:read',
             'workflow-definition:read',
+            'fee-rule:read',
             'submission:read',
             'submission:export',
             ...CASE_READ

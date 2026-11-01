@@ -3,4 +3,5 @@ import './inputs';
 import './registryLookup';
 import './containers';
 import './dataTable';
+import './fee';
 import './design';

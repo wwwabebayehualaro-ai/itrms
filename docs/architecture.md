@@ -389,10 +389,15 @@ Definition (Zod schema `workflowDefinitionSchema` in `packages/schemas`; stored 
 
 ## 9. Fees, payments, receipts
 
-- **Fee rules** are versioned JSON evaluated on the server with the shared formula evaluator (`packages/form-engine/core`, integer
-  santim arithmetic, explicit rounding). Components are a base fee by category or grade, a late penalty per started month, a
-  replacement fee, and so on. Inputs are case facts (vehicle category, licence grade, months since expiry). The form's `Fee`
-  field shows a preview, and the server's figure is authoritative.
+- **Fee rules** (ADR-0041, task 0.22a) are versioned JSON evaluated with the shared evaluator (`evaluateFee`,
+  `packages/form-engine/core`): integer santim, half-up rounding once per line, and money never in a formula (a formula
+  gives a condition or a whole quantity). Lines are fixed, by table (a base fee by category or grade), per unit (a late
+  penalty per started month: 30-day or Ethiopian calendar months, the rule's choice) or a share of earlier lines. Inputs are
+  the request's answers (through the service version's `inputMap['fees.rule']`, checked and locked as an effect's input
+  contract, never a Sensitive field) and case facts. Each version is approved by another person in a role the region's
+  `fees.rules.approverRoles` names. The form's `Fee` field shows the server's preview (`POST /api/v1/fees/preview`, stores
+  nothing); filing works the same figure out and keeps it in `fees.case_fees` (append-only, refused with 409 when it is no
+  longer the figure shown); `fees.assess` works it out again when a correction changes it.
 - A workflow effect creates a **payment order** (lines, total, due date). There are three ways to settle it:
   1. **At the office cashier:** cash or a bank deposit slip. A **receipt** is issued with a gapless number and a QR code.
   2. **Paid elsewhere** (revenue office, bank): the officer enters the external reference. It is stored in

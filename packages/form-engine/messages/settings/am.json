@@ -22,6 +22,7 @@
   "form-engine.settings.Divider.type.dashed": "ባለ ነጥብ መስመር",
   "form-engine.settings.Divider.type.solid": "ቀጣይ",
   "form-engine.settings.Divider.type.title": "መስመር",
+  "form-engine.settings.Fee.showLines.title": "የክፍያ ዝርዝሮችን አሳይ",
   "form-engine.settings.Fieldset.legend.description": "ከተሞላ ከመለያው ይልቅ ይታያል።",
   "form-engine.settings.Fieldset.legend.title": "ርዕስ",
   "form-engine.settings.FileUpload.chooseLabel.placeholder": "ፋይሎችን ይምረጡ",

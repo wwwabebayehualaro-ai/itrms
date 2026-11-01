@@ -1,1 +1,4 @@
-{}
+{
+  "fees.setting.rules.approverRoles": "Roles that approve a fee rule version",
+  "fees.validation.needsAnswer": "The fee cannot be worked out without this answer."
+}

@@ -1,1 +1,1 @@
-export { default } from '@itrms/config/vitest';
+export { default } from '@itrms/config/vitest/nest';

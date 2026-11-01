@@ -15,7 +15,7 @@ import {
 import { conditionReferences } from './conditions';
 import { valueKindOf } from './kinds';
 import type { EngineMessageKey, EngineValues } from './messages';
-import { readDocument, type EngineField, type FieldOption } from './model';
+import { readDocument, rowScopedIds, type EngineField, type FieldOption } from './model';
 import { extractReferences } from './runtime/expression';
 import { formulaReferences } from './runtime/formula';
 import { untranslatedTexts } from './text';
@@ -40,7 +40,9 @@ export type LintRule =
     | 'unclassified'
     | 'sensitive-filterable'
     | 'reads-restricted'
-    | 'key-reserved';
+    | 'key-reserved'
+    | 'fee-duplicate'
+    | 'fee-in-rows';
 
 export interface LintProblem {
     rule: LintRule;
@@ -482,6 +484,12 @@ export function lintDocument(raw: unknown, opts: LintOptions = {}): LintProblem[
     for (const f of subjects)
         if (holdsValue(f) && !f.source.classification)
             add('unclassified', 'error', f, `${at(f)}.classification`, { field: f.label || f.id });
+
+    // fee-duplicate / fee-in-rows: the fee is one figure for the whole request, shown once and never per row
+    const fees = subjects.filter((f) => f.type === 'Fee');
+    for (const f of fees.slice(1)) add('fee-duplicate', 'warning', f, at(f));
+    const inRows = rowScopedIds(doc.fields);
+    for (const f of fees) if (inRows.has(f.id)) add('fee-in-rows', 'error', f, at(f));
 
     return [...out.filter((p) => p.severity === 'error'), ...out.filter((p) => p.severity === 'warning')];
 }
