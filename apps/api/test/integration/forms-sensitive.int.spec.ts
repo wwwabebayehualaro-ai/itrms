@@ -6,6 +6,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { noIds } from './support/answers';
 import { startApi, type As, type TestApi } from './support/api';
 import { startPostgres, type TestPostgres } from './support/postgres';
 
@@ -119,7 +120,7 @@ describe('a Sensitive answer', () => {
         const one = (
             await api.call('GET', `/api/v1/submissions/${submissionId}`, as.damotRecords)
         ).json<SubmissionOut>();
-        expect(one.answers).toEqual({ applicant: 'Abebe Kebede', children: [{ childName: 'Almaz' }] });
+        expect(noIds(one.answers)).toEqual({ applicant: 'Abebe Kebede', children: [{ childName: 'Almaz' }] });
         expect([...one.masked].sort()).toEqual(['childFin', 'fin']);
         const listed = (await api.call('GET', `/api/v1/submissions?formId=${formId}`, as.damotRecords)).json<{
             items: SubmissionOut[];

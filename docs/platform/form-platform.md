@@ -134,7 +134,7 @@ draft ─► automatic checks ─► test cases ─► review (maker ≠ checker
     lack is an error); `fieldsForRoles` drops the children of a restricted container; the publish impact finds saved views
     in SQL and names unreadable ones.
   * Not yet: an overlay editor screen, overlay fields in the data viewer and filter index, columns in repeating sections
-    (task 0.21g), adding at the top of a form, overlay drafts at the counter, an explicit delete (publish an empty overlay).
+    (their rows have ids since task 0.21g, ADR-0040), adding at the top of a form, overlay drafts at the counter, an explicit delete (publish an empty overlay).
 
 ## 5. Field catalogue (generic + Ethiopia- and domain-specific)
 

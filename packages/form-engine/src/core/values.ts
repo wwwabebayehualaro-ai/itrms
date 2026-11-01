@@ -38,9 +38,58 @@ export function initialValueOf(field: EngineField, all: EngineField[]): unknown 
     return field.type in TYPE_DEFAULTS ? structuredClone(TYPE_DEFAULTS[field.type]) : undefined;
 }
 
-/** A blank row of a repeatable section: every value-holding child gets its default. */
+/**
+ * A row's id (ADR-0040): the reserved key `_id` of a repeating section's row. A field key always starts with a letter, so
+ * it never collides with one; nothing shows, validates, exports or indexes it. It is how a request change finds a row
+ * again (task 0.21g).
+ */
+export const ROW_ID = '_id';
+const ROW_ID_PATTERN = /^[A-Za-z0-9-]{8,64}$/;
+
+/** A new row id. */
+export const newRowId = (): string => globalThis.crypto.randomUUID();
+
+/** The values without their rows' ids, at any depth (what tells whether answers changed). */
+export function withoutRowIds(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map(withoutRowIds);
+    if (!isRecord(value)) return value;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) if (k !== ROW_ID) out[k] = withoutRowIds(v);
+    return out;
+}
+
+/** A row's id, when it has a well-formed one. */
+export function rowIdOf(row: unknown): string | undefined {
+    const id = row && typeof row === 'object' ? (row as Record<string, unknown>)[ROW_ID] : undefined;
+    return typeof id === 'string' && ROW_ID_PATTERN.test(id) ? id : undefined;
+}
+
+/**
+ * The values with an id on every row of every section, at any depth (the server gives them when answers are filed): a row
+ * without one, with a malformed one, or with one another row of the section already has, gets a new one.
+ */
+export function withRowIds(fields: EngineField[], values: Record<string, unknown>): Record<string, unknown> {
+    const give = (parentId: string | null, current: Record<string, unknown>) => {
+        const out = { ...current };
+        for (const f of scopeFields(fields, parentId)) {
+            if (!isFormArray(f) || !Array.isArray(out[f.id])) continue;
+            const seen = new Set<string>();
+            out[f.id] = (out[f.id] as unknown[]).map((row) => {
+                if (!isRecord(row)) return row;
+                const own = rowIdOf(row);
+                const id = own && !seen.has(own) ? own : newRowId();
+                seen.add(id);
+                return { ...give(f.id, row), [ROW_ID]: id };
+            });
+        }
+        return out;
+    };
+    return give(null, values);
+}
+
+/** A blank row of a repeatable section: every value-holding child gets its default, and the row its id. */
 export function emptyRow(section: EngineField, all: EngineField[]): Record<string, unknown> {
-    const row: Record<string, unknown> = {};
+    const row: Record<string, unknown> = { [ROW_ID]: newRowId() };
     for (const c of childrenOf(all, section.id)) {
         if (!holdsValue(c)) continue;
         const v = initialValueOf(c, all);
@@ -155,6 +204,9 @@ const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v =
 export function knownValues(fields: EngineField[], values: Record<string, unknown>): Record<string, unknown> {
     const keep = (parentId: string | null, current: Record<string, unknown>) => {
         const out: Record<string, unknown> = {};
+        // a row keeps its id (ADR-0040), a well-formed one only
+        const id = parentId === null ? undefined : rowIdOf(current);
+        if (id) out[ROW_ID] = id;
         for (const f of scopeFields(fields, parentId)) {
             if (!holdsValue(f) || !Object.hasOwn(current, f.id)) continue;
             const v = current[f.id];
@@ -186,6 +238,11 @@ export function withoutSensitive(fields: EngineField[], values: Record<string, u
         const out: Record<string, unknown> = {};
         for (const [key, v] of Object.entries(current)) {
             const f = byId.get(key);
+            // a row's id is no answer (ADR-0040): it stays with the row
+            if (key === ROW_ID && typeof v === 'string') {
+                out[key] = v;
+                continue;
+            }
             if (!f || serverOnly(f)) continue;
             out[key] =
                 isFormArray(f) && Array.isArray(v)
@@ -321,6 +378,54 @@ export function settledValues(
     };
 
     const passes = Math.min(fields.filter(portable).length, MAX_SETTLE_PASSES) + 1;
+    let out = values;
+    for (let i = 0; i < passes; i++) {
+        const next = pass(out);
+        const same = JSON.stringify(next) === JSON.stringify(out);
+        out = next;
+        if (same) break;
+    }
+    return out;
+}
+
+/**
+ * The values with every field derived from the answers alone (`answerDerived`) computed again over them, at the top level
+ * and in every row, and nothing else touched: no default put back, no input taken out (a request change recomputes what
+ * its patch reads without settling the answers it left as filed, task 0.21g). A derived field its rules hide (or a removed
+ * one) holds no value, as when filing; a hidden section's rows are left as they are. Chains settle as in `settledValues`.
+ */
+export function derivedValues(
+    fields: EngineField[],
+    values: Record<string, unknown>,
+    scope: Scope = {}
+): Record<string, unknown> {
+    const byId = new Map(fields.map((f) => [f.id, f]));
+    const pass = (input: Record<string, unknown>) => {
+        const top = { ...input };
+        const ctx = { ...scope, root: top };
+        const settle = (parentId: string | null, current: Record<string, unknown>) => {
+            for (const f of scopeFields(fields, parentId)) {
+                if (!holdsValue(f)) continue;
+                if (answerDerived(f) && f.computed) {
+                    const v = isVisibleIn(f, byId, current, ctx, parentId)
+                        ? resolveString(f.computed.expression, { form: current, row: current, root: top })
+                        : undefined;
+                    if (v === undefined) delete current[f.id];
+                    else current[f.id] = v;
+                } else if (
+                    isFormArray(f) &&
+                    Array.isArray(current[f.id]) &&
+                    isVisibleIn(f, byId, current, ctx, parentId)
+                )
+                    current[f.id] = (current[f.id] as unknown[]).map((row) =>
+                        isRecord(row) ? settle(f.id, { ...row }) : row
+                    );
+            }
+            return current;
+        };
+        return settle(null, top);
+    };
+    const passes = Math.min(fields.filter(answerDerived).length, MAX_SETTLE_PASSES) + 1;
     let out = values;
     for (let i = 0; i < passes; i++) {
         const next = pass(out);

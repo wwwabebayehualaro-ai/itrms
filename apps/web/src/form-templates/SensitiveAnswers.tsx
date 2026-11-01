@@ -7,7 +7,7 @@
  */
 import { useMemo, useState } from 'react';
 import { Eye, ShieldAlert } from 'lucide-react';
-import { isFormArray, printValueText, readDocument } from '@itrms/form-engine/core';
+import { isFormArray, printValueText, readDocument, ROW_ID } from '@itrms/form-engine/core';
 import {
     Alert,
     AlertDescription,
@@ -51,6 +51,8 @@ export function SensitiveAnswers({
             return value
                 .map((row: unknown) =>
                     Object.entries(row && typeof row === 'object' ? (row as Record<string, unknown>) : {})
+                        // a row's id is no answer (ADR-0040)
+                        .filter(([k]) => k !== ROW_ID)
                         .map(([k, v]) => `${labelOf(k)}: ${textOf(k, v)}`)
                         .join(', ')
                 )
