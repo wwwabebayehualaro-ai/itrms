@@ -129,10 +129,186 @@ export const FEE_ERROR_CODES = [
     'fee_rule_decided'
 ] as const;
 
+// ---- payment orders, payments, receipts and reversals (task 0.22b, ADR-0042) ----
+
+/** The effect that turns a case's fee into a payment order. */
+export const CREATE_PAYMENT_ORDER_EFFECT = 'fees.createPaymentOrder';
+
+/** Where an office's receipt numbers come from (product owner, 2026-11-01): ITRMS's counters, or a pre-printed pad. */
+export const RECEIPT_SOURCE_SETTING = 'fees.receipts.source';
+export const RECEIPT_SOURCES = ['itrms', 'pad'] as const;
+export type ReceiptSource = (typeof RECEIPT_SOURCES)[number];
+/** The roles that may decide a receipt's reversal (never the person who asked, nor the cashier who took the money). */
+export const REVERSAL_APPROVER_ROLES_SETTING = 'fees.reversals.approverRoles';
+/** The banks a deposit slip may be of. */
+export const BANKS_SETTING = 'fees.payments.banks';
+/** The counter ITRMS's receipt numbers come from, and its pattern (gapless per office and fiscal year). */
+export const RECEIPT_COUNTER = 'fees.receipt';
+export const RECEIPT_PATTERN = '{unit}/{seq:06}/{efy}';
+
+const roleList = z
+    .array(z.string().regex(/^[a-z][a-z0-9_.]{1,62}$/))
+    .min(1)
+    .max(10);
+export const bankSchema = z.strictObject({ code: z.string().regex(/^[A-Z0-9]{2,12}$/), name: i18nTextSchema });
+
 /** The value schemas of the slice's settings (the settings registry checks every value against them). */
 export const FEES_SETTINGS = {
-    [FEE_APPROVER_ROLES_SETTING]: z
-        .array(z.string().regex(/^[a-z][a-z0-9_.]{1,62}$/))
-        .min(1)
-        .max(10)
+    [FEE_APPROVER_ROLES_SETTING]: roleList,
+    [RECEIPT_SOURCE_SETTING]: z.enum(RECEIPT_SOURCES),
+    [REVERSAL_APPROVER_ROLES_SETTING]: roleList,
+    [BANKS_SETTING]: z.array(bankSchema).min(1).max(100)
+} as const;
+
+/**
+ * What a case knows of its payment (its fact `payment`; workflows guard on `payment.settled`): the order, whether it is
+ * paid, its total, where it is paid. A case without a fee is settled with a total of 0.
+ */
+export const paymentFactsSchema = z.object({
+    orderId: z.uuid().nullable(),
+    settled: z.boolean(),
+    totalSantim: santimTextSchema,
+    collection: z.enum(['cashier', 'elsewhere'])
+});
+export type PaymentFacts = z.infer<typeof paymentFactsSchema>;
+
+export const PAYMENT_METHODS = ['cash', 'bank_slip'] as const;
+export const ORDER_STATES = ['open', 'settled', 'cancelled'] as const;
+export const REVERSAL_STATES = ['requested', 'approved', 'rejected'] as const;
+
+/** A payment recorded at the cashier: the whole total (no part payments), by cash or a bank deposit slip. */
+export const paymentInputSchema = z
+    .strictObject({
+        method: z.enum(PAYMENT_METHODS),
+        /** the amount the cashier confirms: the order's total (otherwise 409 amount_mismatch) */
+        amountSantim: santimTextSchema,
+        receivedFrom: z.string().trim().min(2).max(200),
+        bankSlip: z
+            .strictObject({
+                bank: z.string().regex(/^[A-Z0-9]{2,12}$/),
+                reference: z.string().trim().min(3).max(40),
+                paidOn: z.iso.date()
+            })
+            .optional(),
+        /** the leaf of a pre-printed receipt pad, at an office that issues pad receipts */
+        pad: z
+            .strictObject({
+                series: z.string().regex(/^[A-Z0-9-]{1,16}$/),
+                serial: z.string().regex(/^\d{1,10}$/)
+            })
+            .optional()
+    })
+    .superRefine((p, ctx) => {
+        if ((p.method === 'bank_slip') !== (p.bankSlip !== undefined))
+            ctx.addIssue({
+                code: 'custom',
+                path: ['bankSlip'],
+                message: 'a bank slip payment names its slip, cash none'
+            });
+    });
+export type PaymentInput = z.infer<typeof paymentInputSchema>;
+
+export const reversalRequestSchema = z.strictObject({ reason: z.string().trim().min(10).max(500) });
+export const reversalDecisionSchema = z.strictObject({
+    decision: z.enum(['approved', 'rejected']),
+    note: z.string().trim().max(500).optional()
+});
+
+export const paymentOrderQuerySchema = z.object({
+    state: z.enum(ORDER_STATES).default('open'),
+    /** a case number */
+    q: z.coerce.number().int().positive().optional(),
+    /** keyset: the last order's id (orders come oldest first) */
+    after: z.uuid().optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(50)
+});
+
+const iso = z.iso.datetime({ offset: true });
+
+export const receiptOutSchema = z.object({
+    id: z.uuid(),
+    paymentId: z.uuid(),
+    orderId: z.uuid(),
+    caseId: z.uuid(),
+    caseNumber: z.number().int(),
+    source: z.enum(RECEIPT_SOURCES),
+    /** `WOL-BODITI/000001/2019`, or the pad's series and serial */
+    number: z.string(),
+    amountSantim: santimTextSchema,
+    method: z.enum(PAYMENT_METHODS),
+    receivedFrom: z.string(),
+    serviceCode: z.string(),
+    serviceName: i18nTextSchema,
+    lines: z.array(feeLineOutSchema),
+    unit: z.object({ id: z.uuid(), code: z.string(), name: i18nTextSchema }),
+    issuedBy: z.uuid(),
+    issuedAt: iso,
+    demo: z.boolean(),
+    reversed: z.boolean()
+});
+export type ReceiptOut = z.infer<typeof receiptOutSchema>;
+
+export const paymentOutSchema = z.object({
+    id: z.uuid(),
+    method: z.enum(PAYMENT_METHODS),
+    amountSantim: santimTextSchema,
+    receivedFrom: z.string(),
+    bank: z.string().nullable(),
+    slipReference: z.string().nullable(),
+    slipDate: z.iso.date().nullable(),
+    receivedBy: z.uuid(),
+    receivedAt: iso,
+    voided: z.boolean(),
+    receiptId: z.uuid().nullable(),
+    receiptNumber: z.string().nullable()
+});
+
+export const reversalOutSchema = z.object({
+    id: z.uuid(),
+    receiptId: z.uuid(),
+    receiptNumber: z.string(),
+    orderId: z.uuid(),
+    caseId: z.uuid(),
+    caseNumber: z.number().int(),
+    amountSantim: santimTextSchema,
+    reason: z.string(),
+    state: z.enum(REVERSAL_STATES),
+    requestedBy: z.uuid(),
+    requestedAt: iso,
+    cashierId: z.uuid(),
+    decidedBy: z.uuid().nullable(),
+    decidedAt: iso.nullable(),
+    note: z.string().nullable(),
+    unit: z.object({ id: z.uuid(), code: z.string(), name: i18nTextSchema })
+});
+export type ReversalOut = z.infer<typeof reversalOutSchema>;
+
+export const paymentOrderOutSchema = z.object({
+    id: z.uuid(),
+    caseId: z.uuid(),
+    caseNumber: z.number().int(),
+    serviceCode: z.string(),
+    serviceName: i18nTextSchema,
+    state: z.enum(ORDER_STATES),
+    collection: z.enum(['cashier', 'elsewhere']),
+    totalSantim: santimTextSchema,
+    demo: z.boolean(),
+    dueOn: z.iso.date(),
+    overdue: z.boolean(),
+    lines: z.array(feeLineOutSchema),
+    unit: z.object({ id: z.uuid(), code: z.string(), name: i18nTextSchema }),
+    createdAt: iso,
+    cancelReason: z.enum(['reassessed', 'case_closed']).nullable(),
+    payments: z.array(paymentOutSchema),
+    reversals: z.array(reversalOutSchema),
+    /** where this office's receipt numbers come from now */
+    receiptSource: z.enum(RECEIPT_SOURCES)
+});
+export type PaymentOrderOut = z.infer<typeof paymentOrderOutSchema>;
+
+/** The events of the slice: a payment settled an order; a receipt issued (0.23 renders it), reversed (0.23 revokes it). */
+export const FEES_EVENTS = {
+    'payment.settled.v1': z.object({ orderId: z.uuid(), caseId: z.uuid(), paymentId: z.uuid() }),
+    'receipt.issued.v1': z.object({ receiptId: z.uuid(), caseId: z.uuid() }),
+    'receipt.reversed.v1': z.object({ receiptId: z.uuid(), caseId: z.uuid(), reversalId: z.uuid() })
 } as const;

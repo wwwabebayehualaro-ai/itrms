@@ -11,8 +11,11 @@
  *                        reads it.
  *   case_fee_lines       its lines, in santim.
  *
+ *   payment_orders …     an order to pay a case's fee, its payments, receipts and reversals (task 0.22b, below).
+ *
  * Money is `bigint` santim (ADR-0014). The audit log holds a version's hash, never its content.
  */
+import { sql } from 'drizzle-orm';
 import {
     bigint,
     boolean,
@@ -22,6 +25,7 @@ import {
     jsonb,
     pgSchema,
     text,
+    timestamp,
     uniqueIndex,
     uuid,
     type AnyPgColumn
@@ -179,6 +183,202 @@ export const caseFeeLines = withRls(
             (t) => [
                 uniqueIndex('case_fee_lines_position_uq').on(t.caseFeeId, t.position),
                 index('case_fee_lines_org_path_gist').using('gist', t.orgPath)
+            ]
+        )
+    ),
+    'transaction'
+);
+
+/**
+ * Payment orders (task 0.22b, ADR-0042): the case's newest fee as an order to pay, its lines copied. One live order per
+ * case (a reassessed fee cancels an open order and issues a new one); its state changes (open → settled, back to open on
+ * a reversal; cancelled), every change audited. Class T at the handling unit.
+ */
+export const paymentOrders = withRls(
+    audited(
+        feesSchema.table(
+            'payment_orders',
+            {
+                ...baseColumns(),
+                ...handled(),
+                /** the case (workflow.cases; the key is in the migration) */
+                caseId: uuid('case_id').notNull(),
+                caseNumber: bigint('case_number', { mode: 'number' }).notNull(),
+                serviceCode: text('service_code').notNull(),
+                serviceName: jsonb('service_name').$type<I18nText>().notNull(),
+                caseFeeId: uuid('case_fee_id')
+                    .notNull()
+                    .references(() => caseFees.id),
+                totalSantim: bigint('total_santim', { mode: 'bigint' }).notNull(),
+                demo: boolean('demo').notNull(),
+                /** at the office's cashier, or elsewhere (a revenue office or a bank, task 0.22c) */
+                collection: text('collection').$type<'cashier' | 'elsewhere'>().notNull(),
+                dueOn: date('due_on').notNull(),
+                state: text('state').$type<'open' | 'settled' | 'cancelled'>().notNull().default('open'),
+                /** the payment that settles it (the key is in the migration: the payments name their order) */
+                settledPaymentId: uuid('settled_payment_id'),
+                cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+                cancelReason: text('cancel_reason').$type<'reassessed' | 'case_closed'>()
+            },
+            (t) => [
+                uniqueIndex('payment_orders_case_live_uq')
+                    .on(t.caseId)
+                    .where(sql`state <> 'cancelled'`),
+                index('payment_orders_queue_idx').on(t.handlingUnitId, t.state, t.createdAt),
+                index('payment_orders_org_path_gist').using('gist', t.orgPath)
+            ]
+        )
+    ),
+    'transaction'
+);
+
+/** An order's lines: copies of its fee's (append-only). */
+export const paymentOrderLines = withRls(
+    audited(
+        feesSchema.table(
+            'payment_order_lines',
+            {
+                ...baseColumns(),
+                ...handled(),
+                orderId: uuid('order_id')
+                    .notNull()
+                    .references(() => paymentOrders.id),
+                position: integer('position').notNull(),
+                key: text('key').notNull(),
+                label: jsonb('label').$type<I18nText>().notNull(),
+                quantity: integer('quantity'),
+                amountSantim: bigint('amount_santim', { mode: 'bigint' }).notNull()
+            },
+            (t) => [
+                uniqueIndex('payment_order_lines_position_uq').on(t.orderId, t.position),
+                index('payment_order_lines_org_path_gist').using('gist', t.orgPath)
+            ]
+        )
+    ),
+    'transaction'
+);
+
+/**
+ * Payments taken at the cashier: the whole total, by cash or a bank deposit slip. Append-only but for the void a reversal
+ * sets, once. One live payment per order, and one live use of a bank slip in the region (the database's backstop).
+ */
+export const payments = withRls(
+    audited(
+        feesSchema.table(
+            'payments',
+            {
+                ...baseColumns(),
+                ...handled(),
+                orderId: uuid('order_id')
+                    .notNull()
+                    .references(() => paymentOrders.id),
+                caseId: uuid('case_id').notNull(),
+                method: text('method').$type<'cash' | 'bank_slip'>().notNull(),
+                amountSantim: bigint('amount_santim', { mode: 'bigint' }).notNull(),
+                bankCode: text('bank_code'),
+                slipReference: text('slip_reference'),
+                /** the reference compared: upper case, without spaces or dashes */
+                slipReferenceNorm: text('slip_reference_norm'),
+                slipDate: date('slip_date'),
+                receivedFrom: text('received_from').notNull(),
+                receivedBy: uuid('received_by').notNull(),
+                voidedAt: timestamp('voided_at', { withTimezone: true }),
+                /** the reversal that voided it (the key is in the migration) */
+                voidedByReversalId: uuid('voided_by_reversal_id')
+            },
+            (t) => [
+                uniqueIndex('payments_order_live_uq')
+                    .on(t.orderId)
+                    .where(sql`voided_at IS NULL`),
+                uniqueIndex('payments_slip_live_uq')
+                    .on(t.regionId, t.bankCode, t.slipReferenceNorm)
+                    .where(sql`method = 'bank_slip' AND voided_at IS NULL`),
+                index('payments_org_path_gist').using('gist', t.orgPath)
+            ]
+        )
+    ),
+    'transaction'
+);
+
+/**
+ * Receipts (append-only): one per payment, numbered by ITRMS's counter (gapless per office and fiscal year) or by the
+ * leaf of a pre-printed pad. A reversed receipt keeps its number (ADR-0014); a number is never issued again.
+ */
+export const receipts = withRls(
+    audited(
+        feesSchema.table(
+            'receipts',
+            {
+                ...baseColumns(),
+                ...handled(),
+                paymentId: uuid('payment_id')
+                    .notNull()
+                    .references(() => payments.id),
+                orderId: uuid('order_id')
+                    .notNull()
+                    .references(() => paymentOrders.id),
+                caseId: uuid('case_id').notNull(),
+                source: text('source').$type<'itrms' | 'pad'>().notNull(),
+                number: text('number').notNull(),
+                fiscalYear: integer('fiscal_year'),
+                sequence: bigint('sequence', { mode: 'bigint' }),
+                padSeries: text('pad_series'),
+                padSerial: text('pad_serial'),
+                amountSantim: bigint('amount_santim', { mode: 'bigint' }).notNull(),
+                issuedBy: uuid('issued_by').notNull()
+            },
+            (t) => [
+                uniqueIndex('receipts_payment_uq').on(t.paymentId),
+                uniqueIndex('receipts_itrms_uq')
+                    .on(t.handlingUnitId, t.fiscalYear, t.sequence)
+                    .where(sql`source = 'itrms'`),
+                uniqueIndex('receipts_pad_uq')
+                    .on(t.handlingUnitId, t.padSeries, t.padSerial)
+                    .where(sql`source = 'pad'`),
+                index('receipts_org_path_gist').using('gist', t.orgPath)
+            ]
+        )
+    ),
+    'transaction'
+);
+
+/**
+ * A receipt's reversal: asked for with a reason, decided once by another person (never the requester nor the cashier who
+ * took the money; the database checks it too). Approved, it voids the payment and opens the order again; the receipt keeps
+ * its number.
+ */
+export const receiptReversals = withRls(
+    audited(
+        feesSchema.table(
+            'receipt_reversals',
+            {
+                ...baseColumns(),
+                ...handled(),
+                receiptId: uuid('receipt_id')
+                    .notNull()
+                    .references(() => receipts.id),
+                paymentId: uuid('payment_id')
+                    .notNull()
+                    .references(() => payments.id),
+                orderId: uuid('order_id')
+                    .notNull()
+                    .references(() => paymentOrders.id),
+                caseId: uuid('case_id').notNull(),
+                reason: text('reason').notNull(),
+                requestedBy: uuid('requested_by').notNull(),
+                /** the cashier who took the money (the payment's) */
+                cashierId: uuid('cashier_id').notNull(),
+                state: text('state').$type<'requested' | 'approved' | 'rejected'>().notNull().default('requested'),
+                decidedBy: uuid('decided_by'),
+                decidedAt: timestamp('decided_at', { withTimezone: true }),
+                note: text('note')
+            },
+            (t) => [
+                uniqueIndex('receipt_reversals_live_uq')
+                    .on(t.receiptId)
+                    .where(sql`state IN ('requested', 'approved')`),
+                index('receipt_reversals_inbox_idx').on(t.state, t.createdAt),
+                index('receipt_reversals_org_path_gist').using('gist', t.orgPath)
             ]
         )
     ),

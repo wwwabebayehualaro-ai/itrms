@@ -24,6 +24,9 @@ export interface EffectRun<Input = unknown> {
     /** the case's region and handling unit: where an effect files what it makes (not the actor's unit) */
     regionId: string;
     handlingUnitId: string;
+    /** the case's number, and the configuration its service froze when it started (task 0.22b: how its fee is paid) */
+    caseNumber: number;
+    config: Readonly<Record<string, unknown>>;
     /** what follows the key in the reference: `licence-card` of `documents.issue:licence-card` */
     argument?: string;
     /**

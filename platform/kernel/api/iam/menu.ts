@@ -114,5 +114,8 @@ export function roleLabelKey(role: string): string {
 export const roleLabels = (messages: Catalogues, roles: Iterable<string>): Record<string, I18nText> =>
     Object.fromEntries([...new Set(roles)].map((r) => [r, textOf(messages, roleLabelKey(r))]));
 
-/** Settings a browser may see: display settings only (`ui.*`, `i18n.*`); security and service settings never leave. */
-export const CLIENT_SETTINGS = /^(ui|i18n)\./;
+/**
+ * Settings a browser may see: display settings (`ui.*`, `i18n.*`) and the banks a deposit slip may be of (the cashier's
+ * form, task 0.22b); security and service settings never leave.
+ */
+export const CLIENT_SETTINGS = /^((ui|i18n)\.|fees\.payments\.banks$)/;

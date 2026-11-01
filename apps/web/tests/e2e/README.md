@@ -24,4 +24,6 @@ admin password from `infra/compose/.env`: nothing secret is in this folder. Each
   is told (the worker relays the mention), opens the case from the bell and approves it. Each run makes its own workflow
   (by `demo.zone.admin`) and its own cases through the API (`workflow/support.ts`).
 
+- `fees/`: the counter and the cashier (task 0.22b): Boditi's records officer files a request that charges a fee, its cashier records the cash at the till and gets the office's receipt, and the case, waiting on its payment, is done. It needs the demo fee rule and the office's receipt counter seeded (`pnpm seed:fees`, `pnpm seed:counters`) and skips without the rule.
+
 `legacy/` holds what is left of the old engine journeys, not run (its README says why).

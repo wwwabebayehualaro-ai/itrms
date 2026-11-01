@@ -380,6 +380,9 @@ importers:
       '@itrms/ethiopian-calendar':
         specifier: workspace:*
         version: link:../../packages/ethiopian-calendar
+      '@itrms/fees':
+        specifier: workspace:*
+        version: link:../../platform/fees
       '@itrms/form-engine':
         specifier: workspace:*
         version: link:../../packages/form-engine
@@ -1142,6 +1145,9 @@ importers:
       '@itrms/ethiopian-calendar':
         specifier: workspace:*
         version: link:../../packages/ethiopian-calendar
+      '@itrms/fees':
+        specifier: workspace:*
+        version: link:../fees
       '@itrms/form-engine':
         specifier: workspace:*
         version: link:../../packages/form-engine

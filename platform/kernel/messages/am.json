@@ -49,5 +49,9 @@
   "kernel.errors.setting_level_not_allowed": "ይህ ቅንብር በዚህ ደረጃ ሊቀየር አይችልም።",
   "kernel.nav.settings": "ቅንብሮች",
   "kernel.errors.contract_unmet": "ጥያቄው ይህ ደረጃ የሚፈልገውን አልያዘም። የአገልግሎቱን አስተዳዳሪ ይጠይቁ።",
-  "kernel.errors.fee_changed": "ክፍያው ከታየ በኋላ ተቀይሯል። አዲሱን ክፍያ አይተው ጥያቄውን ያስገቡ።"
+  "kernel.errors.fee_changed": "ክፍያው ከታየ በኋላ ተቀይሯል። አዲሱን ክፍያ አይተው ጥያቄውን ያስገቡ።",
+  "kernel.errors.already_settled": "ይህ የክፍያ ትዕዛዝ ቀድሞ ተከፍሏል።",
+  "kernel.errors.amount_mismatch": "መጠኑ ትዕዛዙ የሚጠይቀው አይደለም። ትዕዛዙን አይተው እንደገና ይመዝግቡ።",
+  "kernel.errors.collected_elsewhere": "ይህ ክፍያ የሚከፈለው በሌላ ቦታ (በገቢዎች ጽ/ቤት ወይም በባንክ) ነው እንጂ በዚህ ገንዘብ ያዥ አይደለም።",
+  "kernel.errors.fee_already_paid": "ክፍያው ቀድሞ ተከፍሏል፤ የተቀየረ ክፍያ መጀመሪያ ደረሰኙ እንዲሰረዝ ይፈልጋል። የሂሳብ ሠራተኛውን ይጠይቁ።"
 }

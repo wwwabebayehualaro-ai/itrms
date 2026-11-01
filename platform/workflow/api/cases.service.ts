@@ -34,6 +34,8 @@ import { emit } from '@itrms/kernel/outbox';
 import { orgUnits, users } from '@itrms/kernel/tables';
 import { contractInput } from '@itrms/form-engine/core';
 import { FormsService, RegistryLookups, SubmissionsService, submissions } from '@itrms/forms/api';
+import type { FeeCasePort, PaymentChange } from '@itrms/fees/api';
+import type { PaymentFacts } from '@itrms/fees/contracts';
 import {
     effectKeyOf,
     parseStepForm,
@@ -113,6 +115,21 @@ export function slaOfState(config: unknown, state: WorkflowState) {
 }
 
 const CATALOGUES: Record<string, Record<string, string>> = { am, en };
+
+/** What a payment's timeline entry shows: its receipt, a reversal's reason or note (only these, as text). */
+const paymentOf = (data: Record<string, unknown> | null) => {
+    const textOf = (v: unknown) => (typeof v === 'string' ? v : null);
+    return {
+        receiptId: textOf(data?.receiptId),
+        receiptNumber: textOf(data?.receiptNumber),
+        reason: textOf(data?.reason),
+        note: textOf(data?.note)
+    };
+};
+
+/** The event a payment settling a case delivers to a wait, and the system actor that takes it (task 0.22b). */
+const PAYMENT_SETTLED = 'event:payment.settled';
+const FEES_ACTOR = { kind: 'system', id: 'system:fees' } as const;
 const text = (key: string, language: string): string =>
     CATALOGUES[language]?.[key] ?? am[key as keyof typeof am] ?? key;
 
@@ -137,7 +154,7 @@ function refuse(refusal: Refusal | ClaimRefusal, language: string, caseId: strin
 }
 
 @Injectable()
-export class CasesService {
+export class CasesService implements FeeCasePort {
     /** The roles that read cases (the installed manifests): only their holders may be mentioned on one. */
     private readonly readers: readonly string[];
 
@@ -644,6 +661,8 @@ export class CasesService {
                 caseId: row.id,
                 regionId: row.regionId,
                 handlingUnitId: row.handlingUnitId,
+                caseNumber: row.number,
+                config: row.config,
                 argument,
                 input: contract ? await this.contractedInput(tx, row, key, contract) : by.input,
                 facts
@@ -941,6 +960,58 @@ export class CasesService {
         return { answers: submission.answers, submissionId: submission.id };
     }
 
+    // --- payments (the fees slice's port, task 0.22b, ADR-0042) ------------------------------------------------------
+
+    /** Locks a case for a payment's transaction (the case first: one lock order); null when it cannot be read here. */
+    async lock(tx: Tx, caseId: string): Promise<{ closed: boolean } | null> {
+        const [row] = await tx
+            .select({ closedAt: cases.closedAt })
+            .from(cases)
+            .where(eq(cases.id, caseId))
+            .for('update');
+        return row ? { closed: row.closedAt !== null } : null;
+    }
+
+    /**
+     * A payment's change, in its transaction: the case's fact `payment` replaced, the change on its timeline (by the person
+     * who made it), and a case waiting on `event:payment.settled` moved on when the payment settles it (by `system:fees`,
+     * in the same transaction: never a paid case left waiting).
+     */
+    async paymentChanged(
+        tx: Tx,
+        ctx: DbContext,
+        caseId: string,
+        change: { payment: PaymentFacts; action: PaymentChange; data: Record<string, unknown> },
+        language: string
+    ): Promise<void> {
+        const row = await this.locked(tx, caseId);
+        const updated = await updateAudited(tx, cases, row.id, row.rowVersion, {
+            facts: { ...row.facts, payment: change.payment }
+        });
+        await insertAudited(tx, caseEvents, {
+            regionId: row.regionId,
+            caseId,
+            unitId: row.handlingUnitId,
+            kind: 'payment',
+            action: change.action,
+            actorUserId: ctx.userId ?? null,
+            data: change.data
+        });
+        if (!change.payment.settled || updated.closedAt) return;
+        const def = await this.definition(tx, updated.definitionVersionId);
+        const state = stateOf(def, updated.state);
+        if (state?.kind !== 'wait') return;
+        const decision = decideEvent(def, updated.state, PAYMENT_SETTLED, FEES_ACTOR, updated.facts);
+        if (!decision.ok) return;
+        const history = await this.history(tx, updated, def);
+        await this.advance(tx, ctx, updated, def, state, decision.transition, {
+            system: FEES_ACTOR.id,
+            input: {},
+            history,
+            language
+        });
+    }
+
     // --- reading ------------------------------------------------------------------------------------------------------
 
     private async locked(tx: Tx, id: string): Promise<CaseRow> {
@@ -1199,6 +1270,7 @@ export class CasesService {
                 amended: Array.isArray(e.data?.amended)
                     ? e.data.amended.filter((k): k is string => typeof k === 'string' && requestKeys.has(k))
                     : null,
+                payment: e.kind === 'payment' ? paymentOf(e.data) : null,
                 at: e.createdAt.toISOString()
             })),
             steps: filed.map((s) => ({

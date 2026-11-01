@@ -5,6 +5,7 @@
  */
 import 'reflect-metadata';
 
+import { feesHandlers } from '@itrms/fees/api/worker';
 import { formsHandlers } from '@itrms/forms/api/worker';
 import { CasesService } from '@itrms/workflow/api';
 import { slaSweep, workflowHandlers, type SlaDeps } from '@itrms/workflow/api/worker';
@@ -65,6 +66,8 @@ async function main() {
             };
             const handlers: Record<string, OutboxHandler> = {
                 ...workflowHandlers(system, sla),
+                // a closed case's open payment order is cancelled (task 0.22b)
+                ...feesHandlers(system),
                 ...formsHandlers(system, {
                     database,
                     store: objectStore ?? NO_OBJECT_STORE,

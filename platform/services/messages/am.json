@@ -29,6 +29,7 @@
   "services.publish.family.help": "የቅጹ የእገዛ ጽሑፎች",
   "services.publish.family.approval_unit": "የሚያጸድቀው ጽ/ቤት",
   "services.publish.family.templateHeader": "የሰነዶቹ ርዕስ መስመር",
+  "services.publish.family.payment": "ክፍያው የሚከፈልበት መንገድ (በጽ/ቤቱ ወይም በሌላ ቦታ፣ የመክፈያ ቀናት)",
   "services.publish.level.region": "ክልሉ",
   "services.publish.level.unit": "ከሥሩ ያሉ ጽ/ቤቶች",
   "services.publish.effectiveFrom": "ከዚህ ቀን ጀምሮ",

@@ -2628,6 +2628,76 @@
         ],
         "type": "object"
       },
+      "PaymentDto": {
+        "additionalProperties": false,
+        "properties": {
+          "amountSantim": {
+            "pattern": "^(0|[1-9]\\d{0,16})$",
+            "type": "string"
+          },
+          "bankSlip": {
+            "additionalProperties": false,
+            "properties": {
+              "bank": {
+                "pattern": "^[A-Z0-9]{2,12}$",
+                "type": "string"
+              },
+              "paidOn": {
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                "type": "string"
+              },
+              "reference": {
+                "maxLength": 40,
+                "minLength": 3,
+                "type": "string"
+              }
+            },
+            "required": [
+              "bank",
+              "reference",
+              "paidOn"
+            ],
+            "type": "object"
+          },
+          "method": {
+            "enum": [
+              "cash",
+              "bank_slip"
+            ],
+            "type": "string"
+          },
+          "pad": {
+            "additionalProperties": false,
+            "properties": {
+              "serial": {
+                "pattern": "^\\d{1,10}$",
+                "type": "string"
+              },
+              "series": {
+                "pattern": "^[A-Z0-9-]{1,16}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "series",
+              "serial"
+            ],
+            "type": "object"
+          },
+          "receivedFrom": {
+            "maxLength": 200,
+            "minLength": 2,
+            "type": "string"
+          }
+        },
+        "required": [
+          "method",
+          "amountSantim",
+          "receivedFrom"
+        ],
+        "type": "object"
+      },
       "PersonCreateDto": {
         "additionalProperties": false,
         "properties": {
@@ -3216,6 +3286,40 @@
         },
         "required": [
           "fields",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "ReversalDecisionDto": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "approved",
+              "rejected"
+            ],
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 500,
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "type": "object"
+      },
+      "ReversalRequestDto": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 10,
+            "type": "string"
+          }
+        },
+        "required": [
           "reason"
         ],
         "type": "object"
@@ -5006,6 +5110,7 @@
                 "approval_unit",
                 "help",
                 "templateHeader",
+                "payment",
                 "formOverlay"
               ],
               "type": "string"
@@ -5285,6 +5390,29 @@
         },
         "tags": [
           "Fees"
+        ]
+      }
+    },
+    "/api/v1/cases/{caseId}/payment": {
+      "get": {
+        "operationId": "PaymentsController_forCase",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payments"
         ]
       }
     },
@@ -7543,6 +7671,122 @@
         ]
       }
     },
+    "/api/v1/payment-orders": {
+      "get": {
+        "operationId": "PaymentsController_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "default": "open",
+              "enum": [
+                "open",
+                "settled",
+                "cancelled"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/api/v1/payment-orders/{id}": {
+      "get": {
+        "operationId": "PaymentsController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/api/v1/payment-orders/{id}/payments": {
+      "post": {
+        "operationId": "PaymentsController_record",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
     "/api/v1/person-merges": {
       "get": {
         "operationId": "MergesController_list",
@@ -7850,6 +8094,124 @@
         },
         "tags": [
           "Persons"
+        ]
+      }
+    },
+    "/api/v1/receipt-reversals": {
+      "get": {
+        "operationId": "PaymentsController_reversals",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "default": "requested",
+              "enum": [
+                "requested",
+                "approved",
+                "rejected"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/api/v1/receipt-reversals/{id}/decision": {
+      "post": {
+        "operationId": "PaymentsController_decide",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReversalDecisionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/api/v1/receipts/{id}": {
+      "get": {
+        "operationId": "PaymentsController_receipt",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/api/v1/receipts/{id}/reversals": {
+      "post": {
+        "operationId": "PaymentsController_requestReversal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReversalRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payments"
         ]
       }
     },

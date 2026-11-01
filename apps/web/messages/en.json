@@ -88,5 +88,6 @@
   "shell.settings.save": "Save",
   "shell.settings.cancel": "Cancel",
   "shell.settings.saved": "The setting is saved.",
-  "shell.settings.changed": "Another administrator changed this setting meanwhile. Check it and change it again."
+  "shell.settings.changed": "Another administrator changed this setting meanwhile. Check it and change it again.",
+  "common.money.refused": "Only digits and one decimal point; at most two digits after it"
 }

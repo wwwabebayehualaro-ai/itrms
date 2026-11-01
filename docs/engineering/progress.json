@@ -1040,8 +1040,8 @@
         {
           "id": "0.22b",
           "title": "Fees, part 2: payment orders, the cashier and receipts",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.22b-cashier-receipts",
           "commits": [],
           "evidence": [],
           "blockers": [],
@@ -2639,6 +2639,11 @@
       "foundIn": "0.22a",
       "item": "Fee inputs from case facts (from: 'fact'): refused until cases carry facts at filing",
       "movedTo": "0.24"
+    },
+    {
+      "foundIn": "0.22b",
+      "item": "Pad receipts: a serial is checked against the pad ranges issued to the office (controlled stationery)",
+      "movedTo": "1.12a"
     }
   ]
 }

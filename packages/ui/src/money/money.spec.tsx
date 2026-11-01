@@ -163,4 +163,21 @@ describe('MoneyInput', () => {
         expect(input.value).toBe('1,250.50');
         expect(seen).toEqual([125050n]);
     });
+
+    it('announces a refused keystroke or paste, and clears the message once an amount is accepted', () => {
+        render(
+            <MoneyInput aria-label="amount" refusedMessage="Digits only" value={null} onValueChange={() => undefined} />
+        );
+        const input = screen.getByRole<HTMLInputElement>('textbox', { name: 'amount' });
+        const live = screen.getByRole('status');
+        expect(input.getAttribute('aria-describedby')).toContain(live.id);
+        expect(live).toHaveTextContent('');
+        fireEvent.change(input, { target: { value: '12a' } });
+        expect(input.value).toBe('');
+        expect(live).toHaveTextContent('Digits only');
+        fireEvent.change(input, { target: { value: '12.345' } });
+        expect(live).toHaveTextContent('Digits only');
+        fireEvent.change(input, { target: { value: '12.34' } });
+        expect(live).toHaveTextContent('');
+    });
 });

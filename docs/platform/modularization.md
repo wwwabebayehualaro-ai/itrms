@@ -94,7 +94,7 @@ A failing check stops the start, with a clear message.
 |---|---|---|
 | Read master data | the registry's **public query service** (DI token from its `contracts`), or a **lookup provider** in forms | competency reads a person from `parties` |
 | Change master data | only the registry's **commands**, called from an effect in the same transaction | `competency.issueLicence` calls `drivers.createLicence(tx, …)` |
-| React to something that happened elsewhere | **domain event** through the outbox (async, idempotent handler) | `payment.settled` → workflow guard; `vehicle.transferred` → road-safety record update |
+| React to something that happened elsewhere | **domain event** through the outbox (async, idempotent handler) | `vehicle.transferred` → road-safety record update (a payment moves its case through an in-transaction port instead, ADR-0042) |
 | Report across modules | the `reports` module's **datasets** (read-only SQL views owned by `reports`, declared per module) | licences by unit with revenue |
 | UI composition | **extension slots** in the shell: record tabs, dashboard widgets, global search providers, quick actions | the person page shows a "Licences" tab contributed by `drivers` |
 

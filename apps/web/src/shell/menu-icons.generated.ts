@@ -2,6 +2,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
     BadgeCheck,
+    Banknote,
     Building2,
     Circle,
     ClipboardCheck,
@@ -14,12 +15,14 @@ import {
     ListChecks,
     Printer,
     SlidersHorizontal,
+    Undo2,
     Users,
     Workflow
 } from 'lucide-react';
 
 export const MENU_ICONS: Readonly<Record<string, LucideIcon>> = {
     'badge-check': BadgeCheck,
+    banknote: Banknote,
     'building-2': Building2,
     circle: Circle,
     'clipboard-check': ClipboardCheck,
@@ -32,6 +35,7 @@ export const MENU_ICONS: Readonly<Record<string, LucideIcon>> = {
     'list-checks': ListChecks,
     printer: Printer,
     'sliders-horizontal': SlidersHorizontal,
+    'undo-2': Undo2,
     users: Users,
     workflow: Workflow
 };
