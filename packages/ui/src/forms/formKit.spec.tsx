@@ -20,6 +20,38 @@ function Probe({ onSubmit }: { onSubmit: (v: z.output<typeof schema>) => unknown
     );
 }
 
+/** Two fields filled in one after the other; the second may be needed only while a switch says so. */
+function Pair({
+    onSubmit,
+    needSecond = true
+}: {
+    onSubmit: (v: { first: string; second: string }) => unknown;
+    needSecond?: boolean;
+}) {
+    const pair = z
+        .object({ first: z.string().min(3, 'First is needed'), second: z.string(), needs: z.boolean() })
+        .superRefine((v, ctx) => {
+            if (v.needs && v.second.length < 3)
+                ctx.addIssue({ code: 'custom', path: ['second'], message: 'Second is needed' });
+        })
+        .transform(({ first, second }) => ({ first, second }));
+    const form = useZodForm({
+        schema: pair,
+        defaultValues: { first: '', second: '', needs: needSecond },
+        onSubmit
+    });
+    return (
+        <ZodForm form={form}>
+            <form.AppField name="first">{(f) => <f.TextField label="First" />}</form.AppField>
+            <form.AppField name="second">{(f) => <f.TextField label="Second" />}</form.AppField>
+            <form.AppField name="needs">{(f) => <f.SwitchField label="Needs the second" />}</form.AppField>
+            <form.AppForm>
+                <form.SubmitButton>Save</form.SubmitButton>
+            </form.AppForm>
+        </ZodForm>
+    );
+}
+
 /** A save failure as the app's API client throws it: problem+json `errors[]` in the response body. */
 class SaveError extends Error {
     constructor(readonly body: { errors: { field: string; message: string }[] }) {
@@ -93,5 +125,80 @@ describe('useZodForm', () => {
         await userEvent.type(screen.getByLabelText('Key'), 'abcd');
         await userEvent.click(screen.getByRole('button', { name: 'Save' }));
         expect(await screen.findByText('Server unavailable')).toBeInTheDocument();
+    });
+
+    it('takes the save as soon as the fields are right, without leaving the last one (the cashier journey)', async () => {
+        const onSubmit = vi.fn();
+        render(<Pair onSubmit={onSubmit} />);
+        await userEvent.type(screen.getByLabelText('First'), 'abc');
+        // leaving the first field checks the whole form: the second, still empty, is refused
+        await userEvent.tab();
+        await userEvent.type(screen.getByLabelText('Second'), 'abc');
+        expect(screen.queryByText('Second is needed')).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+        // Enter in the last field saves: a disabled submit button would swallow it
+        await userEvent.keyboard('{Enter}');
+        await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ first: 'abc', second: 'abc' }));
+    });
+
+    it('drops a refusal another field caused, as soon as that field changes', async () => {
+        render(<Pair onSubmit={vi.fn()} needSecond={false} />);
+        await userEvent.click(screen.getByRole('switch', { name: 'Needs the second' }));
+        await userEvent.type(screen.getByLabelText('First'), 'abc');
+        await userEvent.tab();
+        expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+        await userEvent.click(screen.getByRole('switch', { name: 'Needs the second' }));
+        expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    });
+
+    it('takes the same save again after the server failed it, the form untouched', async () => {
+        const onSubmit = vi.fn().mockRejectedValueOnce(new Error('Server unavailable'));
+        render(<Probe onSubmit={onSubmit} />);
+        await userEvent.type(screen.getByLabelText('Key'), 'abcd');
+        await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+        expect(await screen.findByText('Server unavailable')).toBeInTheDocument();
+        const save = screen.getByRole('button', { name: 'Save' });
+        await waitFor(() => expect(save).toBeEnabled());
+        await userEvent.click(save);
+        await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+        await waitFor(() => expect(screen.queryByText('Server unavailable')).not.toBeInTheDocument());
+    });
+
+    it("clears the server's verdict on a field with a control of its own", async () => {
+        const onSubmit = vi
+            .fn()
+            .mockRejectedValueOnce(new SaveError({ errors: [{ field: 'key', message: 'Already taken' }] }));
+        function Custom() {
+            const form = useZodForm({ schema, defaultValues: { key: 'abcd', description: '' }, onSubmit });
+            return (
+                <ZodForm form={form}>
+                    <form.AppField name="key">
+                        {(field) => (
+                            <>
+                                <input
+                                    aria-label="Own control"
+                                    value={field.state.value}
+                                    onChange={(e) => field.handleChange(e.target.value)}
+                                />
+                                <span>{messagesOf(field.state.meta.errors)}</span>
+                            </>
+                        )}
+                    </form.AppField>
+                    <form.AppForm>
+                        <form.SubmitButton>Save</form.SubmitButton>
+                    </form.AppForm>
+                </ZodForm>
+            );
+        }
+        render(
+            <ServerErrorsProvider map={mapProblem}>
+                <Custom />
+            </ServerErrorsProvider>
+        );
+        await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+        expect(await screen.findByText('Already taken')).toBeInTheDocument();
+        await userEvent.type(screen.getByLabelText('Own control'), 'e');
+        await waitFor(() => expect(screen.queryByText('Already taken')).not.toBeInTheDocument());
+        expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
     });
 });
