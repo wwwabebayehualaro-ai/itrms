@@ -166,6 +166,7 @@ jobs:
           path: |
             apps/web/test-results
             worker.log
+            worker-documents.log
           retention-days: 7
       - name: Container logs on failure
         if: failure()

@@ -5,6 +5,9 @@
  * the unit's documents reads them; nothing renders in the API (a dependency rule keeps Chrome out of it).
  */
 import { createHash, randomInt, randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { DocumentsService } from '@itrms/documents/api';
 import { importDocumentTemplates } from '@itrms/documents/seed';
@@ -35,13 +38,13 @@ const SUB = {
 const COPY = 'RS-04';
 const PAID = 'RS-05';
 
+const envFile = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', 'infra', 'compose', '.env');
+if (!process.env.S3_ACCESS_KEY && existsSync(envFile)) process.loadEnvFile(envFile);
 const S3 = {
-    endpoint: process.env.S3_ENDPOINT ?? 'http://127.0.0.1:18333',
-    region: process.env.S3_REGION ?? 'us-east-1',
+    endpoint: process.env.S3_ENDPOINT ?? `http://127.0.0.1:${process.env.S3_HOST_PORT ?? '18333'}`,
     bucket: process.env.S3_BUCKET ?? 'itrms-test',
-    accessKeyId: process.env.S3_ACCESS_KEY_ID ?? '',
-    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? '',
-    forcePathStyle: true
+    accessKeyId: process.env.S3_ACCESS_KEY ?? '',
+    secretAccessKey: process.env.S3_SECRET_KEY ?? ''
 };
 
 let pg: TestPostgres;
