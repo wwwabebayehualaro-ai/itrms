@@ -194,7 +194,8 @@ export const paymentInputSchema = z
         pad: z
             .strictObject({
                 series: z.string().regex(/^[A-Z0-9-]{1,16}$/),
-                serial: z.string().regex(/^\d{1,10}$/)
+                // no leading zeros: `012` and `12` are one leaf of the pad
+                serial: z.string().regex(/^[1-9]\d{0,9}$/, 'is a serial without leading zeros')
             })
             .optional()
     })

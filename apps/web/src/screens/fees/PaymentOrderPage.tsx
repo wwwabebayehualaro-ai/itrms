@@ -194,22 +194,28 @@ function PaymentForm({ order }: { order: PaymentOrderOut }) {
                 if (!ok) ctx.addIssue({ code: 'custom', path: [path], message });
             };
             if (v.method === 'bank_slip') {
+                // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- anchored, one bounded character class (linear time)
                 need('bank', /^[A-Z0-9]{2,12}$/.test(v.bank.trim().toUpperCase()), t('fees.payment.invalid.bank'));
                 need(
                     'reference',
                     v.reference.trim().length >= 3 && v.reference.trim().length <= 40,
                     t('fees.payment.invalid.reference')
                 );
+                // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- anchored, fixed-length digit runs (linear time)
                 need('paidOn', /^\d{4}-\d{2}-\d{2}$/.test(v.paidOn), t('fees.payment.invalid.slipDate'));
                 need('paidOn', v.paidOn <= todayInAddis(), t('fees.payment.slipFuture'));
             }
             if (pad) {
                 need(
                     'padSeries',
+                    // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- anchored, one bounded character class (linear time)
                     /^[A-Z0-9-]{1,16}$/.test(v.padSeries.trim().toUpperCase()),
                     t('fees.payment.invalid.padSeries')
                 );
-                need('padSerial', /^\d{1,10}$/.test(v.padSerial.trim()), t('fees.payment.invalid.padSerial'));
+                // leading zeros are dropped when it is sent, so at most ten digits from the first that is not zero; all
+                // zeros is no leaf
+                // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- anchored; '0*' cannot match the [1-9] after it (linear time)
+                need('padSerial', /^0*[1-9]\d{0,9}$/.test(v.padSerial.trim()), t('fees.payment.invalid.padSerial'));
             }
         });
 
@@ -239,7 +245,14 @@ function PaymentForm({ order }: { order: PaymentOrderOut }) {
                           }
                       }
                     : {}),
-                ...(pad ? { pad: { series: v.padSeries.trim().toUpperCase(), serial: v.padSerial.trim() } } : {})
+                ...(pad
+                    ? {
+                          pad: {
+                              series: v.padSeries.trim().toUpperCase(),
+                              serial: v.padSerial.trim().replace(/^0+(?=\d)/, '')
+                          }
+                      }
+                    : {})
             };
             const done = await record.mutateAsync(input);
             router.push(`/receipts/${done.receipt.id}`);
@@ -279,7 +292,7 @@ function PaymentForm({ order }: { order: PaymentOrderOut }) {
                             <FieldLabel htmlFor="payment-amount">{t('fees.payment.amount')}</FieldLabel>
                             <MoneyInput
                                 id="payment-amount"
-                                unit={language === 'am' ? 'ብር' : 'Birr'}
+                                unit={t('common.money.unit')}
                                 refusedMessage={t('common.money.refused')}
                                 value={field.state.value === '' ? null : BigInt(field.state.value)}
                                 onValueChange={(santim) => field.handleChange(santim === null ? '' : santim.toString())}

@@ -161,5 +161,6 @@
   "workflow.event.payment.paid": "{who} ክፍያውን ተቀበሉ",
   "workflow.event.payment.reversal_requested": "{who} ደረሰኙ እንዲሰረዝ ጠየቁ",
   "workflow.event.payment.reversed": "{who} የደረሰኙን ስረዛ አጸደቁ",
-  "workflow.event.payment.reversal_rejected": "{who} የደረሰኙን ስረዛ ውድቅ አደረጉ"
+  "workflow.event.payment.reversal_rejected": "{who} የደረሰኙን ስረዛ ውድቅ አደረጉ",
+  "workflow.refusal.payment-next-step": "ክፍያው አልተመዘገበም፤ የጉዳዩን ቀጣይ ደረጃ በዚህ ጽ/ቤት የሚወስድ ሰው የለም። አስተዳዳሪው ሚናውን እንዲሰጥ ይጠይቁ፣ ከዚያ እንደገና ይመዝግቡ።"
 }

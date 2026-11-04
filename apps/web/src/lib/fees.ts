@@ -77,9 +77,10 @@ export function useReceipt(id: string) {
 }
 
 /** The newest order of a case; null when the case has none (404). */
-export function useCasePayment(caseId: string) {
+export function useCasePayment(caseId: string, enabled = true) {
     return useQuery({
         queryKey: feeKeys.casePayment(caseId),
+        enabled,
         retry: false,
         queryFn: async ({ signal }): Promise<PaymentOrderOut | null> => {
             try {

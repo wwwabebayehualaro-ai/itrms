@@ -91,9 +91,12 @@ export class PaymentsController {
         return this.db.scoped(ctx, (tx) => this.payments.decide(tx, ctx, roles, id, body, language()));
     }
 
-    /** The case page's payment panel: its newest order, or 404 for a case without one. */
+    /**
+     * The case page's payment panel: its newest order, or 404 for a case without one. Its payer, slips and reversals are
+     * payment data: a payment right, not only the case's.
+     */
     @Get('cases/:caseId/payment')
-    @Require('case:read')
+    @Require('payment-order:read')
     forCase(@Param('caseId', ParseUUIDPipe) caseId: string) {
         const ctx = requestDbContext();
         return this.db.scoped(ctx, async (tx) => {

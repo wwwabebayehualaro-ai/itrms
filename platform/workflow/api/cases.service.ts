@@ -731,6 +731,8 @@ export class CasesService implements FeeCasePort {
             { caseId: row.id, from: from.key, to: to.key, action, closed },
             { unitId: row.handlingUnitId, regionId: row.regionId }
         );
+        // a wait on the payment that is settled already (no fee to pay, paid before) is no wait (task 0.22b)
+        if (to.kind === 'wait') await this.moveIfPaid(tx, ctx, row.id, by.language);
     }
 
     /** Opens the task of `state`: in the unit its rule names, or up the tree when separation of duties leaves nobody. */
@@ -974,8 +976,8 @@ export class CasesService implements FeeCasePort {
 
     /**
      * A payment's change, in its transaction: the case's fact `payment` replaced, the change on its timeline (by the person
-     * who made it), and a case waiting on `event:payment.settled` moved on when the payment settles it (by `system:fees`,
-     * in the same transaction: never a paid case left waiting).
+     * who made it), and, for a payment made (`paid`), a case waiting on `event:payment.settled` moved on (by `system:fees`,
+     * in the same transaction: never a paid case left waiting). A reversal's request or decision never moves a case.
      */
     async paymentChanged(
         tx: Tx,
@@ -985,7 +987,7 @@ export class CasesService implements FeeCasePort {
         language: string
     ): Promise<void> {
         const row = await this.locked(tx, caseId);
-        const updated = await updateAudited(tx, cases, row.id, row.rowVersion, {
+        await updateAudited(tx, cases, row.id, row.rowVersion, {
             facts: { ...row.facts, payment: change.payment }
         });
         await insertAudited(tx, caseEvents, {
@@ -997,14 +999,39 @@ export class CasesService implements FeeCasePort {
             actorUserId: ctx.userId ?? null,
             data: change.data
         });
-        if (!change.payment.settled || updated.closedAt) return;
-        const def = await this.definition(tx, updated.definitionVersionId);
-        const state = stateOf(def, updated.state);
+        if (change.action !== 'paid') return;
+        try {
+            await this.moveIfPaid(tx, ctx, caseId, language);
+        } catch (error) {
+            // the next step cannot be opened (nobody holds its role): the payment is not taken, and the cashier is told why
+            if (
+                error instanceof ConflictError &&
+                (error.code === 'not_configured' || error.code === 'invalid_transition')
+            )
+                throw new ConflictError('not_configured', {
+                    detail: text('workflow.refusal.payment-next-step', language),
+                    cause: error
+                });
+            throw error;
+        }
+    }
+
+    /**
+     * A case in a wait whose way out is `event:payment.settled`, with its payment settled, moved on by `system:fees`: after a
+     * payment, and when a transition arrives in such a wait already settled (a service with no fee, a step taken again).
+     */
+    private async moveIfPaid(tx: Tx, ctx: DbContext, caseId: string, language: string): Promise<void> {
+        const row = await this.locked(tx, caseId);
+        if (row.closedAt) return;
+        const payment = row.facts.payment as { settled?: unknown } | undefined;
+        if (payment?.settled !== true) return;
+        const def = await this.definition(tx, row.definitionVersionId);
+        const state = stateOf(def, row.state);
         if (state?.kind !== 'wait') return;
-        const decision = decideEvent(def, updated.state, PAYMENT_SETTLED, FEES_ACTOR, updated.facts);
+        const decision = decideEvent(def, row.state, PAYMENT_SETTLED, FEES_ACTOR, row.facts);
         if (!decision.ok) return;
-        const history = await this.history(tx, updated, def);
-        await this.advance(tx, ctx, updated, def, state, decision.transition, {
+        const history = await this.history(tx, row, def);
+        await this.advance(tx, ctx, row, def, state, decision.transition, {
             system: FEES_ACTOR.id,
             input: {},
             history,

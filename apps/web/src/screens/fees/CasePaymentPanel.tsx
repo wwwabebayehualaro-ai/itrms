@@ -17,7 +17,8 @@ const ORDER_TONE: Record<PaymentOrderOut['state'], Tone> = { open: 'progress', s
 export function CasePaymentPanel({ caseId }: { caseId: string }) {
     const { t, language } = useText();
     const mayRecord = useCan('payment:record');
-    const payment = useCasePayment(caseId);
+    // payment data has a right of its own: a person who reads only the case is not refused for it on every page
+    const payment = useCasePayment(caseId, useCan('payment-order:read'));
     const order = payment.data;
     if (!order) return null;
     const receipts = order.payments.filter((p) => p.receiptId && p.receiptNumber);

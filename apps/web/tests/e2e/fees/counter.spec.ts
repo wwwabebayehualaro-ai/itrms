@@ -106,8 +106,9 @@ test('a fee is filed at the counter, paid at the till and receipted, and the cas
     test.setTimeout(420_000);
     const bureauPage = await signedIn(browser, PEOPLE.bureau);
     const bureau = api(bureauPage);
-    const rules =
-        await bureau.get<{ key: string; latestVersion: { id: string; status: string } | null }[]>('v1/fee-rules');
+    const { items: rules } = await bureau.get<{
+        items: { key: string; latestVersion: { id: string; status: string } | null }[];
+    }>('v1/fee-rules');
     const rule = rules.find((r) => r.key === RULE_KEY)?.latestVersion;
     // CI seeds it (ci.yml); a local stack without the seed skips the journey
     test.skip(

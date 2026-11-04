@@ -7,7 +7,7 @@
  * region names; it keeps the receipt's number and shows on the case. A case waiting on its payment moves on when paid;
  * one guarded on it may move on only then. Every write is audited; what is kept never changes.
  */
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 
 import { cancelClosedCaseOrder } from '@itrms/fees/api/worker';
 import { importFeeRules } from '@itrms/fees/seed';
@@ -28,11 +28,15 @@ const SUB = {
     boditiHead: '0199f0a0-d000-7000-8000-000000000301',
     boditiRecords: '0199f0a0-d000-7000-8000-000000000302',
     boditiCashier: '0199f0a0-d000-7000-8000-000000000303',
+    // a licensing expert: reads the case, not its payment
+    boditiOfficer: '0199f0a0-d000-7000-8000-000000000305',
     // a Boditi cashier who is also its finance officer: never decides a reversal of a receipt they took
     cashFinance: '0199f0a0-d000-7000-8000-00000000c302'
 };
 const GUARDED = 'RS-05';
 const WAITING = 'RS-06';
+/** a service that waits on its payment and charges nothing */
+const FREE = 'RS-07';
 
 let pg: TestPostgres;
 let api: TestApi;
@@ -157,7 +161,13 @@ async function publishedForm(key: string, document: object): Promise<string> {
     return publication.formVersion.id;
 }
 
-async function publishService(code: string, key: string, definition: object, formVersionId: string, rule: string) {
+async function publishService(
+    code: string,
+    key: string,
+    definition: object,
+    formVersionId: string,
+    rule: string | null
+) {
     const wf = await api.call('POST', '/api/v1/workflow-definitions', as.bureau, { key, name: t(key), definition });
     expect(wf.statusCode, wf.body).toBe(201);
     const published = await api.call('POST', `/api/v1/services/${code}/versions`, as.bureau, {
@@ -171,14 +181,17 @@ async function publishService(code: string, key: string, definition: object, for
 
 /** A request filed at Boditi at the fee its preview showed, and submitted: its case. */
 async function filed(code: string, grade = 'auto'): Promise<CaseOut> {
-    const answers = { plate: `ETH ABC ${String(Math.floor(Math.random() * 9000) + 1000)}`, grade };
+    const answers = { plate: `ETH ABC ${String(randomInt(1000, 10_000))}`, grade };
     const shown = (
         await api.call('POST', '/api/v1/fees/preview', as.boditiRecords, { serviceCode: code, answers })
-    ).json<{ feeRuleVersionId: string; totalSantim: string }>();
+    ).json<{ status: string; feeRuleVersionId: string; totalSantim: string }>();
     const started = await api.call('POST', '/api/v1/service-requests', as.boditiRecords, {
         serviceCode: code,
         answers,
-        fee: { ruleVersionId: shown.feeRuleVersionId, totalSantim: shown.totalSantim }
+        // the figure the counter showed (a service that charges nothing shows none)
+        ...(shown.status === 'complete'
+            ? { fee: { ruleVersionId: shown.feeRuleVersionId, totalSantim: shown.totalSantim } }
+            : {})
     });
     expect(started.statusCode, started.body).toBe(201);
     const c = started.json<CaseOut>();
@@ -195,6 +208,7 @@ async function filed(code: string, grade = 'auto'): Promise<CaseOut> {
 
 interface Order {
     id: string;
+    caseId: string;
     state: string;
     totalSantim: string;
     lines: { key: string; amountSantim: string }[];
@@ -255,6 +269,7 @@ beforeAll(async () => {
     as.boditiHead = { sub: SUB.boditiHead, unit: boditi };
     as.boditiRecords = { sub: SUB.boditiRecords, unit: boditi };
     as.boditiCashier = { sub: SUB.boditiCashier, unit: boditi };
+    as.boditiOfficer = { sub: SUB.boditiOfficer, unit: boditi };
     as.cashFinance = { sub: SUB.cashFinance, unit: boditi };
 
     await api.installer.scoped({}, (tx) =>
@@ -270,6 +285,8 @@ beforeAll(async () => {
     const form = await publishedForm('licence-request', FORM);
     await publishService(GUARDED, 'licence-guarded', GUARDED_FLOW, form, rule);
     await publishService(WAITING, 'licence-waiting', WAITING_FLOW, form, rule);
+    const free = await publishedForm('free-request', { ...FORM, fields: FORM.fields.filter((f) => f.type !== 'Fee') });
+    await publishService(FREE, 'free-waiting', WAITING_FLOW, free, null);
 }, 240_000);
 
 afterAll(async () => {
@@ -415,6 +432,15 @@ describe('a payment at the cashier', () => {
         ).rejects.toThrow(/append-only/);
     });
 
+    it('is taken once when two cashiers record it at the same moment', async () => {
+        const order = await orderOf((await filed(GUARDED)).id);
+        const [a, b] = await Promise.all([pay(order.id), pay(order.id, {}, as.cashFinance)]);
+        expect([a.statusCode, b.statusCode].sort()).toEqual([201, 409]);
+        expect(await count('select count(*)::int as n from fees.receipts where order_id = $1', [order.id])).toBe(1);
+        // the case's payment panel is payment data: a licensing expert reads the case, not it
+        expect((await api.call('GET', `/api/v1/cases/${order.caseId}/payment`, as.boditiOfficer)).statusCode).toBe(403);
+    });
+
     it('numbers receipts gapless per office and fiscal year when they come at the same moment, one of them failing', async () => {
         const cases = await Promise.all(Array.from({ length: 8 }, () => filed(GUARDED)));
         const orders = await Promise.all(cases.map((c) => orderOf(c.id)));
@@ -427,12 +453,12 @@ describe('a payment at the cashier', () => {
         const results = await Promise.all(orders.map((o, i) => pay(o.id, i === 2 || i === 5 ? slip : {})));
         const codes = results.map((r) => r.statusCode).sort();
         expect(codes).toEqual([201, 201, 201, 201, 201, 201, 201, 409]);
-        const { rows } = await api.owner.query<{ sequence: string }>(
-            `select sequence::text from fees.receipts where source = 'itrms' and fiscal_year = $1 and sequence > $2
+        const { rows } = await api.owner.query<{ seq: string }>(
+            `select sequence::text as seq from fees.receipts where source = 'itrms' and fiscal_year = $1 and sequence > $2
               order by sequence`,
             [year, before]
         );
-        expect(rows.map((r) => Number(r.sequence))).toEqual(Array.from({ length: 7 }, (_, i) => before + i + 1));
+        expect(rows.map((r) => Number(r.seq))).toEqual(Array.from({ length: 7 }, (_, i) => before + i + 1));
     });
 
     it('records the leaf of a pre-printed pad at an office that issues pad receipts', async () => {
@@ -450,12 +476,14 @@ describe('a payment at the cashier', () => {
             const c = await filed(GUARDED);
             const order = await orderOf(c.id);
             expect((await pay(order.id)).statusCode).toBe(422);
-            const paid = await pay(order.id, { pad: { series: 'WB-07', serial: '000123' } });
+            const paid = await pay(order.id, { pad: { series: 'WB-07', serial: '123' } });
             expect(paid.statusCode, paid.body).toBe(201);
-            expect(paid.json()).toMatchObject({ receipt: { source: 'pad', number: 'WB-07/000123' } });
+            expect(paid.json()).toMatchObject({ receipt: { source: 'pad', number: 'WB-07/123' } });
             const other = await orderOf((await filed(GUARDED)).id);
-            const used = await pay(other.id, { pad: { series: 'WB-07', serial: '000123' } });
+            const used = await pay(other.id, { pad: { series: 'WB-07', serial: '123' } });
             expect(used.json()).toMatchObject({ code: 'duplicate_reference' });
+            // `0123` is the leaf `123` written with a leading zero: refused
+            expect((await pay(other.id, { pad: { series: 'WB-07', serial: '0123' } })).statusCode).toBe(422);
         } finally {
             const reset = await api.call(
                 'DELETE',
@@ -547,6 +575,48 @@ describe('a case', () => {
         expect(kase.events.find((e) => e.kind === 'transition' && e.to === 'done')).toMatchObject({
             systemActor: 'system:fees'
         });
+    });
+
+    it('with nothing to pay does not wait on its payment', async () => {
+        const c = await filed(FREE);
+        expect(c.state).toBe('done');
+        expect(await factsOf(c.id)).toMatchObject({ payment: { orderId: null, settled: true, totalSantim: '0' } });
+    });
+
+    it("closed after it was paid has its payment's reversal refused, and only rejected", async () => {
+        let c = await filed(GUARDED);
+        const order = await orderOf(c.id);
+        const { receipt } = (await pay(order.id)).json<{ receipt: { id: string } }>();
+        // asked while the case is open
+        const asked = await api.call('POST', `/api/v1/receipts/${receipt.id}/reversals`, as.boditiCashier, {
+            reason: 'asked before the service was given'
+        });
+        expect(asked.statusCode, asked.body).toBe(201);
+        // the service is given: the case closes
+        c = await caseOf(c.id);
+        const approved = await api.call(
+            'POST',
+            `/api/v1/cases/${c.id}/transitions`,
+            as.boditiHead,
+            { action: 'approve' },
+            ifMatch(c.version)
+        );
+        expect(approved.statusCode, approved.body).toBe(200);
+        expect(approved.json<CaseOut>().closed).toBe(true);
+        const id = asked.json<{ id: string }>().id;
+        const decide = (decision: string) =>
+            api.call('POST', `/api/v1/receipt-reversals/${id}/decision`, as.zoneFinance, { decision });
+        expect((await decide('approved')).statusCode).toBe(409);
+        expect((await decide('rejected')).statusCode).toBe(200);
+        expect(await factsOf(c.id)).toMatchObject({ payment: { settled: true } });
+        // and a new request on the closed case is refused
+        expect(
+            (
+                await api.call('POST', `/api/v1/receipts/${receipt.id}/reversals`, as.boditiCashier, {
+                    reason: 'asked after the service was given'
+                })
+            ).statusCode
+        ).toBe(409);
     });
 
     it('closed with its order open has the order cancelled, once', async () => {

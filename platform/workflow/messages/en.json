@@ -161,5 +161,6 @@
   "workflow.event.payment.paid": "{who} received the payment",
   "workflow.event.payment.reversal_requested": "{who} asked to reverse the receipt",
   "workflow.event.payment.reversed": "{who} approved the reversal of the receipt",
-  "workflow.event.payment.reversal_rejected": "{who} rejected the reversal of the receipt"
+  "workflow.event.payment.reversal_rejected": "{who} rejected the reversal of the receipt",
+  "workflow.refusal.payment-next-step": "The payment is not recorded: the case's next step has nobody to take it at this office. Ask the administrator to assign the role, then record it again."
 }

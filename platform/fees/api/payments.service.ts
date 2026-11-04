@@ -58,11 +58,12 @@ export class PaymentsService {
     ) {}
 
     /** The case locked first (the one lock order), or 409 when it is closed or cannot be read here. */
-    private async lockCase(tx: Tx, caseId: string) {
+    private async lockCase(tx: Tx, caseId: string, language: string) {
         if (!this.cases) return;
         const kase = await this.cases.lock(tx, caseId);
         if (!kase) throw new NotFoundError();
-        if (kase.closed) throw new ConflictError('invalid_transition', { detail: 'The case is closed.' });
+        if (kase.closed)
+            throw new ConflictError('invalid_transition', { detail: say(language, 'fees.payment.caseClosed') });
     }
 
     /**
@@ -94,7 +95,7 @@ export class PaymentsService {
                 detail: say(language, 'fees.payment.noTill'),
                 audit: { reason: 'no_till', order: orderId }
             });
-        await this.lockCase(tx, seen.caseId);
+        await this.lockCase(tx, seen.caseId, language);
         const [order] = await tx.select().from(paymentOrders).where(eq(paymentOrders.id, orderId)).for('update');
         if (!order) throw new NotFoundError();
         if (order.state !== 'open')
@@ -281,7 +282,7 @@ export class PaymentsService {
                 detail: say(language, 'fees.payment.otherOffice'),
                 audit: { reason: 'other_office_till', receipt: receiptId }
             });
-        await this.lockCase(tx, seen.caseId);
+        await this.lockCase(tx, seen.caseId, language);
         const [payment] = await tx.select().from(payments).where(eq(payments.id, seen.paymentId)).for('update');
         if (!payment) throw new NotFoundError();
         if (payment.voidedAt) throw new ConflictError('invalid_transition', { detail: 'The receipt is reversed.' });
@@ -349,12 +350,13 @@ export class PaymentsService {
                 detail: say(language, 'fees.reversal.notApprover'),
                 audit: { reason: 'reversal_not_approver', reversal: id }
             });
-        // one lock order: the case, the order, the payment, the reversal
-        let closed = false;
+        // one lock order: the case, the order, the payment, the reversal. A closed case's payment is not reversed here: its
+        // service was given (a licence issued); a reversal then is a person's decision outside this flow
         if (this.cases) {
             const kase = await this.cases.lock(tx, seen.caseId);
             if (!kase) throw new NotFoundError();
-            closed = kase.closed;
+            if (kase.closed && input.decision === 'approved')
+                throw new ConflictError('invalid_transition', { detail: say(language, 'fees.reversal.caseClosed') });
         }
         const [order] = await tx.select().from(paymentOrders).where(eq(paymentOrders.id, seen.orderId)).for('update');
         const [payment] = await tx.select().from(payments).where(eq(payments.id, seen.paymentId)).for('update');
@@ -374,21 +376,11 @@ export class PaymentsService {
                 voidedAt: new Date(),
                 voidedByReversalId: reversal.id
             });
-            // the order may be paid again; a closed case's is done with
-            now = await updateAudited(
-                tx,
-                paymentOrders,
-                order.id,
-                order.rowVersion,
-                closed
-                    ? {
-                          state: 'cancelled',
-                          settledPaymentId: null,
-                          cancelledAt: new Date(),
-                          cancelReason: 'case_closed'
-                      }
-                    : { state: 'open', settledPaymentId: null }
-            );
+            // the order may be paid again
+            now = await updateAudited(tx, paymentOrders, order.id, order.rowVersion, {
+                state: 'open',
+                settledPaymentId: null
+            });
             await emit(
                 tx,
                 'receipt.reversed.v1',
@@ -397,22 +389,21 @@ export class PaymentsService {
             );
         }
         const [receipt] = await tx.select().from(receipts).where(eq(receipts.id, reversal.receiptId));
-        if (!closed)
-            await this.cases?.paymentChanged(
-                tx,
-                ctx,
-                reversal.caseId,
-                {
-                    payment: factsOf(now),
-                    action: input.decision === 'approved' ? 'reversed' : 'reversal_rejected',
-                    data: {
-                        receiptId: reversal.receiptId,
-                        receiptNumber: receipt?.number ?? '',
-                        note: input.note ?? null
-                    }
-                },
-                language
-            );
+        await this.cases?.paymentChanged(
+            tx,
+            ctx,
+            reversal.caseId,
+            {
+                payment: factsOf(now),
+                action: input.decision === 'approved' ? 'reversed' : 'reversal_rejected',
+                data: {
+                    receiptId: reversal.receiptId,
+                    receiptNumber: receipt?.number ?? '',
+                    note: input.note ?? null
+                }
+            },
+            language
+        );
         return this.reversal(tx, decided.id);
     }
 

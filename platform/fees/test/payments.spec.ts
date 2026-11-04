@@ -40,9 +40,9 @@ describe('a payment', () => {
         expect(paymentInputSchema.safeParse({ ...cash, amountSantim: '400.00' }).success).toBe(false);
         expect(paymentInputSchema.safeParse({ ...cash, amountSantim: '-1' }).success).toBe(false);
         expect(paymentInputSchema.safeParse({ ...cash, pad: { series: 'WB-07', serial: '12a' } }).success).toBe(false);
-        expect(paymentInputSchema.safeParse({ ...cash, pad: { series: 'WB-07', serial: '000123' } }).success).toBe(
-            true
-        );
+        // one leaf, one value: no leading zeros
+        expect(paymentInputSchema.safeParse({ ...cash, pad: { series: 'WB-07', serial: '0123' } }).success).toBe(false);
+        expect(paymentInputSchema.safeParse({ ...cash, pad: { series: 'WB-07', serial: '123' } }).success).toBe(true);
     });
 
     it("takes its office's receipt source and the region's banks from settings of their own shape", () => {

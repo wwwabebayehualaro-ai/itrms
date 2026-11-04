@@ -20,20 +20,23 @@
    slip pays one order in the region (its reference normalised), until a reversal voids it.
 3. **The receipt is issued in the payment's transaction**: ITRMS's number from the office's counter `fees.receipt`
    (`{unit}/{seq:06}/{efy}`, set up by the seed for every office that collects cash), so a rollback gives the number back;
-   or, where the office's setting `fees.receipts.source` is `pad`, the pad's series and serial (unique per office for ever;
-   the issued ranges are checked with controlled stationery, Phase 1 task 1.12a).
+   or, where the office's setting `fees.receipts.source` is `pad`, the pad's series and serial (a serial without leading
+   zeros, unique per office for ever; the issued ranges are checked with controlled stationery, Phase 1 task 1.12a).
 4. **One lock order**: the case, then the order, then the counter (then the payment and the reversal), for every write a
    payment makes, so a payment and a transition never deadlock.
 5. **The case port** (`FEE_CASE_PORT`, provided by the workflow and bound by the services slice): in the payment's own
    transaction the workflow locks the case, replaces its fact `payment` (`{ orderId, settled, totalSantim, collection }`),
-   puts the change on its timeline (kind `payment`), and moves a case waiting on `event:payment.settled` on (actor
-   `system:fees`). A workflow may instead guard a person's action on `payment.settled`. Events (`payment.settled.v1`,
+   puts the change on its timeline (kind `payment`), and, for a payment made, moves a case waiting on
+   `event:payment.settled` on (actor `system:fees`); a case that arrives in such a wait already settled (no fee, paid
+   before) moves on at once. A reversal's request or decision never moves a case. A workflow may instead guard a
+   person's action on `payment.settled`. Events (`payment.settled.v1`,
    `receipt.issued.v1`, `receipt.reversed.v1`) go to the outbox for later consumers (0.23's receipt document).
 6. **A reversal** is asked for by a cashier of the office with a reason, and decided once by another person in a role the
    region's `fees.reversals.approverRoles` names (the finance officer by default), at the office or one above it; never the
    person who asked nor the cashier who took the money (the database checks it too). Approved, the payment is voided, the
    order open again, the case's payment unsettled; the receipt keeps its number and shows as reversed. A reversal has no
-   number of its own in Phase 0.
+   number of its own in Phase 0. A closed case's payment (its service given) is not reversed here: a request is refused,
+   and a pending one may only be rejected.
 7. A closed case's open order is cancelled (the worker, on `case.transitioned.v1`).
 
 ## Consequences

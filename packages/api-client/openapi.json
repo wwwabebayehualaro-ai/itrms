@@ -2671,7 +2671,7 @@
             "additionalProperties": false,
             "properties": {
               "serial": {
-                "pattern": "^\\d{1,10}$",
+                "pattern": "^[1-9]\\d{0,9}$",
                 "type": "string"
               },
               "series": {
