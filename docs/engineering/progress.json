@@ -1083,8 +1083,28 @@
           "notes": "Open questions decided by Claude on the product owner's instruction (2026-11-04: state of the art and Ethiopian context); all are configuration or marked assumptions, to confirm with a bureau. (1) A reference settles an order directly, not through payments/receipts: those are money at our till, the issuer's receipt is the receipt. (2) Issuers are a region setting (a revenue office plus the commercial bank by default), no reference format is assumed: QR receipts are arriving and no public layout was found. (3) Key = issuer + normalised reference (letters and digits, no leading zeros: Excel drops them) + EFY of the date paid; a rejected or revoked reference frees the key, the verifier sees earlier rejections. A bank reference also can't be used both as a till slip and as an external reference. (4) Auto-verify only on an exact match of issuer, reference, amount and date, within the importer's subtree; any difference holds for a person, never a fuzzy match. (5) A statement never verifies a reference its importer entered (SoD). (6) A verified reference is corrected by a revocation by a third person; closed cases refuse it, as reversals do. (7) Statement layout is a named, marked placeholder (reference, amount, date in ISO); layouts plug in per bank, camt.053 later."
         },
         {
-          "id": "0.23",
-          "title": "Document templates, PDF worker, QR verification",
+          "id": "0.23a",
+          "title": "Documents, part 1: templates, issuing and the PDF worker",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.23b",
+          "title": "Documents, part 2: signed QR codes and public verification",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.23c",
+          "title": "Documents, part 3: the verifier PWA",
           "status": "planned",
           "branch": null,
           "commits": [],

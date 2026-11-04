@@ -835,20 +835,34 @@ Split from 0.22 on 2026-11-01. Needs 0.22b.
 - **Done when:** the same external reference can't settle two cases; an unverified reference can't settle any.
 - **Tests:** uniqueness under concurrency, verification SoD, statement import and matching.
 
-### 0.23 Document templates, PDF worker, QR verification
+### 0.23a Documents, part 1: templates, issuing and the PDF worker
+Split from 0.23 on 2026-11-04. Needs 0.22b.
 - **Do:**
   - `document_templates` (LiquidJS, versioned, data schema, unit header inheritance) and `issued_documents`.
   - A separate **`worker-documents`** service: Puppeteer with JavaScript disabled, no network, a `default-src 'none'` CSP,
     bundled fonts, a page pool and a memory limit → S3. LiquidJS with `outputEscape: 'escape'`.
-  - QR codes with an **Ed25519-signed compact payload**, verifiable offline. A small **verifier PWA** (`apps/verify`, a static export, ADR-0032) carries the region's
-    public key. The public page `verify.<domain>/<token>` shows revocation and superseded status (rate-limited, minimal
-    data). Nginx on `verify.<domain>` proxies only `GET /v1/public/verifications/{token}` and denies everything else;
-    hash-based CSP.
-  - Templates: application copy (print mode), receipt, driver-licence certificate/card layout, exam result sheet.
-- **Done when:** PDFs render Ethiopic text and Ethiopian dates correctly; the QR resolves to valid/revoked/superseded; a
-  reprint returns the stored PDF; the API process never launches Chrome; applicant text containing `<script>` renders as
-  text; the verifier PWA validates a QR in flight mode and rejects a tampered payload.
-- **Tests:** template data-schema tests, golden PDF text-extraction tests, a verification page test, a rate-limit test.
+  - Templates: application copy (print mode), receipt, driver-licence certificate/card layout, exam result sheet. A receipt's
+    document is issued when the receipt is; `documents.issue:<template>` issues one from a workflow.
+  - A case's documents on its page; a reprint returns the stored PDF.
+- **Done when:** PDFs render Ethiopic text and Ethiopian dates correctly; a reprint returns the stored PDF; the API process
+  never launches Chrome; applicant text containing `<script>` renders as text.
+- **Tests:** template data-schema tests, golden PDF text-extraction tests.
+
+### 0.23b Documents, part 2: signed QR codes and public verification
+Split from 0.23 on 2026-11-04. Needs 0.23a.
+- **Do:**
+  - QR codes with an **Ed25519-signed compact payload**, verifiable offline; per-region keys, rotated, old keys still verify.
+  - The public page `verify.<domain>/<token>` shows revocation and superseded status (rate-limited, minimal data). Nginx on
+    `verify.<domain>` proxies only `GET /v1/public/verifications/{token}` and denies everything else; hash-based CSP.
+  - A correction supersedes a document; a reversed receipt revokes its document.
+- **Done when:** the QR resolves to valid/revoked/superseded.
+- **Tests:** a verification page test, a rate-limit test.
+
+### 0.23c Documents, part 3: the verifier PWA
+Split from 0.23 on 2026-11-04. Needs 0.23b.
+- **Do:** a small **verifier PWA** (`apps/verify`, a static export, ADR-0032) carries the region's public key.
+- **Done when:** the verifier PWA validates a QR in flight mode and rejects a tampered payload.
+- **Tests:** signature tests against the API's signer, including a tampered payload and a retired key.
 
 ### 0.24 Driver-licence slice (competency module)
 - **Do:** module `competency`:
