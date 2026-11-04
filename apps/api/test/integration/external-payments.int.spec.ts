@@ -415,9 +415,20 @@ describe('a reference entered at the counter', () => {
         // another issuer's number is another reference, and so is the same number in another fiscal year
         expect((await enter(again.id, { reference: zeros, issuer: 'CBE' })).statusCode).toBe(201);
         const lastYear = await orderOf((await filed(GUARDED)).id);
-        const previous = await enter(lastYear.id, { reference: zeros, paidOn: '2024-12-01' });
-        expect(previous.statusCode, previous.body).toBe(201);
-        expect(previous.json()).toMatchObject({ fiscalYear: 2017, paidBeforeOrder: true });
+        await api.owner.query(
+            `insert into fees.external_payment_refs (id, region_id, handling_unit_id, order_id, case_id, issuer, reference,
+                    reference_norm, fiscal_year, paid_on, amount_santim, received_from, entered_by)
+             select gen_random_uuid(), region_id, handling_unit_id, $1, case_id, issuer, reference, reference_norm,
+                    fiscal_year - 1, paid_on - 366, amount_santim, received_from, entered_by
+               from fees.external_payment_refs where issuer = 'REVENUE' and reference_norm = $2`,
+            [lastYear.id, zeros]
+        );
+        // and the verifier is told the same number is live in another year
+        expect((await orderOf(other.caseId, as.zoneFinance)).externalRefs[0]).toMatchObject({ sameNumberOtherYear: 1 });
+
+        // a date moved to an older year can't make the same receipt another reference
+        const moved = await orderOf((await filed(GUARDED)).id);
+        expect((await enter(moved.id, { reference: zeros, paidOn: '2024-12-01' })).statusCode).toBe(422);
     });
 
     it('can be neither a slip taken at a till nor one after it, in another office too', async () => {
@@ -439,6 +450,25 @@ describe('a reference entered at the counter', () => {
         const order = await orderOf((await filed(GUARDED)).id);
         const used = await enter(order.id, { issuer: 'CBE', reference });
         expect(used.json()).toMatchObject({ code: 'duplicate_reference' });
+
+        // the same number in another fiscal year is another deposit
+        const older = await orderOf((await filed(AT_TILL)).id, as.boditiCashier);
+        const oldSlip = fresh();
+        const taken2024 = await api.call(
+            'POST',
+            `/api/v1/payment-orders/${older.id}/payments`,
+            as.boditiCashier,
+            {
+                method: 'bank_slip',
+                amountSantim: '40000',
+                receivedFrom: 'Generated Applicant',
+                bankSlip: { bank: 'CBE', reference: oldSlip, paidOn: '2024-12-01' }
+            },
+            { 'idempotency-key': randomUUID() }
+        );
+        expect(taken2024.statusCode, taken2024.body).toBe(201);
+        const later = await orderOf((await filed(GUARDED)).id);
+        expect((await enter(later.id, { issuer: 'CBE', reference: oldSlip })).statusCode).toBe(201);
 
         const reference2 = fresh();
         expect((await enter(order.id, { issuer: 'CBE', reference: reference2 })).statusCode).toBe(201);
@@ -575,6 +605,13 @@ describe('a decision on a reference', () => {
         // a licensing expert reads the case, not its payment
         expect((await api.call('GET', `/api/v1/cases/${c.id}/payment`, as.boditiOfficer)).statusCode).toBe(403);
         expect((await api.call('GET', '/api/v1/external-payment-refs', as.boditiOfficer)).statusCode).toBe(403);
+        // nor the reference on the case's timeline: whoever reads only the case sees that one was entered
+        const timeline = (await caseOf(c.id, as.boditiOfficer)).events.find((e) => e.action === 'reference_entered');
+        expect(timeline?.payment?.receiptNumber).toBeNull();
+        const theirTimeline = (await caseOf(c.id, as.boditiRecords)).events.find(
+            (e) => e.action === 'reference_entered'
+        );
+        expect(theirTimeline?.payment?.receiptNumber).toBe(`REVENUE/${ref.reference}`);
         const inbox = await api.call('GET', '/api/v1/external-payment-refs', as.zoneFinance);
         expect(inbox.json<{ items: Ref[] }>().items.map((r) => r.id)).toContain(ref.id);
         const theirs = await api.call('GET', '/api/v1/external-payment-refs', as.damotFinance);
@@ -604,6 +641,24 @@ describe('a revocation', () => {
         expect((await enter(right.id, { reference })).statusCode).toBe(201);
     });
 
+    it('of one a statement verified is not undone by entering it again', async () => {
+        const c = await filed(GUARDED);
+        const reference = fresh();
+        const ref = (await enter((await orderOf(c.id)).id, { reference })).json<Ref>();
+        const statement = await imported([`${reference},400,${today()}`]);
+        expect((await orderOf(c.id)).externalRefs[0]).toMatchObject({ state: 'verified', verifiedVia: 'statement' });
+        expect((await revoke(ref.id, as.zoneFinance)).statusCode).toBe(200);
+        expect((await linesOf(statement))[0]).toMatchObject({ state: 'held', reason: 'reference_revoked' });
+
+        const again = (await enter((await orderOf(c.id)).id, { reference })).json<Ref>();
+        await matchEntered(system, deps, again.id);
+        await processStatement(system, deps, statement);
+        expect((await orderOf(c.id)).state).toBe('open');
+        expect((await orderOf(c.id)).externalRefs[0]).toMatchObject({ id: again.id, state: 'pending_verification' });
+        // a person still can
+        expect((await decide(again.id, as.counterFinance)).statusCode).toBe(200);
+    });
+
     it('is refused once the case is closed: its service was given', async () => {
         const c = await filed(WAITING);
         const ref = (await enter((await orderOf(c.id)).id)).json<Ref>();
@@ -621,6 +676,14 @@ describe('a statement', () => {
         const statement = await imported([`${reference},400.00,${today()}`]);
         const lines = await linesOf(statement);
         expect(lines[0]).toMatchObject({ lineNo: 1, reference, state: 'matched' });
+        // every line, and its verdict, on record
+        expect(
+            await count(
+                `select count(*)::int as n from kernel.audit_log a join fees.external_statement_lines l on l.id = a.row_id
+                  where a.table_name = 'fees.external_statement_lines' and l.statement_id = $1 and a.action = 'insert'`,
+                [statement]
+            )
+        ).toBe(lines.length);
         expect(await orderOf(c.id)).toMatchObject({ state: 'settled' });
         expect((await orderOf(c.id)).externalRefs[0]).toMatchObject({
             id: ref.id,
@@ -735,6 +798,7 @@ describe('a statement', () => {
                 { issuer: 'CBE', statementDate: today(), filename: 'a.csv', content: body },
                 { 'idempotency-key': randomUUID() }
             );
+        expect((await post('reference,amount,date\nA\u0000B,1,2026-01-01')).statusCode).toBe(422);
         const first = await post(content);
         expect(first.statusCode, first.body).toBe(201);
         expect((await post(content)).json()).toMatchObject({ code: 'duplicate_reference' });
@@ -760,6 +824,23 @@ describe('a statement', () => {
         await processStatement(system, deps, id);
         await processStatement(system, deps, id);
         expect((await linesOf(id)).length).toBe(1);
+    });
+
+    it('keeps a cell the database could not hold as a bad line, and reads the rest', async () => {
+        const reference = fresh();
+        const id = await imported([
+            `${fresh()},"1,000,000,000,000,000,000,000",${today()}`,
+            `${fresh()},400,0000-01-01`,
+            `${reference},400,${today()}`
+        ]);
+        const lines = await linesOf(id);
+        expect(lines.slice(0, 3).map((l) => [l.state, l.reason])).toEqual([
+            ['invalid', 'amount'],
+            ['invalid', 'date'],
+            ['unmatched', null]
+        ]);
+        const read = await api.call('GET', `/api/v1/external-statements/${id}`, as.zoneFinance);
+        expect(read.json()).toMatchObject({ state: 'processed' });
     });
 
     it('fails on record when the worker finds the file is not readable', async () => {

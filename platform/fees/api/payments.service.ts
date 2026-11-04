@@ -27,7 +27,7 @@ import {
     type ReversalOut
 } from '../contracts';
 import { FEE_CASE_PORT, type FeeCasePort } from './case-port';
-import { externalReferenceKey, normalisedReference } from './external-refs';
+import { externalReferenceKey, fiscalYearOfDay, normalisedReference } from './external-refs';
 import { addisToday } from './fees.service';
 import { paymentOrderLines, paymentOrders, payments, receiptReversals, receipts } from './fees.table';
 import { factsOf, PaymentOrdersService, say } from './payment-orders.service';
@@ -125,7 +125,7 @@ export class PaymentsService {
                 throw fieldError('bankSlip.paidOn', 'invalid', say(language, 'fees.payment.slipFuture'));
             // the same deposit entered as a reference paid elsewhere: another office's, past this request's RLS
             const used = await tx.execute<{ used: boolean }>(
-                sql`select fees.external_reference_in_use(${slip.bank}, ${externalReferenceKey(slip.reference)}) as used`
+                sql`select fees.external_reference_in_use(${slip.bank}, ${externalReferenceKey(slip.reference)}, ${fiscalYearOfDay(slip.paidOn)}::int) as used`
             );
             if (used.rows[0]?.used)
                 throw new ConflictError('duplicate_reference', { detail: say(language, 'fees.payment.slipUsed') });

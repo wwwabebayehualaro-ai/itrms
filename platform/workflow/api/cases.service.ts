@@ -117,16 +117,17 @@ export function slaOfState(config: unknown, state: WorkflowState) {
 const CATALOGUES: Record<string, Record<string, string>> = { am, en };
 
 /**
- * What a payment's timeline entry shows: its receipt (only these, as text) and, to whom `receipt-reversal:read` lets read
- * reversals, a reversal's reason or note: free text about a person's money, not the case's.
+ * What a payment's timeline entry shows: its receipt (only these, as text); to whom `receipt-reversal:read` lets read
+ * reversals, a reversal's reason or note: free text about a person's money, not the case's; and a reference paid elsewhere
+ * (it has no receipt of ours) to whom `external-payment:read` lets read those.
  */
-const paymentOf = (data: Record<string, unknown> | null, mayReadReversals: boolean) => {
+const paymentOf = (data: Record<string, unknown> | null, may: { readReversals: boolean; readReferences: boolean }) => {
     const textOf = (v: unknown) => (typeof v === 'string' ? v : null);
     return {
         receiptId: textOf(data?.receiptId),
-        receiptNumber: textOf(data?.receiptNumber),
-        reason: mayReadReversals ? textOf(data?.reason) : null,
-        note: mayReadReversals ? textOf(data?.note) : null
+        receiptNumber: textOf(data?.receiptId) !== null || may.readReferences ? textOf(data?.receiptNumber) : null,
+        reason: may.readReversals ? textOf(data?.reason) : null,
+        note: may.readReversals ? textOf(data?.note) : null
     };
 };
 
@@ -1304,7 +1305,10 @@ export class CasesService implements FeeCasePort {
                     : null,
                 payment:
                     e.kind === 'payment'
-                        ? paymentOf(e.data, actor.permissions?.has('receipt-reversal:read') === true)
+                        ? paymentOf(e.data, {
+                              readReversals: actor.permissions?.has('receipt-reversal:read') === true,
+                              readReferences: actor.permissions?.has('external-payment:read') === true
+                          })
                         : null,
                 at: e.createdAt.toISOString()
             })),

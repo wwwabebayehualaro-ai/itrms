@@ -27,6 +27,8 @@ export function santimOfBirr(text: string): bigint | null {
     // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- anchored, the groups cannot overlap (linear time), and a statement's cells are bounded
     if (!/^(?:\d{1,3}(?:,\d{3})+|\d{1,15})(?:\.\d{1,2})?$/.test(value)) return null;
     const [whole = '0', cents = ''] = value.replaceAll(',', '').split('.');
+    // grouped or not: what the column can hold, or the whole file's transaction would fail on this one cell
+    if (whole.length > 15) return null;
     const santim = BigInt(whole) * 100n + BigInt(cents.padEnd(2, '0'));
     return santim > 0n ? santim : null;
 }
@@ -35,6 +37,8 @@ export function santimOfBirr(text: string): bigint | null {
 function isDay(text: string): boolean {
     // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- anchored, fixed-length digit runs (linear time)
     if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
+    // PostgreSQL has no year 0, and no statement is that old
+    if (text < '1900-01-01') return false;
     const day = new Date(`${text}T00:00:00Z`);
     return !Number.isNaN(day.getTime()) && day.toISOString().slice(0, 10) === text;
 }

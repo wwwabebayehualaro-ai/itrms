@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // PreToolUse hook (Bash, PowerShell): git guardrails (docs/engineering/workflow.md §5).
-// Denies commands that bypass checks or destroy history; a push to origin goes ahead, a push elsewhere asks.
+// Denies commands that bypass checks or destroy history; a plain push of a branch to origin goes ahead, any other asks.
 // Input: hook JSON on stdin ({ tool_name, tool_input: { command } }). Output: a permission decision, or nothing.
 let raw = '';
 process.stdin.setEncoding('utf8');
@@ -36,20 +36,22 @@ function argsOnly(cmd) {
         .replace(/'([^']*)'|"((?:[^"\\]|\\.)*)"/g, (m, a, b) => (/\s/.test(a ?? b) ? ' ' : (a ?? b)));
 }
 
+const SAFE_PUSH = /^git push( (-u|--set-upstream))? origin( [A-Za-z0-9][A-Za-z0-9._/-]*)?$/;
+
 function decide(cmd) {
     const c = ` ${argsOnly(cmd).replace(/\s+/g, ' ')} `;
     const deny = [
         [/\s--no-verify\b/, 'Hooks and checks are never skipped (--no-verify). Fix the failing check instead.'],
         [
-            /\sgit\s+(-c\s+\S+\s+)*push\b[^|;&]*\s(--force\b|-f\b|--force-with-lease\b|\+\S)/,
+            /\sgit\s+(-[cC](\s+\S+)?\s+)*push\b[^|;&]*\s(--force\b|-f\b|--force-with-lease\b|\+\S)/,
             'Force-push rewrites shared history. Ask the product owner; it is never done by a session.'
         ],
         [
-            /\sgit\s+(-c\s+\S+\s+)*reset\b[^|;&]*\s--hard\b/,
+            /\sgit\s+(-[cC](\s+\S+)?\s+)*reset\b[^|;&]*\s--hard\b/,
             'git reset --hard discards work. Use git stash or a new commit; destructive resets need the product owner.'
         ],
         [
-            /\sgit\s+(-c\s+\S+\s+)*clean\b[^|;&]*\s-[a-zA-Z]*f/,
+            /\sgit\s+(-[cC](\s+\S+)?\s+)*clean\b[^|;&]*\s-[a-zA-Z]*f/,
             'git clean -f deletes untracked files permanently. Ask the product owner first.'
         ],
         [
@@ -58,25 +60,18 @@ function decide(cmd) {
         ]
     ];
     for (const [re, reason] of deny) if (re.test(c)) return { kind: 'deny', reason };
-    const pushes = [...c.matchAll(/\sgit\s+(-c\s+\S+\s+)*push\b([^|;&]*)/g)];
-    if (pushes.length > 0) {
-        // The product owner lets sessions push to origin without asking (2026-11-04). Another remote still asks
-        // (origin is the one repo in use), and so does a push this reading can't be sure of.
-        const toOrigin = pushes.every(({ 2: rest = '' }) => {
-            const words = rest.trim().split(' ').filter(Boolean);
-            const remote = words.find((word) => !word.startsWith('-'));
-            const known = words.every((word) => !word.startsWith('-') || /^(-u|--set-upstream)$/.test(word));
-            return known && (remote === undefined || remote === 'origin');
-        });
-        if (!toOrigin)
-            return {
-                kind: 'ask',
-                reason: 'This pushes somewhere other than origin, or in a way the guard cannot read.'
-            };
-        // only a push on its own is approved here: an approval would cover everything else in a longer command, which the
-        // normal permission flow decides
-        const alone = !/[|;&`$<>\n]/.test(cmd);
-        return alone ? { kind: 'allow', reason: 'Pushing to origin is allowed (product owner, 2026-11-04).' } : null;
+    if (/\sgit\s+(-[cC](\s+\S+)?\s+)*push\b/.test(c)) {
+        // The product owner lets sessions push to origin without asking (2026-11-04), and only this: a plain branch, named
+        // on origin. Deleting a branch, another remote, a changed git setting or environment still asks.
+        const flat = (text) => text.trim().replace(/\s+/g, ' ');
+        if (SAFE_PUSH.test(flat(cmd)))
+            return { kind: 'allow', reason: 'A push to origin (product owner, 2026-11-04).' };
+        // in a longer command an approval here would cover the rest too: the normal permission flow decides
+        const parts = argsOnly(cmd)
+            .split(/&&|\|\||[;|&\n]/)
+            .map(flat);
+        const safe = parts.filter((part) => /\bgit\b.*\bpush\b/.test(part)).every((part) => SAFE_PUSH.test(part));
+        return safe ? null : { kind: 'ask', reason: 'This is not a plain push of a branch to origin.' };
     }
     return null;
 }

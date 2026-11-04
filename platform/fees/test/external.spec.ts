@@ -68,7 +68,18 @@ describe('an amount on a statement', () => {
     });
 
     it("refuses what isn't a credit in Birr", () => {
-        for (const text of ['', '0', '0.00', '-400', '12,50', '1,2,3', '400.123', 'ETB 400', '1e3'])
+        for (const text of [
+            '',
+            '0',
+            '0.00',
+            '-400',
+            '12,50',
+            '1,2,3',
+            '400.123',
+            'ETB 400',
+            '1e3',
+            '1,000,000,000,000,000,000,000'
+        ])
             expect(santimOfBirr(text), text).toBeNull();
     });
 });
@@ -97,7 +108,8 @@ describe('a statement in the placeholder layout', () => {
                 'A2,400,01/11/2026',
                 'A3,400,2026-02-30',
                 'A4,400,2999-01-01',
-                'A5,400,2026-11-01'
+                'A5,400,2026-11-01',
+                'A6,400,0000-01-01'
             ].join('\n')
         );
         expect(parsed.ok && parsed.lines.map((l) => l.invalid)).toEqual([
@@ -106,7 +118,8 @@ describe('a statement in the placeholder layout', () => {
             'date',
             'date',
             'future_date',
-            null
+            null,
+            'date'
         ]);
     });
 

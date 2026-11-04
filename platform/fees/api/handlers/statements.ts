@@ -7,7 +7,7 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { actFor, insertAudited, updateAudited, type Tx } from '@itrms/kernel/db';
 import type { SystemDatabase } from '@itrms/kernel/db/system';
-import { ConflictError } from '@itrms/kernel/errors';
+import { AppError } from '@itrms/kernel/errors';
 
 import { STATEMENT_LAYOUT } from '../../contracts';
 import type { FeeCasePort } from '../case-port';
@@ -23,8 +23,13 @@ export interface StatementDeps {
 
 type LineRow = typeof externalStatementLines.$inferSelect;
 
-/** Lines still able to verify a reference: a new entry may make what held a line right. */
+/**
+ * Lines still able to verify a reference: a new entry may make what held a line right. Not one whose reference was
+ * revoked: re-entering it would undo the revocation, so a person decides.
+ */
 const OPEN_LINES = ['unmatched', 'amount_mismatch', 'held'] as const;
+const isOpen = (line: Pick<LineRow, 'state' | 'reason'>) =>
+    OPEN_LINES.includes(line.state as (typeof OPEN_LINES)[number]) && line.reason !== 'reference_revoked';
 
 const actAs = (tx: Tx, row: { regionId: string; handlingUnitId: string; orgPath: string }) =>
     actFor(tx, { regionId: row.regionId, unitId: row.handlingUnitId, scopePath: row.orgPath });
@@ -125,7 +130,7 @@ export async function matchLine(system: SystemDatabase, deps: StatementDeps, lin
     try {
         await system.systemContext('fees.statement_match', async (tx) => {
             const [seen] = await tx.select().from(externalStatementLines).where(eq(externalStatementLines.id, lineId));
-            if (!seen || !OPEN_LINES.includes(seen.state as (typeof OPEN_LINES)[number])) return;
+            if (!seen || !isOpen(seen)) return;
             const seenRef = await findRef(tx, seen);
             if (!seenRef) return;
             const kase = await deps.cases?.lock(tx, seenRef.caseId);
@@ -151,7 +156,7 @@ export async function matchLine(system: SystemDatabase, deps: StatementDeps, lin
                 .where(eq(externalStatements.id, seen.statementId));
             if (!order || !ref || !line || !statement) return;
             if (ref.state !== 'pending_verification' || order.state !== 'open') return;
-            if (!OPEN_LINES.includes(line.state as (typeof OPEN_LINES)[number])) return;
+            if (!isOpen(line)) return;
             if (line.amountSantim === null || line.paidOn === null) return;
             actAs(tx, ref);
             const verdict = judgeLine({
@@ -169,8 +174,9 @@ export async function matchLine(system: SystemDatabase, deps: StatementDeps, lin
                 await settleByReference(tx, {}, deps.cases, { order, ref, via: 'statement', language: 'am' });
         });
     } catch (error) {
-        // the case's next step can't be taken (nobody holds its role): the money waits for a person, the file goes on
-        if (!(error instanceof ConflictError)) throw error;
+        // a refusal (nobody holds the next step's role, an effect's rule): the money waits for a person, the file goes on.
+        // Anything else may pass: the job is retried, and the lines done stay done
+        if (!(error instanceof AppError)) throw error;
         await system.systemContext('fees.statement_match', async (tx) => {
             const [line] = await tx
                 .select()

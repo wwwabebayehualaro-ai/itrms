@@ -386,8 +386,8 @@ describe('every tenant table', () => {
             ORDER BY 1`);
         expect(rows.map((r) => r.name)).toEqual([
             // one deposit pays once, as a slip at a till or a reference elsewhere: yes or no for the caller's region (ADR-0043)
-            'fees.external_reference_in_use(text,text)',
-            'fees.slip_in_use(text,text)',
+            'fees.external_reference_in_use(text,text,integer)',
+            'fees.slip_in_use(text,text,date,date)',
             // which of the form versions the caller reads a second person approved (task 0.19b)
             'forms.approved_versions(uuid[])',
             // the caller's region's first data key, once (task 0.14)

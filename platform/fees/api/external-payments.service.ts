@@ -33,7 +33,7 @@ import {
 } from '../contracts';
 import { FEE_CASE_PORT, type FeeCasePort } from './case-port';
 import { settleByReference } from './external-settlement';
-import { externalReferenceKey, fiscalYearOfDay, refsOut } from './external-refs';
+import { addisDayOf, externalReferenceKey, fiscalYearDays, fiscalYearOfDay, refsOut } from './external-refs';
 import { addisToday } from './fees.service';
 import { externalPaymentRefs, externalStatementLines, externalStatements, paymentOrders } from './fees.table';
 import { factsOf, say } from './payment-orders.service';
@@ -51,6 +51,24 @@ const isUniqueViolation = (error: unknown, constraint: string): boolean => {
     }
     return false;
 };
+
+/** A statement as it is read: never its file, which only the worker needs. */
+const STATEMENT_COLUMNS = {
+    id: externalStatements.id,
+    handlingUnitId: externalStatements.handlingUnitId,
+    issuer: externalStatements.issuer,
+    statementDate: externalStatements.statementDate,
+    filename: externalStatements.filename,
+    layout: externalStatements.layout,
+    state: externalStatements.state,
+    failure: externalStatements.failure,
+    importedBy: externalStatements.importedBy,
+    createdAt: externalStatements.createdAt
+};
+type StatementRow = Omit<
+    typeof externalStatements.$inferSelect,
+    'content' | 'sha256' | 'regionId' | 'orgPath' | 'createdBy' | 'updatedAt' | 'updatedBy' | 'rowVersion'
+>;
 
 @Injectable()
 export class ExternalPaymentsService {
@@ -115,9 +133,16 @@ export class ExternalPaymentsService {
         if (key === '') throw fieldError('reference', 'invalid', say(language, 'fees.external.invalid.reference'));
         if (input.paidOn > addisToday())
             throw fieldError('paidOn', 'invalid', say(language, 'fees.external.paidOnFuture'));
+        // the year is in the key: a date moved to an older year must not make the same receipt another reference
+        const year = fiscalYearOfDay(input.paidOn);
+        if (year < fiscalYearOfDay(addisDayOf(order.createdAt)))
+            throw fieldError('paidOn', 'invalid', say(language, 'fees.external.paidOnOldYear'));
 
         // the same deposit taken at a till as a slip: another office's, past this request's RLS
-        const used = await tx.execute<{ used: boolean }>(sql`select fees.slip_in_use(${input.issuer}, ${key}) as used`);
+        const { first, last } = fiscalYearDays(year);
+        const used = await tx.execute<{ used: boolean }>(
+            sql`select fees.slip_in_use(${input.issuer}, ${key}, ${first}::date, ${last}::date) as used`
+        );
         if (used.rows[0]?.used)
             throw new ConflictError('duplicate_reference', { detail: say(language, 'fees.external.referenceUsed') });
 
@@ -131,7 +156,7 @@ export class ExternalPaymentsService {
                 issuer: input.issuer,
                 reference: input.reference,
                 referenceNorm: key,
-                fiscalYear: fiscalYearOfDay(input.paidOn),
+                fiscalYear: year,
                 paidOn: input.paidOn,
                 amountSantim: order.totalSantim,
                 receivedFrom: input.receivedFrom,
@@ -266,13 +291,13 @@ export class ExternalPaymentsService {
             state: 'open',
             settledExternalRefId: null
         });
-        // what the person can't see stays matched: a new entry then goes to a person, which is the safe way round
+        // a line it matched never verifies this number again by itself: else re-entering it undoes the revocation. A person
+        // decides from here. A line this person can't see stays matched, which verifies nothing either.
         const lines = await tx.select().from(externalStatementLines).where(eq(externalStatementLines.refId, ref.id));
         for (const line of lines)
             await updateAudited(tx, externalStatementLines, line.id, line.rowVersion, {
-                state: 'unmatched',
-                reason: null,
-                refId: null
+                state: 'held',
+                reason: 'reference_revoked'
             });
         await this.cases?.paymentChanged(
             tx,
@@ -369,7 +394,7 @@ export class ExternalPaymentsService {
     /** The statements the person sees, newest first, with how far each got. */
     async statements(tx: Tx, limit: number): Promise<StatementOut[]> {
         const rows = await tx
-            .select()
+            .select(STATEMENT_COLUMNS)
             .from(externalStatements)
             .orderBy(desc(externalStatements.createdAt))
             .limit(limit);
@@ -377,13 +402,13 @@ export class ExternalPaymentsService {
     }
 
     async statement(tx: Tx, id: string): Promise<StatementOut> {
-        const rows = await tx.select().from(externalStatements).where(eq(externalStatements.id, id));
+        const rows = await tx.select(STATEMENT_COLUMNS).from(externalStatements).where(eq(externalStatements.id, id));
         const [out] = await this.statementsOut(tx, rows);
         if (!out) throw new NotFoundError();
         return out;
     }
 
-    private async statementsOut(tx: Tx, rows: (typeof externalStatements.$inferSelect)[]): Promise<StatementOut[]> {
+    private async statementsOut(tx: Tx, rows: StatementRow[]): Promise<StatementOut[]> {
         if (rows.length === 0) return [];
         const ids = rows.map((r) => r.id);
         const [counts, units] = await Promise.all([

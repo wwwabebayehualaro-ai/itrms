@@ -30,7 +30,13 @@ import {
 } from '@itrms/ui';
 
 import { getApiErrorMessage } from '@/lib/api/errors';
-import { useDecideExternalRef, useExternalIssuers, useExternalRefInbox, type ExternalRefOut } from '@/lib/fees';
+import {
+    EXTERNAL_REF_PAGE,
+    useDecideExternalRef,
+    useExternalIssuers,
+    useExternalRefInbox,
+    type ExternalRefOut
+} from '@/lib/fees';
 import { formatDay, formatMoney } from '@/lib/format';
 import { usePreferences, useText } from '@/lib/preferences';
 
@@ -38,7 +44,10 @@ type Decision = 'verified' | 'rejected';
 
 export function ExternalRefInbox() {
     const { t } = useText();
-    const inbox = useExternalRefInbox();
+    // the last reference of each page before this one
+    const [cursors, setCursors] = useState<string[]>([]);
+    const inbox = useExternalRefInbox(cursors[cursors.length - 1] ?? null);
+    const items = inbox.data?.items ?? [];
     const [deciding, setDeciding] = useState<{ reference: ExternalRefOut; decision: Decision } | null>(null);
 
     return (
@@ -52,7 +61,7 @@ export function ExternalRefInbox() {
                     title={t('fees.external.error')}
                     description={getApiErrorMessage(inbox.error)}
                 />
-            ) : inbox.data.items.length === 0 ? (
+            ) : items.length === 0 && cursors.length === 0 ? (
                 <EmptyState title={t('fees.external.empty')} description={t('fees.external.emptyHint')} />
             ) : (
                 <Table data-external-inbox>
@@ -69,7 +78,7 @@ export function ExternalRefInbox() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {inbox.data.items.map((r) => (
+                        {items.map((r) => (
                             <RefRow
                                 key={r.id}
                                 reference={r}
@@ -78,6 +87,27 @@ export function ExternalRefInbox() {
                         ))}
                     </TableBody>
                 </Table>
+            )}
+            {(cursors.length > 0 || items.length === EXTERNAL_REF_PAGE) && (
+                <div className="flex items-center justify-end gap-2">
+                    <Button
+                        variant="outline"
+                        disabled={cursors.length === 0}
+                        onClick={() => setCursors((c) => c.slice(0, -1))}
+                    >
+                        {t('fees.cashier.previous')}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        disabled={items.length < EXTERNAL_REF_PAGE}
+                        onClick={() => {
+                            const last = items[items.length - 1];
+                            if (last) setCursors((c) => [...c, last.id]);
+                        }}
+                    >
+                        {t('fees.cashier.next')}
+                    </Button>
+                </div>
             )}
             {deciding && <DecisionDialog {...deciding} onClose={() => setDeciding(null)} />}
         </div>
@@ -90,6 +120,7 @@ function Flags({ reference: r }: { reference: ExternalRefOut }) {
     const calendar = usePreferences((s) => s.calendar);
     const flags: string[] = [];
     if (r.rejectedBefore > 0) flags.push(t('fees.external.flag.rejectedBefore', { count: String(r.rejectedBefore) }));
+    if (r.sameNumberOtherYear > 0) flags.push(t('fees.external.flag.otherYear'));
     if (r.paidBeforeOrder) flags.push(t('fees.external.flag.paidBeforeOrder'));
     if (!r.statement) flags.push(t('fees.external.flag.statementNone'));
     else {

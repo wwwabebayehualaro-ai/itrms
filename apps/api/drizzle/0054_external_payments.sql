@@ -221,11 +221,14 @@ CREATE TRIGGER "external_statement_lines_as_filed" BEFORE UPDATE OR DELETE ON "f
 CREATE TRIGGER "external_statement_lines_no_truncate" BEFORE TRUNCATE ON "fees"."external_statement_lines"
     FOR EACH STATEMENT EXECUTE FUNCTION "fees"."append_only"();
 --> statement-breakpoint
--- One deposit can't pay twice, at a till as a slip and elsewhere as a reference. Another office's rows are past the request's
--- RLS, so these two narrow functions answer yes or no for the caller's region, and only that. Each takes a lock on the
--- reference until the transaction ends, so the two ways can't both pass at the same moment. A reference is compared
--- without leading zeros; the lock order is the case, the order, this lock, then the counter (ADR-0042).
-CREATE FUNCTION "fees"."slip_in_use"(p_bank text, p_norm text) RETURNS boolean
+CREATE INDEX "payments_slip_key_idx" ON "fees"."payments" ("region_id", "bank_code", (ltrim("slip_reference_norm", '0')))
+    WHERE "method" = 'bank_slip' AND "voided_at" IS NULL;
+--> statement-breakpoint
+-- One deposit can't pay twice in a fiscal year, at a till as a slip and elsewhere as a reference. Another office's rows are
+-- past the request's RLS, so these two narrow functions answer yes or no for the caller's region, and only that. Each takes a
+-- lock on the reference until the transaction ends, so the two ways can't both pass at the same moment. A reference is
+-- compared without leading zeros; the lock order is the case, the order, this lock, then the counter (ADR-0042).
+CREATE FUNCTION "fees"."slip_in_use"(p_bank text, p_norm text, p_first date, p_last date) RETURNS boolean
     LANGUAGE plpgsql
     SECURITY DEFINER
     SET search_path = pg_catalog, pg_temp
@@ -237,11 +240,12 @@ BEGIN
     RETURN EXISTS (
         SELECT 1 FROM fees.payments p
          WHERE p.region_id = v_region AND p.method = 'bank_slip' AND p.voided_at IS NULL
-           AND p.bank_code = p_bank AND ltrim(p.slip_reference_norm, '0') = ltrim(p_norm, '0'));
+           AND p.bank_code = p_bank AND ltrim(p.slip_reference_norm, '0') = ltrim(p_norm, '0')
+           AND p.slip_date BETWEEN p_first AND p_last);
 END;
 $$;
 --> statement-breakpoint
-CREATE FUNCTION "fees"."external_reference_in_use"(p_issuer text, p_norm text) RETURNS boolean
+CREATE FUNCTION "fees"."external_reference_in_use"(p_issuer text, p_norm text, p_year integer) RETURNS boolean
     LANGUAGE plpgsql
     SECURITY DEFINER
     SET search_path = pg_catalog, pg_temp
@@ -253,17 +257,17 @@ BEGIN
     RETURN EXISTS (
         SELECT 1 FROM fees.external_payment_refs r
          WHERE r.region_id = v_region AND r.state IN ('pending_verification', 'verified')
-           AND r.issuer = p_issuer AND ltrim(r.reference_norm, '0') = ltrim(p_norm, '0'));
+           AND r.issuer = p_issuer AND r.reference_norm = p_norm AND r.fiscal_year = p_year);
 END;
 $$;
 --> statement-breakpoint
-REVOKE ALL ON FUNCTION "fees"."slip_in_use"(text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION "fees"."slip_in_use"(text, text, date, date) FROM PUBLIC;
 --> statement-breakpoint
-REVOKE ALL ON FUNCTION "fees"."external_reference_in_use"(text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION "fees"."external_reference_in_use"(text, text, integer) FROM PUBLIC;
 --> statement-breakpoint
-GRANT EXECUTE ON FUNCTION "fees"."slip_in_use"(text, text) TO itrms_app;
+GRANT EXECUTE ON FUNCTION "fees"."slip_in_use"(text, text, date, date) TO itrms_app;
 --> statement-breakpoint
-GRANT EXECUTE ON FUNCTION "fees"."external_reference_in_use"(text, text) TO itrms_app;
+GRANT EXECUTE ON FUNCTION "fees"."external_reference_in_use"(text, text, integer) TO itrms_app;
 --> statement-breakpoint
 GRANT SELECT, INSERT ON "fees"."external_payment_refs", "fees"."external_statements" TO itrms_app;
 --> statement-breakpoint

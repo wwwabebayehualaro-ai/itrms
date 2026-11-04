@@ -189,14 +189,20 @@ export function useExternalIssuers() {
     });
 }
 
-/** The references the person sees, waiting for a decision. */
-export function useExternalRefInbox() {
+/** The references the person sees, waiting for a decision, a page at a time from the last one seen. */
+export const EXTERNAL_REF_PAGE = 50;
+export function useExternalRefInbox(after: string | null) {
     return useQuery({
-        queryKey: feeKeys.externalRefs(),
+        queryKey: [...feeKeys.externalRefs(), after],
+        placeholderData: keepPreviousData,
         queryFn: async ({ signal }) =>
             (
                 await client.get<{ items: ExternalRefOut[] }>('v1/external-payment-refs', {
-                    params: { state: 'pending_verification' },
+                    params: {
+                        state: 'pending_verification',
+                        limit: EXTERNAL_REF_PAGE,
+                        ...(after ? { after } : {})
+                    },
                     signal
                 })
             ).data
@@ -241,12 +247,20 @@ export function useStatements() {
     });
 }
 
-export function useStatementLines(statementId: string) {
+/** A statement's lines to look at, a page at a time after a line; while the worker reads it, they follow it. */
+export const STATEMENT_LINE_PAGE = 100;
+export function useStatementLines(statementId: string, after: number, live: boolean) {
     return useQuery({
-        queryKey: feeKeys.statementLines(statementId),
+        queryKey: [...feeKeys.statementLines(statementId), after],
+        placeholderData: keepPreviousData,
+        refetchInterval: live ? 3000 : false,
         queryFn: async ({ signal }) =>
-            (await client.get<{ items: StatementLineOut[] }>(`v1/external-statements/${statementId}/lines`, { signal }))
-                .data
+            (
+                await client.get<{ items: StatementLineOut[] }>(`v1/external-statements/${statementId}/lines`, {
+                    params: { after, limit: STATEMENT_LINE_PAGE },
+                    signal
+                })
+            ).data
     });
 }
 

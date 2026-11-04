@@ -21,6 +21,8 @@
    unique in the region while the reference is pending or verified (the database's own index, whichever office asks). The
    reference is compared by its letters and digits in capitals, without leading zeros, because punctuation must not make
    another reference and a spreadsheet drops a serial's zeros. Numbers may restart each year, hence the year in the key.
+   Since the year comes from the date typed, a date in a fiscal year before the order's is refused (a receipt can't be made
+   another reference by moving its date back), and the verifier is told when the same number is live in another year.
    A deposit can't be used both ways: a slip taken at a till and a reference elsewhere each ask a narrow `SECURITY DEFINER`
    function that answers only yes or no for the caller's region (past RLS, ADR-0032) and holds a lock on the reference
    until the transaction ends.
@@ -44,8 +46,10 @@
    Amounts are read by digits, never through a number. A real layout, or ISO 20022 camt.053 when a bank offers it, is another
    entry of `LAYOUTS` in `statement-layouts.ts`. The file is at most 512 KB and 5,000 lines: one office's day.
 9. **A verified reference that proves wrong is revoked**, with a reason, by a third person in the verifier's role: never who
-   entered or verified it. The order is open again and the case unsettled; the key is free. A closed case's is refused, as a
-   reversal is (ADR-0042). An order cancelled (a changed fee, a closed case) withdraws its pending reference.
+   entered or verified it. The order is open again and the case unsettled; the key is free. The statement's line it matched
+   stays held and never verifies that number by itself again: else entering it again would undo the revocation. A closed
+   case's is refused, as a reversal is (ADR-0042). An order cancelled (a changed fee, a closed case) withdraws its pending
+   reference.
 10. **One lock order**: the case, the order, the reference, then a statement's line.
 
 ## Consequences

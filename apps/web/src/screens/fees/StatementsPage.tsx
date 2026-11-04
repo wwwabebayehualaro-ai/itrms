@@ -32,6 +32,7 @@ import {
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { useCan } from '@/lib/auth/authHooks';
 import {
+    STATEMENT_LINE_PAGE,
     useExternalIssuers,
     useImportStatement,
     useStatementLines,
@@ -83,7 +84,13 @@ export function StatementsPage() {
             ) : (
                 <StatementTable statements={items} open={open} onOpen={setOpen} />
             )}
-            {open && <Lines statementId={open} />}
+            {open && (
+                <Lines
+                    key={open}
+                    statementId={open}
+                    live={items.some((s) => s.id === open && (s.state === 'received' || s.state === 'matching'))}
+                />
+            )}
         </div>
     );
 }
@@ -261,10 +268,12 @@ function StatementTable({
 }
 
 /** The lines a person must look at, in file order. */
-function Lines({ statementId }: { statementId: string }) {
+function Lines({ statementId, live }: { statementId: string; live: boolean }) {
     const { t, language } = useText();
     const calendar = usePreferences((s) => s.calendar);
-    const lines = useStatementLines(statementId);
+    // the line each page before this one ended at
+    const [cursors, setCursors] = useState<number[]>([]);
+    const lines = useStatementLines(statementId, cursors[cursors.length - 1] ?? 0, live);
     if (lines.isPending) return <Skeleton className="h-24 w-full" />;
     if (lines.error)
         return (
@@ -278,7 +287,7 @@ function Lines({ statementId }: { statementId: string }) {
     return (
         <section className="flex flex-col gap-3">
             <h2 className="font-medium">{t('fees.statement.lines')}</h2>
-            {items.length === 0 ? (
+            {items.length === 0 && cursors.length === 0 ? (
                 <p className="text-muted-foreground text-sm">{t('fees.statement.linesEmpty')}</p>
             ) : (
                 <Table data-statement-lines>
@@ -316,6 +325,27 @@ function Lines({ statementId }: { statementId: string }) {
                         ))}
                     </TableBody>
                 </Table>
+            )}
+            {(cursors.length > 0 || items.length === STATEMENT_LINE_PAGE) && (
+                <div className="flex items-center justify-end gap-2">
+                    <Button
+                        variant="outline"
+                        disabled={cursors.length === 0}
+                        onClick={() => setCursors((c) => c.slice(0, -1))}
+                    >
+                        {t('fees.cashier.previous')}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        disabled={items.length < STATEMENT_LINE_PAGE}
+                        onClick={() => {
+                            const last = items[items.length - 1];
+                            if (last) setCursors((c) => [...c, last.lineNo]);
+                        }}
+                    >
+                        {t('fees.cashier.next')}
+                    </Button>
+                </div>
             )}
         </section>
     );

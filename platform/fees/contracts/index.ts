@@ -323,7 +323,12 @@ export const MAX_STATEMENT_LINES = 5000;
 /** A receipt or reference of money paid elsewhere, entered at the counter against the order: the whole total. */
 export const externalRefInputSchema = z.strictObject({
     issuer: z.string().regex(/^[A-Z0-9]{2,12}$/),
-    reference: z.string().trim().min(1).max(40),
+    reference: z
+        .string()
+        .trim()
+        .min(1)
+        .max(40)
+        .refine((v) => !v.includes('\0'), 'no null character'),
     amountSantim: santimTextSchema,
     paidOn: z.iso.date(),
     receivedFrom: z.string().trim().min(2).max(200)
@@ -368,6 +373,8 @@ export const externalRefOutSchema = z.object({
     revokeReason: z.string().nullable(),
     /** the same reference rejected before, where the person can see it: a reason to look twice */
     rejectedBefore: z.number().int(),
+    /** the same number live in another fiscal year: numbers may restart, or the date may be wrong */
+    sameNumberOtherYear: z.number().int(),
     /** paid before the order was issued: perhaps an old receipt used again */
     paidBeforeOrder: z.boolean(),
     /** what a statement says of it, where the person can see that statement */
@@ -386,7 +393,11 @@ export const statementImportSchema = z.strictObject({
     issuer: z.string().regex(/^[A-Z0-9]{2,12}$/),
     statementDate: z.iso.date(),
     filename: z.string().trim().min(1).max(200),
-    content: z.string().min(1).max(MAX_STATEMENT_BYTES)
+    content: z
+        .string()
+        .min(1)
+        .max(MAX_STATEMENT_BYTES)
+        .refine((v) => !v.includes('\0'), 'no null character')
 });
 export type StatementImport = z.infer<typeof statementImportSchema>;
 export const statementQuerySchema = z.object({ limit: z.coerce.number().int().min(1).max(100).default(30) });

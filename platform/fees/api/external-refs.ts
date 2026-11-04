@@ -3,7 +3,7 @@
  * reference is compared, how a cancelled order lets go of its pending one, and how one reads.
  */
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import { efy } from '@itrms/ethiopian-calendar';
+import { efy, fiscalYearRange, isoDate, toGregorian } from '@itrms/ethiopian-calendar';
 import { updateAudited, type Tx } from '@itrms/kernel/db';
 import { unitRefs } from '@itrms/kernel/org';
 import { santimText, type I18nText } from '@itrms/schemas';
@@ -32,6 +32,12 @@ export const externalReferenceKey = (reference: string): string => {
 /** The fiscal year of a day paid (Addis Ababa's noon: the day is a calendar day, never moved by a clock). */
 export const fiscalYearOfDay = (day: string): number => efy(new Date(`${day}T12:00:00+03:00`));
 
+/** A fiscal year's first and last day, as calendar days. */
+export function fiscalYearDays(year: number): { first: string; last: string } {
+    const { start, end } = fiscalYearRange(year);
+    return { first: isoDate(toGregorian(start)), last: isoDate(toGregorian(end)) };
+}
+
 /** The day an order was issued, in Addis Ababa. */
 export const addisDayOf = (instant: Date): string =>
     new Date(instant.getTime() + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -47,14 +53,14 @@ export async function withdrawPending(tx: Tx, orderId: string): Promise<void> {
 }
 
 /**
- * References as a person reads them, with what helps them decide: the same reference rejected before and what a
- * statement says of it, as far as they can see those (RLS).
+ * References as a person reads them, with what helps them decide: the same reference rejected before, the same number
+ * live in another year, and what a statement says of it, as far as they can see those (RLS).
  */
 export async function refsOut(tx: Tx, rows: readonly RefRow[]): Promise<ExternalRefOut[]> {
     if (rows.length === 0) return [];
     const orderIds = [...new Set(rows.map((r) => r.orderId))];
     const refIds = rows.map((r) => r.id);
-    const [orders, units, lines, rejected] = await Promise.all([
+    const [orders, units, lines, related] = await Promise.all([
         tx
             .select({ id: paymentOrders.id, caseNumber: paymentOrders.caseNumber, createdAt: paymentOrders.createdAt })
             .from(paymentOrders)
@@ -74,22 +80,22 @@ export async function refsOut(tx: Tx, rows: readonly RefRow[]): Promise<External
             .orderBy(asc(externalStatementLines.createdAt)),
         tx
             .select({
+                id: externalPaymentRefs.id,
                 issuer: externalPaymentRefs.issuer,
                 norm: externalPaymentRefs.referenceNorm,
                 year: externalPaymentRefs.fiscalYear,
-                n: sql<number>`count(*)::int`
+                state: externalPaymentRefs.state
             })
             .from(externalPaymentRefs)
             .where(
-                sql`${externalPaymentRefs.state} = 'rejected' and (${externalPaymentRefs.issuer}, ${externalPaymentRefs.referenceNorm}, ${externalPaymentRefs.fiscalYear})
-                    in (select issuer, reference_norm, fiscal_year from fees.external_payment_refs where id in ${refIds})`
+                sql`${externalPaymentRefs.state} in ('rejected', 'pending_verification', 'verified')
+                    and (${externalPaymentRefs.issuer}, ${externalPaymentRefs.referenceNorm})
+                    in (select issuer, reference_norm from fees.external_payment_refs where id in ${refIds})`
             )
-            .groupBy(externalPaymentRefs.issuer, externalPaymentRefs.referenceNorm, externalPaymentRefs.fiscalYear)
     ]);
     const orderOf = new Map(orders.map((o) => [o.id, o]));
     const keyOf = (issuer: string, norm: string | null, year: number | null) => `${issuer}|${norm ?? ''}|${year ?? 0}`;
     const lineOf = new Map(lines.map((l) => [keyOf(l.issuer, l.referenceNorm, l.fiscalYear), l]));
-    const rejectedOf = new Map(rejected.map((r) => [keyOf(r.issuer, r.norm, r.year), r.n]));
     return rows.map((r) => {
         const key = keyOf(r.issuer, r.referenceNorm, r.fiscalYear);
         const order = orderOf.get(r.orderId);
@@ -114,8 +120,21 @@ export async function refsOut(tx: Tx, rows: readonly RefRow[]): Promise<External
             verifiedVia: r.verifiedVia,
             note: r.note,
             revokeReason: r.revokeReason,
-            // this one, if it was rejected itself, is not "before"
-            rejectedBefore: (rejectedOf.get(key) ?? 0) - (r.state === 'rejected' ? 1 : 0),
+            rejectedBefore: related.filter(
+                (o) =>
+                    o.id !== r.id &&
+                    o.state === 'rejected' &&
+                    o.issuer === r.issuer &&
+                    o.norm === r.referenceNorm &&
+                    o.year === r.fiscalYear
+            ).length,
+            sameNumberOtherYear: related.filter(
+                (o) =>
+                    o.state !== 'rejected' &&
+                    o.issuer === r.issuer &&
+                    o.norm === r.referenceNorm &&
+                    o.year !== r.fiscalYear
+            ).length,
             paidBeforeOrder: order ? r.paidOn < addisDayOf(order.createdAt) : false,
             statement: line
                 ? {
