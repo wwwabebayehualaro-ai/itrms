@@ -23,20 +23,12 @@ type Field = ReturnType<typeof openFieldsFor>[number];
 
 /** What an answer prints as, in the document's language: an option's label, a day in the Ethiopian calendar, yes or no. */
 function valueOf(field: Field, value: unknown, language: string): string {
-    const raw = field as unknown as {
-        type?: string;
-        props?: { options?: unknown };
-        data?: { dataSource?: { staticData?: unknown } };
-    };
-    const options = raw.props?.options ?? raw.data?.dataSource?.staticData;
     const words = language === 'en' ? en : am;
     const one = (v: unknown): string => {
         if (typeof v === 'boolean') return words[v ? 'documents.answer.yes' : 'documents.answer.no'];
-        if (Array.isArray(options)) {
-            const found = (options as { value?: unknown; label?: unknown }[]).find((o) => o.value === v);
-            if (found) return pick(found.label, language);
-        }
-        if (raw.type === 'EthDate' || raw.type === 'DatePicker') return ethiopianDay(v, language);
+        const option = field.options?.find((o) => o.value === v);
+        if (option) return pick(option.label, language);
+        if (field.type === 'EthDate' || field.type === 'DatePicker') return ethiopianDay(v, language);
         return typeof v === 'string' || typeof v === 'number' ? String(v) : '';
     };
     if (value === null || value === undefined) return '';
@@ -68,7 +60,7 @@ async function applicationCopy(
             field.id in request.answers
                 ? [
                       {
-                          label: pick((field as unknown as { label?: unknown }).label, language) || field.id,
+                          label: field.label || field.id,
                           value: valueOf(field, request.answers[field.id], language)
                       }
                   ]

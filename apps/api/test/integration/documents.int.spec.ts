@@ -490,7 +490,7 @@ describe('a document', () => {
         expect(logged.rows.length).toBeGreaterThan(0);
         expect(JSON.stringify(logged.rows)).not.toContain('Kept Out Of The Log');
         await expect(
-            api.owner.query(`update documents.issued_documents set language = 'en' where id = $1`, [id])
+            api.owner.query(`update documents.issued_documents set number = 'changed' where id = $1`, [id])
         ).rejects.toThrow(/keeps what was issued/);
         await renderIssuedDocument(system, worker, id);
         await expect(
