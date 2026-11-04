@@ -34,8 +34,6 @@ export class DocumentsController {
     download(@Param('id', ParseUUIDPipe) id: string) {
         const language = currentContext()?.language ?? 'am';
         const notReady = (language === 'en' ? en : am)['documents.notReady'];
-        return this.db.scoped(requestDbContext(), (tx) =>
-            this.documents.download(tx, this.store, id, language, notReady)
-        );
+        return this.db.scoped(requestDbContext(), (tx) => this.documents.download(tx, this.store, id, notReady));
     }
 }

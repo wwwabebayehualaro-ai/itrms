@@ -1,8 +1,9 @@
 /**
  * HTML to PDF in headless Chrome (ADR-0006, ADR-0031 §10). Only the `worker-documents` process loads this: the API and the
  * main worker never launch Chrome (dependency-cruiser: only-the-pdf-worker-reaches-chrome). A page runs with JavaScript off and
- * every request refused but its own inline data, and at most `pages` run at once; the browser is replaced now and then, so
- * its memory never grows without end.
+ * every request refused but its own inline data, and at most `pages` run at once. A browser that crashed, or could not start,
+ * is forgotten so the next render starts another; one that has rendered enough is retired once its pages are done, so its
+ * memory never grows without end.
  */
 import { existsSync } from 'node:fs';
 
@@ -37,31 +38,49 @@ export interface PdfRendererOptions {
     onBlocked?: (url: string) => void;
 }
 
+/** A browser, and how far it has got. */
+interface Slot {
+    browser: Promise<Browser>;
+    active: number;
+    rendered: number;
+    retired: boolean;
+}
+
 export class PdfRenderer {
-    private browser: Promise<Browser> | undefined;
+    private current: Slot | undefined;
     private running = 0;
-    private rendered = 0;
     private readonly waiting: (() => void)[] = [];
 
     constructor(private readonly options: PdfRendererOptions) {}
 
-    private launch(): Promise<Browser> {
-        return puppeteer.launch({
-            executablePath: this.options.executablePath,
-            headless: true,
-            args: [
-                ...(this.options.noSandbox ? ['--no-sandbox', '--disable-setuid-sandbox'] : []),
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--disable-extensions',
-                '--disable-background-networking',
-                '--no-first-run',
-                '--no-default-browser-check',
-                // nothing resolves, whatever a page might ask
-                '--host-resolver-rules=MAP * ~NOTFOUND',
-                '--js-flags=--max-old-space-size=256'
-            ]
-        });
+    private launch(): Slot {
+        const slot: Slot = {
+            active: 0,
+            rendered: 0,
+            retired: false,
+            browser: puppeteer.launch({
+                executablePath: this.options.executablePath,
+                headless: true,
+                args: [
+                    ...(this.options.noSandbox ? ['--no-sandbox', '--disable-setuid-sandbox'] : []),
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--disable-extensions',
+                    '--disable-background-networking',
+                    '--no-first-run',
+                    '--no-default-browser-check',
+                    // nothing resolves, whatever a page might ask
+                    '--host-resolver-rules=MAP * ~NOTFOUND',
+                    '--js-flags=--max-old-space-size=256'
+                ]
+            })
+        };
+        const forget = () => {
+            if (this.current === slot) this.current = undefined;
+        };
+        // a browser that could not start, or that died (out of memory, killed), is not used again
+        slot.browser.then((browser) => browser.once('disconnected', forget)).catch(forget);
+        return slot;
     }
 
     private async acquire(): Promise<void> {
@@ -77,9 +96,10 @@ export class PdfRenderer {
 
     async render(html: string, paper: Paper): Promise<Uint8Array> {
         await this.acquire();
+        const slot = (this.current ??= this.launch());
+        slot.active += 1;
         try {
-            this.browser ??= this.launch();
-            const browser = await this.browser;
+            const browser = await slot.browser;
             const page = await browser.newPage();
             try {
                 const timeout = this.options.timeoutMs ?? 30_000;
@@ -97,7 +117,6 @@ export class PdfRenderer {
                     void request.abort('blockedbyclient');
                 });
                 await page.setContent(html, { waitUntil: 'load', timeout });
-                await page.evaluateHandle('document.fonts.ready').catch(() => undefined);
                 const size = PAGE[paper];
                 const pdf = await page.pdf({
                     ...(size.format ? { format: size.format } : { width: size.width, height: size.height }),
@@ -108,23 +127,27 @@ export class PdfRenderer {
                 return new Uint8Array(pdf);
             } finally {
                 await page.close().catch(() => undefined);
-                this.rendered += 1;
-                if (this.rendered >= (this.options.recycleAfter ?? 200) && this.running === 1)
-                    await this.closeBrowser();
             }
         } finally {
+            slot.active -= 1;
+            slot.rendered += 1;
+            if (slot.rendered >= (this.options.recycleAfter ?? 200)) {
+                slot.retired = true;
+                if (this.current === slot) this.current = undefined;
+            }
+            if (slot.retired && slot.active === 0) await this.closeSlot(slot);
             this.release();
         }
     }
 
-    private async closeBrowser(): Promise<void> {
-        const browser = this.browser;
-        this.browser = undefined;
-        this.rendered = 0;
-        await (await browser)?.close().catch(() => undefined);
+    private async closeSlot(slot: Slot): Promise<void> {
+        const browser = await slot.browser.catch(() => undefined);
+        await browser?.close().catch(() => undefined);
     }
 
     async close(): Promise<void> {
-        await this.closeBrowser();
+        const slot = this.current;
+        this.current = undefined;
+        if (slot) await this.closeSlot(slot);
     }
 }

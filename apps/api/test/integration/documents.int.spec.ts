@@ -68,6 +68,26 @@ const FORM = {
     fields: [
         field('applicant', 'InputText', { required: true }),
         field('nationalId', 'InputText', { classification: 'sensitive' }),
+        // inside a Sensitive group, with no classification of its own: as sensitive as its container
+        {
+            id: 'privateGroup',
+            type: 'Fieldset',
+            category: 'Container',
+            label: t('Private'),
+            classification: 'sensitive',
+            props: {},
+            behavior: { validation: { supported: true } },
+            layout: { options: { isContainer: true } }
+        },
+        {
+            id: 'motherName',
+            type: 'InputText',
+            category: 'Input',
+            parentId: 'privateGroup',
+            label: t('Mother'),
+            props: {},
+            behavior: { validation: { supported: true } }
+        },
         field('grade', 'Dropdown', {
             required: true,
             data: {
@@ -167,7 +187,12 @@ async function publishService(code: string, key: string, definition: object, for
 }
 
 async function filed(code: string, applicant = 'Generated Applicant'): Promise<CaseOut> {
-    const answers = { applicant, nationalId: `SECRET${String(randomInt(1000, 10_000))}`, grade: 'auto' };
+    const answers = {
+        applicant,
+        nationalId: `SECRET${String(randomInt(1000, 10_000))}`,
+        motherName: 'SECRET-MOTHER',
+        grade: 'auto'
+    };
     const shown = (
         await api.call('POST', '/api/v1/fees/preview', as.boditiRecords, { serviceCode: code, answers })
     ).json<{ feeRuleVersionId: string; totalSantim: string }>();
@@ -363,6 +388,7 @@ describe('a workflow', () => {
         expect(data).toContain('Automobile');
         expect(data).not.toContain('SECRET');
         expect(data).not.toContain('nationalId');
+        expect(data).not.toContain('Mother');
 
         // what the worker hands Chrome has it escaped
         let html = '';

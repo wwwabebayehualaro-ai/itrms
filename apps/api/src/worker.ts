@@ -25,7 +25,7 @@ import { createSystemDatabase } from '@itrms/kernel/db/system';
 import { AppModule } from './app.module';
 import { SLICES } from './slices';
 import { objectStoreOf } from './object-store';
-import { fail, start } from './start';
+import { fail, queueConnection, start } from './start';
 
 async function main() {
     const { config, logger } = start('worker');
@@ -98,17 +98,8 @@ async function main() {
                         })
                     )
                 );
-            const url = new URL(config.VALKEY_QUEUES_URL);
             const jobs = startJobs({
-                connection: {
-                    host: url.hostname,
-                    port: Number(url.port || 6379),
-                    password: url.password ? decodeURIComponent(url.password) : undefined,
-                    db: Number(url.pathname.slice(1) || 0),
-                    tls: url.protocol === 'rediss:' ? {} : undefined,
-                    // BullMQ's workers wait on blocking commands: no retry limit per request
-                    maxRetriesPerRequest: null
-                },
+                connection: queueConnection(config.VALKEY_QUEUES_URL),
                 system,
                 handlers,
                 logger,

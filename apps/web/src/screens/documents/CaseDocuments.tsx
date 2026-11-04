@@ -8,13 +8,13 @@ import { Button, StatusBadge, useNotify, type Tone } from '@itrms/ui';
 
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { useCan } from '@/lib/auth/authHooks';
-import { documentLink, useIssuedDocuments, type IssuedDocumentOut } from '@/lib/documents';
+import { documentLink, isBeingMade, useIssuedDocuments, type IssuedDocumentOut } from '@/lib/documents';
 import { formatMoment } from '@/lib/format';
 import { usePreferences, useText } from '@/lib/preferences';
 
 const TONE: Record<IssuedDocumentOut['state'], Tone> = { requested: 'progress', rendered: 'success', failed: 'danger' };
 
-/** Opens a document's stored PDF in a new tab. */
+/** Downloads a document's stored PDF: the store serves it as an attachment, so this page stays where it is. */
 export function OpenPdfButton({ document, label }: { document: IssuedDocumentOut; label: string }) {
     const notify = useNotify();
     return (
@@ -23,17 +23,11 @@ export function OpenPdfButton({ document, label }: { document: IssuedDocumentOut
             variant="outline"
             data-action="open-pdf"
             onClick={() => {
-                // opened at once, so a browser that blocks pop-ups sees the click
-                const tab = window.open('', '_blank', 'noopener=false');
                 void documentLink(document.id)
                     .then((url) => {
-                        if (tab) tab.location.href = url;
-                        else window.location.href = url;
+                        window.location.href = url;
                     })
-                    .catch((error: unknown) => {
-                        tab?.close();
-                        notify.error(getApiErrorMessage(error));
-                    });
+                    .catch((error: unknown) => notify.error(getApiErrorMessage(error)));
             }}
         >
             {label}
@@ -73,7 +67,11 @@ export function CaseDocuments({ caseId }: { caseId: string }) {
                                 <StatusBadge
                                     value={d.state}
                                     tone={TONE[d.state]}
-                                    label={t(`documents.state.${d.state}`)}
+                                    label={t(
+                                        d.state === 'requested' && !isBeingMade(d)
+                                            ? 'documents.state.late'
+                                            : `documents.state.${d.state}`
+                                    )}
                                 />
                             )}
                         </span>

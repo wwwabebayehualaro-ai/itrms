@@ -103,23 +103,22 @@ export function startJobs(options: JobsOptions): RunningJobs {
             );
     });
 
-    const queues = new Map<string, Queue<OutboxJob>>();
     const producerConnection = {
         ...connection,
         enableOfflineQueue: false,
         maxRetriesPerRequest: 1
     } as ConnectionOptions;
+    const queues = new Map(
+        [...new Set(Object.values(options.routes ?? {}))].map((name) => [
+            name,
+            new Queue<OutboxJob>(name, { connection: producerConnection })
+        ])
+    );
     const main = bullQueue(queue, options.jobOptions);
     const target: JobQueue = {
         add(name, data, jobId) {
-            const routed = options.routes?.[name];
-            if (!routed) return main.add(name, data, jobId);
-            let other = queues.get(routed);
-            if (!other) {
-                other = new Queue<OutboxJob>(routed, { connection: producerConnection });
-                queues.set(routed, other);
-            }
-            return bullQueue(other, options.jobOptions).add(name, data, jobId);
+            const routed = queues.get(options.routes?.[name] ?? '');
+            return (routed ? bullQueue(routed, options.jobOptions) : main).add(name, data, jobId);
         }
     };
     // one run of a loop at a time: a slow run is never overlapped by the next

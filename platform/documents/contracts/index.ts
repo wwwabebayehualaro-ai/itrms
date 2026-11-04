@@ -53,9 +53,10 @@ export const DOCUMENT_DATA_SCHEMAS = {
     }),
     'application-copy.v1': z.object({
         caseNumber: z.number().int(),
-        serviceName: i18nTextSchema,
+        /** in the document's language: a form's labels may be in only one */
+        serviceName: z.string(),
         filedOn: dayText,
-        fields: z.array(z.object({ label: i18nTextSchema, value: z.string() }))
+        fields: z.array(z.object({ label: z.string(), value: z.string() }))
     }),
     'licence-card.v1': z.object({
         number: z.string().min(1),

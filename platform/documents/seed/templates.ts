@@ -91,10 +91,10 @@ export const TEMPLATE_SEEDS: readonly TemplateSeed[] = [
 <div class="facts">
 <div><span class="term">{{ t.case }}:</span> {{ caseNumber }}</div>
 <div><span class="term">{{ t.filedOn }}:</span> {{ filedOn | ethdate }}</div>
-<div><span class="term">{{ t.service }}:</span> {{ serviceName | text }}</div>
+<div><span class="term">{{ t.service }}:</span> {{ serviceName }}</div>
 </div>
 <table><thead><tr><th>{{ t.field }}</th><th>{{ t.answer }}</th></tr></thead><tbody>
-{% for field in fields %}<tr><td>{{ field.label | text }}</td><td>{{ field.value }}</td></tr>{% endfor %}
+{% for field in fields %}<tr><td>{{ field.label }}</td><td>{{ field.value }}</td></tr>{% endfor %}
 </tbody></table>
 <p class="foot">{{ t.signature }}: ______________________</p>`
         }

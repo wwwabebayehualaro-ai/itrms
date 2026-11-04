@@ -39,6 +39,7 @@ export default defineModule({
             'issued-document:read'
         ],
         'competency.lead': [
+            'issued-document:read',
             'licence:read',
             'licence:issue',
             'licence:print',

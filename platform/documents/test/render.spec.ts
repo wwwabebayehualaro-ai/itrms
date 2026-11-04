@@ -8,7 +8,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 
 import { DOCUMENT_DATA_SCHEMAS, documentTemplateVersionSchema, type DocumentDataSchema } from '../contracts';
 import { findChrome, PdfRenderer } from '../api/render/chrome';
-import { birrText, ethiopianDay, renderHtml, templateProblems } from '../api/render/html';
+import { birrText, ethiopianDay, isTemplateProblem, renderHtml, templateProblems } from '../api/render/html';
 import { TEMPLATE_SEEDS } from '../seed/templates';
 
 const chrome = findChrome();
@@ -62,9 +62,9 @@ const SAMPLES: Record<DocumentDataSchema, Record<string, unknown>> = {
     },
     'application-copy.v1': {
         caseNumber: 18,
-        serviceName: { am: 'የመንጃ ፈቃድ እድሳት', en: 'Licence renewal' },
+        serviceName: 'የመንጃ ፈቃድ እድሳት',
         filedOn: '2026-09-11',
-        fields: [{ label: { am: 'ስም', en: 'Name' }, value: 'ሰላም ታደሰ' }]
+        fields: [{ label: 'ስም', value: 'ሰላም ታደሰ' }]
     },
     'licence-card.v1': {
         number: 'SER-000456',
@@ -163,6 +163,25 @@ describe('what a document prints', () => {
         expect(html.match(/&lt;script&gt;alert\(1\)&lt;\/script&gt;/g)).toHaveLength(2);
     });
 
+    it('has no way out of the escaping: echo, alone or in a liquid tag, is refused', async () => {
+        const render = (body: string) =>
+            renderHtml({
+                template: { body, strings: {}, paper: 'A4' },
+                data: { a: '<img src=x>' },
+                language: 'am',
+                office: OFFICE,
+                header: {},
+                issuedAt: ISSUED_AT
+            });
+        expect(templateProblems('{% echo a %}').length).toBe(1);
+        expect(templateProblems('{% liquid\n echo a\n%}').length).toBe(1);
+        await expect(render('{% echo a %}')).rejects.toThrow();
+        // and what is refused is the template's problem, never tried again
+        await render('{% echo a %}').catch((error: unknown) => expect(isTemplateProblem(error)).toBe(true));
+        await render('{{ a | nothing }}').catch((error: unknown) => expect(isTemplateProblem(error)).toBe(true));
+        expect(isTemplateProblem(new Error('Chrome died'))).toBe(false);
+    });
+
     it('allows nothing to load: its policy, and no partials from disk', async () => {
         const render = (body: string) =>
             renderHtml({
@@ -228,7 +247,7 @@ describe.skipIf(!chrome)('a PDF from Chrome', () => {
     it("shows an applicant's script as text, and runs nothing", async () => {
         const { text } = await pdfOf('application-copy', {
             ...SAMPLES['application-copy.v1'],
-            fields: [{ label: { am: 'ስም', en: 'Name' }, value: '<script>document.title="x"</script>' }]
+            fields: [{ label: 'ስም', value: '<script>document.title="x"</script>' }]
         });
         expect(text).toContain('<script>');
     }, 60_000);
@@ -254,6 +273,41 @@ describe.skipIf(!chrome)('a PDF from Chrome', () => {
         expect(text).toContain('ok');
         expect(text).not.toContain('ran-script');
     }, 60_000);
+
+    it('starts another browser after one dies, and retires one that has rendered enough', async () => {
+        const local = new PdfRenderer({
+            executablePath: chrome ?? '',
+            noSandbox: process.env.CHROME_NO_SANDBOX === '1',
+            recycleAfter: 2
+        });
+        const html = await renderHtml({
+            template: { body: '<p>ok</p>', strings: {}, paper: 'A4' },
+            data: {},
+            language: 'am',
+            office: OFFICE,
+            header: {},
+            issuedAt: ISSUED_AT
+        });
+        try {
+            // past its limit: a new browser, and the old one closed once its pages are done
+            for (let i = 0; i < 5; i += 1) expect((await local.render(html, 'A4')).byteLength).toBeGreaterThan(500);
+            // killed under it: the next render fails or not, but the one after it works
+            const inner = local as unknown as {
+                current?: { browser: Promise<{ process(): { kill(s: string): void } | null }> };
+            };
+            const running = await inner.current?.browser;
+            running?.process()?.kill('SIGKILL');
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            expect((await local.render(html, 'A4')).byteLength).toBeGreaterThan(500);
+        } finally {
+            await local.close();
+        }
+        // one that can't start fails that render, and is not kept
+        const broken = new PdfRenderer({ executablePath: 'no-such-chrome' });
+        await expect(broken.render(html, 'A4')).rejects.toThrow();
+        await expect(broken.render(html, 'A4')).rejects.toThrow();
+        await broken.close();
+    }, 120_000);
 
     it('renders at most two at a time, and all of them', async () => {
         const version = template('receipt');

@@ -6,12 +6,12 @@
 import 'reflect-metadata';
 
 import { DOCUMENTS_QUEUE } from '@itrms/documents/contracts';
-import { findChrome, pdfWorkerHandlers, PdfRenderer } from '@itrms/documents/api/pdf-worker';
+import { findChrome, fontFaces, pdfWorkerHandlers, PdfRenderer } from '@itrms/documents/api/pdf-worker';
 import { startQueueConsumer } from '@itrms/kernel/api/worker';
 import { createSystemDatabase } from '@itrms/kernel/db/system';
 
 import { objectStoreOf } from './object-store';
-import { fail, start } from './start';
+import { fail, queueConnection, start } from './start';
 
 function main() {
     const { config, logger } = start('worker');
@@ -22,6 +22,8 @@ function main() {
         if (!store) throw new Error('the PDF worker needs the object store');
         const executablePath = findChrome();
         if (!executablePath) throw new Error('the PDF worker needs Chrome: set CHROME_PATH');
+        // the bundled fonts: a bad image stops here, never one document at a time
+        fontFaces();
         const system = createSystemDatabase(config.DATABASE_SYSTEM_URL, {
             onUse: (reason, use) => {
                 if (!use.recurring) logger.info({ reason, ...use.detail }, 'system context');
@@ -29,17 +31,9 @@ function main() {
             onError: (err) => logger.warn({ err }, 'an idle system connection failed')
         });
         const renderer = new PdfRenderer({ executablePath, noSandbox: process.env.CHROME_NO_SANDBOX === '1' });
-        const url = new URL(config.VALKEY_QUEUES_URL);
         const consumer = startQueueConsumer({
             queue: DOCUMENTS_QUEUE,
-            connection: {
-                host: url.hostname,
-                port: Number(url.port || 6379),
-                password: url.password ? decodeURIComponent(url.password) : undefined,
-                db: Number(url.pathname.slice(1) || 0),
-                tls: url.protocol === 'rediss:' ? {} : undefined,
-                maxRetriesPerRequest: null
-            },
+            connection: queueConnection(config.VALKEY_QUEUES_URL),
             system,
             handlers: pdfWorkerHandlers(system, { store, renderer }),
             logger,

@@ -16,11 +16,18 @@ export const documentKeys = {
     of: (filter: { caseId?: string; subjectId?: string }) => ['documents', filter] as const
 };
 
+const LATE_MS = 5 * 60 * 1000;
+
+/** Still expected shortly. */
+export const isBeingMade = (d: IssuedDocumentOut): boolean =>
+    d.state === 'requested' && Date.now() - new Date(d.issuedAt).getTime() < LATE_MS;
+
 export function useIssuedDocuments(filter: { caseId?: string; subjectId?: string }, enabled = true) {
     return useQuery<{ items: IssuedDocumentOut[] }>({
         queryKey: documentKeys.of(filter),
         enabled,
-        refetchInterval: (query) => (query.state.data?.items.some((d) => d.state === 'requested') ? 3000 : false),
+        // not for ever: past this, its PDF is late and the page says so (an event gone dead, a worker not running)
+        refetchInterval: (query) => (query.state.data?.items.some(isBeingMade) ? 3000 : false),
         queryFn: async ({ signal }) =>
             (await client.get<{ items: IssuedDocumentOut[] }>('v1/issued-documents', { params: filter, signal })).data
     });

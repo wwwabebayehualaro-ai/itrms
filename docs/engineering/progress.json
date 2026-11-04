@@ -1090,7 +1090,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Decided by Claude on the product owner's instruction: puppeteer-core with an installed Chrome; receipts print in Amharic when issued by the worker; layouts stand in until a bureau's forms are known; a reprint downloads the stored PDF. ADR-0044."
         },
         {
           "id": "0.23b",
@@ -2724,6 +2724,16 @@
       "foundIn": "0.22c",
       "item": "Decide with a bureau: which issuers a region lists; whether a receipt paid in the fiscal year before its order is ever valid (refused now, around Hamle 1); a statement's retention (the file is kept in the row)",
       "movedTo": "product owner, with a bureau"
+    },
+    {
+      "foundIn": "0.23a",
+      "item": "A case's documents follow its transfer: an issued document stays at the unit that issued it, so a new handling unit can't list it, and the same-subject key would refuse a second issue with a clear message",
+      "movedTo": "when case transfers exist (Phase 1)"
+    },
+    {
+      "foundIn": "0.23a",
+      "item": "Editing document templates on a screen, with approval; a region's own default language for worker-issued documents; a re-render path for a document left late by a dead event, beyond sending the event back",
+      "movedTo": "Phase 1"
     }
   ]
 }

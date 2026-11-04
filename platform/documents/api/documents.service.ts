@@ -60,7 +60,7 @@ export class DocumentsService {
     }
 
     /** The stored PDF: 404 for what the person can't see, 409 until it has been made. */
-    async download(tx: Tx, store: ObjectStore, id: string, language: string, notReady: string) {
+    async download(tx: Tx, store: ObjectStore, id: string, notReady: string) {
         const [row] = await tx.select().from(issuedDocuments).where(eq(issuedDocuments.id, id));
         if (!row) throw new NotFoundError();
         if (row.state !== 'rendered' || !row.fileId)

@@ -31,6 +31,21 @@ export interface IssueInput {
 /** The day an instant falls on in Addis Ababa, as a stored day. */
 export const addisDay = (instant: Date): string => isoDate(addisDate(instant));
 
+const insertIssued = async (tx: Tx, values: typeof issuedDocuments.$inferInsert): Promise<IssuedRow> => {
+    try {
+        return await insertAudited(tx, issuedDocuments, values);
+    } catch (error) {
+        // issued already by an office this person can't see, or at the same moment: never a raw database error
+        for (let e: unknown = error; e; e = (e as { cause?: unknown }).cause)
+            if ((e as { constraint?: string }).constraint === 'issued_documents_subject_uq')
+                throw new ConflictError('invalid_transition', {
+                    detail: 'This document has been issued already, by another office or a moment ago.',
+                    cause: error
+                });
+        throw error;
+    }
+};
+
 export async function issueDocument(
     tx: Tx,
     settings: Pick<SettingsService, 'value'>,
@@ -68,7 +83,7 @@ export async function issueDocument(
         });
     const header = await settings.value<DocumentHeader>(tx, input.handlingUnitId, DOCUMENT_HEADER_SETTING);
     const unit = (await unitRefs(tx, [input.handlingUnitId])).get(input.handlingUnitId);
-    const issued = await insertAudited(tx, issuedDocuments, {
+    const issued = await insertIssued(tx, {
         regionId: input.regionId,
         handlingUnitId: input.handlingUnitId,
         templateId: template.id,

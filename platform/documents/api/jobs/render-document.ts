@@ -1,26 +1,45 @@
 /**
  * The PDF worker's job (task 0.23a): on `document.render.v1`, a document's PDF is made from what was frozen when it was
  * issued, put in the store outside any transaction (Chrome and a large file never hold a connection), and recorded in one (the
- * row locked: a second delivery records nothing, and its object is removed). A template or data problem is the document's
- * and is kept on record; anything else (Chrome, the store) is thrown for the job to try again.
+ * row locked: a second delivery records nothing, and its object is removed). A problem in the template itself is the
+ * document's, kept on record and not tried again; anything else (Chrome, the store, the fonts) is thrown for the job to retry.
  */
 import { and, eq } from 'drizzle-orm';
 import type { OutboxHandler } from '@itrms/kernel/api/worker';
-import { actFor, updateAudited } from '@itrms/kernel/db';
+import { actFor, updateAudited, type Tx } from '@itrms/kernel/db';
 import type { SystemDatabase } from '@itrms/kernel/db/system';
 import { putGeneratedObject, recordGeneratedFile, removeGeneratedObject, type ObjectStore } from '@itrms/kernel/files';
 
 import { DOCUMENTS_EVENTS } from '../../contracts';
 import { documentTemplates, documentTemplateVersions, issuedDocuments } from '../documents.table';
 import type { PdfRenderer } from '../render/chrome';
-import { renderHtml } from '../render/html';
+import { isTemplateProblem, renderHtml } from '../render/html';
 
 export interface PdfWorkerDeps {
     store: ObjectStore;
     renderer: Pick<PdfRenderer, 'render'>;
 }
 
-/** Done: `rendered`; a document's own problem: `failed`; a delivery again: nothing. */
+type IssuedRow = typeof issuedDocuments.$inferSelect;
+
+/** In a transaction: the document still waiting, locked, with the transaction acting for its unit; else nothing happens. */
+const whileRequested = <T>(
+    system: SystemDatabase,
+    documentId: string,
+    work: (tx: Tx, row: IssuedRow) => Promise<T>
+): Promise<T | undefined> =>
+    system.systemContext('documents.render_done', async (tx) => {
+        const [row] = await tx
+            .select()
+            .from(issuedDocuments)
+            .where(and(eq(issuedDocuments.id, documentId), eq(issuedDocuments.state, 'requested')))
+            .for('update');
+        if (!row) return undefined;
+        actFor(tx, { regionId: row.regionId, unitId: row.handlingUnitId, scopePath: row.orgPath });
+        return work(tx, row);
+    });
+
+/** Done: `rendered`; a template's own problem: `failed`; a delivery again: nothing. */
 export async function renderIssuedDocument(
     system: SystemDatabase,
     deps: PdfWorkerDeps,
@@ -38,19 +57,6 @@ export async function renderIssuedDocument(
     if (found?.document.state !== 'requested') return 'nothing';
     const { document, version, key } = found;
 
-    const settle = (changes: { state: 'rendered' | 'failed'; failure?: string; fileId?: string; sha256?: string }) =>
-        system.systemContext('documents.render_done', async (tx) => {
-            const [row] = await tx
-                .select()
-                .from(issuedDocuments)
-                .where(and(eq(issuedDocuments.id, documentId), eq(issuedDocuments.state, 'requested')))
-                .for('update');
-            if (!row) return false;
-            actFor(tx, { regionId: row.regionId, unitId: row.handlingUnitId, scopePath: row.orgPath });
-            await updateAudited(tx, issuedDocuments, row.id, row.rowVersion, changes);
-            return true;
-        });
-
     let html: string;
     try {
         html = await renderHtml({
@@ -61,22 +67,18 @@ export async function renderIssuedDocument(
             header: document.header,
             issuedAt: document.createdAt
         });
-    } catch {
-        // the template can't print this data: rendering again would fail the same way
-        await settle({ state: 'failed', failure: 'template' });
+    } catch (error) {
+        if (!isTemplateProblem(error)) throw error;
+        // the template can't print this: rendering again would fail the same way
+        await whileRequested(system, documentId, (tx, row) =>
+            updateAudited(tx, issuedDocuments, row.id, row.rowVersion, { state: 'failed', failure: 'template' })
+        );
         return 'failed';
     }
     const body = await deps.renderer.render(html, version.paper);
     const object = await putGeneratedObject(deps.store, document.regionId, { contentType: 'application/pdf', body });
     try {
-        const recorded = await system.systemContext('documents.render_done', async (tx) => {
-            const [row] = await tx
-                .select()
-                .from(issuedDocuments)
-                .where(and(eq(issuedDocuments.id, documentId), eq(issuedDocuments.state, 'requested')))
-                .for('update');
-            if (!row) return false;
-            actFor(tx, { regionId: row.regionId, unitId: row.handlingUnitId, scopePath: row.orgPath });
+        const recorded = await whileRequested(system, documentId, async (tx, row) => {
             const file = await recordGeneratedFile(tx, { regionId: row.regionId, unitId: row.handlingUnitId }, object, {
                 filename: `${key}-${row.number ?? row.id.slice(0, 8)}`.replace(/[^\p{L}\p{N}._-]+/gu, '-'),
                 documentType: 'issued_document',
