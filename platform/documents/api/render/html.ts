@@ -60,11 +60,12 @@ export function templateProblems(body: string): string[] {
     }
 }
 
-const require = createRequire(join(process.cwd(), 'package.json'));
+// not named `require`: the bundler would take that for its own
+const resolver = createRequire(join(process.cwd(), 'package.json'));
 
 /** The bundled fonts (OFL), inlined once per process. The PDF worker reads them as it starts, so a bad image stops it there. */
 const fontFace = (family: string, file: string, weight: number) => {
-    const data = readFileSync(require.resolve(file)).toString('base64');
+    const data = readFileSync(resolver.resolve(file)).toString('base64');
     return `@font-face{font-family:'${family}';font-weight:${weight};font-style:normal;src:url(data:font/woff2;base64,${data}) format('woff2')}`;
 };
 let fonts: string | undefined;
