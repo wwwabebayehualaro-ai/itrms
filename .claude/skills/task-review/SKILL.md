@@ -46,4 +46,4 @@ Only after an explicit approval in the conversation:
 3. Commit the progress files on `main` as a separate commit, `docs(progress): task <id> done`. Don't amend the squash
    commit: amending changes its SHA, and the recorded SHA would point at a commit that no longer exists.
 4. Refresh the dashboard.
-5. **Do not push**: pushing needs its own approval, and the guard hook asks for it.
+5. **Push `main`** to `origin`: the product owner lets sessions push there without asking (2026-11-04). The guard hook still denies a force-push and asks before any other remote.

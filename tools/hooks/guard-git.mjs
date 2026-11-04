@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // PreToolUse hook (Bash, PowerShell): git guardrails (docs/engineering/workflow.md §5).
-// Denies commands that bypass checks or destroy history; asks before anything is pushed to a remote.
+// Denies commands that bypass checks or destroy history; a push to origin goes ahead, a push elsewhere asks.
 // Input: hook JSON on stdin ({ tool_name, tool_input: { command } }). Output: a permission decision, or nothing.
 let raw = '';
 process.stdin.setEncoding('utf8');
@@ -58,11 +58,25 @@ function decide(cmd) {
         ]
     ];
     for (const [re, reason] of deny) if (re.test(c)) return { kind: 'deny', reason };
-    if (/\sgit\s+(-c\s+\S+\s+)*push\b/.test(c)) {
-        return {
-            kind: 'ask',
-            reason: 'Pushing sends code to GitHub (outward-facing). The product owner approves every push.'
-        };
+    const pushes = [...c.matchAll(/\sgit\s+(-c\s+\S+\s+)*push\b([^|;&]*)/g)];
+    if (pushes.length > 0) {
+        // The product owner lets sessions push to origin without asking (2026-11-04). Another remote still asks
+        // (origin is the one repo in use), and so does a push this reading can't be sure of.
+        const toOrigin = pushes.every(({ 2: rest = '' }) => {
+            const words = rest.trim().split(' ').filter(Boolean);
+            const remote = words.find((word) => !word.startsWith('-'));
+            const known = words.every((word) => !word.startsWith('-') || /^(-u|--set-upstream)$/.test(word));
+            return known && (remote === undefined || remote === 'origin');
+        });
+        if (!toOrigin)
+            return {
+                kind: 'ask',
+                reason: 'This pushes somewhere other than origin, or in a way the guard cannot read.'
+            };
+        // only a push on its own is approved here: an approval would cover everything else in a longer command, which the
+        // normal permission flow decides
+        const alone = !/[|;&`$<>\n]/.test(cmd);
+        return alone ? { kind: 'allow', reason: 'Pushing to origin is allowed (product owner, 2026-11-04).' } : null;
     }
     return null;
 }

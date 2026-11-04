@@ -12,7 +12,7 @@ hand.
 | Skills | `.claude/skills/` | `/task-start <id>`, `/task-status`, `/task-review [<id> \| approve <id>]`, `/phase-report` |
 | Verifier agent | `.claude/agents/task-verifier.md` | Read-only check of a task's "Done when" items and the definition of done before review |
 | SessionStart hook | `.claude/settings.json` | Prints the CLI `summary` into each new session |
-| Git guard hook | `tools/hooks/guard-git.mjs` | Asks before every `git push`. Denies `--no-verify`, force pushes, `reset --hard`, `clean -f`, `filter-repo` and `filter-branch`. |
+| Git guard hook | `tools/hooks/guard-git.mjs` | Lets a `git push` to `origin` go ahead (product owner, 2026-11-04); asks before a push to any other remote. Denies `--no-verify`, force pushes, `reset --hard`, `clean -f`, `filter-repo` and `filter-branch`. |
 | Stop hook | `tools/hooks/progress-reminder.mjs` | When a task is in progress and files changed but the progress files did not, asks the session to record progress before it stops |
 | Status line | `tools/progress/statusline.mjs` | `ITRMS · P0 0/28 ▱▱▱▱▱▱▱▱ · 0.1 in review · ⎇ <branch>` |
 | Dashboard | <https://claude.ai/artifact/F2Rdg8HRdsrsDwP88gpH8h> | Phase cards, tasks that need attention, all tasks (search and filters), follow-ups |
