@@ -30,7 +30,14 @@ export default defineModule({
         exam: ['read', 'record']
     },
     roles: {
-        'competency.officer': ['licence:read', 'exam:read', ...REGISTER_INTAKE, ...CASE_ACT, 'pii:reveal'],
+        'competency.officer': [
+            'licence:read',
+            'exam:read',
+            ...REGISTER_INTAKE,
+            ...CASE_ACT,
+            'pii:reveal',
+            'issued-document:read'
+        ],
         'competency.lead': [
             'licence:read',
             'licence:issue',

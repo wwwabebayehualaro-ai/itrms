@@ -59,6 +59,8 @@ export interface JobsOptions {
     recurring?: readonly { name: string; everyMs: number; run: () => Promise<number> }[];
     /** retries and backoff (tests make them fast) */
     jobOptions?: BullJobOptions;
+    /** events relayed to a queue of their own, consumed by another process (the PDF worker's), by event type */
+    routes?: Readonly<Record<string, string>>;
 }
 
 export interface RunningJobs {
@@ -101,7 +103,25 @@ export function startJobs(options: JobsOptions): RunningJobs {
             );
     });
 
-    const target = bullQueue(queue, options.jobOptions);
+    const queues = new Map<string, Queue<OutboxJob>>();
+    const producerConnection = {
+        ...connection,
+        enableOfflineQueue: false,
+        maxRetriesPerRequest: 1
+    } as ConnectionOptions;
+    const main = bullQueue(queue, options.jobOptions);
+    const target: JobQueue = {
+        add(name, data, jobId) {
+            const routed = options.routes?.[name];
+            if (!routed) return main.add(name, data, jobId);
+            let other = queues.get(routed);
+            if (!other) {
+                other = new Queue<OutboxJob>(routed, { connection: producerConnection });
+                queues.set(routed, other);
+            }
+            return bullQueue(other, options.jobOptions).add(name, data, jobId);
+        }
+    };
     // one run of a loop at a time: a slow run is never overlapped by the next
     const loop = (name: string, everyMs: number, run: () => Promise<number>) => {
         let busy = false;
@@ -129,6 +149,46 @@ export function startJobs(options: JobsOptions): RunningJobs {
             await worker.close();
             await Promise.allSettled([...inFlight]);
             await queue.close();
+            await Promise.all([...queues.values()].map((q) => q.close()));
+        }
+    };
+}
+
+/**
+ * A consumer of one routed queue, and nothing else: no relay, no sweeps. The relay of the main worker feeds it, so a process
+ * with heavy work (the PDF worker) can be limited and restarted without touching the outbox, SLA timers or notifications.
+ */
+export function startQueueConsumer(options: {
+    queue: string;
+    connection: ConnectionOptions;
+    system: SystemDatabase;
+    handlers: Readonly<Record<string, OutboxHandler>>;
+    logger: Logger;
+    concurrency?: number;
+}): { stop(): Promise<void> } {
+    const { queue, connection, system, handlers, logger } = options;
+    const inFlight = new Set<Promise<unknown>>();
+    const worker = new Worker<OutboxJob>(queue, (job) => handleOutboxJob(system, handlers, job.data), {
+        connection,
+        concurrency: options.concurrency ?? 2
+    });
+    worker.on('failed', (job, error) => {
+        if (!job) return;
+        logger.warn(
+            { eventId: job.data.eventId, type: job.data.type, attempt: job.attemptsMade, err: error },
+            'queue job failed'
+        );
+        if (job.attemptsMade < (job.opts.attempts ?? 1)) return;
+        const dead = markDead(system, job.data.eventId, error.message).catch((err: unknown) =>
+            logger.error({ err, eventId: job.data.eventId }, 'could not mark an event dead')
+        );
+        inFlight.add(dead);
+        void dead.finally(() => inFlight.delete(dead));
+    });
+    return {
+        async stop() {
+            await worker.close();
+            await Promise.allSettled([...inFlight]);
         }
     };
 }

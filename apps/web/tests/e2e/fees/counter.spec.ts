@@ -186,4 +186,16 @@ test('a fee is filed at the counter, paid at the till and receipted, and the cas
     await expect(panel).toHaveAttribute('data-state', 'settled');
     await expect(panel.locator('[data-case-receipts]')).toContainText(receiptNumber);
     await expect(records.locator('[data-screen="case"]')).toHaveAttribute('data-state', 'done');
+
+    // the receipt's document, its PDF made by the PDF worker: it opens, and it is the stored one
+    const receiptDocument = records.locator('[data-case-documents] [data-document="receipt"]');
+    await expect(receiptDocument).toHaveAttribute('data-state', 'rendered', { timeout: 90_000 });
+    const { items } = await api(records).get<{ items: { id: string; templateKey: string }[] }>(
+        `v1/issued-documents?caseId=${caseId}`
+    );
+    const issued = items.find((d) => d.templateKey === 'receipt');
+    const link = await api(records).get<{ url: string }>(`v1/issued-documents/${issued?.id ?? ''}/download`);
+    const pdf = await records.request.get(link.url);
+    expect(pdf.status()).toBe(200);
+    expect((await pdf.body()).subarray(0, 5).toString()).toBe('%PDF-');
 });

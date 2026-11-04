@@ -48,5 +48,6 @@ one, write a new ADR that supersedes it. Format: context, decision, consequences
 | [0041](0041-fee-rules.md) | Fee rules: versioned, approved by another person in a role the region names; money never in a formula; one evaluator for the preview and the filing; the case keeps its fee | accepted (2026-11-01) |
 | [0042](0042-payments-and-receipts.md) | Payments and receipts: an order per case fee, the whole total at the case office's till, receipts numbered in the payment's transaction (ITRMS or pad), the case moved through an in-transaction port, reversals by another person | accepted (2026-11-01) |
 | [0043](0043-paid-elsewhere.md) | Money paid elsewhere: a reference settles an order only once verified, by a second person or a statement's exact match; unique per issuer, normalised reference and fiscal year; a revocation by a third person |
+| [0044](0044-documents.md) | Issuing documents: frozen when issued, a reprint is the stored PDF, rendering in its own process and queue, three walls around a page |
 
 All tool choices and the answers to the technical open questions: [`../tech-stack.md`](../tech-stack.md).

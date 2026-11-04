@@ -303,6 +303,7 @@ describe('a person in two units', () => {
             'file:read',
             'file:upload',
             'form:read',
+            'issued-document:read',
             'org-unit:read',
             'organisation:read',
             'payment-order:read',

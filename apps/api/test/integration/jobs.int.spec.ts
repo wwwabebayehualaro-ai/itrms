@@ -19,6 +19,7 @@ import {
     markDead,
     relayOnce,
     startJobs,
+    startQueueConsumer,
     sweepStuck,
     type JobQueue,
     type OutboxJob
@@ -464,6 +465,47 @@ describe('the outbox on Valkey (BullMQ)', () => {
             await waitFor(async () => (await statusOf(e.id)) === 'done');
             expect(handled).toBe(1);
         } finally {
+            await jobs.stop();
+        }
+    }, 60_000);
+
+    it('relays a routed event to its own queue: only that process runs it, and a failing one goes dead there too', async () => {
+        await owner.query("update kernel.outbox_events set status = 'done' where status <> 'done'");
+        const routed = await app.scoped(contextFor(boditi), (tx) => emit(tx, 'test-item.routed.v1', { n: 1 }));
+        const dying = await app.scoped(contextFor(boditi), (tx) => emit(tx, 'test-item.routed-dying.v1', { n: 2 }));
+        const main: string[] = [];
+        const own: string[] = [];
+        const logger = createLogger(loadConfig('worker', { DATABASE_URL: pg.url('app') }), quiet);
+        const jobs = startJobs({
+            connection,
+            system,
+            logger,
+            handlers: {
+                'test-item.routed.v1': () => Promise.resolve(void main.push('routed')),
+                'test-item.routed-dying.v1': () => Promise.resolve(void main.push('dying'))
+            },
+            routes: { 'test-item.routed.v1': 'own-queue', 'test-item.routed-dying.v1': 'own-queue' },
+            relayEveryMs: 200,
+            sweepEveryMs: 60_000,
+            jobOptions: { attempts: 2, backoff: { type: 'fixed', delay: 50 }, removeOnFail: { age: 3600 } }
+        });
+        const consumer = startQueueConsumer({
+            queue: 'own-queue',
+            connection,
+            system,
+            logger,
+            handlers: {
+                'test-item.routed.v1': () => Promise.resolve(void own.push('routed')),
+                'test-item.routed-dying.v1': () => Promise.reject(new Error('Chrome died'))
+            }
+        });
+        try {
+            await waitFor(async () => (await statusOf(routed.id)) === 'done');
+            await waitFor(async () => (await statusOf(dying.id)) === 'dead');
+            expect(own).toEqual(['routed']);
+            expect(main).toEqual([]);
+        } finally {
+            await consumer.stop();
             await jobs.stop();
         }
     }, 60_000);

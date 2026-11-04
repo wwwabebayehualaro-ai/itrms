@@ -1,1 +1,12 @@
-{}
+{
+  "documents.case.download": "ፒዲኤፉን ክፈት",
+  "documents.case.empty": "ለዚህ ጉዳይ እስካሁን የወጣ ሰነድ የለም።",
+  "documents.case.error": "ሰነዶቹን ማምጣት አልተቻለም",
+  "documents.case.title": "ሰነዶች",
+  "documents.notReady": "የዚህ ሰነድ ፒዲኤፍ ገና አልተዘጋጀም። ትንሽ ቆይተው እንደገና ይሞክሩ።",
+  "documents.receipt.download": "ፒዲኤፉን ክፈት",
+  "documents.setting.header": "የዚህን ጽ/ቤት ሰነዶች የሚመራው ርዕስ",
+  "documents.state.failed": "ሊዘጋጅ አልቻለም",
+  "documents.state.rendered": "ዝግጁ ነው",
+  "documents.state.requested": "በመዘጋጀት ላይ"
+}

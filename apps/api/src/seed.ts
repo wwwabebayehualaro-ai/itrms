@@ -6,6 +6,7 @@
  *                                                                     platform/services/seed/catalogue.yaml)
  *   `node dist/seed.cjs fees <rules.yaml> --region <code>`            a region's fee rules, approved as an installation step
  *                                                                     (`pnpm seed:fees`; modules/competency/seed/fee-rules.demo.yaml)
+ *   `node dist/seed.cjs documents --region <code>`                   the region's document templates (`pnpm seed:documents`)
  *   `node dist/seed.cjs counters --region <code>`                    the receipt counters of the region's offices that
  *                                                                     collect cash (`pnpm seed:counters`; again when an
  *                                                                     office is added)
@@ -22,6 +23,7 @@ import { createDatabase } from '@itrms/kernel/db';
 import { syncIdentity } from '@itrms/kernel/iam';
 import { importUsers, userImportSchema } from '@itrms/kernel/seed';
 import { importOrg, orgUnits, parseOrgCsv, parseOrgWorkbook, parseOrgYaml, type OrgImport } from '@itrms/kernel/org';
+import { importDocumentTemplates } from '@itrms/documents/seed';
 import { importFeeRules, parseFeeRules, setUpReceiptCounters } from '@itrms/fees/seed';
 import { importCatalogue } from '@itrms/services/api';
 import { parseCatalogue } from '@itrms/services/seed';
@@ -50,6 +52,7 @@ async function main() {
     if (!(
         kind === 'identity' ||
         kind === 'counters' ||
+        kind === 'documents' ||
         ((kind === 'org' || kind === 'users' || kind === 'services' || kind === 'fees') && file)
     ))
         fail(
@@ -89,6 +92,18 @@ async function main() {
                 return importCatalogue(tx, root.id, services);
             });
             logger.info({ file, region, services: services.length, changed }, 'service catalogue applied');
+        } else if (kind === 'documents') {
+            const code = file === '--region' ? rest[0] : region;
+            if (!code) throw new Error('seed documents needs --region <code>');
+            const stored = await db.scoped(ctx, async (tx) => {
+                const [root] = await tx
+                    .select()
+                    .from(orgUnits)
+                    .where(and(isNull(orgUnits.parentId), eq(orgUnits.code, code)));
+                if (!root) throw new Error(`no region ${code}`);
+                return importDocumentTemplates(tx, { id: root.id, regionId: root.regionId });
+            });
+            logger.info({ region: code, stored }, 'document templates applied');
         } else if (kind === 'counters') {
             const code = file === '--region' ? rest[0] : region;
             if (!code) throw new Error('seed counters needs --region <code>');

@@ -1085,8 +1085,8 @@
         {
           "id": "0.23a",
           "title": "Documents, part 1: templates, issuing and the PDF worker",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.23a-documents-pdf",
           "commits": [],
           "evidence": [],
           "blockers": [],

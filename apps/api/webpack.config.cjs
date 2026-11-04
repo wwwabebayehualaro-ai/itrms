@@ -29,6 +29,7 @@ module.exports = (defaults) => ({
     entry: {
         main: './src/main.ts',
         worker: './src/worker.ts',
+        'worker-documents': './src/worker-documents.ts',
         migrate: './src/migrate.ts',
         seed: './src/seed.ts',
         openapi: './src/openapi-cli.ts'

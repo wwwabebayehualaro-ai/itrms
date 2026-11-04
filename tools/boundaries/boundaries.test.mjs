@@ -27,6 +27,7 @@ const EXPECTED = {
     'modules/competency/web/bad-api.ts': 'web-never-imports-api',
     'modules/competency/api/bad-ui.ts': 'api-never-imports-ui',
     'platform/fees/api/bad-system.ts': 'system-pool-only-in-worker-code',
+    'platform/fees/api/bad-chrome.ts': 'only-the-pdf-worker-reaches-chrome',
     'platform/fees/api/bad-testing.ts': 'testing-only-in-tests',
     'platform/fees/api/bad-seed.ts': 'seed-entries-only-in-seed-code',
     'apps/verify/src/bad-kernel.ts': 'verify-app-allow-list',
