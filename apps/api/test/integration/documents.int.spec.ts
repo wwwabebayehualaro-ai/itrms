@@ -382,7 +382,7 @@ describe('a workflow', () => {
         expect(data).toContain('Automobile');
         expect(data).not.toContain('SECRET');
         expect(data).not.toContain('nationalId');
-        expect(data).not.toContain('Mother');
+        expect(data).not.toContain('motherName');
 
         // what the worker hands Chrome has it escaped
         let html = '';
