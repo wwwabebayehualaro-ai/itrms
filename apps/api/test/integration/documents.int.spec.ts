@@ -593,7 +593,7 @@ describe('a document', () => {
         const region = as.bureau.unit;
         const boditi = as.boditiRecords.unit;
         const issue = (data: Record<string, unknown>) =>
-            api.installer.scoped({}, (tx) =>
+            api.installer.scoped({ requestId: 'system:test' }, (tx) =>
                 api.http.get(DocumentsService).issue(tx, {
                     regionId: region.regionId,
                     handlingUnitId: boditi.id,
@@ -787,7 +787,7 @@ describe('a document’s QR', () => {
         const [doc] = await docsOf(`caseId=${c.id}`);
         const oldId = doc?.id ?? '';
         const { token } = await rendered(oldId);
-        const corrected = await api.installer.scoped({}, (tx) =>
+        const corrected = await api.installer.scoped({ requestId: 'system:test' }, (tx) =>
             api.http.get(DocumentsService).supersede(tx, oldId, {
                 language: 'am',
                 data: { caseNumber: 1, serviceName: 'Corrected', filedOn: '2026-11-04', fields: [] }
@@ -806,7 +806,7 @@ describe('a document’s QR', () => {
         expect((await ask(fresh.token)).json()).toMatchObject({ status: 'valid' });
         // a correction of what no longer stands is refused
         await expect(
-            api.installer.scoped({}, (tx) =>
+            api.installer.scoped({ requestId: 'system:test' }, (tx) =>
                 api.http.get(DocumentsService).supersede(tx, oldId, {
                     language: 'am',
                     data: { caseNumber: 1, serviceName: 'Again', filedOn: '2026-11-04', fields: [] }
@@ -817,7 +817,7 @@ describe('a document’s QR', () => {
 
     it('says expired once its validity has passed, and the card’s QR fits and carries it', async () => {
         const region = as.bureau.unit;
-        const issued = await api.installer.scoped({}, (tx) =>
+        const issued = await api.installer.scoped({ requestId: 'system:test' }, (tx) =>
             api.http.get(DocumentsService).issue(tx, {
                 regionId: region.regionId,
                 handlingUnitId: as.boditiRecords.unit.id,

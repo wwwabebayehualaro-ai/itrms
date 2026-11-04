@@ -93,6 +93,8 @@ export async function issueDocument(
     const facts = factsOf(version.dataSchema, checked.data);
     const header = await settings.value<DocumentHeader>(tx, input.handlingUnitId, DOCUMENT_HEADER_SETTING);
     const unit = (await unitRefs(tx, [input.handlingUnitId])).get(input.handlingUnitId);
+    // frozen on the document for good: a blank office would print on it, and fail its public check, for ever
+    if (!unit) throw new ConflictError('not_configured', { detail: 'The issuing office could not be read.' });
     const issued = await insertIssued(tx, {
         ...(input.id ? { id: input.id } : {}),
         regionId: input.regionId,
@@ -108,7 +110,7 @@ export async function issueDocument(
         holderMask: facts.holder ? maskedName(facts.holder) : null,
         validUntil: facts.validUntil,
         header,
-        officeName: (unit?.name ?? { am: '', en: '' }) as I18nText
+        officeName: unit.name as I18nText
     });
     await emit(
         tx,
