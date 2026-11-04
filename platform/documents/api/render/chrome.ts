@@ -61,6 +61,8 @@ export class PdfRenderer {
             browser: puppeteer.launch({
                 executablePath: this.options.executablePath,
                 headless: true,
+                // a busy machine can take a while to start a browser: slow is not broken
+                timeout: 90_000,
                 args: [
                     ...(this.options.noSandbox ? ['--no-sandbox', '--disable-setuid-sandbox'] : []),
                     '--disable-dev-shm-usage',

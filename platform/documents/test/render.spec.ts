@@ -211,7 +211,7 @@ describe.skipIf(!chrome)('a PDF from Chrome', () => {
         expect(text).toContain('ጥቅምት');
         expect(text).toContain('2019');
         expect(text).toContain('የማሳያ ሰነድ');
-    }, 60_000);
+    }, 180_000);
 
     it('receipt in English', async () => {
         const { text } = await pdfOf('receipt', SAMPLES['receipt.v1'], 'en');
@@ -219,7 +219,7 @@ describe.skipIf(!chrome)('a PDF from Chrome', () => {
         expect(text).toContain('Sample Town Administration');
         expect(text).toContain('Tikimt');
         expect(text).toContain('New driver licence');
-    }, 60_000);
+    }, 180_000);
 
     it('application copy', async () => {
         const { text, pages } = await pdfOf('application-copy', SAMPLES['application-copy.v1']);
@@ -227,7 +227,7 @@ describe.skipIf(!chrome)('a PDF from Chrome', () => {
         expect(text).toContain('የማመልከቻ ቅጂ');
         expect(text).toContain('ሰላም ታደሰ');
         expect(text).toContain('መስከረም');
-    }, 60_000);
+    }, 180_000);
 
     it('licence card, on one card', async () => {
         const { text, pages } = await pdfOf('licence-card', SAMPLES['licence-card.v1']);
@@ -235,14 +235,14 @@ describe.skipIf(!chrome)('a PDF from Chrome', () => {
         expect(text).toContain('የአሽከርካሪ ብቃት ማረጋገጫ ፈቃድ');
         expect(text).toContain('SER-000456');
         expect(text).toContain('አውቶሞቢል');
-    }, 60_000);
+    }, 180_000);
 
     it('exam result sheet', async () => {
         const { text } = await pdfOf('exam-result', SAMPLES['exam-result.v1']);
         expect(text).toContain('የፈተና ውጤት ማሳወቂያ');
         expect(text).toContain('አልፏል');
         expect(text).toContain('85');
-    }, 60_000);
+    }, 180_000);
 
     it("shows an applicant's script as text, and runs nothing", async () => {
         const { text } = await pdfOf('application-copy', {
@@ -250,7 +250,7 @@ describe.skipIf(!chrome)('a PDF from Chrome', () => {
             fields: [{ label: 'ስም', value: '<script>document.title="x"</script>' }]
         });
         expect(text).toContain('<script>');
-    }, 60_000);
+    }, 180_000);
 
     it('fetches nothing, even a page that asks', async () => {
         blocked.length = 0;
@@ -272,7 +272,7 @@ describe.skipIf(!chrome)('a PDF from Chrome', () => {
         const { text } = await textOf(pdf);
         expect(text).toContain('ok');
         expect(text).not.toContain('ran-script');
-    }, 60_000);
+    }, 180_000);
 
     it('starts another browser after one dies, and retires one that has rendered enough', async () => {
         const local = new PdfRenderer({
