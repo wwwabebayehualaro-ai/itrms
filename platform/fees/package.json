@@ -32,6 +32,7 @@
     "@itrms/module-sdk": "workspace:*",
     "@itrms/schemas": "workspace:*",
     "@nestjs/common": "11.2.7",
+    "csv-parse": "^7.0.3",
     "drizzle-orm": "0.45.3",
     "nestjs-zod": "5.5.0",
     "yaml": "2.9.1",

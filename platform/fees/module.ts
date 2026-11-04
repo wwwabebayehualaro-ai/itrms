@@ -16,7 +16,11 @@ export default defineModule({
         'payment-order': ['read'],
         payment: ['read', 'record'],
         receipt: ['read'],
-        'receipt-reversal': ['read', 'request', 'decide']
+        'receipt-reversal': ['read', 'request', 'decide'],
+        // money paid elsewhere (task 0.22c, ADR-0043): the counter enters a reference, another person verifies it, or a
+        // statement's line does
+        'external-payment': ['read', 'enter', 'verify'],
+        'external-statement': ['read', 'import']
     },
     // a corrected request's fee worked out again (named on the workflow's amending transitions); a case's fee as a
     // payment order (named on the transition into its payment step)
@@ -24,9 +28,15 @@ export default defineModule({
     // ITRMS's receipt numbers (the counter `fees.receipt`): gapless per office and fiscal year (ADR-0014)
     numberSequences: [{ key: 'receipt', pattern: '{unit}/{seq:06}/{efy}' }],
     events: {
-        emits: ['payment.settled.v1', 'receipt.issued.v1', 'receipt.reversed.v1'],
-        // a closed case's open order is cancelled
-        consumes: ['case.transitioned.v1']
+        emits: [
+            'payment.settled.v1',
+            'receipt.issued.v1',
+            'receipt.reversed.v1',
+            'external-payment.entered.v1',
+            'external-statement.received.v1'
+        ],
+        // a closed case's open order is cancelled; a reference and a statement are matched
+        consumes: ['case.transitioned.v1', 'external-payment.entered.v1', 'external-statement.received.v1']
     },
     // the roles that may approve a fee rule version (schemas: FEES_SETTINGS): by Ethiopian practice the bureau's
     // administrator or its finance officer, never the version's author (product owner, 2026-11-01); where an office's
@@ -61,9 +71,33 @@ export default defineModule({
                 { code: 'HIBRET', name: { am: 'ኅብረት ባንክ', en: 'Hibret Bank' } }
             ],
             overridableAt: ['installation', 'region']
+        },
+        // who verifies a reference paid elsewhere (never who entered it), and who may issue one. By Ethiopian practice a
+        // revenue office and the state's commercial bank; a region lists its own (assumption, ADR-0043)
+        {
+            key: 'fees.external.verifierRoles',
+            default: ['finance_officer'],
+            overridableAt: ['installation', 'region']
+        },
+        {
+            key: 'fees.external.issuers',
+            default: [
+                {
+                    code: 'REVENUE',
+                    kind: 'revenue_office',
+                    name: { am: 'የገቢዎች ጽ/ቤት', en: 'Revenue office' }
+                },
+                {
+                    code: 'CBE',
+                    kind: 'bank',
+                    name: { am: 'የኢትዮጵያ ንግድ ባንክ', en: 'Commercial Bank of Ethiopia' }
+                }
+            ],
+            overridableAt: ['installation', 'region']
         }
     ],
-    // the cashier's queue at an office with a till; the reversals waiting for a decision
+    // the cashier's queue at an office with a till; the reversals waiting for a decision; orders paid elsewhere, the
+    // references to verify, and the statements
     menu: [
         {
             key: 'fees.cashier',
@@ -82,6 +116,33 @@ export default defineModule({
             icon: 'undo-2',
             route: '/finance/reversals',
             requires: { permission: 'receipt-reversal:decide' }
+        },
+        {
+            key: 'fees.elsewhere',
+            group: 'my-work',
+            order: 35,
+            label: 'fees.nav.elsewhere',
+            icon: 'landmark',
+            route: '/paid-elsewhere',
+            requires: { permission: 'external-payment:enter' }
+        },
+        {
+            key: 'fees.externalRefs',
+            group: 'my-work',
+            order: 45,
+            label: 'fees.nav.externalRefs',
+            icon: 'badge-check',
+            route: '/finance/external-payments',
+            requires: { permission: 'external-payment:verify' }
+        },
+        {
+            key: 'fees.statements',
+            group: 'my-work',
+            order: 46,
+            label: 'fees.nav.statements',
+            icon: 'file-spreadsheet',
+            route: '/finance/statements',
+            requires: { permission: 'external-statement:import' }
         }
     ]
 });

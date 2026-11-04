@@ -2,3 +2,4 @@
 // processes load it, so the HTTP process never reaches the system pool (dependency-cruiser:
 // http-entries-never-reach-system-pool).
 export { cancelClosedCaseOrder, feesHandlers } from './handlers/case-closed';
+export { matchEntered, matchLine, processStatement, type StatementDeps } from './handlers/statements';

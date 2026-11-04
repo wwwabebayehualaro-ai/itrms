@@ -32,7 +32,7 @@ const language = () => currentContext()?.language ?? 'am';
 
 /**
  * An order as the person's rights show it: `payment-order:read` gives the order and its receipts; a bank slip takes
- * `payment:read`, the reversals (their reasons and notes) `receipt-reversal:read`.
+ * `payment:read`, the reversals (their reasons and notes) `receipt-reversal:read`, the references `external-payment:read`.
  */
 const shownTo = (order: PaymentOrderOut): PaymentOrderOut => {
     const { permissions } = currentPrincipal();
@@ -41,7 +41,8 @@ const shownTo = (order: PaymentOrderOut): PaymentOrderOut => {
         payments: permissions.has('payment:read')
             ? order.payments
             : order.payments.map((p) => ({ ...p, bank: null, slipReference: null, slipDate: null })),
-        reversals: permissions.has('receipt-reversal:read') ? order.reversals : []
+        reversals: permissions.has('receipt-reversal:read') ? order.reversals : [],
+        externalRefs: permissions.has('external-payment:read') ? order.externalRefs : []
     };
 };
 

@@ -23,7 +23,7 @@ Assets, in order of importance:
 |---|---|---|---|---|
 | 1 | Spoofing | stolen staff password / shared PC | 2FA (TOTP, hardware token, passkey); idle timeout; session list and revoke; brute-force detection | 0.10 e2e |
 | 2 | Spoofing | forged licence, bolo or receipt | Ed25519-signed QR, offline verifier, online revocation status, gapless receipts, stationery serials | 0.23, 1.12a |
-| 3 | Spoofing | fake "paid at revenue office" reference | unique external references, second-person verification or statement matching | 0.22 |
+| 3 | Spoofing | fake "paid at revenue office" reference | unique external references, second-person verification or an exact statement match, never by the statement's importer | 0.22c |
 | 4 | Tampering | staff alter a case or registry record outside the workflow | no generic status updates; transitions only; class-R write scope; maker-checker; audit | 0.9, 0.19 |
 | 5 | Tampering | admin edits the database directly to hide fraud | hash-chained audit, signed daily digest off-site, DB roles without UPDATE on audit | 0.7, 0.26 drill |
 | 6 | Tampering | injected markup in issued PDFs | escaped templates, JavaScript-free renderer, CSP | 0.23 |

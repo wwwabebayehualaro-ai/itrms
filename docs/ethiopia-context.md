@@ -114,6 +114,12 @@ Gazette and any later amendment ⚠️.
     Birr covers it. Provider charges must never reduce the recorded fee.
   - Cash at the counter stays a first-class method.
   - Regional bureaus may follow the federal directive. Consider moving online payment earlier than Phase 3 if the region asks.
+- **Paid elsewhere (task 0.22c, ADR-0043):** an institution issues a revenue collection receipt for income from its services; in
+  Addis Ababa the Finance Bureau oversees those receipts and the Revenue Bureau tax receipts
+  ([Addis Fortune](https://addisfortune.news/addis-abeba-seeks-to-restore-order-in-tax-receipt-system)). Receipt fraud is why QR-coded
+  receipts are being rolled out ([ICE](https://www.ice.it/it/news/notizie-dal-mondo/287309)). **Not established:** how a region's woredas
+  and zones do this, the local receipt models, and any bank's or revenue office's statement layout. So issuers are configuration, no
+  reference format is assumed, and the statement layout is a marked placeholder: to ask a bureau.
 
 ## 5. Identity: Fayda
 

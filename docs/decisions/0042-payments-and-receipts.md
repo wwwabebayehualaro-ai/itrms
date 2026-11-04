@@ -45,5 +45,5 @@
   service on `payment.settled`, also after a wait: otherwise a reversed case can go on, and closing it cancels the unpaid
   order. Phase 0's workflows carry that guard (task 0.24); a check when a workflow is published is a follow-up.
 * A paid case moves on in the same transaction as its payment: never a paid case left waiting.
-* 0.22c's verified external references and Phase 3's provider webhooks settle an order through the same port.
+* 0.22c's verified external references (ADR-0043) and Phase 3's provider webhooks settle an order through the same port.
 * A new office that collects cash needs `seed counters` run again before its first receipt (409 `not_configured` until).

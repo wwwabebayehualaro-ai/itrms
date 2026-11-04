@@ -34,7 +34,7 @@ Every technical question is decided in [tech-stack.md](tech-stack.md). These sti
 |---|---|---|---|
 | B1 | Paper forms of the Phase 0 services (licence application, medical certificate, exam result sheet, renewal, receipt) | demo realism | [demo-plan.md](demo-plan.md) §5 |
 | B2 | Regional fee schedule for licences | fee rules (placeholders until then) | [ethiopia-context.md](ethiopia-context.md) §3 |
-| B3 | Who collects fees: office cashier, revenue office or bureau; pre-printed receipt pads or ITRMS numbers | payment step | [service-catalogue.md](service-catalogue.md), stakeholder roles |
+| B3 | Who collects fees: office cashier, revenue office or bureau; pre-printed receipt pads or ITRMS numbers (all configurable: ADR-0042, ADR-0043; still to ask: which issuers, and their statement layout) | payment step | [service-catalogue.md](service-catalogue.md), stakeholder roles |
 | B4 | Towns with a competency team (e.g. Boditi) handle licences, woredas do not [D]: confirm; who gives final approval for a town's licence (its team leader or the zone) | workflows | [roles-and-permissions.md](roles-and-permissions.md) §5 |
 | B5 | Amharic spellings, woreda ምድብ and town ፈርጅ for all units; full list of towns (Bitena ፈርጅ 4 is not on the zone site); does Wolaita Sodo city report to the zone or the region | org seed | [tenant-wolaita.md](tenant-wolaita.md) §6 |
 | B6 | A named Wolaytta translator and reviewer; month and weekday names in Wolaytta | `wal-Latn` catalogue | [i18n-and-languages.md](i18n-and-languages.md) §7 |

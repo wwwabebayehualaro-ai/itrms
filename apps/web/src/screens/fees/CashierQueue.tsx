@@ -27,18 +27,27 @@ import { useCashierQueue, type PaymentOrderOut } from '@/lib/fees';
 import { formatDay, formatMoney } from '@/lib/format';
 import { usePreferences, useText } from '@/lib/preferences';
 
-export function CashierQueue() {
+/** The office's open orders: the till's, or those paid elsewhere (the counter enters their references). */
+export function CashierQueue({ collection = 'cashier' }: { collection?: 'cashier' | 'elsewhere' }) {
     const { t } = useText();
+    const elsewhere = collection === 'elsewhere';
     const [typed, setTyped] = useState('');
     const [number, setNumber] = useState<number | undefined>();
     // the cursors of the pages before this one (a cursor is the last order of the page before)
     const [cursors, setCursors] = useState<string[]>([]);
-    const queue = useCashierQueue({ ...(number ? { q: number } : {}), after: cursors[cursors.length - 1] ?? null });
+    const queue = useCashierQueue({
+        ...(number ? { q: number } : {}),
+        after: cursors[cursors.length - 1] ?? null,
+        collection
+    });
     const items = queue.data?.items ?? [];
 
     return (
-        <div className="flex flex-col gap-6" data-screen="cashier">
-            <PageHeader title={t('fees.cashier.title')} description={t('fees.cashier.intro')} />
+        <div className="flex flex-col gap-6" data-screen={elsewhere ? 'paid-elsewhere' : 'cashier'}>
+            <PageHeader
+                title={t(elsewhere ? 'fees.elsewhere.title' : 'fees.cashier.title')}
+                description={t(elsewhere ? 'fees.elsewhere.intro' : 'fees.cashier.intro')}
+            />
             <form
                 role="search"
                 className="flex items-end gap-2"
@@ -73,7 +82,10 @@ export function CashierQueue() {
                     description={getApiErrorMessage(queue.error)}
                 />
             ) : items.length === 0 && cursors.length === 0 ? (
-                <EmptyState title={t('fees.cashier.empty')} description={t('fees.cashier.emptyHint')} />
+                <EmptyState
+                    title={t(elsewhere ? 'fees.elsewhere.empty' : 'fees.cashier.empty')}
+                    description={t(elsewhere ? 'fees.elsewhere.emptyHint' : 'fees.cashier.emptyHint')}
+                />
             ) : (
                 <>
                     <Table data-queue>

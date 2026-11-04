@@ -1000,6 +1000,8 @@ export class CasesService implements FeeCasePort {
             kind: 'payment',
             action: change.action,
             actorUserId: ctx.userId ?? null,
+            // no person: a statement's line, in the worker
+            systemActor: ctx.userId ? null : FEES_ACTOR.id,
             data: change.data
         });
         if (change.action !== 'paid') return;

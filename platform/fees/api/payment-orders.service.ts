@@ -23,8 +23,17 @@ import {
 } from '../contracts';
 import am from '../messages/am.json';
 import en from '../messages/en.json';
+import { refsOut, withdrawPending } from './external-refs';
 import { addisToday, FeesService } from './fees.service';
-import { caseFeeLines, paymentOrderLines, paymentOrders, payments, receiptReversals, receipts } from './fees.table';
+import {
+    caseFeeLines,
+    externalPaymentRefs,
+    paymentOrderLines,
+    paymentOrders,
+    payments,
+    receiptReversals,
+    receipts
+} from './fees.table';
 
 type OrderRow = typeof paymentOrders.$inferSelect;
 
@@ -134,7 +143,9 @@ export class PaymentOrdersService {
         return factsOf(created);
     }
 
-    private cancel(tx: Tx, order: OrderRow, reason: 'reassessed') {
+    private async cancel(tx: Tx, order: OrderRow, reason: 'reassessed') {
+        // a reference waiting on it was for this total: it goes with it
+        await withdrawPending(tx, order.id);
         return updateAudited(tx, paymentOrders, order.id, order.rowVersion, {
             state: 'cancelled',
             cancelledAt: new Date(),
@@ -152,7 +163,7 @@ export class PaymentOrdersService {
         const conditions = [
             eq(paymentOrders.handlingUnitId, ctx.unitId ?? ''),
             eq(paymentOrders.state, query.state),
-            eq(paymentOrders.collection, 'cashier'),
+            eq(paymentOrders.collection, query.collection),
             query.q === undefined ? undefined : eq(paymentOrders.caseNumber, query.q),
             query.after === undefined ? undefined : gt(paymentOrders.id, query.after)
         ].filter((c) => c !== undefined);
@@ -207,6 +218,14 @@ export class PaymentOrdersService {
                 rows.map((r) => r.handlingUnitId)
             )
         ]);
+        const refs = await refsOut(
+            tx,
+            await tx
+                .select()
+                .from(externalPaymentRefs)
+                .where(inArray(externalPaymentRefs.orderId, ids))
+                .orderBy(desc(externalPaymentRefs.createdAt))
+        );
         const source = await this.receiptSource(tx, unitId || (rows[0]?.handlingUnitId ?? ''));
         const today = addisToday();
         const receiptOf = new Map(issued.map((r) => [r.paymentId, r]));
@@ -276,6 +295,7 @@ export class PaymentOrdersService {
                         note: r.note,
                         unit: { id: unit.id, code: unit.code, name: unit.name as I18nText }
                     })),
+                externalRefs: refs.filter((r) => r.orderId === row.id),
                 receiptSource: source
             };
         });

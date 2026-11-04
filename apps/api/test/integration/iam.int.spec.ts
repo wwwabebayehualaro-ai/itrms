@@ -293,11 +293,13 @@ describe('a person in two units', () => {
         expect(atZone.roles).toEqual(['records_officer']);
         expect(atZone.activeUnit.code).toBe('WOL');
         // a cashier reads the org, the register, the forms and their submissions, acts on cases' steps (0.19b: the
-        // engine decides which) and comments on them (0.20b), records payments and asks for reversals (0.22b); nothing more
+        // engine decides which) and comments on them (0.20b), records payments and asks for reversals (0.22b), enters references paid elsewhere (0.22c); nothing more
         expect(atBoditi.permissions).toEqual([
             'case:act',
             'case:comment',
             'case:read',
+            'external-payment:enter',
+            'external-payment:read',
             'file:read',
             'file:upload',
             'form:read',
