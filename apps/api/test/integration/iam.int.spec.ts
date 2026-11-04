@@ -210,7 +210,7 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
         const atDamot = (
             await call('GET', '/api/v1/me/workspace', { token: await token(SUB.damotRecords), unit: damot.id })
         ).json<Workspace>();
-        expect(itemsOf(atDamot)).toEqual(['kernel.home', REQUEST, TASKS, REQUESTS, ...REGISTER]);
+        expect(itemsOf(atDamot)).toEqual(['kernel.home', REQUEST, TASKS, REQUESTS, 'fees.elsewhere', ...REGISTER]);
 
         const boditi = await unitAt('WOL-BODITI');
         const officer = (
@@ -262,7 +262,7 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
         const atZone = (await call('GET', '/api/v1/me/workspace', { token: t, unit: zone.id })).json<Workspace>();
         const atDamot = (await call('GET', '/api/v1/me/workspace', { token: t, unit: damot.id })).json<Workspace>();
         expect(itemsOf(atZone)).toContain('competency.applications');
-        expect(itemsOf(atDamot)).toEqual(['kernel.home', REQUEST, TASKS, REQUESTS, ...REGISTER]);
+        expect(itemsOf(atDamot)).toEqual(['kernel.home', REQUEST, TASKS, REQUESTS, 'fees.elsewhere', ...REGISTER]);
     });
 });
 
