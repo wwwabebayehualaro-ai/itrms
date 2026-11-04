@@ -79,6 +79,8 @@ In code a permission is `resource:action` with the resource in kebab-case, as th
 | `payment_order` | R | — | R | R | C R | R | C R | R | — | R |
 | `payment`, `receipt` | R | — | R | R | C R | R | R | R | — | R |
 | `receipt_reversal` | — | — | D | — | C (request) | D | — | — | — | R |
+| `external_payment_ref` (paid elsewhere) | — | — | D (if named) | C R | C R | D | — | — | — | R |
+| `external_statement` | — | — | — | — | — | C R | — | — | — | R |
 | `driver_licence` (registry) | R | — | R | R | — | — | R (via effects only) | R | R | R |
 | `issued_document` | R | — | R | R | R (receipts) | R | R | R | — | R |
 | `document_template` | A | — | R | — | — | — | — | — | — | R |

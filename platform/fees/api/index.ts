@@ -9,4 +9,5 @@ export { CreatePaymentOrderEffect } from './payment-order.effect';
 export { FEE_CASE_PORT, type FeeCasePort, type PaymentChange } from './case-port';
 export { PaymentOrdersService } from './payment-orders.service';
 export { PaymentsService } from './payments.service';
+export { ExternalPaymentsService } from './external-payments.service';
 export * from './fees.table';

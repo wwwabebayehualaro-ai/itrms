@@ -142,6 +142,9 @@ export type ReceiptSource = (typeof RECEIPT_SOURCES)[number];
 export const REVERSAL_APPROVER_ROLES_SETTING = 'fees.reversals.approverRoles';
 /** The banks a deposit slip may be of. */
 export const BANKS_SETTING = 'fees.payments.banks';
+/** Who verifies a reference paid elsewhere (never the person who entered it), and who may be named as its issuer. */
+export const EXTERNAL_VERIFIER_ROLES_SETTING = 'fees.external.verifierRoles';
+export const EXTERNAL_ISSUERS_SETTING = 'fees.external.issuers';
 /** The counter ITRMS's receipt numbers come from, and its pattern (gapless per office and fiscal year). */
 export const RECEIPT_COUNTER = 'fees.receipt';
 export const RECEIPT_PATTERN = '{unit}/{seq:06}/{efy}';
@@ -151,13 +154,23 @@ const roleList = z
     .min(1)
     .max(10);
 export const bankSchema = z.strictObject({ code: z.string().regex(/^[A-Z0-9]{2,12}$/), name: i18nTextSchema });
+/** Who issues a receipt or a reference for money paid elsewhere (its code is the bank's where it is one). */
+export const issuerSchema = z.strictObject({
+    code: z.string().regex(/^[A-Z0-9]{2,12}$/),
+    kind: z.enum(['revenue_office', 'bank']),
+    name: i18nTextSchema
+});
+
+export type ExternalIssuer = z.infer<typeof issuerSchema>;
 
 /** The value schemas of the slice's settings (the settings registry checks every value against them). */
 export const FEES_SETTINGS = {
     [FEE_APPROVER_ROLES_SETTING]: roleList,
     [RECEIPT_SOURCE_SETTING]: z.enum(RECEIPT_SOURCES),
     [REVERSAL_APPROVER_ROLES_SETTING]: roleList,
-    [BANKS_SETTING]: z.array(bankSchema).min(1).max(100)
+    [BANKS_SETTING]: z.array(bankSchema).min(1).max(100),
+    [EXTERNAL_VERIFIER_ROLES_SETTING]: roleList,
+    [EXTERNAL_ISSUERS_SETTING]: z.array(issuerSchema).min(1).max(100)
 } as const;
 
 /**
@@ -217,6 +230,8 @@ export const reversalDecisionSchema = z.strictObject({
 
 export const paymentOrderQuerySchema = z.object({
     state: z.enum(ORDER_STATES).default('open'),
+    /** the till's queue, or the orders paid elsewhere */
+    collection: z.enum(['cashier', 'elsewhere']).default('cashier'),
     /** a case number */
     q: z.coerce.number().int().positive().optional(),
     /** keyset: the last order's id (orders come oldest first) */
@@ -286,6 +301,141 @@ export const reversalOutSchema = z.object({
 });
 export type ReversalOut = z.infer<typeof reversalOutSchema>;
 
+// ---- paid elsewhere (task 0.22c, ADR-0043) ----
+
+export const EXTERNAL_REF_STATES = ['pending_verification', 'verified', 'rejected', 'revoked', 'withdrawn'] as const;
+export type ExternalRefState = (typeof EXTERNAL_REF_STATES)[number];
+export const STATEMENT_LINE_STATES = [
+    'unmatched',
+    'matched',
+    'amount_mismatch',
+    'held',
+    'duplicate',
+    'invalid'
+] as const;
+export const STATEMENT_STATES = ['received', 'matching', 'processed', 'failed'] as const;
+/** The one layout known so far: a placeholder until a bank's or a revenue office's is. */
+export const STATEMENT_LAYOUT = 'placeholder-v1';
+/** One office's day: the API's body limit is a megabyte, and a statement never needs more than this. */
+export const MAX_STATEMENT_BYTES = 512 * 1024;
+export const MAX_STATEMENT_LINES = 5000;
+
+/** A receipt or reference of money paid elsewhere, entered at the counter against the order: the whole total. */
+export const externalRefInputSchema = z.strictObject({
+    issuer: z.string().regex(/^[A-Z0-9]{2,12}$/),
+    reference: z
+        .string()
+        .trim()
+        .min(1)
+        .max(40)
+        .refine((v) => !v.includes('\0'), 'no null character'),
+    amountSantim: santimTextSchema,
+    paidOn: z.iso.date(),
+    receivedFrom: z.string().trim().min(2).max(200)
+});
+export type ExternalRefInput = z.infer<typeof externalRefInputSchema>;
+
+/** A person's decision on a reference: a rejection says why. */
+export const externalRefDecisionSchema = z
+    .strictObject({ decision: z.enum(['verified', 'rejected']), note: z.string().trim().min(1).max(500).optional() })
+    .refine((v) => v.decision === 'verified' || v.note !== undefined, {
+        path: ['note'],
+        message: 'a rejection says why'
+    });
+export type ExternalRefDecision = z.infer<typeof externalRefDecisionSchema>;
+
+export const externalRefRevocationSchema = z.strictObject({ reason: z.string().trim().min(10).max(500) });
+export const externalRefQuerySchema = z.object({
+    state: z.enum(EXTERNAL_REF_STATES).default('pending_verification'),
+    after: z.uuid().optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(50)
+});
+
+export const externalRefOutSchema = z.object({
+    id: z.uuid(),
+    orderId: z.uuid(),
+    caseId: z.uuid(),
+    caseNumber: z.number().int(),
+    issuer: z.string(),
+    reference: z.string(),
+    fiscalYear: z.number().int(),
+    paidOn: z.iso.date(),
+    amountSantim: santimTextSchema,
+    receivedFrom: z.string(),
+    state: z.enum(EXTERNAL_REF_STATES),
+    enteredBy: z.uuid(),
+    enteredAt: iso,
+    decidedBy: z.uuid().nullable(),
+    decidedAt: iso.nullable(),
+    /** verified by a person, or by a statement's line */
+    verifiedVia: z.enum(['person', 'statement']).nullable(),
+    note: z.string().nullable(),
+    revokeReason: z.string().nullable(),
+    /** the same reference rejected before, where the person can see it: a reason to look twice */
+    rejectedBefore: z.number().int(),
+    /** the same number live in another fiscal year: numbers may restart, or the date may be wrong */
+    sameNumberOtherYear: z.number().int(),
+    /** paid before the order was issued: perhaps an old receipt used again */
+    paidBeforeOrder: z.boolean(),
+    /** what a statement says of it, where the person can see that statement */
+    statement: z
+        .object({
+            state: z.enum(STATEMENT_LINE_STATES),
+            amountSantim: santimTextSchema.nullable(),
+            paidOn: z.iso.date().nullable()
+        })
+        .nullable(),
+    unit: z.object({ id: z.uuid(), code: z.string(), name: i18nTextSchema })
+});
+export type ExternalRefOut = z.infer<typeof externalRefOutSchema>;
+
+export const statementImportSchema = z.strictObject({
+    issuer: z.string().regex(/^[A-Z0-9]{2,12}$/),
+    statementDate: z.iso.date(),
+    filename: z.string().trim().min(1).max(200),
+    content: z
+        .string()
+        .min(1)
+        .max(MAX_STATEMENT_BYTES)
+        .refine((v) => !v.includes('\0'), 'no null character')
+});
+export type StatementImport = z.infer<typeof statementImportSchema>;
+export const statementQuerySchema = z.object({ limit: z.coerce.number().int().min(1).max(100).default(30) });
+export const statementLineQuerySchema = z.object({
+    /** by default what needs a person: everything but the matched lines */
+    all: z.stringbool().default(false),
+    after: z.coerce.number().int().min(0).default(0),
+    limit: z.coerce.number().int().min(1).max(200).default(100)
+});
+
+export const statementOutSchema = z.object({
+    id: z.uuid(),
+    issuer: z.string(),
+    statementDate: z.iso.date(),
+    filename: z.string(),
+    layout: z.string(),
+    state: z.enum(STATEMENT_STATES),
+    failure: z.string().nullable(),
+    importedBy: z.uuid(),
+    importedAt: iso,
+    /** lines per state: a state with none is left out */
+    counts: z.partialRecord(z.enum(STATEMENT_LINE_STATES), z.number().int()),
+    unit: z.object({ id: z.uuid(), code: z.string(), name: i18nTextSchema })
+});
+export type StatementOut = z.infer<typeof statementOutSchema>;
+
+export const statementLineOutSchema = z.object({
+    id: z.uuid(),
+    lineNo: z.number().int(),
+    reference: z.string().nullable(),
+    amountSantim: santimTextSchema.nullable(),
+    paidOn: z.iso.date().nullable(),
+    state: z.enum(STATEMENT_LINE_STATES),
+    reason: z.string().nullable(),
+    refId: z.uuid().nullable()
+});
+export type StatementLineOut = z.infer<typeof statementLineOutSchema>;
+
 export const paymentOrderOutSchema = z.object({
     id: z.uuid(),
     caseId: z.uuid(),
@@ -304,14 +454,26 @@ export const paymentOrderOutSchema = z.object({
     cancelReason: z.enum(['reassessed', 'case_closed']).nullable(),
     payments: z.array(paymentOutSchema),
     reversals: z.array(reversalOutSchema),
+    /** references of money paid elsewhere, newest first */
+    externalRefs: z.array(externalRefOutSchema),
     /** where this office's receipt numbers come from now */
     receiptSource: z.enum(RECEIPT_SOURCES)
 });
 export type PaymentOrderOut = z.infer<typeof paymentOrderOutSchema>;
 
-/** The events of the slice: a payment settled an order; a receipt issued (0.23 renders it), reversed (0.23 revokes it). */
+/**
+ * The events of the slice: a payment or a verified reference settled an order; a receipt issued (0.23 renders it), reversed
+ * (0.23 revokes it); a reference entered, and a statement received (the worker matches them).
+ */
 export const FEES_EVENTS = {
-    'payment.settled.v1': z.object({ orderId: z.uuid(), caseId: z.uuid(), paymentId: z.uuid() }),
+    'payment.settled.v1': z.object({
+        orderId: z.uuid(),
+        caseId: z.uuid(),
+        paymentId: z.uuid().optional(),
+        externalRefId: z.uuid().optional()
+    }),
+    'external-payment.entered.v1': z.object({ refId: z.uuid() }),
+    'external-statement.received.v1': z.object({ statementId: z.uuid() }),
     'receipt.issued.v1': z.object({ receiptId: z.uuid(), caseId: z.uuid() }),
     'receipt.reversed.v1': z.object({ receiptId: z.uuid(), caseId: z.uuid(), reversalId: z.uuid() })
 } as const;

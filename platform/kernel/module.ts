@@ -34,7 +34,15 @@ const CASE_READ = ['case:read'];
 const FEE_RULES = ['fee-rule:read', 'fee-rule:create', 'fee-rule:approve'];
 // payments (@itrms/fees, task 0.22b): the cashier records a payment and asks for a reversal; another person decides it
 // (a role the region's `fees.reversals.approverRoles` names; never the requester nor the cashier who took the money)
-const PAYMENTS_READ = ['payment-order:read', 'payment:read', 'receipt:read', 'receipt-reversal:read'];
+// money paid elsewhere (task 0.22c): the counter enters a reference; another person verifies it (a role the region's
+// `fees.external.verifierRoles` names), or a statement the finance officer imports does
+const PAYMENTS_READ = [
+    'payment-order:read',
+    'payment:read',
+    'receipt:read',
+    'receipt-reversal:read',
+    'external-payment:read'
+];
 const CASE_ACT = ['case:read', 'case:act', 'case:comment'];
 
 export default defineModule({
@@ -113,7 +121,8 @@ export default defineModule({
             'case:reassign',
             // a region may name the office's head among those who decide a reversal (fees.reversals.approverRoles)
             ...PAYMENTS_READ,
-            'receipt-reversal:decide'
+            'receipt-reversal:decide',
+            'external-payment:verify'
         ],
         // at intake: checks the identity of the person in front of them
         records_officer: [
@@ -125,7 +134,9 @@ export default defineModule({
             'submission:create',
             'submission:read',
             'payment-order:read',
-            'receipt:read'
+            'receipt:read',
+            'external-payment:read',
+            'external-payment:enter'
         ],
         cashier: [
             ...READ_ORG,
@@ -134,7 +145,8 @@ export default defineModule({
             'submission:read',
             ...PAYMENTS_READ,
             'payment:record',
-            'receipt-reversal:request'
+            'receipt-reversal:request',
+            'external-payment:enter'
         ],
         finance_officer: [
             ...READ_ORG,
@@ -145,7 +157,10 @@ export default defineModule({
             'fee-rule:read',
             'fee-rule:approve',
             ...PAYMENTS_READ,
-            'receipt-reversal:decide'
+            'receipt-reversal:decide',
+            'external-payment:verify',
+            'external-statement:read',
+            'external-statement:import'
         ],
         auditor: [
             ...READ_ORG,
@@ -155,6 +170,7 @@ export default defineModule({
             'workflow-definition:read',
             'fee-rule:read',
             ...PAYMENTS_READ,
+            'external-statement:read',
             'submission:read',
             'submission:export',
             ...CASE_READ

@@ -8,7 +8,7 @@
  * the order again, and the receipt keeps its number (ADR-0014). Every write is audited in its transaction.
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import { asc, eq } from 'drizzle-orm';
+import { asc, eq, sql } from 'drizzle-orm';
 import { insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
 import { nextNumber } from '@itrms/kernel/numbering';
@@ -27,6 +27,7 @@ import {
     type ReversalOut
 } from '../contracts';
 import { FEE_CASE_PORT, type FeeCasePort } from './case-port';
+import { externalReferenceKey, fiscalYearOfDay, normalisedReference } from './external-refs';
 import { addisToday } from './fees.service';
 import { paymentOrderLines, paymentOrders, payments, receiptReversals, receipts } from './fees.table';
 import { factsOf, PaymentOrdersService, say } from './payment-orders.service';
@@ -34,12 +35,7 @@ import { factsOf, PaymentOrdersService, say } from './payment-orders.service';
 type ReceiptRow = typeof receipts.$inferSelect;
 type ReversalRow = typeof receiptReversals.$inferSelect;
 
-/**
- * A slip reference as compared: upper case, its letters and digits only ("ft 12-345" and "FT/12.345" are "FT12345"), so
- * punctuation can't make one slip pay two orders.
- */
-export const normalisedReference = (reference: string): string =>
-    reference.toUpperCase().replace(/[^\p{L}\p{N}]+/gu, '');
+export { normalisedReference };
 /** Of a reference, what must be left to compare; the database keeps the same floor. */
 const MIN_REFERENCE = 3;
 
@@ -127,6 +123,12 @@ export class PaymentsService {
                 throw fieldError('bankSlip.reference', 'invalid', say(language, 'fees.payment.invalid.reference'));
             if (slip.paidOn > addisToday())
                 throw fieldError('bankSlip.paidOn', 'invalid', say(language, 'fees.payment.slipFuture'));
+            // the same deposit entered as a reference paid elsewhere: another office's, past this request's RLS
+            const used = await tx.execute<{ used: boolean }>(
+                sql`select fees.external_reference_in_use(${slip.bank}, ${externalReferenceKey(slip.reference)}, ${fiscalYearOfDay(slip.paidOn)}::int) as used`
+            );
+            if (used.rows[0]?.used)
+                throw new ConflictError('duplicate_reference', { detail: say(language, 'fees.payment.slipUsed') });
         }
 
         let payment: typeof payments.$inferSelect;

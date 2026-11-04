@@ -17,6 +17,7 @@ const ORDER_TONE: Record<PaymentOrderOut['state'], Tone> = { open: 'progress', s
 export function CasePaymentPanel({ caseId }: { caseId: string }) {
     const { t, language } = useText();
     const mayRecord = useCan('payment:record');
+    const mayEnter = useCan('external-payment:enter');
     // payment data has a right of its own: a person who reads only the case is not refused for it on every page
     const payment = useCasePayment(caseId, useCan('payment-order:read'));
     const order = payment.data;
@@ -55,7 +56,7 @@ export function CasePaymentPanel({ caseId }: { caseId: string }) {
                     ))}
                 </ul>
             )}
-            {mayRecord && (
+            {(order.collection === 'elsewhere' ? mayEnter : mayRecord) && (
                 <Link href={`/cashier/orders/${order.id}`} className="w-fit text-sm text-primary hover:underline">
                     {t('fees.case.openOrder')}
                 </Link>

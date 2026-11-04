@@ -408,8 +408,9 @@ Definition (Zod schema `workflowDefinitionSchema` in `packages/schemas`; stored 
   2. **Paid elsewhere** (revenue office, bank): the officer enters the external reference. It is stored in
      `external_payment_refs`, which is **unique per issuer, reference and fiscal year**, so one real receipt can never settle
      two cases. Its state is `pending_verification` until a `finance_officer` (not the officer who entered it) verifies it,
-     or until it matches an **imported daily statement** from the revenue office or bank. Only a verified reference
-     satisfies `payment.settled`.
+     or until it matches an **imported daily statement** from the revenue office or bank, exactly and in the importer's
+     subtree (never one the importer entered). Only a verified reference satisfies `payment.settled`; a third person
+     revokes one that proves wrong (ADR-0043).
   3. **Online** (Phase 3): a provider webhook moves the case out of a `wait` state after signature check and idempotent
      settlement.
 - Corrections are reversals with a reason and a second person's approval (a role the region names, never the requester

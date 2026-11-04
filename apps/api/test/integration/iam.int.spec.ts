@@ -210,7 +210,7 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
         const atDamot = (
             await call('GET', '/api/v1/me/workspace', { token: await token(SUB.damotRecords), unit: damot.id })
         ).json<Workspace>();
-        expect(itemsOf(atDamot)).toEqual(['kernel.home', REQUEST, TASKS, REQUESTS, ...REGISTER]);
+        expect(itemsOf(atDamot)).toEqual(['kernel.home', REQUEST, TASKS, REQUESTS, 'fees.elsewhere', ...REGISTER]);
 
         const boditi = await unitAt('WOL-BODITI');
         const officer = (
@@ -262,7 +262,7 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
         const atZone = (await call('GET', '/api/v1/me/workspace', { token: t, unit: zone.id })).json<Workspace>();
         const atDamot = (await call('GET', '/api/v1/me/workspace', { token: t, unit: damot.id })).json<Workspace>();
         expect(itemsOf(atZone)).toContain('competency.applications');
-        expect(itemsOf(atDamot)).toEqual(['kernel.home', REQUEST, TASKS, REQUESTS, ...REGISTER]);
+        expect(itemsOf(atDamot)).toEqual(['kernel.home', REQUEST, TASKS, REQUESTS, 'fees.elsewhere', ...REGISTER]);
     });
 });
 
@@ -293,11 +293,13 @@ describe('a person in two units', () => {
         expect(atZone.roles).toEqual(['records_officer']);
         expect(atZone.activeUnit.code).toBe('WOL');
         // a cashier reads the org, the register, the forms and their submissions, acts on cases' steps (0.19b: the
-        // engine decides which) and comments on them (0.20b), records payments and asks for reversals (0.22b); nothing more
+        // engine decides which) and comments on them (0.20b), records payments and asks for reversals (0.22b), enters references paid elsewhere (0.22c); nothing more
         expect(atBoditi.permissions).toEqual([
             'case:act',
             'case:comment',
             'case:read',
+            'external-payment:enter',
+            'external-payment:read',
             'file:read',
             'file:upload',
             'form:read',

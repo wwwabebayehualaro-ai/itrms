@@ -6,13 +6,35 @@
  * whole total, which the server compares (409 `amount_mismatch`).
  */
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { PaymentInput, PaymentOrderOut, ReceiptOut, ReversalOut } from '@itrms/fees/contracts';
+import type {
+    ExternalIssuer,
+    ExternalRefInput,
+    ExternalRefOut,
+    PaymentInput,
+    PaymentOrderOut,
+    ReceiptOut,
+    ReversalOut,
+    StatementImport,
+    StatementLineOut,
+    StatementOut
+} from '@itrms/fees/contracts';
 
 import client, { isApiError } from './api/client';
 import { useAuthStore } from './auth/authStore';
 import { caseKeys } from './workflow';
 
-export type { PaymentInput, PaymentOrderOut, ReceiptOut, ReversalOut };
+export type {
+    ExternalIssuer,
+    ExternalRefInput,
+    ExternalRefOut,
+    PaymentInput,
+    PaymentOrderOut,
+    ReceiptOut,
+    ReversalOut,
+    StatementImport,
+    StatementLineOut,
+    StatementOut
+};
 export type FeeLine = PaymentOrderOut['lines'][number];
 export type PaymentRow = PaymentOrderOut['payments'][number];
 
@@ -33,13 +55,19 @@ export const feeKeys = {
     order: (id: string) => ['fees', 'order', id] as const,
     receipt: (id: string) => ['fees', 'receipt', id] as const,
     reversals: () => ['fees', 'reversals'] as const,
-    casePayment: (caseId: string) => ['fees', 'case-payment', caseId] as const
+    casePayment: (caseId: string) => ['fees', 'case-payment', caseId] as const,
+    externalRefs: () => ['fees', 'external-refs'] as const,
+    issuers: () => ['fees', 'issuers'] as const,
+    statements: () => ['fees', 'statements'] as const,
+    statementLines: (id: string) => ['fees', 'statements', id, 'lines'] as const
 };
 
 export interface QueueFilters {
     /** a case number */
     q?: number;
     after?: string | null;
+    /** the till's queue by default, or the orders paid elsewhere */
+    collection?: 'cashier' | 'elsewhere';
 }
 
 /** The open orders of the person's office, oldest first (the cashier's queue). */
@@ -52,6 +80,7 @@ export function useCashierQueue(filters: QueueFilters) {
                 await client.get<{ items: PaymentOrderOut[] }>('v1/payment-orders', {
                     params: {
                         state: 'open',
+                        collection: filters.collection ?? 'cashier',
                         ...(filters.q ? { q: filters.q } : {}),
                         ...(filters.after ? { after: filters.after } : {}),
                         limit: 50
@@ -144,6 +173,102 @@ export function useDecideReversal() {
     return useMutation({
         mutationFn: async ({ id, ...body }: { id: string; decision: 'approved' | 'rejected'; note?: string }) =>
             (await client.post<ReversalOut>(`v1/receipt-reversals/${id}/decision`, body)).data,
+        onSuccess: invalidate
+    });
+}
+
+// ---- paid elsewhere (task 0.22c) ----
+
+/** Who may issue a reference here: rarely changes. */
+export function useExternalIssuers() {
+    return useQuery({
+        queryKey: feeKeys.issuers(),
+        staleTime: 5 * 60 * 1000,
+        queryFn: async ({ signal }) =>
+            (await client.get<{ items: ExternalIssuer[] }>('v1/external-issuers', { signal })).data
+    });
+}
+
+/** The references the person sees, waiting for a decision, a page at a time from the last one seen. */
+export const EXTERNAL_REF_PAGE = 50;
+export function useExternalRefInbox(after: string | null) {
+    return useQuery({
+        queryKey: [...feeKeys.externalRefs(), after],
+        placeholderData: keepPreviousData,
+        queryFn: async ({ signal }) =>
+            (
+                await client.get<{ items: ExternalRefOut[] }>('v1/external-payment-refs', {
+                    params: {
+                        state: 'pending_verification',
+                        limit: EXTERNAL_REF_PAGE,
+                        ...(after ? { after } : {})
+                    },
+                    signal
+                })
+            ).data
+    });
+}
+
+export function useEnterExternalRef(orderId: string) {
+    const invalidate = useInvalidate();
+    return useMutation({
+        mutationFn: async (input: ExternalRefInput) =>
+            (await client.post<ExternalRefOut>(`v1/payment-orders/${orderId}/external-refs`, input)).data,
+        onSuccess: invalidate
+    });
+}
+
+export function useDecideExternalRef() {
+    const invalidate = useInvalidate();
+    return useMutation({
+        mutationFn: async ({ id, ...body }: { id: string; decision: 'verified' | 'rejected'; note?: string }) =>
+            (await client.post<ExternalRefOut>(`v1/external-payment-refs/${id}/decision`, body)).data,
+        onSuccess: invalidate
+    });
+}
+
+export function useRevokeExternalRef() {
+    const invalidate = useInvalidate();
+    return useMutation({
+        mutationFn: async ({ id, reason }: { id: string; reason: string }) =>
+            (await client.post<ExternalRefOut>(`v1/external-payment-refs/${id}/revocation`, { reason })).data,
+        onSuccess: invalidate
+    });
+}
+
+/** The statements the person sees: while the worker reads one, the list follows it. */
+export function useStatements() {
+    return useQuery<{ items: StatementOut[] }>({
+        queryKey: feeKeys.statements(),
+        refetchInterval: (query) =>
+            query.state.data?.items.some((s) => s.state === 'received' || s.state === 'matching') ? 3000 : false,
+        queryFn: async ({ signal }) =>
+            (await client.get<{ items: StatementOut[] }>('v1/external-statements', { signal })).data
+    });
+}
+
+/** A statement's lines to look at, a page at a time after a line; while the worker reads it, they follow it. */
+export const STATEMENT_LINE_PAGE = 100;
+export function useStatementLines(statementId: string, after: number, live: boolean) {
+    return useQuery({
+        queryKey: [...feeKeys.statementLines(statementId), after],
+        placeholderData: keepPreviousData,
+        refetchInterval: live ? 3000 : false,
+        queryFn: async ({ signal }) =>
+            (
+                await client.get<{ items: StatementLineOut[] }>(`v1/external-statements/${statementId}/lines`, {
+                    params: { after, limit: STATEMENT_LINE_PAGE },
+                    signal
+                })
+            ).data
+    });
+}
+
+export function useImportStatement() {
+    const invalidate = useInvalidate();
+    return useMutation({
+        mutationFn: async (input: StatementImport) =>
+            (await client.post<StatementOut>('v1/external-statements', input)).data,
         onSuccess: invalidate
     });
 }

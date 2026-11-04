@@ -8,7 +8,14 @@ import type { DbContext, Tx } from '@itrms/kernel/db';
 
 import type { PaymentFacts } from '../contracts';
 
-export type PaymentChange = 'paid' | 'reversal_requested' | 'reversed' | 'reversal_rejected';
+export type PaymentChange =
+    | 'paid'
+    | 'reversal_requested'
+    | 'reversed'
+    | 'reversal_rejected'
+    | 'reference_entered'
+    | 'reference_rejected'
+    | 'reference_revoked';
 
 export interface FeeCasePort {
     /** Locks the case for the payment's transaction: null when it cannot be read here. */

@@ -66,8 +66,8 @@ async function main() {
             };
             const handlers: Record<string, OutboxHandler> = {
                 ...workflowHandlers(system, sla),
-                // a closed case's open payment order is cancelled (task 0.22b)
-                ...feesHandlers(system),
+                // a closed case's open payment order is cancelled (task 0.22b); statements and references matched (0.22c)
+                ...feesHandlers(system, { cases: app.get(CasesService) }),
                 ...formsHandlers(system, {
                     database,
                     store: objectStore ?? NO_OBJECT_STORE,

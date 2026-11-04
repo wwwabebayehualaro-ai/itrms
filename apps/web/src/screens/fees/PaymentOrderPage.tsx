@@ -10,14 +10,12 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
-import { addisDate } from '@itrms/ethiopian-calendar';
 import {
     Button,
     DescriptionList,
     EmptyState,
     EthiopianDatePicker,
     Field,
-    FieldError,
     FieldLabel,
     MoneyInput,
     PageHeader,
@@ -49,6 +47,8 @@ import {
 } from '@/lib/fees';
 import { formatDay, formatMoney, formatMoment } from '@/lib/format';
 import { usePreferences, useText } from '@/lib/preferences';
+import { ExternalRefForm, ExternalRefList } from './ExternalRefSection';
+import { ErrorsOf, todayInAddis } from './form-bits';
 import { ReversalDialog } from './ReversalDialog';
 
 const ORDER_TONE: Record<PaymentOrderOut['state'], Tone> = { open: 'progress', settled: 'success', cancelled: 'muted' };
@@ -59,6 +59,7 @@ export function PaymentOrderPage({ id }: { id: string }) {
     const order = usePaymentOrder(id);
     // the till is the handling office's, for who may record: anyone else reads the order
     const mayRecord = useCan('payment:record');
+    const mayEnter = useCan('external-payment:enter');
     const activeUnit = useAuthStore((s) => s.workspace?.activeUnit.id);
 
     if (order.isPending) return <Skeleton className="h-64 w-full" />;
@@ -114,16 +115,24 @@ export function PaymentOrderPage({ id }: { id: string }) {
                 (o.collection === 'cashier' ? (
                     mayRecord && o.unit.id === activeUnit && <PaymentForm order={o} />
                 ) : (
-                    <p className="text-muted-foreground text-sm" role="note">
-                        {t('fees.order.collectedElsewhere')}
-                    </p>
+                    <>
+                        <p className="text-muted-foreground text-sm" role="note">
+                            {t('fees.order.collectedElsewhere')}
+                        </p>
+                        {mayEnter &&
+                            o.unit.id === activeUnit &&
+                            !o.externalRefs.some((r) => r.state === 'pending_verification') && (
+                                <ExternalRefForm order={o} />
+                            )}
+                    </>
                 ))}
             {o.state === 'cancelled' && (
                 <p className="text-muted-foreground text-sm" role="note">
                     {t(`fees.order.cancelled.${o.cancelReason ?? 'reassessed'}`)}
                 </p>
             )}
-            <Payments order={o} />
+            <ExternalRefList order={o} />
+            {o.collection === 'cashier' && <Payments order={o} />}
         </div>
     );
 }
@@ -164,12 +173,6 @@ function Lines({ lines, total }: { lines: FeeLine[]; total: string }) {
         </section>
     );
 }
-
-/** Today's date in Addis Ababa (YYYY-MM-DD): a deposit slip is not dated after it. */
-const todayInAddis = () => {
-    const { year, month, day } = addisDate(new Date());
-    return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-};
 
 function PaymentForm({ order }: { order: PaymentOrderOut }) {
     const { t, text, language } = useText();
@@ -393,21 +396,6 @@ function PaymentForm({ order }: { order: PaymentOrderOut }) {
             </ZodForm>
         </section>
     );
-}
-
-/** The messages of a field's Zod issues (once each), after the person has left it. */
-function ErrorsOf({ errors, touched }: { errors: unknown[]; touched: boolean }) {
-    if (!touched) return null;
-    const messages = [
-        ...new Set(
-            errors
-                .map((e) =>
-                    typeof e === 'string' ? e : e && typeof e === 'object' && 'message' in e ? String(e.message) : ''
-                )
-                .filter(Boolean)
-        )
-    ];
-    return messages.length > 0 ? <FieldError>{messages.join(' ')}</FieldError> : null;
 }
 
 function Payments({ order }: { order: PaymentOrderOut }) {

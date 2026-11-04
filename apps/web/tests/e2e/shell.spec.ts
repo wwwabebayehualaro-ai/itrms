@@ -46,6 +46,7 @@ test('switching the unit changes the menu and the data scope', async ({ page }) 
         'services.request',
         'workflow.inbox',
         'workflow.requests',
+        'fees.elsewhere',
         'parties.persons',
         'parties.organisations'
     ]);

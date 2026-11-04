@@ -10,7 +10,10 @@ import type { SystemDatabase } from '@itrms/kernel/db/system';
 import type { OutboxHandler } from '@itrms/kernel/api/worker';
 import { z } from 'zod';
 
+import { FEES_EVENTS } from '../../contracts';
+import { withdrawPending } from '../external-refs';
 import { paymentOrders } from '../fees.table';
+import { matchEntered, processStatement, type StatementDeps } from './statements';
 
 const caseTransitioned = z.object({ caseId: z.uuid(), closed: z.boolean() });
 
@@ -23,6 +26,8 @@ export async function cancelClosedCaseOrder(system: SystemDatabase, caseId: stri
             .where(and(eq(paymentOrders.caseId, caseId), eq(paymentOrders.state, 'open')))
             .for('update');
         if (!order) return false;
+        // what waited on it goes with it
+        await withdrawPending(tx, order.id);
         await updateAudited(tx, paymentOrders, order.id, order.rowVersion, {
             state: 'cancelled',
             cancelledAt: new Date(),
@@ -32,11 +37,22 @@ export async function cancelClosedCaseOrder(system: SystemDatabase, caseId: stri
     });
 }
 
-export function feesHandlers(system: SystemDatabase): Record<string, OutboxHandler> {
+export function feesHandlers(system: SystemDatabase, deps: StatementDeps = {}): Record<string, OutboxHandler> {
     return {
         'case.transitioned.v1': async (job) => {
             const event = caseTransitioned.parse(job.payload);
             if (event.closed) await cancelClosedCaseOrder(system, event.caseId);
+        },
+        // a reference matched against the statements, a statement read and matched (task 0.22c)
+        'external-payment.entered.v1': async (job) => {
+            await matchEntered(system, deps, FEES_EVENTS['external-payment.entered.v1'].parse(job.payload).refId);
+        },
+        'external-statement.received.v1': async (job) => {
+            await processStatement(
+                system,
+                deps,
+                FEES_EVENTS['external-statement.received.v1'].parse(job.payload).statementId
+            );
         }
     };
 }

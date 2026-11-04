@@ -3192,6 +3192,77 @@
         ],
         "type": "object"
       },
+      "RefDecisionDto": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "verified",
+              "rejected"
+            ],
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "type": "object"
+      },
+      "RefInputDto": {
+        "additionalProperties": false,
+        "properties": {
+          "amountSantim": {
+            "pattern": "^(0|[1-9]\\d{0,16})$",
+            "type": "string"
+          },
+          "issuer": {
+            "pattern": "^[A-Z0-9]{2,12}$",
+            "type": "string"
+          },
+          "paidOn": {
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+            "type": "string"
+          },
+          "receivedFrom": {
+            "maxLength": 200,
+            "minLength": 2,
+            "type": "string"
+          },
+          "reference": {
+            "maxLength": 40,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "issuer",
+          "reference",
+          "amountSantim",
+          "paidOn",
+          "receivedFrom"
+        ],
+        "type": "object"
+      },
+      "RefRevocationDto": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 10,
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "type": "object"
+      },
       "RenameUnitDto": {
         "additionalProperties": false,
         "properties": {
@@ -4149,6 +4220,37 @@
         },
         "required": [
           "value"
+        ],
+        "type": "object"
+      },
+      "StatementImportDto": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "maxLength": 524288,
+            "minLength": 1,
+            "type": "string"
+          },
+          "filename": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "issuer": {
+            "pattern": "^[A-Z0-9]{2,12}$",
+            "type": "string"
+          },
+          "statementDate": {
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issuer",
+          "statementDate",
+          "filename",
+          "content"
         ],
         "type": "object"
       },
@@ -5597,6 +5699,262 @@
         },
         "tags": [
           "Cases"
+        ]
+      }
+    },
+    "/api/v1/external-issuers": {
+      "get": {
+        "operationId": "ExternalPaymentsController_issuers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ExternalPayments"
+        ]
+      }
+    },
+    "/api/v1/external-payment-refs": {
+      "get": {
+        "operationId": "ExternalPaymentsController_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "default": "pending_verification",
+              "enum": [
+                "pending_verification",
+                "verified",
+                "rejected",
+                "revoked",
+                "withdrawn"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ExternalPayments"
+        ]
+      }
+    },
+    "/api/v1/external-payment-refs/{id}/decision": {
+      "post": {
+        "operationId": "ExternalPaymentsController_decide",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefDecisionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ExternalPayments"
+        ]
+      }
+    },
+    "/api/v1/external-payment-refs/{id}/revocation": {
+      "post": {
+        "operationId": "ExternalPaymentsController_revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefRevocationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ExternalPayments"
+        ]
+      }
+    },
+    "/api/v1/external-statements": {
+      "get": {
+        "operationId": "ExternalPaymentsController_statements",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ExternalPayments"
+        ]
+      },
+      "post": {
+        "operationId": "ExternalPaymentsController_importStatement",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatementImportDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ExternalPayments"
+        ]
+      }
+    },
+    "/api/v1/external-statements/{id}": {
+      "get": {
+        "operationId": "ExternalPaymentsController_statement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ExternalPayments"
+        ]
+      }
+    },
+    "/api/v1/external-statements/{id}/lines": {
+      "get": {
+        "operationId": "ExternalPaymentsController_lines",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "all",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ExternalPayments"
         ]
       }
     },
@@ -7691,6 +8049,19 @@
           },
           {
             "in": "query",
+            "name": "collection",
+            "required": false,
+            "schema": {
+              "default": "cashier",
+              "enum": [
+                "cashier",
+                "elsewhere"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
             "name": "q",
             "required": false,
             "schema": {
@@ -7751,6 +8122,39 @@
         },
         "tags": [
           "Payments"
+        ]
+      }
+    },
+    "/api/v1/payment-orders/{id}/external-refs": {
+      "post": {
+        "operationId": "ExternalPaymentsController_enter",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefInputDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ExternalPayments"
         ]
       }
     },

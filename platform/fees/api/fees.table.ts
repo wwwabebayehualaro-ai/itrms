@@ -217,6 +217,8 @@ export const paymentOrders = withRls(
                 state: text('state').$type<'open' | 'settled' | 'cancelled'>().notNull().default('open'),
                 /** the payment that settles it (the key is in the migration: the payments name their order) */
                 settledPaymentId: uuid('settled_payment_id'),
+                /** or the reference of money paid elsewhere that settles it (the key is in the migration) */
+                settledExternalRefId: uuid('settled_external_ref_id'),
                 cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
                 cancelReason: text('cancel_reason').$type<'reassessed' | 'case_closed'>()
             },
@@ -379,6 +381,136 @@ export const receiptReversals = withRls(
                     .where(sql`state IN ('requested', 'approved')`),
                 index('receipt_reversals_inbox_idx').on(t.state, t.createdAt),
                 index('receipt_reversals_org_path_gist').using('gist', t.orgPath)
+            ]
+        )
+    ),
+    'transaction'
+);
+
+/**
+ * The receipt or reference of money paid elsewhere (a revenue office, a bank), task 0.22c, ADR-0043: entered at the
+ * counter, it settles its order only once verified, by a person other than who entered it or by a statement's line. One
+ * real reference settles one case: unique per issuer, reference (normalised) and the fiscal year of its date, while it
+ * is live. A rejected, revoked or withdrawn one frees the key, and stays on record.
+ */
+export const externalPaymentRefs = withRls(
+    audited(
+        feesSchema.table(
+            'external_payment_refs',
+            {
+                ...baseColumns(),
+                ...handled(),
+                orderId: uuid('order_id')
+                    .notNull()
+                    .references(() => paymentOrders.id),
+                caseId: uuid('case_id').notNull(),
+                issuer: text('issuer').notNull(),
+                reference: text('reference').notNull(),
+                /** the reference compared: its letters and digits in capitals, without leading zeros */
+                referenceNorm: text('reference_norm').notNull(),
+                fiscalYear: integer('fiscal_year').notNull(),
+                paidOn: date('paid_on').notNull(),
+                amountSantim: bigint('amount_santim', { mode: 'bigint' }).notNull(),
+                receivedFrom: text('received_from').notNull(),
+                state: text('state')
+                    .$type<'pending_verification' | 'verified' | 'rejected' | 'revoked' | 'withdrawn'>()
+                    .notNull()
+                    .default('pending_verification'),
+                enteredBy: uuid('entered_by').notNull(),
+                /** who verified or rejected it; none when a statement's line verified it */
+                decidedBy: uuid('decided_by'),
+                decidedAt: timestamp('decided_at', { withTimezone: true }),
+                verifiedVia: text('verified_via').$type<'person' | 'statement'>(),
+                note: text('note'),
+                revokedBy: uuid('revoked_by'),
+                revokedAt: timestamp('revoked_at', { withTimezone: true }),
+                revokeReason: text('revoke_reason')
+            },
+            (t) => [
+                uniqueIndex('external_payment_refs_key_uq')
+                    .on(t.regionId, t.issuer, t.referenceNorm, t.fiscalYear)
+                    .where(sql`state IN ('pending_verification', 'verified')`),
+                uniqueIndex('external_payment_refs_order_live_uq')
+                    .on(t.orderId)
+                    .where(sql`state IN ('pending_verification', 'verified')`),
+                index('external_payment_refs_inbox_idx').on(t.state, t.id),
+                index('external_payment_refs_key_idx').on(t.regionId, t.issuer, t.referenceNorm, t.fiscalYear),
+                index('external_payment_refs_org_path_gist').using('gist', t.orgPath)
+            ]
+        )
+    ),
+    'transaction'
+);
+
+/**
+ * A daily statement from a revenue office or a bank, as it was imported: the file's content kept as evidence, out of the
+ * audit log (its hash goes in). The same file is imported once per issuer. Its office's subtree is what it can verify.
+ */
+export const externalStatements = withRls(
+    audited(
+        feesSchema.table(
+            'external_statements',
+            {
+                ...baseColumns(),
+                ...handled(),
+                issuer: text('issuer').notNull(),
+                statementDate: date('statement_date').notNull(),
+                filename: text('filename').notNull(),
+                layout: text('layout').notNull(),
+                sha256: text('sha256').notNull(),
+                content: text('content').notNull(),
+                state: text('state')
+                    .$type<'received' | 'matching' | 'processed' | 'failed'>()
+                    .notNull()
+                    .default('received'),
+                failure: text('failure'),
+                importedBy: uuid('imported_by').notNull()
+            },
+            (t) => [
+                uniqueIndex('external_statements_file_uq').on(t.regionId, t.issuer, t.sha256),
+                index('external_statements_list_idx').on(t.createdAt),
+                index('external_statements_org_path_gist').using('gist', t.orgPath)
+            ]
+        ),
+        { omit: ['content'] }
+    ),
+    'transaction'
+);
+
+/**
+ * A statement's lines: only what matching needs, never the payer. One live line per issuer, reference and fiscal year in the
+ * region: the same money in another statement (they overlap) is a duplicate, on record, and verifies nothing.
+ */
+export const externalStatementLines = withRls(
+    audited(
+        feesSchema.table(
+            'external_statement_lines',
+            {
+                ...baseColumns(),
+                ...handled(),
+                statementId: uuid('statement_id')
+                    .notNull()
+                    .references(() => externalStatements.id),
+                lineNo: integer('line_no').notNull(),
+                issuer: text('issuer').notNull(),
+                reference: text('reference'),
+                referenceNorm: text('reference_norm'),
+                fiscalYear: integer('fiscal_year'),
+                paidOn: date('paid_on'),
+                amountSantim: bigint('amount_santim', { mode: 'bigint' }),
+                state: text('state')
+                    .$type<'unmatched' | 'matched' | 'amount_mismatch' | 'held' | 'duplicate' | 'invalid'>()
+                    .notNull(),
+                reason: text('reason'),
+                refId: uuid('ref_id').references(() => externalPaymentRefs.id)
+            },
+            (t) => [
+                uniqueIndex('external_statement_lines_no_uq').on(t.statementId, t.lineNo),
+                uniqueIndex('external_statement_lines_key_uq')
+                    .on(t.regionId, t.issuer, t.referenceNorm, t.fiscalYear)
+                    .where(sql`state NOT IN ('duplicate', 'invalid')`),
+                index('external_statement_lines_ref_idx').on(t.refId),
+                index('external_statement_lines_org_path_gist').using('gist', t.orgPath)
             ]
         )
     ),
