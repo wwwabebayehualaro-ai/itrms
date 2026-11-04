@@ -69,6 +69,7 @@ registry or the project page on 2026-10-18.
 | T51 | Reading a daily statement | **csv-parse** (RFC 4180, a byte order mark, no dependencies); a layout per issuer behind one interface (ADR-0043) | Mature; no CSV parser of our own |
 | T52 | Rendering PDFs | **puppeteer-core** with the Chrome the image installs (`CHROME_PATH`), **LiquidJS** templates, static **Noto Sans** and **Noto Sans Ethiopic** from @fontsource, inlined; **pdfjs-dist** reads the PDFs back in tests (ADR-0044) | No browser download at install; the image pins and scans Chrome |
 | T53 | QR codes | **qrcode** in the PDF worker; **jsqr** and **pngjs** read them back from what Chrome drew, in tests only (ADR-0045) | Mature, no native parts |
+| T54 | Verifier PWA | **@noble/ed25519** (older phones have no WebCrypto Ed25519), **jsqr** on the phone, **Serwist** with **@serwist/build** and **esbuild** for a static export's service worker (ADR-0046) | Pure JavaScript, audited signature code, one code path on every phone |
 
 ## 2. The full stack at a glance
 

@@ -3,9 +3,13 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { encodeBase64Url } from '@itrms/documents/contracts/verification-encoding';
+
 import am from '../messages/am.json';
 import en from '../messages/en.json';
-import { lookUp, tokenFromPath, VerifyPage, VerifyResult, type Lookup } from './VerifyPage';
+import { lookUp, tokenFromPath, type Lookup } from './lookup';
+import { VerifyResult } from './VerdictView';
+import { VerifyPage } from './VerifyPage';
 
 afterEach(() => {
     cleanup();
@@ -75,7 +79,7 @@ describe('what the page shows', () => {
         expect(container.textContent).toContain('A**** K*****');
     });
 
-    it.each(['unknown', 'busy', 'offline', 'loading'] as const)('has words for %s', (state) => {
+    it.each(['unknown', 'busy', 'offline', 'loading', 'noCode'] as const)('has words for %s', (state) => {
         render(<VerifyResult lookup={{ state }} words={am} language="am" />);
         expect(screen.getByRole('status').textContent).toBe(am[`verify.page.state.${state}`]);
     });
@@ -86,6 +90,38 @@ describe('what the page shows', () => {
         window.history.pushState({}, '', '/not-a-token');
         render(<VerifyPage />);
         await waitFor(() => expect(screen.getByRole('status').dataset.state).toBe('unknown'));
-        expect(fetcher).not.toHaveBeenCalled();
+        expect(fetcher).not.toHaveBeenCalledWith(expect.stringContaining('verifications'), expect.anything());
+    });
+
+    it('asks to scan at the bare address, rather than calling anything not genuine', async () => {
+        vi.stubGlobal('fetch', vi.fn());
+        window.history.pushState({}, '', '/');
+        render(<VerifyPage />);
+        await waitFor(() => expect(screen.getByRole('status').dataset.state).toBe('noCode'));
+    });
+
+    it('says only that it couldn’t reach the office, when this phone has no keys to prove anything with', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(() => Promise.reject(new Error('no network')))
+        );
+        const signed = encodeBase64Url(
+            new TextEncoder().encode(
+                JSON.stringify({ v: 1, k: 'k9', t: 'receipt', n: null, o: 'B', i: '2026-11-05', u: null, h: null })
+            )
+        );
+        window.history.pushState({}, '', `/${TOKEN}#${signed}.AAAA`);
+        render(<VerifyPage />);
+        await waitFor(() => expect(screen.getByRole('status').dataset.state).toBe('offline'));
+    });
+
+    it('calls a QR with no proof it can read forged, even with no connection and no keys', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(() => Promise.reject(new Error('no network')))
+        );
+        window.history.pushState({}, '', `/${TOKEN}#e30.AAAA`);
+        const { container } = render(<VerifyPage />);
+        await waitFor(() => expect(container.querySelector('[data-verdict="forged"]')).not.toBeNull());
     });
 });

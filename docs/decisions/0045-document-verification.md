@@ -1,7 +1,7 @@
 # ADR 0045: Verifying a document
 
-* Status: accepted (2026-11-05, task 0.23b). It refines ADR-0006 and ADR-0031 §10, and builds on ADR-0044. The verifier PWA follows
-  in 0.23c. The product owner asked for open questions to be decided by the state of the art and the Ethiopian context; the
+* Status: accepted (2026-11-05, task 0.23b). It refines ADR-0006 and ADR-0031 §10, and builds on ADR-0044. The verifier PWA is ADR-0046
+  (task 0.23c), which adds a second public path, the keys. The product owner asked for open questions to be decided by the state of the art and the Ethiopian context; the
   ones that rest on an assumption are marked.
 
 ## Context

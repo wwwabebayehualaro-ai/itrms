@@ -10,10 +10,13 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { DocumentsService } from '@itrms/documents/api';
+import { encodeBase64Url, payloadBytes, verificationUrl, type VerificationPayload } from '@itrms/documents/contracts';
+import { addisToday, checkQr, sameDocument, type PublishedKey } from '@itrms/documents/contracts/verification-check';
 import { importDocumentTemplates } from '@itrms/documents/seed';
 import { issueReceiptDocument, revokeReceiptDocument } from '@itrms/documents/api/worker';
 import {
     currentSigningKey,
+    signPayload,
     findChrome,
     PdfRenderer,
     renderIssuedDocument,
@@ -851,14 +854,58 @@ describe('a document’s QR', () => {
         expect((await ask(token)).json()).toMatchObject({ status: 'expired', holder: 'G******** H*****' });
     }, 120_000);
 
+    it('passes the verifier’s own check with the keys the API publishes, and fails it when tampered with', async () => {
+        const { id } = await receiptDocument();
+        const { url, token, signature } = await rendered(id);
+        const published = await api.http
+            .getHttpAdapter()
+            .getInstance()
+            .inject({ method: 'GET', url: '/api/v1/public/verification-keys' });
+        expect(published.statusCode, published.body).toBe(200);
+        expect(published.headers['cache-control']).toContain('public');
+        const { keys } = published.json<{ keys: PublishedKey[] }>();
+        // public halves and when they retired: nothing else leaves
+        for (const key of keys) expect(Object.keys(key).sort()).toEqual(['keyId', 'publicKey', 'retiredOn']);
+        expect(published.body).not.toContain('private');
+
+        const today = addisToday();
+        const check = await checkQr(url.href, keys, today);
+        if (check.state !== 'genuine') throw new Error(`not genuine: ${check.state}`);
+        // what the API says of the token is the document the signature proves
+        expect(sameDocument(check.facts, (await ask(token)).json())).toBe(true);
+
+        const changed = encodeBase64Url(payloadBytes({ ...check.facts, n: 'FORGED-1' }));
+        const tampered = `${url.origin}/${token}#${changed}.${signature.toString('base64url')}`;
+        expect(await checkQr(tampered, keys, today)).toEqual({ state: 'forged', token });
+    }, 120_000);
+
     it('signs with a key the app can’t read, rotates it yearly, and an old key still verifies', async () => {
         const { id } = await receiptDocument();
-        const { payload, signature } = await rendered(id);
-        const signedBy = (JSON.parse(payload.toString()) as { k: string }).k;
+        const { url, token, payload, signature } = await rendered(id);
+        const facts = JSON.parse(payload.toString()) as VerificationPayload;
+        const signedBy = facts.k;
         const region = as.bureau.unit.regionId;
+        const old = await currentSigningKey(system, worker.crypto, region);
+        expect(old.keyId).toBe(signedBy);
         // a year on: a new key takes over, and what the old one signed still checks out
-        const next = await currentSigningKey(system, worker.crypto, region, new Date(Date.now() + 400 * 86_400_000));
+        const rotatedAt = new Date(Date.now() + 400 * 86_400_000);
+        const next = await currentSigningKey(system, worker.crypto, region, rotatedAt);
         expect(next.keyId).not.toBe(signedBy);
+
+        // the verifier sees both keys, and holds a retired one to what it signed before it retired
+        const published = await api.http
+            .getHttpAdapter()
+            .getInstance()
+            .inject({ method: 'GET', url: '/api/v1/public/verification-keys' });
+        const { keys } = published.json<{ keys: PublishedKey[] }>();
+        const retiredOn = addisToday(rotatedAt);
+        expect(keys.find((k) => k.keyId === signedBy)?.retiredOn).toBe(retiredOn);
+        expect(keys.find((k) => k.keyId === next.keyId)?.retiredOn).toBeNull();
+        expect(await checkQr(url.href, keys, addisToday())).toMatchObject({ state: 'genuine', token });
+        const late = payloadBytes({ ...facts, i: addisToday(new Date(rotatedAt.getTime() + 86_400_000)) });
+        expect(
+            await checkQr(verificationUrl(url.origin, token, late, signPayload(old, late)), keys, addisToday())
+        ).toEqual({ state: 'forged', token });
         const { rows } = await api.owner.query<{ active: boolean }>(
             'select active from documents.signing_keys where key_id = $1',
             [signedBy]

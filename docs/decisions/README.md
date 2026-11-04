@@ -50,5 +50,6 @@ one, write a new ADR that supersedes it. Format: context, decision, consequences
 | [0043](0043-paid-elsewhere.md) | Money paid elsewhere: a reference settles an order only once verified, by a second person or a statement's exact match; unique per issuer, normalised reference and fiscal year; a revocation by a third person |
 | [0044](0044-documents.md) | Issuing documents: frozen when issued, a reprint is the stored PDF, rendering in its own process and queue, three walls around a page |
 | [0045](0045-document-verification.md) | Verifying a document: one QR with a token for status and an Ed25519 signature for offline, keys per region rotated yearly, a checker's minimum on a rate-limited public path |
+| [0046](0046-verifier-pwa.md) | The verifier PWA: offline proof with keys published by the API, Ed25519 and QR reading in pure JavaScript |
 
 All tool choices and the answers to the technical open questions: [`../tech-stack.md`](../tech-stack.md).

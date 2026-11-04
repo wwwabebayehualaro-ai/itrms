@@ -1,6 +1,6 @@
 /**
  * The public hostname (ADR-0045, task 0.23b), proven on a real Nginx with the verify server of
- * infra/compose/nginx/itrms.conf.template, a stub in place of the API. Exactly one API path is proxied, GET only, and rate-limited;
+ * infra/compose/nginx/itrms.conf.template, a stub in place of the API. Exactly two API paths are proxied, GET only, and rate-limited;
  * every other path of the API, the staff app and Keycloak answers 404; a token's page is the static app; the CSP is the build's.
  */
 import { randomBytes } from 'node:crypto';
@@ -57,7 +57,8 @@ beforeAll(async () => {
             },
             { content: '<!doctype html><title>verify page</title>', target: '/srv/verify/index.html' },
             { content: CSP, target: '/srv/verify/csp.conf' },
-            { content: 'console.log(1)', target: '/srv/verify/_next/static/a.js' }
+            { content: 'console.log(1)', target: '/srv/verify/_next/static/a.js' },
+            { content: 'self.skipWaiting()', target: '/srv/verify/sw.js' }
         ])
         .withExposedPorts(80)
         .start();
@@ -76,10 +77,17 @@ describe('verify.<domain> through Nginx', () => {
         expect(await got.json()).toEqual({ upstream: `GET /api/v1/public/verifications/${t}` });
     });
 
+    it('proxies the public keys to the API, to their real path', async () => {
+        const got = await fetch(`${base}/v1/public/verification-keys`);
+        expect(got.status).toBe(200);
+        expect(await got.json()).toEqual({ upstream: 'GET /api/v1/public/verification-keys' });
+    });
+
     it('proxies GET only', async () => {
         const t = token();
         for (const method of ['POST', 'PUT', 'DELETE', 'PATCH'])
-            expect((await fetch(`${base}/v1/public/verifications/${t}`, { method })).status, method).toBe(403);
+            for (const path of [`/v1/public/verifications/${t}`, '/v1/public/verification-keys'])
+                expect((await fetch(`${base}${path}`, { method })).status, `${method} ${path}`).toBe(403);
     });
 
     it('answers 404 for everything else of the API, the staff app and Keycloak', async () => {
@@ -90,7 +98,8 @@ describe('verify.<domain> through Nginx', () => {
             '/v1/cases',
             '/v1/public/verifications/too-short',
             `/v1/public/verifications/${token()}/more`,
-            '/v1/public/verification-keys',
+            '/v1/public/verification-keys/more',
+            '/api/v1/public/verification-keys',
             '/auth/realms/itrms'
         ])
             expect((await fetch(base + path)).status, path).toBe(404);
@@ -101,6 +110,14 @@ describe('verify.<domain> through Nginx', () => {
         expect(got.status).toBe(200);
         expect(await got.text()).toContain('verify page');
         expect(got.headers.get('content-security-policy')).toContain("default-src 'none'");
+    });
+
+    it('lets a phone see a new service worker at once, and only this origin use the camera', async () => {
+        const worker = await fetch(`${base}/sw.js`);
+        expect(worker.status).toBe(200);
+        expect(worker.headers.get('cache-control')).toBe('no-cache');
+        expect(worker.headers.get('permissions-policy')).toContain('camera=(self)');
+        expect((await fetch(`${base}/${token()}`)).headers.get('permissions-policy')).toContain('microphone=()');
     });
 
     it('serves a fingerprinted file cached, and never limits the page or its files', async () => {

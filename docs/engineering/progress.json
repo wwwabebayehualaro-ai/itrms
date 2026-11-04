@@ -1128,8 +1128,8 @@
         {
           "id": "0.23c",
           "title": "Documents, part 3: the verifier PWA",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.23c-verifier-pwa",
           "commits": [],
           "evidence": [],
           "blockers": [],

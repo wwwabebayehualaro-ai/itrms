@@ -9,5 +9,5 @@ export default {
     images: { unoptimized: true },
     poweredByHeader: false,
     turbopack: { root: monorepoRoot },
-    transpilePackages: ['@itrms/ethiopian-calendar']
+    transpilePackages: ['@itrms/ethiopian-calendar', '@itrms/documents']
 };

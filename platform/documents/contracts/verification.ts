@@ -7,6 +7,10 @@
 import { i18nTextSchema } from '@itrms/schemas';
 import { z } from 'zod';
 
+import { encodeBase64Url } from './verification-encoding';
+
+export { decodeBase64Url, encodeBase64Url } from './verification-encoding';
+
 /** 128 random bits, base64url. */
 export const VERIFICATION_TOKEN = /^[A-Za-z0-9_-]{22}$/;
 
@@ -31,25 +35,13 @@ export const verificationPayloadSchema = z.object({
 });
 export type VerificationPayload = z.infer<typeof verificationPayloadSchema>;
 
-const base64UrlOf = (bytes: Uint8Array): string => {
-    let binary = '';
-    for (const byte of bytes) binary += String.fromCharCode(byte);
-    return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
-};
-
-const bytesOfBase64Url = (text: string): Uint8Array =>
-    Uint8Array.from(atob(text.replaceAll('-', '+').replaceAll('_', '/')), (c) => c.charCodeAt(0));
-
 /** The exact bytes that are signed, and the text the QR carries for them. */
 export const payloadBytes = (payload: VerificationPayload): Uint8Array =>
     new TextEncoder().encode(JSON.stringify(payload));
 
-export const encodeBase64Url = base64UrlOf;
-export const decodeBase64Url = bytesOfBase64Url;
-
 /** The QR's whole text. */
 export const verificationUrl = (base: string, token: string, payload: Uint8Array, signature: Uint8Array): string =>
-    `${base.replace(/\/+$/, '')}/${token}#${base64UrlOf(payload)}.${base64UrlOf(signature)}`;
+    `${base.replace(/\/+$/, '')}/${token}#${encodeBase64Url(payload)}.${encodeBase64Url(signature)}`;
 
 /** What the public page shows: a checker's minimum, and a masked name. */
 export const VERIFICATION_STATUSES = ['valid', 'expired', 'revoked', 'superseded'] as const;
@@ -63,3 +55,16 @@ export const verificationOutSchema = z.object({
     holder: z.string().nullable()
 });
 export type VerificationOut = z.infer<typeof verificationOutSchema>;
+
+/** The public keys the verifier checks a QR with, offline (ADR-0046). A retired key proves only what it signed until that day. */
+export const verificationKeysOutSchema = z.object({
+    keys: z.array(
+        z.object({
+            keyId: z.string().min(1),
+            /** the raw 32 bytes, base64url */
+            publicKey: z.string().min(1),
+            retiredOn: z.iso.date().nullable()
+        })
+    )
+});
+export type VerificationKeysOut = z.infer<typeof verificationKeysOutSchema>;

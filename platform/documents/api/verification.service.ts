@@ -9,7 +9,13 @@ import type { Database } from '@itrms/kernel/db';
 import { NotFoundError } from '@itrms/kernel/errors';
 import type { I18nText } from '@itrms/schemas';
 
-import { VERIFICATION_TOKEN, verificationOutSchema, type VerificationOut } from '../contracts';
+import {
+    VERIFICATION_TOKEN,
+    verificationKeysOutSchema,
+    verificationOutSchema,
+    type VerificationKeysOut,
+    type VerificationOut
+} from '../contracts';
 import { addisDay } from './issue';
 import { tokenHash } from './verification-token';
 
@@ -36,6 +42,18 @@ export const statusOf = (row: Pick<Row, 'revoked' | 'superseded' | 'valid_until'
 @Injectable()
 export class VerificationService {
     constructor(@Inject(DATABASE) private readonly db: Database) {}
+
+    /** Every key's public half: public by definition, and what lets a phone prove a document offline (ADR-0046). */
+    keys(): Promise<VerificationKeysOut> {
+        return this.db.scoped({}, async (tx) => {
+            const { rows } = await tx.execute<{ key_id: string; public_key: string; retired_on: string | null }>(
+                sql`select key_id, public_key, retired_on::text as retired_on from documents.verification_keys()`
+            );
+            return verificationKeysOutSchema.parse({
+                keys: rows.map((r) => ({ keyId: r.key_id, publicKey: r.public_key, retiredOn: r.retired_on }))
+            });
+        });
+    }
 
     verify(token: string): Promise<VerificationOut> {
         if (!VERIFICATION_TOKEN.test(token)) throw new NotFoundError();

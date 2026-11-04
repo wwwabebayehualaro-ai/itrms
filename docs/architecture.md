@@ -434,7 +434,7 @@ Definition (Zod schema `workflowDefinitionSchema` in `packages/schemas`; stored 
 - **Verification works offline and online.**
   - The QR carries a compact **Ed25519-signed payload**: type, number, validity dates, issuing unit, and the masked name of the
     holder's name and photo. The **verifier PWA** (a phone app for police, insurers, other offices) checks the signature
-    with no network, against the region's published public key.
+    with no network, against the public keys the API publishes, which it fetches when it can and keeps (ADR-0046).
   - Online, the same QR opens `https://verify.<region-domain>/<token>`, which also shows **revocation and superseded
     status**. Tokens are random 128-bit values, and only their hash is stored.
   - The verification site is a **separate public host** (§17), shows only what a checker needs (masked name), is
