@@ -5,7 +5,6 @@
  * The wrapper's CSP allows nothing to load: fonts and images are inlined.
  */
 import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { join } from 'node:path';
 
 import { addisEthiopianDate, formatEthiopianLong } from '@itrms/ethiopian-calendar';
@@ -60,12 +59,11 @@ export function templateProblems(body: string): string[] {
     }
 }
 
-// not named `require`: the bundler would take that for its own
-const resolver = createRequire(join(process.cwd(), 'package.json'));
-
 /** The bundled fonts (OFL), inlined once per process. The PDF worker reads them as it starts, so a bad image stops it there. */
 const fontFace = (family: string, file: string, weight: number) => {
-    const data = readFileSync(resolver.resolve(file)).toString('base64');
+    // from the running package's own dependencies: the processes run from apps/api, which declares them. Not through a
+    // module resolver: the API's bundler rewrites those
+    const data = readFileSync(join(process.cwd(), 'node_modules', file)).toString('base64');
     return `@font-face{font-family:'${family}';font-weight:${weight};font-style:normal;src:url(data:font/woff2;base64,${data}) format('woff2')}`;
 };
 let fonts: string | undefined;
