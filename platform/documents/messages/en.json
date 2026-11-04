@@ -1,1 +1,15 @@
-{}
+{
+  "documents.answer.no": "No",
+  "documents.answer.yes": "Yes",
+  "documents.case.download": "Download the PDF",
+  "documents.case.empty": "No documents have been issued for this case yet.",
+  "documents.case.error": "The documents could not be loaded",
+  "documents.case.title": "Documents",
+  "documents.notReady": "The PDF of this document is not ready yet. Try again shortly.",
+  "documents.receipt.download": "Download the PDF",
+  "documents.setting.header": "What heads this office's documents",
+  "documents.state.failed": "Could not be made",
+  "documents.state.late": "Late: ask the administrator",
+  "documents.state.rendered": "Ready",
+  "documents.state.requested": "Being made"
+}

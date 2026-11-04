@@ -16,7 +16,8 @@
     },
     "test": {
       "dependsOn": ["^transit"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/config/**"]
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/config/**"],
+      "passThroughEnv": ["CHROME_*"]
     },
     "build": {
       "dependsOn": ["^build"],
@@ -26,7 +27,7 @@
     "test:int": {
       "dependsOn": ["^transit"],
       "cache": false,
-      "passThroughEnv": ["S3_*"]
+      "passThroughEnv": ["S3_*", "CHROME_*"]
     }
   }
 }

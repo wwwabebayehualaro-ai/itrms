@@ -8,6 +8,7 @@ export {
     beginUpload,
     confirmUpload,
     downloadFile,
+    downloadLinkedFile,
     fileOut,
     getFile,
     linkFile,

@@ -67,6 +67,7 @@ registry or the project page on 2026-10-18.
 | T49 | Data files (the org seeds and imports, task 0.8) | **yaml** 2 (eemeli/yaml) for YAML seeds; CSV read by a small RFC 4180 reader in the org import; Excel by ExcelJS (T14) | YAML is the readable format for seed data reviewed in pull requests (anchors keep repeated teams short); `yaml` has no dependencies and follows YAML 1.2. A CSV reader is a few lines, so no CSV library |
 | T50 | The form engine's own words (task 0.17d, ADR-0036) | **intl-messageformat** 11 (FormatJS, the ICU formatter next-intl itself uses) in `packages/form-engine/core`, over the engine's catalogues `packages/form-engine/messages/<area>/` | One formatter for the browser, the API's 422 messages and the print worker (no React, runs in Node); the same ICU syntax as every other catalogue; already in the lockfile through next-intl, so nothing new reaches the web bundle |
 | T51 | Reading a daily statement | **csv-parse** (RFC 4180, a byte order mark, no dependencies); a layout per issuer behind one interface (ADR-0043) | Mature; no CSV parser of our own |
+| T52 | Rendering PDFs | **puppeteer-core** with the Chrome the image installs (`CHROME_PATH`), **LiquidJS** templates, static **Noto Sans** and **Noto Sans Ethiopic** from @fontsource, inlined; **pdfjs-dist** reads the PDFs back in tests (ADR-0044) | No browser download at install; the image pins and scans Chrome |
 
 ## 2. The full stack at a glance
 

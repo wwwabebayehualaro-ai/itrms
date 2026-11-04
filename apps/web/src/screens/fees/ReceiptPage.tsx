@@ -25,9 +25,11 @@ import {
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { useCan } from '@/lib/auth/authHooks';
 import { useAuthStore } from '@/lib/auth/authStore';
+import { useIssuedDocuments } from '@/lib/documents';
 import { useReceipt } from '@/lib/fees';
 import { formatMoment, formatMoney } from '@/lib/format';
 import { usePreferences, useText } from '@/lib/preferences';
+import { OpenPdfButton } from '../documents/CaseDocuments';
 import { ReversalDialog } from './ReversalDialog';
 
 export function ReceiptPage({ id }: { id: string }) {
@@ -37,6 +39,9 @@ export function ReceiptPage({ id }: { id: string }) {
     const activeUnit = useAuthStore((s) => s.workspace?.activeUnit.id);
     const [reversing, setReversing] = useState(false);
     const receipt = useReceipt(id);
+    // the document issued for it, once the worker has made its PDF
+    const documents = useIssuedDocuments({ subjectId: id }, useCan('issued-document:read'));
+    const pdf = documents.data?.items[0];
 
     if (receipt.isPending) return <Skeleton className="h-64 w-full" />;
     if (receipt.error || !receipt.data)
@@ -66,6 +71,9 @@ export function ReceiptPage({ id }: { id: string }) {
                         <Button variant="outline" data-action="request-reversal" onClick={() => setReversing(true)}>
                             {t('fees.reversal.request')}
                         </Button>
+                    )}
+                    {pdf?.state === 'rendered' && (
+                        <OpenPdfButton document={pdf} label={t('documents.receipt.download')} />
                     )}
                     <Button data-action="print" onClick={() => window.print()}>
                         <Printer />

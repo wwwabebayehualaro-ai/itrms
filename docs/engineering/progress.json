@@ -1085,12 +1085,25 @@
         {
           "id": "0.23a",
           "title": "Documents, part 1: templates, issuing and the PDF worker",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.23a-documents-pdf",
+          "commits": [
+            "eb908aa",
+            "27dde45",
+            "4d842c8",
+            "9a10a78",
+            "9f61ff8",
+            "9cad2a2"
+          ],
+          "evidence": [
+            "GitHub Actions run 41914869406 on 9cad2a2 (PR #32): all 9 jobs green (ADR-0038 CI record): integration 452 passed in 29 files, including documents.int.spec.ts 9; S3 contract 20; e2e 20 passed, including the counter journey downloading a receipt's real PDF from the running worker-documents process; Semgrep 0 findings",
+            "Done when: Ethiopic text and Ethiopian dates (render.spec.ts golden text extraction from real Chrome PDFs per template; also looked at by screenshot); a reprint returns the stored PDF (documents.int 'gets its document when it is issued': a second render does nothing, the bytes match the recorded sha256); the API never launches Chrome (rule only-the-pdf-worker-reaches-chrome with a fixture; built bundles: puppeteer-core only in worker-documents.cjs); script as text (render.spec and documents.int)",
+            "reviews: task-verifier ready, on 9cad2a2. No reviewer agent exists in this repo: code-review skill at high effort found 10 plus 5 smaller, all fixed in 27dde45 (a Sensitive answer inside a Sensitive section printed; echo skipped the escaping; every error failed a document for good; a crashed Chrome never replaced; labels and answers not in the document's language; a lead without the right). The fixes had no second review",
+            "real defects only the running system found, each fixed: the system pool could not call kernel.region_units, so no receipt document was ever issued; the built worker could not read its fonts; the case page never re-checked for a document issued moments later",
+            "isolation: new tables covered by the whole-database RLS check in isolation.int.spec.ts and by cross-unit tests in documents.int.spec.ts, not named in a per-table matrix"
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "Decided by Claude on the product owner's instruction: puppeteer-core with an installed Chrome; receipts print in Amharic when issued by the worker; layouts stand in until a bureau's forms are known; a reprint downloads the stored PDF. ADR-0044."
         },
         {
           "id": "0.23b",
@@ -2724,6 +2737,16 @@
       "foundIn": "0.22c",
       "item": "Decide with a bureau: which issuers a region lists; whether a receipt paid in the fiscal year before its order is ever valid (refused now, around Hamle 1); a statement's retention (the file is kept in the row)",
       "movedTo": "product owner, with a bureau"
+    },
+    {
+      "foundIn": "0.23a",
+      "item": "A case's documents follow its transfer: an issued document stays at the unit that issued it, so a new handling unit can't list it, and the same-subject key would refuse a second issue with a clear message",
+      "movedTo": "when case transfers exist (Phase 1)"
+    },
+    {
+      "foundIn": "0.23a",
+      "item": "Editing document templates on a screen, with approval; a region's own default language for worker-issued documents; a re-render path for a document left late by a dead event, beyond sending the event back",
+      "movedTo": "Phase 1"
     }
   ]
 }

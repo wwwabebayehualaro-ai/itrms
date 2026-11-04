@@ -5,6 +5,9 @@
  */
 import 'reflect-metadata';
 
+import { documentsHandlers } from '@itrms/documents/api/worker';
+import { DOCUMENTS_ROUTES } from '@itrms/documents/contracts';
+import { PaymentsService } from '@itrms/fees/api';
 import { feesHandlers } from '@itrms/fees/api/worker';
 import { formsHandlers } from '@itrms/forms/api/worker';
 import { CasesService } from '@itrms/workflow/api';
@@ -22,7 +25,7 @@ import { createSystemDatabase } from '@itrms/kernel/db/system';
 import { AppModule } from './app.module';
 import { SLICES } from './slices';
 import { objectStoreOf } from './object-store';
-import { fail, start } from './start';
+import { fail, queueConnection, start } from './start';
 
 async function main() {
     const { config, logger } = start('worker');
@@ -68,6 +71,11 @@ async function main() {
                 ...workflowHandlers(system, sla),
                 // a closed case's open payment order is cancelled (task 0.22b); statements and references matched (0.22c)
                 ...feesHandlers(system, { cases: app.get(CasesService) }),
+                // a receipt's document (task 0.23a); its PDF is the worker-documents process's
+                ...documentsHandlers(system, {
+                    receipt: (tx, id) => app.get(PaymentsService).receipt(tx, id),
+                    settings: app.get(SettingsService)
+                }),
                 ...formsHandlers(system, {
                     database,
                     store: objectStore ?? NO_OBJECT_STORE,
@@ -90,20 +98,12 @@ async function main() {
                         })
                     )
                 );
-            const url = new URL(config.VALKEY_QUEUES_URL);
             const jobs = startJobs({
-                connection: {
-                    host: url.hostname,
-                    port: Number(url.port || 6379),
-                    password: url.password ? decodeURIComponent(url.password) : undefined,
-                    db: Number(url.pathname.slice(1) || 0),
-                    tls: url.protocol === 'rediss:' ? {} : undefined,
-                    // BullMQ's workers wait on blocking commands: no retry limit per request
-                    maxRetriesPerRequest: null
-                },
+                connection: queueConnection(config.VALKEY_QUEUES_URL),
                 system,
                 handlers,
                 logger,
+                routes: DOCUMENTS_ROUTES,
                 // uploads never confirmed, or refused, are removed after 24 hours (task 0.15)
                 recurring: [
                     // what the timers missed: every 15 minutes (architecture.md §8)

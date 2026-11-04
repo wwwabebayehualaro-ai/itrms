@@ -16,6 +16,10 @@ concurrency:
   # Runs on main are never cancelled, so every commit on main gets a complete scan.
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+env:
+  # the runners' Chrome has no sandbox to use (the PDF tests and the PDF worker)
+  CHROME_NO_SANDBOX: '1'
+
 jobs:
   checks:
     name: lint · typecheck · test · build · boundaries
@@ -143,9 +147,14 @@ jobs:
           pnpm --filter @itrms/api dev:seed users seed/users/wolaita.demo.yaml
           pnpm --filter @itrms/api dev:seed fees ../../modules/competency/seed/fee-rules.demo.yaml --region SER
           pnpm --filter @itrms/api dev:seed counters --region SER
+          pnpm --filter @itrms/api dev:seed documents --region SER
           pnpm --filter @itrms/api dev:seed identity
       - name: Start the worker (outbox relay, the forms' value fill and exports)
         run: nohup pnpm --filter @itrms/api dev:worker > worker.log 2>&1 &
+      - name: Start the PDF worker (with the runner's Chrome)
+        run: nohup pnpm --filter @itrms/api dev:worker-documents > worker-documents.log 2>&1 &
+        env:
+          CHROME_NO_SANDBOX: '1'
       - name: Chromium for Playwright
         run: pnpm --filter @itrms/web exec playwright install --with-deps chromium
       - name: Journeys
@@ -157,6 +166,7 @@ jobs:
           path: |
             apps/web/test-results
             worker.log
+            worker-documents.log
           retention-days: 7
       - name: Container logs on failure
         if: failure()

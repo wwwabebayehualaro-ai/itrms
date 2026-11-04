@@ -82,7 +82,7 @@ In code a permission is `resource:action` with the resource in kebab-case, as th
 | `external_payment_ref` (paid elsewhere) | — | — | D (if named) | C R | C R | D | — | — | — | R |
 | `external_statement` | — | — | — | — | — | C R | — | — | — | R |
 | `driver_licence` (registry) | R | — | R | R | — | — | R (via effects only) | R | R | R |
-| `issued_document` | R | — | R | R | R (receipts) | R | R | R | — | R |
+| `issued_document` | — | — | R | R | R | R | R | R | — | R |
 | `document_template` | A | — | R | — | — | — | — | — | — | R |
 | `form` (definitions; `publish` asks, `approve` decides: maker-checker; `overlay` writes and asks to publish the office's own overlay on a bureau form, 0.21f) | C U publish approve overlay | C U publish (own unit's forms) overlay | R approve | R | R | R | R | R | R | R |
 | *Form tiers (rule)* | bureau form: its owner changes it; a unit adds only an overlay (`form:overlay`, published by a second person with `form:approve`); a unit's own form: its `unit_admin`, no overlay | | | | | | | | | |

@@ -9,13 +9,13 @@ const SYSTEM_POOL = '^platform/kernel/api/db/system\\.ts$';
 
 /** Files of a slice that other packages may resolve to (its package exports). */
 const PUBLIC_ENTRY =
-    '^(platform|modules)/[^/]+/(module\\.ts|contracts/index\\.ts|api/(index|worker)\\.ts|web/(server|client)\\.ts|messages/[^/]+\\.json|seed/index\\.ts)$';
+    '^(platform|modules)/[^/]+/(module\\.ts|contracts/index\\.ts|api/(index|worker|pdf-worker)\\.ts|web/(server|client)\\.ts|messages/[^/]+\\.json|seed/index\\.ts)$';
 const KERNEL_SUBPATH = '^platform/kernel/api/[^/]+/index\\.ts$|^platform/kernel/api/db/system\\.ts$';
 
 /** Code that runs only in the worker processes: the worker entry of a slice, its jobs and handlers, and the app's worker entries. */
 const WORKER_CODE = [
     '^(platform|modules)/[^/]+/api/(jobs|handlers)/',
-    '^(platform|modules)/[^/]+/api/worker\\.ts$',
+    '^(platform|modules)/[^/]+/api/(pdf-)?worker\\.ts$',
     '^apps/api/src/worker(-documents)?\\.ts$'
 ];
 
@@ -187,6 +187,23 @@ module.exports = {
             // and the integration tests that prove what it may and may not do
             from: { pathNot: [...WORKER_CODE, '^apps/api/test/integration/'] },
             to: { path: SYSTEM_POOL }
+        },
+        {
+            name: 'only-the-pdf-worker-reaches-chrome',
+            comment:
+                'Chrome runs only in worker-documents (ADR-0044): the API and the main worker must never load it, however indirectly, so a render can never stall them.',
+            severity: 'error',
+            from: {
+                pathNot: [
+                    '^apps/api/src/worker-documents\\.ts$',
+                    '^platform/documents/api/pdf-worker\\.ts$',
+                    '^platform/documents/api/render/chrome\\.ts$',
+                    '^platform/documents/api/jobs/render-document\\.ts$',
+                    '^platform/documents/test/',
+                    '^apps/api/test/integration/'
+                ]
+            },
+            to: { path: ['(^|/)puppeteer-core(/|$)', '^platform/documents/api/(pdf-worker|render/chrome)\\.ts$'] }
         },
         {
             name: 'http-entries-never-reach-system-pool',

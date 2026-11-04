@@ -347,7 +347,14 @@ export async function recordGeneratedFile(
     tx: Tx,
     ctx: DbContext,
     object: GeneratedObject,
-    meta: { filename: string; documentType: string; keepUntil: Date }
+    meta: {
+        filename: string;
+        documentType: string;
+        /** kept until then unless a record links it */
+        keepUntil?: Date;
+        /** the record it is the file of, for good: who reads that record reads it (downloadLinkedFile) */
+        link?: { table: string; id: string };
+    }
 ): Promise<StoredFile> {
     if (!ctx.unitId || !ctx.regionId) throw new ForbiddenError({ detail: 'Choose the office you act for.' });
     if (!object.key.startsWith(`files/${ctx.regionId}/`)) throw new ForbiddenError();
@@ -364,9 +371,34 @@ export async function recordGeneratedFile(
         objectKey: object.key,
         documentType: meta.documentType,
         confirmedAt: new Date(),
-        expiresAt: meta.keepUntil
+        expiresAt: meta.keepUntil ?? null,
+        linkedTable: meta.link?.table ?? null,
+        linkedId: meta.link?.id ?? null
     });
     return fileOut(row);
+}
+
+/**
+ * The stored file of a record the caller has already read under its own rights (an issued document): a short-lived link.
+ * Unlike downloadFile it does not ask who the file was made for: it answers only for the record the file is linked to.
+ */
+export async function downloadLinkedFile(
+    tx: Tx,
+    store: ObjectStore,
+    id: string,
+    owner: { table: string; id: string }
+): Promise<{ url: string; expiresAt: string }> {
+    const [row] = await tx.select().from(files).where(eq(files.id, id));
+    if (row?.status !== 'stored' || row.linkedTable !== owner.table || row.linkedId !== owner.id)
+        throw new NotFoundError();
+    const url = await store.presignGet({
+        key: row.objectKey,
+        filename: downloadName(row.filename, row.contentType as FileType | GeneratedFileType),
+        contentType: row.contentType,
+        expiresIn: DOWNLOAD_URL_SECONDS
+    });
+    await recordEvent(tx, { type: 'file.downloaded', table: files, rowId: id });
+    return { url, expiresAt: new Date(Date.now() + DOWNLOAD_URL_SECONDS * 1000).toISOString() };
 }
 
 /**

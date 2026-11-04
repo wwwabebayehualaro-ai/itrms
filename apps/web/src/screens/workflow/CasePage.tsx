@@ -41,6 +41,7 @@ import { formatMoment } from '@/lib/format';
 import { usePreferences, useText } from '@/lib/preferences';
 import { amendable, lookupIds } from '@/lib/caseAnswers';
 import { useCase, useClaim, useTransition, type CaseOut, type SlaState } from '@/lib/workflow';
+import { CaseDocuments } from '../documents/CaseDocuments';
 import { CasePaymentPanel } from '../fees/CasePaymentPanel';
 import { CommentBox } from './CommentBox';
 
@@ -88,6 +89,7 @@ export function CasePage({ id }: { id: string }) {
             />
             <CaseFacts c={c} />
             <CasePaymentPanel caseId={c.id} />
+            <CaseDocuments caseId={c.id} />
             <OpenStep c={c} stateName={stateName} />
             <Tabs defaultValue="timeline">
                 <TabsList>

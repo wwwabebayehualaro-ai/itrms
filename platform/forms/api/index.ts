@@ -4,6 +4,7 @@ export { FormsModule } from './forms.module';
 export { FormsService } from './forms.service';
 export { FORM_PUBLISH_GUARD, type FormPublishGuard, type GuardResult } from './publish-guard';
 export { SubmissionsService } from './submissions.service';
+export { openFieldsFor } from './support';
 export { composedFor, materialize } from './overlays';
 export { SubmissionQueryService } from './query.service';
 export { RegistryLookups } from './lookups';

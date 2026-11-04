@@ -41,7 +41,9 @@ const PAYMENTS_READ = [
     'payment:read',
     'receipt:read',
     'receipt-reversal:read',
-    'external-payment:read'
+    'external-payment:read',
+    // what the office has printed: a receipt, a copy of an application (task 0.23a)
+    'issued-document:read'
 ];
 const CASE_ACT = ['case:read', 'case:act', 'case:comment'];
 
@@ -136,7 +138,8 @@ export default defineModule({
             'payment-order:read',
             'receipt:read',
             'external-payment:read',
-            'external-payment:enter'
+            'external-payment:enter',
+            'issued-document:read'
         ],
         cashier: [
             ...READ_ORG,
