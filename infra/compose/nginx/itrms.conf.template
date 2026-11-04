@@ -137,8 +137,18 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "no-referrer" always;
     add_header X-Frame-Options "DENY" always;
-    # the static verify app (apps/verify): hash-based CSP written at its build (task 0.23)
-    add_header Content-Security-Policy "default-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'" always;
+    # the static verify app (apps/verify): its hash-based CSP, written at its build (ADR-0045)
+    include /srv/verify/csp.conf;
+
+    # the one API path on this hostname: a document's status by its token, rate-limited (ADR-0045)
+    location ~ "^/v1/public/verifications/[A-Za-z0-9_-]{22}$" {
+        limit_except GET { deny all; }
+        limit_req zone=itrms_verify burst=30 nodelay;
+        rewrite ^/v1/(.*)$ /api/v1/$1 break;
+        include /etc/nginx/itrms-proxy.conf;
+        proxy_pass http://api:4000;
+    }
+    location /v1/ { return 404; }
 
     # nothing of the staff app, Keycloak or the API answers on this hostname
     location ^~ /auth/ { return 404; }

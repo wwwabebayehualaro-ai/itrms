@@ -1109,8 +1109,8 @@
         {
           "id": "0.23b",
           "title": "Documents, part 2: signed QR codes and public verification",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.23b-signed-verification",
           "commits": [],
           "evidence": [],
           "blockers": [],

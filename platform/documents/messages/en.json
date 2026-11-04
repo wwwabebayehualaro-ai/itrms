@@ -11,5 +11,7 @@
   "documents.state.failed": "Could not be made",
   "documents.state.late": "Late: ask the administrator",
   "documents.state.rendered": "Ready",
-  "documents.state.requested": "Being made"
+  "documents.state.requested": "Being made",
+  "documents.state.revoked": "Cancelled",
+  "documents.state.superseded": "Replaced"
 }

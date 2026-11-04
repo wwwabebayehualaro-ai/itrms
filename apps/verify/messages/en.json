@@ -1,0 +1,19 @@
+{
+  "verify.compare": "Compare these with the document in front of you. The name is partly hidden on purpose.",
+  "verify.document": "Document",
+  "verify.holder": "Holder",
+  "verify.issuedOn": "Issued on",
+  "verify.number": "Number",
+  "verify.office": "Issued by",
+  "verify.otherLanguage": "አማርኛ",
+  "verify.state.busy": "Too many checks from this address just now. Try again in a minute.",
+  "verify.state.loading": "Checking…",
+  "verify.state.offline": "The check could not reach the office. Try again when you have a connection.",
+  "verify.state.unknown": "This code does not belong to any document. Treat the document as not genuine.",
+  "verify.status.expired": "This document was genuine, but it has expired.",
+  "verify.status.revoked": "This document has been cancelled. It is not valid.",
+  "verify.status.superseded": "This document has been replaced by a corrected one. It is not valid.",
+  "verify.status.valid": "This document is genuine and valid.",
+  "verify.title": "Document check",
+  "verify.validUntil": "Valid until"
+}

@@ -4,11 +4,15 @@
  * never on CI.
  */
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import jsQR from 'jsqr';
+import { PNG } from 'pngjs';
+import puppeteer from 'puppeteer-core';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { DOCUMENT_DATA_SCHEMAS, documentTemplateVersionSchema, type DocumentDataSchema } from '../contracts';
 import { findChrome, PdfRenderer } from '../api/render/chrome';
 import { birrText, ethiopianDay, isTemplateProblem, renderHtml, templateProblems } from '../api/render/html';
+import { qrImage } from '../api/pdf-worker';
 import { TEMPLATE_SEEDS } from '../seed/templates';
 
 const chrome = findChrome();
@@ -196,6 +200,47 @@ describe('what a document prints', () => {
         await expect(render(`{% include 'package.json' %}`)).rejects.toThrow();
         await expect(render(`{% render '/etc/passwd' %}`)).rejects.toThrow();
     });
+});
+
+describe.skipIf(!chrome)('a QR on the page', () => {
+    /** What a camera would see: the page drawn by Chrome at print size, 2× for a phone's resolution. */
+    async function scanned(key: string, data: Record<string, unknown>, width: number, height: number) {
+        const url = `https://verify.example.test/${'t'.repeat(22)}#${'p'.repeat(230)}.${'s'.repeat(86)}`;
+        const seed = template(key);
+        const html = await renderHtml({
+            template: seed,
+            data,
+            language: 'am',
+            office: OFFICE,
+            header: {},
+            issuedAt: ISSUED_AT,
+            verification: { url, qr: await qrImage(url) }
+        });
+        const browser = await puppeteer.launch({
+            executablePath: chrome ?? '',
+            headless: true,
+            args: process.env.CHROME_NO_SANDBOX === '1' ? ['--no-sandbox'] : []
+        });
+        try {
+            const page = await browser.newPage();
+            await page.setViewport({ width, height, deviceScaleFactor: 3 });
+            await page.setContent(html);
+            const png = PNG.sync.read(Buffer.from(await page.screenshot({ type: 'png', fullPage: true })));
+            return { expected: url, read: jsQR(new Uint8ClampedArray(png.data), png.width, png.height)?.data };
+        } finally {
+            await browser.close();
+        }
+    }
+
+    it('reads back from a receipt', async () => {
+        const { expected, read } = await scanned('receipt', SAMPLES['receipt.v1'], 560, 794);
+        expect(read).toBe(expected);
+    }, 120_000);
+
+    it('reads back from a licence card, at its small size', async () => {
+        const { expected, read } = await scanned('licence-card', SAMPLES['licence-card.v1'], 324, 204);
+        expect(read).toBe(expected);
+    }, 120_000);
 });
 
 describe.skipIf(!chrome)('a PDF from Chrome', () => {

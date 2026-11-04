@@ -6,6 +6,8 @@
 import { i18nTextSchema, santimTextSchema } from '@itrms/schemas';
 import { z } from 'zod';
 
+export * from './verification';
+
 export const ISSUE_DOCUMENT_EFFECT = 'documents.issue';
 export const TEMPLATE_KEY = /^[a-z][a-z0-9-]{1,62}$/;
 /** The largest image a header or a licence photo may inline (the PDF worker never fetches one). */
@@ -113,6 +115,9 @@ export const issuedDocumentOutSchema = z.object({
     language: z.string(),
     state: z.enum(ISSUED_STATES),
     failure: z.string().nullable(),
+    /** no longer valid: its QR says so */
+    revoked: z.boolean(),
+    superseded: z.boolean(),
     issuedAt: z.string()
 });
 export type IssuedDocumentOut = z.infer<typeof issuedDocumentOutSchema>;

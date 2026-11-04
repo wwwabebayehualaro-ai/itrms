@@ -4,22 +4,30 @@
  * PDF from that, and a reprint returns the stored file, never a new one. An applicant's markup prints as text. Only who may read
  * the unit's documents reads them; nothing renders in the API (a dependency rule keeps Chrome out of it).
  */
-import { createHash, randomInt, randomUUID } from 'node:crypto';
+import { createHash, createPublicKey, randomBytes, randomInt, randomUUID, verify as cryptoVerify } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { DocumentsService } from '@itrms/documents/api';
 import { importDocumentTemplates } from '@itrms/documents/seed';
-import { issueReceiptDocument } from '@itrms/documents/api/worker';
-import { findChrome, PdfRenderer, renderIssuedDocument, type PdfWorkerDeps } from '@itrms/documents/api/pdf-worker';
+import { issueReceiptDocument, revokeReceiptDocument } from '@itrms/documents/api/worker';
+import {
+    currentSigningKey,
+    findChrome,
+    PdfRenderer,
+    renderIssuedDocument,
+    type PdfWorkerDeps
+} from '@itrms/documents/api/pdf-worker';
 import { PaymentsService } from '@itrms/fees/api';
 import { importFeeRules } from '@itrms/fees/seed';
 import { S3ObjectStore } from '@itrms/integrations/api';
 import { feeRuleSchema } from '@itrms/schemas';
+import { FieldCrypto } from '@itrms/kernel/crypto';
 import { createSystemDatabase, type SystemDatabase } from '@itrms/kernel/db/system';
 import { SettingsService } from '@itrms/kernel/settings';
 import type { CaseOut } from '@itrms/workflow/contracts';
+import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { startApi, type As, type TestApi } from './support/api';
@@ -272,7 +280,12 @@ beforeAll(async () => {
         { objectStore: store }
     );
     system = createSystemDatabase(pg.url('system'), { onUse: () => undefined });
-    worker = { store, renderer };
+    worker = {
+        store,
+        renderer,
+        crypto: new FieldCrypto({ fieldKeys: `k1:${randomBytes(32).toString('base64')}` }),
+        verifyBaseUrl: 'https://verify.example.test'
+    };
     const region = await api.unit('SER', 'SER');
     const zone = await api.unit('SER', 'WOL');
     const boditi = await api.unit('SER', 'WOL-BODITI');
@@ -387,7 +400,7 @@ describe('a workflow', () => {
         // what the worker hands Chrome has it escaped
         let html = '';
         const seen: PdfWorkerDeps = {
-            store,
+            ...worker,
             renderer: {
                 render: (page, paper) => {
                     html = page;
@@ -589,4 +602,200 @@ describe('a document', () => {
             );
         await expect(issue({ number: 'SER-1' })).rejects.toMatchObject({ code: 'contract_unmet' });
     });
+});
+
+describe('a document’s QR', () => {
+    /** Renders a document, keeping the page Chrome was given: its QR's address, as a phone would read it. */
+    const rendered = async (id: string): Promise<{ url: URL; token: string; payload: Buffer; signature: Buffer }> => {
+        let html = '';
+        const seeing: PdfWorkerDeps = {
+            ...worker,
+            renderer: {
+                render: (page, paper) => {
+                    html = page;
+                    return renderer.render(page, paper);
+                }
+            }
+        };
+        expect(await renderIssuedDocument(system, seeing, id)).toBe('rendered');
+        const found = /data-qr="([^"]+)"/.exec(html)?.[1];
+        if (!found) throw new Error('no QR on the page');
+        const url = new URL(found.replaceAll('&amp;', '&'));
+        const [payload = '', signature = ''] = url.hash.slice(1).split('.');
+        return {
+            url,
+            token: url.pathname.slice(1),
+            payload: Buffer.from(payload, 'base64url'),
+            signature: Buffer.from(signature, 'base64url')
+        };
+    };
+    /** As anyone: no token, no unit. */
+    const ask = (token: string) =>
+        api.http
+            .getHttpAdapter()
+            .getInstance()
+            .inject({ method: 'GET', url: `/api/v1/public/verifications/${token}` });
+    const publicKeyOf = async (keyId: string) => {
+        const { rows } = await api.owner.query<{ public_key: string }>(
+            'select public_key from documents.signing_keys where key_id = $1',
+            [keyId]
+        );
+        return createPublicKey({
+            key: { kty: 'OKP', crv: 'Ed25519', x: rows[0]?.public_key ?? '' },
+            format: 'jwk'
+        });
+    };
+    const receiptDocument = async () => {
+        const { receiptId, number } = await receipted();
+        await issueReceiptDocument(system, receiptSource(), receiptId);
+        const [doc] = await docsOf(`subjectId=${receiptId}`);
+        return { id: doc?.id ?? '', receiptId, number };
+    };
+
+    it('points at the public page, carries a signed payload, and its token is never stored', async () => {
+        const { id, number } = await receiptDocument();
+        const { url, token, payload, signature } = await rendered(id);
+        expect(url.origin).toBe('https://verify.example.test');
+        expect(token).toMatch(/^[A-Za-z0-9_-]{22}$/);
+
+        const facts = JSON.parse(payload.toString()) as { k: string; n: string; t: string; o: string; h: string };
+        expect(facts).toMatchObject({ v: 1, t: 'receipt', n: number, o: 'WOL-BODITI' });
+        expect(payload.toString()).not.toContain('Generated Applicant');
+        expect(cryptoVerify(null, payload, await publicKeyOf(facts.k), signature)).toBe(true);
+        // a changed payload fails: this is what an offline verifier checks
+        const forged = Buffer.from(payload.toString().replace(number, 'WOL-BODITI/999999/2019'));
+        expect(cryptoVerify(null, forged, await publicKeyOf(facts.k), signature)).toBe(false);
+
+        const { rows } = await api.owner.query<{ hash: string }>(
+            'select verification_token_hash as hash from documents.issued_documents where id = $1',
+            [id]
+        );
+        expect(rows[0]?.hash).toBe(createHash('sha256').update(token).digest('hex'));
+        expect(rows[0]?.hash).not.toContain(token);
+    }, 120_000);
+
+    it('resolves to valid for anyone, with a checker’s minimum and a masked name', async () => {
+        const { id, number } = await receiptDocument();
+        const { token } = await rendered(id);
+        const got = await ask(token);
+        expect(got.statusCode, got.body).toBe(200);
+        expect(got.headers['cache-control']).toBe('no-store');
+        expect(got.json()).toMatchObject({ status: 'valid', number, holder: 'G******** A********', validUntil: null });
+        expect(got.body).not.toContain('Generated');
+        expect(got.body).not.toContain('Applicant');
+    }, 120_000);
+
+    it('answers the same 404 for a token that is not one, and one nobody holds', async () => {
+        for (const token of ['short', 'not a token!', randomBytes(16).toString('base64url')]) {
+            const got = await ask(encodeURIComponent(token));
+            expect(got.statusCode, token).toBe(404);
+        }
+    });
+
+    it('says revoked once its receipt is reversed', async () => {
+        const { id, receiptId } = await receiptDocument();
+        const { token } = await rendered(id);
+        expect(await revokeReceiptDocument(system, receiptId)).toBe(true);
+        expect((await ask(token)).json()).toMatchObject({ status: 'revoked' });
+        // run again, it changes nothing; the stored PDF stays
+        expect(await revokeReceiptDocument(system, receiptId)).toBe(true);
+        expect((await rowOf(id))?.state).toBe('rendered');
+        const list = await docsOf(`subjectId=${receiptId}`);
+        expect(list[0]).toMatchObject({ revoked: true });
+    }, 120_000);
+
+    it('says superseded once a correction is issued, and the correction stands', async () => {
+        const c = await filed(COPY);
+        const [doc] = await docsOf(`caseId=${c.id}`);
+        const oldId = doc?.id ?? '';
+        const { token } = await rendered(oldId);
+        const region = as.bureau.unit;
+        const corrected = await api.installer.scoped({}, (tx) =>
+            api.http.get(DocumentsService).supersede(tx, oldId, {
+                regionId: region.regionId,
+                handlingUnitId: as.boditiRecords.unit.id,
+                templateKey: 'application-copy',
+                language: 'am',
+                caseId: c.id,
+                subject: { table: 'workflow.cases', id: c.id },
+                data: { caseNumber: 1, serviceName: 'Corrected', filedOn: '2026-11-04', fields: [] }
+            })
+        );
+        expect((await ask(token)).json()).toMatchObject({ status: 'superseded' });
+        const fresh = await rendered(corrected.id);
+        expect((await ask(fresh.token)).json()).toMatchObject({ status: 'valid' });
+        // a correction of what no longer stands is refused
+        await expect(
+            api.installer.scoped({}, (tx) =>
+                api.http.get(DocumentsService).supersede(tx, oldId, {
+                    regionId: region.regionId,
+                    handlingUnitId: as.boditiRecords.unit.id,
+                    templateKey: 'application-copy',
+                    language: 'am',
+                    data: { caseNumber: 1, serviceName: 'Again', filedOn: '2026-11-04', fields: [] }
+                })
+            )
+        ).rejects.toMatchObject({ code: 'invalid_transition' });
+    }, 120_000);
+
+    it('says expired once its validity has passed, and the card’s QR fits and carries it', async () => {
+        const region = as.bureau.unit;
+        const issued = await api.installer.scoped({}, (tx) =>
+            api.http.get(DocumentsService).issue(tx, {
+                regionId: region.regionId,
+                handlingUnitId: as.boditiRecords.unit.id,
+                templateKey: 'licence-card',
+                language: 'am',
+                number: `SER-${randomInt(100_000, 999_999)}`,
+                data: {
+                    number: 'SER-1',
+                    holderName: 'Generated Holder',
+                    birthDate: null,
+                    grades: [{ grade: 'B', name: t('Automobile') }],
+                    issuedOn: '2020-01-01',
+                    validUntil: '2024-01-01',
+                    photo: null
+                }
+            })
+        );
+        const { token, payload } = await rendered(issued.id);
+        const facts = JSON.parse(payload.toString()) as { u: string; h: string };
+        expect(facts.u).toBe('2024-01-01');
+        expect(facts.h).toHaveLength(22);
+        expect((await ask(token)).json()).toMatchObject({ status: 'expired', holder: 'G******** H*****' });
+    }, 120_000);
+
+    it('signs with a key the app can’t read, rotates it yearly, and an old key still verifies', async () => {
+        const { id } = await receiptDocument();
+        const { payload, signature } = await rendered(id);
+        const signedBy = (JSON.parse(payload.toString()) as { k: string }).k;
+        const region = as.bureau.unit.regionId;
+        // a year on: a new key takes over, and what the old one signed still checks out
+        const next = await currentSigningKey(system, worker.crypto, region, new Date(Date.now() + 400 * 86_400_000));
+        expect(next.keyId).not.toBe(signedBy);
+        const { rows } = await api.owner.query<{ active: boolean }>(
+            'select active from documents.signing_keys where key_id = $1',
+            [signedBy]
+        );
+        expect(rows[0]?.active).toBe(false);
+        expect(cryptoVerify(null, payload, await publicKeyOf(signedBy), signature)).toBe(true);
+        // it stays a key's own: nothing changes but its retirement, and it is never deleted
+        await expect(
+            api.owner.query(`update documents.signing_keys set public_key = 'x' where key_id = $1`, [signedBy])
+        ).rejects.toThrow(/only retire/);
+        await expect(
+            api.owner.query('delete from documents.signing_keys where key_id = $1', [signedBy])
+        ).rejects.toThrow(/only retire/);
+
+        // the app's role reads the public half only
+        const app = new Client({ connectionString: pg.url('app') });
+        await app.connect();
+        try {
+            await expect(app.query('select private_key from documents.signing_keys')).rejects.toThrow(
+                /permission denied/
+            );
+        } finally {
+            await app.end();
+        }
+    }, 120_000);
 });

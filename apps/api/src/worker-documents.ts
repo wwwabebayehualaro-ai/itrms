@@ -8,6 +8,7 @@ import 'reflect-metadata';
 import { DOCUMENTS_QUEUE } from '@itrms/documents/contracts';
 import { findChrome, fontFaces, pdfWorkerHandlers, PdfRenderer } from '@itrms/documents/api/pdf-worker';
 import { startQueueConsumer } from '@itrms/kernel/api/worker';
+import { FieldCrypto } from '@itrms/kernel/crypto';
 import { createSystemDatabase } from '@itrms/kernel/db/system';
 
 import { objectStoreOf } from './object-store';
@@ -35,7 +36,12 @@ function main() {
             queue: DOCUMENTS_QUEUE,
             connection: queueConnection(config.VALKEY_QUEUES_URL),
             system,
-            handlers: pdfWorkerHandlers(system, { store, renderer }),
+            handlers: pdfWorkerHandlers(system, {
+                store,
+                renderer,
+                crypto: new FieldCrypto({ fieldKeys: config.FIELD_KEYS, blindIndexKey: config.BLIND_INDEX_KEY }),
+                verifyBaseUrl: config.VERIFY_BASE_URL ?? 'http://localhost:3100'
+            }),
             logger,
             concurrency: 2
         });

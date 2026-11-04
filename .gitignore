@@ -11,6 +11,7 @@
 # Dependencies and build/test output
 node_modules/
 .next/
+apps/verify/out/
 .next-*/
 .turbo/
 dist/

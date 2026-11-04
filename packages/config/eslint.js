@@ -15,6 +15,10 @@ export default function config(options) {
         {
             ignores: [
                 'dist/**',
+                // a static export (apps/verify) and what Next generates
+                'out/**',
+                '.next/**',
+                'next-env.d.ts',
                 'coverage/**',
                 '.turbo/**',
                 'node_modules/**',

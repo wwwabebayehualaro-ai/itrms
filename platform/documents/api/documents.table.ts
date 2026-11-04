@@ -6,9 +6,24 @@
  *   issued_documents            what was issued (class T at the handling unit): the template version, the data it was given and
  *                               the header it had then, frozen; the stored PDF once the PDF worker has made it. A reprint
  *                               serves that file, so what was printed never changes.
+ *   signing_keys                a region's Ed25519 keys (class C at its root): the public half for anyone in the region, the
+ *                               private half wrapped outside the database's reach, and for the PDF worker alone (ADR-0045).
  */
 import { sql } from 'drizzle-orm';
-import { index, integer, jsonb, pgSchema, text, uniqueIndex, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import {
+    boolean,
+    date,
+    index,
+    integer,
+    jsonb,
+    pgSchema,
+    text,
+    timestamp,
+    uniqueIndex,
+    uuid,
+    type AnyPgColumn
+} from 'drizzle-orm/pg-core';
+import { bytea } from '@itrms/kernel/crypto';
 import { audited, baseColumns, ltree, withRls } from '@itrms/kernel/db';
 import { files, orgUnits } from '@itrms/kernel/tables';
 import type { I18nText } from '@itrms/schemas';
@@ -25,6 +40,35 @@ const owned = () => ({
     /** set by trigger from the owner unit */
     orgPath: ltree('org_path').notNull().default('')
 });
+
+export const signingKeys = withRls(
+    audited(
+        documentsSchema.table(
+            'signing_keys',
+            {
+                ...baseColumns(),
+                ...owned(),
+                /** short: every QR names it */
+                keyId: text('key_id').notNull(),
+                /** the raw 32 bytes, base64url */
+                publicKey: text('public_key').notNull(),
+                /** sealed by the key-encryption key (FIELD_KEYS) */
+                privateKey: bytea('private_key').notNull(),
+                active: boolean('active').notNull().default(true),
+                retiredAt: timestamp('retired_at', { withTimezone: true })
+            },
+            (t) => [
+                uniqueIndex('signing_keys_key_id_uq').on(t.regionId, t.keyId),
+                uniqueIndex('signing_keys_active_uq')
+                    .on(t.regionId)
+                    .where(sql`active`),
+                index('signing_keys_org_path_gist').using('gist', t.orgPath)
+            ]
+        ),
+        { omit: ['privateKey'] }
+    ),
+    'config'
+);
 
 export const documentTemplates = withRls(
     audited(
@@ -108,12 +152,26 @@ export const issuedDocuments = withRls(
                 state: text('state').$type<'requested' | 'rendered' | 'failed'>().notNull().default('requested'),
                 failure: text('failure'),
                 fileId: uuid('file_id').references(() => files.id),
-                sha256: text('sha256')
+                sha256: text('sha256'),
+                /** of the token in its QR; the token itself is never stored */
+                verificationTokenHash: text('verification_token_hash'),
+                signingKeyId: uuid('signing_key_id').references(() => signingKeys.id),
+                /** what the public page shows of whose it is */
+                holderMask: text('holder_mask'),
+                validUntil: date('valid_until'),
+                revokedAt: timestamp('revoked_at', { withTimezone: true }),
+                revokeReason: text('revoke_reason'),
+                /** the document that corrects this one (the key, deferred, is in the migration: both change together) */
+                supersededBy: uuid('superseded_by')
             },
             (t) => [
+                // a correction supersedes: one document of a record stands at a time
                 uniqueIndex('issued_documents_subject_uq')
                     .on(t.templateId, t.subjectId)
-                    .where(sql`subject_id IS NOT NULL`),
+                    .where(sql`subject_id IS NOT NULL AND superseded_by IS NULL`),
+                uniqueIndex('issued_documents_token_uq')
+                    .on(t.verificationTokenHash)
+                    .where(sql`verification_token_hash IS NOT NULL`),
                 index('issued_documents_case_idx')
                     .on(t.caseId)
                     .where(sql`case_id IS NOT NULL`),

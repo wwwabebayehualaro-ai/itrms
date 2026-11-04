@@ -8559,6 +8559,29 @@
         ]
       }
     },
+    "/api/v1/public/verifications/{token}": {
+      "get": {
+        "operationId": "VerificationController_verify",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Verification"
+        ]
+      }
+    },
     "/api/v1/receipt-reversals": {
       "get": {
         "operationId": "PaymentsController_reversals",

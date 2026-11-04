@@ -385,6 +385,8 @@ describe('every tenant table', () => {
               AND has_function_privilege('itrms_app', p.oid, 'EXECUTE')
             ORDER BY 1`);
         expect(rows.map((r) => r.name)).toEqual([
+            // a document's status by its token's hash, for the public endpoint: a checker's minimum (ADR-0045)
+            'documents.verification(text)',
             // one deposit pays once, as a slip at a till or a reference elsewhere: yes or no for the caller's region (ADR-0043)
             'fees.external_reference_in_use(text,text,integer)',
             'fees.slip_in_use(text,text,date,date)',

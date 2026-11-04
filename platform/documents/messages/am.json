@@ -11,5 +11,7 @@
   "documents.state.failed": "ሊዘጋጅ አልቻለም",
   "documents.state.late": "ዘግይቷል፤ አስተዳዳሪውን ይጠይቁ",
   "documents.state.rendered": "ዝግጁ ነው",
-  "documents.state.requested": "በመዘጋጀት ላይ"
+  "documents.state.requested": "በመዘጋጀት ላይ",
+  "documents.state.revoked": "ተሰርዟል",
+  "documents.state.superseded": "ተተክቷል"
 }

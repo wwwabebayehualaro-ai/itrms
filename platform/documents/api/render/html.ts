@@ -101,10 +101,20 @@ export interface RenderInput {
     header: DocumentHeader;
     /** today's date is never read here: a document says when it was issued */
     issuedAt: Date;
+    /** the QR, and what it says */
+    verification?: { url: string; qr: string };
 }
 
 /** A whole HTML page for Chrome. */
-export async function renderHtml({ template, data, language, office, header, issuedAt }: RenderInput): Promise<string> {
+export async function renderHtml({
+    template,
+    data,
+    language,
+    office,
+    header,
+    issuedAt,
+    verification
+}: RenderInput): Promise<string> {
     const liquid = engine(language);
     const strings = Object.fromEntries(Object.entries(template.strings).map(([k, v]) => [k, pick(v, language)]));
     const issued = addisEthiopianDate(issuedAt);
@@ -114,6 +124,7 @@ export async function renderHtml({ template, data, language, office, header, iss
             t: strings,
             language,
             office,
+            verification,
             header: { ...header, title: header.title ?? office.name },
             issuedDate: formatEthiopianLong(issued, {
                 language: printLanguage(language)

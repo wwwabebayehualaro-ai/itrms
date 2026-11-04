@@ -11,7 +11,7 @@ import { SettingsService } from '@itrms/kernel/settings';
 
 import type { IssuedDocumentOut } from '../contracts';
 import { documentTemplates, issuedDocuments } from './documents.table';
-import { issueDocument, type IssueInput, type IssuedRow } from './issue';
+import { issueDocument, revokeDocument, supersedeDocument, type IssueInput, type IssuedRow } from './issue';
 
 @Injectable()
 export class DocumentsService {
@@ -20,6 +20,16 @@ export class DocumentsService {
     /** Issues a document in the caller's transaction: for a work process's effect. */
     issue(tx: Tx, input: IssueInput): Promise<IssuedRow> {
         return issueDocument(tx, this.settings, input);
+    }
+
+    /** A correction: the old document's QR says superseded from now on. */
+    supersede(tx: Tx, oldId: string, input: IssueInput): Promise<IssuedRow> {
+        return supersedeDocument(tx, this.settings, oldId, input);
+    }
+
+    /** A document that no longer holds. */
+    revoke(tx: Tx, row: IssuedRow, reason: string): Promise<void> {
+        return revokeDocument(tx, row, reason);
     }
 
     /** The documents the person sees of a case or a record, newest first. */
@@ -55,6 +65,8 @@ export class DocumentsService {
             language: r.language,
             state: r.state,
             failure: r.failure,
+            revoked: r.revokedAt !== null,
+            superseded: r.supersededBy !== null,
             issuedAt: r.createdAt.toISOString()
         }));
     }

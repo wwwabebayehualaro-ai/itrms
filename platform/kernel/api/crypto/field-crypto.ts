@@ -116,6 +116,30 @@ export class FieldCrypto {
         return open(key, ciphertext.subarray(1 + ID), Buffer.from(place)).toString('utf8');
     }
 
+    /**
+     * A secret that must not depend on a data key the database holds (a signing key), sealed straight by the current
+     * key-encryption key and bound to its place. It names the key it was sealed by, so a rotation leaves it readable.
+     */
+    wrapSecret(regionId: string, place: string, value: string): Buffer {
+        const keks = this.requireKeks();
+        const kekId = this.currentKek as string;
+        const id = Buffer.from(kekId, 'utf8');
+        return Buffer.concat([
+            Buffer.from([id.length]),
+            id,
+            seal(keks.get(kekId) as Buffer, Buffer.from(value, 'utf8'), Buffer.from(`${regionId}:${place}`))
+        ]);
+    }
+
+    /** The value `wrapSecret` gave for the same region and place; throws on anything else. */
+    unwrapSecret(regionId: string, place: string, sealed: Buffer): string {
+        const keks = this.requireKeks();
+        const length = sealed[0] ?? 0;
+        const key = keks.get(sealed.subarray(1, 1 + length).toString('utf8'));
+        if (!key) throw new Error('unwrapSecret: its key-encryption key is not configured');
+        return open(key, sealed.subarray(1 + length), Buffer.from(`${regionId}:${place}`)).toString('utf8');
+    }
+
     /** The blind index of a normalised value of a kind (`fin`, `phone`): equal values, equal indexes, nothing else. */
     blindIndex(regionId: string, kind: string, normalised: string): Buffer {
         if (!this.indexKey) throw new CryptoUnavailableError();
