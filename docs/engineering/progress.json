@@ -1109,10 +1109,11 @@
         {
           "id": "0.23b",
           "title": "Documents, part 2: signed QR codes and public verification",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.23b-signed-verification",
           "commits": [
-            "eb8e52e"
+            "eb8e52e",
+            "8481236"
           ],
           "evidence": [
             "CI run 41933723744 on eb8e52e: all 9 jobs success (lint, typecheck, unit, build, boundaries; integration on PostgreSQL 16; e2e; Semgrep; Trivy; gitleaks)",
