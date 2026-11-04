@@ -4,7 +4,7 @@
 > Update it with the CLI or the `/task-*` skills. Rules: [workflow.md](workflow.md). Statuses: planned, ready, in progress,
 > in review, done, blocked. Only the product owner moves a task to **done**.
 
-Last updated: 2026-11-01. Planning: done (docs/reviews/2026-10-18-design-review.md (30 findings resolved); business questionnaire sent via the Wolaita channel).
+Last updated: 2026-11-04. Planning: done (docs/reviews/2026-10-18-design-review.md (30 findings resolved); business questionnaire sent via the Wolaita channel).
 
 ## Phase 0: Core and demo — 48/54 done (89%)
 
@@ -330,3 +330,6 @@ Last updated: 2026-11-01. Planning: done (docs/reviews/2026-10-18-design-review.
 | 184 | 0.22a | A Playwright journey of the Fee field at the counter (component and API tests cover 0.22a) | 0.22b | open |
 | 185 | 0.22a | Fee inputs from case facts (from: 'fact'): refused until cases carry facts at filing | 0.24 | open |
 | 186 | 0.22b | Pad receipts: a serial is checked against the pad ranges issued to the office (controlled stationery) | 1.12a | open |
+| 187 | 0.22b | A workflow that gives a service without guarding on payment.settled lets a reversed case go on, and closing it cancels the unpaid order (ADR-0042 consequence): check for the guard when a workflow is published | 0.24 (guard on its workflows, phase file); the publish check Phase 1 | open |
+| 188 | 0.22b | Refusal details in English outside the catalogues in 0.22a's fees.service.ts and fee-rules.service.ts (also forms.service.ts): the web shows detail first, so an Amharic user reads English | 0.26 hardening | open |
+| 189 | 0.22b | Flaky e2e: forms/builder-publish.spec.ts drag into a panel (data-design-field longText not in the panel on first try, passed on retry, run 41872728409) | 0.26 hardening | open |

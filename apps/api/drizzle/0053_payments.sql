@@ -185,7 +185,8 @@ ALTER TABLE "fees"."payments"
         ("method" = 'bank_slip') = ("bank_code" IS NOT NULL)
         AND ("bank_code" IS NULL) = ("slip_reference" IS NULL)
         AND ("bank_code" IS NULL) = ("slip_reference_norm" IS NULL)
-        AND ("bank_code" IS NULL) = ("slip_date" IS NULL)),
+        AND ("bank_code" IS NULL) = ("slip_date" IS NULL)
+        AND ("slip_reference_norm" IS NULL OR length("slip_reference_norm") >= 3)),
     ADD CONSTRAINT "payments_received_from_check" CHECK (length("received_from") BETWEEN 2 AND 200),
     ADD CONSTRAINT "payments_void_check" CHECK (("voided_at" IS NULL) = ("voided_by_reversal_id" IS NULL)),
     ADD CONSTRAINT "payments_case_fk" FOREIGN KEY ("case_id") REFERENCES "workflow"."cases" ("id");

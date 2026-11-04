@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-11-01",
+  "updated": "2026-11-04",
   "statuses": [
     "planned",
     "ready",
@@ -2644,6 +2644,21 @@
       "foundIn": "0.22b",
       "item": "Pad receipts: a serial is checked against the pad ranges issued to the office (controlled stationery)",
       "movedTo": "1.12a"
+    },
+    {
+      "foundIn": "0.22b",
+      "item": "A workflow that gives a service without guarding on payment.settled lets a reversed case go on, and closing it cancels the unpaid order (ADR-0042 consequence): check for the guard when a workflow is published",
+      "movedTo": "0.24 (guard on its workflows, phase file); the publish check Phase 1"
+    },
+    {
+      "foundIn": "0.22b",
+      "item": "Refusal details in English outside the catalogues in 0.22a's fees.service.ts and fee-rules.service.ts (also forms.service.ts): the web shows detail first, so an Amharic user reads English",
+      "movedTo": "0.26 hardening"
+    },
+    {
+      "foundIn": "0.22b",
+      "item": "Flaky e2e: forms/builder-publish.spec.ts drag into a panel (data-design-field longText not in the panel on first try, passed on retry, run 41872728409)",
+      "movedTo": "0.26 hardening"
     }
   ]
 }

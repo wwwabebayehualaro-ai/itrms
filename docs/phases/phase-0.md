@@ -865,6 +865,8 @@ Split from 0.22 on 2026-11-01. Needs 0.22b.
     - a temporary licence for 2 years;
     - renewal for 4 years (2 years over age 55);
     - late renewal of more than 1 year adds a practical exam.
+    - every transition that gives the service guards on `payment.settled`, also after a wait on the payment: a reversal
+      does not take a case back (ADR-0042).
   - Handled by the zone department or a town unit with a competency team (unit types; woredas don't offer DVC services).
     The approval unit is the allowed override `approval_unit` (`handling` by default, `parent` = the zone).
   - The training-school register as organisations.

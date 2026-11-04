@@ -13,6 +13,7 @@ import {
     EmptyState,
     PrintLayout,
     Skeleton,
+    StatusBadge,
     Table,
     TableBody,
     TableCell,
@@ -23,6 +24,7 @@ import {
 
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { useCan } from '@/lib/auth/authHooks';
+import { useAuthStore } from '@/lib/auth/authStore';
 import { useReceipt } from '@/lib/fees';
 import { formatMoment, formatMoney } from '@/lib/format';
 import { usePreferences, useText } from '@/lib/preferences';
@@ -32,6 +34,7 @@ export function ReceiptPage({ id }: { id: string }) {
     const { t, text, language } = useText();
     const calendar = usePreferences((s) => s.calendar);
     const mayRequest = useCan('receipt-reversal:request');
+    const activeUnit = useAuthStore((s) => s.workspace?.activeUnit.id);
     const [reversing, setReversing] = useState(false);
     const receipt = useReceipt(id);
 
@@ -56,7 +59,10 @@ export function ReceiptPage({ id }: { id: string }) {
                     {t('fees.receipt.backToOrder')}
                 </Link>
                 <div className="flex gap-2">
-                    {mayRequest && !r.reversed && (
+                    {r.reversalPending && (
+                        <StatusBadge value="waiting" tone="progress" label={t('fees.reversal.waiting')} />
+                    )}
+                    {mayRequest && !r.reversed && !r.reversalPending && r.unit.id === activeUnit && (
                         <Button variant="outline" data-action="request-reversal" onClick={() => setReversing(true)}>
                             {t('fees.reversal.request')}
                         </Button>

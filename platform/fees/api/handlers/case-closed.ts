@@ -2,7 +2,7 @@
  * A closed case's open payment order is cancelled (task 0.22b): nothing more is paid for it. On the workflow's
  * `case.transitioned.v1`, read with this slice's own schema (it sits below the workflow and never imports it). Idempotent:
  * an order already cancelled, settled or gone is left as it is. A settled order of a closed case stays settled (its
- * receipt holds; a reversal of it cancels the order).
+ * receipt holds; a reversal of it is refused, ADR-0042).
  */
 import { and, eq } from 'drizzle-orm';
 import { updateAudited } from '@itrms/kernel/db';

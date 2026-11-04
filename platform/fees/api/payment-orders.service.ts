@@ -6,6 +6,7 @@
  */
 import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, desc, eq, gt, inArray, ne } from 'drizzle-orm';
+import { currentContext } from '@itrms/kernel/context';
 import { insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { ConflictError, NotFoundError } from '@itrms/kernel/errors';
 import { unitRefs } from '@itrms/kernel/org';
@@ -20,6 +21,8 @@ import {
     type ReceiptSource,
     type paymentOrderQuerySchema
 } from '../contracts';
+import am from '../messages/am.json';
+import en from '../messages/en.json';
 import { addisToday, FeesService } from './fees.service';
 import { caseFeeLines, paymentOrderLines, paymentOrders, payments, receiptReversals, receipts } from './fees.table';
 
@@ -50,6 +53,9 @@ const paymentConfig = (config: Readonly<Record<string, unknown>>) => {
         dueDays: typeof payment.dueDays === 'number' ? payment.dueDays : DUE_DAYS
     };
 };
+
+/** A refusal's text in the person's language: a slice's own catalogue, as the API sends it. */
+export const say = (language: string, key: keyof typeof en): string => (language === 'en' ? en : am)[key];
 
 export const factsOf = (order: OrderRow): PaymentFacts => ({
     orderId: order.id,
@@ -84,15 +90,17 @@ export class PaymentOrdersService {
         const fee = await this.fees.forCase(tx, kase.caseId);
         const order = await this.live(tx, kase.caseId);
         const { collection, dueDays } = paymentConfig(kase.config);
+        const feePaid = () =>
+            new ConflictError('fee_already_paid', {
+                detail: say(currentContext()?.language ?? 'am', 'fees.payment.feePaid')
+            });
         if (!fee || fee.totalSantim === '0') {
-            if (order?.state === 'settled')
-                throw new ConflictError('fee_already_paid', { detail: 'The fee is paid; reverse its receipt first.' });
+            if (order?.state === 'settled') throw feePaid();
             if (order) await this.cancel(tx, order, 'reassessed');
             return { orderId: null, settled: true, totalSantim: '0', collection };
         }
         if (order && order.caseFeeId === fee.id) return factsOf(order);
-        if (order?.state === 'settled')
-            throw new ConflictError('fee_already_paid', { detail: 'The fee is paid; reverse its receipt first.' });
+        if (order?.state === 'settled') throw feePaid();
         if (order) await this.cancel(tx, order, 'reassessed');
         const created = await insertAudited(tx, paymentOrders, {
             regionId: kase.regionId,
@@ -126,20 +134,12 @@ export class PaymentOrdersService {
         return factsOf(created);
     }
 
-    private cancel(tx: Tx, order: OrderRow, reason: 'reassessed' | 'case_closed') {
+    private cancel(tx: Tx, order: OrderRow, reason: 'reassessed') {
         return updateAudited(tx, paymentOrders, order.id, order.rowVersion, {
             state: 'cancelled',
             cancelledAt: new Date(),
             cancelReason: reason
         });
-    }
-
-    /** A closed case's open order is cancelled (nothing more is paid for it); a paid one stays as it is. */
-    async cancelForClosedCase(tx: Tx, caseId: string): Promise<boolean> {
-        const order = await this.live(tx, caseId);
-        if (order?.state !== 'open') return false;
-        await this.cancel(tx, order, 'case_closed');
-        return true;
     }
 
     /** Where the office's receipt numbers come from now. */

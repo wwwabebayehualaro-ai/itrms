@@ -37,6 +37,8 @@ const GUARDED = 'RS-05';
 const WAITING = 'RS-06';
 /** a service that waits on its payment and charges nothing */
 const FREE = 'RS-07';
+/** a service whose fee may be nothing, by the answers */
+const ZERO = 'RS-04';
 
 let pg: TestPostgres;
 let api: TestApi;
@@ -287,6 +289,36 @@ beforeAll(async () => {
     await publishService(WAITING, 'licence-waiting', WAITING_FLOW, form, rule);
     const free = await publishedForm('free-request', { ...FORM, fields: FORM.fields.filter((f) => f.type !== 'Fee') });
     await publishService(FREE, 'free-waiting', WAITING_FLOW, free, null);
+    await api.installer.scoped({}, (tx) =>
+        importFeeRules(tx, { id: region.id, regionId: region.regionId }, [
+            {
+                key: 'licence-zero',
+                name: t('Licence, may be nothing (demo)'),
+                document: feeRuleSchema.parse({
+                    schemaVersion: 1,
+                    demo: true,
+                    inputs: { grade: { kind: 'choice' } },
+                    lines: [
+                        {
+                            key: 'base',
+                            label: t('Licence'),
+                            kind: 'table',
+                            input: 'grade',
+                            rows: [
+                                { value: 'auto', amount: '30000' },
+                                { value: 'public-1', amount: '0' }
+                            ]
+                        }
+                    ]
+                })
+            }
+        ])
+    );
+    const zero = await api.owner.query<{ id: string }>(
+        `select v.id from fees.fee_rule_versions v join fees.fee_rules r on r.latest_version_id = v.id
+          where r.key = 'licence-zero'`
+    );
+    await publishService(ZERO, 'licence-zero', GUARDED_FLOW, form, zero.rows[0]?.id ?? '');
 }, 240_000);
 
 afterAll(async () => {
@@ -461,6 +493,59 @@ describe('a payment at the cashier', () => {
         expect(rows.map((r) => Number(r.seq))).toEqual(Array.from({ length: 7 }, (_, i) => before + i + 1));
     });
 
+    it('refuses a slip reference with nothing left to compare, and takes one slip once however it is punctuated', async () => {
+        const slip = (reference: string) => ({
+            method: 'bank_slip',
+            bankSlip: { bank: 'CBE', reference, paidOn: '2026-01-01' }
+        });
+        const first = await orderOf((await filed(GUARDED)).id);
+        expect((await pay(first.id, slip('---'))).statusCode).toBe(422);
+        expect((await pay(first.id, slip('FT/77.01'))).statusCode).toBe(201);
+        const second = await orderOf((await filed(GUARDED)).id);
+        expect((await pay(second.id, slip('FT-77 01'))).json()).toMatchObject({ code: 'duplicate_reference' });
+    });
+
+    it('shows a bank slip and reversals only to the rights that cover them', async () => {
+        const c = await filed(GUARDED);
+        const order = await orderOf(c.id);
+        const paid = await pay(order.id, {
+            method: 'bank_slip',
+            bankSlip: { bank: 'CBE', reference: 'FT 88-0001', paidOn: '2026-01-01' }
+        });
+        expect(paid.statusCode, paid.body).toBe(201);
+        const { receipt } = paid.json<{ receipt: { id: string; number: string } }>();
+        const reason = 'the applicant paid at the wrong bank';
+        const asked = await api.call('POST', `/api/v1/receipts/${receipt.id}/reversals`, as.boditiCashier, { reason });
+        expect(asked.statusCode, asked.body).toBe(201);
+        // the receipt says it waits: no second request is offered
+        expect((await api.call('GET', `/api/v1/receipts/${receipt.id}`, as.boditiCashier)).json()).toMatchObject({
+            reversed: false,
+            reversalPending: true
+        });
+
+        type Shown = Order & { payments: { bank: string | null; slipReference: string | null }[] };
+        const reasonOf = (kase: CaseOut) => kase.events.find((e) => e.action === 'reversal_requested')?.payment?.reason;
+        const cashier = await orderOf(c.id);
+        expect((cashier as Shown).payments[0]).toMatchObject({ bank: 'CBE', slipReference: 'FT 88-0001' });
+        expect(cashier.reversals).toHaveLength(1);
+        expect(reasonOf(await caseOf(c.id, as.boditiCashier))).toBe(reason);
+
+        // a records officer reads the order and its receipts, not the slip nor the reversal
+        const records = await orderOf(c.id, as.boditiRecords);
+        expect((records as Shown).payments[0]).toMatchObject({
+            bank: null,
+            slipReference: null,
+            receiptNumber: receipt.number
+        });
+        expect(records.reversals).toEqual([]);
+        expect(
+            (await api.call('GET', `/api/v1/payment-orders/${order.id}`, as.boditiRecords)).json<Order>().reversals
+        ).toEqual([]);
+        expect(reasonOf(await caseOf(c.id, as.boditiRecords))).toBeNull();
+        // nor does whoever reads only the case see the reason on its timeline
+        expect(reasonOf(await caseOf(c.id, as.boditiOfficer))).toBeNull();
+    });
+
     it('records the leaf of a pre-printed pad at an office that issues pad receipts', async () => {
         const boditi = as.boditiCashier.unit;
         const head = { sub: SUB.bureau, unit: as.bureau.unit };
@@ -575,6 +660,35 @@ describe('a case', () => {
         expect(kase.events.find((e) => e.kind === 'transition' && e.to === 'done')).toMatchObject({
             systemActor: 'system:fees'
         });
+    });
+
+    it('whose fee was nothing and rises has its order at the till, and is no longer settled', async () => {
+        const c = await filed(ZERO, 'public-1');
+        expect(await factsOf(c.id)).toMatchObject({ payment: { orderId: null, settled: true, totalSantim: '0' } });
+        const page = await caseOf(c.id);
+        const theirs = page.steps.find((s) => s.answers && 'plate' in s.answers)?.answers ?? {};
+        const raised = await api.call(
+            'POST',
+            `/api/v1/cases/${c.id}/transitions`,
+            as.boditiHead,
+            { action: 'correct', comment: 'an automobile licence', answers: { ...theirs, grade: 'auto' } },
+            ifMatch(page.version)
+        );
+        expect(raised.statusCode, raised.body).toBe(200);
+        const order = await orderOf(c.id);
+        expect(order).toMatchObject({ state: 'open', totalSantim: '30000' });
+        expect(await factsOf(c.id)).toMatchObject({
+            payment: { orderId: order.id, settled: false, totalSantim: '30000' }
+        });
+        // the guard on the fact holds it until the money comes
+        const refused = await api.call(
+            'POST',
+            `/api/v1/cases/${c.id}/transitions`,
+            as.boditiHead,
+            { action: 'approve' },
+            ifMatch(raised.json<CaseOut>().version)
+        );
+        expect(refused.statusCode).toBe(409);
     });
 
     it('with nothing to pay does not wait on its payment', async () => {

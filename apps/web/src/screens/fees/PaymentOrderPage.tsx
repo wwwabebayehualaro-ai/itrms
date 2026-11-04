@@ -38,6 +38,7 @@ import {
 
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { useCan } from '@/lib/auth/authHooks';
+import { useAuthStore } from '@/lib/auth/authStore';
 import {
     useBanks,
     usePaymentOrder,
@@ -56,6 +57,9 @@ export function PaymentOrderPage({ id }: { id: string }) {
     const { t, text, language } = useText();
     const calendar = usePreferences((s) => s.calendar);
     const order = usePaymentOrder(id);
+    // the till is the handling office's, for who may record: anyone else reads the order
+    const mayRecord = useCan('payment:record');
+    const activeUnit = useAuthStore((s) => s.workspace?.activeUnit.id);
 
     if (order.isPending) return <Skeleton className="h-64 w-full" />;
     if (order.error || !order.data)
@@ -108,7 +112,7 @@ export function PaymentOrderPage({ id }: { id: string }) {
             <Lines lines={o.lines} total={o.totalSantim} />
             {o.state === 'open' &&
                 (o.collection === 'cashier' ? (
-                    <PaymentForm order={o} />
+                    mayRecord && o.unit.id === activeUnit && <PaymentForm order={o} />
                 ) : (
                     <p className="text-muted-foreground text-sm" role="note">
                         {t('fees.order.collectedElsewhere')}

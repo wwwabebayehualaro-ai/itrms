@@ -245,7 +245,9 @@ export const receiptOutSchema = z.object({
     issuedBy: z.uuid(),
     issuedAt: iso,
     demo: z.boolean(),
-    reversed: z.boolean()
+    reversed: z.boolean(),
+    /** a reversal of it waits for a decision: another can't be asked for */
+    reversalPending: z.boolean()
 });
 export type ReceiptOut = z.infer<typeof receiptOutSchema>;
 

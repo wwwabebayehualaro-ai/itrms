@@ -16,9 +16,12 @@ describe('a payment order', () => {
 });
 
 describe('a bank slip', () => {
-    it('is compared by its reference in capitals, without spaces or dashes', () => {
+    it('is compared by its reference in capitals, its letters and digits only', () => {
         expect(normalisedReference('ft 26-0001')).toBe('FT260001');
         expect(normalisedReference('FT26 00 01')).toBe('FT260001');
+        // punctuation does not make it another slip, and a reference of it alone compares as nothing
+        expect(normalisedReference('FT/26.0001')).toBe('FT260001');
+        expect(normalisedReference('---')).toBe('');
     });
 });
 

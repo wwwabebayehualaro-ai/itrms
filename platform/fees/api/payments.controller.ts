@@ -14,6 +14,7 @@ import { z } from 'zod';
 import {
     paymentInputSchema,
     paymentOrderQuerySchema,
+    type PaymentOrderOut,
     REVERSAL_STATES,
     reversalDecisionSchema,
     reversalRequestSchema
@@ -29,6 +30,21 @@ class ReversalQueryDto extends createZodDto(z.object({ state: z.enum(REVERSAL_ST
 
 const language = () => currentContext()?.language ?? 'am';
 
+/**
+ * An order as the person's rights show it: `payment-order:read` gives the order and its receipts; a bank slip takes
+ * `payment:read`, the reversals (their reasons and notes) `receipt-reversal:read`.
+ */
+const shownTo = (order: PaymentOrderOut): PaymentOrderOut => {
+    const { permissions } = currentPrincipal();
+    return {
+        ...order,
+        payments: permissions.has('payment:read')
+            ? order.payments
+            : order.payments.map((p) => ({ ...p, bank: null, slipReference: null, slipDate: null })),
+        reversals: permissions.has('receipt-reversal:read') ? order.reversals : []
+    };
+};
+
 @Controller('api/v1')
 export class PaymentsController {
     constructor(
@@ -42,14 +58,14 @@ export class PaymentsController {
     @Require('payment-order:read')
     list(@Query() query: OrderQueryDto) {
         const ctx = requestDbContext();
-        return this.db.scoped(ctx, async (tx) => ({ items: await this.orders.list(tx, ctx, query) }));
+        return this.db.scoped(ctx, async (tx) => ({ items: (await this.orders.list(tx, ctx, query)).map(shownTo) }));
     }
 
     @Get('payment-orders/:id')
     @Require('payment-order:read')
     get(@Param('id', ParseUUIDPipe) id: string) {
         const ctx = requestDbContext();
-        return this.db.scoped(ctx, (tx) => this.orders.get(tx, id, ctx.unitId ?? ''));
+        return this.db.scoped(ctx, async (tx) => shownTo(await this.orders.get(tx, id, ctx.unitId ?? '')));
     }
 
     /** A payment of the whole total at the person's till, with its receipt. */
@@ -92,8 +108,8 @@ export class PaymentsController {
     }
 
     /**
-     * The case page's payment panel: its newest order, or 404 for a case without one. Its payer, slips and reversals are
-     * payment data: a payment right, not only the case's.
+     * The case page's payment panel: its newest order, or 404 for a case without one. It is payment data: a payment right,
+     * not only the case's.
      */
     @Get('cases/:caseId/payment')
     @Require('payment-order:read')
@@ -102,7 +118,7 @@ export class PaymentsController {
         return this.db.scoped(ctx, async (tx) => {
             const order = await this.orders.forCase(tx, caseId, ctx.unitId ?? '');
             if (!order) throw new NotFoundError();
-            return order;
+            return shownTo(order);
         });
     }
 }

@@ -72,7 +72,7 @@ export function CashierQueue() {
                     title={t('fees.cashier.error')}
                     description={getApiErrorMessage(queue.error)}
                 />
-            ) : items.length === 0 ? (
+            ) : items.length === 0 && cursors.length === 0 ? (
                 <EmptyState title={t('fees.cashier.empty')} description={t('fees.cashier.emptyHint')} />
             ) : (
                 <>

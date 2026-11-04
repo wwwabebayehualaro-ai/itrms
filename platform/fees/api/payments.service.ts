@@ -8,7 +8,7 @@
  * the order again, and the receipt keeps its number (ADR-0014). Every write is audited in its transaction.
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import { and, asc, eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
 import { nextNumber } from '@itrms/kernel/numbering';
@@ -26,20 +26,22 @@ import {
     type ReceiptOut,
     type ReversalOut
 } from '../contracts';
-import am from '../messages/am.json';
-import en from '../messages/en.json';
 import { FEE_CASE_PORT, type FeeCasePort } from './case-port';
 import { addisToday } from './fees.service';
 import { paymentOrderLines, paymentOrders, payments, receiptReversals, receipts } from './fees.table';
-import { factsOf, PaymentOrdersService } from './payment-orders.service';
+import { factsOf, PaymentOrdersService, say } from './payment-orders.service';
 
 type ReceiptRow = typeof receipts.$inferSelect;
 type ReversalRow = typeof receiptReversals.$inferSelect;
 
-const say = (language: string, key: keyof typeof en): string => (language === 'en' ? en : am)[key];
-
-/** A slip reference as compared: upper case, without spaces or dashes ("ft 12-345" is "FT12345"). */
-export const normalisedReference = (reference: string): string => reference.toUpperCase().replace(/[\s-]+/g, '');
+/**
+ * A slip reference as compared: upper case, its letters and digits only ("ft 12-345" and "FT/12.345" are "FT12345"), so
+ * punctuation can't make one slip pay two orders.
+ */
+export const normalisedReference = (reference: string): string =>
+    reference.toUpperCase().replace(/[^\p{L}\p{N}]+/gu, '');
+/** Of a reference, what must be left to compare; the database keeps the same floor. */
+const MIN_REFERENCE = 3;
 
 const isUniqueViolation = (error: unknown, constraint: string): boolean => {
     for (let e: unknown = error; e; e = (e as { cause?: unknown }).cause) {
@@ -100,13 +102,16 @@ export class PaymentsService {
         if (!order) throw new NotFoundError();
         if (order.state !== 'open')
             throw new ConflictError(order.state === 'settled' ? 'already_settled' : 'invalid_transition', {
-                detail: order.state === 'settled' ? 'The order is paid.' : 'The order is cancelled.'
+                detail: say(
+                    language,
+                    order.state === 'settled' ? 'fees.payment.orderPaid' : 'fees.payment.orderCancelled'
+                )
             });
         if (order.collection !== 'cashier')
-            throw new ConflictError('collected_elsewhere', { detail: 'This fee is paid elsewhere.' });
+            throw new ConflictError('collected_elsewhere', { detail: say(language, 'fees.order.collectedElsewhere') });
         if (input.amountSantim !== santimText(order.totalSantim))
             throw new ConflictError('amount_mismatch', {
-                detail: `The order asks for ${santimText(order.totalSantim)} santim.`
+                detail: say(language, 'fees.payment.amountMismatch')
             });
         const source = await this.orders.receiptSource(tx, order.handlingUnitId);
         if (source === 'pad' && !input.pad)
@@ -118,6 +123,8 @@ export class PaymentsService {
             const banks = await this.settings.value<{ code: string }[]>(tx, order.handlingUnitId, BANKS_SETTING);
             if (!banks.some((b) => b.code === slip.bank))
                 throw fieldError('bankSlip.bank', 'invalid', say(language, 'fees.payment.unknownBank'));
+            if (normalisedReference(slip.reference).length < MIN_REFERENCE)
+                throw fieldError('bankSlip.reference', 'invalid', say(language, 'fees.payment.invalid.reference'));
             if (slip.paidOn > addisToday())
                 throw fieldError('bankSlip.paidOn', 'invalid', say(language, 'fees.payment.slipFuture'));
         }
@@ -145,7 +152,10 @@ export class PaymentsService {
                     cause: error
                 });
             if (isUniqueViolation(error, 'payments_order_live_uq'))
-                throw new ConflictError('already_settled', { detail: 'The order is paid.', cause: error });
+                throw new ConflictError('already_settled', {
+                    detail: say(language, 'fees.payment.orderPaid'),
+                    cause: error
+                });
             throw error;
         }
 
@@ -232,10 +242,10 @@ export class PaymentsService {
             .where(eq(paymentOrderLines.orderId, row.o.id))
             .orderBy(asc(paymentOrderLines.position));
         const unit = (await unitRefs(tx, [row.r.handlingUnitId])).get(row.r.handlingUnitId);
-        const [reversed] = await tx
-            .select({ id: receiptReversals.id })
+        const reversals = await tx
+            .select({ state: receiptReversals.state })
             .from(receiptReversals)
-            .where(and(eq(receiptReversals.receiptId, id), eq(receiptReversals.state, 'approved')));
+            .where(eq(receiptReversals.receiptId, id));
         return {
             id: row.r.id,
             paymentId: row.r.paymentId,
@@ -263,7 +273,8 @@ export class PaymentsService {
             issuedBy: row.r.issuedBy,
             issuedAt: row.r.createdAt.toISOString(),
             demo: row.o.demo,
-            reversed: reversed !== undefined
+            reversed: reversals.some((r) => r.state === 'approved'),
+            reversalPending: reversals.some((r) => r.state === 'requested')
         };
     }
 
@@ -285,7 +296,8 @@ export class PaymentsService {
         await this.lockCase(tx, seen.caseId, language);
         const [payment] = await tx.select().from(payments).where(eq(payments.id, seen.paymentId)).for('update');
         if (!payment) throw new NotFoundError();
-        if (payment.voidedAt) throw new ConflictError('invalid_transition', { detail: 'The receipt is reversed.' });
+        if (payment.voidedAt)
+            throw new ConflictError('invalid_transition', { detail: say(language, 'fees.reversal.alreadyReversed') });
         let row: ReversalRow;
         try {
             row = await insertAudited(tx, receiptReversals, {
@@ -363,7 +375,7 @@ export class PaymentsService {
         const [reversal] = await tx.select().from(receiptReversals).where(eq(receiptReversals.id, id)).for('update');
         if (!order || !payment || !reversal) throw new NotFoundError();
         if (reversal.state !== 'requested')
-            throw new ConflictError('stale_version', { detail: 'This reversal has been decided already.' });
+            throw new ConflictError('stale_version', { detail: say(language, 'fees.reversal.alreadyDecided') });
         const decided = await updateAudited(tx, receiptReversals, reversal.id, reversal.rowVersion, {
             state: input.decision,
             decidedBy: userId,

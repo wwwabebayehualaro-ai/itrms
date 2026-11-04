@@ -116,14 +116,17 @@ export function slaOfState(config: unknown, state: WorkflowState) {
 
 const CATALOGUES: Record<string, Record<string, string>> = { am, en };
 
-/** What a payment's timeline entry shows: its receipt, a reversal's reason or note (only these, as text). */
-const paymentOf = (data: Record<string, unknown> | null) => {
+/**
+ * What a payment's timeline entry shows: its receipt (only these, as text) and, to whom `receipt-reversal:read` lets read
+ * reversals, a reversal's reason or note: free text about a person's money, not the case's.
+ */
+const paymentOf = (data: Record<string, unknown> | null, mayReadReversals: boolean) => {
     const textOf = (v: unknown) => (typeof v === 'string' ? v : null);
     return {
         receiptId: textOf(data?.receiptId),
         receiptNumber: textOf(data?.receiptNumber),
-        reason: textOf(data?.reason),
-        note: textOf(data?.note)
+        reason: mayReadReversals ? textOf(data?.reason) : null,
+        note: mayReadReversals ? textOf(data?.note) : null
     };
 };
 
@@ -1297,7 +1300,10 @@ export class CasesService implements FeeCasePort {
                 amended: Array.isArray(e.data?.amended)
                     ? e.data.amended.filter((k): k is string => typeof k === 'string' && requestKeys.has(k))
                     : null,
-                payment: e.kind === 'payment' ? paymentOf(e.data) : null,
+                payment:
+                    e.kind === 'payment'
+                        ? paymentOf(e.data, actor.permissions?.has('receipt-reversal:read') === true)
+                        : null,
                 at: e.createdAt.toISOString()
             })),
             steps: filed.map((s) => ({
