@@ -801,6 +801,15 @@ describe('a document’s QR', () => {
                 [c.id]
             )
         ).toBe(1);
+        // the old document names its correction on record, in the same transaction
+        expect(
+            await count(
+                `select count(*)::int as n from kernel.audit_log
+                  where table_name = 'documents.issued_documents' and row_id = $1 and action = 'update'
+                    and diff::text like $2`,
+                [oldId, `%${corrected.id}%`]
+            )
+        ).toBe(1);
         expect((await ask(token)).json()).toMatchObject({ status: 'superseded' });
         const fresh = await rendered(corrected.id);
         expect((await ask(fresh.token)).json()).toMatchObject({ status: 'valid' });
