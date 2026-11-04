@@ -1085,7 +1085,7 @@
         {
           "id": "0.23a",
           "title": "Documents, part 1: templates, issuing and the PDF worker",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.23a-documents-pdf",
           "commits": [
             "eb908aa",
@@ -1093,7 +1093,8 @@
             "4d842c8",
             "9a10a78",
             "9f61ff8",
-            "9cad2a2"
+            "9cad2a2",
+            "27f20b9"
           ],
           "evidence": [
             "GitHub Actions run 41914869406 on 9cad2a2 (PR #32): all 9 jobs green (ADR-0038 CI record): integration 452 passed in 29 files, including documents.int.spec.ts 9; S3 contract 20; e2e 20 passed, including the counter journey downloading a receipt's real PDF from the running worker-documents process; Semgrep 0 findings",
