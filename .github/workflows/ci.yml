@@ -141,6 +141,8 @@ jobs:
           pnpm --filter @itrms/api dev:seed org seed/org/south-ethiopia.wolaita.yaml
           pnpm --filter @itrms/api dev:seed services ../../platform/services/seed/catalogue.yaml --region SER
           pnpm --filter @itrms/api dev:seed users seed/users/wolaita.demo.yaml
+          pnpm --filter @itrms/api dev:seed fees ../../modules/competency/seed/fee-rules.demo.yaml --region SER
+          pnpm --filter @itrms/api dev:seed counters --region SER
           pnpm --filter @itrms/api dev:seed identity
       - name: Start the worker (outbox relay, the forms' value fill and exports)
         run: nohup pnpm --filter @itrms/api dev:worker > worker.log 2>&1 &

@@ -29,6 +29,7 @@
   "services.publish.family.help": "Help texts of the form",
   "services.publish.family.approval_unit": "The office that approves",
   "services.publish.family.templateHeader": "The documents' header line",
+  "services.publish.family.payment": "How the fee is paid (at the office or elsewhere, days to pay)",
   "services.publish.level.region": "The region",
   "services.publish.level.unit": "Offices below",
   "services.publish.effectiveFrom": "Holds from",

@@ -5,4 +5,8 @@ export { FeesService, addisToday } from './fees.service';
 export { FeeRulesService, feeRuleProblems, type ApprovedFeeRule, type FeeRuleUnusable } from './fee-rules.service';
 export { FEE_REQUEST_SOURCE, type FeeRequest, type FeeRequestSource } from './request-source';
 export { AssessFeeEffect } from './assess.effect';
+export { CreatePaymentOrderEffect } from './payment-order.effect';
+export { FEE_CASE_PORT, type FeeCasePort, type PaymentChange } from './case-port';
+export { PaymentOrdersService } from './payment-orders.service';
+export { PaymentsService } from './payments.service';
 export * from './fees.table';

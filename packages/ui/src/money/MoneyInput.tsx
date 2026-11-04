@@ -16,6 +16,8 @@ export interface MoneyInputProps extends Omit<
     /** The currency word shown after the amount, in the user's language ("ብር", "Birr"). */
     unit?: string;
     allowNegative?: boolean;
+    /** Announced (a live region) when a keystroke or paste is refused; the caller's catalogue text (`common.money.refused`). */
+    refusedMessage?: string;
 }
 
 /**
@@ -40,12 +42,15 @@ export function MoneyInput({
     onValueChange,
     unit = 'ETB',
     allowNegative = false,
+    refusedMessage = 'Only digits and one decimal point; at most two digits after it',
     className,
     onBlur,
     ...props
 }: MoneyInputProps) {
     const [text, setText] = React.useState(() => (value === null ? '' : formatBirr(value)));
     const unitId = React.useId();
+    const refusedId = React.useId();
+    const [refused, setRefused] = React.useState(false);
 
     // A new value from outside (a reset, a loaded record) replaces the text; the user's own typing is left as typed. A
     // value the text can't express (negative while negatives are refused, too many digits) is shown as it is: comparing
@@ -55,6 +60,7 @@ export function MoneyInput({
 
     const accept = (next: string) => {
         const santim = readText(next, allowNegative);
+        setRefused(santim === undefined);
         if (santim === undefined) return;
         setText(next);
         if (santim !== value) onValueChange(santim);
@@ -68,7 +74,7 @@ export function MoneyInput({
                 type="text"
                 inputMode="decimal"
                 autoComplete="off"
-                aria-describedby={[props['aria-describedby'], unitId].filter(Boolean).join(' ')}
+                aria-describedby={[props['aria-describedby'], unitId, refusedId].filter(Boolean).join(' ')}
                 aria-invalid={props['aria-invalid'] ?? (pending || undefined)}
                 className="pe-14 text-end tabular-nums"
                 value={text}
@@ -84,6 +90,7 @@ export function MoneyInput({
                     accept(current.slice(0, start) + stripped + current.slice(selectionEnd ?? start));
                 }}
                 onBlur={(e) => {
+                    setRefused(false);
                     if (value !== null) setText(formatted);
                     onBlur?.(e);
                 }}
@@ -91,6 +98,9 @@ export function MoneyInput({
             {/* full foreground: the unit is information, and the input's own tint sits on whatever surface holds it */}
             <span id={unitId} className="pointer-events-none absolute end-3 text-sm text-foreground">
                 {unit}
+            </span>
+            <span id={refusedId} role="status" aria-live="polite" className="sr-only">
+                {refused ? refusedMessage : ''}
             </span>
         </div>
     );

@@ -15,7 +15,7 @@ import {
 } from '@itrms/kernel/settings';
 import type { WorkflowDefinition } from '@itrms/schemas';
 
-import { configFamily, configValueSchemas, type OverrideConflict, type OverridePolicy } from '../contracts';
+import { configFamily, configValueProblem, type OverrideConflict, type OverridePolicy } from '../contracts';
 
 /** What a version's keys are checked against: its workflow's states and its form's field keys. */
 export interface VersionFacts {
@@ -49,7 +49,7 @@ export function keyProblem(
     level: 'default' | 'region' | 'unit'
 ): OverrideConflict['problem'] | undefined {
     const family = configFamily(key);
-    if (!family || !configValueSchemas[family].safeParse(value).success) return 'invalid_value';
+    if (!family || configValueProblem(key, value)) return 'invalid_value';
     if (!allowedBy(policy, key, level)) return 'not_allowed';
     const part = key.split('.')[1] ?? '';
     if (family === 'sla' && !facts.timedStates.has(part)) return 'unknown_state';
@@ -97,6 +97,8 @@ export interface FrozenConfig extends Record<string, unknown> {
     approval_unit?: unknown;
     sla: Record<string, unknown>;
     help: Record<string, unknown>;
+    /** how the fee is paid (task 0.22b): `collection`, `dueDays`; the fees slice defaults what is not set */
+    payment?: Record<string, unknown>;
     templateHeader?: unknown;
     /** where each value came from (the bureau's version, the region, a unit) */
     sources: Record<string, Source>;
@@ -118,6 +120,7 @@ export function frozenConfig(
         const [family, part] = key.split('.');
         if (family === 'sla' && part) config.sla[part] = value;
         else if (family === 'help' && part) config.help[part] = value;
+        else if (family === 'payment' && part) config.payment = { ...config.payment, [part]: value };
         else if (family === 'approval_unit') config.approval_unit = value;
         else if (family === 'templateHeader') config.templateHeader = value;
         config.sources[key] = source;

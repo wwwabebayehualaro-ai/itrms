@@ -6,6 +6,9 @@
  *                                                                     platform/services/seed/catalogue.yaml)
  *   `node dist/seed.cjs fees <rules.yaml> --region <code>`            a region's fee rules, approved as an installation step
  *                                                                     (`pnpm seed:fees`; modules/competency/seed/fee-rules.demo.yaml)
+ *   `node dist/seed.cjs counters --region <code>`                    the receipt counters of the region's offices that
+ *                                                                     collect cash (`pnpm seed:counters`; again when an
+ *                                                                     office is added)
  *   `node dist/seed.cjs identity`                                     org units → Keycloak groups, people → their units'
  *                                                                     groups (needs KEYCLOAK_URL and the admin client secret)
  * Both imports are idempotent, so a seed can run on every start; each file goes in in one transaction, and its writes are
@@ -19,7 +22,7 @@ import { createDatabase } from '@itrms/kernel/db';
 import { syncIdentity } from '@itrms/kernel/iam';
 import { importUsers, userImportSchema } from '@itrms/kernel/seed';
 import { importOrg, orgUnits, parseOrgCsv, parseOrgWorkbook, parseOrgYaml, type OrgImport } from '@itrms/kernel/org';
-import { importFeeRules, parseFeeRules } from '@itrms/fees/seed';
+import { importFeeRules, parseFeeRules, setUpReceiptCounters } from '@itrms/fees/seed';
 import { importCatalogue } from '@itrms/services/api';
 import { parseCatalogue } from '@itrms/services/seed';
 import { and, eq, isNull } from 'drizzle-orm';
@@ -46,13 +49,15 @@ async function main() {
     const region = regionAt >= 0 ? rest[regionAt + 1] : undefined;
     if (!(
         kind === 'identity' ||
+        kind === 'counters' ||
         ((kind === 'org' || kind === 'users' || kind === 'services' || kind === 'fees') && file)
     ))
         fail(
             logger,
             new Error(
                 'usage: seed org <file.yaml|file.csv|file.xlsx> [--region <code>] | seed users <file.yaml> | ' +
-                    'seed services <catalogue.yaml> --region <code> | seed fees <rules.yaml> --region <code> | seed identity'
+                    'seed services <catalogue.yaml> --region <code> | seed fees <rules.yaml> --region <code> | ' +
+                    'seed counters --region <code> | seed identity'
             )
         );
 
@@ -84,6 +89,18 @@ async function main() {
                 return importCatalogue(tx, root.id, services);
             });
             logger.info({ file, region, services: services.length, changed }, 'service catalogue applied');
+        } else if (kind === 'counters') {
+            const code = file === '--region' ? rest[0] : region;
+            if (!code) throw new Error('seed counters needs --region <code>');
+            const offices = await db.scoped(ctx, async (tx) => {
+                const [root] = await tx
+                    .select()
+                    .from(orgUnits)
+                    .where(and(isNull(orgUnits.parentId), eq(orgUnits.code, code)));
+                if (!root) throw new Error(`no region ${code}`);
+                return setUpReceiptCounters(tx, root.regionId);
+            });
+            logger.info({ region: code, offices }, 'receipt counters set up');
         } else if (kind === 'fees' && file) {
             if (!region) throw new Error('seed fees needs --region <code>');
             const rules = parseFeeRules(await readFile(file, 'utf8'));

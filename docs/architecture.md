@@ -398,8 +398,13 @@ Definition (Zod schema `workflowDefinitionSchema` in `packages/schemas`; stored 
   `fees.rules.approverRoles` names. The form's `Fee` field shows the server's preview (`POST /api/v1/fees/preview`, stores
   nothing); filing works the same figure out and keeps it in `fees.case_fees` (append-only, refused with 409 when it is no
   longer the figure shown); `fees.assess` works it out again when a correction changes it.
-- A workflow effect creates a **payment order** (lines, total, due date). There are three ways to settle it:
-  1. **At the office cashier:** cash or a bank deposit slip. A **receipt** is issued with a gapless number and a QR code.
+- A workflow effect (`fees.createPaymentOrder`) creates a **payment order** from the case's newest fee (its lines, total,
+  due date; one live order per case, ADR-0042). There are three ways to settle it:
+  1. **At the office cashier** (the case's handling office, whose type collects cash): the whole total, by cash or a bank
+     deposit slip. A **receipt** is issued in the same transaction: a gapless number from the office's counter (per
+     fiscal year), or the leaf of a controlled pre-printed pad where the office's setting says so; a QR code with 0.23.
+     The workflow's case port (in the payment's transaction) sets the case's fact `payment` and moves a case waiting on
+     `event:payment.settled`.
   2. **Paid elsewhere** (revenue office, bank): the officer enters the external reference. It is stored in
      `external_payment_refs`, which is **unique per issuer, reference and fiscal year**, so one real receipt can never settle
      two cases. Its state is `pending_verification` until a `finance_officer` (not the officer who entered it) verifies it,
@@ -407,7 +412,8 @@ Definition (Zod schema `workflowDefinitionSchema` in `packages/schemas`; stored 
      satisfies `payment.settled`.
   3. **Online** (Phase 3): a provider webhook moves the case out of a `wait` state after signature check and idempotent
      settlement.
-- Corrections are reversals with a reason and a second person's approval, never edits.
+- Corrections are reversals with a reason and a second person's approval (a role the region names, never the requester
+  nor the cashier who took the money), never edits: the receipt keeps its number.
 - **Daily cashier closing:** expected vs. counted cash, unmatched external references, and **controlled stationery**
   (receipt pads, licence blanks, bolo stickers) reconciled by serial range. Remittance report to the revenue office
   (Phase 1).

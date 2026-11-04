@@ -5,13 +5,14 @@
  * approved by a seed). Idempotent by key and content: a file run again stores nothing new, and a changed rule becomes its
  * next version.
  */
-import { and, eq, max } from 'drizzle-orm';
+import { and, eq, max, sql } from 'drizzle-orm';
 import { contentHash, insertAudited, updateAudited, type Tx } from '@itrms/kernel/db';
+import { setUpCounter } from '@itrms/kernel/numbering';
 import { feeRuleSchema, i18nTextSchema } from '@itrms/schemas';
 import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 
-import { FEE_RULE_KEY } from '../contracts';
+import { FEE_RULE_KEY, RECEIPT_COUNTER, RECEIPT_PATTERN } from '../contracts';
 import { feeRuleProblems } from '../api/fee-rules.service';
 import { feeRuleApprovals, feeRules, feeRuleVersions } from '../api/fees.table';
 
@@ -86,4 +87,21 @@ export async function importFeeRules(
         await updateAudited(tx, feeRules, rule.id, rule.rowVersion, { latestVersionId: version.id });
     }
     return stored;
+}
+
+/**
+ * The receipt counters of a region (task 0.22b): every active office whose type collects cash numbers its receipts from
+ * its own counter, gapless per fiscal year. Installation work (the owner role: the API role cannot create counters), run
+ * with the seed and again when offices are added; it never lowers a counter. A pattern keeps the office, the sequence and
+ * the fiscal year, so numbers never repeat across years.
+ */
+export async function setUpReceiptCounters(tx: Tx, regionId: string, pattern = RECEIPT_PATTERN): Promise<number> {
+    if (!pattern.includes('{efy}') || !/\{seq(:0\d)?\}/.test(pattern) || !pattern.includes('{unit}'))
+        throw new Error(`receipt counters: the pattern ${pattern} needs {unit}, {seq} and {efy}`);
+    const offices = await tx.execute<{ id: string }>(sql`
+        select u.id from kernel.org_units u join kernel.unit_types t on t.id = u.unit_type_id
+         where u.region_id = ${regionId} and u.active and 'collects_cash' = any(t.capabilities)`);
+    for (const office of offices.rows)
+        await setUpCounter(tx, { key: RECEIPT_COUNTER, unitId: office.id, regionId, pattern });
+    return offices.rows.length;
 }

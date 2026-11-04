@@ -19,6 +19,7 @@ import { rolePermissions } from '@itrms/kernel/iam';
 import { findUnitByCode, importOrg, orgUnits, parseOrgYaml, type OrgUnit } from '@itrms/kernel/org';
 import { importUsers, userImportSchema } from '@itrms/kernel/seed';
 import { importCatalogue } from '@itrms/services/api';
+import { setUpReceiptCounters } from '@itrms/fees/seed';
 import { parseCatalogue } from '@itrms/services/seed';
 import { and, eq, isNull } from 'drizzle-orm';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
@@ -94,6 +95,11 @@ export async function startApi(
     await installer.scoped({}, async (tx) => {
         for (const root of await tx.select().from(orgUnits).where(isNull(orgUnits.parentId)))
             await importCatalogue(tx, root.id, catalogue);
+    });
+    // every office that collects cash numbers its receipts from its own counter (task 0.22b)
+    await installer.scoped({}, async (tx) => {
+        for (const root of await tx.select().from(orgUnits).where(isNull(orgUnits.parentId)))
+            await setUpReceiptCounters(tx, root.regionId);
     });
     const demo = userImportSchema.parse(parseYaml(readFileSync(join(SEEDS, 'users', 'wolaita.demo.yaml'), 'utf8')));
     await installer.scoped({}, (tx) => importUsers(tx, demo));

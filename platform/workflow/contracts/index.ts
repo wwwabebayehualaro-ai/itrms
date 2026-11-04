@@ -152,7 +152,8 @@ const caseTaskSchema = z.object({
     closedAt: z.string().nullable()
 });
 
-export const CASE_EVENT_KINDS = ['started', 'transition', 'routed', 'comment'] as const;
+/** `payment`: a payment's change (paid, a reversal asked for, decided), task 0.22b. */
+export const CASE_EVENT_KINDS = ['started', 'transition', 'routed', 'comment', 'payment'] as const;
 /** Who may read a comment: the staff working on the case (an applicant's portal comes later). */
 export const COMMENT_VISIBILITIES = ['internal'] as const;
 
@@ -172,6 +173,15 @@ const caseEventSchema = z.object({
     visibility: z.enum(COMMENT_VISIBILITIES).nullable(),
     /** a transition that changed the request (task 0.21e): the fields it changed that the caller may see */
     amended: z.array(z.string()).nullable(),
+    /** a payment's change (task 0.22b): its receipt (id and number), a reversal's reason or decision note */
+    payment: z
+        .object({
+            receiptId: z.uuid().nullable(),
+            receiptNumber: z.string().nullable(),
+            reason: z.string().nullable(),
+            note: z.string().nullable()
+        })
+        .nullable(),
     at: z.string()
 });
 

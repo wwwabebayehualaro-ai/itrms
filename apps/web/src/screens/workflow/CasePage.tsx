@@ -41,6 +41,7 @@ import { formatMoment } from '@/lib/format';
 import { usePreferences, useText } from '@/lib/preferences';
 import { amendable, lookupIds } from '@/lib/caseAnswers';
 import { useCase, useClaim, useTransition, type CaseOut, type SlaState } from '@/lib/workflow';
+import { CasePaymentPanel } from '../fees/CasePaymentPanel';
 import { CommentBox } from './CommentBox';
 
 const SLA_TONE: Record<SlaState, Tone> = {
@@ -86,6 +87,7 @@ export function CasePage({ id }: { id: string }) {
                 }
             />
             <CaseFacts c={c} />
+            <CasePaymentPanel caseId={c.id} />
             <OpenStep c={c} stateName={stateName} />
             <Tabs defaultValue="timeline">
                 <TabsList>
@@ -338,6 +340,16 @@ function ActionDialog({ c, action, onClose }: { c: CaseOut; action: Action; onCl
     );
 }
 
+/** A payment event's details (receipt number, reason, note). */
+function paymentData(e: CaseOut['events'][number]): { receiptNumber?: string; reason?: string; note?: string } {
+    const pick = (value: string | null | undefined) => (value ? value : undefined);
+    return {
+        receiptNumber: pick(e.payment?.receiptNumber),
+        reason: pick(e.payment?.reason),
+        note: pick(e.payment?.note)
+    };
+}
+
 function Timeline({ c, stateName }: { c: CaseOut; stateName: (key: string | null) => string }) {
     const { t, text, language } = useText();
     const calendar = usePreferences((s) => s.calendar);
@@ -374,15 +386,19 @@ function Timeline({ c, stateName }: { c: CaseOut; stateName: (key: string | null
                             <span className="font-medium">
                                 {e.kind === 'started'
                                     ? t('workflow.event.started', { who: who(e) })
-                                    : e.kind === 'routed'
-                                      ? t('workflow.event.routed', { step: stateName(e.to) })
-                                      : e.kind === 'comment'
-                                        ? t('workflow.event.comment', { who: who(e) })
-                                        : t('workflow.event.transition', {
-                                              who: who(e),
-                                              from: stateName(e.from),
-                                              to: stateName(e.to)
-                                          })}
+                                    : e.kind === 'payment'
+                                      ? t(`workflow.event.payment.${e.action ?? 'paid'}`, {
+                                            who: who(e)
+                                        })
+                                      : e.kind === 'routed'
+                                        ? t('workflow.event.routed', { step: stateName(e.to) })
+                                        : e.kind === 'comment'
+                                          ? t('workflow.event.comment', { who: who(e) })
+                                          : t('workflow.event.transition', {
+                                                who: who(e),
+                                                from: stateName(e.from),
+                                                to: stateName(e.to)
+                                            })}
                             </span>
                             <time dateTime={e.at} className="text-muted-foreground text-xs">
                                 {formatMoment(e.at, { language, calendar })}
@@ -393,6 +409,14 @@ function Timeline({ c, stateName }: { c: CaseOut; stateName: (key: string | null
                                 {t('workflow.event.amended', { fields: e.amended.map(labelOf).join(', ') })}
                             </p>
                         )}
+                        {e.kind === 'payment' &&
+                            (paymentData(e).receiptNumber || paymentData(e).reason || paymentData(e).note) && (
+                                <p className="whitespace-pre-wrap text-sm" data-payment-note>
+                                    {[paymentData(e).receiptNumber, paymentData(e).reason, paymentData(e).note]
+                                        .filter(Boolean)
+                                        .join(' · ')}
+                                </p>
+                            )}
                         {e.comment && <p className="whitespace-pre-wrap text-sm">{e.comment}</p>}
                         {e.mentions.length > 0 && (
                             <p className="text-muted-foreground text-xs" data-mentions>

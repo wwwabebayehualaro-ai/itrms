@@ -49,5 +49,9 @@
   "kernel.errors.setting_level_not_allowed": "This setting cannot be changed at this level.",
   "kernel.nav.settings": "Settings",
   "kernel.errors.contract_unmet": "The request does not hold what this step's work needs. Ask the service's administrator.",
-  "kernel.errors.fee_changed": "The fee has changed since it was shown. Check the new fee, then file the request."
+  "kernel.errors.fee_changed": "The fee has changed since it was shown. Check the new fee, then file the request.",
+  "kernel.errors.already_settled": "This payment order is paid already.",
+  "kernel.errors.amount_mismatch": "The amount is not the one the order asks for. Check the order, then record it again.",
+  "kernel.errors.collected_elsewhere": "This fee is paid elsewhere (a revenue office or a bank), not at this till.",
+  "kernel.errors.fee_already_paid": "The fee is paid already: a changed fee needs the receipt reversed first. Ask the finance officer."
 }

@@ -29,10 +29,11 @@ export type CatalogueEntry = z.infer<typeof catalogueEntrySchema>;
 
 /**
  * The keys a service's configuration holds, by family (`sla.<state>`, `help.<field>`): an SLA per workflow state, the unit
- * a parent-unit step goes to, a help text per form field, the documents' header line. A version gives their defaults; a
+ * a parent-unit step goes to, a help text per form field, the documents' header line, and how the fee is paid (task
+ * 0.22b: `payment.collection` at the office's cashier or elsewhere, `payment.dueDays`). A version gives their defaults; a
  * unit below changes only those its override policy allows at its level.
  */
-export const OVERRIDE_FAMILIES = ['sla', 'approval_unit', 'help', 'templateHeader'] as const;
+export const OVERRIDE_FAMILIES = ['sla', 'approval_unit', 'help', 'templateHeader', 'payment'] as const;
 export type OverrideFamily = (typeof OVERRIDE_FAMILIES)[number];
 
 /** Where a unit's value may replace the version's: the region's root, or a unit below it (its value holds in its subtree). */
@@ -48,8 +49,19 @@ export const configKeySchema = z.string().refine((key) => {
     if (extra !== undefined) return false;
     if (family === 'sla') return part !== undefined && WORKFLOW_KEY.test(part);
     if (family === 'help') return part !== undefined && FIELD_KEY.test(part);
+    if (family === 'payment') return part !== undefined && Object.hasOwn(PAYMENT_VALUES, part);
     return (family === 'approval_unit' || family === 'templateHeader') && part === undefined;
-}, 'is not a configuration key (sla.<state>, help.<field>, approval_unit, templateHeader)');
+}, 'is not a configuration key (sla.<state>, help.<field>, approval_unit, templateHeader, payment.<key>)');
+
+/**
+ * How a service's fee is paid (task 0.22b): at the office's cashier (default) or elsewhere (a revenue office or a bank,
+ * task 0.22c, where the office has no till); and the days a payment order is due in.
+ */
+export const PAYMENT_COLLECTIONS = ['cashier', 'elsewhere'] as const;
+export const PAYMENT_VALUES: Record<string, z.ZodType> = {
+    collection: z.enum(PAYMENT_COLLECTIONS),
+    dueDays: z.number().int().min(1).max(365)
+};
 
 /** A help text or a header line: at most this long in each language. */
 export const MAX_CONFIG_TEXT = 2000;
@@ -65,8 +77,21 @@ export const configValueSchemas: Record<OverrideFamily, z.ZodType> = {
     sla: workflowSlaSchema,
     approval_unit: workflowUnitRuleSchema.refine((r) => r !== '${approval_unit}', 'names a unit rule'),
     help: boundedText,
-    templateHeader: boundedText
+    templateHeader: boundedText,
+    // each key's own schema is PAYMENT_VALUES' (checked with the key below)
+    payment: z.union([z.enum(PAYMENT_COLLECTIONS), z.number().int().min(1).max(365)])
 };
+
+/** A value checked against its key's own schema (a family's schema is the union of its keys'). */
+export function configValueProblem(key: string, value: unknown): z.ZodError | undefined {
+    const family = configFamily(key);
+    if (!family) return undefined;
+    const part = key.split('.')[1] ?? '';
+    const schema =
+        family === 'payment' ? (PAYMENT_VALUES[part] ?? configValueSchemas.payment) : configValueSchemas[family];
+    const parsed = schema.safeParse(value);
+    return parsed.success ? undefined : parsed.error;
+}
 
 export const configFamily = (key: string): OverrideFamily | undefined => {
     const family = familyOf(key);
@@ -78,11 +103,9 @@ export const configValuesSchema = z
     .record(configKeySchema, z.unknown())
     .superRefine((values, ctx) => {
         for (const [key, value] of Object.entries(values)) {
-            const family = configFamily(key);
-            if (!family) continue;
-            const parsed = configValueSchemas[family].safeParse(value);
-            if (!parsed.success)
-                for (const issue of parsed.error.issues)
+            const problem = configValueProblem(key, value);
+            if (problem)
+                for (const issue of problem.issues)
                     ctx.addIssue({ code: 'custom', path: [key, ...issue.path], message: issue.message });
         }
     })

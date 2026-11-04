@@ -11,7 +11,7 @@
  *       <form.AppForm><form.SubmitButton>Save</form.SubmitButton></form.AppForm>
  *   </ZodForm>
  *
- * Validation: the schema runs on blur and on submit. A failed save maps the server's problem+json `errors[]` onto the fields
+ * Validation: the schema runs on blur, on submit and, while it refuses the form, on every edit. A failed save maps the server's problem+json `errors[]` onto the fields
  * and shows anything else above the buttons (the mutation's toast still comes from QueryProvider).
  * Builder-made forms do not use this: they are rendered by the form engine.
  */
@@ -65,16 +65,6 @@ export function messagesOf(errors: unknown[]): string[] {
     return [...new Set(messages)];
 }
 
-/** Editing a field clears the server's verdict on it (it was about the value that was sent). */
-function useChange<T>() {
-    const field = useFieldContext<T>();
-    return (value: T) => {
-        if (field.state.meta.errorMap.onServer !== undefined)
-            field.setMeta((m) => ({ ...m, errorMap: { ...m.errorMap, onServer: undefined } }));
-        field.handleChange(value);
-    };
-}
-
 interface FieldChromeProps {
     label?: React.ReactNode;
     description?: React.ReactNode;
@@ -106,7 +96,6 @@ function TextField({
     ...input
 }: FieldChromeProps & Omit<React.ComponentProps<typeof Input>, 'value' | 'onChange' | 'onBlur' | 'name' | 'id'>) {
     const field = useFieldContext<string>();
-    const change = useChange<string>();
     const invalid = useStore(field.store, (s) => s.meta.isTouched && s.meta.errors.length > 0);
     return (
         <FieldChrome label={label} description={description}>
@@ -114,7 +103,7 @@ function TextField({
                 id={field.name}
                 name={field.name}
                 value={field.state.value ?? ''}
-                onChange={(e) => change(e.target.value)}
+                onChange={(e) => field.handleChange(e.target.value)}
                 onBlur={field.handleBlur}
                 aria-invalid={invalid || undefined}
                 {...input}
@@ -129,7 +118,6 @@ function TextareaField({
     ...input
 }: FieldChromeProps & Omit<React.ComponentProps<typeof Textarea>, 'value' | 'onChange' | 'onBlur' | 'name' | 'id'>) {
     const field = useFieldContext<string>();
-    const change = useChange<string>();
     const invalid = useStore(field.store, (s) => s.meta.isTouched && s.meta.errors.length > 0);
     return (
         <FieldChrome label={label} description={description}>
@@ -137,7 +125,7 @@ function TextareaField({
                 id={field.name}
                 name={field.name}
                 value={field.state.value ?? ''}
-                onChange={(e) => change(e.target.value)}
+                onChange={(e) => field.handleChange(e.target.value)}
                 onBlur={field.handleBlur}
                 aria-invalid={invalid || undefined}
                 {...input}
@@ -148,13 +136,12 @@ function TextareaField({
 
 function SwitchField({ label, description }: FieldChromeProps) {
     const field = useFieldContext<boolean>();
-    const change = useChange<boolean>();
     return (
         <FieldChrome label={label} description={description} orientation="horizontal">
             <Switch
                 id={field.name}
                 checked={!!field.state.value}
-                onCheckedChange={(v) => change(v)}
+                onCheckedChange={(v) => field.handleChange(v)}
                 onBlur={field.handleBlur}
             />
         </FieldChrome>
@@ -168,10 +155,9 @@ function SelectField({
     placeholder
 }: FieldChromeProps & { options: { value: string; label: React.ReactNode }[]; placeholder?: string }) {
     const field = useFieldContext<string>();
-    const change = useChange<string>();
     return (
         <FieldChrome label={label} description={description}>
-            <Select value={field.state.value ?? ''} onValueChange={(v) => change(v)}>
+            <Select value={field.state.value ?? ''} onValueChange={(v) => field.handleChange(v)}>
                 <SelectTrigger id={field.name} onBlur={field.handleBlur} className="w-full">
                     <SelectValue placeholder={placeholder} />
                 </SelectTrigger>
@@ -189,7 +175,11 @@ function SelectField({
 
 function SubmitButton({ children, ...props }: React.ComponentProps<typeof Button>) {
     const form = useFormContext();
-    const [canSubmit, submitting] = useStore(form.store, (s) => [s.canSubmit, s.isSubmitting] as const);
+    // a failed save is no reason to refuse the next try: its message stays until then (`ZodForm` clears it)
+    const [canSubmit, submitting] = useStore(
+        form.store,
+        (s) => [s.canSubmit || (s.isFieldsValid && s.errorMap.onServer !== undefined), s.isSubmitting] as const
+    );
     return (
         <Button type="submit" disabled={!canSubmit || submitting} {...props}>
             {submitting && <Spinner />}
@@ -242,8 +232,18 @@ export function useZodForm<TSchema extends z.ZodType<Record<string, unknown>>>({
     return useAppForm({
         defaultValues,
         validators: { onBlur: validate, onSubmit: validate },
+        listeners: {
+            // A verdict was about the values it saw. An edit drops the server's, and, while something refuses the form,
+            // checks it again: else a refusal outlives what caused it, and the submit button stays disabled (Enter does
+            // nothing) until the person happens to leave a field.
+            onChange: ({ formApi, fieldApi }) => {
+                if (fieldApi.state.meta.errorMap.onServer !== undefined)
+                    fieldApi.setMeta((m) => ({ ...m, errorMap: { ...m.errorMap, onServer: undefined } }));
+                if (formApi.state.errorMap.onServer !== undefined) formApi.setErrorMap({ onServer: undefined });
+                if (!formApi.state.canSubmit) void formApi.validate('submit');
+            }
+        },
         onSubmit: async ({ value, formApi }) => {
-            formApi.setErrorMap({ onServer: undefined });
             try {
                 await onSubmit(schema.parse(value));
             } catch (err) {
@@ -266,6 +266,7 @@ export function useZodForm<TSchema extends z.ZodType<Record<string, unknown>>>({
 /** The parts of a `useZodForm` form that `ZodForm` needs. */
 interface ZodFormApi {
     handleSubmit: () => unknown;
+    setErrorMap: (errorMap: { onServer: undefined }) => void;
     AppForm: React.ComponentType<React.PropsWithChildren>;
     FormError: React.ComponentType;
 }
@@ -286,6 +287,8 @@ export function ZodForm({
             onSubmit={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                // the last failure's message goes with the new try; the form would refuse the try while it stands
+                form.setErrorMap({ onServer: undefined });
                 void form.handleSubmit();
             }}
         >

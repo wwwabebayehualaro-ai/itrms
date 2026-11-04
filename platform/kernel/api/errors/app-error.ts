@@ -98,7 +98,13 @@ export class ConflictError extends AppError {
             | 'not_configured'
             | 'contract_unmet'
             // the fee worked out now is not the one the counter showed (task 0.22a): show the new one, then file
-            | 'fee_changed',
+            | 'fee_changed'
+            // payments (task 0.22b): an order already paid; an amount other than the order's; an order paid elsewhere; a
+            // fee changed after it was paid (a reversal comes first)
+            | 'already_settled'
+            | 'amount_mismatch'
+            | 'collected_elsewhere'
+            | 'fee_already_paid',
         options?: AppErrorOptions
     ) {
         super(code, options);

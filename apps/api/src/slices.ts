@@ -9,8 +9,8 @@ import competencyAm from '@itrms/competency/messages/am';
 import competencyEn from '@itrms/competency/messages/en';
 import competencyWal from '@itrms/competency/messages/wal-Latn';
 import documents from '@itrms/documents/manifest';
-import { AssessFeeEffect, FeesModule } from '@itrms/fees/api';
-import { FEES_SETTINGS } from '@itrms/fees/contracts';
+import { AssessFeeEffect, CreatePaymentOrderEffect, FeesModule } from '@itrms/fees/api';
+import { FEES_EVENTS, FEES_SETTINGS } from '@itrms/fees/contracts';
 import fees from '@itrms/fees/manifest';
 import feesAm from '@itrms/fees/messages/am';
 import feesEn from '@itrms/fees/messages/en';
@@ -69,7 +69,8 @@ export const SLICES: ApiSlice[] = [
     {
         manifest: fees,
         module: FeesModule,
-        effects: effectKeys([AssessFeeEffect]),
+        effects: effectKeys([AssessFeeEffect, CreatePaymentOrderEffect]),
+        events: FEES_EVENTS,
         settings: FEES_SETTINGS,
         messages: { am: feesAm, en: feesEn, 'wal-Latn': feesWal }
     },

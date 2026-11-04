@@ -88,5 +88,7 @@
   "shell.settings.save": "አስቀምጥ",
   "shell.settings.cancel": "ተው",
   "shell.settings.saved": "ቅንብሩ ተቀምጧል።",
-  "shell.settings.changed": "ሌላ አስተዳዳሪ በዚህ መሀል ይህንን ቅንብር ቀይሯል። ያረጋግጡና እንደገና ይቀይሩ።"
+  "shell.settings.changed": "ሌላ አስተዳዳሪ በዚህ መሀል ይህንን ቅንብር ቀይሯል። ያረጋግጡና እንደገና ይቀይሩ።",
+  "common.money.refused": "ቁጥሮችና አንድ ነጥብ ብቻ፤ ከነጥቡ በኋላ ቢበዛ ሁለት ቁጥሮች",
+  "common.money.unit": "ብር"
 }

@@ -21,9 +21,9 @@ export interface ServiceSummary {
     currentVersion: number | null;
 }
 
-export type OverrideFamily = 'sla' | 'approval_unit' | 'help' | 'templateHeader';
+export type OverrideFamily = 'sla' | 'approval_unit' | 'help' | 'templateHeader' | 'payment';
 export type OverrideLevel = 'region' | 'unit';
-export const OVERRIDE_FAMILIES: OverrideFamily[] = ['sla', 'help', 'approval_unit', 'templateHeader'];
+export const OVERRIDE_FAMILIES: OverrideFamily[] = ['sla', 'help', 'approval_unit', 'templateHeader', 'payment'];
 export const OVERRIDE_LEVELS: OverrideLevel[] = ['region', 'unit'];
 
 export interface ServiceVersion {

@@ -34,6 +34,8 @@ import { emit } from '@itrms/kernel/outbox';
 import { orgUnits, users } from '@itrms/kernel/tables';
 import { contractInput } from '@itrms/form-engine/core';
 import { FormsService, RegistryLookups, SubmissionsService, submissions } from '@itrms/forms/api';
+import type { FeeCasePort, PaymentChange } from '@itrms/fees/api';
+import type { PaymentFacts } from '@itrms/fees/contracts';
 import {
     effectKeyOf,
     parseStepForm,
@@ -113,6 +115,24 @@ export function slaOfState(config: unknown, state: WorkflowState) {
 }
 
 const CATALOGUES: Record<string, Record<string, string>> = { am, en };
+
+/**
+ * What a payment's timeline entry shows: its receipt (only these, as text) and, to whom `receipt-reversal:read` lets read
+ * reversals, a reversal's reason or note: free text about a person's money, not the case's.
+ */
+const paymentOf = (data: Record<string, unknown> | null, mayReadReversals: boolean) => {
+    const textOf = (v: unknown) => (typeof v === 'string' ? v : null);
+    return {
+        receiptId: textOf(data?.receiptId),
+        receiptNumber: textOf(data?.receiptNumber),
+        reason: mayReadReversals ? textOf(data?.reason) : null,
+        note: mayReadReversals ? textOf(data?.note) : null
+    };
+};
+
+/** The event a payment settling a case delivers to a wait, and the system actor that takes it (task 0.22b). */
+const PAYMENT_SETTLED = 'event:payment.settled';
+const FEES_ACTOR = { kind: 'system', id: 'system:fees' } as const;
 const text = (key: string, language: string): string =>
     CATALOGUES[language]?.[key] ?? am[key as keyof typeof am] ?? key;
 
@@ -137,7 +157,7 @@ function refuse(refusal: Refusal | ClaimRefusal, language: string, caseId: strin
 }
 
 @Injectable()
-export class CasesService {
+export class CasesService implements FeeCasePort {
     /** The roles that read cases (the installed manifests): only their holders may be mentioned on one. */
     private readonly readers: readonly string[];
 
@@ -644,6 +664,8 @@ export class CasesService {
                 caseId: row.id,
                 regionId: row.regionId,
                 handlingUnitId: row.handlingUnitId,
+                caseNumber: row.number,
+                config: row.config,
                 argument,
                 input: contract ? await this.contractedInput(tx, row, key, contract) : by.input,
                 facts
@@ -712,6 +734,8 @@ export class CasesService {
             { caseId: row.id, from: from.key, to: to.key, action, closed },
             { unitId: row.handlingUnitId, regionId: row.regionId }
         );
+        // a wait on the payment that is settled already (no fee to pay, paid before) is no wait (task 0.22b)
+        if (to.kind === 'wait') await this.moveIfPaid(tx, ctx, row.id, by.language);
     }
 
     /** Opens the task of `state`: in the unit its rule names, or up the tree when separation of duties leaves nobody. */
@@ -939,6 +963,83 @@ export class CasesService {
             { caseId: row.id, handlingUnitId: row.handlingUnitId }
         );
         return { answers: submission.answers, submissionId: submission.id };
+    }
+
+    // --- payments (the fees slice's port, task 0.22b, ADR-0042) ------------------------------------------------------
+
+    /** Locks a case for a payment's transaction (the case first: one lock order); null when it cannot be read here. */
+    async lock(tx: Tx, caseId: string): Promise<{ closed: boolean } | null> {
+        const [row] = await tx
+            .select({ closedAt: cases.closedAt })
+            .from(cases)
+            .where(eq(cases.id, caseId))
+            .for('update');
+        return row ? { closed: row.closedAt !== null } : null;
+    }
+
+    /**
+     * A payment's change, in its transaction: the case's fact `payment` replaced, the change on its timeline (by the person
+     * who made it), and, for a payment made (`paid`), a case waiting on `event:payment.settled` moved on (by `system:fees`,
+     * in the same transaction: never a paid case left waiting). A reversal's request or decision never moves a case.
+     */
+    async paymentChanged(
+        tx: Tx,
+        ctx: DbContext,
+        caseId: string,
+        change: { payment: PaymentFacts; action: PaymentChange; data: Record<string, unknown> },
+        language: string
+    ): Promise<void> {
+        const row = await this.locked(tx, caseId);
+        await updateAudited(tx, cases, row.id, row.rowVersion, {
+            facts: { ...row.facts, payment: change.payment }
+        });
+        await insertAudited(tx, caseEvents, {
+            regionId: row.regionId,
+            caseId,
+            unitId: row.handlingUnitId,
+            kind: 'payment',
+            action: change.action,
+            actorUserId: ctx.userId ?? null,
+            data: change.data
+        });
+        if (change.action !== 'paid') return;
+        try {
+            await this.moveIfPaid(tx, ctx, caseId, language);
+        } catch (error) {
+            // the next step cannot be opened (nobody holds its role): the payment is not taken, and the cashier is told why
+            if (
+                error instanceof ConflictError &&
+                (error.code === 'not_configured' || error.code === 'invalid_transition')
+            )
+                throw new ConflictError('not_configured', {
+                    detail: text('workflow.refusal.payment-next-step', language),
+                    cause: error
+                });
+            throw error;
+        }
+    }
+
+    /**
+     * A case in a wait whose way out is `event:payment.settled`, with its payment settled, moved on by `system:fees`: after a
+     * payment, and when a transition arrives in such a wait already settled (a service with no fee, a step taken again).
+     */
+    private async moveIfPaid(tx: Tx, ctx: DbContext, caseId: string, language: string): Promise<void> {
+        const row = await this.locked(tx, caseId);
+        if (row.closedAt) return;
+        const payment = row.facts.payment as { settled?: unknown } | undefined;
+        if (payment?.settled !== true) return;
+        const def = await this.definition(tx, row.definitionVersionId);
+        const state = stateOf(def, row.state);
+        if (state?.kind !== 'wait') return;
+        const decision = decideEvent(def, row.state, PAYMENT_SETTLED, FEES_ACTOR, row.facts);
+        if (!decision.ok) return;
+        const history = await this.history(tx, row, def);
+        await this.advance(tx, ctx, row, def, state, decision.transition, {
+            system: FEES_ACTOR.id,
+            input: {},
+            history,
+            language
+        });
     }
 
     // --- reading ------------------------------------------------------------------------------------------------------
@@ -1199,6 +1300,10 @@ export class CasesService {
                 amended: Array.isArray(e.data?.amended)
                     ? e.data.amended.filter((k): k is string => typeof k === 'string' && requestKeys.has(k))
                     : null,
+                payment:
+                    e.kind === 'payment'
+                        ? paymentOf(e.data, actor.permissions?.has('receipt-reversal:read') === true)
+                        : null,
                 at: e.createdAt.toISOString()
             })),
             steps: filed.map((s) => ({

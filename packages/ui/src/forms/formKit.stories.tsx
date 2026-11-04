@@ -12,7 +12,15 @@ const meta = {
     title: 'Forms/formKit',
     component: ZodForm,
     // required by the type; every story renders its own form
-    args: { form: { handleSubmit: () => undefined, AppForm: () => null, FormError: () => null }, children: null }
+    args: {
+        form: {
+            handleSubmit: () => undefined,
+            setErrorMap: () => undefined,
+            AppForm: () => null,
+            FormError: () => null
+        },
+        children: null
+    }
 } satisfies Meta<typeof ZodForm>;
 
 export default meta;
