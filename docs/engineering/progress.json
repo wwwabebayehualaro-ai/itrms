@@ -1063,13 +1063,14 @@
         {
           "id": "0.22c",
           "title": "Fees, part 3: paid elsewhere",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.22c-paid-elsewhere",
           "commits": [
             "63d9555",
             "fde5964",
             "bcdc78e",
-            "ee2c25e"
+            "ee2c25e",
+            "45b968e"
           ],
           "evidence": [
             "GitHub Actions run 41894853308 on ee2c25e (PR #31): all 9 jobs green (ADR-0038 CI record)",
