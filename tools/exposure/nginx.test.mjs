@@ -63,8 +63,16 @@ test('an unknown Host is dropped', () => {
     assert.match(conf, /listen 443 ssl default_server;[\s\S]*?return 444;/);
 });
 
-test('the API is never exposed: the browser reaches it only through the BFF', () => {
-    assert.doesNotMatch(conf, /proxy_pass http:\/\/api/);
+test('the API is never exposed but for one public path: the browser reaches it only through the BFF', () => {
+    assert.doesNotMatch(app, /proxy_pass http:\/\/api/);
+    // the whole configuration names it once: a document's status by its token, on the verify hostname (ADR-0045)
+    assert.equal([...conf.matchAll(/proxy_pass http:\/\/api/g)].length, 1);
+    const from = verify.indexOf('location ~ "^/v1/public/verifications/[A-Za-z0-9_-]{22}$" {');
+    assert.ok(from > 0, 'the path is exactly a token');
+    const block = verify.slice(from, verify.indexOf('\n    }\n', from));
+    assert.match(block, /limit_except GET \{ deny all; \}/);
+    assert.match(block, /limit_req zone=itrms_verify/);
+    assert.match(block, /proxy_pass http:\/\/api:4000;/);
 });
 
 test('both hostnames send HSTS and nosniff, and redirect plain HTTP', () => {
@@ -75,10 +83,19 @@ test('both hostnames send HSTS and nosniff, and redirect plain HTTP', () => {
     assert.match(conf, /return 301 https:\/\/\$host\$request_uri;/);
 });
 
-test('the verify hostname serves only the static page, read-only', () => {
-    assert.doesNotMatch(verify, /proxy_pass/);
+test('the verify hostname serves the static page read-only, and nothing else of the API', () => {
+    assert.equal([...verify.matchAll(/proxy_pass/g)].length, 1);
+    assert.match(verify, /location \/v1\/ \{ return 404; \}/);
+    assert.match(verify, /location \^~ \/api\/ \{ return 404; \}/);
     assert.match(verify, /limit_except GET HEAD \{ deny all; \}/);
-    assert.match(verify, /frame-ancestors 'none'/);
+    // its policy is written at the app's build, by the hash of what the build emitted (ADR-0045)
+    assert.match(verify, /include \/srv\/verify\/csp\.conf;/);
+    const csp = readFileSync(
+        join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'apps', 'verify', 'scripts', 'csp.mjs'),
+        'utf8'
+    );
+    assert.match(csp, /frame-ancestors 'none'/);
+    assert.match(csp, /default-src 'none'/);
 });
 
 test('files: the object store is reached only through /files, with a presigned URL for one object (task 0.15)', () => {

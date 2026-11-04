@@ -98,9 +98,11 @@ export function ReceiptPage({ id }: { id: string }) {
                                 {t('fees.receipt.demo')}
                             </p>
                         )}
-                        <p className="text-muted-foreground" data-no-qr>
-                            {t('fees.receipt.noQrYet')}
-                        </p>
+                        {pdf?.state === 'rendered' && (
+                            <p className="text-muted-foreground" data-qr-on-pdf>
+                                {t('fees.receipt.noQrYet')}
+                            </p>
+                        )}
                     </div>
                 }
             >

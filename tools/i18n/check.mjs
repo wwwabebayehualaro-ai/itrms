@@ -25,6 +25,8 @@ export function catalogueFolders(root) {
     const folders = [];
     const web = join(root, 'apps', 'web', 'messages');
     if (existsSync(web)) folders.push({ dir: web, owners: ['shell', 'common'] });
+    const verify = join(root, 'apps', 'verify', 'messages');
+    if (existsSync(verify)) folders.push({ dir: verify, owners: ['verify'] });
     for (const layer of ['platform', 'modules']) {
         const base = join(root, layer);
         if (!existsSync(base)) continue;

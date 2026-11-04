@@ -8,6 +8,7 @@ import 'reflect-metadata';
 import { DOCUMENTS_QUEUE } from '@itrms/documents/contracts';
 import { findChrome, fontFaces, pdfWorkerHandlers, PdfRenderer } from '@itrms/documents/api/pdf-worker';
 import { startQueueConsumer } from '@itrms/kernel/api/worker';
+import { FieldCrypto } from '@itrms/kernel/crypto';
 import { createSystemDatabase } from '@itrms/kernel/db/system';
 
 import { objectStoreOf } from './object-store';
@@ -20,6 +21,9 @@ function main() {
             throw new Error('the PDF worker needs DATABASE_SYSTEM_URL and VALKEY_QUEUES_URL');
         const store = objectStoreOf(config);
         if (!store) throw new Error('the PDF worker needs the object store');
+        // a QR printed with a wrong address can't be taken back
+        if (config.NODE_ENV === 'production' && !config.VERIFY_BASE_URL?.startsWith('https://'))
+            throw new Error('the PDF worker needs VERIFY_BASE_URL, over https, in production');
         const executablePath = findChrome();
         if (!executablePath) throw new Error('the PDF worker needs Chrome: set CHROME_PATH');
         // the bundled fonts: a bad image stops here, never one document at a time
@@ -35,7 +39,12 @@ function main() {
             queue: DOCUMENTS_QUEUE,
             connection: queueConnection(config.VALKEY_QUEUES_URL),
             system,
-            handlers: pdfWorkerHandlers(system, { store, renderer }),
+            handlers: pdfWorkerHandlers(system, {
+                store,
+                renderer,
+                crypto: new FieldCrypto({ fieldKeys: config.FIELD_KEYS, blindIndexKey: config.BLIND_INDEX_KEY }),
+                verifyBaseUrl: config.VERIFY_BASE_URL ?? 'http://localhost:3100'
+            }),
             logger,
             concurrency: 2
         });

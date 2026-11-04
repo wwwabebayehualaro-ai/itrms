@@ -1,0 +1,19 @@
+{
+  "verify.page.compare": "እነዚህን ከፊትዎ ካለው ሰነድ ጋር ያወዳድሩ። ስሙ ሆን ተብሎ በከፊል ተደብቋል።",
+  "verify.page.document": "ሰነድ",
+  "verify.page.holder": "ባለቤት",
+  "verify.page.issuedOn": "የተሰጠበት ቀን",
+  "verify.page.number": "ቁጥር",
+  "verify.page.office": "የሰጠው",
+  "verify.page.otherLanguage": "English",
+  "verify.page.state.busy": "ከዚህ አድራሻ አሁን ብዙ ማረጋገጫዎች ተጠይቀዋል። ከአንድ ደቂቃ በኋላ እንደገና ይሞክሩ።",
+  "verify.page.state.loading": "በማረጋገጥ ላይ…",
+  "verify.page.state.offline": "ማረጋገጫው ጽ/ቤቱን መድረስ አልቻለም። ግንኙነት ሲኖርዎ እንደገና ይሞክሩ።",
+  "verify.page.state.unknown": "ይህ ኮድ የየትኛውም ሰነድ አይደለም። ሰነዱን እንደ ሐሰት ይቁጠሩት።",
+  "verify.page.status.expired": "ይህ ሰነድ ትክክለኛ ነበር፤ ነገር ግን ጊዜው አልፏል።",
+  "verify.page.status.revoked": "ይህ ሰነድ ተሰርዟል። ዋጋ የለውም።",
+  "verify.page.status.superseded": "ይህ ሰነድ በተስተካከለ ሰነድ ተተክቷል። ዋጋ የለውም።",
+  "verify.page.status.valid": "ይህ ሰነድ ትክክለኛና የሚሰራ ነው።",
+  "verify.page.title": "የሰነድ ማረጋገጫ",
+  "verify.page.validUntil": "የሚያበቃበት"
+}

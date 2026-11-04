@@ -61,6 +61,13 @@ export function CaseDocuments({ caseId }: { caseId: string }) {
                             </span>
                         </span>
                         <span className="flex items-center gap-2">
+                            {(d.revoked || d.superseded) && (
+                                <StatusBadge
+                                    value={d.revoked ? 'revoked' : 'superseded'}
+                                    tone="danger"
+                                    label={t(d.revoked ? 'documents.state.revoked' : 'documents.state.superseded')}
+                                />
+                            )}
                             {d.state === 'rendered' ? (
                                 <OpenPdfButton document={d} label={t('documents.case.download')} />
                             ) : (

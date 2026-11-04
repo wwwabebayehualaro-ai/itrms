@@ -169,7 +169,7 @@
   "fees.receipt.case": "ጉዳይ",
   "fees.receipt.demo": "የማሳያ መጠኖች፤ እውነተኛ ክፍያ አይደለም።",
   "fees.receipt.method": "አከፋፈል",
-  "fees.receipt.noQrYet": "የQR ማረጋገጫ ኮዱ ከይፋዊው የደረሰኝ ቅጽ ጋር ይመጣል (ተግባር 0.23)።",
+  "fees.receipt.noQrYet": "የማረጋገጫ QR ኮዱ በዚህ ደረሰኝ ፒዲኤፍ ላይ ነው።",
   "fees.receipt.notFound": "ደረሰኙ አልተገኘም",
   "fees.receipt.number": "የደረሰኝ ቁጥር {number}",
   "fees.receipt.print": "አትም",

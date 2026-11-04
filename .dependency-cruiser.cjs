@@ -259,6 +259,7 @@ module.exports = {
         exclude: {
             path: [
                 '(^|/)(dist|\\.turbo|\\.next|coverage|storybook-static|test-results|playwright-report)/',
+                '^apps/verify/out/',
                 '^modules/_template/',
                 '^(apps|platform|modules|packages)/[^/]+/(eslint|vitest)\\.config\\.(js|ts)$'
             ]

@@ -3,5 +3,5 @@
 export { DocumentsModule } from './documents.module';
 export { DocumentsService } from './documents.service';
 export { IssueDocumentEffect } from './issue.effect';
-export { addisDay, issueDocument, type IssueInput, type IssuedRow } from './issue';
+export { addisDay, issueDocument, revokeDocument, supersedeDocument, type IssueInput, type IssuedRow } from './issue';
 export * from './documents.table';

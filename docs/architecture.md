@@ -432,7 +432,7 @@ Definition (Zod schema `workflowDefinitionSchema` in `packages/schemas`; stored 
   Fonts (Noto Sans Ethiopic, Noto Sans) are bundled; Ethiopian dates come from `packages/ethiopian-calendar`. The PDF goes to
   object storage.
 - **Verification works offline and online.**
-  - The QR carries a compact **Ed25519-signed payload**: type, number, validity dates, issuing unit, and a hash of the
+  - The QR carries a compact **Ed25519-signed payload**: type, number, validity dates, issuing unit, and the masked name of the
     holder's name and photo. The **verifier PWA** (a phone app for police, insurers, other offices) checks the signature
     with no network, against the region's published public key.
   - Online, the same QR opens `https://verify.<region-domain>/<token>`, which also shows **revocation and superseded

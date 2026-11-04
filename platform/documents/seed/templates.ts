@@ -28,7 +28,11 @@ th{font-weight:700}
 .foot{margin-top:18px;font-size:9pt}
 .stamp{height:80px;margin-top:10px}
 .demo{font-weight:700;border:1px solid #111;padding:2px 6px;display:inline-block}
+.qr{width:26mm;height:26mm;display:block;margin-top:8mm}
 </style>`;
+
+/** Scanned online it reports the document's status; offline, the verifier checks its signature. */
+const QR = `{% if verification %}<img class="qr" data-qr="{{ verification.url }}" src="{{ verification.qr }}" alt="">{% endif %}`;
 
 const HEAD = `<div class="head">{% if header.logo %}<img src="{{ header.logo }}" alt="">{% endif %}<div><h1>{{ header.title | text }}</h1>{% if header.subtitle %}<h2>{{ header.subtitle | text }}</h2>{% endif %}</div></div>`;
 
@@ -69,7 +73,7 @@ export const TEMPLATE_SEEDS: readonly TemplateSeed[] = [
 <tr><th colspan="2">{{ t.total }}</th><th class="num">{{ amountSantim | birr }}</th></tr>
 </tbody></table>
 {% if header.stamp %}<img class="stamp" src="{{ header.stamp }}" alt="">{% endif %}
-{% if demo %}<p class="foot"><span class="demo">{{ t.demo }}</span></p>{% endif %}`
+{% if demo %}<p class="foot"><span class="demo">{{ t.demo }}</span></p>{% endif %}${QR}`
         }
     },
     {
@@ -96,7 +100,7 @@ export const TEMPLATE_SEEDS: readonly TemplateSeed[] = [
 <table><thead><tr><th>{{ t.field }}</th><th>{{ t.answer }}</th></tr></thead><tbody>
 {% for field in fields %}<tr><td>{{ field.label }}</td><td>{{ field.value }}</td></tr>{% endfor %}
 </tbody></table>
-<p class="foot">{{ t.signature }}: ______________________</p>`
+<p class="foot">{{ t.signature }}: ______________________</p>${QR}`
         }
     },
     {
@@ -117,6 +121,7 @@ export const TEMPLATE_SEEDS: readonly TemplateSeed[] = [
 body{font-size:6.5pt;line-height:1.25}
 .card{display:flex;gap:6px}
 .card img{width:20mm;height:25mm;object-fit:cover}
+.card img.qr{width:30mm;height:30mm;margin-inline-start:auto}
 .org{font-weight:700;font-size:7pt}
 .ttl{font-weight:700;font-size:7.5pt;margin:1mm 0}
 .term{font-weight:700}
@@ -129,7 +134,7 @@ body{font-size:6.5pt;line-height:1.25}
 <div><span class="term">{{ t.issued }}:</span> {{ issuedOn | ethdate }}</div>
 <div><span class="term">{{ t.valid }}:</span> {{ validUntil | ethdate }}</div>
 <div><span class="term">{{ t.grades }}:</span> {% for g in grades %}{{ g.grade }} ({{ g.name | text }}){% unless forloop.last %}, {% endunless %}{% endfor %}</div>
-</div></div>`
+</div>${QR}</div>`
         }
     },
     {
@@ -159,7 +164,7 @@ body{font-size:6.5pt;line-height:1.25}
 <table><thead><tr><th>{{ t.name }}</th><th>{{ t.grade }}</th><th class="num">{{ t.theory }}</th><th class="num">{{ t.practical }}</th><th>{{ t.result }}</th></tr></thead><tbody>
 {% for c in candidates %}<tr><td>{{ c.name }}</td><td>{{ c.grade }}</td><td class="num">{{ c.theory }}</td><td class="num">{{ c.practical }}</td><td>{% if c.passed %}{{ t.passed }}{% else %}{{ t.failed }}{% endif %}</td></tr>{% endfor %}
 </tbody></table>
-<p class="foot">{{ t.examiner }}: ______________________</p>`
+<p class="foot">{{ t.examiner }}: ______________________</p>${QR}`
         }
     }
 ];

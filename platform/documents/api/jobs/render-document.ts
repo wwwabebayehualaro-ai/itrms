@@ -10,14 +10,25 @@ import { actFor, updateAudited, type Tx } from '@itrms/kernel/db';
 import type { SystemDatabase } from '@itrms/kernel/db/system';
 import { putGeneratedObject, recordGeneratedFile, removeGeneratedObject, type ObjectStore } from '@itrms/kernel/files';
 
-import { DOCUMENTS_EVENTS } from '../../contracts';
+import { orgUnits } from '@itrms/kernel/tables';
+import type { FieldCrypto } from '@itrms/kernel/crypto';
+
+import { DOCUMENTS_EVENTS, payloadBytes, verificationUrl } from '../../contracts';
 import { documentTemplates, documentTemplateVersions, issuedDocuments } from '../documents.table';
+import { addisDay } from '../issue';
+import { tokenHash } from '../verification-token';
 import type { PdfRenderer } from '../render/chrome';
 import { isTemplateProblem, renderHtml } from '../render/html';
+import { currentSigningKey, newVerificationToken, qrImage, signPayload } from './signing';
+import { factsOf, maskedName } from '../verification-facts';
 
 export interface PdfWorkerDeps {
     store: ObjectStore;
     renderer: Pick<PdfRenderer, 'render'>;
+    /** the installation's key-encryption key, for the region's signing key */
+    crypto: Pick<FieldCrypto, 'wrapSecret' | 'unwrapSecret'>;
+    /** where a QR points: the public verification host */
+    verifyBaseUrl: string;
 }
 
 type IssuedRow = typeof issuedDocuments.$inferSelect;
@@ -47,15 +58,39 @@ export async function renderIssuedDocument(
 ): Promise<'rendered' | 'failed' | 'nothing'> {
     const found = await system.systemContext('documents.render_read', async (tx) => {
         const [row] = await tx
-            .select({ document: issuedDocuments, version: documentTemplateVersions, key: documentTemplates.key })
+            .select({
+                document: issuedDocuments,
+                version: documentTemplateVersions,
+                key: documentTemplates.key,
+                officeCode: orgUnits.code
+            })
             .from(issuedDocuments)
             .innerJoin(documentTemplateVersions, eq(documentTemplateVersions.id, issuedDocuments.templateVersionId))
             .innerJoin(documentTemplates, eq(documentTemplates.id, issuedDocuments.templateId))
+            .innerJoin(orgUnits, eq(orgUnits.id, issuedDocuments.handlingUnitId))
             .where(eq(issuedDocuments.id, documentId));
         return row;
     });
     if (found?.document.state !== 'requested') return 'nothing';
     const { document, version, key } = found;
+
+    // the QR: a fresh token, and only its hash kept; a retry signs again, and only the attempt that records counts
+    const signing = await currentSigningKey(system, deps.crypto, document.regionId);
+    const token = newVerificationToken();
+    const facts = factsOf(version.dataSchema, document.data);
+    const issuedOn = addisDay(document.createdAt);
+    const payload = payloadBytes({
+        v: 1,
+        k: signing.keyId,
+        t: key,
+        n: document.number,
+        o: found.officeCode,
+        i: issuedOn,
+        u: facts.validUntil,
+        h: facts.holder ? maskedName(facts.holder) : null
+    });
+    const url = verificationUrl(deps.verifyBaseUrl, token, payload, signPayload(signing, payload));
+    const verification = { url, qr: await qrImage(url) };
 
     let html: string;
     try {
@@ -65,7 +100,8 @@ export async function renderIssuedDocument(
             language: document.language,
             office: { name: document.officeName },
             header: document.header,
-            issuedAt: document.createdAt
+            issuedAt: document.createdAt,
+            verification
         });
     } catch (error) {
         if (!isTemplateProblem(error)) throw error;
@@ -75,6 +111,8 @@ export async function renderIssuedDocument(
         );
         return 'failed';
     }
+    // a template that doesn't print it (an older version not yet replaced): nothing can ever scan that token, so none is kept
+    const printsQr = html.includes(verification.qr);
     const body = await deps.renderer.render(html, version.paper);
     const object = await putGeneratedObject(deps.store, document.regionId, { contentType: 'application/pdf', body });
     try {
@@ -87,7 +125,8 @@ export async function renderIssuedDocument(
             await updateAudited(tx, issuedDocuments, row.id, row.rowVersion, {
                 state: 'rendered',
                 fileId: file.id,
-                sha256: object.sha256
+                sha256: object.sha256,
+                ...(printsQr ? { verificationTokenHash: tokenHash(token), signingKeyId: signing.id } : {})
             });
             return true;
         });

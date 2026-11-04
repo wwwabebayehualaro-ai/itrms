@@ -24,6 +24,7 @@ export async function importDocumentTemplates(
         const version = documentTemplateVersionSchema.parse(entry.version);
         const problems = templateProblems(version.body);
         if (problems.length) throw new Error(`template ${entry.key}: ${problems.join('; ')}`);
+        if (!version.body.includes('verification.qr')) throw new Error(`template ${entry.key}: it prints no QR`);
         let [template] = await tx
             .select()
             .from(documentTemplates)

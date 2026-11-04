@@ -8,9 +8,22 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
-    "build": "tsc -p tsconfig.build.json"
+    "build": "next build && node scripts/csp.mjs",
+    "dev": "next dev --port 3100"
   },
   "devDependencies": {
-    "@itrms/config": "workspace:*"
+    "@itrms/config": "workspace:*",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/jest-dom": "7.0.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "happy-dom": "21.0.4"
+  },
+  "dependencies": {
+    "@itrms/documents": "workspace:*",
+    "@itrms/ethiopian-calendar": "workspace:*",
+    "next": "16.4.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   }
 }

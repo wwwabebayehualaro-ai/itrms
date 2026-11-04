@@ -169,7 +169,7 @@
   "fees.receipt.case": "Case",
   "fees.receipt.demo": "Demo amounts: not a real payment.",
   "fees.receipt.method": "Paid by",
-  "fees.receipt.noQrYet": "The QR verification code comes with the official receipt template (task 0.23).",
+  "fees.receipt.noQrYet": "The verification QR code is on the PDF of this receipt.",
   "fees.receipt.notFound": "The receipt was not found",
   "fees.receipt.number": "Receipt number {number}",
   "fees.receipt.print": "Print",

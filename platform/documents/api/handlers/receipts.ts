@@ -3,7 +3,7 @@
  * rendering queued for the PDF worker. An installation without the template keeps its receipt: the money is recorded either
  * way, and a document can be made once the template is set up.
  */
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import type { OutboxHandler } from '@itrms/kernel/api/worker';
 import { actFor } from '@itrms/kernel/db';
 import type { SystemDatabase } from '@itrms/kernel/db/system';
@@ -14,7 +14,8 @@ import type { ReceiptOut } from '@itrms/fees/contracts';
 import type { Tx } from '@itrms/kernel/db';
 import { FEES_EVENTS } from '@itrms/fees/contracts';
 
-import { addisDay, issueDocument } from '../issue';
+import { issuedDocuments } from '../documents.table';
+import { addisDay, issueDocument, revokeDocument } from '../issue';
 
 export interface ReceiptSource {
     /** the receipt as the fees slice tells it */
@@ -36,7 +37,7 @@ export async function issueReceiptDocument(
         if (!unit) return false;
         actFor(tx, { regionId: unit.regionId, unitId: receipt.unit.id, scopePath: unit.path });
         try {
-            await issueDocument(tx, deps.settings, {
+            const issued = await issueDocument(tx, deps.settings, {
                 regionId: unit.regionId,
                 handlingUnitId: receipt.unit.id,
                 templateKey: 'receipt',
@@ -60,6 +61,8 @@ export async function issueReceiptDocument(
                     demo: receipt.demo
                 }
             });
+            // reversed before its document was made (the events may come in any order): its QR must never say valid
+            if (receipt.reversed) await revokeDocument(tx, issued, 'receipt_reversed');
             return true;
         } catch (error) {
             if (error instanceof ConflictError && error.code === 'not_configured') return false;
@@ -68,10 +71,28 @@ export async function issueReceiptDocument(
     });
 }
 
+/** A reversed receipt: its document's QR says revoked from now on. Run again, it changes nothing. */
+export async function revokeReceiptDocument(system: SystemDatabase, receiptId: string): Promise<boolean> {
+    return system.systemContext('documents.receipt_reversed', async (tx) => {
+        const [row] = await tx
+            .select()
+            .from(issuedDocuments)
+            .where(and(eq(issuedDocuments.subjectId, receiptId), isNull(issuedDocuments.supersededBy)))
+            .for('update');
+        if (!row) return false;
+        actFor(tx, { regionId: row.regionId, unitId: row.handlingUnitId, scopePath: row.orgPath });
+        await revokeDocument(tx, row, 'receipt_reversed');
+        return true;
+    });
+}
+
 export function documentsHandlers(system: SystemDatabase, deps: ReceiptSource): Record<string, OutboxHandler> {
     return {
         'receipt.issued.v1': async (job) => {
             await issueReceiptDocument(system, deps, FEES_EVENTS['receipt.issued.v1'].parse(job.payload).receiptId);
+        },
+        'receipt.reversed.v1': async (job) => {
+            await revokeReceiptDocument(system, FEES_EVENTS['receipt.reversed.v1'].parse(job.payload).receiptId);
         }
     };
 }
