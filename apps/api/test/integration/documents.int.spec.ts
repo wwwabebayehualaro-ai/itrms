@@ -71,26 +71,16 @@ const FORM = {
     fields: [
         field('applicant', 'InputText', { required: true }),
         field('nationalId', 'InputText', { classification: 'sensitive' }),
-        // inside a Sensitive group, with no classification of its own: as sensitive as its container
+        // inside a Sensitive section, though only personal itself: as sensitive as its container
         {
             id: 'privateGroup',
-            type: 'Fieldset',
-            category: 'Container',
+            type: 'Panel',
             label: t('Private'),
             classification: 'sensitive',
             props: {},
-            behavior: { validation: { supported: true } },
             layout: { options: { isContainer: true } }
         },
-        {
-            id: 'motherName',
-            type: 'InputText',
-            category: 'Input',
-            parentId: 'privateGroup',
-            label: t('Mother'),
-            props: {},
-            behavior: { validation: { supported: true } }
-        },
+        { ...field('motherName', 'InputText'), parentId: 'privateGroup' },
         field('grade', 'Dropdown', {
             required: true,
             data: {
@@ -165,6 +155,7 @@ async function publishedForm(key: string): Promise<string> {
         as.bureau,
         {}
     );
+    expect(asked.statusCode, asked.body).toBe(201);
     const publication = asked.json<{ id: string; version: number; formVersion: { id: string } }>();
     const approved = await api.call(
         'POST',
