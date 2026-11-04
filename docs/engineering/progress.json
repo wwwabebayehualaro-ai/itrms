@@ -1114,7 +1114,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Decided by Claude on the product owner's instruction: one QR with a token for status and a signed payload after # for offline; keys per region rotated yearly and sealed by FIELD_KEYS; Nginx's per-address rate limit (60 a minute, burst 30) rather than shared Valkey limits for now; a masked holder name on the public page. ADR-0045. First CI run 41920312783 on 8b495e4: integration and e2e green; config spec and one Semgrep false positive being fixed, code review running."
         },
         {
           "id": "0.23c",

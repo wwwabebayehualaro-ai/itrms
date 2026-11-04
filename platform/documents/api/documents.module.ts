@@ -4,11 +4,12 @@ import { DocumentsController } from './documents.controller';
 import { DocumentsService } from './documents.service';
 import { IssueDocumentEffect } from './issue.effect';
 import { VerificationController } from './verification.controller';
+import { VerificationService } from './verification.service';
 
 /** Document templates and the documents issued (task 0.23a). Rendering is the PDF worker's: nothing here loads Chrome. */
 @Module({
     controllers: [DocumentsController, VerificationController],
-    providers: [DocumentsService, IssueDocumentEffect],
+    providers: [DocumentsService, IssueDocumentEffect, VerificationService],
     exports: [DocumentsService]
 })
 export class DocumentsModule {}

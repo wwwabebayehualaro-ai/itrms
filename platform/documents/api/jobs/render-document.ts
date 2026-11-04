@@ -20,7 +20,7 @@ import { tokenHash } from '../verification-token';
 import type { PdfRenderer } from '../render/chrome';
 import { isTemplateProblem, renderHtml } from '../render/html';
 import { currentSigningKey, newVerificationToken, qrImage, signPayload } from './signing';
-import { factsOf, holderHash } from '../verification-facts';
+import { factsOf, maskedName } from '../verification-facts';
 
 export interface PdfWorkerDeps {
     store: ObjectStore;
@@ -87,7 +87,7 @@ export async function renderIssuedDocument(
         o: found.officeCode,
         i: issuedOn,
         u: facts.validUntil,
-        h: facts.holder ? holderHash(facts.holder) : null
+        h: facts.holder ? maskedName(facts.holder) : null
     });
     const url = verificationUrl(deps.verifyBaseUrl, token, payload, signPayload(signing, payload));
     const verification = { url, qr: await qrImage(url) };
@@ -111,6 +111,8 @@ export async function renderIssuedDocument(
         );
         return 'failed';
     }
+    // a template that doesn't print it (an older version not yet replaced): nothing can ever scan that token, so none is kept
+    const printsQr = html.includes(verification.qr);
     const body = await deps.renderer.render(html, version.paper);
     const object = await putGeneratedObject(deps.store, document.regionId, { contentType: 'application/pdf', body });
     try {
@@ -124,8 +126,7 @@ export async function renderIssuedDocument(
                 state: 'rendered',
                 fileId: file.id,
                 sha256: object.sha256,
-                verificationTokenHash: tokenHash(token),
-                signingKeyId: signing.id
+                ...(printsQr ? { verificationTokenHash: tokenHash(token), signingKeyId: signing.id } : {})
             });
             return true;
         });

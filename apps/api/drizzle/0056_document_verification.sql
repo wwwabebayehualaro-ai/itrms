@@ -77,9 +77,9 @@ SELECT kernel.apply_rls('documents.signing_keys', 'config', 'org_path');
 ALTER TABLE "documents"."issued_documents"
     ADD CONSTRAINT "issued_documents_token_check" CHECK (
         "verification_token_hash" IS NULL OR "verification_token_hash" ~ '^[0-9a-f]{64}$'),
+    -- a document rendered before QR codes, or from a template without one, has neither
     ADD CONSTRAINT "issued_documents_verification_check" CHECK (
-        ("verification_token_hash" IS NULL) = ("signing_key_id" IS NULL)
-        AND ("state" <> 'rendered' OR "verification_token_hash" IS NOT NULL)),
+        ("verification_token_hash" IS NULL) = ("signing_key_id" IS NULL)),
     ADD CONSTRAINT "issued_documents_revoked_check" CHECK (("revoked_at" IS NULL) = ("revoke_reason" IS NULL)),
     ADD CONSTRAINT "issued_documents_revoke_reason_check" CHECK (
         "revoke_reason" IS NULL OR length("revoke_reason") BETWEEN 1 AND 200),
@@ -107,7 +107,8 @@ BEGIN
             RETURN NEW;
         END IF;
         IF (to_jsonb(NEW) - closing) = (to_jsonb(OLD) - closing)
-           AND (OLD.revoked_at IS NULL OR NEW.revoked_at IS NOT DISTINCT FROM OLD.revoked_at)
+           AND (OLD.revoked_at IS NULL OR (NEW.revoked_at IS NOT DISTINCT FROM OLD.revoked_at
+                AND NEW.revoke_reason IS NOT DISTINCT FROM OLD.revoke_reason))
            AND (OLD.superseded_by IS NULL OR NEW.superseded_by IS NOT DISTINCT FROM OLD.superseded_by) THEN
             RETURN NEW;
         END IF;

@@ -1,9 +1,7 @@
 /**
  * What a document says of itself for verification (task 0.23b): whose it is and until when, by the shape of its data. The
- * public page shows a masked name, never the name; the QR carries only a hash of it.
+ * public page and the QR show a masked name, never the name.
  */
-import { createHash } from 'node:crypto';
-
 import type { DocumentDataSchema } from '../contracts';
 
 export interface VerificationFacts {
@@ -34,7 +32,3 @@ export const maskedName = (name: string): string =>
             return `${letters[0] ?? ''}${'*'.repeat(Math.max(letters.length - 1, 1))}`;
         })
         .join(' ');
-
-/** The name as the QR carries it: compared offline with the document in hand, and telling nothing alone. */
-export const holderHash = (name: string): string =>
-    createHash('sha256').update(name.trim().normalize('NFC')).digest('base64url').slice(0, 22);

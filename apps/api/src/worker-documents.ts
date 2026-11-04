@@ -21,6 +21,9 @@ function main() {
             throw new Error('the PDF worker needs DATABASE_SYSTEM_URL and VALKEY_QUEUES_URL');
         const store = objectStoreOf(config);
         if (!store) throw new Error('the PDF worker needs the object store');
+        // a QR printed with a wrong address can't be taken back
+        if (config.NODE_ENV === 'production' && !config.VERIFY_BASE_URL?.startsWith('https://'))
+            throw new Error('the PDF worker needs VERIFY_BASE_URL, over https, in production');
         const executablePath = findChrome();
         if (!executablePath) throw new Error('the PDF worker needs Chrome: set CHROME_PATH');
         // the bundled fonts: a bad image stops here, never one document at a time

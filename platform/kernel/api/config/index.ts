@@ -205,15 +205,11 @@ const schemas = {
             DATABASE_SYSTEM_URL: postgresUrl.optional(),
             /** The queues' Valkey (BullMQ): with the system pool, the worker relays and runs the outbox. */
             VALKEY_QUEUES_URL: z.url({ protocol: /^rediss?$/ }).optional(),
-            /** Where a document's QR points: the public verification host (`https://verify.<domain>`). */
+            /** Where a document's QR points (`https://verify.<domain>`): the PDF worker refuses to start without it in production. */
             VERIFY_BASE_URL: z.url({ protocol: /^https?$/ }).optional(),
             ...identityAdmin
         })
-        .superRefine(personalDataKeys)
-        .refine((c) => c.NODE_ENV !== 'production' || c.VERIFY_BASE_URL?.startsWith('https://'), {
-            path: ['VERIFY_BASE_URL'],
-            message: 'is required in production, over https'
-        }),
+        .superRefine(personalDataKeys),
     migrate: z.object({
         ...common,
         /** The migration owner: role itrms_owner. */

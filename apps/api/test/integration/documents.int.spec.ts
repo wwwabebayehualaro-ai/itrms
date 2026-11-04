@@ -40,6 +40,7 @@ const SUB = {
     boditiRecords: '0199f0a0-d000-7000-8000-000000000302',
     boditiCashier: '0199f0a0-d000-7000-8000-000000000303',
     zoneHead: '0199f0a0-d000-7000-8000-000000000101',
+    zoneFinance: '0199f0a0-d000-7000-8000-000000000108',
     damotRecords: '0199f0a0-d000-7000-8000-000000000202'
 };
 /** a service whose submit issues the copy of its application; one paid at the till */
@@ -295,6 +296,7 @@ beforeAll(async () => {
     as.boditiRecords = { sub: SUB.boditiRecords, unit: boditi };
     as.boditiCashier = { sub: SUB.boditiCashier, unit: boditi };
     as.zoneHead = { sub: SUB.zoneHead, unit: zone };
+    as.zoneFinance = { sub: SUB.zoneFinance, unit: zone };
     as.damotRecords = { sub: SUB.damotRecords, unit: await api.unit('SER', 'WOL-DAMOT-GALE') };
 
     await api.installer.scoped({}, async (tx) => {
@@ -681,6 +683,8 @@ describe('a document’s QR', () => {
         expect(got.statusCode, got.body).toBe(200);
         expect(got.headers['cache-control']).toBe('no-store');
         expect(got.json()).toMatchObject({ status: 'valid', number, holder: 'G******** A********', validUntil: null });
+        // its days are calendar days, not instants
+        expect(got.json<{ issuedOn: string }>().issuedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
         expect(got.body).not.toContain('Generated');
         expect(got.body).not.toContain('Applicant');
     }, 120_000);
@@ -704,23 +708,99 @@ describe('a document’s QR', () => {
         expect(list[0]).toMatchObject({ revoked: true });
     }, 120_000);
 
+    it('says revoked even when the reversal came before its document was made', async () => {
+        const { receiptId } = await receipted();
+        const asked = await api.call('POST', `/api/v1/receipts/${receiptId}/reversals`, as.boditiCashier, {
+            reason: 'the applicant paid twice'
+        });
+        expect(asked.statusCode, asked.body).toBe(201);
+        const decided = await api.call(
+            'POST',
+            `/api/v1/receipt-reversals/${asked.json<{ id: string }>().id}/decision`,
+            as.zoneFinance,
+            { decision: 'approved' }
+        );
+        expect(decided.statusCode, decided.body).toBe(200);
+        // the reversal's event first: nothing to revoke yet
+        expect(await revokeReceiptDocument(system, receiptId)).toBe(false);
+        expect(await issueReceiptDocument(system, receiptSource(), receiptId)).toBe(true);
+        const [doc] = await docsOf(`subjectId=${receiptId}`);
+        expect(doc).toMatchObject({ revoked: true });
+        const { token } = await rendered(doc?.id ?? '');
+        expect((await ask(token)).json()).toMatchObject({ status: 'revoked' });
+    }, 120_000);
+
+    it('keeps its reason once revoked, and the revocation is on record', async () => {
+        const { id, receiptId } = await receiptDocument();
+        await revokeReceiptDocument(system, receiptId);
+        await expect(
+            api.owner.query(`update documents.issued_documents set revoke_reason = 'changed' where id = $1`, [id])
+        ).rejects.toThrow(/keeps what was issued/);
+        expect(
+            await count(
+                `select count(*)::int as n from kernel.audit_log
+                  where table_name = 'documents.issued_documents' and row_id = $1 and action = 'update'
+                    and diff::text like '%receipt_reversed%'`,
+                [id]
+            )
+        ).toBe(1);
+    });
+
+    it('keeps no token for a template that prints no QR: nothing could ever scan it', async () => {
+        const c = await filed(COPY);
+        const [doc] = await docsOf(`caseId=${c.id}`);
+        const version = (
+            await api.owner.query<{ id: string; template_id: string; region_id: string; owner_unit_id: string }>(
+                `select v.id, v.template_id, v.region_id, v.owner_unit_id from documents.document_template_versions v
+                   join documents.issued_documents d on d.template_version_id = v.id where d.id = $1`,
+                [doc?.id]
+            )
+        ).rows[0];
+        const older = (
+            await api.owner.query<{ id: string }>(
+                `insert into documents.document_template_versions
+                    (id, region_id, owner_unit_id, template_id, number, content_hash, body, strings, paper, data_schema)
+                 values (gen_random_uuid(), $1, $2, $3, 99, 'no-qr', '<p>no code here</p>', '{}', 'A4', 'application-copy.v1')
+                 returning id`,
+                [version?.region_id, version?.owner_unit_id, version?.template_id]
+            )
+        ).rows[0]?.id;
+        const inserted = (
+            await api.owner.query<{ id: string }>(
+                `insert into documents.issued_documents (id, region_id, handling_unit_id, template_id, template_version_id,
+                     language, data, header, office_name)
+                 select gen_random_uuid(), region_id, handling_unit_id, template_id, $1, language, data, header, office_name
+                   from documents.issued_documents where id = $2 returning id`,
+                [older, doc?.id]
+            )
+        ).rows[0]?.id;
+        expect(await renderIssuedDocument(system, worker, inserted ?? '')).toBe('rendered');
+        const { rows } = await api.owner.query<{ hash: string | null }>(
+            'select verification_token_hash as hash from documents.issued_documents where id = $1',
+            [inserted]
+        );
+        expect(rows[0]?.hash).toBeNull();
+    }, 120_000);
+
     it('says superseded once a correction is issued, and the correction stands', async () => {
         const c = await filed(COPY);
         const [doc] = await docsOf(`caseId=${c.id}`);
         const oldId = doc?.id ?? '';
         const { token } = await rendered(oldId);
-        const region = as.bureau.unit;
         const corrected = await api.installer.scoped({}, (tx) =>
             api.http.get(DocumentsService).supersede(tx, oldId, {
-                regionId: region.regionId,
-                handlingUnitId: as.boditiRecords.unit.id,
-                templateKey: 'application-copy',
                 language: 'am',
-                caseId: c.id,
-                subject: { table: 'workflow.cases', id: c.id },
                 data: { caseNumber: 1, serviceName: 'Corrected', filedOn: '2026-11-04', fields: [] }
             })
         );
+        // it is of the same record: the case lists it, and it is what a later revocation finds
+        expect((await docsOf(`caseId=${c.id}`)).map((d) => d.id)).toContain(corrected.id);
+        expect(
+            await count(
+                'select count(*)::int as n from documents.issued_documents where subject_id = $1 and superseded_by is null',
+                [c.id]
+            )
+        ).toBe(1);
         expect((await ask(token)).json()).toMatchObject({ status: 'superseded' });
         const fresh = await rendered(corrected.id);
         expect((await ask(fresh.token)).json()).toMatchObject({ status: 'valid' });
@@ -728,9 +808,6 @@ describe('a document’s QR', () => {
         await expect(
             api.installer.scoped({}, (tx) =>
                 api.http.get(DocumentsService).supersede(tx, oldId, {
-                    regionId: region.regionId,
-                    handlingUnitId: as.boditiRecords.unit.id,
-                    templateKey: 'application-copy',
                     language: 'am',
                     data: { caseNumber: 1, serviceName: 'Again', filedOn: '2026-11-04', fields: [] }
                 })
@@ -761,7 +838,7 @@ describe('a document’s QR', () => {
         const { token, payload } = await rendered(issued.id);
         const facts = JSON.parse(payload.toString()) as { u: string; h: string };
         expect(facts.u).toBe('2024-01-01');
-        expect(facts.h).toHaveLength(22);
+        expect(facts.h).toBe('G******** H*****');
         expect((await ask(token)).json()).toMatchObject({ status: 'expired', holder: 'G******** H*****' });
     }, 120_000);
 
@@ -786,6 +863,14 @@ describe('a document’s QR', () => {
         await expect(
             api.owner.query('delete from documents.signing_keys where key_id = $1', [signedBy])
         ).rejects.toThrow(/only retire/);
+
+        // on record, and its private half never in the log
+        const logged = await api.owner.query<{ diff: unknown }>(
+            `select diff from kernel.audit_log where table_name = 'documents.signing_keys'`
+        );
+        expect(logged.rows.length).toBeGreaterThanOrEqual(2);
+        expect(JSON.stringify(logged.rows)).not.toContain('privateKey');
+        expect(JSON.stringify(logged.rows)).not.toContain('private_key');
 
         // the app's role reads the public half only
         const app = new Client({ connectionString: pg.url('app') });

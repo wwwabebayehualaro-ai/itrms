@@ -56,7 +56,8 @@ beforeAll(async () => {
                 target: '/etc/nginx/itrms-proxy.conf'
             },
             { content: '<!doctype html><title>verify page</title>', target: '/srv/verify/index.html' },
-            { content: CSP, target: '/srv/verify/csp.conf' }
+            { content: CSP, target: '/srv/verify/csp.conf' },
+            { content: 'console.log(1)', target: '/srv/verify/_next/static/a.js' }
         ])
         .withExposedPorts(80)
         .start();
@@ -100,6 +101,13 @@ describe('verify.<domain> through Nginx', () => {
         expect(got.status).toBe(200);
         expect(await got.text()).toContain('verify page');
         expect(got.headers.get('content-security-policy')).toContain("default-src 'none'");
+    });
+
+    it('serves a fingerprinted file cached, and never limits the page or its files', async () => {
+        for (let i = 0; i < 80; i += 1) expect((await fetch(`${base}/${token()}`)).status).toBe(200);
+        const got = await fetch(`${base}/_next/static/a.js`);
+        expect(got.status).toBe(200);
+        expect(got.headers.get('cache-control')).toContain('max-age=');
     });
 
     it('limits how fast one address may ask', async () => {

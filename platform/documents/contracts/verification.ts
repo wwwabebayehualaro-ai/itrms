@@ -26,7 +26,7 @@ export const verificationPayloadSchema = z.object({
     i: z.iso.date(),
     /** valid until, if it ends */
     u: z.iso.date().nullable(),
-    /** the holder's name hashed (holderHash): a checker with the document in hand compares; the QR tells no name */
+    /** the holder's name masked: a checker compares it with the document in hand. Never a hash: a list of names would undo it */
     h: z.string().nullable()
 });
 export type VerificationPayload = z.infer<typeof verificationPayloadSchema>;

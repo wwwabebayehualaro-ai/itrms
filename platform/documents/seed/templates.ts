@@ -121,7 +121,7 @@ export const TEMPLATE_SEEDS: readonly TemplateSeed[] = [
 body{font-size:6.5pt;line-height:1.25}
 .card{display:flex;gap:6px}
 .card img{width:20mm;height:25mm;object-fit:cover}
-.card img.qr{width:22mm;height:22mm;margin-inline-start:auto}
+.card img.qr{width:30mm;height:30mm;margin-inline-start:auto}
 .org{font-weight:700;font-size:7pt}
 .ttl{font-weight:700;font-size:7.5pt;margin:1mm 0}
 .term{font-weight:700}
@@ -134,7 +134,7 @@ body{font-size:6.5pt;line-height:1.25}
 <div><span class="term">{{ t.issued }}:</span> {{ issuedOn | ethdate }}</div>
 <div><span class="term">{{ t.valid }}:</span> {{ validUntil | ethdate }}</div>
 <div><span class="term">{{ t.grades }}:</span> {% for g in grades %}{{ g.grade }} ({{ g.name | text }}){% unless forloop.last %}, {% endunless %}{% endfor %}</div>
-</div>{% if verification %}<img class="qr" data-qr="{{ verification.url }}" src="{{ verification.qr }}" alt="">{% endif %}</div>`
+</div>${QR}</div>`
         }
     },
     {

@@ -23,8 +23,8 @@ export class DocumentsService {
     }
 
     /** A correction: the old document's QR says superseded from now on. */
-    supersede(tx: Tx, oldId: string, input: IssueInput): Promise<IssuedRow> {
-        return supersedeDocument(tx, this.settings, oldId, input);
+    supersede(tx: Tx, oldId: string, correction: Pick<IssueInput, 'data' | 'language' | 'number'>): Promise<IssuedRow> {
+        return supersedeDocument(tx, this.settings, oldId, correction);
     }
 
     /** A document that no longer holds. */

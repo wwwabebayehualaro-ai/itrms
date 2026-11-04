@@ -46,10 +46,10 @@
   "devDependencies": {
     "@itrms/config": "workspace:*",
     "@types/node": "24.19.1",
-    "@types/pngjs": "^6.0.5",
-    "@types/qrcode": "^1.5.6",
-    "jsqr": "^1.4.0",
+    "@types/pngjs": "6.0.5",
+    "@types/qrcode": "1.5.6",
+    "jsqr": "1.4.0",
     "pdfjs-dist": "6.4.299",
-    "pngjs": "^7.0.0"
+    "pngjs": "7.0.0"
   }
 }

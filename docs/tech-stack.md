@@ -68,6 +68,7 @@ registry or the project page on 2026-10-18.
 | T50 | The form engine's own words (task 0.17d, ADR-0036) | **intl-messageformat** 11 (FormatJS, the ICU formatter next-intl itself uses) in `packages/form-engine/core`, over the engine's catalogues `packages/form-engine/messages/<area>/` | One formatter for the browser, the API's 422 messages and the print worker (no React, runs in Node); the same ICU syntax as every other catalogue; already in the lockfile through next-intl, so nothing new reaches the web bundle |
 | T51 | Reading a daily statement | **csv-parse** (RFC 4180, a byte order mark, no dependencies); a layout per issuer behind one interface (ADR-0043) | Mature; no CSV parser of our own |
 | T52 | Rendering PDFs | **puppeteer-core** with the Chrome the image installs (`CHROME_PATH`), **LiquidJS** templates, static **Noto Sans** and **Noto Sans Ethiopic** from @fontsource, inlined; **pdfjs-dist** reads the PDFs back in tests (ADR-0044) | No browser download at install; the image pins and scans Chrome |
+| T53 | QR codes | **qrcode** in the PDF worker; **jsqr** and **pngjs** read them back from what Chrome drew, in tests only (ADR-0045) | Mature, no native parts |
 
 ## 2. The full stack at a glance
 

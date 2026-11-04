@@ -49,6 +49,10 @@ describe('asking the API', () => {
         expect(await lookUp(TOKEN, answering(404))).toEqual({ state: 'unknown' });
         expect(await lookUp(TOKEN, answering(429))).toEqual({ state: 'busy' });
         expect(await lookUp(TOKEN, answering(502))).toEqual({ state: 'offline' });
+        // an answer that is not one
+        expect(await lookUp(TOKEN, answering(200, { status: 'anything' }))).toEqual({ state: 'offline' });
+        // it never waits for ever
+        expect(vi.mocked(ok).mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
         const down = vi.fn(() => Promise.reject(new Error('no network'))) as unknown as typeof fetch;
         expect(await lookUp(TOKEN, down)).toEqual({ state: 'offline' });
     });
@@ -59,7 +63,7 @@ describe('what the page shows', () => {
         render(<VerifyResult lookup={found(status)} words={en} language="en" />);
         const line = screen.getByRole('status');
         expect(line.dataset.state).toBe(status);
-        expect(line.textContent).toBe(en[`verify.status.${status}` as keyof typeof en]);
+        expect(line.textContent).toBe(en[`verify.page.status.${status}` as keyof typeof en]);
     });
 
     it('shows the facts in the chosen language, Ethiopian dates, and only the masked name', () => {
@@ -73,7 +77,7 @@ describe('what the page shows', () => {
 
     it.each(['unknown', 'busy', 'offline', 'loading'] as const)('has words for %s', (state) => {
         render(<VerifyResult lookup={{ state }} words={am} language="am" />);
-        expect(screen.getByRole('status').textContent).toBe(am[`verify.state.${state}`]);
+        expect(screen.getByRole('status').textContent).toBe(am[`verify.page.state.${state}`]);
     });
 
     it('never asks the API without a token', async () => {

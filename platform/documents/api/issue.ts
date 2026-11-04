@@ -133,7 +133,8 @@ export async function supersedeDocument(
     tx: Tx,
     settings: Pick<SettingsService, 'value'>,
     oldId: string,
-    input: IssueInput
+    /** what it should say: its template, its case and the record it documents are the old one's */
+    correction: Pick<IssueInput, 'data' | 'language' | 'number'>
 ): Promise<IssuedRow> {
     const [old] = await tx.select().from(issuedDocuments).where(eq(issuedDocuments.id, oldId)).for('update');
     if (!old) throw new ConflictError('invalid_transition', { detail: 'There is no such document to correct.' });
@@ -142,7 +143,20 @@ export async function supersedeDocument(
             detail: 'This document no longer stands: it cannot be corrected.'
         });
     // the old one first: only one document of a record stands at a time. Its key to the new one is checked at commit
+    const [template] = await tx
+        .select({ key: documentTemplates.key })
+        .from(documentTemplates)
+        .where(eq(documentTemplates.id, old.templateId));
+    if (!template) throw new ConflictError('not_configured', { detail: 'The template of this document is gone.' });
     const id = newId();
     await updateAudited(tx, issuedDocuments, old.id, old.rowVersion, { supersededBy: id });
-    return issueDocument(tx, settings, { ...input, id });
+    return issueDocument(tx, settings, {
+        ...correction,
+        id,
+        templateKey: template.key,
+        regionId: old.regionId,
+        handlingUnitId: old.handlingUnitId,
+        ...(old.caseId ? { caseId: old.caseId } : {}),
+        ...(old.subjectTable && old.subjectId ? { subject: { table: old.subjectTable, id: old.subjectId } } : {})
+    });
 }

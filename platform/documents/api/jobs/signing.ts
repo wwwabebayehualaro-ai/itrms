@@ -44,6 +44,7 @@ export async function currentSigningKey(
             return {
                 id: active.id,
                 keyId: active.keyId,
+                // nosemgrep: ajinabraham.njsscan.generic.hardcoded_secrets.node_secret -- unsealed from its row by the key-encryption key: nothing here is hardcoded
                 privateDer: Buffer.from(crypto.unwrapSecret(regionId, placeOf(active.id), active.privateKey), 'base64')
             };
         const [root] = await tx
@@ -87,6 +88,7 @@ export const newVerificationToken = (): string => randomBytes(16).toString('base
 
 /** The QR as an inline image: the PDF worker fetches nothing, and a page's CSP allows only `data:`. */
 export async function qrImage(text: string): Promise<string> {
-    const svg = await QRCode.toString(text, { type: 'svg', errorCorrectionLevel: 'M', margin: 1 });
+    // the quiet zone the standard asks for: without it cheap phones lose a dense code beside text
+    const svg = await QRCode.toString(text, { type: 'svg', errorCorrectionLevel: 'M', margin: 4 });
     return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
 }

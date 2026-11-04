@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * The public verification page (ADR-0045, task 0.23b): whoever scans a document's QR arrives at `verify.<domain>/<token>`. It asks
+ * The public verification page (ADR-0045, task 0.23b): whoever scans a document's QR arrives at `verify.page.<domain>/<token>`. It asks
  * the API for the document's status and shows a checker's minimum. No sign-in, no cookies, nothing kept. The part of the QR after
  * `#` stays on this phone: the offline check (task 0.23c) reads it.
  */
@@ -22,7 +22,10 @@ export type Lookup =
     | { state: 'busy' }
     | { state: 'offline' };
 
+// the contracts' VERIFICATION_TOKEN and statuses: this public page carries no validation library
 const TOKEN = /^[A-Za-z0-9_-]{22}$/;
+const STATUSES = new Set<string>(['valid', 'expired', 'revoked', 'superseded']);
+const TIMEOUT_MS = 20_000;
 
 /** The token in the address, or nothing. */
 export const tokenFromPath = (pathname: string): string | null => {
@@ -34,12 +37,15 @@ export const tokenFromPath = (pathname: string): string | null => {
 export async function lookUp(token: string, fetcher: typeof fetch = fetch): Promise<Lookup> {
     try {
         const response = await fetcher(`/v1/public/verifications/${token}`, {
-            headers: { accept: 'application/json' }
+            headers: { accept: 'application/json' },
+            // a stalled connection reaches "try again" too, on the links this page is made for
+            signal: AbortSignal.timeout(TIMEOUT_MS)
         });
         if (response.status === 404) return { state: 'unknown' };
         if (response.status === 429) return { state: 'busy' };
         if (!response.ok) return { state: 'offline' };
-        return { state: 'found', document: (await response.json()) as VerificationOut };
+        const document = (await response.json()) as VerificationOut;
+        return STATUSES.has(document.status) ? { state: 'found', document } : { state: 'offline' };
     } catch {
         return { state: 'offline' };
     }
@@ -71,24 +77,24 @@ export function VerifyResult({ lookup, words, language }: { lookup: Lookup; word
     if (lookup.state !== 'found')
         return (
             <p className={`status status-${lookup.state}`} role="status" data-state={lookup.state}>
-                {words[`verify.state.${lookup.state}`]}
+                {words[`verify.page.state.${lookup.state}`]}
             </p>
         );
     const { document: d } = lookup;
     return (
         <>
             <p className={`status status-${d.status}`} role="status" data-state={d.status}>
-                {words[`verify.status.${d.status}`]}
+                {words[`verify.page.status.${d.status}`]}
             </p>
             <dl className="facts">
-                <Fact term={words['verify.document']}>{textOf(d.documentName, language)}</Fact>
-                {d.number && <Fact term={words['verify.number']}>{d.number}</Fact>}
-                <Fact term={words['verify.office']}>{textOf(d.office, language)}</Fact>
-                <Fact term={words['verify.issuedOn']}>{dayOf(d.issuedOn, language)}</Fact>
-                {d.validUntil && <Fact term={words['verify.validUntil']}>{dayOf(d.validUntil, language)}</Fact>}
-                {d.holder && <Fact term={words['verify.holder']}>{d.holder}</Fact>}
+                <Fact term={words['verify.page.document']}>{textOf(d.documentName, language)}</Fact>
+                {d.number && <Fact term={words['verify.page.number']}>{d.number}</Fact>}
+                <Fact term={words['verify.page.office']}>{textOf(d.office, language)}</Fact>
+                <Fact term={words['verify.page.issuedOn']}>{dayOf(d.issuedOn, language)}</Fact>
+                {d.validUntil && <Fact term={words['verify.page.validUntil']}>{dayOf(d.validUntil, language)}</Fact>}
+                {d.holder && <Fact term={words['verify.page.holder']}>{d.holder}</Fact>}
             </dl>
-            <p className="hint">{words['verify.compare']}</p>
+            <p className="hint">{words['verify.page.compare']}</p>
         </>
     );
 }
@@ -103,9 +109,9 @@ export function VerifyPage() {
     return (
         <main lang={language}>
             <header>
-                <h1>{words['verify.title']}</h1>
+                <h1>{words['verify.page.title']}</h1>
                 <button type="button" onClick={() => setLanguage(language === 'am' ? 'en' : 'am')}>
-                    {words['verify.otherLanguage']}
+                    {words['verify.page.otherLanguage']}
                 </button>
             </header>
             <VerifyResult lookup={lookup} words={words} language={language} />

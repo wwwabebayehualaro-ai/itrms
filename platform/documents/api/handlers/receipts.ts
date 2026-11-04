@@ -37,7 +37,7 @@ export async function issueReceiptDocument(
         if (!unit) return false;
         actFor(tx, { regionId: unit.regionId, unitId: receipt.unit.id, scopePath: unit.path });
         try {
-            await issueDocument(tx, deps.settings, {
+            const issued = await issueDocument(tx, deps.settings, {
                 regionId: unit.regionId,
                 handlingUnitId: receipt.unit.id,
                 templateKey: 'receipt',
@@ -61,6 +61,8 @@ export async function issueReceiptDocument(
                     demo: receipt.demo
                 }
             });
+            // reversed before its document was made (the events may come in any order): its QR must never say valid
+            if (receipt.reversed) await revokeDocument(tx, issued, 'receipt_reversed');
             return true;
         } catch (error) {
             if (error instanceof ConflictError && error.code === 'not_configured') return false;

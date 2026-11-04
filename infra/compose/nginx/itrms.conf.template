@@ -154,9 +154,15 @@ server {
     location ^~ /auth/ { return 404; }
     location ^~ /api/ { return 404; }
 
+    # what the build fingerprinted: cached, and outside the limit, or a few page loads would use up a checkpoint's checks
+    location /_next/static/ {
+        limit_except GET HEAD { deny all; }
+        root /srv/verify;
+        expires 30d;
+    }
+
     location / {
         limit_except GET HEAD { deny all; }
-        limit_req zone=itrms_verify burst=30 nodelay;
         root /srv/verify;
         try_files $uri $uri.html /index.html;
     }
