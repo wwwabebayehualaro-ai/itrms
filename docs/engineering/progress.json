@@ -1040,13 +1040,14 @@
         {
           "id": "0.22b",
           "title": "Fees, part 2: payment orders, the cashier and receipts",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.22b-cashier-receipts",
           "commits": [
             "00590ee",
             "46d00db",
             "415e460",
-            "f736edf"
+            "f736edf",
+            "cdf4f2b"
           ],
           "evidence": [
             "GitHub Actions run 41877728521 on f736edf (PR #30): all 9 jobs green on attempt 2 (ADR-0038 CI record). Attempt 1 had 8 green and the dev stack job failed at the telemetry check 'OTLP log through Alloy is in Loki', before the integration tests ran; re-running that job with no change passed it and ran them. Follow-up recorded for the flake",
