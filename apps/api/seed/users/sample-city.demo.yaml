@@ -1,0 +1,26 @@
+# The second demo region's accounts (task 0.25b): generated people, never real ones. `keycloakSub` is the Keycloak account id; the realm's
+# demo users get the same ids (tools/dev-infra.mjs reads every *.demo.yaml here).
+region: SCA
+
+users:
+  - {
+      username: demo.city.admin,
+      displayName: City Administrator (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000501,
+      home: SCA,
+      roles: [{ unit: SCA, role: bureau_admin }, { unit: SCA, role: unit_admin }]
+    }
+  - {
+      username: demo.city.records,
+      displayName: North Sub-city Records Officer (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000502,
+      home: SCA-NORTH,
+      roles: [{ unit: SCA-NORTH, role: records_officer }]
+    }
+  - {
+      username: demo.city.officer,
+      displayName: North Sub-city Licensing Expert (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000503,
+      home: SCA-NORTH,
+      roles: [{ unit: SCA-NORTH, role: competency.officer }]
+    }

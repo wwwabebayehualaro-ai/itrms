@@ -25,6 +25,7 @@ import { importUsers, userImportSchema } from '@itrms/kernel/seed';
 import { importOrg, orgUnits, parseOrgCsv, parseOrgWorkbook, parseOrgYaml, type OrgImport } from '@itrms/kernel/org';
 import {
     importDemoData,
+    importSecondRegionDemo,
     importLicenceGrades,
     importLicenceServices,
     setUpLicenceCounters
@@ -63,6 +64,7 @@ async function main() {
         kind === 'documents' ||
         kind === 'competency' ||
         kind === 'demo' ||
+        kind === 'demo-city' ||
         ((kind === 'org' || kind === 'users' || kind === 'services' || kind === 'fees') && file)
     ))
         fail(
@@ -70,7 +72,7 @@ async function main() {
             new Error(
                 'usage: seed org <file.yaml|file.csv|file.xlsx> [--region <code>] | seed users <file.yaml> | ' +
                     'seed services <catalogue.yaml> --region <code> | seed fees <rules.yaml> --region <code> | ' +
-                    'seed counters --region <code> | seed competency --region <code> | seed demo --region <code> | seed identity'
+                    'seed counters --region <code> | seed competency --region <code> | seed demo --region <code> | seed demo-city --region <code> | seed identity'
             )
         );
 
@@ -161,6 +163,14 @@ async function main() {
                 };
             });
             logger.info({ region: code, ...result }, 'licence grades, counters and services applied');
+        } else if (kind === 'demo-city') {
+            // the second demo region's branding and languages (task 0.25b)
+            const code = file === '--region' ? rest[0] : region;
+            if (!code) throw new Error('seed demo-city needs --region <code>');
+            logger.info(
+                { region: code, settings: await importSecondRegionDemo(db, code) },
+                'the second region applied'
+            );
         } else if (kind === 'demo') {
             // the demo's generated people and licences (task 0.25a): registered as the API would, so their sensitive fields are encrypted
             const code = file === '--region' ? rest[0] : region;

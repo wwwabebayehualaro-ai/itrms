@@ -11,6 +11,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const API = join(ROOT, 'apps', 'api');
 const LIMIT_SECONDS = 120;
 const REGION = 'SER';
+const CITY = 'SCA';
 
 const inApi = (env, script, args = []) => {
     execFileSync('node', [`--env-file=${env}`, '--enable-source-maps', join('dist', script), ...args], {
@@ -42,6 +43,15 @@ const STEPS = [
     ['the document templates', () => seed('documents', '--region', REGION)],
     ['the licence services', () => seed('competency', '--region', REGION)],
     ['the demo’s people and licences', () => inApi('.env.demo.local', 'seed.cjs', ['demo', '--region', REGION])],
+    // the second region: a city administration with sub-cities (task 0.25b), with the same services and rules
+    ['the second region', () => seed('org', 'seed/org/sample-city.yaml')],
+    ['its catalogue', () => seed('services', '../../platform/services/seed/catalogue.yaml', '--region', CITY)],
+    ['its users', () => seed('users', 'seed/users/sample-city.demo.yaml')],
+    ['its fee rules', () => seed('fees', '../../modules/competency/seed/fee-rules.demo.yaml', '--region', CITY)],
+    ['its receipt counters', () => seed('counters', '--region', CITY)],
+    ['its document templates', () => seed('documents', '--region', CITY)],
+    ['its licence services', () => seed('competency', '--region', CITY)],
+    ['its branding and languages', () => seed('demo-city', '--region', CITY)],
     ['the accounts in Keycloak', () => seed('identity')]
 ];
 

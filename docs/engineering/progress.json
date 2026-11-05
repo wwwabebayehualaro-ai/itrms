@@ -1221,8 +1221,8 @@
         {
           "id": "0.25b",
           "title": "Demo, part 2: the second region",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.25b-second-region",
           "commits": [],
           "evidence": [],
           "blockers": [],

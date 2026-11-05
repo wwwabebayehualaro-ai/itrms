@@ -397,3 +397,51 @@ export async function importDemoData(
         };
     });
 }
+
+/**
+ * What makes the second demo region look like its own (task 0.25b, docs/demo-plan.md §6): its branding and its languages, as settings a
+ * bureau would set. Already set, they stay.
+ */
+export async function importSecondRegionDemo(db: Database, code: string): Promise<number> {
+    const base = { requestId: 'seed:demo-city' };
+    const root = await db.scoped(base, async (tx) => {
+        const [found] = await tx
+            .select()
+            .from(orgUnits)
+            .where(and(isNull(orgUnits.parentId), eq(orgUnits.code, code)));
+        if (!found) throw new Error(`no region ${code}`);
+        return found;
+    });
+    const settings: readonly (readonly [string, unknown])[] = [
+        [
+            'documents.header',
+            {
+                title: {
+                    am: 'ናሙና የከተማ ትራንስፖርት ባለሥልጣን',
+                    en: 'Sample City Transport Authority',
+                    om: 'Abbaa Taayitaa Geejjibaa Magaalaa Fakkeenyaa'
+                }
+            }
+        ],
+        ['i18n.languages', ['am', 'en', 'om']]
+    ];
+    return db.scoped({ ...base, regionId: root.regionId, unitId: root.id, scopePath: root.path }, async (tx) => {
+        let made = 0;
+        for (const [key, value] of settings) {
+            const [set] = await tx
+                .select({ id: settingsValues.id })
+                .from(settingsValues)
+                .where(and(eq(settingsValues.unitId, root.id), eq(settingsValues.key, key)));
+            if (set) continue;
+            await insertAudited(tx, settingsValues, {
+                regionId: root.regionId,
+                unitId: root.id,
+                unitTypeId: null,
+                key,
+                value
+            });
+            made += 1;
+        }
+        return made;
+    });
+}

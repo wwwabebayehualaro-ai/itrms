@@ -1,0 +1,66 @@
+# The second demo region (docs/demo-plan.md §1, task 0.25b): a city administration with sub-cities, where the first is a region with a
+# zone and woredas. Entirely made up, with neutral names: it shows that levels, units, languages and branding are configuration, for a
+# bureau that isn't shaped like the reference design. It is not any real city.
+region:
+  code: SCA
+  type: city_authority
+  name: { am: ናሙና ከተማ አስተዳደር, en: Sample City Administration, om: Bulchiinsa Magaalaa Fakkeenyaa }
+
+levels:
+  - { key: region, rank: 1, name: { am: ከተማ አስተዳደር, en: City administration, om: Bulchiinsa Magaalaa } }
+  - { key: sub_city, rank: 2, name: { am: ክፍለ ከተማ, en: Sub-city, om: Kutaa Magaalaa } }
+  - { key: district, rank: 3, name: { am: ወረዳ, en: District, om: Aanaa } }
+
+unitTypes:
+  - key: city_authority
+    nonDelegableRoles: [bureau_admin, unit_admin]
+    level: region
+    name: { am: የከተማ ትራንስፖርት ባለሥልጣን, en: City transport authority }
+    capabilities: [prints_documents]
+    roles: [bureau_admin, unit_admin, unit_head, auditor, viewer]
+  - key: sub_city_office
+    nonDelegableRoles: [unit_admin]
+    level: sub_city
+    name: { am: የክፍለ ከተማ ትራንስፖርት ጽ/ቤት, en: Sub-city transport office }
+    capabilities: [collects_cash, prints_documents, has_examiners]
+    services: [RS-01..07, DVC-01..11]
+    roles:
+      [
+        unit_admin,
+        unit_head,
+        records_officer,
+        cashier,
+        competency.officer,
+        competency.lead,
+        competency.examiner,
+        viewer
+      ]
+  - key: district_office
+    level: district
+    name: { am: የወረዳ ትራንስፖርት ጽ/ቤት, en: District transport office }
+    services: [RS-01..07]
+    roles: [unit_head, records_officer, viewer]
+
+units:
+  - {
+      code: SCA-NORTH,
+      kind: sub_city,
+      level: sub_city,
+      type: sub_city_office,
+      name: { am: ሰሜን ክፍለ ከተማ, en: North Sub-city, om: Kutaa Magaalaa Kaabaa }
+    }
+  - {
+      code: SCA-SOUTH,
+      kind: sub_city,
+      level: sub_city,
+      type: sub_city_office,
+      name: { am: ደቡብ ክፍለ ከተማ, en: South Sub-city, om: Kutaa Magaalaa Kibbaa }
+    }
+  - {
+      code: SCA-NORTH-D1,
+      parent: SCA-NORTH,
+      kind: woreda,
+      level: district,
+      type: district_office,
+      name: { am: ወረዳ አንድ, en: District One, om: Aanaa Tokko }
+    }

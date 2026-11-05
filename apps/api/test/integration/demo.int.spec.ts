@@ -6,7 +6,16 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { importDemoData, importLicenceGrades, setUpLicenceCounters, type DemoCounts } from '@itrms/competency/seed';
+import {
+    importDemoData,
+    importLicenceGrades,
+    importSecondRegionDemo,
+    setUpLicenceCounters,
+    type DemoCounts
+} from '@itrms/competency/seed';
+import { importUsers, userImportSchema } from '@itrms/kernel/seed';
+import { importOrg, parseOrgYaml } from '@itrms/kernel/org';
+import { parse as parseYaml } from 'yaml';
 import { addisDay, addMonths, addYears } from '@itrms/competency/contracts';
 import { ethiopianHolidays } from '@itrms/ethiopian-calendar';
 import { OrganisationsService, PersonsService } from '@itrms/parties/api';
@@ -170,5 +179,92 @@ describe('the demo’s data', () => {
         // nobody came twice
         expect(await count(`select count(*)::int as n from competency.driver_licences`)).toBe(60);
         expect(await count(`select count(*)::int as n from parties.persons`)).toBe(200);
+    });
+});
+
+describe('the second demo region', () => {
+    const CITY_ADMIN = '0199f0a0-d000-7000-8000-000000000501';
+    const seeds = join(HERE, '..', '..', '..', 'seed');
+
+    beforeAll(async () => {
+        const org = parseOrgYaml(readFileSync(join(seeds, 'org', 'sample-city.yaml'), 'utf8'));
+        const users = userImportSchema.parse(
+            parseYaml(readFileSync(join(seeds, 'users', 'sample-city.demo.yaml'), 'utf8'))
+        );
+        await api.installer.scoped({}, async (tx) => {
+            await importOrg(tx, org);
+            await importUsers(tx, users);
+        });
+        expect(await importSecondRegionDemo(api.installer, 'SCA')).toBe(2);
+    });
+
+    it('has its own levels, its sub-cities, and a language of its own', async () => {
+        const { rows: levels } = await api.owner.query<{ key: string; name: { en: string } }>(
+            `select l.key, l.name from kernel.org_level_definitions l
+               join kernel.org_units u on u.region_id = l.region_id and u.code = 'SCA' and u.parent_id is null
+              order by l.rank`
+        );
+        expect(levels.map((l) => l.key)).toEqual(['region', 'sub_city', 'district']);
+        expect(levels[0]?.name.en).toBe('City administration');
+        const { rows } = await api.owner.query<{ value: unknown }>(
+            `select v.value from kernel.settings_values v join kernel.org_units u on u.id = v.unit_id
+              where u.code = 'SCA' and v.key = 'i18n.languages'`
+        );
+        expect(rows[0]?.value).toEqual(['am', 'en', 'om']);
+    });
+
+    it('has its own branding, and the first region keeps its own', async () => {
+        const { rows } = await api.owner.query<{ code: string; title: string }>(
+            `select u.code, v.value->'title'->>'en' as title from kernel.settings_values v
+               join kernel.org_units u on u.id = v.unit_id where v.key = 'documents.header' order by u.code`
+        );
+        expect(rows).toEqual([
+            { code: 'SCA', title: 'Sample City Transport Authority' },
+            { code: 'SER', title: 'Sample Regional Transport Bureau' }
+        ]);
+    });
+
+    it('sees none of the first region’s register, and the first sees none of its own', async () => {
+        const CITY_RECORDS = '0199f0a0-d000-7000-8000-000000000502';
+        const { rows } = await api.owner.query<{ name: string }>(
+            `select p.given_name_en as name from parties.persons p
+               join kernel.org_units u on u.region_id = p.region_id and u.code = 'SER' and u.parent_id is null
+              where p.given_name_en is not null limit 1`
+        );
+        const name = rows[0]?.name;
+        expect(name, 'the first region has people').toBeTruthy();
+
+        const asCity = { sub: CITY_RECORDS, unit: await api.unit('SCA', 'SCA-NORTH') };
+        const found = await api.call('GET', `/api/v1/persons?q=${encodeURIComponent(name ?? '')}`, asCity);
+        expect(found.statusCode, found.body).toBe(200);
+        expect(found.json<{ items: unknown[] }>().items).toEqual([]);
+
+        const city = await api.unit('SCA', 'SCA');
+        const subtree = await api.call('GET', `/api/v1/org-units/${city.id}/subtree`, {
+            sub: CITY_ADMIN,
+            unit: city
+        });
+        expect(subtree.statusCode, subtree.body).toBe(200);
+        expect(
+            subtree
+                .json<{ code: string }[]>()
+                .map((u) => u.code)
+                .sort()
+        ).toEqual(['SCA', 'SCA-NORTH', 'SCA-NORTH-D1', 'SCA-SOUTH']);
+    });
+
+    it('offers its people its languages', async () => {
+        const city = await api.unit('SCA', 'SCA');
+        const res = await api.call('GET', '/api/v1/me/workspace', { sub: CITY_ADMIN, unit: city });
+        expect(res.statusCode, res.body).toBe(200);
+        expect(res.json<{ settings: Record<string, unknown> }>().settings['i18n.languages']).toEqual([
+            'am',
+            'en',
+            'om'
+        ]);
+    });
+
+    it('sets its settings only once', async () => {
+        expect(await importSecondRegionDemo(api.installer, 'SCA')).toBe(0);
     });
 });

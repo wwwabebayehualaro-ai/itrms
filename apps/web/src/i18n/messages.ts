@@ -31,6 +31,7 @@ import { fallbackChain, SHIPPED_LANGUAGES } from '@itrms/schemas';
 
 import shellAm from '../../messages/am.json';
 import shellEn from '../../messages/en.json';
+import shellOm from '../../messages/om.json';
 import shellWal from '../../messages/wal-Latn.json';
 
 /** The languages the shell has catalogues for; a region's others (om, ti) show Amharic until theirs are added. */
@@ -44,6 +45,8 @@ type Nested = { [key: string]: string | Nested };
 const CATALOGUES: Readonly<Record<UiLanguage, readonly Flat[]>> = {
     am: [shellAm, kernelAm, formsAm, workflowAm, servicesAm, feesAm, documentsAm, partiesAm, competencyAm],
     en: [shellEn, kernelEn, formsEn, workflowEn, servicesEn, feesEn, documentsEn, partiesEn, competencyEn],
+    // partly translated, the shell's words only so far (task 0.25b): the rest falls back
+    om: [shellOm],
     'wal-Latn': [
         shellWal,
         kernelWal,

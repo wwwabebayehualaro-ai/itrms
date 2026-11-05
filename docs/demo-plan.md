@@ -99,6 +99,7 @@ shown, **where**, **with which data**, and **which facts it rests on**. Sources:
 ## 6. Acceptance (gate evidence)
 - The demo e2e test (Playwright) runs the journey green in `am` and `en`, and `wal-Latn` loads with fallback.
 - `pnpm demo:reset` restores the data in under 2 minutes.
-- Switching to the second demo region shows its own levels, units, language and branding, with no code change.
+- Switching to the second demo region (`demo.city.admin`, a made-up city administration with sub-cities) shows its own levels, units,
+  language and branding, with no code change. Its few Afaan Oromo words are a draft for a speaker to check.
 - The demo has been shown to officials of **at least two bureaus or zones**, with their feedback recorded in
   `docs/discovery/`.
