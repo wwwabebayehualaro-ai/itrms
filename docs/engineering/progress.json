@@ -1203,10 +1203,11 @@
         {
           "id": "0.25a",
           "title": "Demo, part 1: the data and demo:reset",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.25a-demo-data",
           "commits": [
-            "50ed3bd"
+            "50ed3bd",
+            "fc09df7"
           ],
           "evidence": [
             "CI run 42075280687 on 50ed3bd: all 9 jobs success. pnpm demo:reset ran twice on one stack in the e2e job: 10.8 s and 11.0 s against the 120 s limit, which fails the step when passed; the journeys then ran on what it made",
