@@ -109,8 +109,9 @@ export class RegisterService {
         const rows = await tx
             .select({
                 batch: licencePrintBatches,
-                licences: sql<number>`(select count(*)::int from ${licencePrintBatchItems}
-                                        where ${licencePrintBatchItems.batchId} = ${licencePrintBatches.id})`
+                // spelled out: a select from one table prints its columns without the table, and `id` here would be the item's
+                licences: sql<number>`(select count(*)::int from competency.licence_print_batch_items i
+                                        where i.batch_id = competency.licence_print_batches.id)`
             })
             .from(licencePrintBatches)
             .orderBy(desc(licencePrintBatches.createdAt))

@@ -479,7 +479,7 @@ describe('a licence', () => {
         expect(
             await count(
                 `select count(*)::int as n from kernel.outbox_events
-                  where event_type = 'licence.national-requested.v1' and payload->>'licenceId' = $1`,
+                  where type = 'licence.national-requested.v1' and payload->>'licenceId' = $1`,
                 [licence?.id]
             )
         ).toBe(1);
@@ -552,11 +552,11 @@ describe('a licence', () => {
             ])
         ).toBe(1);
         // the system actor, on record
-        const { rows: events } = await api.owner.query<{ actor_system: string; to_state: string }>(
-            `select actor_system, to_state from workflow.case_events where case_id = $1 and to_state = 'issued'`,
+        const { rows: events } = await api.owner.query<{ system_actor: string; to_state: string }>(
+            `select system_actor, to_state from workflow.case_events where case_id = $1 and to_state = 'issued'`,
             [c.id]
         );
-        expect(events[0]?.actor_system).toBe(NATIONAL_ACTOR);
+        expect(events[0]?.system_actor).toBe(NATIONAL_ACTOR);
     }, 120_000);
 
     it('stays one licence, with one number, when the answer is delivered again', async () => {
@@ -769,7 +769,7 @@ describe('a print batch', () => {
         expect(sent.json<{ status: string }>().status).toBe('requested');
         expect(
             await count(
-                `select count(*)::int as n from kernel.outbox_events where event_type = 'licence-batch.print-requested.v1' and payload->>'batchId' = $1`,
+                `select count(*)::int as n from kernel.outbox_events where type = 'licence-batch.print-requested.v1' and payload->>'batchId' = $1`,
                 [id]
             )
         ).toBe(1);
