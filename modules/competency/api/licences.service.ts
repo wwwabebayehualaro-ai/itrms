@@ -4,7 +4,7 @@
  * nothing until then, so ITRMS never holds a value that competes with the national record.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, gte, inArray, like, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNull, like, ne, or, sql, type SQL } from 'drizzle-orm';
 import { currentContext } from '@itrms/kernel/context';
 import { insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { ConflictError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
@@ -13,6 +13,8 @@ import { emit } from '@itrms/kernel/outbox';
 import { orgUnits } from '@itrms/kernel/tables';
 import { DocumentsService } from '@itrms/documents/api';
 import { organisations, persons, PersonsService } from '@itrms/parties/api';
+import { SettingsService } from '@itrms/kernel/settings';
+import { cases } from '@itrms/workflow/api';
 import type { I18nText } from '@itrms/schemas';
 import type { z } from 'zod';
 
@@ -27,9 +29,10 @@ import {
     licenceGradeSchema,
     medicalIsCurrent,
     nationalAnswerSchema,
+    MEDICAL_MONTHS_SETTING,
     renewalIsOpen,
     renewalTerms,
-    RENEWAL_WINDOW_MONTHS,
+    RENEWAL_WINDOW_SETTING,
     temporaryValidUntil,
     type EligibilityProblem,
     type Licence,
@@ -67,16 +70,6 @@ const say = (key: Words, values: Record<string, string | number> = {}): string =
     return words[key].replace(/\{(\w+)\}/g, (_, name: string) => String(values[name] ?? ''));
 };
 
-/** The medical examination's months, when a service sets none (the proclamation has no figure: the bureau is asked). */
-const DEFAULT_MEDICAL_MONTHS = 6;
-
-const monthsIn = (config: Readonly<Record<string, unknown>>, key: string, otherwise: number): number => {
-    const set = config[key];
-    return typeof set === 'number' && set > 0 ? set : otherwise;
-};
-const medicalMonths = (config: Readonly<Record<string, unknown>>): number =>
-    monthsIn(config, 'medical_valid_months', DEFAULT_MEDICAL_MONTHS);
-
 /** A person's refusal: what they read at the counter (api-guidelines.md: a business rule is a 422). */
 const notEligible = (detail: string) => new ValidationError('not_eligible', { detail });
 
@@ -89,7 +82,8 @@ const textIn = (name: I18nText, language: string) => (name as Record<string, str
 export class LicencesService {
     constructor(
         @Inject(PersonsService) private readonly persons: PersonsService,
-        @Inject(DocumentsService) private readonly documents: DocumentsService
+        @Inject(DocumentsService) private readonly documents: DocumentsService,
+        @Inject(SettingsService) private readonly settings: SettingsService
     ) {}
 
     // ---- the catalogue ----
@@ -126,6 +120,23 @@ export class LicencesService {
     }
 
     /** A grade they already have, or are waiting for: asking again would make a second licence for one grade. */
+    /** Another open request for the grade: the licence itself is made only at final approval, so two could otherwise both get there. */
+    private async anotherRequest(tx: Tx, place: CasePlace, personId: string, grade: string): Promise<boolean> {
+        const [other] = await tx
+            .select({ id: cases.id })
+            .from(cases)
+            .where(
+                and(
+                    isNull(cases.closedAt),
+                    ne(cases.id, place.caseId),
+                    sql`${cases.facts}->>'personId' = ${personId}`,
+                    sql`${cases.facts}#>>'{application,grade}' = ${grade}`
+                )
+            )
+            .limit(1);
+        return Boolean(other);
+    }
+
     private async alreadyHas(tx: Tx, personId: string, gradeId: string, today: string): Promise<boolean> {
         const [found] = await tx
             .select({ id: driverLicences.id })
@@ -168,7 +179,6 @@ export class LicencesService {
     async checkApplication(
         tx: Tx,
         place: CasePlace,
-        config: Readonly<Record<string, unknown>>,
         input: {
             person: string;
             grade: string;
@@ -189,9 +199,14 @@ export class LicencesService {
             },
             today
         ).map((p) => this.problemText(p));
-        if (await this.alreadyHas(tx, input.person, grade.id, today)) problems.push(say('competency.rule.alreadyHeld'));
-        if (!medicalIsCurrent(input.medicalExaminedOn, medicalMonths(config), today))
-            problems.push(say('competency.rule.medical', { months: medicalMonths(config) }));
+        if (
+            (await this.alreadyHas(tx, input.person, grade.id, today)) ||
+            (await this.anotherRequest(tx, place, input.person, grade.key))
+        )
+            problems.push(say('competency.rule.alreadyHeld'));
+        const months = await this.settings.value<number>(tx, place.handlingUnitId, MEDICAL_MONTHS_SETTING);
+        if (!medicalIsCurrent(input.medicalExaminedOn, months, today))
+            problems.push(say('competency.rule.medical', { months }));
         const [school] = await tx
             .select({ kind: organisations.kind })
             .from(organisations)
@@ -311,6 +326,13 @@ export class LicencesService {
             });
         }
         const existing = same ? found : undefined;
+        if (!existing) {
+            await tx.execute(
+                sql`select pg_advisory_xact_lock(hashtextextended(${`competency.licence:${input.person}:${grade.id}`}, 0))`
+            );
+            if (await this.alreadyHas(tx, input.person, grade.id, addisDay()))
+                throw notEligible(say('competency.rule.alreadyHeld'));
+        }
         const licence =
             existing ??
             (await insertAudited(tx, driverLicences, {
@@ -373,14 +395,14 @@ export class LicencesService {
         const id = (facts.licence as { id?: unknown } | undefined)?.id;
         // a renewal has no pending record, and the licence never changed. Its next approval is a new decision for the platform
         if (typeof id !== 'string') {
-            const renewal = (facts.renewal ?? {}) as { attempt?: number };
-            return { renewal: { ...renewal, attempt: (renewal.attempt ?? 0) + 1 } };
+            const renewal = facts.renewal as { attempt?: number } | undefined;
+            return renewal ? { renewal: { ...renewal, attempt: (renewal.attempt ?? 0) + 1 } } : {};
         }
         const licence = await this.row(tx, id);
         if (licence.status === 'pending_national')
             await updateAudited(tx, driverLicences, licence.id, licence.rowVersion, {
                 status: 'voided',
-                voidReason: given.reason ?? null
+                voidReason: given.reason ?? 'case_closed'
             });
         return { licence: null };
     }
@@ -391,8 +413,7 @@ export class LicencesService {
     async checkRenewal(
         tx: Tx,
         place: CasePlace,
-        config: Readonly<Record<string, unknown>>,
-        input: { licence: string; medicalFacility: string; medicalExaminedOn: string }
+        input: { licence: string; medicalFacility: string; medicalExaminedOn: string; grade?: string; expiry?: string }
     ) {
         const today = addisDay();
         const licence = await this.row(tx, input.licence);
@@ -406,10 +427,21 @@ export class LicencesService {
         const path = licence.handlingOrgPath;
         if (!office || (path !== office.path && !path.startsWith(`${office.path}.`)))
             throw notEligible(say('competency.rule.otherOffice'));
-        const window = monthsIn(config, 'renewal_window_months', RENEWAL_WINDOW_MONTHS);
+        // the fee was worked out from what the form said when it was filed: a later expiry would hide the penalty, a lesser grade lower it
+        if (input.expiry !== undefined && input.expiry !== licence.validUntil)
+            throw notEligible(say('competency.rule.renewalFacts'));
+        if (input.grade !== undefined) {
+            const held = await tx
+                .select({ key: licenceGradeTypes.key })
+                .from(licenceGrades)
+                .innerJoin(licenceGradeTypes, eq(licenceGradeTypes.id, licenceGrades.gradeTypeId))
+                .where(eq(licenceGrades.licenceId, licence.id));
+            if (!held.some((g) => g.key === input.grade)) throw notEligible(say('competency.rule.renewalFacts'));
+        }
+        const window = await this.settings.value<number>(tx, place.handlingUnitId, RENEWAL_WINDOW_SETTING);
         if (!renewalIsOpen(licence.validUntil, window, today))
             throw notEligible(say('competency.rule.tooEarly', { months: window }));
-        const months = medicalMonths(config);
+        const months = await this.settings.value<number>(tx, place.handlingUnitId, MEDICAL_MONTHS_SETTING);
         if (!medicalIsCurrent(input.medicalExaminedOn, months, today))
             throw notEligible(say('competency.rule.medical', { months }));
         const terms = renewalTerms(

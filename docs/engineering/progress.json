@@ -1166,12 +1166,19 @@
         {
           "id": "0.24b",
           "title": "Driver licences, part 2: the two services on the platform",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.24b-licence-services",
+          "commits": [
+            "d98599d"
+          ],
+          "evidence": [
+            "CI run 42043835341 on d98599d: all 9 jobs success, after one rerun of the e2e job. Its first attempt failed on the form-builder drag test (forms/builder-publish.spec.ts), the known flaky test already in the follow-ups: it passed on 2ce0af5 and on the rerun, and this commit touched only a test and a doc",
+            "licence-services.int.spec on real PostgreSQL runs both seeded services through the API: new licence with a return, a failed exam, payment, approval and the platform's answer; renewal on time, more than a year late with its exam and fee lines, temporary with its offence check, over 55 for 2 years; a reversed payment gives nothing; approval_unit parent goes to the zone's lead; a woreda is refused not_configured and the zone department can file",
+            "licence-services.spec: both workflows guard giving the service on payment.settled, keep the filer and checkers off final approval, void on rejection, allow withdrawal and close an unpaid fee. What is seeded also passes the API's own checks for a form, a workflow and a service version",
+            "task-verifier on 2ce0af5: ready, no blocker; its gaps on the woreda test, zone filing and ADR wording closed in d98599d. Code review at high on 664a73f: 10 findings, fixed in b546d94 and 2ce0af5, one (a refund after a paid case is refused) recorded as a question in ADR-0047"
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "Templates: the services use the licence card template of 0.23a through competency.issueLicenceCard; none is added. renewal_window_months has no test of its own beyond the rule's: the same settings mechanism as medical_valid_months, which has one."
         },
         {
           "id": "0.24c",
@@ -2794,6 +2801,16 @@
     {
       "foundIn": "0.23a",
       "item": "Editing document templates on a screen, with approval; a region's own default language for worker-issued documents; a re-render path for a document left late by a dead event, beyond sending the event back",
+      "movedTo": "Phase 1"
+    },
+    {
+      "foundIn": "0.24b",
+      "item": "documents.issue:application-copy prints a RegistryLookup's id, not its name, and isn't reissued after a correction: the licence services don't use it yet",
+      "movedTo": "0.25"
+    },
+    {
+      "foundIn": "0.24b",
+      "item": "Fee inputs from case facts are still refused, so a renewal's grade and expiry are form answers checked against the register; the fee's over-a-year test can differ from the exam's by a day around a leap year",
       "movedTo": "Phase 1"
     }
   ]

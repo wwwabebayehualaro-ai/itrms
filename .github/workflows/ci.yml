@@ -148,6 +148,7 @@ jobs:
           pnpm --filter @itrms/api dev:seed fees ../../modules/competency/seed/fee-rules.demo.yaml --region SER
           pnpm --filter @itrms/api dev:seed counters --region SER
           pnpm --filter @itrms/api dev:seed documents --region SER
+          pnpm --filter @itrms/api dev:seed competency --region SER
           pnpm --filter @itrms/api dev:seed identity
       - name: Start the worker (outbox relay, the forms' value fill and exports)
         run: nohup pnpm --filter @itrms/api dev:worker > worker.log 2>&1 &

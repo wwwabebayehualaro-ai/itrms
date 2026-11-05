@@ -619,6 +619,9 @@ importers:
       '@itrms/documents':
         specifier: workspace:*
         version: link:../../platform/documents
+      '@itrms/fees':
+        specifier: workspace:*
+        version: link:../../platform/fees
       '@itrms/forms':
         specifier: workspace:*
         version: link:../../platform/forms
@@ -637,6 +640,12 @@ importers:
       '@itrms/schemas':
         specifier: workspace:*
         version: link:../../packages/schemas
+      '@itrms/services':
+        specifier: workspace:*
+        version: link:../../platform/services
+      '@itrms/workflow':
+        specifier: workspace:*
+        version: link:../../platform/workflow
       '@nestjs/common':
         specifier: 11.2.7
         version: 11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@10.2.2)

@@ -20,7 +20,7 @@ rules:
             - { value: motorcycle, amount: '20000' }
             - { value: automobile, amount: '30000' }
             - { value: public-1, amount: '40000' }
-            - { value: dry-cargo-1, amount: '45000' }
+            - { value: truck-1, amount: '45000' }
           otherwise: '50000'
         - key: exam
           label: { am: የፈተና ክፍያ, en: Examination }
@@ -40,7 +40,7 @@ rules:
       reassessAsOf: filing
       inputs:
         grade: { kind: choice }
-        expiry: { kind: date }
+        expiry: { kind: ethdate }
         lost: { kind: boolean, required: false }
       lines:
         - key: base
@@ -64,6 +64,7 @@ rules:
           label: { am: ከአንድ ዓመት በላይ የዘገየ, en: Expired more than a year }
           kind: fixed
           amount: '20000'
+          # a placeholder's test: the practical exam's own is by the calendar (Art. 19(5)), so they can differ by a day around a leap year
           when: days(input.expiry, asOf) > 365
         - key: card
           label: { am: ምትክ ካርድ, en: Replacement card }

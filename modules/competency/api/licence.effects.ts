@@ -40,7 +40,7 @@ export class CheckApplicationEffect implements WorkflowEffect<ApplicationInput> 
     constructor(@Inject(LicencesService) private readonly licences: LicencesService) {}
 
     async run(run: EffectRun<ApplicationInput>) {
-        return { facts: await this.licences.checkApplication(run.tx, placeOf(run), run.config, run.input) };
+        return { facts: await this.licences.checkApplication(run.tx, placeOf(run), run.input) };
     }
 }
 
@@ -92,6 +92,9 @@ interface RenewalInput {
     licence: string;
     medicalFacility: string;
     medicalExaminedOn: string;
+    /** what the request's fee was worked out from, where its form asks: checked against the register */
+    grade?: string;
+    expiry?: string;
 }
 
 @Injectable()
@@ -99,14 +102,16 @@ interface RenewalInput {
     input: {
         licence: { kind: 'ref' },
         medicalFacility: { kind: 'text' },
-        medicalExaminedOn: { kind: 'ethdate' }
+        medicalExaminedOn: { kind: 'ethdate' },
+        grade: { kind: 'choice', required: false },
+        expiry: { kind: 'ethdate', required: false }
     }
 })
 export class CheckRenewalEffect implements WorkflowEffect<RenewalInput> {
     constructor(@Inject(LicencesService) private readonly licences: LicencesService) {}
 
     async run(run: EffectRun<RenewalInput>) {
-        return { facts: await this.licences.checkRenewal(run.tx, placeOf(run), run.config, run.input) };
+        return { facts: await this.licences.checkRenewal(run.tx, placeOf(run), run.input) };
     }
 }
 

@@ -10,8 +10,9 @@ export const TEMPORARY_YEARS = 2;
 export const RENEWAL_YEARS = 4;
 export const RENEWAL_YEARS_OVER_55 = 2;
 export const OVER_AGE = 55;
-/** How long before its expiry a licence can be renewed, when a service sets nothing (the proclamation has no figure). */
-export const RENEWAL_WINDOW_MONTHS = 6;
+/** The figures the proclamation doesn't set: a region's settings, or an office's (the bureau is asked for both). */
+export const MEDICAL_MONTHS_SETTING = 'competency.medical_valid_months';
+export const RENEWAL_WINDOW_SETTING = 'competency.renewal_window_months';
 /** Later than this after expiry, a renewal needs a practical exam (Art. 19(5)). */
 export const LATE_RENEWAL_YEARS = 1;
 
@@ -93,7 +94,7 @@ export function eligibilityProblems(
     return problems;
 }
 
-/** A medical examination is current for some months (the service's configuration; the proclamation sets no figure). */
+/** A medical examination is current for some months (a setting; the proclamation sets no figure). */
 export const medicalIsCurrent = (examinedOn: string, months: number, today: string): boolean =>
     examinedOn <= today && addMonths(examinedOn, months) >= today;
 
