@@ -6,6 +6,7 @@
  */
 import Link from 'next/link';
 import { useState } from 'react';
+import { useLookupSearch } from '@itrms/form-engine/renderer';
 import {
     Button,
     Combobox,
@@ -28,24 +29,32 @@ import {
     TableRow,
     ToggleGroup,
     ToggleGroupItem,
-    useNotify
+    type Tone
 } from '@itrms/ui';
-import { addisDay, LICENCE_STATUSES, type LicenceStatus } from '@itrms/competency/contracts';
+import {
+    addisDay,
+    LICENCE_STATUSES,
+    type BATCH_STATUSES,
+    type ENROLMENT_STATUSES,
+    type LicenceStatus
+} from '@itrms/competency/contracts';
 
 import { getApiErrorMessage } from '@/lib/api/errors';
+import { useCan } from '@/lib/auth/authHooks';
 import {
+    LIST_LIMIT,
     useCompleteEnrolment,
     useEnrol,
     useEnrolments,
     useGrades,
     useLicences,
-    useLookupSearch,
     usePrintBatches,
     useSendPrintBatch,
     type Licence
 } from '@/lib/competency';
 import { formatDay } from '@/lib/format';
 import { usePreferences, useText } from '@/lib/preferences';
+import { useServices } from '@/lib/services';
 import { Requests } from '@/screens/workflow/Requests';
 
 const nameOf = (name: { given: string; father: string; grandfather: string | null } | null | undefined): string =>
@@ -79,9 +88,46 @@ function Choice<T extends string>({
     );
 }
 
+/** A list stops at what the API gives at once, and says so: anyone older is found by narrowing it. */
+function MoreHint({ shown }: { shown: number }) {
+    const { t } = useText();
+    if (shown < LIST_LIMIT) return null;
+    return (
+        <p className="text-sm text-muted-foreground" data-more>
+            {t('competency.list.more', { count: String(LIST_LIMIT) })}
+        </p>
+    );
+}
+
+const LICENCE_SERVICES = ['DVC-03', 'DVC-04'] as const;
+type LicenceService = (typeof LICENCE_SERVICES)[number];
+
+/** The licence services this office offers, of the two: a unit may offer only some. */
+function useOfferedLicenceServices(): LicenceService[] | null {
+    const services = useServices();
+    if (!services.data) return null;
+    const offered = services.data.filter((s) => s.enabled && s.configured).map((s) => s.code);
+    return LICENCE_SERVICES.filter((code) => offered.includes(code));
+}
+
 export function LicenceApplications() {
     const { t } = useText();
-    const [service, setService] = useState<'DVC-03' | 'DVC-04'>('DVC-03');
+    const offered = useOfferedLicenceServices();
+    const mayFile = useCan('case:create');
+    const [chosen, setChosen] = useState<LicenceService | undefined>();
+    if (offered === null) return <Skeleton className="h-40 w-full" />;
+    const service = chosen && offered.includes(chosen) ? chosen : offered[0];
+    if (!service)
+        return (
+            <EmptyState
+                title={t('competency.applications.noneOffered')}
+                description={t('competency.applications.noneOfferedHint')}
+            />
+        );
+    const labels: Record<LicenceService, string> = {
+        'DVC-03': t('competency.applications.new'),
+        'DVC-04': t('competency.applications.renewal')
+    };
     return (
         <Requests
             key={service}
@@ -90,28 +136,31 @@ export function LicenceApplications() {
             intro={t('competency.applications.intro')}
             toolbar={
                 <div className="flex flex-wrap items-center gap-2" data-applications>
-                    <Choice
-                        label={t('competency.applications.service')}
-                        value={service}
-                        options={[
-                            { value: 'DVC-03', label: t('competency.applications.new') },
-                            { value: 'DVC-04', label: t('competency.applications.renewal') }
-                        ]}
-                        onChange={setService}
-                    />
-                    <Button asChild>
-                        <Link
-                            href={
-                                service === 'DVC-03' ? '/competency/applications/new' : '/competency/applications/renew'
-                            }
-                        >
-                            {t(
-                                service === 'DVC-03'
-                                    ? 'competency.applications.fileNew'
-                                    : 'competency.applications.fileRenewal'
-                            )}
-                        </Link>
-                    </Button>
+                    {offered.length > 1 && (
+                        <Choice
+                            label={t('competency.applications.service')}
+                            value={service}
+                            options={offered.map((code) => ({ value: code, label: labels[code] }))}
+                            onChange={setChosen}
+                        />
+                    )}
+                    {mayFile && (
+                        <Button asChild>
+                            <Link
+                                href={
+                                    service === 'DVC-03'
+                                        ? '/competency/applications/new'
+                                        : '/competency/applications/renew'
+                                }
+                            >
+                                {t(
+                                    service === 'DVC-03'
+                                        ? 'competency.applications.fileNew'
+                                        : 'competency.applications.fileRenewal'
+                                )}
+                            </Link>
+                        </Button>
+                    )}
                 </div>
             }
         />
@@ -143,7 +192,55 @@ export function LicenceExams() {
     );
 }
 
-const STATUS_TONE: Record<LicenceStatus, 'success' | 'warning' | 'neutral'> = {
+/** A person or a school, found through the same lookups a form's fields use. What was picked stays shown, whatever is searched next. */
+function Picker({
+    provider,
+    label,
+    value,
+    onChange
+}: {
+    provider: 'person' | 'training-school';
+    label: string;
+    value: string | null;
+    onChange: (id: string | null) => void;
+}) {
+    const { t } = useText();
+    const [search, setSearch] = useState('');
+    const [picked, setPicked] = useState<string | undefined>();
+    const found = useLookupSearch(provider, search);
+    return (
+        <div className="flex flex-col gap-1.5">
+            <Label>{label}</Label>
+            <Combobox
+                aria-label={label}
+                className="w-64"
+                options={found.items.map((i) => ({ value: i.id, label: i.label }))}
+                value={value}
+                fallbackLabel={value ? picked : undefined}
+                clearable
+                clearLabel={t('competency.training.clear')}
+                onChange={(id) => {
+                    setPicked(found.items.find((i) => i.id === id)?.label);
+                    onChange(typeof id === 'string' ? id : null);
+                }}
+                onSearchChange={setSearch}
+                placeholder={t('competency.training.pick')}
+                searchPlaceholder={t('competency.training.search')}
+                emptyMessage={t(
+                    found.failed
+                        ? 'competency.training.lookupFailed'
+                        : found.tooShort
+                          ? 'competency.training.tooShort'
+                          : found.searching
+                            ? 'competency.training.searching'
+                            : 'competency.training.noneFound'
+                )}
+            />
+        </div>
+    );
+}
+
+const STATUS_TONE: Record<LicenceStatus, Tone> = {
     active: 'success',
     pending_national: 'warning',
     voided: 'neutral'
@@ -203,8 +300,13 @@ export function LicenceRegister() {
     const { t } = useText();
     const [typed, setTyped] = useState('');
     const [number, setNumber] = useState<string | undefined>();
+    const [holder, setHolder] = useState<string | null>(null);
     const [status, setStatus] = useState<LicenceStatus | typeof ALL>(ALL);
-    const licences = useLicences({ ...(number ? { number } : {}), ...(status === ALL ? {} : { status }) });
+    const licences = useLicences({
+        ...(number ? { number } : {}),
+        ...(holder ? { personId: holder } : {}),
+        ...(status === ALL ? {} : { status })
+    });
     const items = licences.data?.items ?? [];
     return (
         <div className="flex flex-col gap-6" data-screen="licences">
@@ -226,6 +328,7 @@ export function LicenceRegister() {
                         onChange={(e) => setTyped(e.target.value)}
                     />
                 </div>
+                <Picker provider="person" label={t('competency.licences.holder')} value={holder} onChange={setHolder} />
                 <Select value={status} onValueChange={(v) => setStatus(v as LicenceStatus | typeof ALL)}>
                     <SelectTrigger className="w-48" aria-label={t('competency.licences.status')}>
                         <SelectValue />
@@ -254,58 +357,28 @@ export function LicenceRegister() {
             ) : items.length === 0 ? (
                 <EmptyState title={t('competency.licences.empty')} description={t('competency.licences.emptyHint')} />
             ) : (
-                <Table data-licences>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>{t('competency.licences.number')}</TableHead>
-                            <TableHead>{t('competency.licences.holder')}</TableHead>
-                            <TableHead>{t('competency.licences.grades')}</TableHead>
-                            <TableHead>{t('competency.licences.status')}</TableHead>
-                            <TableHead>{t('competency.licences.validUntil')}</TableHead>
-                            <TableHead>{t('competency.licences.office')}</TableHead>
-                            <TableHead />
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {items.map((l) => (
-                            <LicenceRow key={l.id} licence={l} />
-                        ))}
-                    </TableBody>
-                </Table>
+                <>
+                    <Table data-licences>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>{t('competency.licences.number')}</TableHead>
+                                <TableHead>{t('competency.licences.holder')}</TableHead>
+                                <TableHead>{t('competency.licences.grades')}</TableHead>
+                                <TableHead>{t('competency.licences.status')}</TableHead>
+                                <TableHead>{t('competency.licences.validUntil')}</TableHead>
+                                <TableHead>{t('competency.licences.office')}</TableHead>
+                                <TableHead />
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {items.map((l) => (
+                                <LicenceRow key={l.id} licence={l} />
+                            ))}
+                        </TableBody>
+                    </Table>
+                    <MoreHint shown={items.length} />
+                </>
             )}
-        </div>
-    );
-}
-
-function Picker({
-    provider,
-    label,
-    value,
-    onChange
-}: {
-    provider: 'person' | 'training-school';
-    label: string;
-    value: string | null;
-    onChange: (id: string | null) => void;
-}) {
-    const { t } = useText();
-    const [q, setQ] = useState('');
-    const found = useLookupSearch(provider, q);
-    const options = (found.data?.items ?? []).map((i) => ({ value: i.id, label: i.label }));
-    return (
-        <div className="flex flex-col gap-1.5">
-            <Label>{label}</Label>
-            <Combobox
-                aria-label={label}
-                className="w-64"
-                options={options}
-                value={value}
-                onChange={(v) => onChange(v)}
-                onSearchChange={setQ}
-                placeholder={t('competency.training.pick')}
-                searchPlaceholder={t('competency.training.search')}
-                emptyMessage={t('competency.training.noneFound')}
-            />
         </div>
     );
 }
@@ -314,16 +387,17 @@ function Picker({
 export function TrainingLists() {
     const { t, text, language } = useText();
     const { calendar } = usePreferences();
-    const notify = useNotify();
-    const list = useEnrolments();
-    const grades = useGrades();
-    const enrol = useEnrol();
-    const complete = useCompleteEnrolment();
+    const mayRecord = useCan('training:record');
     const [person, setPerson] = useState<string | null>(null);
     const [school, setSchool] = useState<string | null>(null);
     const [grade, setGrade] = useState<string | undefined>();
+    const [show, setShow] = useState<(typeof ENROLMENT_STATUSES)[number] | typeof ALL>(ALL);
+    // whoever is picked narrows the list too: someone enrolled long ago is found the same way they are added
+    const list = useEnrolments({ ...(person ? { personId: person } : {}), ...(show === ALL ? {} : { status: show }) });
+    const grades = useGrades(mayRecord);
+    const enrol = useEnrol();
+    const complete = useCompleteEnrolment();
     const items = list.data?.items ?? [];
-    const failed = (error: unknown) => notify.error(getApiErrorMessage(error));
     return (
         <div className="flex flex-col gap-6" data-screen="training">
             <PageHeader title={t('competency.training.title')} description={t('competency.training.intro')} />
@@ -335,40 +409,47 @@ export function TrainingLists() {
                     if (!person || !school || !grade) return;
                     enrol.mutate(
                         { personId: person, schoolId: school, grade },
-                        {
-                            onSuccess: () => {
-                                setPerson(null);
-                                setGrade(undefined);
-                            },
-                            onError: failed
-                        }
+                        { onSuccess: () => setGrade(undefined) }
                     );
                 }}
             >
                 <Picker provider="person" label={t('competency.training.person')} value={person} onChange={setPerson} />
-                <Picker
-                    provider="training-school"
-                    label={t('competency.training.school')}
-                    value={school}
-                    onChange={setSchool}
+                {mayRecord && (
+                    <>
+                        <Picker
+                            provider="training-school"
+                            label={t('competency.training.school')}
+                            value={school}
+                            onChange={setSchool}
+                        />
+                        <Select value={grade ?? ''} onValueChange={setGrade}>
+                            <SelectTrigger className="w-56" aria-label={t('competency.training.grade')}>
+                                <SelectValue placeholder={t('competency.training.grade')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {(grades.data?.items ?? [])
+                                    .filter((g) => g.active)
+                                    .map((g) => (
+                                        <SelectItem key={g.key} value={g.key}>
+                                            {text(g.name)}
+                                        </SelectItem>
+                                    ))}
+                            </SelectContent>
+                        </Select>
+                        <Button type="submit" disabled={!person || !school || !grade || enrol.isPending}>
+                            {t('competency.training.add')}
+                        </Button>
+                    </>
+                )}
+                <Choice
+                    label={t('competency.training.show')}
+                    value={show}
+                    options={[
+                        { value: ALL, label: t('competency.training.showAll') },
+                        { value: 'enrolled', label: t('competency.training.showUnfinished') }
+                    ]}
+                    onChange={setShow}
                 />
-                <Select value={grade ?? ''} onValueChange={setGrade}>
-                    <SelectTrigger className="w-56" aria-label={t('competency.training.grade')}>
-                        <SelectValue placeholder={t('competency.training.grade')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {(grades.data?.items ?? [])
-                            .filter((g) => g.active)
-                            .map((g) => (
-                                <SelectItem key={g.key} value={g.key}>
-                                    {text(g.name)}
-                                </SelectItem>
-                            ))}
-                    </SelectContent>
-                </Select>
-                <Button type="submit" disabled={!person || !school || !grade || enrol.isPending}>
-                    {t('competency.training.add')}
-                </Button>
             </form>
             {list.isPending ? (
                 <Skeleton className="h-40 w-full" />
@@ -381,57 +462,73 @@ export function TrainingLists() {
             ) : items.length === 0 ? (
                 <EmptyState title={t('competency.training.empty')} description={t('competency.training.emptyHint')} />
             ) : (
-                <Table data-enrolments>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>{t('competency.training.person')}</TableHead>
-                            <TableHead>{t('competency.training.school')}</TableHead>
-                            <TableHead>{t('competency.training.grade')}</TableHead>
-                            <TableHead>{t('competency.training.completedOn')}</TableHead>
-                            <TableHead />
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {items.map((e) => (
-                            <TableRow key={e.id} data-enrolment={e.id} data-person={e.personId} data-status={e.status}>
-                                <TableCell>
-                                    {(language === 'en' ? e.personName.en : e.personName.am) ?? e.personName.am}
-                                </TableCell>
-                                <TableCell>{text(e.schoolName)}</TableCell>
-                                <TableCell>{text(e.gradeName)}</TableCell>
-                                <TableCell>{formatDay(e.completedOn, { language, calendar })}</TableCell>
-                                <TableCell>
-                                    {e.status === 'enrolled' && (
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            data-action="complete"
-                                            disabled={complete.isPending}
-                                            onClick={() =>
-                                                complete.mutate(
-                                                    { id: e.id, version: e.version, completedOn: addisDay() },
-                                                    { onError: failed }
-                                                )
-                                            }
-                                        >
-                                            {t('competency.training.complete')}
-                                        </Button>
-                                    )}
-                                </TableCell>
+                <>
+                    <Table data-enrolments>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>{t('competency.training.person')}</TableHead>
+                                <TableHead>{t('competency.training.school')}</TableHead>
+                                <TableHead>{t('competency.training.grade')}</TableHead>
+                                <TableHead>{t('competency.training.completedOn')}</TableHead>
+                                <TableHead />
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                            {items.map((e) => (
+                                <TableRow
+                                    key={e.id}
+                                    data-enrolment={e.id}
+                                    data-person={e.personId}
+                                    data-status={e.status}
+                                >
+                                    <TableCell>
+                                        {(language === 'en' ? e.personName.en : e.personName.am) ?? e.personName.am}
+                                    </TableCell>
+                                    <TableCell>{text(e.schoolName)}</TableCell>
+                                    <TableCell>{text(e.gradeName)}</TableCell>
+                                    <TableCell>{formatDay(e.completedOn, { language, calendar })}</TableCell>
+                                    <TableCell>
+                                        {mayRecord && e.status === 'enrolled' && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                data-action="complete"
+                                                disabled={complete.isPending}
+                                                onClick={() =>
+                                                    complete.mutate({
+                                                        id: e.id,
+                                                        version: e.version,
+                                                        completedOn: addisDay()
+                                                    })
+                                                }
+                                            >
+                                                {t('competency.training.complete')}
+                                            </Button>
+                                        )}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                    <MoreHint shown={items.length} />
+                </>
             )}
         </div>
     );
 }
 
+const BATCH_TONE: Record<(typeof BATCH_STATUSES)[number], Tone> = {
+    open: 'info',
+    requested: 'warning',
+    sent: 'success',
+    returned: 'warning',
+    distributed: 'success'
+};
+
 /** What the office has for the region's printer: a batch goes once, and the national platform names it. */
 export function PrintBatches() {
     const { t, language } = useText();
     const { calendar } = usePreferences();
-    const notify = useNotify();
     const list = usePrintBatches();
     const send = useSendPrintBatch();
     const items = list.data?.items ?? [];
@@ -467,7 +564,7 @@ export function PrintBatches() {
                                 <TableCell>
                                     <StatusBadge
                                         value={b.status}
-                                        tone={b.status === 'open' ? 'info' : 'success'}
+                                        tone={BATCH_TONE[b.status]}
                                         label={t(`competency.batch.status.${b.status}`)}
                                     />
                                 </TableCell>
@@ -478,12 +575,7 @@ export function PrintBatches() {
                                             size="sm"
                                             data-action="send"
                                             disabled={send.isPending}
-                                            onClick={() =>
-                                                send.mutate(
-                                                    { id: b.id, version: b.version },
-                                                    { onError: (error) => notify.error(getApiErrorMessage(error)) }
-                                                )
-                                            }
+                                            onClick={() => send.mutate({ id: b.id, version: b.version })}
                                         >
                                             {t('competency.batches.send')}
                                         </Button>

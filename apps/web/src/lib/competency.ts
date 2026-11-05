@@ -5,11 +5,32 @@
  * itself changes only through its case's workflow, on the platform's own case page.
  */
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Enrolment, Licence, LicenceGrade, LicenceStatus, PrintBatch } from '@itrms/competency/contracts';
+import type {
+    Enrolment,
+    ENROLMENT_STATUSES,
+    Licence,
+    LicenceGrade,
+    LicenceStatus,
+    PrintBatch
+} from '@itrms/competency/contracts';
 
 import client from './api/client';
 
 export type { Enrolment, Licence, LicenceGrade, LicenceStatus, PrintBatch };
+
+/** What the lists ask for at once. The screens say when there may be more, and how to narrow them. */
+export const LIST_LIMIT = 50;
+
+export interface LicenceFilters {
+    number?: string;
+    personId?: string;
+    status?: LicenceStatus;
+}
+
+export interface EnrolmentFilters {
+    personId?: string;
+    status?: (typeof ENROLMENT_STATUSES)[number];
+}
 
 const keys = {
     grades: ['competency', 'grades'] as const,
@@ -18,33 +39,41 @@ const keys = {
     batches: ['competency', 'batches'] as const
 };
 
-export interface LicenceFilters {
-    number?: string;
-    status?: LicenceStatus;
-}
-
 export function useLicences(filters: LicenceFilters) {
     return useQuery({
         queryKey: keys.licences(filters),
         placeholderData: keepPreviousData,
         queryFn: async ({ signal }) =>
-            (await client.get<{ items: Licence[] }>('v1/competency/licences', { params: filters, signal })).data
+            (
+                await client.get<{ items: Licence[] }>('v1/competency/licences', {
+                    params: { ...filters, limit: LIST_LIMIT },
+                    signal
+                })
+            ).data
     });
 }
 
-export function useGrades() {
+/** The catalogue, for whoever enters a training list: reading it asks for `licence:read`, which they have. */
+export function useGrades(enabled = true) {
     return useQuery({
         queryKey: keys.grades,
+        enabled,
         queryFn: async ({ signal }) =>
             (await client.get<{ items: LicenceGrade[] }>('v1/competency/grades', { signal })).data
     });
 }
 
-export function useEnrolments() {
+export function useEnrolments(filters: EnrolmentFilters = {}) {
     return useQuery({
-        queryKey: keys.enrolments,
+        queryKey: [...keys.enrolments, filters],
+        placeholderData: keepPreviousData,
         queryFn: async ({ signal }) =>
-            (await client.get<{ items: Enrolment[] }>('v1/competency/training-enrolments', { signal })).data
+            (
+                await client.get<{ items: Enrolment[] }>('v1/competency/training-enrolments', {
+                    params: { ...filters, limit: LIST_LIMIT },
+                    signal
+                })
+            ).data
     });
 }
 
@@ -73,8 +102,10 @@ export function useCompleteEnrolment() {
 }
 
 export function usePrintBatches() {
-    return useQuery({
+    return useQuery<{ items: PrintBatch[] }>({
         queryKey: keys.batches,
+        // a batch on its way moves on in the worker: the screen follows until it has
+        refetchInterval: (query) => (query.state.data?.items.some((b) => b.status === 'requested') ? 5_000 : false),
         queryFn: async ({ signal }) =>
             (await client.get<{ items: PrintBatch[] }>('v1/competency/print-batches', { signal })).data
     });
@@ -92,22 +123,5 @@ export function useSendPrintBatch() {
                 )
             ).data,
         onSuccess: () => queries.invalidateQueries({ queryKey: keys.batches })
-    });
-}
-
-export interface LookupHit {
-    id: string;
-    label: string;
-}
-
-/** What a registry lookup finds, for a picker on these screens: the same providers a form's lookup field uses. */
-export function useLookupSearch(provider: 'person' | 'training-school', q: string) {
-    return useQuery({
-        queryKey: ['competency', 'lookup', provider, q],
-        enabled: q.trim().length > 0,
-        placeholderData: keepPreviousData,
-        queryFn: async ({ signal }) =>
-            (await client.get<{ items: LookupHit[] }>(`v1/registry-lookups/${provider}`, { params: { q }, signal }))
-                .data
     });
 }

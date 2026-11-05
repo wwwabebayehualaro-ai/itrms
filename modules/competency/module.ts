@@ -110,7 +110,7 @@ export default defineModule({
                     key: 'competency.newApplication',
                     label: 'competency.action.newApplication',
                     route: '/competency/applications/new',
-                    requires: { permission: 'licence:read', services: ['DVC-03'] }
+                    requires: { permission: 'case:create', services: ['DVC-03'] }
                 }
             ]
         },

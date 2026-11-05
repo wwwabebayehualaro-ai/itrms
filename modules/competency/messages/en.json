@@ -88,5 +88,15 @@
   "competency.batch.status.requested": "Sending",
   "competency.batch.status.sent": "Sent",
   "competency.batch.status.returned": "Returned",
-  "competency.batch.status.distributed": "Distributed"
+  "competency.batch.status.distributed": "Distributed",
+  "competency.list.more": "Showing the latest {count}. Narrow the list to find others.",
+  "competency.applications.noneOffered": "This office offers no licence services.",
+  "competency.applications.noneOfferedHint": "Licences are handled by offices with a competency team.",
+  "competency.training.clear": "Clear",
+  "competency.training.tooShort": "Type at least 2 characters.",
+  "competency.training.searching": "Searching…",
+  "competency.training.lookupFailed": "The search failed. Try again.",
+  "competency.training.show": "Show",
+  "competency.training.showAll": "Everyone",
+  "competency.training.showUnfinished": "Not finished"
 }

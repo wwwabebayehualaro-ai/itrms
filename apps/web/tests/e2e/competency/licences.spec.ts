@@ -218,7 +218,7 @@ test.describe('the driver licence services', () => {
         number = items[0]?.number ?? '';
         expect(number).toMatch(/^WOL-BODITI\/DL\/\d{6}$/);
         await officer.getByLabel('የፈቃድ ቁጥር').fill(number);
-        await officer.getByRole('button', { name: 'ፈልግ' }).click();
+        await officer.locator('[data-screen="licences"]').getByRole('button', { name: 'ፈልግ' }).click();
         const row = officer.locator(`[data-licence="${licenceId}"]`);
         await expect(row).toHaveAttribute('data-status', 'active');
         await expect(row).toHaveAttribute('data-kind', 'temporary');

@@ -88,5 +88,15 @@
   "competency.batch.status.requested": "በመላክ ላይ",
   "competency.batch.status.sent": "ተልኳል",
   "competency.batch.status.returned": "ተመልሷል",
-  "competency.batch.status.distributed": "ተሰራጭቷል"
+  "competency.batch.status.distributed": "ተሰራጭቷል",
+  "competency.list.more": "የቅርብ ጊዜዎቹ {count} ብቻ ታይተዋል። ሌሎችን ለማግኘት ዝርዝሩን ያጥብቡ።",
+  "competency.applications.noneOffered": "ይህ ጽ/ቤት የመንጃ ፈቃድ አገልግሎት አይሰጥም።",
+  "competency.applications.noneOfferedHint": "መንጃ ፈቃድ የሚስተናገደው የብቃት ቡድን ባላቸው ጽ/ቤቶች ነው።",
+  "competency.training.clear": "አጥፋ",
+  "competency.training.tooShort": "ቢያንስ 2 ፊደል ይጻፉ።",
+  "competency.training.searching": "በመፈለግ ላይ…",
+  "competency.training.lookupFailed": "ፍለጋው አልተሳካም። እንደገና ይሞክሩ።",
+  "competency.training.show": "አሳይ",
+  "competency.training.showAll": "ሁሉንም",
+  "competency.training.showUnfinished": "ያላጠናቀቁትን"
 }
