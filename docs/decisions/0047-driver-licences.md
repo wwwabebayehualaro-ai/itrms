@@ -47,7 +47,7 @@ interface is known. ITRMS runs the zone's work around a licence and must never h
 * *A fee is paid after the exam and before final approval*, as in architecture.md §8. **So a final approval can refuse a case that has
   paid.** A closed case's payment can't be reversed (ADR-0042), so a fee to be refunded is reversed first, and then the case is rejected.
   Whether a refused applicant is refunded at all is the bureau's to say.
-* *A fee unpaid after 30 working days closes the case*, and its order with it. The setting `sla.payment` changes the time.
+* *A fee unpaid after 30 working days closes the case*, and its order with it. The service's `sla.payment` override changes the time.
 
 * *A medical examination is current for 6 months.* The proclamation sets no figure. The setting `competency.medical_valid_months`
   changes it for a region or an office.

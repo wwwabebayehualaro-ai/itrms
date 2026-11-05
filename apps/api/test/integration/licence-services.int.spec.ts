@@ -349,8 +349,14 @@ describe('what is seeded', () => {
             serviceCode: NEW,
             answers: {}
         });
-        expect(res.statusCode, res.body).toBeGreaterThanOrEqual(400);
-        expect(res.statusCode).toBeLessThan(500);
+        expect(res.statusCode, res.body).toBe(409);
+        expect(res.json<{ code: string }>().code).toBe('not_configured');
+
+        // the zone department handles licences as a town's team does
+        const person = await registered(yearsAgo(30));
+        await trained(person, 'automobile', as.zoneOfficer);
+        const filedAtZone = await filed(NEW, application(person), as.zoneOfficer);
+        expect((await moved(filedAtZone, as.zoneOfficer, 'submit')).state).toBe('review');
     });
 });
 

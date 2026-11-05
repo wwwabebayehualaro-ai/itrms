@@ -1171,7 +1171,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Templates: the services use the licence card template of 0.23a through competency.issueLicenceCard; none is added. renewal_window_months has no test of its own beyond the rule's: the same settings mechanism as medical_valid_months, which has one."
         },
         {
           "id": "0.24c",
