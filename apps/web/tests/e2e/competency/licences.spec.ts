@@ -74,6 +74,18 @@ async function today(page: Page, within: Locator, label: string) {
     await page.locator('[role="grid"] [aria-current="date"]').click();
 }
 
+/**
+ * Files what the form holds. The fee is worked out again as answers change, and the server refuses a filing whose fee wasn't shown (and
+ * starts no case), so a click made while the last answer's preview is on its way is simply made again.
+ */
+async function filing(page: Page, form: Locator) {
+    await expect(form.locator('[data-field-fee]')).toContainText(/\d[\d,]*\.\d{2}/);
+    await expect(async () => {
+        await form.getByRole('button', { name: FILE }).click();
+        await expect(page).toHaveURL(/\/cases\/[0-9a-f-]{36}$/, { timeout: 30_000 });
+    }).toPass({ timeout: 120_000 });
+}
+
 /** A step of a case, by its action and the name of the dialog's button. */
 async function act(
     page: Page,
@@ -172,9 +184,7 @@ test.describe('the driver licence services', () => {
         await pick(records, form, FIELD.school, school, school);
         await form.getByLabel(FIELD.facility).fill('Sample Health Centre');
         await today(records, form, FIELD.examined);
-        await expect(form.locator('[data-field-fee]')).toContainText(/\d[\d,]*\.\d{2}/);
-        await form.getByRole('button', { name: FILE }).click();
-        await expect(records).toHaveURL(/\/cases\/[0-9a-f-]{36}$/);
+        await filing(records, form);
         const caseId = records.url().split('/').pop() ?? '';
         await act(records, caseId, 'submit', 'submit');
         await inState(records, caseId, 'review');
@@ -264,8 +274,7 @@ test.describe('the driver licence services', () => {
             await records.locator(`[role="grid"] [data-day="${expiry.day}"]`).click();
             await form.getByLabel(FIELD.facility).fill('Sample Health Centre');
             await today(records, form, FIELD.examined);
-            await form.getByRole('button', { name: FILE }).click();
-            await expect(records).toHaveURL(/\/cases\/[0-9a-f-]{36}$/);
+            await filing(records, form);
             const caseId = records.url().split('/').pop() ?? '';
             await act(records, caseId, 'submit', 'submit');
 
