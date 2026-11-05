@@ -193,7 +193,8 @@ const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Addis_A
 const yearsAgo = (years: number) => `${Number(today().slice(0, 4)) - years}${today().slice(4)}`;
 
 let personSerial = 0;
-const ETHIOPIC = 'ሀለሐመሠረሰሸቀበቨተቸኀነኘአከኸወዐዘዠየደጀገጠጨጰጸፀፈፐ';
+// letters that don't fold into one another in the search (ሰ and ሠ are one letter there)
+const ETHIOPIC = 'ለመረሰሸቀበተቸነኘአከወዘዠየደጀገጠጨጰፈፐ';
 const LATIN = 'abcdefghijklmnopqrstuvwxyz';
 /** Names may hold letters only, and two people with one name would be a possible duplicate. */
 const lettersOf = (n: number, alphabet: string) =>
@@ -478,7 +479,7 @@ describe('a licence', () => {
         expect(
             await count(
                 `select count(*)::int as n from kernel.outbox_events
-                  where event_type = 'national.licence.requested.v1' and payload->>'licenceId' = $1`,
+                  where event_type = 'licence.national-requested.v1' and payload->>'licenceId' = $1`,
                 [licence?.id]
             )
         ).toBe(1);
@@ -768,7 +769,7 @@ describe('a print batch', () => {
         expect(sent.json<{ status: string }>().status).toBe('requested');
         expect(
             await count(
-                `select count(*)::int as n from kernel.outbox_events where event_type = 'national.print.requested.v1' and payload->>'batchId' = $1`,
+                `select count(*)::int as n from kernel.outbox_events where event_type = 'licence-batch.print-requested.v1' and payload->>'batchId' = $1`,
                 [id]
             )
         ).toBe(1);

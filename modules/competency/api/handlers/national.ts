@@ -107,18 +107,18 @@ export async function sendPrintBatch(
 
 export function competencyHandlers(system: SystemDatabase, deps: NationalDeps): Record<string, OutboxHandler> {
     return {
-        'national.licence.requested.v1': async (job) => {
+        'licence.national-requested.v1': async (job) => {
             await askNationalPlatform(
                 system,
                 deps,
-                COMPETENCY_EVENTS['national.licence.requested.v1'].parse(job.payload)
+                COMPETENCY_EVENTS['licence.national-requested.v1'].parse(job.payload)
             );
         },
-        'national.print.requested.v1': async (job) => {
+        'licence-batch.print-requested.v1': async (job) => {
             await sendPrintBatch(
                 system,
                 deps,
-                COMPETENCY_EVENTS['national.print.requested.v1'].parse(job.payload).batchId
+                COMPETENCY_EVENTS['licence-batch.print-requested.v1'].parse(job.payload).batchId
             );
         }
     };

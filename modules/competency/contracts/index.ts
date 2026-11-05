@@ -41,12 +41,12 @@ export const NATIONAL_REJECTED = 'event:national.licence.rejected';
 
 export const COMPETENCY_EVENTS = {
     /** the worker asks the national platform (external calls never run in a request) */
-    'national.licence.requested.v1': z.object({
+    'licence.national-requested.v1': z.object({
         caseId: z.uuid(),
         licenceId: z.uuid(),
         kind: z.enum(['new', 'renewal'])
     }),
-    'national.print.requested.v1': z.object({ batchId: z.uuid() })
+    'licence-batch.print-requested.v1': z.object({ batchId: z.uuid() })
 } as const;
 
 /** What an answer of the national platform gives a licence, as an event's input to the case's effects. */

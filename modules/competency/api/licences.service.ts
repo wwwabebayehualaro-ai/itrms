@@ -263,7 +263,7 @@ export class LicencesService {
                 gradeTypeId: grade.id
             });
         }
-        await emit(tx, 'national.licence.requested.v1', {
+        await emit(tx, 'licence.national-requested.v1', {
             caseId: place.caseId,
             licenceId: licence.id,
             kind: 'new'
@@ -348,7 +348,7 @@ export class LicencesService {
     }
 
     async requestRenewal(tx: Tx, place: CasePlace, facts: Readonly<Record<string, unknown>>) {
-        await emit(tx, 'national.licence.requested.v1', {
+        await emit(tx, 'licence.national-requested.v1', {
             caseId: place.caseId,
             licenceId: this.licenceIdOf(facts, 'renewal'),
             kind: 'renewal'

@@ -129,7 +129,7 @@ export class RegisterService {
         if (row.status !== 'open' || items.length === 0)
             throw new ConflictError('invalid_transition', { detail: 'Only an open batch with licences can be sent.' });
         const updated = await updateAudited(tx, licencePrintBatches, id, version, { status: 'requested' });
-        await emit(tx, 'national.print.requested.v1', { batchId: id });
+        await emit(tx, 'licence-batch.print-requested.v1', { batchId: id });
         return this.batchView(updated, items.length);
     }
 }
