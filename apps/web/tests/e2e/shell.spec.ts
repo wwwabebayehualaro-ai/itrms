@@ -31,7 +31,8 @@ test('switching the unit changes the menu and the data scope', async ({ page }) 
     await page.keyboard.press('Control+k');
     const palette = page.getByRole('dialog');
     await expect(palette.getByRole('option', { name: /የመንጃ ፈቃድ ማመልከቻዎች/ })).toBeVisible();
-    await expect(palette.getByRole('option', { name: /አዲስ የመንጃ ፈቃድ ማመልከቻ/ })).toBeVisible();
+    // and only what the person can do: a competency officer here reviews requests, and files none (no case:create)
+    await expect(palette.getByRole('option', { name: /አዲስ የመንጃ ፈቃድ ማመልከቻ/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
 
     // to Damot Gale: no licensing items, and the zone's records are out of scope

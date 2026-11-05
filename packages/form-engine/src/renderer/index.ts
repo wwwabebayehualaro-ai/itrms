@@ -27,7 +27,7 @@ export type {
 } from '../host/client';
 
 // registry records by name, for answers shown outside a form (a case's printed steps)
-export { useLookupLabels } from '../host/lookups';
+export { useLookupLabels, useLookupSearch } from '../host/lookups';
 
 // the fee a service's rule works out for the answers so far: the screen names the service, and files the figure it showed
 export { FeeSourceProvider, useFeeSource, useFeePreview, useLatestFee } from '../host/fees';

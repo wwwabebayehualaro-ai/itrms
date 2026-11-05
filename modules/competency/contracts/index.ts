@@ -123,6 +123,10 @@ export const enrolmentSchema = z.object({
     personId: z.uuid(),
     schoolId: z.uuid(),
     grade: z.string(),
+    /** for the office's list: the register's names, as they are now */
+    personName: z.object({ am: z.string(), en: z.string().nullable() }),
+    schoolName: i18nTextSchema,
+    gradeName: i18nTextSchema,
     status: z.enum(ENROLMENT_STATUSES),
     completedOn: z.iso.date().nullable(),
     version: z.number().int()
@@ -148,5 +152,6 @@ export const examAnswersSchema = z.object({
     /** none: not part of this exam, as a late renewal has only the practical */
     theory: z.number().int().min(0).max(100).nullable().optional(),
     practical: z.number().int().min(0).max(100).nullable().optional(),
-    passed: z.boolean()
+    /** a box left unticked may not be sent at all */
+    passed: z.boolean().default(false)
 });

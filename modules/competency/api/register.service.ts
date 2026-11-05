@@ -7,7 +7,7 @@ import { and, desc, eq, sql, type SQL } from 'drizzle-orm';
 import { insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { ConflictError, NotFoundError } from '@itrms/kernel/errors';
 import { emit } from '@itrms/kernel/outbox';
-import { organisations } from '@itrms/parties/api';
+import { organisations, persons } from '@itrms/parties/api';
 
 import { enrolmentSchema, printBatchSchema, type ENROLMENT_STATUSES, type Enrolment } from '../contracts';
 import { licenceGradeTypes, licencePrintBatches, licencePrintBatchItems, trainingEnrolments } from './competency.table';
@@ -21,16 +21,49 @@ function required(value: string | undefined): string {
 
 @Injectable()
 export class RegisterService {
-    private enrolmentView(row: typeof trainingEnrolments.$inferSelect, grade: string): Enrolment {
-        return enrolmentSchema.parse({
-            id: row.id,
-            personId: row.personId,
-            schoolId: row.schoolId,
-            grade,
-            status: row.status,
-            completedOn: row.completedOn,
-            version: row.rowVersion
-        });
+    /** Enrolments with who and what they are about, as the register has them now. */
+    private async enrolmentViews(tx: Tx, where: SQL | undefined, limit: number): Promise<Enrolment[]> {
+        const rows = await tx
+            .select({
+                enrolment: trainingEnrolments,
+                grade: licenceGradeTypes.key,
+                gradeName: licenceGradeTypes.name,
+                schoolName: organisations.name,
+                person: persons
+            })
+            .from(trainingEnrolments)
+            .innerJoin(licenceGradeTypes, eq(licenceGradeTypes.id, trainingEnrolments.gradeTypeId))
+            .innerJoin(organisations, eq(organisations.id, trainingEnrolments.schoolId))
+            .innerJoin(persons, eq(persons.id, trainingEnrolments.personId))
+            .where(where)
+            .orderBy(desc(trainingEnrolments.createdAt))
+            .limit(limit);
+        const nameOf = (...parts: (string | null)[]) => parts.filter(Boolean).join(' ');
+        return rows.map((r) =>
+            enrolmentSchema.parse({
+                id: r.enrolment.id,
+                personId: r.enrolment.personId,
+                schoolId: r.enrolment.schoolId,
+                grade: r.grade,
+                personName: {
+                    am: nameOf(r.person.givenNameAm, r.person.fatherNameAm, r.person.grandfatherNameAm),
+                    en: r.person.givenNameEn
+                        ? nameOf(r.person.givenNameEn, r.person.fatherNameEn, r.person.grandfatherNameEn)
+                        : null
+                },
+                schoolName: r.schoolName,
+                gradeName: r.gradeName,
+                status: r.enrolment.status,
+                completedOn: r.enrolment.completedOn,
+                version: r.enrolment.rowVersion
+            })
+        );
+    }
+
+    private async enrolment(tx: Tx, id: string): Promise<Enrolment> {
+        const [view] = await this.enrolmentViews(tx, eq(trainingEnrolments.id, id), 1);
+        if (!view) throw new NotFoundError();
+        return view;
     }
 
     async enrol(tx: Tx, ctx: DbContext, input: EnrolmentCreate): Promise<Enrolment> {
@@ -42,7 +75,7 @@ export class RegisterService {
         if (school?.kind !== 'training_school')
             throw new ConflictError('invalid_transition', { detail: 'This organisation is not a training school.' });
         const [grade] = await tx
-            .select({ id: licenceGradeTypes.id, key: licenceGradeTypes.key })
+            .select({ id: licenceGradeTypes.id })
             .from(licenceGradeTypes)
             .where(and(eq(licenceGradeTypes.regionId, regionId), eq(licenceGradeTypes.key, input.grade)));
         if (!grade) throw new ConflictError('not_configured', { detail: `No licence grade ${input.grade}.` });
@@ -53,21 +86,17 @@ export class RegisterService {
             schoolId: input.schoolId,
             gradeTypeId: grade.id
         });
-        return this.enrolmentView(made, grade.key);
+        return this.enrolment(tx, made.id);
     }
 
     async complete(tx: Tx, id: string, version: number, completedOn: string): Promise<Enrolment> {
         const [row] = await tx
-            .select({ enrolment: trainingEnrolments, grade: licenceGradeTypes.key })
+            .select({ id: trainingEnrolments.id })
             .from(trainingEnrolments)
-            .innerJoin(licenceGradeTypes, eq(licenceGradeTypes.id, trainingEnrolments.gradeTypeId))
             .where(eq(trainingEnrolments.id, id));
         if (!row) throw new NotFoundError();
-        const updated = await updateAudited(tx, trainingEnrolments, id, version, {
-            status: 'completed',
-            completedOn
-        });
-        return this.enrolmentView(updated, row.grade);
+        await updateAudited(tx, trainingEnrolments, id, version, { status: 'completed', completedOn });
+        return this.enrolment(tx, id);
     }
 
     async enrolments(
@@ -83,14 +112,7 @@ export class RegisterService {
         if (query.personId) where.push(eq(trainingEnrolments.personId, query.personId));
         if (query.schoolId) where.push(eq(trainingEnrolments.schoolId, query.schoolId));
         if (query.status) where.push(eq(trainingEnrolments.status, query.status));
-        const rows = await tx
-            .select({ enrolment: trainingEnrolments, grade: licenceGradeTypes.key })
-            .from(trainingEnrolments)
-            .innerJoin(licenceGradeTypes, eq(licenceGradeTypes.id, trainingEnrolments.gradeTypeId))
-            .where(where.length ? and(...where) : undefined)
-            .orderBy(desc(trainingEnrolments.createdAt))
-            .limit(query.limit);
-        return { items: rows.map((r) => this.enrolmentView(r.enrolment, r.grade)) };
+        return { items: await this.enrolmentViews(tx, where.length ? and(...where) : undefined, query.limit) };
     }
 
     private batchView(row: typeof licencePrintBatches.$inferSelect, licences: number) {

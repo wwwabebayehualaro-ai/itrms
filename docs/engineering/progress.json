@@ -1184,10 +1184,18 @@
         {
           "id": "0.24c",
           "title": "Driver licences, part 3: the registry views",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.24c-licence-screens",
+          "commits": [
+            "7ac1144"
+          ],
+          "evidence": [
+            "CI run 42065227098 on 7ac1144: all 9 jobs success, including the e2e job and openapi.spec against the committed contract",
+            "apps/web/tests/e2e/competency/licences.spec.ts, two journeys in a browser on the seeded services: the training list, filing on the platform's form, review, exam, the till, final approval, the worker's fake national platform, the card by the PDF worker, the register and the print batch; then the licence's renewal with its offence check and new term. Setup through the API: the person, the school and the renewal window setting, as those have their own journeys",
+            "Zero service-specific UI but the registry views: applications and exams are the platform's Requests narrowed by service and step; the register, training lists and print batches are the only new screens",
+            "Permissions: form:read for competency roles, the driver-licence lookup on person:read (licence-services.int.spec asserts it for a records officer and an examiner), the quick action on case:create (shell.spec). iam.int.spec covers the menu",
+            "task-verifier on 7ac1144: ready, no blocker. Code review at high on d6cc081: 10 findings, fixed in 4ca8de8"
+          ],
           "blockers": [],
           "notes": ""
         },

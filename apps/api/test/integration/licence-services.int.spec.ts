@@ -655,6 +655,20 @@ describe('a renewal', () => {
         expect((await licencesOf(person))[0]?.validUntil).toBe(yearsOn(2));
     }, 240_000);
 
+    it('lets the people on a renewal see the licence: the counter files it, and an examiner reads its case', async () => {
+        const { licence } = await licensed(yearsAgo(30));
+        const records = { sub: '0199f0a0-d000-7000-8000-000000000302', unit: as.officer.unit };
+        for (const who of [records, as.examiner]) {
+            const found = await api.call(
+                'GET',
+                `/api/v1/registry-lookups/driver-licence?q=${encodeURIComponent(licence.number ?? '')}`,
+                who
+            );
+            expect(found.statusCode, found.body).toBe(200);
+            expect(found.json<{ items: { id: string }[] }>().items.map((i) => i.id)).toContain(licence.id);
+        }
+    }, 240_000);
+
     it('is refused if what the fee was worked out from disagrees with the register', async () => {
         const { licence } = await licensed(yearsAgo(30));
         const expiry = yearsAgo(0);

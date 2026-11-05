@@ -4,7 +4,8 @@ import { defineModule } from '@itrms/module-sdk';
 // its effects and its lookups.
 const LICENSING = ['DVC-03', 'DVC-04', 'DVC-08', 'DVC-10', 'DVC-11'];
 // the register (roles-and-permissions.md §2): officers register and correct applicants and check their identity
-const REGISTER_READ = ['person:read', 'organisation:read', 'file:upload', 'file:read'];
+// form:read: a case's request names its applicant and school through registry lookups, which need it to show their names
+const REGISTER_READ = ['person:read', 'organisation:read', 'file:upload', 'file:read', 'form:read'];
 const REGISTER_INTAKE = [
     ...REGISTER_READ,
     'person:lookup',
@@ -109,9 +110,27 @@ export default defineModule({
                     key: 'competency.newApplication',
                     label: 'competency.action.newApplication',
                     route: '/competency/applications/new',
-                    requires: { permission: 'licence:read', services: ['DVC-03'] }
+                    requires: { permission: 'case:create', services: ['DVC-03'] }
                 }
             ]
+        },
+        {
+            key: 'competency.licences',
+            group: 'work-process',
+            order: 15,
+            label: 'competency.nav.licences',
+            icon: 'id-card',
+            route: '/competency/licences',
+            requires: { permission: 'licence:read', services: LICENSING }
+        },
+        {
+            key: 'competency.training',
+            group: 'work-process',
+            order: 18,
+            label: 'competency.nav.training',
+            icon: 'list-checks',
+            route: '/competency/training',
+            requires: { permission: 'training:read', services: LICENSING }
         },
         {
             key: 'competency.exams',

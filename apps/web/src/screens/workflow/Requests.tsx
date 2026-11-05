@@ -6,7 +6,7 @@
  * case page, where it is acted on (and changed, where its workflow allows).
  */
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
     Button,
     EmptyState,
@@ -42,7 +42,18 @@ const SLA_TONE: Record<SlaState, Tone> = {
 
 type List = NonNullable<CaseListFilters['list']>;
 
-export function Requests() {
+export function Requests({
+    fixed,
+    title,
+    intro,
+    toolbar
+}: {
+    /** the same list narrowed to a service, or to a step of it (a work process's own screen: task 0.24c) */
+    fixed?: { service: string; state?: string };
+    title?: string;
+    intro?: string;
+    toolbar?: ReactNode;
+} = {}) {
     const { t } = useText();
     const [list, setList] = useState<List>('waiting');
     const [mine, setMine] = useState(false);
@@ -51,7 +62,7 @@ export function Requests() {
     // the cursors of the pages before this one (a cursor is the last case of the page before)
     const [cursors, setCursors] = useState<string[]>([]);
     const after = cursors[cursors.length - 1] ?? null;
-    const filters: CaseListFilters = { list, ...(mine ? { mine } : {}), ...(number ? { number } : {}) };
+    const filters: CaseListFilters = { ...fixed, list, ...(mine ? { mine } : {}), ...(number ? { number } : {}) };
     const requests = useCaseList(filters, after);
     const refilter = (change: () => void) => {
         change();
@@ -60,7 +71,11 @@ export function Requests() {
 
     return (
         <div className="flex flex-col gap-6" data-screen="requests">
-            <PageHeader title={t('workflow.requests.title')} description={t('workflow.requests.intro')} />
+            <PageHeader
+                title={title ?? t('workflow.requests.title')}
+                description={intro ?? t('workflow.requests.intro')}
+            />
+            {toolbar}
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
                 <ToggleGroup
                     type="single"

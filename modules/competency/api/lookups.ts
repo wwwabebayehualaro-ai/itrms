@@ -24,7 +24,9 @@ const holderText = (licence: Licence, language: string): string => {
 @Injectable()
 export class LicenceLookup implements RegistryLookupProvider {
     readonly key = 'driver-licence';
-    readonly permission = 'licence:read';
+    // whoever may read people: a records officer files a renewal, an examiner reads its case, and neither has licence:read. It shows
+    // a holder's name, grades and expiry, which is what a form needs and nothing sensitive
+    readonly permission = 'person:read';
 
     constructor(@Inject(LicencesService) private readonly licences: LicencesService) {}
 
