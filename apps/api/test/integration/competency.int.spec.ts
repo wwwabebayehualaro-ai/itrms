@@ -947,6 +947,60 @@ describe('a print batch', () => {
     }, 180_000);
 });
 
+describe('the audit log', () => {
+    it('has every write of a licence’s life, and no clinic’s name', async () => {
+        const facility = `Clinic ${randomInt(100_000, 999_999)}`;
+        const person = await registered(yearsAgo(30));
+        await trained(person);
+        let c = await filed(NEW, applicationOf(person, { medicalFacility: facility }));
+        c = await moved(c, as.officer, 'submit');
+        c = await moved(c, as.officer, 'approve');
+        c = await moved(c, as.examiner, 'pass', EXAM);
+        c = await moved(c, as.lead, 'approve');
+        const licenceId = (await licenceOf(person))[0]?.id ?? '';
+        await askNationalPlatform(system, deps, { caseId: c.id, licenceId, kind: 'new' });
+
+        const logged = async (table: string, column: string, value: string) => {
+            const { rows } = await api.owner.query<{ action: string }>(
+                `select a.action from kernel.audit_log a
+                  where a.table_name = $1
+                    and a.row_id in (select id from ${table} where ${column} = $2)`,
+                [table, value]
+            );
+            return rows.map((r) => r.action);
+        };
+        // pending, then active: both on record
+        const licence = await logged('competency.driver_licences', 'id', licenceId);
+        expect(licence).toEqual(expect.arrayContaining(['insert', 'update']));
+        expect(await logged('competency.licence_grades', 'licence_id', licenceId)).toContain('insert');
+        expect(await logged('competency.medical_certificates', 'case_id', c.id)).toContain('insert');
+        expect(await logged('competency.training_enrolments', 'person_id', person)).toEqual(
+            expect.arrayContaining(['insert', 'update'])
+        );
+        expect(await logged('competency.exam_results', 'case_id', c.id)).toContain('insert');
+        expect(await logged('competency.licence_print_batch_items', 'licence_id', licenceId)).toContain('insert');
+        const heldOn = EXAM.heldOn;
+        expect(await logged('competency.exam_sessions', 'held_on', heldOn)).toContain('insert');
+
+        // the catalogue, written by the seed, and the batch the licence went on
+        expect(
+            await count(
+                `select count(*)::int as n from kernel.audit_log where table_name = 'competency.licence_grade_types'`
+            )
+        ).toBeGreaterThanOrEqual(13);
+        expect(
+            await count(
+                `select count(*)::int as n from kernel.audit_log where table_name = 'competency.licence_print_batches'`
+            )
+        ).toBeGreaterThanOrEqual(1);
+
+        // what a person's health was checked for stays out of the log
+        expect(
+            await count(`select count(*)::int as n from kernel.audit_log where diff::text like $1`, [`%${facility}%`])
+        ).toBe(0);
+    }, 180_000);
+});
+
 describe('who sees what', () => {
     it('finds a licence by number or holder for a form, and a school only among schools', async () => {
         const { licence } = await licensed(yearsAgo(30));
