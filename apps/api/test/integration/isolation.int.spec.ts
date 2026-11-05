@@ -387,7 +387,8 @@ describe('every tenant table', () => {
         expect(rows.map((r) => r.name)).toEqual([
             // a document's status by its token's hash, for the public endpoint: a checker's minimum (ADR-0045)
             'documents.verification(text)',
-            // the public halves of the signing keys, for the verifier's offline check: public by definition
+            // the names of the kinds of document, and the public halves of the signing keys, for the verifier's offline check
+            'documents.verification_document_names()',
             'documents.verification_keys()',
             // one deposit pays once, as a slip at a till or a reference elsewhere: yes or no for the caller's region (ADR-0043)
             'fees.external_reference_in_use(text,text,integer)',

@@ -115,6 +115,16 @@ describe('what the page shows', () => {
         await waitFor(() => expect(screen.getByRole('status').dataset.state).toBe('offline'));
     });
 
+    it('never calls an address that lost its proof forged, just because the office can’t be reached', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(() => Promise.reject(new Error('no network')))
+        );
+        window.history.pushState({}, '', `/${TOKEN}`);
+        render(<VerifyPage />);
+        await waitFor(() => expect(screen.getByRole('status').dataset.state).toBe('offline'));
+    });
+
     it('calls a QR with no proof it can read forged, even with no connection and no keys', async () => {
         vi.stubGlobal(
             'fetch',

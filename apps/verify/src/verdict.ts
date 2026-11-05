@@ -2,13 +2,7 @@
  * What a checker is told, from the offline proof and the live status together (ADR-0046). The live status decides when there is
  * one. A proof alone says the facts are genuine, and can't say what happened to the document since it was printed.
  */
-import {
-    addisToday,
-    checkQr,
-    sameDocument,
-    type PublishedKey,
-    type QrCheck
-} from '@itrms/documents/contracts/verification-check';
+import { addisToday, checkQr, type PublishedKey, type QrCheck } from '@itrms/documents/contracts/verification-check';
 import type { VerificationPayload } from '@itrms/documents/contracts';
 
 import type { Lookup } from './lookup';
@@ -24,9 +18,8 @@ export type Verdict =
 export const verdictOf = (check: QrCheck, live: Lookup | null): Verdict => {
     if (check.state === 'notOurs' || check.state === 'forged') return { kind: check.state };
     if (check.state === 'unknownKey') return { kind: 'unknownKey' };
-    if (live?.state === 'found')
-        return sameDocument(check.facts, live.document) ? { kind: 'live', lookup: live } : { kind: 'forged' };
-    // a signed payload beside a token no document has: the live status was cut off from it
+    if (live?.state === 'found') return { kind: 'live', lookup: live };
+    // signed for a token no document has: it was withdrawn from this installation, or never was its own
     if (live?.state === 'unknown') return { kind: 'forged' };
     return { kind: 'offline', facts: check.facts, expired: check.expired };
 };

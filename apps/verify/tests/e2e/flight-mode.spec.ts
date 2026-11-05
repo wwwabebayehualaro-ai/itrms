@@ -45,7 +45,7 @@ const TOKEN = randomBytes(16).toString('base64url');
 
 const qrOf = (facts: Record<string, unknown>, key = ACTIVE, token = TOKEN) => {
     const bytes = Buffer.from(JSON.stringify(facts));
-    return `https://verify.example.test/${token}#${base64Url(bytes)}.${base64Url(sign(null, bytes, key.privateKey))}`;
+    return `https://verify.example.test/${token}#${base64Url(bytes)}.${base64Url(sign(null, Buffer.concat([Buffer.from(`${token}.`), bytes]), key.privateKey))}`;
 };
 
 /** The QR as Chromium's fake camera shows it: one 4:2:0 frame, repeated. */
@@ -103,7 +103,10 @@ test.describe('the verifier', () => {
 
     test.beforeAll(async () => {
         server = await serve(OUT, {
-            keys: () => ({ keys: [ACTIVE.published, RETIRED.published] }),
+            keys: () => ({
+                keys: [ACTIVE.published, RETIRED.published],
+                documents: [{ key: 'licence-card', name: { am: 'የመንጃ ፈቃድ', en: 'Driver licence' } }]
+            }),
             verification: (token) => (token === TOKEN ? status : null)
         });
     });
@@ -135,6 +138,12 @@ test.describe('the verifier', () => {
         await showQr(page, qrOf(FACTS));
         await verdict(page, 'offlineGood');
         await expect(page.getByText('SER-100')).toBeVisible();
+        // by the name the phone was given, not by its key
+        await expect(page.getByText('የመንጃ ፈቃድ')).toBeVisible();
+
+        // another document's token beside these facts fails here too, with no connection
+        await showQr(page, qrOf(FACTS).replace(TOKEN, randomBytes(16).toString('base64url')));
+        await verdict(page, 'forged');
 
         const [address = '', proof = ''] = qrOf(FACTS).split('#');
         const changed = base64Url(Buffer.from(JSON.stringify({ ...FACTS, n: 'SER-999' })));
@@ -174,7 +183,7 @@ test.describe('the verifier', () => {
         expect(refused).toEqual([]);
     });
 
-    test('takes the live status when there is a connection, and catches a swapped token', async ({ page }) => {
+    test('takes the live status when there is a connection', async ({ page }) => {
         await makeReady(page, server.origin);
 
         await showQr(page, qrOf(FACTS));
@@ -184,12 +193,8 @@ test.describe('the verifier', () => {
         await showQr(page, qrOf(FACTS));
         await verdict(page, 'revoked');
 
-        // a revoked document's facts beside a token of no document: the status can't be cut off that way
+        // properly signed for a token the office knows nothing of
         await showQr(page, qrOf(FACTS, ACTIVE, randomBytes(16).toString('base64url')));
-        await verdict(page, 'forged');
-
-        // a real token beside another's facts
-        await showQr(page, qrOf({ ...FACTS, n: 'SER-200' }));
         await verdict(page, 'forged');
     });
 

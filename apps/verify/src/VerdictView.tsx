@@ -1,5 +1,6 @@
 import type { VerificationOut, VerificationPayload } from '@itrms/documents/contracts';
 
+import type { DocumentName } from './keys';
 import type { Lookup } from './lookup';
 import { dayOf, Fact, type Language, type Words } from './shared';
 import type { Verdict } from './verdict';
@@ -32,16 +33,22 @@ export function VerifyResult({ lookup, words, language }: { lookup: Lookup; word
     );
 }
 
-const templateName = (key: string, words: Words) => {
-    const name = `verify.template.${key}`;
-    return name in words ? words[name as keyof Words] : key;
-};
-
-/** All the QR carries: its template and office by their keys, since there is no room for their names on a licence card's code. */
-function OfflineFacts({ facts, words, language }: { facts: VerificationPayload; words: Words; language: Language }) {
+/** All the QR carries, with the kind of document by the name this phone was given: never a raw key, which would mean nothing. */
+function OfflineFacts({
+    facts,
+    documents,
+    words,
+    language
+}: {
+    facts: VerificationPayload;
+    documents: readonly DocumentName[] | undefined;
+    words: Words;
+    language: Language;
+}) {
+    const name = documents?.find((d) => d.key === facts.t)?.name;
     return (
         <dl className="facts">
-            <Fact term={words['verify.page.document']}>{templateName(facts.t, words)}</Fact>
+            {name && <Fact term={words['verify.page.document']}>{textOf(name, language)}</Fact>}
             {facts.n && <Fact term={words['verify.page.number']}>{facts.n}</Fact>}
             <Fact term={words['verify.check.officeCode']}>{facts.o}</Fact>
             <Fact term={words['verify.page.issuedOn']}>{dayOf(facts.i, language)}</Fact>
@@ -51,7 +58,17 @@ function OfflineFacts({ facts, words, language }: { facts: VerificationPayload; 
     );
 }
 
-export function VerdictView({ verdict, words, language }: { verdict: Verdict; words: Words; language: Language }) {
+export function VerdictView({
+    verdict,
+    documents,
+    words,
+    language
+}: {
+    verdict: Verdict;
+    documents?: readonly DocumentName[] | undefined;
+    words: Words;
+    language: Language;
+}) {
     if (verdict.kind === 'live')
         return (
             <div data-verdict={verdict.lookup.document.status}>
@@ -65,7 +82,7 @@ export function VerdictView({ verdict, words, language }: { verdict: Verdict; wo
                 <p className={`status status-${kind}`} role="status">
                     {words[`verify.check.${kind}`]}
                 </p>
-                <OfflineFacts facts={verdict.facts} words={words} language={language} />
+                <OfflineFacts facts={verdict.facts} documents={documents} words={words} language={language} />
                 <p className="hint">{words['verify.page.compare']}</p>
             </div>
         );

@@ -27,16 +27,14 @@
   "verify.page.title": "የሰነድ ማረጋገጫ",
   "verify.page.validUntil": "የሚያበቃበት",
   "verify.scan.again": "ሌላ ይቃኙ",
+  "verify.scan.cannotCheck": "ይህ ስልክ ማረጋገጫውን ማከናወን አልቻለም። ይህ ስለ ሰነዱ ምንም አይናገርም። የተዘመነ ብሮውዘር ይሞክሩ።",
   "verify.scan.noCamera": "ካሜራው ሊከፈት አልቻለም። በምትኩ የኮዱን ፎቶ ያንሱ።",
   "verify.scan.noCode": "ከዚህ ምስል ኮድ ማንበብ አልተቻለም። ይበልጥ ቀርበው ጥርት ያለ ፎቶ ያንሱ።",
+  "verify.scan.noReader": "ኮድ አንባቢው ሊከፈት አልቻለም። ከኢንተርኔት ጋር ተገናኝተው ይህን ገጽ እንደገና ይክፈቱ።",
   "verify.scan.notReady": "ስልኩ ያለ ኢንተርኔት ለማረጋገጥ እንዲዘጋጅ አንድ ጊዜ ከኢንተርኔት ጋር ያገናኙ።",
   "verify.scan.photo": "የኮዱን ፎቶ ያንሱ",
   "verify.scan.ready": "በዚህ ስልክ ያለ ኢንተርኔት ይሠራል። ቁልፎቹ ለመጨረሻ ጊዜ የተዘመኑት፦ {day}።",
   "verify.scan.start": "ካሜራውን ይክፈቱ",
   "verify.scan.stop": "ካሜራውን ይዝጉ",
-  "verify.scan.title": "ሰነድ ይቃኙ",
-  "verify.template.application-copy": "የማመልከቻ ቅጂ",
-  "verify.template.exam-result": "የፈተና ውጤት",
-  "verify.template.licence-card": "የመንጃ ፈቃድ ካርድ",
-  "verify.template.receipt": "የክፍያ ደረሰኝ"
+  "verify.scan.title": "ሰነድ ይቃኙ"
 }

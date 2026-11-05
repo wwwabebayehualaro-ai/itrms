@@ -14,7 +14,7 @@
    status. Offline, the part after `#`, which a browser never sends to a server, proves the document was issued by that
    region. A QR made once needs no change for either.
 2. **The token** is 128 random bits. Only its SHA-256 is stored, so the database can't print a valid QR, and it can't be guessed.
-3. **The payload** is signed with **Ed25519** and carries only the document's key, number, office code and dates, and the holder's
+3. **The token and the payload** are signed together with **Ed25519** (ADR-0046). The payload carries only the document's key, number, office code and dates, and the holder's
    **masked** name, which a checker compares with the paper in hand. Not a hash of the name, as architecture.md first had it: a
    list of common names would undo a hash in moments, and a checker can't type a name to compare at a roadside.
 4. **Keys are per region**, one active at a time, rotated yearly by the PDF worker when it next signs. The private half is sealed

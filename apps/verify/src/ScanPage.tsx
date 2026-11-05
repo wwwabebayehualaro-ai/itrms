@@ -5,18 +5,18 @@
  * mode. What it reads is checked on the phone and is never opened as an address, so a fake QR can't lead to a fake page.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { addisToday } from '@itrms/documents/contracts/verification-check';
 
 import { refreshKeys, storedKeys, type KnownKeys } from './keys';
-import { readFrame, readPhoto } from './qr-reader';
 import { lookUp } from './lookup';
+import { loadReader, readFrame, readPhoto } from './qr-reader';
 import { dayOf, Frame, useLanguage, type Language, type Words } from './shared';
 import { examine, type Verdict } from './verdict';
 import { VerdictView } from './VerdictView';
 
 const FRAME_EVERY_MS = 300;
 
-const addisDayOf = (instant: string) =>
-    new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Addis_Ababa' }).format(new Date(instant));
+type Problem = 'noCamera' | 'noCode' | 'noReader' | 'cannotCheck';
 
 function Readiness({
     known,
@@ -37,7 +37,7 @@ function Readiness({
         );
     return (
         <p className="hint" data-keys="ready">
-            {words['verify.scan.ready'].replace('{day}', dayOf(addisDayOf(known.updatedAt), language))}
+            {words['verify.scan.ready'].replace('{day}', dayOf(addisToday(new Date(known.updatedAt)), language))}
         </p>
     );
 }
@@ -49,10 +49,12 @@ export function ScanPage() {
     const [cached, setCached] = useState(false);
     const knownRef = useRef<KnownKeys | null>(null);
     const [scanning, setScanning] = useState(false);
-    const [problem, setProblem] = useState<'noCamera' | 'noCode' | null>(null);
+    const [problem, setProblem] = useState<Problem | null>(null);
     const [checking, setChecking] = useState(false);
     const [verdict, setVerdict] = useState<Verdict | null>(null);
     const video = useRef<HTMLVideoElement>(null);
+    // the scan the page is showing: on a slow link an earlier one must not overwrite the document now in hand
+    const latest = useRef(0);
 
     const remember = useCallback((next: KnownKeys | null) => {
         knownRef.current = next;
@@ -70,21 +72,37 @@ export function ScanPage() {
             remember(stored);
             return refresh();
         });
+        // loaded now, while there may be a connection; a failure here shows when a scan needs it
+        loadReader().catch(() => undefined);
         if ('serviceWorker' in navigator) void navigator.serviceWorker.ready.then(() => setCached(true));
     }, [refresh, remember]);
 
+    /** A new scan: whatever was on the screen, or on its way, is no longer about the document in hand. */
+    const begin = useCallback(() => {
+        latest.current += 1;
+        setProblem(null);
+        setVerdict(null);
+        setChecking(false);
+        return latest.current;
+    }, []);
+
     const check = useCallback(
-        async (text: string) => {
-            setProblem(null);
+        async (text: string, scan: number) => {
+            const current = () => scan === latest.current;
             setChecking(true);
-            setVerdict(
-                await examine(text, {
+            try {
+                const result = await examine(text, {
                     keys: () => knownRef.current?.keys ?? [],
                     refresh: async () => (await refresh())?.keys ?? null,
                     lookUp: (token) => lookUp(token)
-                })
-            );
-            setChecking(false);
+                });
+                if (current()) setVerdict(result);
+            } catch {
+                // the check itself could not run on this phone, which says nothing about the document
+                if (current()) setProblem('cannotCheck');
+            } finally {
+                if (current()) setChecking(false);
+            }
         },
         [refresh]
     );
@@ -96,11 +114,20 @@ export function ScanPage() {
         let stopped = false;
         const look = async () => {
             if (stopped || !video.current) return;
-            const text = await readFrame(video.current).catch(() => null);
+            let text: string | null;
+            try {
+                text = await readFrame(video.current);
+            } catch {
+                if (!stopped) {
+                    setProblem('noReader');
+                    setScanning(false);
+                }
+                return;
+            }
             if (stopped) return;
             if (text) {
                 setScanning(false);
-                await check(text);
+                await check(text, latest.current);
                 return;
             }
             timer = setTimeout(() => void look(), FRAME_EVERY_MS);
@@ -135,10 +162,17 @@ export function ScanPage() {
 
     const onPhoto = async (file: File | undefined) => {
         if (!file) return;
-        setVerdict(null);
+        const scan = begin();
         setScanning(false);
-        const text = await readPhoto(file);
-        if (text) await check(text);
+        let text: string | null;
+        try {
+            text = await readPhoto(file);
+        } catch {
+            if (scan === latest.current) setProblem('noReader');
+            return;
+        }
+        if (scan !== latest.current) return;
+        if (text) await check(text, scan);
         else setProblem('noCode');
     };
 
@@ -150,7 +184,9 @@ export function ScanPage() {
                     {words['verify.page.state.loading']}
                 </p>
             )}
-            {!checking && verdict && <VerdictView verdict={verdict} words={words} language={language} />}
+            {!checking && verdict && (
+                <VerdictView verdict={verdict} documents={known?.documents} words={words} language={language} />
+            )}
             {problem && (
                 <p className="status status-offline" role="alert" data-problem={problem}>
                     {words[`verify.scan.${problem}`]}
@@ -162,8 +198,7 @@ export function ScanPage() {
                     type="button"
                     data-scan
                     onClick={() => {
-                        setProblem(null);
-                        setVerdict(null);
+                        begin();
                         setScanning(!scanning);
                     }}
                 >

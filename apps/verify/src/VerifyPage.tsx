@@ -16,6 +16,8 @@ import { VerdictView, VerifyResult } from './VerdictView';
 
 /** What the part after `#` proves, when the API gave no answer. Without the keys, it proves nothing either way. */
 async function proofInAddress(live: Lookup): Promise<Verdict | null> {
+    // an address that lost its proof, in a messaging app or an old QR reader, proves nothing either way
+    if (!window.location.hash) return null;
     const check = await checkQr(window.location.href, storedKeys()?.keys ?? [], addisToday());
     return check.state === 'genuine' || check.state === 'forged' ? verdictOf(check, live) : null;
 }
@@ -27,7 +29,9 @@ export function VerifyPage() {
     useEffect(() => {
         void (async () => {
             const live = await lookUpAddress(window.location.pathname);
-            if (live.state === 'offline' || live.state === 'busy') setVerdict(await proofInAddress(live));
+            if (live.state === 'offline' || live.state === 'busy')
+                // if the check itself can't run on this phone, "could not reach the office" is still all there is to say
+                setVerdict(await proofInAddress(live).catch(() => null));
             setLookup(live);
             if (live.state !== 'offline') await refreshKeys();
         })();
@@ -35,7 +39,7 @@ export function VerifyPage() {
     return (
         <Frame language={language} words={words} other={other} title={words['verify.page.title']}>
             {verdict ? (
-                <VerdictView verdict={verdict} words={words} language={language} />
+                <VerdictView verdict={verdict} documents={storedKeys()?.documents} words={words} language={language} />
             ) : (
                 <VerifyResult lookup={lookup} words={words} language={language} />
             )}

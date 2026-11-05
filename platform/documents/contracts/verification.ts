@@ -9,7 +9,7 @@ import { z } from 'zod';
 
 import { encodeBase64Url } from './verification-encoding';
 
-export { decodeBase64Url, encodeBase64Url } from './verification-encoding';
+export { decodeBase64Url, encodeBase64Url, signedBytes } from './verification-encoding';
 
 /** 128 random bits, base64url. */
 export const VERIFICATION_TOKEN = /^[A-Za-z0-9_-]{22}$/;
@@ -58,6 +58,8 @@ export type VerificationOut = z.infer<typeof verificationOutSchema>;
 
 /** The public keys the verifier checks a QR with, offline (ADR-0046). A retired key proves only what it signed until that day. */
 export const verificationKeysOutSchema = z.object({
+    /** the names of the kinds of document: a QR on a licence card has room only for a template's key */
+    documents: z.array(z.object({ key: z.string().min(1), name: i18nTextSchema })),
     keys: z.array(
         z.object({
             keyId: z.string().min(1),

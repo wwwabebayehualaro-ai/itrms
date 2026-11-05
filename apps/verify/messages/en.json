@@ -27,16 +27,14 @@
   "verify.page.title": "Document check",
   "verify.page.validUntil": "Valid until",
   "verify.scan.again": "Scan another",
+  "verify.scan.cannotCheck": "This phone cannot run the check. This says nothing about the document. Try an up-to-date browser.",
   "verify.scan.noCamera": "The camera could not be opened. Take a photo of the code instead.",
   "verify.scan.noCode": "No code could be read from this picture. Try a closer, sharper photo.",
+  "verify.scan.noReader": "The scanner could not load. Connect to the internet and open this page again.",
   "verify.scan.notReady": "Connect to the internet once to make this phone ready for checks without a connection.",
   "verify.scan.photo": "Take a photo of the code",
   "verify.scan.ready": "Works on this phone without a connection. Keys last updated on {day}.",
   "verify.scan.start": "Open the camera",
   "verify.scan.stop": "Close the camera",
-  "verify.scan.title": "Scan a document",
-  "verify.template.application-copy": "Application copy",
-  "verify.template.exam-result": "Exam result",
-  "verify.template.licence-card": "Driver licence card",
-  "verify.template.receipt": "Payment receipt"
+  "verify.scan.title": "Scan a document"
 }

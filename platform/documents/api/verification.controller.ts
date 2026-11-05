@@ -13,9 +13,9 @@ import { VerificationService } from './verification.service';
 export class VerificationController {
     constructor(@Inject(VerificationService) private readonly verification: VerificationService) {}
 
-    // a rotated key reaches phones within minutes; a document's status is never cached
+    // a phone asks exactly when a key is newer than what it has
     @Get('verification-keys')
-    @Header('Cache-Control', 'public, max-age=300')
+    @Header('Cache-Control', 'no-store')
     keys(): Promise<VerificationKeysOut> {
         return this.verification.keys();
     }

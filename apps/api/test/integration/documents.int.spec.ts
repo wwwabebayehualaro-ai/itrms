@@ -10,8 +10,14 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { DocumentsService } from '@itrms/documents/api';
-import { encodeBase64Url, payloadBytes, verificationUrl, type VerificationPayload } from '@itrms/documents/contracts';
-import { addisToday, checkQr, sameDocument, type PublishedKey } from '@itrms/documents/contracts/verification-check';
+import {
+    encodeBase64Url,
+    payloadBytes,
+    signedBytes,
+    verificationUrl,
+    type VerificationPayload
+} from '@itrms/documents/contracts';
+import { addisToday, checkQr, type PublishedKey } from '@itrms/documents/contracts/verification-check';
 import { importDocumentTemplates } from '@itrms/documents/seed';
 import { issueReceiptDocument, revokeReceiptDocument } from '@itrms/documents/api/worker';
 import {
@@ -666,10 +672,12 @@ describe('a document’s QR', () => {
         const facts = JSON.parse(payload.toString()) as { k: string; n: string; t: string; o: string; h: string };
         expect(facts).toMatchObject({ v: 1, t: 'receipt', n: number, o: 'WOL-BODITI' });
         expect(payload.toString()).not.toContain('Generated Applicant');
-        expect(cryptoVerify(null, payload, await publicKeyOf(facts.k), signature)).toBe(true);
-        // a changed payload fails: this is what an offline verifier checks
+        expect(cryptoVerify(null, signedBytes(token, payload), await publicKeyOf(facts.k), signature)).toBe(true);
+        // a changed payload fails, and so does another document's token: this is what an offline verifier checks
         const forged = Buffer.from(payload.toString().replace(number, 'WOL-BODITI/999999/2019'));
-        expect(cryptoVerify(null, forged, await publicKeyOf(facts.k), signature)).toBe(false);
+        expect(cryptoVerify(null, signedBytes(token, forged), await publicKeyOf(facts.k), signature)).toBe(false);
+        const otherToken = randomBytes(16).toString('base64url');
+        expect(cryptoVerify(null, signedBytes(otherToken, payload), await publicKeyOf(facts.k), signature)).toBe(false);
 
         const { rows } = await api.owner.query<{ hash: string }>(
             'select verification_token_hash as hash from documents.issued_documents where id = $1',
@@ -862,8 +870,13 @@ describe('a document’s QR', () => {
             .getInstance()
             .inject({ method: 'GET', url: '/api/v1/public/verification-keys' });
         expect(published.statusCode, published.body).toBe(200);
-        expect(published.headers['cache-control']).toContain('public');
-        const { keys } = published.json<{ keys: PublishedKey[] }>();
+        expect(published.headers['cache-control']).toBe('no-store');
+        const { keys, documents } = published.json<{
+            keys: PublishedKey[];
+            documents: { key: string; name: { am: string; en: string } }[];
+        }>();
+        // a phone in flight mode can say what kind of document a QR's key means
+        expect(documents.find((d) => d.key === 'receipt')?.name.en).toBeTruthy();
         // public halves and when they retired: nothing else leaves
         for (const key of keys) expect(Object.keys(key).sort()).toEqual(['keyId', 'publicKey', 'retiredOn']);
         expect(published.body).not.toContain('private');
@@ -871,8 +884,22 @@ describe('a document’s QR', () => {
         const today = addisToday();
         const check = await checkQr(url.href, keys, today);
         if (check.state !== 'genuine') throw new Error(`not genuine: ${check.state}`);
-        // what the API says of the token is the document the signature proves
-        expect(sameDocument(check.facts, (await ask(token)).json())).toBe(true);
+        // the signature's days and name are the ones the API tells of the token
+        const live = (await ask(token)).json<{
+            number: string;
+            issuedOn: string;
+            validUntil: string;
+            holder: string;
+        }>();
+        expect([check.facts.n, check.facts.i, check.facts.u, check.facts.h]).toEqual([
+            live.number,
+            live.issuedOn,
+            live.validUntil,
+            live.holder
+        ]);
+
+        const swapped = url.href.replace(token, randomBytes(16).toString('base64url'));
+        expect(await checkQr(swapped, keys, today)).toMatchObject({ state: 'forged' });
 
         const changed = encodeBase64Url(payloadBytes({ ...check.facts, n: 'FORGED-1' }));
         const tampered = `${url.origin}/${token}#${changed}.${signature.toString('base64url')}`;
@@ -904,14 +931,18 @@ describe('a document’s QR', () => {
         expect(await checkQr(url.href, keys, addisToday())).toMatchObject({ state: 'genuine', token });
         const late = payloadBytes({ ...facts, i: addisToday(new Date(rotatedAt.getTime() + 86_400_000)) });
         expect(
-            await checkQr(verificationUrl(url.origin, token, late, signPayload(old, late)), keys, addisToday())
+            await checkQr(
+                verificationUrl(url.origin, token, late, signPayload(old, signedBytes(token, late))),
+                keys,
+                addisToday()
+            )
         ).toEqual({ state: 'forged', token });
         const { rows } = await api.owner.query<{ active: boolean }>(
             'select active from documents.signing_keys where key_id = $1',
             [signedBy]
         );
         expect(rows[0]?.active).toBe(false);
-        expect(cryptoVerify(null, payload, await publicKeyOf(signedBy), signature)).toBe(true);
+        expect(cryptoVerify(null, signedBytes(token, payload), await publicKeyOf(signedBy), signature)).toBe(true);
         // it stays a key's own: nothing changes but its retirement, and it is never deleted
         await expect(
             api.owner.query(`update documents.signing_keys set public_key = 'x' where key_id = $1`, [signedBy])

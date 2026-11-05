@@ -1,7 +1,7 @@
 /** What a checker is told from the proof and the live status together (ADR-0046). */
 import { generateKeyPairSync, sign } from 'node:crypto';
 
-import { encodeBase64Url } from '@itrms/documents/contracts/verification-encoding';
+import { encodeBase64Url, signedBytes } from '@itrms/documents/contracts/verification-encoding';
 import type { VerificationOut, VerificationPayload } from '@itrms/documents/contracts';
 import type { PublishedKey } from '@itrms/documents/contracts/verification-check';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -17,6 +17,7 @@ const key: PublishedKey = {
     publicKey: encodeBase64Url(pair.publicKey.export({ format: 'der', type: 'spki' }).subarray(-32)),
     retiredOn: null
 };
+const documents = [{ key: 'licence-card', name: { am: 'ካርድ', en: 'Card' } }];
 const facts: VerificationPayload = {
     v: 1,
     k: 'k1',
@@ -38,7 +39,7 @@ const document: VerificationOut = {
 };
 const qrOf = (signed: VerificationPayload) => {
     const bytes = new TextEncoder().encode(JSON.stringify(signed));
-    return `https://verify.example.test/${TOKEN}#${encodeBase64Url(bytes)}.${encodeBase64Url(sign(null, bytes, pair.privateKey))}`;
+    return `https://verify.example.test/${TOKEN}#${encodeBase64Url(bytes)}.${encodeBase64Url(sign(null, signedBytes(TOKEN, bytes), pair.privateKey))}`;
 };
 const scan = (text: string, live: Lookup, keys: readonly PublishedKey[] = [key], fresh: PublishedKey[] | null = null) =>
     examine(text, {
@@ -63,22 +64,20 @@ describe('one scan', () => {
         });
     });
 
-    it('calls it forged when a real token is put with another document’s facts', async () => {
-        const other = { state: 'found', document: { ...document, number: 'SER-2' } } as const;
-        expect(await scan(qrOf(facts), other)).toEqual({ kind: 'forged' });
-    });
-
-    it('calls it forged when the token is no document’s: a revoked document’s status can’t be cut off that way', async () => {
+    it('calls it forged when the API knows no such document', async () => {
         expect(await scan(qrOf(facts), { state: 'unknown' })).toEqual({ kind: 'forged' });
     });
 
-    it('asks the API nothing about a QR that fails its proof', async () => {
+    it('asks the API nothing about a QR that fails its proof, and a swapped token is one', async () => {
         const lookUp = vi.fn();
+        const other = 'zyxwvutsrqponmlkjihgfe';
+        const swapped = qrOf(facts).replace(TOKEN, other);
         const [address = '', proof = ''] = qrOf(facts).split('#');
-        const tampered = `${address}#${encodeBase64Url(new TextEncoder().encode(JSON.stringify({ ...facts, n: 'SER-9' })))}.${proof.split('.')[1]}`;
-        expect(await examine(tampered, { keys: () => [key], refresh: () => Promise.resolve(null), lookUp })).toEqual({
-            kind: 'forged'
-        });
+        const changed = encodeBase64Url(new TextEncoder().encode(JSON.stringify({ ...facts, n: 'SER-9' })));
+        for (const bad of [swapped, `${address}#${changed}.${proof.split('.')[1]}`])
+            expect(await examine(bad, { keys: () => [key], refresh: () => Promise.resolve(null), lookUp })).toEqual({
+                kind: 'forged'
+            });
         expect(lookUp).not.toHaveBeenCalled();
     });
 
@@ -94,17 +93,26 @@ describe('the keys on this phone', () => {
     const answering = (status: number, body: unknown) =>
         vi.fn(() => Promise.resolve(new Response(JSON.stringify(body), { status }))) as unknown as typeof fetch;
 
-    it('are kept for flight mode', async () => {
+    it('are kept for flight mode, with the names of the kinds of document', async () => {
         const now = new Date('2026-11-05T06:00:00Z');
-        await refreshKeys(answering(200, { keys: [key] }), now);
-        expect(storedKeys()).toEqual({ keys: [key], updatedAt: now.toISOString() });
+        await refreshKeys(answering(200, { keys: [key], documents }), now);
+        expect(storedKeys()).toEqual({ keys: [key], documents, updatedAt: now.toISOString() });
     });
 
-    it('stay as they are if the answer is no answer, or not a key list', async () => {
-        await refreshKeys(answering(200, { keys: [key] }));
+    it('never come from a cache: a key signing since the last answer is why it asks', async () => {
+        const fetcher = answering(200, { keys: [key], documents });
+        await refreshKeys(fetcher);
+        expect(vi.mocked(fetcher).mock.calls[0]?.[1]).toMatchObject({ cache: 'no-store' });
+    });
+
+    it('stay as they are if the answer is no answer, not a key list, or an empty one', async () => {
+        await refreshKeys(answering(200, { keys: [key], documents }));
         const before = storedKeys();
         expect(await refreshKeys(answering(500, {}))).toBeNull();
-        expect(await refreshKeys(answering(200, { keys: [{ keyId: 1 }] }))).toBeNull();
+        expect(await refreshKeys(answering(200, { keys: [{ keyId: 1 }], documents }))).toBeNull();
+        expect(await refreshKeys(answering(200, { keys: [{ ...key, publicKey: 'short' }], documents }))).toBeNull();
+        expect(await refreshKeys(answering(200, { keys: [], documents }))).toBeNull();
+        expect(await refreshKeys(answering(200, { keys: [key] }))).toBeNull();
         const down = vi.fn(() => Promise.reject(new Error('no network'))) as unknown as typeof fetch;
         expect(await refreshKeys(down)).toBeNull();
         expect(storedKeys()).toEqual(before);
@@ -112,6 +120,8 @@ describe('the keys on this phone', () => {
 
     it('are nothing if storage holds something else', () => {
         localStorage.setItem('itrms.verify.keys.v1', '{not json');
+        expect(storedKeys()).toBeNull();
+        localStorage.setItem('itrms.verify.keys.v1', JSON.stringify({ keys: [key], documents, updatedAt: 'whenever' }));
         expect(storedKeys()).toBeNull();
     });
 });

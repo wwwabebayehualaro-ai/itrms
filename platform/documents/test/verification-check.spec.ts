@@ -4,19 +4,21 @@
  */
 import { generateKeyPairSync } from 'node:crypto';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { encodeBase64Url, payloadBytes, verificationPayloadSchema, verificationUrl } from '../contracts';
 import {
-    addisToday,
-    checkQr,
-    isVerificationPayload,
-    sameDocument,
-    type PublishedKey
-} from '../contracts/verification-check';
+    encodeBase64Url,
+    payloadBytes,
+    signedBytes,
+    verificationKeysOutSchema,
+    verificationPayloadSchema,
+    verificationUrl
+} from '../contracts';
+import { addisToday, checkQr, isVerificationPayload, type PublishedKey } from '../contracts/verification-check';
 import { signPayload } from '../api/pdf-worker';
 
 const TOKEN = 'abcdefghijklmnopqrstuv';
+const OTHER_TOKEN = 'zyxwvutsrqponmlkjihgfe';
 const BASE = 'https://verify.example.test';
 const TODAY = '2026-11-05';
 
@@ -42,21 +44,25 @@ const FACTS = {
     h: 'G******** H*****'
 };
 
-const qrOf = (facts: typeof FACTS | Record<string, unknown>, key = KEY) => {
+const qrOf = (facts: typeof FACTS | Record<string, unknown>, key = KEY, token = TOKEN) => {
     const bytes = new TextEncoder().encode(JSON.stringify(facts));
-    return verificationUrl(BASE, TOKEN, bytes, signPayload(key.signer, bytes));
+    return verificationUrl(BASE, token, bytes, signPayload(key.signer, signedBytes(token, bytes)));
 };
 
 describe('a QR from the API’s signer', () => {
     it('is genuine, with its facts, and says so with no network', async () => {
         const bytes = payloadBytes(FACTS);
-        const qr = verificationUrl(BASE, TOKEN, bytes, signPayload(KEY.signer, bytes));
+        const qr = verificationUrl(BASE, TOKEN, bytes, signPayload(KEY.signer, signedBytes(TOKEN, bytes)));
+        const fetcher = vi.fn();
+        vi.stubGlobal('fetch', fetcher);
         expect(await checkQr(qr, [KEY.published], TODAY)).toEqual({
             state: 'genuine',
             token: TOKEN,
             facts: FACTS,
             expired: false
         });
+        expect(fetcher).not.toHaveBeenCalled();
+        vi.unstubAllGlobals();
     });
 
     it('is expired from the day after its last day', async () => {
@@ -77,19 +83,33 @@ describe('a QR from the API’s signer', () => {
         }
     });
 
+    it('fails beside another document’s token: a revocation can’t be hidden that way, even offline', async () => {
+        const swapped = qrOf(FACTS).replace(TOKEN, OTHER_TOKEN);
+        expect(await checkQr(swapped, [KEY.published], TODAY)).toEqual({ state: 'forged', token: OTHER_TOKEN });
+        // and it was signed for its own, which passes
+        expect(await checkQr(qrOf(FACTS, KEY, OTHER_TOKEN), [KEY.published], TODAY)).toMatchObject({
+            state: 'genuine',
+            token: OTHER_TOKEN
+        });
+    });
+
     it('fails when the signature is changed, cut or missing', async () => {
         const qr = qrOf(FACTS);
         const [address = '', proof = ''] = qr.split('#');
         const [payload = '', signature = ''] = proof.split('.');
         const flipped = `${signature[0] === 'A' ? 'B' : 'A'}${signature.slice(1)}`;
+        const lastFlipped = `${signature.slice(0, -1)}${signature.endsWith('A') ? 'B' : 'A'}`;
         for (const bad of [
             `${address}#${payload}.${flipped}`,
+            `${address}#${payload}.${lastFlipped}`,
+            `${address}#${payload}.${'A'.repeat(86)}`,
             `${address}#${payload}.${signature.slice(0, 40)}`,
             `${address}#${payload}.`,
             `${address}#${payload}`,
             address,
             `${address}#${payload}.${signature}.more`,
-            `${address}#not-json.${signature}`
+            `${address}#not-json.${signature}`,
+            `${address}#%%%.${signature}`
         ])
             expect(await checkQr(bad, [KEY.published], TODAY), bad).toEqual({ state: 'forged', token: TOKEN });
     });
@@ -113,6 +133,12 @@ describe('a QR from the API’s signer', () => {
         const qr = (i: string) => qrOf({ ...FACTS, k: 'old', i }, retired);
         expect(await checkQr(qr('2026-06-30'), [retired.published], TODAY)).toMatchObject({ state: 'genuine' });
         expect(await checkQr(qr('2026-07-01'), [retired.published], TODAY)).toEqual({ state: 'forged', token: TOKEN });
+    });
+
+    it('throws, rather than calling a real document forged, when the check can’t run on this phone', async () => {
+        vi.stubGlobal('crypto', {});
+        await expect(checkQr(qrOf(FACTS), [KEY.published], TODAY)).rejects.toThrow();
+        vi.unstubAllGlobals();
     });
 });
 
@@ -150,25 +176,14 @@ describe('the payload’s hand-written guard', () => {
     });
 });
 
-describe('a live answer beside a proof', () => {
-    const live = {
-        status: 'valid' as const,
-        documentName: { am: 'ካርድ', en: 'Card' },
-        number: 'SER-1',
-        office: { am: 'ጽ/ቤት', en: 'Office' },
-        issuedOn: '2026-10-01',
-        validUntil: '2027-10-01',
-        holder: 'G******** H*****'
-    };
-    it('is the same document only if every shared fact agrees', () => {
-        expect(sameDocument(FACTS, live)).toBe(true);
-        for (const change of [
-            { number: 'SER-2' },
-            { issuedOn: '2026-10-02' },
-            { validUntil: null },
-            { holder: 'X* Y*' }
-        ])
-            expect(sameDocument(FACTS, { ...live, ...change })).toBe(false);
+describe('the list of keys', () => {
+    it('allows a retired key, and a key the check can read', () => {
+        expect(
+            verificationKeysOutSchema.safeParse({
+                documents: [{ key: 'receipt', name: { am: 'ደረሰኝ', en: 'Receipt' } }],
+                keys: [KEY.published, { ...KEY.published, keyId: 'old', retiredOn: '2026-06-30' }]
+            }).success
+        ).toBe(true);
     });
 });
 

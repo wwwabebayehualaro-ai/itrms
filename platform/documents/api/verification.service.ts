@@ -49,7 +49,11 @@ export class VerificationService {
             const { rows } = await tx.execute<{ key_id: string; public_key: string; retired_on: string | null }>(
                 sql`select key_id, public_key, retired_on::text as retired_on from documents.verification_keys()`
             );
+            const names = await tx.execute<{ key: string; name: I18nText }>(
+                sql`select key, name from documents.verification_document_names()`
+            );
             return verificationKeysOutSchema.parse({
+                documents: names.rows.map((n) => ({ key: n.key, name: n.name })),
                 keys: rows.map((r) => ({ keyId: r.key_id, publicKey: r.public_key, retiredOn: r.retired_on }))
             });
         });
