@@ -122,7 +122,7 @@ const RENEW_FLOW = {
     states: [
         { key: 'draft', kind: 'start', label: t('Draft') },
         state('review', 'competency.officer'),
-        state('fieldExam', 'competency.examiner'),
+        state('field_exam', 'competency.examiner'),
         state('approval', 'competency.lead'),
         ...ENDS
     ],
@@ -130,7 +130,7 @@ const RENEW_FLOW = {
         { from: 'draft', to: 'review', action: 'submit', effects: [E.checkRenewal] },
         {
             from: 'review',
-            to: 'fieldExam',
+            to: 'field_exam',
             action: 'approve',
             guard: { fact: 'renewal.lateOverYear', op: 'eq', value: true }
         },
@@ -140,7 +140,7 @@ const RENEW_FLOW = {
             action: 'approve',
             guard: { fact: 'renewal.lateOverYear', op: 'eq', value: false }
         },
-        { from: 'fieldExam', to: 'approval', action: 'pass', effects: [E.recordExam] },
+        { from: 'field_exam', to: 'approval', action: 'pass', effects: [E.recordExam] },
         { from: 'approval', to: 'national', action: 'approve', effects: [E.requestRenewal] },
         ...NATIONAL_WAYS([E.renewLicence, E.issueLicenceCard, E.addToPrintBatch])
     ]
@@ -650,7 +650,7 @@ describe('a renewal', () => {
         let c = await renewal(licence.id);
         expect(await factsOf(c.id)).toMatchObject({ renewal: { lateOverYear: true } });
         c = await moved(c, as.officer, 'approve');
-        expect(c.state).toBe('fieldExam');
+        expect(c.state).toBe('field_exam');
         c = await moved(c, as.examiner, 'pass', { heldOn: today(), practical: 70, passed: true });
         expect(c.state).toBe('approval');
         const { rows } = await api.owner.query<{ theory: number | null; practical: number }>(
