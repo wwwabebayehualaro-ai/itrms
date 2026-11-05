@@ -1166,10 +1166,11 @@
         {
           "id": "0.24b",
           "title": "Driver licences, part 2: the two services on the platform",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.24b-licence-services",
           "commits": [
-            "d98599d"
+            "d98599d",
+            "0325ee2"
           ],
           "evidence": [
             "CI run 42043835341 on d98599d: all 9 jobs success, after one rerun of the e2e job. Its first attempt failed on the form-builder drag test (forms/builder-publish.spec.ts), the known flaky test already in the follow-ups: it passed on 2ce0af5 and on the rerun, and this commit touched only a test and a doc",
