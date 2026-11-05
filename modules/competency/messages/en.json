@@ -6,5 +6,17 @@
   "competency.role.officer": "Competency officer",
   "competency.role.lead": "Competency team leader",
   "competency.role.examiner": "Examiner",
-  "competency.role.inspector": "Technical inspector"
+  "competency.role.inspector": "Technical inspector",
+  "competency.rule.noBirthDate": "The applicant’s full date of birth is not on record. Add it to their record first.",
+  "competency.rule.tooYoung": "The applicant must be at least {min} years old for this grade.",
+  "competency.rule.education": "This grade needs at least grade {min} education.",
+  "competency.rule.prerequisite": "This grade needs a permanent licence held for at least {months} months, of: {grades}.",
+  "competency.rule.medical": "The medical examination must be from the last {months} months.",
+  "competency.rule.training": "The training school has not confirmed that this applicant finished training for this grade.",
+  "competency.rule.notRenewable": "Only an active licence can be renewed.",
+  "competency.lookup.licence.title": "Driver licence",
+  "competency.lookup.school.title": "Training school",
+  "competency.lookup.fact.holder": "Holder",
+  "competency.lookup.fact.grades": "Grades",
+  "competency.lookup.fact.validUntil": "Valid until"
 }

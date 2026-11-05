@@ -1147,8 +1147,8 @@
         {
           "id": "0.24a",
           "title": "Driver licences, part 1: the register, its rules and the national platform",
-          "status": "ready",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.24a-licence-register",
           "commits": [],
           "evidence": [],
           "blockers": [],

@@ -23,6 +23,7 @@ import { createDatabase } from '@itrms/kernel/db';
 import { syncIdentity } from '@itrms/kernel/iam';
 import { importUsers, userImportSchema } from '@itrms/kernel/seed';
 import { importOrg, orgUnits, parseOrgCsv, parseOrgWorkbook, parseOrgYaml, type OrgImport } from '@itrms/kernel/org';
+import { importLicenceGrades, setUpLicenceCounters } from '@itrms/competency/seed';
 import { importDocumentTemplates } from '@itrms/documents/seed';
 import { importFeeRules, parseFeeRules, setUpReceiptCounters } from '@itrms/fees/seed';
 import { importCatalogue } from '@itrms/services/api';
@@ -53,6 +54,7 @@ async function main() {
         kind === 'identity' ||
         kind === 'counters' ||
         kind === 'documents' ||
+        kind === 'competency' ||
         ((kind === 'org' || kind === 'users' || kind === 'services' || kind === 'fees') && file)
     ))
         fail(
@@ -128,6 +130,21 @@ async function main() {
                 return importFeeRules(tx, { id: root.id, regionId: root.regionId }, rules);
             });
             logger.info({ file, region, rules: rules.length, stored }, 'fee rules applied');
+        } else if (kind === 'competency') {
+            // the catalogue of licence grades and the offices' licence counters (task 0.24a)
+            if (!region) throw new Error('seed competency needs --region <code>');
+            const result = await db.scoped(ctx, async (tx) => {
+                const [root] = await tx
+                    .select()
+                    .from(orgUnits)
+                    .where(and(isNull(orgUnits.parentId), eq(orgUnits.code, region)));
+                if (!root) throw new Error(`no region ${region}`);
+                return {
+                    grades: await importLicenceGrades(tx, { id: root.id, regionId: root.regionId }),
+                    counters: await setUpLicenceCounters(tx, root.regionId)
+                };
+            });
+            logger.info({ region, ...result }, 'licence grades and counters applied');
         } else if (file) {
             const doc = userImportSchema.parse(parseYaml(await readFile(file, 'utf8')));
             logger.info({ file, ...(await db.scoped(ctx, (tx) => importUsers(tx, doc))) }, 'users seed applied');

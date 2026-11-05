@@ -4,6 +4,8 @@
  * without API code yet contributes its manifest only.
  */
 import type { DynamicModule, Type } from '@nestjs/common';
+import { CompetencyModule, LICENCE_EFFECTS } from '@itrms/competency/api';
+import { COMPETENCY_EVENTS } from '@itrms/competency/contracts';
 import competency from '@itrms/competency/manifest';
 import competencyAm from '@itrms/competency/messages/am';
 import competencyEn from '@itrms/competency/messages/en';
@@ -105,5 +107,11 @@ export const SLICES: ApiSlice[] = [
         events: PARTIES_EVENTS,
         messages: { am: partiesAm, en: partiesEn, 'wal-Latn': partiesWal }
     },
-    { manifest: competency, messages: { am: competencyAm, en: competencyEn, 'wal-Latn': competencyWal } }
+    {
+        manifest: competency,
+        module: CompetencyModule,
+        effects: effectKeys(LICENCE_EFFECTS),
+        events: COMPETENCY_EVENTS,
+        messages: { am: competencyAm, en: competencyEn, 'wal-Latn': competencyWal }
+    }
 ];

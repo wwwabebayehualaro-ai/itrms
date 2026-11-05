@@ -7,7 +7,15 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, inArray, or, sql } from 'drizzle-orm';
 import { DATABASE } from '@itrms/kernel/api';
 import { FIELD_CRYPTO, reveal, type FieldCrypto } from '@itrms/kernel/crypto';
-import { insertAudited, newId, updateAudited, type Database, type DbContext, type Tx } from '@itrms/kernel/db';
+import {
+    insertAudited,
+    newId,
+    recordEvent,
+    updateAudited,
+    type Database,
+    type DbContext,
+    type Tx
+} from '@itrms/kernel/db';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
 import { foldForSearch } from '@itrms/schemas';
 import type { z } from 'zod';
@@ -348,6 +356,23 @@ export class PersonsService {
                 return out;
             }
         );
+    }
+
+    /**
+     * The full birth date for a rule the case applies (a minimum age, a licence's term, the card it prints on): nobody is shown it
+     * here, and the use is on record in the same transaction, so a step that fails leaves no trace of a read that came to nothing.
+     * The worker's system transactions use this too.
+     */
+    async birthDateForRule(tx: Tx, regionId: string, id: string, reason: string): Promise<string | null> {
+        await recordEvent(tx, {
+            type: 'person.revealed',
+            table: personSensitive,
+            rowId: id,
+            data: { fields: ['birthDate'], reason }
+        });
+        const [row] = await tx.select().from(personSensitive).where(eq(personSensitive.personId, id));
+        const ciphertext = row?.[COLUMN.birthDate.ct];
+        return ciphertext ? this.crypto.decrypt(tx, regionId, place('birthDate', id), ciphertext) : null;
     }
 
     // ---- helpers ----

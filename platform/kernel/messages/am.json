@@ -16,7 +16,7 @@
   "kernel.errors.unsupported_media_type": "ይህ ዓይነት ይዘት ተቀባይነት የለውም።",
   "kernel.errors.validation_failed": "አንዳንድ እሴቶች ትክክል አይደሉም።",
   "kernel.errors.idempotency_mismatch": "ጥያቄው በተለየ ይዘት እንደገና ተልኳል።",
-  "kernel.errors.not_eligible": "ለዚህ የሚያስፈልጉት መስፈርቶች አልተሟሉም።",
+  "kernel.errors.not_eligible": "መስፈርቱን አያሟላም",
   "kernel.errors.rate_limited": "በጣም ብዙ ጥያቄዎች ተልከዋል። እባክዎ ቆይተው እንደገና ይሞክሩ።",
   "kernel.errors.internal_error": "ችግር ተፈጥሯል። ለድጋፍ ሰጪው የማጣቀሻ ቁጥሩን ይንገሩ።",
   "kernel.errors.unavailable": "አገልግሎቱ ለጊዜው አይገኝም። እባክዎ ቆይተው እንደገና ይሞክሩ።",

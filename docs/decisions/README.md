@@ -51,5 +51,6 @@ one, write a new ADR that supersedes it. Format: context, decision, consequences
 | [0044](0044-documents.md) | Issuing documents: frozen when issued, a reprint is the stored PDF, rendering in its own process and queue, three walls around a page |
 | [0045](0045-document-verification.md) | Verifying a document: one QR with a token for status and an Ed25519 signature for offline, keys per region rotated yearly, a checker's minimum on a rate-limited public path |
 | [0046](0046-verifier-pwa.md) | The verifier PWA: offline proof with keys published by the API, Ed25519 and QR reading in pure JavaScript |
+| [0047](0047-driver-licences.md) | Driver licences: the register, the national platform as the record, and what the rules assume |
 
 All tool choices and the answers to the technical open questions: [`../tech-stack.md`](../tech-stack.md).

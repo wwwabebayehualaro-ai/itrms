@@ -1,7 +1,7 @@
 import { defineModule } from '@itrms/module-sdk';
 
-// Work process 1 (service-catalogue.md, DVC-01…11). Task 0.10b declares what the shell needs (permissions, roles, menu);
-// the licence slice itself comes in task 0.24.
+// Work process 1 (service-catalogue.md, DVC-01…11). Task 0.10b declared what the shell needs; task 0.24a adds the licence register,
+// its effects and its lookups.
 const LICENSING = ['DVC-03', 'DVC-04', 'DVC-08', 'DVC-10', 'DVC-11'];
 // the register (roles-and-permissions.md §2): officers register and correct applicants and check their identity
 const REGISTER_READ = ['person:read', 'organisation:read', 'file:upload', 'file:read'];
@@ -21,18 +21,34 @@ export default defineModule({
     key: 'competency',
     layer: 'work-process',
     version: '0.0.0',
-    dependsOn: ['kernel', 'parties'],
+    dependsOn: ['kernel', 'integrations', 'forms', 'documents', 'parties'],
+    lookups: ['driver-licence', 'training-school'],
+    effects: [
+        'competency.checkApplication',
+        'competency.recordExam',
+        'competency.createPendingLicence',
+        'competency.activateLicence',
+        'competency.voidPendingLicence',
+        'competency.checkRenewal',
+        'competency.requestRenewal',
+        'competency.renewLicence',
+        'competency.issueLicenceCard',
+        'competency.addToPrintBatch'
+    ],
     title: { am: 'የአሽከርካሪና ተሽከርካሪ ብቃት ማረጋገጫ', en: 'Driver and vehicle competency' },
     workProcess: 1,
     entitlement: 'itrms.licensing',
     permissions: {
         licence: ['read', 'issue', 'print'],
-        exam: ['read', 'record']
+        exam: ['read', 'record'],
+        training: ['read', 'record']
     },
     roles: {
         'competency.officer': [
             'licence:read',
             'exam:read',
+            'training:read',
+            'training:record',
             ...REGISTER_INTAKE,
             ...CASE_ACT,
             'pii:reveal',
@@ -44,12 +60,13 @@ export default defineModule({
             'licence:issue',
             'licence:print',
             'exam:read',
+            'training:read',
             ...REGISTER_READ,
             ...CASE_ACT,
             'person:lookup',
             'pii:reveal'
         ],
-        'competency.examiner': ['exam:read', 'exam:record', ...REGISTER_READ, ...CASE_ACT],
+        'competency.examiner': ['exam:read', 'exam:record', 'training:read', ...REGISTER_READ, ...CASE_ACT],
         'competency.inspector': ['licence:read', ...REGISTER_READ, 'case:read']
     },
     services: [

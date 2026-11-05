@@ -16,7 +16,7 @@
   "kernel.errors.unsupported_media_type": "This kind of content is not accepted.",
   "kernel.errors.validation_failed": "Some values are not valid.",
   "kernel.errors.idempotency_mismatch": "The request was sent again with different content.",
-  "kernel.errors.not_eligible": "The conditions for this are not met.",
+  "kernel.errors.not_eligible": "Does not meet the requirements",
   "kernel.errors.rate_limited": "Too many requests. Please try again later.",
   "kernel.errors.internal_error": "Something went wrong. Quote the reference to support.",
   "kernel.errors.unavailable": "The service is temporarily unavailable. Please try again later.",

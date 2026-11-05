@@ -22,6 +22,20 @@ export class DocumentsService {
         return issueDocument(tx, this.settings, input);
     }
 
+    /**
+     * The document of a record that changes (a renewed licence's card): a new one, if it says anything new, whose QR replaces the old
+     * one's. The same data again is the same document.
+     */
+    async reissue(tx: Tx, input: IssueInput & { subject: NonNullable<IssueInput['subject']> }): Promise<IssuedRow> {
+        const current = await issueDocument(tx, this.settings, input);
+        if (JSON.stringify(current.data) === JSON.stringify(input.data)) return current;
+        return supersedeDocument(tx, this.settings, current.id, {
+            data: input.data,
+            language: input.language,
+            ...(input.number ? { number: input.number } : {})
+        });
+    }
+
     /** A correction: the old document's QR says superseded from now on. */
     supersede(tx: Tx, oldId: string, correction: Pick<IssueInput, 'data' | 'language' | 'number'>): Promise<IssuedRow> {
         return supersedeDocument(tx, this.settings, oldId, correction);
