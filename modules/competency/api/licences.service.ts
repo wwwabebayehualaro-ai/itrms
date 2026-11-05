@@ -392,7 +392,7 @@ export class LicencesService {
         tx: Tx,
         place: CasePlace,
         config: Readonly<Record<string, unknown>>,
-        input: { licence: string; medicalFacility: string; medicalExaminedOn: string }
+        input: { licence: string; medicalFacility: string; medicalExaminedOn: string; grade?: string; expiry?: string }
     ) {
         const today = addisDay();
         const licence = await this.row(tx, input.licence);
@@ -406,6 +406,17 @@ export class LicencesService {
         const path = licence.handlingOrgPath;
         if (!office || (path !== office.path && !path.startsWith(`${office.path}.`)))
             throw notEligible(say('competency.rule.otherOffice'));
+        // the fee was worked out from what the form said when it was filed: a later expiry would hide the penalty, a lesser grade lower it
+        if (input.expiry !== undefined && input.expiry !== licence.validUntil)
+            throw notEligible(say('competency.rule.renewalFacts'));
+        if (input.grade !== undefined) {
+            const held = await tx
+                .select({ key: licenceGradeTypes.key })
+                .from(licenceGrades)
+                .innerJoin(licenceGradeTypes, eq(licenceGradeTypes.id, licenceGrades.gradeTypeId))
+                .where(eq(licenceGrades.licenceId, licence.id));
+            if (!held.some((g) => g.key === input.grade)) throw notEligible(say('competency.rule.renewalFacts'));
+        }
         const window = monthsIn(config, 'renewal_window_months', RENEWAL_WINDOW_MONTHS);
         if (!renewalIsOpen(licence.validUntil, window, today))
             throw notEligible(say('competency.rule.tooEarly', { months: window }));

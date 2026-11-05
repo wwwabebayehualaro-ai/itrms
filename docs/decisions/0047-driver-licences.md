@@ -35,7 +35,16 @@ interface is known. ITRMS runs the zone's work around a licence and must never h
 8. **The training-school register is organisations** of kind `training_school`. An office enters a school's completion list, and an
    application is refused until the applicant is on it (Art. 8, DVC-10).
 
+9. **The two services are configuration** (task 0.24b): `importLicenceServices` seeds their forms, workflows and fee rules. A renewal's
+   fee is worked out when it is filed, from a grade and an expiry on the form, because cases carry no facts yet at filing. They are
+   compared with the register on submit, so a wrong one can't lower the fee.
+
 ## Assumptions, for the bureau to confirm
+
+* *The documents of Art. 14(2) are attachments, not required ones.* The officer who reviews a case sees the paper, and an office with no
+  scanner still works. A bureau's form can require them.
+* *A failed exam stays open for a retake*, with no limit on attempts.
+* *A fee is paid after the exam and before final approval*, as in architecture.md §8.
 
 * *A medical examination is current for 6 months.* The proclamation sets no figure. A service's `medical_valid_months` changes it.
 * *A licence can be renewed from 6 months before it expires.* The proclamation sets no figure. A service's `renewal_window_months`

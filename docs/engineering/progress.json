@@ -1166,8 +1166,8 @@
         {
           "id": "0.24b",
           "title": "Driver licences, part 2: the two services on the platform",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.24b-licence-services",
           "commits": [],
           "evidence": [],
           "blockers": [],

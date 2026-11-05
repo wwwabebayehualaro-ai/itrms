@@ -92,6 +92,9 @@ interface RenewalInput {
     licence: string;
     medicalFacility: string;
     medicalExaminedOn: string;
+    /** what the request's fee was worked out from, where its form asks: checked against the register */
+    grade?: string;
+    expiry?: string;
 }
 
 @Injectable()
@@ -99,7 +102,9 @@ interface RenewalInput {
     input: {
         licence: { kind: 'ref' },
         medicalFacility: { kind: 'text' },
-        medicalExaminedOn: { kind: 'ethdate' }
+        medicalExaminedOn: { kind: 'ethdate' },
+        grade: { kind: 'choice', required: false },
+        expiry: { kind: 'ethdate', required: false }
     }
 })
 export class CheckRenewalEffect implements WorkflowEffect<RenewalInput> {

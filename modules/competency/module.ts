@@ -21,7 +21,7 @@ export default defineModule({
     key: 'competency',
     layer: 'work-process',
     version: '0.0.0',
-    dependsOn: ['kernel', 'integrations', 'forms', 'documents', 'parties'],
+    dependsOn: ['kernel', 'integrations', 'forms', 'fees', 'documents', 'workflow', 'services', 'parties'],
     lookups: ['driver-licence', 'training-school'],
     effects: [
         'competency.checkApplication',

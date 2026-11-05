@@ -22,5 +22,6 @@
   "competency.rule.alreadyHeld": "This person already holds this grade, or is waiting for it.",
   "competency.rule.examOutcome": "This exam result does not match the step taken.",
   "competency.rule.otherOffice": "Another office handles this licence. Transfer it to this office first.",
-  "competency.rule.tooEarly": "A licence can be renewed from {months} months before it expires."
+  "competency.rule.tooEarly": "A licence can be renewed from {months} months before it expires.",
+  "competency.rule.renewalFacts": "The grade or expiry date on this request does not match the licence on record."
 }
