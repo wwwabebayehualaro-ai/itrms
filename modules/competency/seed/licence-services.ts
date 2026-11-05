@@ -399,6 +399,7 @@ async function serviceVersion(
             .select({ hash: serviceVersions.contentHash })
             .from(serviceVersions)
             .where(eq(serviceVersions.id, service.currentVersionId));
+        // nosemgrep: ajinabraham.njsscan.crypto.timing_attack_node.node_timing_attack -- a hash of published configuration, compared to see if it changed: no secret
         if (current?.hash === hash) return false;
     }
     const [last] = await tx

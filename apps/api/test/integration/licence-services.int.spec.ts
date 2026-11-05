@@ -460,7 +460,7 @@ describe('a new licence', () => {
         const boditi = as.officer.unit;
         const config = await api.call('GET', `/api/v1/org-units/${boditi.id}/services/${NEW}/configuration`, as.bureau);
         expect(config.statusCode, config.body).toBe(200);
-        const version = config.json<{ override?: { version?: number } | null }>().override?.version ?? 0;
+        const version = config.json<{ own: { version: number } | null }>().own?.version ?? 0;
         const set = await api.call(
             'PUT',
             `/api/v1/org-units/${boditi.id}/services/${NEW}/override`,
@@ -490,7 +490,7 @@ describe('a new licence', () => {
             `/api/v1/org-units/${boditi.id}/services/${NEW}/override`,
             as.bureau,
             undefined,
-            ifMatch(now.json<{ override?: { version?: number } | null }>().override?.version ?? 0)
+            ifMatch(now.json<{ own: { version: number } | null }>().own?.version ?? 0)
         );
         expect(undo.statusCode, undo.body).toBeLessThan(300);
     }, 240_000);

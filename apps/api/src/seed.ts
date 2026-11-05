@@ -62,7 +62,7 @@ async function main() {
             new Error(
                 'usage: seed org <file.yaml|file.csv|file.xlsx> [--region <code>] | seed users <file.yaml> | ' +
                     'seed services <catalogue.yaml> --region <code> | seed fees <rules.yaml> --region <code> | ' +
-                    'seed counters --region <code> | seed identity'
+                    'seed counters --region <code> | seed competency --region <code> | seed identity'
             )
         );
 
@@ -132,13 +132,14 @@ async function main() {
             logger.info({ file, region, rules: rules.length, stored }, 'fee rules applied');
         } else if (kind === 'competency') {
             // the catalogue of licence grades and the offices' licence counters (task 0.24a)
-            if (!region) throw new Error('seed competency needs --region <code>');
+            const code = file === '--region' ? rest[0] : region;
+            if (!code) throw new Error('seed competency needs --region <code>');
             const result = await db.scoped(ctx, async (tx) => {
                 const [root] = await tx
                     .select()
                     .from(orgUnits)
-                    .where(and(isNull(orgUnits.parentId), eq(orgUnits.code, region)));
-                if (!root) throw new Error(`no region ${region}`);
+                    .where(and(isNull(orgUnits.parentId), eq(orgUnits.code, code)));
+                if (!root) throw new Error(`no region ${code}`);
                 const where = { id: root.id, regionId: root.regionId };
                 return {
                     grades: await importLicenceGrades(tx, where),
@@ -147,7 +148,7 @@ async function main() {
                     services: await importLicenceServices(tx, where)
                 };
             });
-            logger.info({ region, ...result }, 'licence grades and counters applied');
+            logger.info({ region: code, ...result }, 'licence grades, counters and services applied');
         } else if (file) {
             const doc = userImportSchema.parse(parseYaml(await readFile(file, 'utf8')));
             logger.info({ file, ...(await db.scoped(ctx, (tx) => importUsers(tx, doc))) }, 'users seed applied');
