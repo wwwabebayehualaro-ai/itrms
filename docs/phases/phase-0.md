@@ -864,30 +864,42 @@ Split from 0.23 on 2026-11-04. Needs 0.23b.
 - **Done when:** the verifier PWA validates a QR in flight mode and rejects a tampered payload.
 - **Tests:** signature tests against the API's signer, including a tampered payload and a retired key.
 
-### 0.24 Driver-licence slice (competency module)
+### 0.24a Driver licences, part 1: the register, its rules and the national platform
+Split from 0.24 on 2026-11-05. Needs 0.23c.
 - **Do:** module `competency`:
   - `driver_licences`, `licence_grades`, `medical_certificates`, `training_enrolments`, `exam_sessions`/`exam_results`,
-    `licence_print_batches`.
+    `licence_print_batches`, and the catalogue of grades from Art. 12 of Proclamation 1074/2018
+    ([ethiopia-context.md](../ethiopia-context.md) §3.1).
+  - The rules, on the server: age, education and prerequisite checks; a temporary licence for 2 years; renewal for 4 years
+    (2 years over age 55); whether a renewal is late by more than 1 year.
   - Effects `competency.createPendingLicence`, `competency.activateLicence`, `competency.voidPendingLicence`,
     `competency.renewLicence`, `competency.addToPrintBatch`. A licence is `pending_national` until the (fake) national
     platform accepts it: a `wait` state. The certificate and print batch follow acceptance.
   - The `NationalDriverPlatform` interface + **fake** (returns national licence status, accepts print requests).
-  - Service versions for **new licence** and **renewal** (forms, workflows, fee rules with late penalty, templates),
-    following Proclamation 1074/2018 ([ethiopia-context.md](../ethiopia-context.md) §3.1):
-    - the `licence_grades` catalogue from Art. 12;
-    - age, education and prerequisite checks;
-    - a temporary licence for 2 years;
-    - renewal for 4 years (2 years over age 55);
-    - late renewal of more than 1 year adds a practical exam.
-    - every transition that gives the service guards on `payment.settled`, also after a wait on the payment: a reversal
-      does not take a case back (ADR-0042).
+  - The training-school register as organisations.
+- **Done when:** licence facts land in typed tables; the fake national adapter is called through the outbox, and its answer
+  moves the case.
+- **Tests:** effect integration tests; adapter contract tests (the fake and future real implementations share them);
+  isolation of the new tables.
+
+### 0.24b Driver licences, part 2: the two services on the platform
+Split from 0.24 on 2026-11-05. Needs 0.24a.
+- **Do:**
+  - Service versions for **new licence** and **renewal** (forms, workflows, fee rules with late penalty, templates), following
+    Proclamation 1074/2018; late renewal of more than 1 year adds a practical exam.
+  - Every transition that gives the service guards on `payment.settled`, also after a wait on the payment: a reversal does
+    not take a case back (ADR-0042).
   - Handled by the zone department or a town unit with a competency team (unit types; woredas don't offer DVC services).
     The approval unit is the allowed override `approval_unit` (`handling` by default, `parent` = the zone).
-  - The training-school register as organisations.
-- **Done when:** both services run end to end on the platform with zero service-specific UI code except the registry views;
-  licence facts land in typed tables; the fake national adapter is called through the outbox.
-- **Tests:** effect integration tests; workflow-run tests for both services; adapter contract tests (the fake and future real
-  implementations share them).
+- **Done when:** both services run end to end on the platform through the API, with no service-specific code but their effects.
+- **Tests:** workflow-run tests for both services.
+
+### 0.24c Driver licences, part 3: the registry views
+Split from 0.24 on 2026-11-05. Needs 0.24b.
+- **Do:** the screens the competency menu already points to: applications, exams, print batches, and the licence register.
+  Everything else a case needs comes from the platform's generic screens.
+- **Done when:** both services run end to end in a browser, with zero service-specific UI code except the registry views.
+- **Tests:** an e2e journey for each service.
 
 ### 0.25 Demo data and the demo journey
 - **Do:**

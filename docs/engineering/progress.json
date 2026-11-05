@@ -1145,8 +1145,28 @@
           "notes": ""
         },
         {
-          "id": "0.24",
-          "title": "Driver-licence slice (competency module)",
+          "id": "0.24a",
+          "title": "Driver licences, part 1: the register, its rules and the national platform",
+          "status": "ready",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.24b",
+          "title": "Driver licences, part 2: the two services on the platform",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.24c",
+          "title": "Driver licences, part 3: the registry views",
           "status": "planned",
           "branch": null,
           "commits": [],
