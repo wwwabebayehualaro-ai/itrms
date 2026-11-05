@@ -1147,10 +1147,11 @@
         {
           "id": "0.24a",
           "title": "Driver licences, part 1: the register, its rules and the national platform",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.24a-licence-register",
           "commits": [
-            "56949f8"
+            "56949f8",
+            "0f7d537"
           ],
           "evidence": [
             "CI run 41961011388 on 56949f8: all 9 jobs success (lint, typecheck, unit, build, boundaries; integration on PostgreSQL 16; e2e; Semgrep; Trivy; gitleaks)",
