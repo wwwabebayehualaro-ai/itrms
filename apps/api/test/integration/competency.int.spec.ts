@@ -147,7 +147,7 @@ const RENEW_FLOW = {
 };
 
 async function publishedForm(key: string, document: object): Promise<string> {
-    const created = await api.call('POST', '/api/v1/forms', as.bureau, { key, title: t(key), document });
+    const created = await api.call('POST', '/api/v1/forms', as.bureau, { key, name: t(key), document });
     expect(created.statusCode, created.body).toBe(201);
     const asked = await api.call(
         'POST',

@@ -281,7 +281,7 @@ describe('the registries a form can point to', () => {
         const { items } = res.json<{
             items: { key: string; title: string; facts: { key: string; label: string }[] }[];
         }>();
-        expect(items.map((i) => i.key).sort()).toEqual(['organisation', 'person']);
+        expect(items.map((i) => i.key).sort()).toEqual(['driver-licence', 'organisation', 'person', 'training-school']);
         expect(items.find((i) => i.key === 'person')?.title).toBe('ሰው (ከመዝገብ)');
         expect(items.find((i) => i.key === 'organisation')?.title).toBe('ድርጅት (ከመዝገብ)');
         expect(items.find((i) => i.key === 'person')?.facts.map((f) => f.key)).toEqual([
