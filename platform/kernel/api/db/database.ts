@@ -92,7 +92,12 @@ export function createDatabase(url: string, options: DatabaseOptions = {}): Data
     return {
         scoped,
         async recordSensitiveEvent(ctx, event) {
-            if (ctx.regionId && ctx.scopePath) return scopedEvent(ctx, (tx) => recordEvent(tx, event));
+            if (ctx.regionId && ctx.scopePath) {
+                // a transaction of its own, beside the request's business one: the idempotency hook is not about this
+                const own: DbContext = { ...ctx };
+                delete own.transactionHook;
+                return scopedEvent(own, (tx) => recordEvent(tx, event));
+            }
             // no unit yet (the audit log is class T): only access and auth events, through a function made for them
             const data = {
                 ...(event.data ? (plain(event.data) as object) : {}),

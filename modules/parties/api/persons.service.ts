@@ -7,7 +7,15 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, inArray, or, sql } from 'drizzle-orm';
 import { DATABASE } from '@itrms/kernel/api';
 import { FIELD_CRYPTO, reveal, type FieldCrypto } from '@itrms/kernel/crypto';
-import { insertAudited, newId, updateAudited, type Database, type DbContext, type Tx } from '@itrms/kernel/db';
+import {
+    insertAudited,
+    newId,
+    recordEvent,
+    updateAudited,
+    type Database,
+    type DbContext,
+    type Tx
+} from '@itrms/kernel/db';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
 import { foldForSearch } from '@itrms/schemas';
 import type { z } from 'zod';
@@ -348,6 +356,32 @@ export class PersonsService {
                 return out;
             }
         );
+    }
+
+    /**
+     * The full birth date for a rule a case applies (a minimum age, a licence's term): nobody is shown it here. Like reveal(), the
+     * use goes on record first, in a transaction of its own: a refusal tells something of the person's age, and it must stay on
+     * record when the step it refused rolls back. The worker's system transactions have no person to record as, and no refusal to
+     * read an age from, so theirs is recorded with what they do.
+     */
+    async birthDateForRule(
+        tx: Tx,
+        ctx: DbContext,
+        regionId: string,
+        id: string,
+        reason: string
+    ): Promise<string | null> {
+        const event = {
+            type: 'person.revealed',
+            table: personSensitive,
+            rowId: id,
+            data: { fields: ['birthDate'], reason }
+        };
+        if (ctx.regionId && ctx.scopePath) await this.db.recordSensitiveEvent(ctx, event);
+        else await recordEvent(tx, event);
+        const [row] = await tx.select().from(personSensitive).where(eq(personSensitive.personId, id));
+        const ciphertext = row?.[COLUMN.birthDate.ct];
+        return ciphertext ? this.crypto.decrypt(tx, regionId, place('birthDate', id), ciphertext) : null;
     }
 
     // ---- helpers ----

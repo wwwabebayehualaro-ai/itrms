@@ -283,8 +283,11 @@ export class CasesService implements FeeCasePort {
         on: string,
         actor: SystemActor,
         language = 'am',
-        /** a timer's question: when the wait has no such way out, answer null (nothing written) instead of refusing */
-        options: { quiet?: boolean } = {}
+        /**
+         * quiet: a timer's question, or a retried event: when the wait has no such way out, answer null (nothing written)
+         * instead of refusing. input: what the event says, as its effects' input (a national platform's reference).
+         */
+        options: { quiet?: boolean; input?: Record<string, unknown> } = {}
     ): Promise<{ from: string; to: string } | null> {
         const row = await this.locked(tx, id);
         // the system acts for the case's unit: its audit rows carry the case's region and scope
@@ -304,7 +307,7 @@ export class CasesService implements FeeCasePort {
         const history = await this.history(tx, row, def);
         await this.advance(tx, {}, row, def, state, decision.transition, {
             system: actor.id,
-            input: {},
+            input: options.input ?? {},
             history,
             language
         });

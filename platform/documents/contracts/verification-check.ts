@@ -8,7 +8,7 @@
 import { verifyAsync } from '@noble/ed25519';
 
 import type { VerificationPayload } from './verification';
-import { decodeBase64Url, signedBytes } from './verification-encoding';
+import { decodeBase64Url, encodeBase64Url, signedBytes } from './verification-encoding';
 
 /** A public key as the API publishes it. A retired key still proves what it signed before it retired. */
 export interface PublishedKey {
@@ -92,12 +92,12 @@ export async function checkQr(text: string, keys: readonly PublishedKey[], today
     const key = keys.find((k) => k.keyId === facts.k);
     if (!key) return { state: 'unknownKey', token };
     if (!SIGNATURE_TEXT.test(proof[2]) || !PUBLIC_KEY_TEXT.test(key.publicKey)) return { state: 'forged', token };
-    const good = await verifyAsync(
-        decodeBase64Url(proof[2]),
-        signedBytes(token, bytes),
-        decodeBase64Url(key.publicKey),
-        { zip215: false }
-    );
+    const signature = decodeBase64Url(proof[2]);
+    // the last character has spare bits: another spelling of the same signature is still not the one that was printed
+    if (encodeBase64Url(signature) !== proof[2]) return { state: 'forged', token };
+    const good = await verifyAsync(signature, signedBytes(token, bytes), decodeBase64Url(key.publicKey), {
+        zip215: false
+    });
     if (!good) return { state: 'forged', token };
     // a retired key signs nothing new: only someone who stole it could date a document after that
     if (key.retiredOn && facts.i > key.retiredOn) return { state: 'forged', token };

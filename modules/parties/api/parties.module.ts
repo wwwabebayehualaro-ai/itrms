@@ -15,7 +15,7 @@ import { PersonsService } from './persons.service';
     imports: [FormsModule],
     controllers: [PersonsController, MergesController, OrganisationsController],
     providers: [PersonsService, MergesService, OrganisationsService, PersonLookup, OrganisationLookup],
-    exports: [PersonsService]
+    exports: [PersonsService, OrganisationsService]
 })
 export class PartiesModule implements OnModuleInit {
     constructor(

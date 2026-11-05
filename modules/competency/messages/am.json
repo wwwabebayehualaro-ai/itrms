@@ -6,5 +6,21 @@
   "competency.role.officer": "የብቃት ማረጋገጫ ባለሙያ",
   "competency.role.lead": "የብቃት ማረጋገጫ ቡድን መሪ",
   "competency.role.examiner": "ፈታኝ",
-  "competency.role.inspector": "የቴክኒክ ምርመራ ባለሙያ"
+  "competency.role.inspector": "የቴክኒክ ምርመራ ባለሙያ",
+  "competency.rule.noBirthDate": "የአመልካቹ ሙሉ የትውልድ ቀን አልተመዘገበም። መጀመሪያ በመዝገቡ ላይ ይጨምሩ።",
+  "competency.rule.tooYoung": "ለዚህ ደረጃ አመልካቹ ቢያንስ {min} ዓመት መሆን አለበት።",
+  "competency.rule.education": "ይህ ደረጃ ቢያንስ {min}ኛ ክፍል ትምህርት ይፈልጋል።",
+  "competency.rule.prerequisite": "ይህ ደረጃ ቢያንስ ለ{months} ወራት የተያዘ ቋሚ መንጃ ፈቃድ ይፈልጋል፦ {grades}።",
+  "competency.rule.medical": "የህክምና ምርመራው ባለፉት {months} ወራት ውስጥ የተደረገ መሆን አለበት።",
+  "competency.rule.training": "የማሰልጠኛ ተቋሙ አመልካቹ ለዚህ ደረጃ ሥልጠና ማጠናቀቁን አላረጋገጠም።",
+  "competency.rule.notRenewable": "ሊታደስ የሚችለው የሚሠራ መንጃ ፈቃድ ብቻ ነው።",
+  "competency.lookup.licence.title": "መንጃ ፈቃድ",
+  "competency.lookup.school.title": "የማሰልጠኛ ተቋም",
+  "competency.lookup.fact.holder": "ባለቤት",
+  "competency.lookup.fact.grades": "ደረጃዎች",
+  "competency.lookup.fact.validUntil": "የሚያበቃበት ቀን",
+  "competency.rule.alreadyHeld": "ይህ ሰው ይህን ደረጃ አስቀድሞ ይዟል ወይም እየጠበቀ ነው።",
+  "competency.rule.examOutcome": "ይህ የፈተና ውጤት ከተወሰደው እርምጃ ጋር አይጣጣምም።",
+  "competency.rule.otherOffice": "ይህን መንጃ ፈቃድ የሚያስተናግደው ሌላ ጽ/ቤት ነው። መጀመሪያ ወደዚህ ጽ/ቤት ያዛውሩት።",
+  "competency.rule.tooEarly": "መንጃ ፈቃድ ሊታደስ የሚችለው ከማብቂያው {months} ወራት በፊት ጀምሮ ነው።"
 }

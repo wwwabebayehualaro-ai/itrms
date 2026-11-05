@@ -13,6 +13,21 @@ import type { IssuedDocumentOut } from '../contracts';
 import { documentTemplates, issuedDocuments } from './documents.table';
 import { issueDocument, revokeDocument, supersedeDocument, type IssueInput, type IssuedRow } from './issue';
 
+/** The same values, however each was stored: PostgreSQL keeps a jsonb's keys in an order of its own. */
+const sameData = (a: unknown, b: unknown): boolean => {
+    const sorted = (value: unknown): unknown =>
+        Array.isArray(value)
+            ? value.map(sorted)
+            : value !== null && typeof value === 'object'
+              ? Object.fromEntries(
+                    Object.entries(value)
+                        .sort(([x], [y]) => x.localeCompare(y))
+                        .map(([k, v]) => [k, sorted(v)])
+                )
+              : value;
+    return JSON.stringify(sorted(a)) === JSON.stringify(sorted(b));
+};
+
 @Injectable()
 export class DocumentsService {
     constructor(@Inject(SettingsService) private readonly settings: SettingsService) {}
@@ -20,6 +35,22 @@ export class DocumentsService {
     /** Issues a document in the caller's transaction: for a work process's effect. */
     issue(tx: Tx, input: IssueInput): Promise<IssuedRow> {
         return issueDocument(tx, this.settings, input);
+    }
+
+    /**
+     * The document of a record that changes (a renewed licence's card): a new one, if it says anything new, whose QR replaces the old
+     * one's. The same data again is the same document.
+     */
+    async reissue(tx: Tx, input: IssueInput & { subject: NonNullable<IssueInput['subject']> }): Promise<IssuedRow> {
+        const current = await issueDocument(tx, this.settings, input);
+        if (sameData(current.data, input.data)) return current;
+        return supersedeDocument(tx, this.settings, current.id, {
+            data: input.data,
+            language: input.language,
+            handlingUnitId: input.handlingUnitId,
+            ...(input.caseId ? { caseId: input.caseId } : {}),
+            ...(input.number ? { number: input.number } : {})
+        });
     }
 
     /** A correction: the old document's QR says superseded from now on. */

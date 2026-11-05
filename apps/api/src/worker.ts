@@ -5,6 +5,8 @@
  */
 import 'reflect-metadata';
 
+import { LicencesService } from '@itrms/competency/api';
+import { competencyHandlers } from '@itrms/competency/api/worker';
 import { documentsHandlers } from '@itrms/documents/api/worker';
 import { DOCUMENTS_ROUTES } from '@itrms/documents/contracts';
 import { PaymentsService } from '@itrms/fees/api';
@@ -12,7 +14,7 @@ import { feesHandlers } from '@itrms/fees/api/worker';
 import { formsHandlers } from '@itrms/forms/api/worker';
 import { CasesService } from '@itrms/workflow/api';
 import { slaSweep, workflowHandlers, type SlaDeps } from '@itrms/workflow/api/worker';
-import { KeycloakIdentityAdmin } from '@itrms/integrations/api';
+import { FakeNationalDriverPlatform, KeycloakIdentityAdmin } from '@itrms/integrations/api';
 import { createWorkerContext, loadSlices } from '@itrms/kernel/api';
 import { permissionsOf, rolePermissions } from '@itrms/kernel/iam';
 import { identitySyncHandlers, purgeExpiredUploads, startJobs, type OutboxHandler } from '@itrms/kernel/api/worker';
@@ -75,6 +77,12 @@ async function main() {
                 ...documentsHandlers(system, {
                     receipt: (tx, id) => app.get(PaymentsService).receipt(tx, id),
                     settings: app.get(SettingsService)
+                }),
+                // the national driver platform, a fake until an interface exists (task 0.24a)
+                ...competencyHandlers(system, {
+                    platform: new FakeNationalDriverPlatform(),
+                    licences: app.get(LicencesService),
+                    cases: app.get(CasesService)
                 }),
                 ...formsHandlers(system, {
                     database,
