@@ -1128,10 +1128,11 @@
         {
           "id": "0.23c",
           "title": "Documents, part 3: the verifier PWA",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.23c-verifier-pwa",
           "commits": [
-            "4b487d5"
+            "4b487d5",
+            "0af1a81"
           ],
           "evidence": [
             "CI run 41941596176 on 4b487d5: all 9 jobs success, including the step 'The verifier in flight mode' in the e2e job",
