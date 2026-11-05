@@ -116,6 +116,23 @@ describe('Keycloak identity admin', () => {
         expect(kc.groups.get('hand')).toEqual({ id: 'hand', name: 'ICT staff' });
     });
 
+    it('takes over the groups of a region set up again, whose units have new ids', async () => {
+        const kc = fakeKeycloak();
+        await admin(kc).syncUnits(tree);
+        const before = kc.groups.size;
+        const renewed = tree.map((u) => ({
+            ...u,
+            id: `new-${u.id}`,
+            parentId: u.parentId ? `new-${u.parentId}` : null
+        }));
+        expect(await admin(kc).syncUnits(renewed)).toEqual({ created: 0, updated: tree.length });
+        expect(kc.groups.size).toBe(before);
+        const town = [...kc.groups.values()].find((g) => g.name === 'WOL-BODITI');
+        expect(town?.attributes?.itrms_unit_id).toEqual(['new-u-town']);
+        // and running it again changes nothing
+        expect(await admin(kc).syncUnits(renewed)).toEqual({ created: 0, updated: 0 });
+    });
+
     it('makes a person a member of exactly the units they hold a role in', async () => {
         const kc = fakeKeycloak();
         const identity = admin(kc);

@@ -502,9 +502,14 @@ function writeAppEnv(env) {
         [join(ROOT, 'apps', 'api', '.env.migrate.local')]: {
             NODE_ENV: 'development',
             DATABASE_MIGRATE_URL: pg('owner'),
-            ...personalData,
             KEYCLOAK_URL: `http://localhost:${p.KEYCLOAK_HOST_PORT}`,
             KEYCLOAK_ADMIN_CLIENT_SECRET: env.KEYCLOAK_IDENTITY_ADMIN_SECRET
+        },
+        // only `pnpm demo:reset`'s seed of generated people: migrations and the other seeds never hold these keys
+        [join(ROOT, 'apps', 'api', '.env.demo.local')]: {
+            NODE_ENV: 'development',
+            DATABASE_MIGRATE_URL: pg('owner'),
+            ...personalData
         },
         [join(ROOT, 'apps', 'api', '.env.worker.local')]: {
             NODE_ENV: 'development',
@@ -609,9 +614,10 @@ function seedDatabaseRoles(env) {
 
 /**
  * Drops every schema of the ITRMS database, for `pnpm demo:reset`, keeping the roles and the extensions (in `public`). Quicker than the
- * volumes going, and Keycloak and the object store stay up.
+ * volumes going, and Keycloak and the object store stay up. The queues and sessions go too.
  */
 function emptyDatabase() {
+    if (process.env.NODE_ENV === 'production') throw new Error('empty-database is for the local development stack.');
     const sql = `DO $$ DECLARE s text; BEGIN
         FOR s IN SELECT nspname FROM pg_namespace
                   WHERE nspname NOT LIKE 'pg\\_%' AND nspname NOT IN ('public', 'information_schema')
@@ -639,6 +645,15 @@ function emptyDatabase() {
         ],
         { input: sql, stdio: ['pipe', 'ignore', 'inherit'] }
     );
+    // what waited for the old rows: queued jobs, and sessions naming units that are gone (the object store's files are only left unread)
+    for (const service of ['valkey-queues', 'valkey-sessions'])
+        execFileSync(
+            'docker',
+            ['compose', '-f', COMPOSE, '--env-file', ENV_FILE, 'exec', '-T', service, 'valkey-cli', 'FLUSHALL'],
+            {
+                stdio: ['ignore', 'ignore', 'inherit']
+            }
+        );
 }
 
 /** Runs `bash -c script` in a stack container; true when it exits 0. */

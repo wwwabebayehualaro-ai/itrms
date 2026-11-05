@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@itrms/documents": "workspace:*",
+    "@itrms/ethiopian-calendar": "workspace:*",
     "@itrms/fees": "workspace:*",
     "@itrms/forms": "workspace:*",
     "@itrms/integrations": "workspace:*",

@@ -165,8 +165,10 @@ async function main() {
             // the demo's generated people and licences (task 0.25a): registered as the API would, so their sensitive fields are encrypted
             const code = file === '--region' ? rest[0] : region;
             if (!code) throw new Error('seed demo needs --region <code>');
-            if (!config.FIELD_KEYS || !config.BLIND_INDEX_KEY)
-                throw new Error('seed demo needs FIELD_KEYS and BLIND_INDEX_KEY: it writes encrypted fields');
+            if (!config.FIELD_KEYS || !config.BLIND_INDEX_KEY || !config.AUDIT_HMAC_KEY)
+                throw new Error(
+                    'seed demo needs FIELD_KEYS, BLIND_INDEX_KEY and AUDIT_HMAC_KEY: it writes personal data'
+                );
             const persons = new PersonsService(
                 db,
                 new FieldCrypto({ fieldKeys: config.FIELD_KEYS, blindIndexKey: config.BLIND_INDEX_KEY })

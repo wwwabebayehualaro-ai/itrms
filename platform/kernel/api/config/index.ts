@@ -210,15 +210,20 @@ const schemas = {
             ...identityAdmin
         })
         .superRefine(personalDataKeys),
-    migrate: z.object({
-        ...common,
-        /** The migration owner: role itrms_owner. */
-        DATABASE_MIGRATE_URL: postgresUrl,
-        /** only for the demo's seed, which registers generated people as the API would */
-        AUDIT_HMAC_KEY: auditKey,
-        ...fieldKeys,
-        ...identityAdmin
-    })
+    migrate: z
+        .object({
+            ...common,
+            /** The migration owner: role itrms_owner. */
+            DATABASE_MIGRATE_URL: postgresUrl,
+            /** only for the demo's seed, which registers generated people as the API would */
+            AUDIT_HMAC_KEY: auditKey,
+            ...fieldKeys,
+            ...identityAdmin
+        })
+        .refine((c) => !c.BLIND_INDEX_KEY || c.BLIND_INDEX_KEY !== c.AUDIT_HMAC_KEY, {
+            path: ['BLIND_INDEX_KEY'],
+            message: 'must differ from AUDIT_HMAC_KEY'
+        })
 };
 
 export type HttpConfig = z.infer<typeof schemas.http> & { process: 'http' };

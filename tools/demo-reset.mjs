@@ -3,7 +3,7 @@
 // local stack, and needs the API built (`pnpm --filter @itrms/api build`) and the stack up (`pnpm dev:infra`). Stop a running API and
 // worker first: their pools would hold connections to what was dropped.
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -15,7 +15,8 @@ const REGION = 'SER';
 const inApi = (env, script, args = []) => {
     execFileSync('node', [`--env-file=${env}`, '--enable-source-maps', join('dist', script), ...args], {
         cwd: API,
-        stdio: ['ignore', 'ignore', 'inherit']
+        // their logs say why a step failed
+        stdio: 'inherit'
     });
 };
 const seed = (...args) => inApi('.env.migrate.local', 'seed.cjs', args);
@@ -40,13 +41,23 @@ const STEPS = [
     ['the receipt counters', () => seed('counters', '--region', REGION)],
     ['the document templates', () => seed('documents', '--region', REGION)],
     ['the licence services', () => seed('competency', '--region', REGION)],
-    ['the demo’s people and licences', () => seed('demo', '--region', REGION)],
+    ['the demo’s people and licences', () => inApi('.env.demo.local', 'seed.cjs', ['demo', '--region', REGION])],
     ['the accounts in Keycloak', () => seed('identity')]
 ];
 
+// all before anything is dropped
 if (!existsSync(join(API, 'dist', 'seed.cjs'))) {
     console.error('demo:reset needs the API built: pnpm --filter @itrms/api build');
     process.exit(1);
+}
+for (const env of ['.env.migrate.local', '.env.demo.local']) {
+    const file = join(API, env);
+    if (!existsSync(file) || !readFileSync(file, 'utf8').includes('NODE_ENV=development')) {
+        console.error(
+            `demo:reset is for the local development stack: ${env} is not one of its settings. Run pnpm dev:infra.`
+        );
+        process.exit(1);
+    }
 }
 const started = Date.now();
 for (const [name, run] of STEPS) {

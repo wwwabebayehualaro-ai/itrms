@@ -142,6 +142,8 @@ jobs:
         run: |
           pnpm --filter @itrms/api build
           pnpm demo:reset
+          # again on the same stack, as anyone rehearsing a demo does: Keycloak still holds the first run's groups
+          pnpm demo:reset
       - name: Start the worker (outbox relay, the forms' value fill and exports)
         run: nohup pnpm --filter @itrms/api dev:worker > worker.log 2>&1 &
       - name: Start the PDF worker (with the runner's Chrome)

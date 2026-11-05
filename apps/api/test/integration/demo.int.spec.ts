@@ -7,7 +7,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { importDemoData, importLicenceGrades, setUpLicenceCounters, type DemoCounts } from '@itrms/competency/seed';
-import { addMonths } from '@itrms/competency/contracts';
+import { addisDay, addMonths, addYears } from '@itrms/competency/contracts';
+import { ethiopianHolidays } from '@itrms/ethiopian-calendar';
 import { OrganisationsService, PersonsService } from '@itrms/parties/api';
 import { importFeeRules, parseFeeRules } from '@itrms/fees/seed';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -17,7 +18,7 @@ import { startPostgres, type TestPostgres } from './support/postgres';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FEE_RULES = join(HERE, '..', '..', '..', '..', 'modules', 'competency', 'seed', 'fee-rules.demo.yaml');
-const TODAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Addis_Ababa' }).format(new Date());
+const TODAY = addisDay();
 
 let pg: TestPostgres;
 let api: TestApi;
@@ -98,6 +99,45 @@ describe('the demo’s data', () => {
             expect(numbers, unit).toEqual(numbers.map((_, i) => `${unit}/DL/${String(i + 1).padStart(6, '0')}`));
     });
 
+    it('gives each licence the term its rules give, and a holder old enough on the day it was issued', async () => {
+        const { rows } = await api.owner.query<{ kind: string; issued: string; until: string; over55: boolean }>(
+            `select l.kind, l.issued_on::text as issued, l.valid_until::text as until,
+                    extract(year from now()) - p.birth_year >= 56 as over55
+               from competency.driver_licences l join parties.persons p on p.id = l.person_id`
+        );
+        for (const { kind, issued, until, over55 } of rows) {
+            const years = kind === 'temporary' ? 2 : over55 ? [2, 4] : 4;
+            const allowed = (Array.isArray(years) ? years : [years]).map((y) => addYears(issued, y));
+            expect(allowed, `${kind} ${issued}`).toContain(until);
+        }
+        // the year's difference is the most the holder's age can be: below the grade's minimum, they certainly were too young
+        expect(
+            await count(
+                `select count(*)::int as n from competency.driver_licences l
+                   join parties.persons p on p.id = l.person_id
+                   join competency.licence_grades g on g.licence_id = l.id
+                   join competency.licence_grade_types t on t.id = g.grade_type_id
+                  where extract(year from l.issued_on) - p.birth_year < t.min_age`
+            )
+        ).toBe(0);
+    });
+
+    it('sets exam days and a zone’s holiday on days an office would otherwise be open', async () => {
+        const { rows } = await api.owner.query<{ day: string }>(
+            `select held_on::text as day from competency.exam_sessions
+             union all select date::text from workflow.holidays where key = 'gifaata'`
+        );
+        expect(rows).toHaveLength(9);
+        for (const { day } of rows) {
+            const date = new Date(`${day}T00:00:00Z`);
+            expect([0, 6], day).not.toContain(date.getUTCDay());
+            expect(
+                ethiopianHolidays(date.getUTCFullYear()).map((h) => h.date),
+                day
+            ).not.toContain(day);
+        }
+    });
+
     it('is under the neutral branding, and has a zone’s holiday', async () => {
         const { rows } = await api.owner.query<{ value: { title: { en: string } } }>(
             `select value from kernel.settings_values where key = 'documents.header'`
@@ -112,7 +152,23 @@ describe('the demo’s data', () => {
                 `select count(*)::int as n from kernel.audit_log where table_name = 'competency.driver_licences'`
             )
         ).toBeGreaterThanOrEqual(60);
+        for (const table of [
+            'parties.persons',
+            'parties.person_sensitive',
+            'parties.organisations',
+            'competency.licence_grades',
+            'competency.training_enrolments',
+            'competency.exam_sessions',
+            'workflow.holidays',
+            'kernel.settings_values'
+        ])
+            expect(
+                await count('select count(*)::int as n from kernel.audit_log where table_name = $1', [table]),
+                table
+            ).toBeGreaterThan(0);
         expect(await importDemoData(api.installer, 'SER', deps(), TODAY)).toBeNull();
-        expect(await count('select count(*)::int as n from parties.persons')).toBeGreaterThanOrEqual(200);
+        // nobody came twice
+        expect(await count(`select count(*)::int as n from competency.driver_licences`)).toBe(60);
+        expect(await count(`select count(*)::int as n from parties.persons`)).toBe(200);
     });
 });

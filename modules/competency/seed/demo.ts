@@ -3,12 +3,13 @@
  * reset, with birth dates and licence terms counted from today, so the demo's cases stay true whenever it is run: someone expired 14
  * months ago stays 14 months late. No Fayda number or phone number is generated: a random one could be somebody's.
  */
-import { and, eq, inArray, isNull } from 'drizzle-orm';
-import { insertAudited, type Database, type DbContext, type Tx } from '@itrms/kernel/db';
+import { and, eq, inArray, isNull, like } from 'drizzle-orm';
+import { ethiopianHolidays } from '@itrms/ethiopian-calendar';
+import { insertAudited, type Database, type DbContext } from '@itrms/kernel/db';
 import { nextNumber } from '@itrms/kernel/numbering';
 import { orgUnits } from '@itrms/kernel/tables';
 import { settingsValues } from '@itrms/kernel/settings';
-import { organisations, type OrganisationsService, type PersonsService } from '@itrms/parties/api';
+import type { OrganisationsService, PersonsService } from '@itrms/parties/api';
 import { holidays } from '@itrms/workflow/api';
 
 import {
@@ -18,7 +19,16 @@ import {
     licenceGradeTypes,
     trainingEnrolments
 } from '../api/competency.table';
-import { addisDay, addMonths, addYears, LICENCE_COUNTER } from '../contracts';
+import {
+    addisDay,
+    addMonths,
+    addYears,
+    ageOn,
+    LICENCE_COUNTER,
+    RENEWAL_YEARS,
+    RENEWAL_YEARS_OVER_55,
+    temporaryValidUntil
+} from '../contracts';
 
 export interface DemoDeps {
     persons: Pick<PersonsService, 'create'>;
@@ -111,21 +121,62 @@ const AGE_BANDS: readonly (readonly [share: number, from: number, to: number])[]
     [30, 56, 72]
 ];
 
-/** How the licences are spread: the states the journey and the reports show (demo-plan.md §4). */
-const LICENCE_STATES = [
-    { count: 16, kind: 'temporary', from: 'issued', issuedMonthsAgo: 10, validForMonths: 14 },
-    { count: 18, kind: 'permanent', from: 'issued', issuedMonthsAgo: 20, validForMonths: 28 },
-    // expired less than a year ago: a renewal with a late fee
-    { count: 10, kind: 'permanent', from: 'expired', expiredMonthsAgo: 4 },
-    // expired more than a year ago: the practical exam
-    { count: 8, kind: 'permanent', from: 'expired', expiredMonthsAgo: 14 }
-] as const;
+const MONTHS_OF_LICENCE = {
+    temporary: 10,
+    permanent: 20,
+    over55: 6
+} as const;
+
+/** How the licences are spread: the states the journey and the reports show (demo-plan.md §4), on the terms the rules give. */
+const licenceStates = (today: string) => {
+    const issued = (months: number) => addMonths(today, -months);
+    const expired = (months: number) => {
+        const validUntil = addMonths(today, -months);
+        return { kind: 'permanent' as const, issuedOn: addYears(validUntil, -RENEWAL_YEARS), validUntil };
+    };
+    return [
+        {
+            count: 16,
+            term: {
+                kind: 'temporary' as const,
+                issuedOn: issued(MONTHS_OF_LICENCE.temporary),
+                validUntil: temporaryValidUntil(issued(MONTHS_OF_LICENCE.temporary))
+            }
+        },
+        {
+            count: 18,
+            term: {
+                kind: 'permanent' as const,
+                issuedOn: issued(MONTHS_OF_LICENCE.permanent),
+                validUntil: addYears(issued(MONTHS_OF_LICENCE.permanent), RENEWAL_YEARS)
+            }
+        },
+        // expired less than a year ago: a renewal with a late fee
+        { count: 10, term: expired(4) },
+        // expired more than a year ago: the practical exam
+        { count: 8, term: expired(14) }
+    ];
+};
 const OVER_55_LICENCES = 8;
 
-const GRADE_BY_AGE = (age: number) =>
+const GRADES_AT_AGE = (age: number) =>
     age >= 22 ? ['automobile', 'public-1', 'truck-1'] : ['automobile', 'motorcycle'];
 
-/** The whole demo for a region, once: a second run finds its schools and does nothing. Needs the org tree and the catalogue first. */
+/** A working day on or after this one: no exam, and no office's own holiday, on a weekend or a national holiday. */
+const workingDayFrom = (day: string): string => {
+    let at = day;
+    for (;;) {
+        const date = new Date(`${at}T00:00:00Z`);
+        const national = ethiopianHolidays(date.getUTCFullYear()).map((h) => h.date);
+        if (![0, 6].includes(date.getUTCDay()) && !national.includes(at)) return at;
+        at = new Date(date.getTime() + 86_400_000).toISOString().slice(0, 10);
+    }
+};
+
+/**
+ * The whole demo for a region, in one transaction: it is there completely or not at all, and a run that finds it does nothing. Needs the
+ * org tree and the catalogue first. Done as an installation step at the region's root, so that is what its audit rows name.
+ */
 export async function importDemoData(
     db: Database,
     code: string,
@@ -134,7 +185,7 @@ export async function importDemoData(
 ): Promise<DemoCounts | null> {
     const random = generator(2019);
     const base = { requestId: 'seed:demo' };
-    const units = await db.scoped(base, async (tx) => {
+    const found = await db.scoped(base, async (tx) => {
         const [root] = await tx
             .select()
             .from(orgUnits)
@@ -156,7 +207,8 @@ export async function importDemoData(
         };
         return { root, zone: named('WOL'), boditi: named('WOL-BODITI'), damot: named('WOL-DAMOT-GALE') };
     });
-    const regionId = units.root.regionId;
+    const { root, ...offices } = found;
+    const regionId = root.regionId;
     const asUnit = (unit: { id: string; path: string }): DbContext => ({
         ...base,
         regionId,
@@ -164,66 +216,64 @@ export async function importDemoData(
         scopePath: unit.path
     });
 
-    const SCHOOLS = [
-        { am: 'ናሙና ማሰልጠኛ ተቋም ሀ', en: 'Sample Driving School A' },
-        { am: 'ናሙና ማሰልጠኛ ተቋም ለ', en: 'Sample Driving School B' },
-        { am: 'ናሙና ማሰልጠኛ ተቋም ሐ', en: 'Sample Driving School C' }
-    ];
-    const already = await db.scoped(base, (tx) =>
-        tx
-            .select({ id: organisations.id })
-            .from(organisations)
-            .where(and(eq(organisations.regionId, regionId), eq(organisations.kind, 'training_school')))
-            .limit(1)
-    );
-    if (already.length > 0) return null;
+    return db.scoped(asUnit(root), async (tx) => {
+        const [already] = await tx
+            .select({ id: driverLicences.id })
+            .from(driverLicences)
+            .where(and(eq(driverLicences.regionId, regionId), like(driverLicences.nationalReference, 'DEMO-%')))
+            .limit(1);
+        if (already) return null;
 
-    // the organisations, and the neutral branding (real names, logos and stamps appear only with permission)
-    const zoneCtx = asUnit(units.zone);
-    const schools = await db.scoped(zoneCtx, async (tx) => {
-        const made: string[] = [];
-        for (const name of SCHOOLS)
-            made.push((await deps.organisations.create(tx, zoneCtx, { kind: 'training_school', name })).id);
+        const zoneCtx = asUnit(offices.zone);
+        const schools: string[] = [];
+        for (const name of [
+            { am: 'ናሙና ማሰልጠኛ ተቋም ሀ', en: 'Sample Driving School A' },
+            { am: 'ናሙና ማሰልጠኛ ተቋም ለ', en: 'Sample Driving School B' },
+            { am: 'ናሙና ማሰልጠኛ ተቋም ሐ', en: 'Sample Driving School C' }
+        ])
+            schools.push((await deps.organisations.create(tx, zoneCtx, { kind: 'training_school', name })).id);
         for (const name of [
             { am: 'ናሙና ጤና ጣቢያ አንድ', en: 'Sample Health Centre One' },
             { am: 'ናሙና ጤና ጣቢያ ሁለት', en: 'Sample Health Centre Two' }
         ])
             await deps.organisations.create(tx, zoneCtx, { kind: 'health_facility', name });
-        return made;
-    });
-    await db.scoped(asUnit(units.root), (tx) =>
-        insertAudited(tx, settingsValues, {
-            regionId,
-            unitId: units.root.id,
-            unitTypeId: null,
-            key: 'documents.header',
-            value: { title: { am: 'ናሙና የክልል ትራንስፖርት ቢሮ', en: 'Sample Regional Transport Bureau' } }
-        })
-    );
 
-    // the people: each a different name, kept apart from one another by the register's own duplicate check
-    const seen = new Set<string>();
-    const people: { id: string; age: number; unit: 'boditi' | 'zone' | 'damot' }[] = [];
-    for (const [share, from, to] of AGE_BANDS)
-        for (let i = 0; i < share; i += 1) {
-            const sex = random.int(2) === 0 ? ('female' as const) : ('male' as const);
-            const given = random.of(sex === 'female' ? WOMEN : MEN);
-            const father = random.of(FATHERS);
-            const grandfather = random.of(FATHERS);
-            const key = `${given[1]}/${father[1]}/${grandfather[1]}`;
-            if (seen.has(key) || father === grandfather) {
-                i -= 1;
-                continue;
-            }
-            seen.add(key);
-            const age = from + random.int(to - from + 1);
-            const birthDate = addMonths(addYears(today, -age), -(1 + random.int(10)));
-            const place = random.int(10);
-            const home = place < 6 ? 'boditi' : place < 8 ? 'zone' : 'damot';
-            const unit = units[home];
-            const ctx = asUnit(unit);
-            const made = await db.scoped(ctx, (tx) =>
-                deps.persons.create(tx, ctx, {
+        // neutral branding (real names, logos and stamps appear only with permission); a header a bureau has set stays
+        const [header] = await tx
+            .select({ id: settingsValues.id })
+            .from(settingsValues)
+            .where(and(eq(settingsValues.unitId, root.id), eq(settingsValues.key, 'documents.header')));
+        if (!header)
+            await insertAudited(tx, settingsValues, {
+                regionId,
+                unitId: root.id,
+                unitTypeId: null,
+                key: 'documents.header',
+                value: { title: { am: 'ናሙና የክልል ትራንስፖርት ቢሮ', en: 'Sample Regional Transport Bureau' } }
+            });
+
+        // the people: each a different name, past the register's own duplicate check
+        type Person = { id: string; birthDate: string; age: number; unit: keyof typeof offices };
+        const seen = new Set<string>();
+        const people: Person[] = [];
+        for (const [share, from, to] of AGE_BANDS)
+            for (let i = 0; i < share; i += 1) {
+                const sex = random.int(2) === 0 ? ('female' as const) : ('male' as const);
+                const given = random.of(sex === 'female' ? WOMEN : MEN);
+                const father = random.of(FATHERS);
+                const grandfather = random.of(FATHERS);
+                const key = `${given[1]}/${father[1]}/${grandfather[1]}`;
+                if (seen.has(key) || father === grandfather) {
+                    i -= 1;
+                    continue;
+                }
+                seen.add(key);
+                const age = from + random.int(to - from + 1);
+                const birthDate = addMonths(addYears(today, -age), -(1 + random.int(10)));
+                const place = random.int(10);
+                const home = place < 6 ? 'boditi' : place < 8 ? 'zone' : 'damot';
+                const unit = offices[home];
+                const made = await deps.persons.create(tx, asUnit(unit), {
                     nameAm: { given: given[0], father: father[0], grandfather: grandfather[0] },
                     nameEn: { given: given[1], father: father[1], grandfather: grandfather[1] },
                     sex,
@@ -231,54 +281,10 @@ export async function importDemoData(
                     sensitive: { birthDate },
                     address: { unitId: unit.id, kebele: `ቀበሌ ${String(1 + random.int(12)).padStart(2, '0')}` },
                     acknowledgedDuplicates: []
-                })
-            );
-            people.push({ id: made.id, age, unit: home });
-        }
+                });
+                people.push({ id: made.id, birthDate, age, unit: home });
+            }
 
-    // the licences: of the offices that handle them, in the states the journey needs
-    const licensable = people.filter((p) => p.unit !== 'damot' && p.age >= 18);
-    const over55 = licensable.filter((p) => p.age >= 56);
-    const younger = licensable.filter((p) => p.age < 56);
-    const taken = new Set<string>();
-    const takeFrom = (pool: typeof people) => {
-        const free = pool.filter((p) => !taken.has(p.id));
-        const person = random.of(free);
-        taken.add(person.id);
-        return person;
-    };
-    const makeLicence = async (
-        tx: Tx,
-        person: (typeof people)[number],
-        grades: Map<string, string>,
-        kind: 'temporary' | 'permanent',
-        issuedOn: string,
-        validUntil: string
-    ) => {
-        const unit = units[person.unit];
-        const { number } = await nextNumber(tx, LICENCE_COUNTER, unit.id);
-        const licence = await insertAudited(tx, driverLicences, {
-            regionId,
-            handlingUnitId: unit.id,
-            personId: person.id,
-            status: 'active',
-            kind,
-            number,
-            issuedOn,
-            validUntil,
-            nationalReference: `DEMO-${number}`
-        });
-        const gradeTypeId = grades.get(random.of(GRADE_BY_AGE(person.age)));
-        if (!gradeTypeId) throw new Error('seed the licence grades first');
-        await insertAudited(tx, licenceGrades, {
-            regionId,
-            handlingUnitId: unit.id,
-            licenceId: licence.id,
-            gradeTypeId,
-            permanentSince: kind === 'permanent' ? issuedOn : null
-        });
-    };
-    const counts = await db.scoped(asUnit(units.zone), async (tx) => {
         const grades = new Map(
             (
                 await tx
@@ -287,22 +293,54 @@ export async function importDemoData(
                     .where(eq(licenceGradeTypes.regionId, regionId))
             ).map((g) => [g.key, g.id])
         );
+        const taken = new Set<string>();
+        const takeFrom = (fits: (person: Person) => boolean): Person => {
+            const person = random.of(people.filter((p) => p.unit !== 'damot' && !taken.has(p.id) && fits(p)));
+            taken.add(person.id);
+            return person;
+        };
+
+        // the licences, of the offices that handle them: each holder was old enough for it on the day it was issued
+        const makeLicence = async (
+            fits: (person: Person) => boolean,
+            term: { kind: 'temporary' | 'permanent'; issuedOn: string; validUntil: string }
+        ) => {
+            const holder = takeFrom((p) => fits(p) && ageOn(p.birthDate, term.issuedOn) >= 18);
+            const unit = offices[holder.unit];
+            const { number } = await nextNumber(tx, LICENCE_COUNTER, unit.id);
+            const licence = await insertAudited(tx, driverLicences, {
+                regionId,
+                handlingUnitId: unit.id,
+                personId: holder.id,
+                status: 'active',
+                number,
+                nationalReference: `DEMO-${number}`,
+                ...term
+            });
+            const gradeTypeId = grades.get(random.of(GRADES_AT_AGE(ageOn(holder.birthDate, term.issuedOn))));
+            if (!gradeTypeId) throw new Error('seed the licence grades first');
+            await insertAudited(tx, licenceGrades, {
+                regionId,
+                handlingUnitId: unit.id,
+                licenceId: licence.id,
+                gradeTypeId,
+                permanentSince: term.kind === 'permanent' ? term.issuedOn : null
+            });
+        };
         let licences = 0;
-        for (const state of LICENCE_STATES)
-            for (let i = 0; i < state.count; i += 1) {
-                const person = takeFrom(younger);
-                const validUntil =
-                    state.from === 'expired'
-                        ? addMonths(today, -state.expiredMonthsAgo)
-                        : addMonths(addMonths(today, -state.issuedMonthsAgo), state.validForMonths);
-                const issuedOn =
-                    state.from === 'expired' ? addYears(validUntil, -4) : addMonths(today, -state.issuedMonthsAgo);
-                await makeLicence(tx, person, grades, state.kind, issuedOn, validUntil);
+        const under56 = (p: Person) => p.age < 56;
+        for (const { count, term } of licenceStates(today))
+            for (let i = 0; i < count; i += 1) {
+                await makeLicence(under56, term);
                 licences += 1;
             }
+        const lately = addMonths(today, -MONTHS_OF_LICENCE.over55);
         for (let i = 0; i < OVER_55_LICENCES; i += 1) {
-            const issuedOn = addMonths(today, -6);
-            await makeLicence(tx, takeFrom(over55), grades, 'permanent', issuedOn, addYears(issuedOn, 2));
+            await makeLicence((p) => !under56(p), {
+                kind: 'permanent',
+                issuedOn: lately,
+                validUntil: addYears(lately, RENEWAL_YEARS_OVER_55)
+            });
             licences += 1;
         }
 
@@ -312,10 +350,10 @@ export async function importDemoData(
         let enrolments = 0;
         for (const done of [true, false])
             for (let i = 0; i < (done ? 12 : 8); i += 1) {
-                const person = takeFrom(younger);
+                const person = takeFrom((p) => under56(p) && p.age >= 18);
                 await insertAudited(tx, trainingEnrolments, {
                     regionId,
-                    handlingUnitId: units[person.unit].id,
+                    handlingUnitId: offices[person.unit].id,
                     personId: person.id,
                     schoolId: random.of(schools),
                     gradeTypeId: automobile,
@@ -325,28 +363,37 @@ export async function importDemoData(
                 enrolments += 1;
             }
 
-        // exam days of the coming month, at the two offices with examiners
+        // exam days of the coming month, on days the offices are open, at the two with examiners
         let sessions = 0;
-        for (const unit of [units.boditi, units.zone])
+        const dayOffset = (days: number) =>
+            new Date(Date.parse(`${today}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+        for (const unit of [offices.boditi, offices.zone])
             for (let week = 1; week <= 4; week += 1) {
-                const heldOn = new Date(Date.parse(`${today}T00:00:00Z`) + week * 7 * 86_400_000)
-                    .toISOString()
-                    .slice(0, 10);
-                await insertAudited(tx, examSessions, { regionId, handlingUnitId: unit.id, heldOn });
+                await insertAudited(tx, examSessions, {
+                    regionId,
+                    handlingUnitId: unit.id,
+                    heldOn: workingDayFrom(dayOffset(week * 7))
+                });
                 sessions += 1;
             }
 
-        // the national holidays come from the calendar; a zone's own is entered with its date of the year
+        // the national holidays come from the calendar; a zone's own is entered with its date of the year, on a day that is otherwise
+        // a working one, so it shows in its deadlines
         const year = Number(today.slice(0, 4));
-        const gifaata = `${today > `${year}-09-27` ? year + 1 : year}-09-27`;
+        const sampleDay = `${today > `${year}-09-27` ? year + 1 : year}-09-28`;
         await insertAudited(tx, holidays, {
             regionId,
-            unitId: units.zone.id,
-            date: gifaata,
+            unitId: offices.zone.id,
+            date: workingDayFrom(sampleDay),
             key: 'gifaata',
             name: { am: 'ጊፋታ (የናሙና ቀን)', en: 'Gifaata (sample date)' }
         });
-        return { licences, enrolments, examSessions: sessions };
+        return {
+            persons: people.length,
+            organisations: schools.length + 2,
+            licences,
+            enrolments,
+            examSessions: sessions
+        };
     });
-    return { persons: people.length, organisations: schools.length + 2, ...counts };
 }
