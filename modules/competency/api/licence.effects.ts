@@ -12,7 +12,8 @@ import { LicencesService, type CasePlace } from './licences.service';
 const placeOf = (run: EffectRun<unknown>): CasePlace => ({
     caseId: run.caseId,
     regionId: run.regionId,
-    handlingUnitId: run.handlingUnitId
+    handlingUnitId: run.handlingUnitId,
+    ctx: run.ctx
 });
 
 interface ApplicationInput {
@@ -63,7 +64,7 @@ export class RecordExamEffect implements WorkflowEffect {
         const person = run.facts.personId;
         if (typeof person !== 'string')
             throw new ConflictError('contract_unmet', { detail: 'The case does not say whose exam this is.' });
-        return { facts: await this.licences.recordExam(run.tx, placeOf(run), person, run.input) };
+        return { facts: await this.licences.recordExam(run.tx, placeOf(run), person, run.input, run.argument) };
     }
 }
 
@@ -125,7 +126,7 @@ export class RenewLicenceEffect implements WorkflowEffect {
     constructor(@Inject(LicencesService) private readonly licences: LicencesService) {}
 
     async run(run: EffectRun) {
-        return { facts: await this.licences.renew(run.tx, run.facts, run.input) };
+        return { facts: await this.licences.renew(run.tx, placeOf(run), run.facts, run.input) };
     }
 }
 

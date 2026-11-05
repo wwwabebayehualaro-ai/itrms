@@ -10,6 +10,8 @@ export const TEMPORARY_YEARS = 2;
 export const RENEWAL_YEARS = 4;
 export const RENEWAL_YEARS_OVER_55 = 2;
 export const OVER_AGE = 55;
+/** How long before its expiry a licence can be renewed, when a service sets nothing (the proclamation has no figure). */
+export const RENEWAL_WINDOW_MONTHS = 6;
 /** Later than this after expiry, a renewal needs a practical exam (Art. 19(5)). */
 export const LATE_RENEWAL_YEARS = 1;
 
@@ -97,6 +99,10 @@ export const medicalIsCurrent = (examinedOn: string, months: number, today: stri
 
 /** The term of a first licence, which is temporary. */
 export const temporaryValidUntil = (issuedOn: string): string => addYears(issuedOn, TEMPORARY_YEARS);
+
+/** Too early, a renewal would stack terms, and avoid the shorter term a holder turning 55 is due. */
+export const renewalIsOpen = (validUntil: string, months: number, today: string): boolean =>
+    addMonths(validUntil, -months) <= today;
 
 export interface RenewalTerms {
     /** past its expiry on this day */

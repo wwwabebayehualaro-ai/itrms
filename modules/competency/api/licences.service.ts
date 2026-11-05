@@ -4,10 +4,10 @@
  * nothing until then, so ITRMS never holds a value that competes with the national record.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, inArray, like, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, like, or, sql, type SQL } from 'drizzle-orm';
 import { currentContext } from '@itrms/kernel/context';
-import { insertAudited, updateAudited, type Tx } from '@itrms/kernel/db';
-import { ConflictError, NotFoundError } from '@itrms/kernel/errors';
+import { insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
+import { ConflictError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
 import { nextNumber } from '@itrms/kernel/numbering';
 import { emit } from '@itrms/kernel/outbox';
 import { orgUnits } from '@itrms/kernel/tables';
@@ -27,7 +27,9 @@ import {
     licenceGradeSchema,
     medicalIsCurrent,
     nationalAnswerSchema,
+    renewalIsOpen,
     renewalTerms,
+    RENEWAL_WINDOW_MONTHS,
     temporaryValidUntil,
     type EligibilityProblem,
     type Licence,
@@ -47,11 +49,12 @@ import {
     trainingEnrolments
 } from './competency.table';
 
-/** A case's place, as an effect is given it. */
+/** A case's place, as an effect is given it, and who is acting (nobody, for the worker's system transactions). */
 export interface CasePlace {
     caseId: string;
     regionId: string;
     handlingUnitId: string;
+    ctx: DbContext;
 }
 
 type LicenceRow = typeof driverLicences.$inferSelect;
@@ -67,10 +70,15 @@ const say = (key: Words, values: Record<string, string | number> = {}): string =
 /** The medical examination's months, when a service sets none (the proclamation has no figure: the bureau is asked). */
 const DEFAULT_MEDICAL_MONTHS = 6;
 
-const medicalMonths = (config: Readonly<Record<string, unknown>>): number => {
-    const set = config.medical_valid_months;
-    return typeof set === 'number' && set > 0 ? set : DEFAULT_MEDICAL_MONTHS;
+const monthsIn = (config: Readonly<Record<string, unknown>>, key: string, otherwise: number): number => {
+    const set = config[key];
+    return typeof set === 'number' && set > 0 ? set : otherwise;
 };
+const medicalMonths = (config: Readonly<Record<string, unknown>>): number =>
+    monthsIn(config, 'medical_valid_months', DEFAULT_MEDICAL_MONTHS);
+
+/** A person's refusal: what they read at the counter (api-guidelines.md: a business rule is a 422). */
+const notEligible = (detail: string) => new ValidationError('not_eligible', { detail });
 
 const fullName = (given: string, father: string, grandfather: string | null) =>
     [given, father, grandfather].filter(Boolean).join(' ');
@@ -101,18 +109,42 @@ export class LicencesService {
         return grade;
     }
 
-    private async heldBy(tx: Tx, personId: string) {
+    /** What a person holds now: a licence past its expiry proves nothing, whatever its status says. */
+    private async heldBy(tx: Tx, personId: string, today: string) {
         return tx
             .select({ key: licenceGradeTypes.key, permanentSince: licenceGrades.permanentSince })
             .from(licenceGrades)
             .innerJoin(driverLicences, eq(driverLicences.id, licenceGrades.licenceId))
             .innerJoin(licenceGradeTypes, eq(licenceGradeTypes.id, licenceGrades.gradeTypeId))
-            .where(and(eq(driverLicences.personId, personId), eq(driverLicences.status, 'active')));
+            .where(
+                and(
+                    eq(driverLicences.personId, personId),
+                    eq(driverLicences.status, 'active'),
+                    gte(driverLicences.validUntil, today)
+                )
+            );
     }
 
-    private async birthDate(tx: Tx, regionId: string, personId: string, reason: string): Promise<string> {
-        const born = await this.persons.birthDateForRule(tx, regionId, personId, reason);
-        if (!born) throw new ConflictError('not_eligible', { detail: say('competency.rule.noBirthDate') });
+    /** A grade they already have, or are waiting for: asking again would make a second licence for one grade. */
+    private async alreadyHas(tx: Tx, personId: string, gradeId: string, today: string): Promise<boolean> {
+        const [found] = await tx
+            .select({ id: driverLicences.id })
+            .from(licenceGrades)
+            .innerJoin(driverLicences, eq(driverLicences.id, licenceGrades.licenceId))
+            .where(
+                and(
+                    eq(driverLicences.personId, personId),
+                    eq(licenceGrades.gradeTypeId, gradeId),
+                    sql`(${driverLicences.status} = 'pending_national' or (${driverLicences.status} = 'active' and ${driverLicences.validUntil} >= ${today}))`
+                )
+            )
+            .limit(1);
+        return Boolean(found);
+    }
+
+    private async birthDate(tx: Tx, place: CasePlace, personId: string, reason: string): Promise<string> {
+        const born = await this.persons.birthDateForRule(tx, place.ctx, place.regionId, personId, reason);
+        if (!born) throw notEligible(say('competency.rule.noBirthDate'));
         return born;
     }
 
@@ -151,12 +183,13 @@ export class LicencesService {
         const problems = eligibilityProblems(
             { ...grade, prerequisites: grade.prerequisites },
             {
-                birthDate: await this.birthDate(tx, place.regionId, input.person, 'licence eligibility'),
+                birthDate: await this.birthDate(tx, place, input.person, 'licence eligibility'),
                 educationGrade: input.educationGrade,
-                held: await this.heldBy(tx, input.person)
+                held: await this.heldBy(tx, input.person, today)
             },
             today
         ).map((p) => this.problemText(p));
+        if (await this.alreadyHas(tx, input.person, grade.id, today)) problems.push(say('competency.rule.alreadyHeld'));
         if (!medicalIsCurrent(input.medicalExaminedOn, medicalMonths(config), today))
             problems.push(say('competency.rule.medical', { months: medicalMonths(config) }));
         const [school] = await tx
@@ -176,7 +209,7 @@ export class LicencesService {
         // Art. 8 and DVC-10: only after the school has confirmed completion
         if (school?.kind !== 'training_school' || trained?.status !== 'completed')
             problems.push(say('competency.rule.training'));
-        if (problems.length) throw new ConflictError('not_eligible', { detail: problems.join(' ') });
+        if (problems.length) throw notEligible(problems.join(' '));
         await this.recordMedical(tx, place, input.person, input.medicalFacility, input.medicalExaminedOn);
         return { personId: input.person, application: { grade: grade.key } };
     }
@@ -205,8 +238,20 @@ export class LicencesService {
     }
 
     /** An examiner's result, typed, under the day's session. */
-    async recordExam(tx: Tx, place: CasePlace, personId: string, answers: unknown) {
-        const exam = examAnswersSchema.parse(answers);
+    async recordExam(tx: Tx, place: CasePlace, personId: string, answers: unknown, outcome?: string) {
+        const parsed = examAnswersSchema.safeParse(answers);
+        if (!parsed.success)
+            throw new ValidationError('validation_failed', {
+                errors: parsed.error.issues.map((i) => ({
+                    path: i.path.join('.'),
+                    code: 'invalid',
+                    message: i.message
+                }))
+            });
+        const exam = parsed.data;
+        // `competency.recordExam:passed` on a workflow's way forward: a failed exam must not take it
+        if ((outcome === 'passed' && !exam.passed) || (outcome === 'failed' && exam.passed))
+            throw notEligible(say('competency.rule.examOutcome'));
         const session = await this.session(tx, place, exam.heldOn);
         const [last] = await tx
             .select({ n: sql<number>`coalesce(max(${examResults.attempt}), 0)::int` })
@@ -242,10 +287,30 @@ export class LicencesService {
 
     /** The licence as it waits for the national platform. Run again (a step taken twice), it is the same licence. */
     async createPending(tx: Tx, place: CasePlace, input: { person: string; grade: string }) {
-        const [existing] = await tx
+        const grade = await this.grade(tx, place.regionId, input.grade);
+        const [found] = await tx
             .select()
             .from(driverLicences)
             .where(and(eq(driverLicences.caseId, place.caseId), sql`${driverLicences.status} <> 'voided'`));
+        // a request corrected while it waited: the licence must be the one that was checked and approved
+        const same =
+            found &&
+            found.personId === input.person &&
+            (
+                await tx
+                    .select({ id: licenceGrades.id })
+                    .from(licenceGrades)
+                    .where(and(eq(licenceGrades.licenceId, found.id), eq(licenceGrades.gradeTypeId, grade.id)))
+            ).length > 0;
+        if (found && !same) {
+            if (found.status !== 'pending_national')
+                throw new ConflictError('invalid_transition', { detail: 'This case has already made a licence.' });
+            await updateAudited(tx, driverLicences, found.id, found.rowVersion, {
+                status: 'voided',
+                voidReason: 'request_changed'
+            });
+        }
+        const existing = same ? found : undefined;
         const licence =
             existing ??
             (await insertAudited(tx, driverLicences, {
@@ -254,15 +319,13 @@ export class LicencesService {
                 personId: input.person,
                 caseId: place.caseId
             }));
-        if (!existing) {
-            const grade = await this.grade(tx, place.regionId, input.grade);
+        if (!existing)
             await insertAudited(tx, licenceGrades, {
                 regionId: place.regionId,
                 handlingUnitId: place.handlingUnitId,
                 licenceId: licence.id,
                 gradeTypeId: grade.id
             });
-        }
         await emit(tx, 'licence.national-requested.v1', {
             caseId: place.caseId,
             licenceId: licence.id,
@@ -308,8 +371,11 @@ export class LicencesService {
     async voidPending(tx: Tx, facts: Readonly<Record<string, unknown>>, answer: unknown) {
         const given = nationalAnswerSchema.parse(answer);
         const id = (facts.licence as { id?: unknown } | undefined)?.id;
-        // a renewal has no pending record: the licence never changed
-        if (typeof id !== 'string') return { renewal: null };
+        // a renewal has no pending record, and the licence never changed. Its next approval is a new decision for the platform
+        if (typeof id !== 'string') {
+            const renewal = (facts.renewal ?? {}) as { attempt?: number };
+            return { renewal: { ...renewal, attempt: (renewal.attempt ?? 0) + 1 } };
+        }
         const licence = await this.row(tx, id);
         if (licence.status === 'pending_national')
             await updateAudited(tx, driverLicences, licence.id, licence.rowVersion, {
@@ -330,20 +396,37 @@ export class LicencesService {
     ) {
         const today = addisDay();
         const licence = await this.row(tx, input.licence);
-        if (licence.status !== 'active' || !licence.validUntil)
-            throw new ConflictError('not_eligible', { detail: say('competency.rule.notRenewable') });
+        if (licence.status !== 'active' || !licence.validUntil) throw notEligible(say('competency.rule.notRenewable'));
+        // class R: the region reads a licence, its office's subtree writes it. The worker, which applies an accepted renewal, can't
+        // check that, so it is checked here. Another office needs a transfer first.
+        const [office] = await tx
+            .select({ path: orgUnits.path })
+            .from(orgUnits)
+            .where(eq(orgUnits.id, place.handlingUnitId));
+        const path = licence.handlingOrgPath;
+        if (!office || (path !== office.path && !path.startsWith(`${office.path}.`)))
+            throw notEligible(say('competency.rule.otherOffice'));
+        const window = monthsIn(config, 'renewal_window_months', RENEWAL_WINDOW_MONTHS);
+        if (!renewalIsOpen(licence.validUntil, window, today))
+            throw notEligible(say('competency.rule.tooEarly', { months: window }));
         const months = medicalMonths(config);
         if (!medicalIsCurrent(input.medicalExaminedOn, months, today))
-            throw new ConflictError('not_eligible', { detail: say('competency.rule.medical', { months }) });
+            throw notEligible(say('competency.rule.medical', { months }));
         const terms = renewalTerms(
             { validUntil: licence.validUntil },
-            await this.birthDate(tx, place.regionId, licence.personId, 'licence renewal term'),
+            await this.birthDate(tx, place, licence.personId, 'licence renewal term'),
             today
         );
         await this.recordMedical(tx, place, licence.personId, input.medicalFacility, input.medicalExaminedOn);
         return {
             personId: licence.personId,
-            renewal: { licenceId: licence.id, ...terms, temporary: licence.kind === 'temporary' }
+            renewal: {
+                licenceId: licence.id,
+                // what it renews: a second case on the same licence must not add a second term
+                fromValidUntil: licence.validUntil,
+                ...terms,
+                temporary: licence.kind === 'temporary'
+            }
         };
     }
 
@@ -351,20 +434,24 @@ export class LicencesService {
         await emit(tx, 'licence.national-requested.v1', {
             caseId: place.caseId,
             licenceId: this.licenceIdOf(facts, 'renewal'),
-            kind: 'renewal'
+            kind: 'renewal',
+            attempt: (facts.renewal as { attempt?: number }).attempt ?? 0
         });
     }
 
     /** Accepted nationally: the new term. A temporary licence becomes permanent here (Art. 15(3)). */
-    async renew(tx: Tx, facts: Readonly<Record<string, unknown>>, answer: unknown) {
+    async renew(tx: Tx, place: CasePlace, facts: Readonly<Record<string, unknown>>, answer: unknown) {
         const given = nationalAnswerSchema.parse(answer);
         const licence = await this.row(tx, this.licenceIdOf(facts, 'renewal'));
         const today = addisDay();
         if (!licence.validUntil)
             throw new ConflictError('contract_unmet', { detail: 'The licence has no term to renew.' });
+        // another case renewed it since this one was checked: its term has been given, and terms never stack
+        if ((facts.renewal as { fromValidUntil?: string }).fromValidUntil !== licence.validUntil)
+            return { licence: { id: licence.id, number: licence.number } };
         const terms = renewalTerms(
             { validUntil: licence.validUntil },
-            await this.birthDate(tx, licence.regionId, licence.personId, 'licence renewal term'),
+            await this.birthDate(tx, place, licence.personId, 'licence renewal term'),
             today
         );
         await updateAudited(tx, driverLicences, licence.id, licence.rowVersion, {
@@ -406,12 +493,8 @@ export class LicencesService {
             data: {
                 number: licence.number,
                 holderName: fullName(holder.givenNameAm, holder.fatherNameAm, holder.grandfatherNameAm),
-                birthDate: await this.persons.birthDateForRule(
-                    tx,
-                    place.regionId,
-                    licence.personId,
-                    'printed on the licence card'
-                ),
+                // not printed yet: what a document says is stored in clear, and a birth date is kept encrypted (ADR-0047)
+                birthDate: null,
                 grades: grades.map((g) => ({ grade: g.key, name: g.name })),
                 issuedOn: licence.issuedOn,
                 validUntil: licence.validUntil,
@@ -429,7 +512,12 @@ export class LicencesService {
             eq(licencePrintBatches.handlingUnitId, place.handlingUnitId),
             eq(licencePrintBatches.status, 'open')
         );
-        const [batch] = await tx.select({ id: licencePrintBatches.id }).from(licencePrintBatches).where(open);
+        // locked, as sending locks it: a licence never lands on a batch already on its way to the printer
+        const [batch] = await tx
+            .select({ id: licencePrintBatches.id })
+            .from(licencePrintBatches)
+            .where(open)
+            .for('update');
         const batchId =
             batch?.id ??
             (
@@ -548,24 +636,24 @@ export class LicencesService {
         return view;
     }
 
-    /** Licences for a form's lookup: active ones, by number or by whoever holds them. */
+    /** Licences for a form's lookup: active ones, by number or by whoever holds them (the register's own folded name search). */
     async searchForLookup(tx: Tx, q: string, limit: number) {
         const needle = q.replace(/[%_\\]/g, '\\$&');
+        const holders = (await this.persons.search(tx, q, limit)).map((p) => p.id);
         const rows = await tx
-            .select({ licence: driverLicences })
+            .select()
             .from(driverLicences)
-            .innerJoin(persons, eq(persons.id, driverLicences.personId))
             .where(
                 and(
                     eq(driverLicences.status, 'active'),
-                    sql`(${driverLicences.number} ilike ${`${needle}%`} or ${persons.searchText} ilike ${`%${needle}%`})`
+                    or(
+                        like(driverLicences.number, `${needle}%`),
+                        holders.length ? inArray(driverLicences.personId, holders) : undefined
+                    )
                 )
             )
             .limit(limit);
-        return this.views(
-            tx,
-            rows.map((r) => r.licence)
-        );
+        return this.views(tx, rows);
     }
 
     async byIds(tx: Tx, ids: readonly string[]) {

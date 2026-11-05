@@ -18,5 +18,9 @@
   "competency.lookup.school.title": "Training school",
   "competency.lookup.fact.holder": "Holder",
   "competency.lookup.fact.grades": "Grades",
-  "competency.lookup.fact.validUntil": "Valid until"
+  "competency.lookup.fact.validUntil": "Valid until",
+  "competency.rule.alreadyHeld": "This person already holds this grade, or is waiting for it.",
+  "competency.rule.examOutcome": "This exam result does not match the step taken.",
+  "competency.rule.otherOffice": "Another office handles this licence. Transfer it to this office first.",
+  "competency.rule.tooEarly": "A licence can be renewed from {months} months before it expires."
 }

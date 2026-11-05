@@ -160,6 +160,7 @@ export async function importLicenceGrades(
         } else if (
             JSON.stringify([
                 existing.name,
+                existing.family,
                 existing.minAge,
                 existing.minEducation,
                 existing.prerequisites,
@@ -167,6 +168,7 @@ export async function importLicenceGrades(
             ]) !==
             JSON.stringify([
                 grade.name,
+                grade.family,
                 grade.minAge,
                 grade.minEducation,
                 grade.prerequisites,

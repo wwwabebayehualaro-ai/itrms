@@ -70,7 +70,8 @@ const NEW_FORM = {
                     dataSource: {
                         staticData: [
                             { label: t('Automobile'), value: 'automobile' },
-                            { label: t('Truck I'), value: 'truck-1' }
+                            { label: t('Truck I'), value: 'truck-1' },
+                            { label: t('Taxi'), value: 'taxi' }
                         ]
                     }
                 }
@@ -104,7 +105,8 @@ const state = (key: string, role: string) => ({
 });
 const NATIONAL_WAYS = (accepted: string[]) => [
     { from: 'national', to: 'issued', on: NATIONAL_ACCEPTED, actor: NATIONAL_ACTOR, effects: accepted },
-    { from: 'national', to: 'approval', on: NATIONAL_REJECTED, actor: NATIONAL_ACTOR, effects: [E.voidPendingLicence] }
+    { from: 'national', to: 'approval', on: NATIONAL_REJECTED, actor: NATIONAL_ACTOR, effects: [E.voidPendingLicence] },
+    { from: 'national', to: 'approval', on: 'timeout' }
 ];
 const ENDS = [
     { key: 'national', kind: 'wait', label: t('National') },
@@ -122,7 +124,7 @@ const NEW_FLOW = {
     transitions: [
         { from: 'draft', to: 'review', action: 'submit', effects: [E.checkApplication] },
         { from: 'review', to: 'exam', action: 'approve' },
-        { from: 'exam', to: 'approval', action: 'pass', effects: [E.recordExam] },
+        { from: 'exam', to: 'approval', action: 'pass', effects: [`${E.recordExam}:passed`] },
         { from: 'approval', to: 'national', action: 'approve', effects: [E.createPendingLicence] },
         ...NATIONAL_WAYS([E.activateLicence, E.issueLicenceCard, E.addToPrintBatch])
     ]
@@ -150,7 +152,7 @@ const RENEW_FLOW = {
             action: 'approve',
             guard: { fact: 'renewal.lateOverYear', op: 'eq', value: false }
         },
-        { from: 'field_exam', to: 'approval', action: 'pass', effects: [E.recordExam] },
+        { from: 'field_exam', to: 'approval', action: 'pass', effects: [`${E.recordExam}:passed`] },
         { from: 'approval', to: 'national', action: 'approve', effects: [E.requestRenewal] },
         ...NATIONAL_WAYS([E.renewLicence, E.issueLicenceCard, E.addToPrintBatch])
     ]
@@ -386,7 +388,7 @@ describe('an application', () => {
     const refused = async (person: string, over: Record<string, unknown> = {}) => {
         const c = await filed(NEW, applicationOf(person, over));
         const res = await step(c, as.officer, 'submit');
-        expect(res.statusCode, res.body).toBe(409);
+        expect(res.statusCode, res.body).toBe(422);
         expect((await caseOf(c.id)).state).toBe('draft');
         return res.json<{ code: string; detail: string }>();
     };
@@ -446,6 +448,54 @@ describe('an application', () => {
         });
         expect(res.statusCode, res.body).toBe(409);
     });
+
+    it('stays on record as a use of the birth date when it is refused: a refusal tells something of an age', async () => {
+        const person = await registered(yearsAgo(17));
+        await trained(person);
+        await refused(person);
+        expect(
+            await count(
+                `select count(*)::int as n from kernel.audit_log where event_type = 'person.revealed' and row_id = $1`,
+                [person]
+            )
+        ).toBeGreaterThanOrEqual(1);
+    });
+
+    it('is refused for a grade the person already holds, or is waiting for', async () => {
+        const person = await registered(yearsAgo(30));
+        await atNational(person);
+        expect((await refused(person)).detail).toBeTruthy();
+    });
+
+    it('can’t take an exam’s way forward with a failed result', async () => {
+        const person = await registered(yearsAgo(30));
+        await trained(person);
+        let c = await filed(NEW, applicationOf(person));
+        c = await moved(c, as.officer, 'submit');
+        c = await moved(c, as.officer, 'approve');
+        const failed = await step(c, as.examiner, 'pass', { heldOn: today(), practical: 20, passed: false });
+        expect(failed.statusCode, failed.body).toBe(422);
+        expect((await caseOf(c.id)).state).toBe('exam');
+        expect(await count('select count(*)::int as n from competency.exam_results where case_id = $1', [c.id])).toBe(
+            0
+        );
+    });
+
+    it('does not count an expired licence towards the next grade', async () => {
+        const { person, licence } = await licensed(yearsAgo(30));
+        await api.owner.query(
+            `update competency.driver_licences set kind = 'permanent', valid_until = $2 where id = $1`,
+            [licence.id, yearsAgo(2)]
+        );
+        await api.owner.query('update competency.licence_grades set permanent_since = $2 where licence_id = $1', [
+            licence.id,
+            yearsAgo(5)
+        ]);
+        await trained(person, 'taxi');
+        const c = await filed(NEW, applicationOf(person, { grade: 'taxi' }));
+        const res = await step(c, as.officer, 'submit');
+        expect(res.statusCode, res.body).toBe(422);
+    }, 180_000);
 
     it('records its use of the birth date, and never the date', async () => {
         const person = await registered(yearsAgo(30));
@@ -592,6 +642,39 @@ describe('a licence', () => {
         expect((await licenceOf(person))[0]?.status).toBe('pending_national');
     });
 
+    it('is the same request after a timeout, and a corrected request makes a new licence', async () => {
+        const person = await registered(yearsAgo(30));
+        const c = await atNational(person);
+        const first = (await licenceOf(person))[0]?.id ?? '';
+        const timedOut = async () =>
+            system.systemContext('test.timeout', (tx) =>
+                deps.cases.deliver(tx, c.id, 'timeout', { kind: 'system', id: 'system:timer' }, 'am', { quiet: true })
+            );
+        await timedOut();
+        const back = await caseOf(c.id);
+        expect(back.state).toBe('approval');
+        await moved(back, as.lead, 'approve');
+        expect((await licenceOf(person)).map((l) => l.id)).toEqual([first]);
+
+        await timedOut();
+        const again = await caseOf(c.id);
+        // what was filed changed while it waited: the licence must be the one approved
+        await api.owner.query(
+            `update forms.submissions set answers = jsonb_set(answers, '{grade}', '"truck-1"') where case_id = $1`,
+            [c.id]
+        );
+        await moved(again, as.lead, 'approve');
+        const live = (await licenceOf(person)).filter((l) => l.status === 'pending_national');
+        expect(live).toHaveLength(1);
+        expect(live[0]?.id).not.toBe(first);
+        expect(live[0]?.grades[0]?.key).toBe('truck-1');
+        const { rows } = await api.owner.query<{ status: string; void_reason: string }>(
+            'select status, void_reason from competency.driver_licences where id = $1',
+            [first]
+        );
+        expect(rows[0]).toEqual({ status: 'voided', void_reason: 'request_changed' });
+    }, 120_000);
+
     it('is voided when refused, with the reason, and a new approval makes a new one with no gap in the numbers', async () => {
         const person = await registered(yearsAgo(30));
         const c = await atNational(person);
@@ -662,6 +745,11 @@ describe('a renewal', () => {
         expect(rows).toHaveLength(2);
         expect(rows[0]?.superseded_by).not.toBeNull();
         expect(rows[1]?.superseded_by).toBeNull();
+        // the new card belongs to the renewal's case
+        const filedWith = await api.call('GET', `/api/v1/issued-documents?caseId=${c.id}`, as.officer);
+        expect(filedWith.json<{ items: { templateKey: string }[] }>().items.map((d) => d.templateKey)).toContain(
+            'licence-card'
+        );
     }, 180_000);
 
     it('adds a practical exam when more than a year late', async () => {
@@ -690,6 +778,48 @@ describe('a renewal', () => {
         expect((await licenceOf(person))[0]?.validUntil).toBe(`${Number(today().slice(0, 4)) + 2}${today().slice(4)}`);
     }, 180_000);
 
+    it('opens only near expiry, and two open cases on one licence give one term', async () => {
+        const { person, licence } = await licensed(yearsAgo(30));
+        // far from its expiry: a renewal now would stack terms
+        const early = await filed(RENEW, {
+            licence: licence.id,
+            medicalFacility: 'Sample Health Centre',
+            medicalExaminedOn: today()
+        });
+        const tooEarly = await step(early, as.officer, 'submit');
+        expect(tooEarly.statusCode, tooEarly.body).toBe(422);
+
+        await expire(licence.id, yearsAgo(0));
+        let one = await renewal(licence.id);
+        let two = await renewal(licence.id);
+        one = await moved(one, as.officer, 'approve');
+        one = await moved(one, as.lead, 'approve');
+        two = await moved(two, as.officer, 'approve');
+        two = await moved(two, as.lead, 'approve');
+        await accept(one, licence.id);
+        const term = (await licenceOf(person))[0]?.validUntil;
+        await accept(two, licence.id);
+        expect((await caseOf(two.id)).state).toBe('issued');
+        expect((await licenceOf(person))[0]?.validUntil).toBe(term);
+    }, 240_000);
+
+    it('is refused for a licence another office handles: it needs a transfer first', async () => {
+        const { licence } = await licensed(yearsAgo(30));
+        await expire(licence.id, yearsAgo(0));
+        const zone = await api.unit('SER', 'WOL');
+        await api.owner.query('update competency.driver_licences set handling_unit_id = $2 where id = $1', [
+            licence.id,
+            zone.id
+        ]);
+        const c = await filed(RENEW, {
+            licence: licence.id,
+            medicalFacility: 'Sample Health Centre',
+            medicalExaminedOn: today()
+        });
+        const res = await step(c, as.officer, 'submit');
+        expect(res.statusCode, res.body).toBe(422);
+    }, 180_000);
+
     it('takes only an active licence', async () => {
         const person = await registered(yearsAgo(30));
         await atNational(person);
@@ -697,7 +827,7 @@ describe('a renewal', () => {
         const c = await filed(RENEW, { licence: pending, medicalFacility: 'Sample', medicalExaminedOn: today() }).catch(
             () => null
         );
-        if (c) expect((await step(c, as.officer, 'submit')).statusCode).toBe(409);
+        if (c) expect((await step(c, as.officer, 'submit')).statusCode).toBe(422);
     });
 
     it('leaves the licence as it was when refused', async () => {
@@ -714,12 +844,39 @@ describe('a renewal', () => {
             { ...deps, platform: refusing },
             { caseId: c.id, licenceId: licence.id, kind: 'renewal' }
         );
-        expect((await caseOf(c.id)).state).toBe('approval');
+        const back = await caseOf(c.id);
+        expect(back.state).toBe('approval');
         expect((await licenceOf(person))[0]).toMatchObject({
             status: 'active',
             validUntil: yearsAgo(0),
             kind: 'temporary'
         });
+
+        // the holder paid; the lead approves again, and it is a new decision for the platform, not the old refusal replayed
+        await moved(back, as.lead, 'approve');
+        const { rows } = await api.owner.query<{ attempt: number }>(
+            `select (payload->>'attempt')::int as attempt from kernel.outbox_events
+              where type = 'licence.national-requested.v1' and payload->>'caseId' = $1 order by created_at`,
+            [c.id]
+        );
+        expect(rows.map((r) => r.attempt)).toEqual([0, 1]);
+        const answer = await askNationalPlatform(
+            system,
+            { ...deps, platform: refusing },
+            { caseId: c.id, licenceId: licence.id, kind: 'renewal', attempt: 1 }
+        );
+        expect(answer).toBe('rejected');
+        expect(new Set(refusing.requests.map((r) => r.requestId)).size).toBe(2);
+        const later = new FakeNationalDriverPlatform();
+        await moved(await caseOf(c.id), as.lead, 'approve');
+        expect(
+            await askNationalPlatform(
+                system,
+                { ...deps, platform: later },
+                { caseId: c.id, licenceId: licence.id, kind: 'renewal', attempt: 2 }
+            )
+        ).toBe('accepted');
+        expect((await licenceOf(person))[0]?.kind).toBe('permanent');
     }, 180_000);
 });
 

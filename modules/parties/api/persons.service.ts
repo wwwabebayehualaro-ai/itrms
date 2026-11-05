@@ -359,17 +359,26 @@ export class PersonsService {
     }
 
     /**
-     * The full birth date for a rule the case applies (a minimum age, a licence's term, the card it prints on): nobody is shown it
-     * here, and the use is on record in the same transaction, so a step that fails leaves no trace of a read that came to nothing.
-     * The worker's system transactions use this too.
+     * The full birth date for a rule a case applies (a minimum age, a licence's term): nobody is shown it here. Like reveal(), the
+     * use goes on record first, in a transaction of its own: a refusal tells something of the person's age, and it must stay on
+     * record when the step it refused rolls back. The worker's system transactions have no person to record as, and no refusal to
+     * read an age from, so theirs is recorded with what they do.
      */
-    async birthDateForRule(tx: Tx, regionId: string, id: string, reason: string): Promise<string | null> {
-        await recordEvent(tx, {
+    async birthDateForRule(
+        tx: Tx,
+        ctx: DbContext,
+        regionId: string,
+        id: string,
+        reason: string
+    ): Promise<string | null> {
+        const event = {
             type: 'person.revealed',
             table: personSensitive,
             rowId: id,
             data: { fields: ['birthDate'], reason }
-        });
+        };
+        if (ctx.regionId && ctx.scopePath) await this.db.recordSensitiveEvent(ctx, event);
+        else await recordEvent(tx, event);
         const [row] = await tx.select().from(personSensitive).where(eq(personSensitive.personId, id));
         const ciphertext = row?.[COLUMN.birthDate.ct];
         return ciphertext ? this.crypto.decrypt(tx, regionId, place('birthDate', id), ciphertext) : null;

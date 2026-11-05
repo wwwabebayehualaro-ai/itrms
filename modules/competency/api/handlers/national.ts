@@ -34,14 +34,14 @@ export interface NationalDeps {
 export async function askNationalPlatform(
     system: SystemDatabase,
     deps: NationalDeps,
-    event: { caseId: string; licenceId: string; kind: 'new' | 'renewal' }
+    event: { caseId: string; licenceId: string; kind: 'new' | 'renewal'; attempt?: number }
 ): Promise<'accepted' | 'rejected' | 'pending'> {
     const request = await system.systemContext('competency.national', (tx) =>
         deps.licences.nationalRequest(tx, event.licenceId)
     );
-    // the request's id is stable per case, so a retry is the same request to the platform
+    // stable, so a retry or a new approval after a timeout is the same request; a new decision after a refusal has its own
     const answer = await deps.platform.requestLicence({
-        requestId: `${event.caseId}:${event.licenceId}`,
+        requestId: `${event.caseId}:${event.licenceId}:${event.attempt ?? 0}`,
         kind: event.kind,
         ...request
     });

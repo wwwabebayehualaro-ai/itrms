@@ -3,10 +3,10 @@
  * of that kind. Facts under a pick are what a counter clerk needs and no more.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { LookupItem, RegistryLookupProvider } from '@itrms/forms/api';
 import type { Tx } from '@itrms/kernel/db';
-import { organisations } from '@itrms/parties/api';
+import { organisations, OrganisationsService } from '@itrms/parties/api';
 
 import type { Licence } from '../contracts';
 import am from '../messages/am.json';
@@ -79,6 +79,8 @@ export class TrainingSchoolLookup implements RegistryLookupProvider {
     readonly key = 'training-school';
     readonly permission = 'organisation:read';
 
+    constructor(@Inject(OrganisationsService) private readonly organisations: OrganisationsService) {}
+
     title(language: string): string {
         return text('competency.lookup.school.title', language);
     }
@@ -92,18 +94,12 @@ export class TrainingSchoolLookup implements RegistryLookupProvider {
     }
 
     async search(tx: Tx, q: string, limit: number, language: string): Promise<LookupItem[]> {
-        const needle = `%${q.replace(/[%_\\]/g, '\\$&')}%`;
-        const schools = await tx
-            .select({ id: organisations.id, name: organisations.name })
-            .from(organisations)
-            .where(
-                and(
-                    eq(organisations.kind, 'training_school'),
-                    sql`(${organisations.name}->>'am' ilike ${needle} or ${organisations.name}->>'en' ilike ${needle})`
-                )
-            )
-            .limit(limit);
-        return schools.map((s) => this.item(s, language));
+        // the register's own folded name search; ask for more, keep the schools
+        const found = await this.organisations.search(tx, q, Math.min(limit * 4, 50));
+        return found
+            .filter((o) => o.kind === 'training_school')
+            .slice(0, limit)
+            .map((s) => this.item(s, language));
     }
 
     async resolve(tx: Tx, ids: readonly string[], language: string): Promise<LookupItem[]> {

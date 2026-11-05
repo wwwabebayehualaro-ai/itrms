@@ -97,8 +97,6 @@ export class ConflictError extends AppError {
             | 'duplicate_reference'
             | 'not_configured'
             | 'contract_unmet'
-            // a rule a service applies to the person asking (a licence's minimum age): the detail says which
-            | 'not_eligible'
             // the fee worked out now is not the one the counter showed (task 0.22a): show the new one, then file
             | 'fee_changed'
             // payments (task 0.22b): an order already paid; an amount other than the order's; an order paid elsewhere; a

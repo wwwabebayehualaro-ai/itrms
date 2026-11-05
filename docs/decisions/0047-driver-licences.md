@@ -15,26 +15,31 @@ interface is known. ITRMS runs the zone's work around a licence and must never h
    that. A refusal voids the record, with the reason, and the case returns for correction. A renewal changes nothing on the licence
    until it is accepted, so a refused or stalled renewal leaves the licence as it was.
 2. **The platform is reached only from the worker**, through the outbox, behind the `NationalDriverPlatform` port. Its answer returns
-   to the case as an event from a system actor. Requests are identified per case and licence, so a retry gets the same answer and
-   makes no second licence. An answer that arrives after the case's wait has timed out moves nothing, and the next approval gets the
-   same answer again.
+   to the case as an event from a system actor. A request's id is its case, licence and attempt, so a retry, or a new approval after a
+   timeout, gets the same answer and makes no second licence. Only a refusal starts a new attempt: the holder may have put right what
+   was wrong, and the platform decides afresh.
 3. **Only what the platform needs goes out:** name, birth year, sex, office and grades. No Fayda number and no full birth date until
    an agreement with the ministry says otherwise.
 4. **A licence's number** is the platform's when it issues one, and otherwise comes from the office's gapless counter when the licence
    activates, so a refusal leaves no gap.
 5. **The grades are configuration**: `licence_grade_types`, seeded from Art. 12. The rules are pure functions in `contracts`, so a
    screen can warn with the same rule the server decides by. `licence_grades` is what a licence carries.
-6. **The full birth date is read for a rule, not shown.** `PersonsService.birthDateForRule` decrypts it for an age rule or the card,
-   and records the use as `person.revealed` in the same transaction. The worker's system transactions use it too. The age check needs
-   the exact date, so an applicant without one on record is refused with a message saying to add it, not approximated from the birth
-   year.
-7. **A renewal's card supersedes the last one**, so the old card's QR says superseded.
+6. **The full birth date is read for a rule, not shown.** `PersonsService.birthDateForRule` decrypts it for an age rule and records
+   the use as `person.revealed` first, in a transaction of its own as `reveal()` does: a refusal tells something of a person's age, and
+   must stay on record when the step rolls back. The age check needs the exact date, so an applicant without one on record is refused
+   with a message saying to add it, not approximated from the birth year.
+7. **A renewal's card supersedes the last one**, so the old card's QR says superseded, and is filed with the renewal's case and office.
+   **Terms never stack:** a renewal opens only near expiry, and the term is applied only to the expiry it was checked against, so a second
+   open case on one licence adds nothing. **Only the licence's office renews it** (class R: its subtree writes), since the worker that
+   applies an accepted renewal can't check that. Another office needs a transfer first.
 8. **The training-school register is organisations** of kind `training_school`. An office enters a school's completion list, and an
    application is refused until the applicant is on it (Art. 8, DVC-10).
 
 ## Assumptions, for the bureau to confirm
 
 * *A medical examination is current for 6 months.* The proclamation sets no figure. A service's `medical_valid_months` changes it.
+* *A licence can be renewed from 6 months before it expires.* The proclamation sets no figure. A service's `renewal_window_months`
+  changes it.
 * *"Over 55" counts from the 55th birthday.* Art. 19(4) says over 55; this is the reading that gives the shorter term.
 * *An early renewal runs from the old expiry, a late one from today.* The proclamation says only "renewed for 4 years".
 * *Renewing a temporary licence makes it permanent.* Art. 15(3) makes that depend on the holder's offence and accident record, which
@@ -48,6 +53,8 @@ interface is known. ITRMS runs the zone's work around a licence and must never h
 
 * A licence card has no photo yet: `person_sensitive` has no photo reference, and files are class T while a registry record needs one
   readable across the region. It is a follow-up, and the card prints without one until then.
+* **A licence card prints no birth date yet.** What a document says is stored in clear for good, and a birth date is kept encrypted, so
+  printing it needs a way to supply it at rendering only. The bureau's card layout will say whether it is wanted.
 * `licenceStatus` on the port isn't called yet. Reconciling a read copy against the platform needs a real interface first.
 * Foreign keys to `parties` are hand-written in the migration: drizzle-kit reads the table files and can't load another slice's NestJS
   entry.

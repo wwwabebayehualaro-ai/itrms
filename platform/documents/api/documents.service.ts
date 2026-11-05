@@ -47,6 +47,8 @@ export class DocumentsService {
         return supersedeDocument(tx, this.settings, current.id, {
             data: input.data,
             language: input.language,
+            handlingUnitId: input.handlingUnitId,
+            ...(input.caseId ? { caseId: input.caseId } : {}),
             ...(input.number ? { number: input.number } : {})
         });
     }

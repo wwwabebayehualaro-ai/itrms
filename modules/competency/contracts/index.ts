@@ -44,7 +44,9 @@ export const COMPETENCY_EVENTS = {
     'licence.national-requested.v1': z.object({
         caseId: z.uuid(),
         licenceId: z.uuid(),
-        kind: z.enum(['new', 'renewal'])
+        kind: z.enum(['new', 'renewal']),
+        /** a new decision after a refusal, which the platform must take afresh; a retry keeps its number and gets the same answer */
+        attempt: z.number().int().min(0).default(0)
     }),
     'licence-batch.print-requested.v1': z.object({ batchId: z.uuid() })
 } as const;

@@ -121,7 +121,7 @@ export class RegisterService {
 
     /** It goes to the printer through the worker; asked twice it goes once. An empty batch has nothing to send. */
     async send(tx: Tx, id: string, version: number) {
-        const [row] = await tx.select().from(licencePrintBatches).where(eq(licencePrintBatches.id, id));
+        const [row] = await tx.select().from(licencePrintBatches).where(eq(licencePrintBatches.id, id)).for('update');
         if (!row) throw new NotFoundError();
         const items = await tx
             .select({ id: licencePrintBatchItems.id })

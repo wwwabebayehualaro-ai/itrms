@@ -18,5 +18,9 @@
   "competency.lookup.school.title": "የማሰልጠኛ ተቋም",
   "competency.lookup.fact.holder": "ባለቤት",
   "competency.lookup.fact.grades": "ደረጃዎች",
-  "competency.lookup.fact.validUntil": "የሚያበቃበት ቀን"
+  "competency.lookup.fact.validUntil": "የሚያበቃበት ቀን",
+  "competency.rule.alreadyHeld": "ይህ ሰው ይህን ደረጃ አስቀድሞ ይዟል ወይም እየጠበቀ ነው።",
+  "competency.rule.examOutcome": "ይህ የፈተና ውጤት ከተወሰደው እርምጃ ጋር አይጣጣምም።",
+  "competency.rule.otherOffice": "ይህን መንጃ ፈቃድ የሚያስተናግደው ሌላ ጽ/ቤት ነው። መጀመሪያ ወደዚህ ጽ/ቤት ያዛውሩት።",
+  "competency.rule.tooEarly": "መንጃ ፈቃድ ሊታደስ የሚችለው ከማብቂያው {months} ወራት በፊት ጀምሮ ነው።"
 }
