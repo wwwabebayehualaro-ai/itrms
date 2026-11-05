@@ -109,7 +109,7 @@ const NATIONAL_WAYS = (accepted: string[]) => [
     { from: 'national', to: 'approval', on: 'timeout' }
 ];
 const ENDS = [
-    { key: 'national', kind: 'wait', label: t('National') },
+    { key: 'national', kind: 'wait', label: t('National'), sla: { businessDays: 2 } },
     { key: 'issued', kind: 'end', label: t('Issued') }
 ];
 const NEW_FLOW = {
