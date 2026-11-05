@@ -901,16 +901,25 @@ Split from 0.24 on 2026-11-05. Needs 0.24b.
 - **Done when:** both services run end to end in a browser, with zero service-specific UI code except the registry views.
 - **Tests:** an e2e journey for each service.
 
-### 0.25 Demo data and the demo journey
-- **Do:**
-  - Seed data as in [demo-plan.md](../demo-plan.md) §4 (generated, realistic, **no real people**): all Wolaita units, users
-    in Damot Gale, Boditi and the zone, 3 training schools, ~200 persons, ~60 licences in mixed states, exam sessions, fee
-    rules, holidays.
-  - The demo script: the journey of [demo-plan.md](../demo-plan.md) §3, in Amharic and English, with Wolaytta shown.
-  - A **second demo region** (a city administration with sub-cities, Afaan Oromo enabled with partial translations) and
-    neutral "Sample Regional Transport Bureau" branding.
-  - Playwright e2e of the whole journey.
-- **Done when:** `pnpm demo:reset` recreates the demo in under 2 minutes, and the e2e demo journey is green.
+### 0.25a Demo, part 1: the data and `demo:reset`
+Split from 0.25 on 2026-11-06. Needs 0.24c.
+- **Do:** seed data as in [demo-plan.md](../demo-plan.md) §4 (generated, realistic, **no real people**): all Wolaita units, users
+  in Damot Gale, Boditi and the zone, 3 training schools, ~200 persons, ~60 licences in mixed states, exam sessions, fee rules,
+  holidays; neutral "Sample Regional Transport Bureau" branding.
+- **Done when:** `pnpm demo:reset` recreates the demo in under 2 minutes.
+- **Tests:** what is seeded, and that the reset meets its time in CI.
+
+### 0.25b Demo, part 2: the second region
+Split from 0.25 on 2026-11-06. Needs 0.25a.
+- **Do:** a **second demo region** (a city administration with sub-cities, Afaan Oromo enabled with partial translations).
+- **Done when:** switching to the second demo region shows its own levels, units, language and branding, with no code change.
+- **Tests:** an isolation check between the two regions, and a journey that shows the second one.
+
+### 0.25c Demo, part 3: the script and the journey
+Split from 0.25 on 2026-11-06. Needs 0.25b.
+- **Do:** the demo script: the journey of [demo-plan.md](../demo-plan.md) §3, in Amharic and English, with Wolaytta shown. Playwright
+  e2e of the whole journey.
+- **Done when:** the e2e demo journey is green.
 - **Tests:** the demo e2e (also a regression suite for later phases).
 
 ### 0.26 Demo installation and Phase 0 hardening

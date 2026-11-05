@@ -1201,8 +1201,28 @@
           "notes": ""
         },
         {
-          "id": "0.25",
-          "title": "Demo data and the demo journey",
+          "id": "0.25a",
+          "title": "Demo, part 1: the data and demo:reset",
+          "status": "ready",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.25b",
+          "title": "Demo, part 2: the second region",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.25c",
+          "title": "Demo, part 3: the script and the journey",
           "status": "planned",
           "branch": null,
           "commits": [],
