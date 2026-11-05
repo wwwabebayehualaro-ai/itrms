@@ -218,12 +218,14 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
         ).json<Workspace>();
         expect(officer.menu.map((g) => g.key)).toEqual(['home', 'my-work', 'work-process:1', 'registries']);
         expect(officer.menu[2]?.label).toMatchObject({ en: 'Driver and vehicle competency' });
-        // applications and exams (Boditi has examiners); print batches need licence:print, which officers lack
+        // applications, the register, the training lists and exams (Boditi has examiners); print batches need licence:print, which officers lack
         expect(itemsOf(officer)).toEqual([
             'kernel.home',
             TASKS,
             REQUESTS,
             'competency.applications',
+            'competency.licences',
+            'competency.training',
             'competency.exams',
             ...REGISTER
         ]);
