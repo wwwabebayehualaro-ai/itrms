@@ -65,14 +65,19 @@ test('an unknown Host is dropped', () => {
 
 test('the API is never exposed but for one public path: the browser reaches it only through the BFF', () => {
     assert.doesNotMatch(app, /proxy_pass http:\/\/api/);
-    // the whole configuration names it once: a document's status by its token, on the verify hostname (ADR-0045)
-    assert.equal([...conf.matchAll(/proxy_pass http:\/\/api/g)].length, 1);
-    const from = verify.indexOf('location ~ "^/v1/public/verifications/[A-Za-z0-9_-]{22}$" {');
-    assert.ok(from > 0, 'the path is exactly a token');
-    const block = verify.slice(from, verify.indexOf('\n    }\n', from));
-    assert.match(block, /limit_except GET \{ deny all; \}/);
-    assert.match(block, /limit_req zone=itrms_verify/);
-    assert.match(block, /proxy_pass http:\/\/api:4000;/);
+    // the whole configuration names two, on the verify hostname: the public keys (ADR-0046) and a status by its token (ADR-0045)
+    assert.equal([...conf.matchAll(/proxy_pass http:\/\/api/g)].length, 2);
+    for (const opening of [
+        'location = /v1/public/verification-keys {',
+        'location ~ "^/v1/public/verifications/[A-Za-z0-9_-]{22}$" {'
+    ]) {
+        const from = verify.indexOf(opening);
+        assert.ok(from > 0, 'the path is exact');
+        const block = verify.slice(from, verify.indexOf('\n    }\n', from));
+        assert.match(block, /limit_except GET \{ deny all; \}/);
+        assert.match(block, /limit_req zone=itrms_verify/);
+        assert.match(block, /proxy_pass http:\/\/api:4000;/);
+    }
 });
 
 test('both hostnames send HSTS and nosniff, and redirect plain HTTP', () => {
@@ -84,7 +89,8 @@ test('both hostnames send HSTS and nosniff, and redirect plain HTTP', () => {
 });
 
 test('the verify hostname serves the static page read-only, and nothing else of the API', () => {
-    assert.equal([...verify.matchAll(/proxy_pass/g)].length, 1);
+    assert.equal([...verify.matchAll(/proxy_pass/g)].length, 2);
+    assert.match(verify, /Permissions-Policy "camera=\(self\), microphone=\(\)/);
     assert.match(verify, /location \/v1\/ \{ return 404; \}/);
     assert.match(verify, /location \^~ \/api\/ \{ return 404; \}/);
     assert.match(verify, /limit_except GET HEAD \{ deny all; \}/);

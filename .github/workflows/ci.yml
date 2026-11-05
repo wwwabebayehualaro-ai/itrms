@@ -157,6 +157,10 @@ jobs:
           CHROME_NO_SANDBOX: '1'
       - name: Chromium for Playwright
         run: pnpm --filter @itrms/web exec playwright install --with-deps chromium
+      - name: The verifier in flight mode (the built app, under its own CSP)
+        run: |
+          pnpm turbo run build --filter=@itrms/verify
+          pnpm --filter @itrms/verify e2e
       - name: Journeys
         run: pnpm --filter @itrms/web e2e
       - if: failure()
@@ -165,6 +169,7 @@ jobs:
           name: e2e-results
           path: |
             apps/web/test-results
+            apps/verify/test-results
             worker.log
             worker-documents.log
           retention-days: 7

@@ -139,8 +139,18 @@ server {
     add_header X-Frame-Options "DENY" always;
     # the static verify app (apps/verify): its hash-based CSP, written at its build (ADR-0045)
     include /srv/verify/csp.conf;
+    # the verifier reads a QR with the camera; nothing else
+    add_header Permissions-Policy "camera=(self), microphone=(), geolocation=(), payment=(), usb=()" always;
 
-    # the one API path on this hostname: a document's status by its token, rate-limited (ADR-0045)
+    # the two API paths on this hostname, both GET and rate-limited: the public keys (ADR-0046) and a document's status by its
+    # token (ADR-0045)
+    location = /v1/public/verification-keys {
+        limit_except GET { deny all; }
+        limit_req zone=itrms_verify burst=30 nodelay;
+        rewrite ^/v1/(.*)$ /api/v1/$1 break;
+        include /etc/nginx/itrms-proxy.conf;
+        proxy_pass http://api:4000;
+    }
     location ~ "^/v1/public/verifications/[A-Za-z0-9_-]{22}$" {
         limit_except GET { deny all; }
         limit_req zone=itrms_verify burst=30 nodelay;
@@ -159,6 +169,13 @@ server {
         limit_except GET HEAD { deny all; }
         root /srv/verify;
         expires 30d;
+    }
+
+    # a phone must see a new service worker as soon as there is one
+    location = /sw.js {
+        limit_except GET HEAD { deny all; }
+        root /srv/verify;
+        expires epoch;
     }
 
     location / {

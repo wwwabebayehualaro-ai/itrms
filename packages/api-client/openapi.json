@@ -8559,6 +8559,20 @@
         ]
       }
     },
+    "/api/v1/public/verification-keys": {
+      "get": {
+        "operationId": "VerificationController_keys",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Verification"
+        ]
+      }
+    },
     "/api/v1/public/verifications/{token}": {
       "get": {
         "operationId": "VerificationController_verify",

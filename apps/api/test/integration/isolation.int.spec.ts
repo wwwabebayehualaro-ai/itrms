@@ -383,10 +383,13 @@ describe('every tenant table', () => {
             SELECT p.oid::regprocedure::text AS name FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
             WHERE p.prosecdef AND n.nspname NOT IN ('pg_catalog', 'information_schema')
               AND has_function_privilege('itrms_app', p.oid, 'EXECUTE')
-            ORDER BY 1`);
+            ORDER BY p.oid::regprocedure::text COLLATE "C"`);
         expect(rows.map((r) => r.name)).toEqual([
             // a document's status by its token's hash, for the public endpoint: a checker's minimum (ADR-0045)
             'documents.verification(text)',
+            // the names of the kinds of document, and the public halves of the signing keys, for the verifier's offline check
+            'documents.verification_document_names()',
+            'documents.verification_keys()',
             // one deposit pays once, as a slip at a till or a reference elsewhere: yes or no for the caller's region (ADR-0043)
             'fees.external_reference_in_use(text,text,integer)',
             'fees.slip_in_use(text,text,date,date)',

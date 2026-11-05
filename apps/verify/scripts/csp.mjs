@@ -32,6 +32,9 @@ const policy = [
     "font-src 'self'",
     "connect-src 'self'",
     "manifest-src 'self'",
+    "worker-src 'self'",
+    // the camera's own stream, and nothing fetched
+    'media-src mediastream:',
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'none'",

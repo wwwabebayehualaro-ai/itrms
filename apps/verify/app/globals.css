@@ -43,13 +43,40 @@ h1 {
     font-size: 1.25rem;
     margin: 0;
 }
-button {
+button,
+.button {
+    display: inline-block;
     font: inherit;
     padding: 0.5rem 0.75rem;
     border: 1px solid var(--line);
     border-radius: 0.375rem;
     background: transparent;
     color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+.button:focus-within {
+    outline: 2px solid currentcolor;
+}
+/* reached through its label, and still by keyboard */
+.button input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 1rem 0;
+}
+.camera {
+    display: block;
+    width: 100%;
+    margin: 1rem 0;
+    border-radius: 0.5rem;
+    background: #000;
 }
 .status {
     font-weight: 700;
@@ -59,18 +86,24 @@ button {
     padding: 0.75rem 1rem;
     margin: 1rem 0;
 }
-.status-valid {
+.status-valid,
+.status-offlineGood {
     color: var(--good);
 }
 .status-revoked,
 .status-superseded,
 .status-expired,
-.status-unknown {
+.status-unknown,
+.status-forged,
+.status-notOurs,
+.status-offlineExpired {
     color: var(--bad);
 }
 .status-busy,
 .status-offline,
-.status-loading {
+.status-loading,
+.status-unknownKey,
+.status-noCode {
     color: var(--warn);
 }
 .facts {

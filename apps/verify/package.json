@@ -3,27 +3,37 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Public verification page and verifier PWA, a static Next.js export (task 0.23)",
+  "description": "Public verification page and verifier PWA, a static Next.js export (tasks 0.23b, 0.23c)",
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
-    "build": "next build && node scripts/csp.mjs",
-    "dev": "next dev --port 3100"
+    "build": "next build && node scripts/pwa.mjs && node scripts/csp.mjs",
+    "dev": "next dev --port 3100",
+    "e2e": "playwright test"
   },
   "devDependencies": {
     "@itrms/config": "workspace:*",
-    "@testing-library/react": "16.3.3",
+    "@playwright/test": "1.63.0",
+    "@serwist/build": "9.5.13",
     "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@types/pngjs": "6.0.5",
+    "@types/qrcode": "1.5.6",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
-    "happy-dom": "21.0.4"
+    "esbuild": "0.28.2",
+    "happy-dom": "21.0.4",
+    "pngjs": "7.0.0",
+    "qrcode": "1.5.4"
   },
   "dependencies": {
     "@itrms/documents": "workspace:*",
     "@itrms/ethiopian-calendar": "workspace:*",
+    "jsqr": "1.4.0",
     "next": "16.4.1",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "serwist": "9.5.13"
   }
 }

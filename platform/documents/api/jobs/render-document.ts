@@ -13,7 +13,7 @@ import { putGeneratedObject, recordGeneratedFile, removeGeneratedObject, type Ob
 import { orgUnits } from '@itrms/kernel/tables';
 import type { FieldCrypto } from '@itrms/kernel/crypto';
 
-import { DOCUMENTS_EVENTS, payloadBytes, verificationUrl } from '../../contracts';
+import { DOCUMENTS_EVENTS, payloadBytes, signedBytes, verificationUrl } from '../../contracts';
 import { documentTemplates, documentTemplateVersions, issuedDocuments } from '../documents.table';
 import { addisDay } from '../issue';
 import { tokenHash } from '../verification-token';
@@ -89,7 +89,7 @@ export async function renderIssuedDocument(
         u: facts.validUntil,
         h: facts.holder ? maskedName(facts.holder) : null
     });
-    const url = verificationUrl(deps.verifyBaseUrl, token, payload, signPayload(signing, payload));
+    const url = verificationUrl(deps.verifyBaseUrl, token, payload, signPayload(signing, signedBytes(token, payload)));
     const verification = { url, qr: await qrImage(url) };
 
     let html: string;

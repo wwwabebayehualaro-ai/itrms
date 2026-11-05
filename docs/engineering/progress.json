@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-11-04",
+  "updated": "2026-11-05",
   "statuses": [
     "planned",
     "ready",
@@ -1128,10 +1128,18 @@
         {
           "id": "0.23c",
           "title": "Documents, part 3: the verifier PWA",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.23c-verifier-pwa",
+          "commits": [
+            "4b487d5"
+          ],
+          "evidence": [
+            "CI run 41941596176 on 4b487d5: all 9 jobs success, including the step 'The verifier in flight mode' in the e2e job",
+            "apps/verify/tests/e2e/flight-mode.spec.ts, 4 journeys in Chromium on the built app under its own CSP, server gone and browser offline: a good QR passes; a changed payload, swapped token and retired key used after retiring are forged; a document's own address and the fake camera work offline; no CSP refusals",
+            "platform/documents/test/verification-check.spec.ts: signature tests against the API's signPayload. documents.int.spec: the real worker's QR passes checkQr with the keys the API publishes, fails when tampered or swapped, and a retired key holds to what it signed before retiring",
+            "verify-nginx.int.spec on real Nginx: the keys path proxied GET only, 404 beside it, sw.js no-cache, camera allowed for this origin only. isolation.int.spec lists both new SECURITY DEFINER functions. No new write path",
+            "task-verifier on 4b487d5: all items met, no blocker. Code review at high on 0a7d23a: 10 findings, fixed in 4b487d5. Real phones and printed cards still need a field test (ADR-0046)"
+          ],
           "blockers": [],
           "notes": ""
         },

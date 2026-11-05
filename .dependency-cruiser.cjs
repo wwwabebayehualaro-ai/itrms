@@ -7,9 +7,9 @@ const { PLATFORM_ORDER, REGISTRIES } = require('./tools/boundaries/layers.cjs');
 const REG = REGISTRIES.join('|');
 const SYSTEM_POOL = '^platform/kernel/api/db/system\\.ts$';
 
-/** Files of a slice that other packages may resolve to (its package exports). */
+/** Files of a slice that other packages may resolve to (its package exports). The two verification-* contracts carry no Zod, for a cheap phone (ADR-0046). */
 const PUBLIC_ENTRY =
-    '^(platform|modules)/[^/]+/(module\\.ts|contracts/index\\.ts|api/(index|worker|pdf-worker)\\.ts|web/(server|client)\\.ts|messages/[^/]+\\.json|seed/index\\.ts)$';
+    '^(platform|modules)/[^/]+/(module\\.ts|contracts/(index|verification-check|verification-encoding)\\.ts|api/(index|worker|pdf-worker)\\.ts|web/(server|client)\\.ts|messages/[^/]+\\.json|seed/index\\.ts)$';
 const KERNEL_SUBPATH = '^platform/kernel/api/[^/]+/index\\.ts$|^platform/kernel/api/db/system\\.ts$';
 
 /** Code that runs only in the worker processes: the worker entry of a slice, its jobs and handlers, and the app's worker entries. */
