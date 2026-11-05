@@ -4,13 +4,21 @@ import { z } from 'zod';
 import { regionSettingProblems } from './import';
 import type { SettingEntry, SettingsRegistry } from './registry';
 
-const entry = (key: string, schema: z.ZodType, overridableAt: SettingEntry['declaration']['overridableAt']) =>
-    [
-        key,
-        { declaration: { key, default: null, overridableAt }, owner: 'kernel', schema, label: `kernel.setting.${key}` }
-    ] as const;
+const entry = (
+    key: string,
+    schema: z.ZodType,
+    overridableAt: SettingEntry['declaration']['overridableAt']
+): [string, SettingEntry] => [
+    key,
+    {
+        declaration: { key, default: null, overridableAt, userPreference: false, sensitive: false },
+        owner: 'kernel',
+        schema,
+        label: `kernel.setting.${key}`
+    }
+];
 
-const registry: SettingsRegistry = new Map([
+const registry: SettingsRegistry = new Map<string, SettingEntry>([
     entry('ui.theme', z.enum(['light', 'dark']), ['region']),
     entry('ops.only', z.string(), ['installation'])
 ]);
