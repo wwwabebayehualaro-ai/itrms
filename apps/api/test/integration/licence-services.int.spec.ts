@@ -328,6 +328,20 @@ describe('what is seeded', () => {
             document: NEW_LICENCE_FORM
         });
         expect(form.statusCode, form.body).toBe(201);
+
+        // what the bureau has now published is its own: seeding again leaves it alone
+        const current = () =>
+            api.owner.query<{ id: string }>(
+                `select current_version_id as id from services.service_definitions where code in ('DVC-03', 'DVC-04') order by code`
+            );
+        const before = (await current()).rows;
+        const region = as.bureau.unit;
+        expect(
+            await api.installer.scoped({}, (tx) =>
+                importLicenceServices(tx, { id: region.id, regionId: region.regionId })
+            )
+        ).toBe(0);
+        expect((await current()).rows).toEqual(before);
     });
 
     it('offers the services where a competency team is, and not at a woreda', async () => {
@@ -408,7 +422,7 @@ describe('a new licence', () => {
         });
         const docs = await api.call('GET', `/api/v1/issued-documents?caseId=${c.id}`, as.officer);
         const kinds = docs.json<{ items: { templateKey: string }[] }>().items.map((d) => d.templateKey);
-        expect(kinds).toEqual(expect.arrayContaining(['application-copy', 'licence-card']));
+        expect(kinds).toContain('licence-card');
     }, 240_000);
 
     it('gives nothing if the payment was reversed: not on approval, and not when the platform answers', async () => {
@@ -454,7 +468,81 @@ describe('a new licence', () => {
         expect((await step(back, as.lead, { action: 'approve' })).statusCode).toBeGreaterThanOrEqual(400);
         const rejected = await moved(back, as.lead, 'reject', { comment: 'The fee was refunded' });
         expect(rejected.state).toBe('rejected');
+
+        // the licence waiting for it goes with it, and doesn't stand in the holder's way
+        const { rows } = await api.owner.query<{ status: string; void_reason: string }>(
+            'select status, void_reason from competency.driver_licences where id = $1',
+            [licenceId]
+        );
+        expect(rows[0]).toEqual({ status: 'voided', void_reason: 'case_closed' });
+        const again = await filed(NEW, application(person));
+        expect((await moved(again, as.officer, 'submit')).state).toBe('review');
     }, 240_000);
+
+    it('can be withdrawn while it is a draft, and a refused request doesn’t stay open for ever', async () => {
+        const person = await registered(yearsAgo(17));
+        await trained(person);
+        const c = await filed(NEW, application(person));
+        expect((await step(c, as.officer, { action: 'submit' })).statusCode).toBe(422);
+        const closed = await moved(await caseOf(c.id), as.officer, 'withdraw', { comment: 'Too young for now' });
+        expect(closed.state).toBe('rejected');
+    });
+
+    it('is refused while another request for the same grade is open, and at final approval as a last resort', async () => {
+        const person = await registered(yearsAgo(30));
+        await trained(person);
+        let first = await filed(NEW, application(person));
+        first = await moved(first, as.officer, 'submit');
+        const second = await filed(NEW, application(person));
+        expect((await step(second, as.officer, { action: 'submit' })).statusCode).toBe(422);
+
+        // two that got past that (a fact changed by hand): the second to reach approval is still refused
+        await api.owner.query(`update workflow.cases set facts = facts - 'personId' where id = $1`, [first.id]);
+        const passed = await moved(await caseOf(second.id), as.officer, 'submit');
+        expect(passed.state).toBe('review');
+        await api.owner.query(
+            `update workflow.cases set facts = facts || jsonb_build_object('personId', $2::text) where id = $1`,
+            [first.id, person]
+        );
+        const bring = async (c: CaseOut) => {
+            let now = await moved(await caseOf(c.id), as.officer, 'approve');
+            now = await moved(now, as.examiner, 'pass', { answers: EXAM() });
+            await paid(now);
+            return caseOf(now.id);
+        };
+        const a = await bring(first);
+        const b = await bring(passed);
+        await moved(a, as.lead, 'approve');
+        expect((await step(b, as.lead, { action: 'approve' })).statusCode).toBe(422);
+        expect((await licencesOf(person)).filter((l) => l.status !== 'voided')).toHaveLength(1);
+    }, 240_000);
+
+    it('takes its medical examination’s months from the region’s setting', async () => {
+        const region = as.bureau.unit;
+        const person = await registered(yearsAgo(30));
+        await trained(person);
+        const old = `${yearsAgo(1)}`;
+        const c = await filed(NEW, application(person, { medicalExaminedOn: old }));
+        expect((await step(c, as.officer, { action: 'submit' })).statusCode).toBe(422);
+        const set = await api.call(
+            'PUT',
+            `/api/v1/org-units/${region.id}/settings/competency.medical_valid_months`,
+            as.bureau,
+            { value: 24 },
+            ifMatch(0)
+        );
+        expect(set.statusCode, set.body).toBeLessThan(300);
+        const passed = await moved(await caseOf(c.id), as.officer, 'submit');
+        expect(passed.state).toBe('review');
+        const reset = await api.call(
+            'DELETE',
+            `/api/v1/org-units/${region.id}/settings/competency.medical_valid_months`,
+            as.bureau,
+            undefined,
+            ifMatch(set.json<{ version?: number }>().version ?? 1)
+        );
+        expect(reset.statusCode, reset.body).toBeLessThan(300);
+    });
 
     it('goes to the zone’s lead for approval once the office’s override says so', async () => {
         const boditi = as.officer.unit;

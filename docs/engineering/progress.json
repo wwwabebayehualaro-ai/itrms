@@ -2795,6 +2795,16 @@
       "foundIn": "0.23a",
       "item": "Editing document templates on a screen, with approval; a region's own default language for worker-issued documents; a re-render path for a document left late by a dead event, beyond sending the event back",
       "movedTo": "Phase 1"
+    },
+    {
+      "foundIn": "0.24b",
+      "item": "documents.issue:application-copy prints a RegistryLookup's id, not its name, and isn't reissued after a correction: the licence services don't use it yet",
+      "movedTo": "0.25"
+    },
+    {
+      "foundIn": "0.24b",
+      "item": "Fee inputs from case facts are still refused, so a renewal's grade and expiry are form answers checked against the register; the fee's over-a-year test can differ from the exam's by a day around a leap year",
+      "movedTo": "Phase 1"
     }
   ]
 }

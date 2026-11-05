@@ -44,11 +44,15 @@ interface is known. ITRMS runs the zone's work around a licence and must never h
 * *The documents of Art. 14(2) are attachments, not required ones.* The officer who reviews a case sees the paper, and an office with no
   scanner still works. A bureau's form can require them.
 * *A failed exam stays open for a retake*, with no limit on attempts.
-* *A fee is paid after the exam and before final approval*, as in architecture.md §8.
+* *A fee is paid after the exam and before final approval*, as in architecture.md §8. **So a final approval can refuse a case that has
+  paid.** A closed case's payment can't be reversed (ADR-0042), so a fee to be refunded is reversed first, and then the case is rejected.
+  Whether a refused applicant is refunded at all is the bureau's to say.
+* *A fee unpaid after 30 working days closes the case*, and its order with it. The setting `sla.payment` changes the time.
 
-* *A medical examination is current for 6 months.* The proclamation sets no figure. A service's `medical_valid_months` changes it.
-* *A licence can be renewed from 6 months before it expires.* The proclamation sets no figure. A service's `renewal_window_months`
-  changes it.
+* *A medical examination is current for 6 months.* The proclamation sets no figure. The setting `competency.medical_valid_months`
+  changes it for a region or an office.
+* *A licence can be renewed from 6 months before it expires.* The proclamation sets no figure. The setting
+  `competency.renewal_window_months` changes it.
 * *"Over 55" counts from the 55th birthday.* Art. 19(4) says over 55; this is the reading that gives the shorter term.
 * *An early renewal runs from the old expiry, a late one from today.* The proclamation says only "renewed for 4 years".
 * *Renewing a temporary licence makes it permanent.* Art. 15(3) makes that depend on the holder's offence and accident record, which

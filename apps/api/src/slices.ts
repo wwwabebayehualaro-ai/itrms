@@ -5,7 +5,7 @@
  */
 import type { DynamicModule, Type } from '@nestjs/common';
 import { CompetencyModule, LICENCE_EFFECTS } from '@itrms/competency/api';
-import { COMPETENCY_EVENTS } from '@itrms/competency/contracts';
+import { COMPETENCY_EVENTS, COMPETENCY_SETTINGS } from '@itrms/competency/contracts';
 import competency from '@itrms/competency/manifest';
 import competencyAm from '@itrms/competency/messages/am';
 import competencyEn from '@itrms/competency/messages/en';
@@ -112,6 +112,7 @@ export const SLICES: ApiSlice[] = [
         module: CompetencyModule,
         effects: effectKeys(LICENCE_EFFECTS),
         events: COMPETENCY_EVENTS,
+        settings: COMPETENCY_SETTINGS,
         messages: { am: competencyAm, en: competencyEn, 'wal-Latn': competencyWal }
     }
 ];

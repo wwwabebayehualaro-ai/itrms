@@ -40,7 +40,7 @@ export class CheckApplicationEffect implements WorkflowEffect<ApplicationInput> 
     constructor(@Inject(LicencesService) private readonly licences: LicencesService) {}
 
     async run(run: EffectRun<ApplicationInput>) {
-        return { facts: await this.licences.checkApplication(run.tx, placeOf(run), run.config, run.input) };
+        return { facts: await this.licences.checkApplication(run.tx, placeOf(run), run.input) };
     }
 }
 
@@ -111,7 +111,7 @@ export class CheckRenewalEffect implements WorkflowEffect<RenewalInput> {
     constructor(@Inject(LicencesService) private readonly licences: LicencesService) {}
 
     async run(run: EffectRun<RenewalInput>) {
-        return { facts: await this.licences.checkRenewal(run.tx, placeOf(run), run.config, run.input) };
+        return { facts: await this.licences.checkRenewal(run.tx, placeOf(run), run.input) };
     }
 }
 

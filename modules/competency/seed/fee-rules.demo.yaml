@@ -64,6 +64,7 @@ rules:
           label: { am: ከአንድ ዓመት በላይ የዘገየ, en: Expired more than a year }
           kind: fixed
           amount: '20000'
+          # a placeholder's test: the practical exam's own is by the calendar (Art. 19(5)), so they can differ by a day around a leap year
           when: days(input.expiry, asOf) > 365
         - key: card
           label: { am: ምትክ ካርድ, en: Replacement card }

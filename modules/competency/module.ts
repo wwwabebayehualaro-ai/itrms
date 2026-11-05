@@ -23,6 +23,19 @@ export default defineModule({
     version: '0.0.0',
     dependsOn: ['kernel', 'integrations', 'forms', 'fees', 'documents', 'workflow', 'services', 'parties'],
     lookups: ['driver-licence', 'training-school'],
+    // what the proclamation sets no figure for (ADR-0047)
+    settings: [
+        {
+            key: 'competency.medical_valid_months',
+            default: 6,
+            overridableAt: ['installation', 'region', 'unitType', 'unit']
+        },
+        {
+            key: 'competency.renewal_window_months',
+            default: 6,
+            overridableAt: ['installation', 'region', 'unitType', 'unit']
+        }
+    ],
     effects: [
         'competency.checkApplication',
         'competency.recordExam',

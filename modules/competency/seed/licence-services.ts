@@ -1,11 +1,12 @@
 /**
  * The two licence services as configuration (task 0.24b): their forms, workflows and fee rules, and nothing else. No code here decides
  * anything; a bureau can change any of it the way it changes any service. It is an installation step, as the fee rules are: the bureau
- * reviews what it inherits, and a second person's approval is for what it changes. Run again, only what changed becomes a new version.
+ * reviews what it inherits, and a second person's approval is for what it changes. It only ever makes a service's first version: run
+ * again, it leaves what a bureau has published alone.
  */
-import { and, eq, max, sql } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { contentHash, insertAudited, updateAudited, type Tx } from '@itrms/kernel/db';
-import { feeRules } from '@itrms/fees/api';
+import { feeRuleApprovals, feeRules, feeRuleVersions } from '@itrms/fees/api';
 import { formDefinitions, formVersions } from '@itrms/forms/api';
 import { serviceDefinitions, serviceVersions } from '@itrms/services/api';
 import { workflowDefinitions, workflowDefinitionVersions } from '@itrms/workflow/api';
@@ -127,6 +128,7 @@ const ACTIONS = {
 /** What both services share from the payment on: it gives the licence only while the fee stands paid (ADR-0042). */
 const finish = (send: readonly string[], given: readonly string[]) => [
     { from: 'payment', to: 'approval', on: 'event:payment.settled', actor: 'system:fees', guard: PAID },
+    { from: 'payment', to: 'rejected', on: 'timeout' },
     {
         from: 'approval',
         to: 'national',
@@ -141,7 +143,8 @@ const finish = (send: readonly string[], given: readonly string[]) => [
 ];
 
 const lastStates = (reviewed: readonly string[]) => [
-    { key: 'payment', kind: 'wait', label: text('ክፍያ በመጠበቅ ላይ', 'Waiting for payment') },
+    // a fee never paid closes the case in the end, and its order with it
+    { key: 'payment', kind: 'wait', label: text('ክፍያ በመጠበቅ ላይ', 'Waiting for payment'), sla: { businessDays: 30 } },
     {
         key: 'approval',
         kind: 'task',
@@ -166,8 +169,19 @@ const REJECT = (from: readonly string[]) => ({
     action: 'reject',
     label: text('ውድቅ አድርግ', 'Reject'),
     rejectRoles: REJECT_ROLES,
-    commentRequired: true
+    commentRequired: true,
+    // a licence still waiting for the national platform goes with the case: it must not stand in the holder's way for good
+    effects: [E.voidPendingLicence]
 });
+
+/** Whoever filed a request may take it back while it is theirs: a refused one must not stay open for ever. */
+const WITHDRAW = {
+    from: 'draft',
+    to: 'rejected',
+    action: 'withdraw',
+    label: text('ጥያቄውን ሰርዝ', 'Withdraw the request'),
+    commentRequired: true
+};
 
 const DRAFT = { key: 'draft', kind: 'start', label: text('ረቂቅ', 'Draft') };
 const REVIEW_LABEL = text('ሰነድ ማጣራት', 'Document review');
@@ -180,14 +194,14 @@ export const newLicenceFlow = (examForm: string) => ({
         DRAFT,
         task('review', REVIEW_LABEL, 'competency.officer', 1),
         task('exam', text('ፈተና', 'Examination'), 'competency.examiner', 10, { stepForm: examForm }),
-        ...lastStates(['review', 'exam'])
+        ...lastStates(['draft', 'review', 'exam'])
     ],
     transitions: [
         {
             from: 'draft',
             to: 'review',
             action: 'submit',
-            effects: [E.checkApplication, 'documents.issue:application-copy']
+            effects: [E.checkApplication]
         },
         {
             from: 'draft',
@@ -208,6 +222,7 @@ export const newLicenceFlow = (examForm: string) => ({
         },
         { from: 'exam', to: 'exam', action: 'fail', label: ACTIONS.fail, effects: [`${E.recordExam}:failed`] },
         ...finish([E.createPendingLicence], [E.activateLicence, ...CARD_AND_PRINT]),
+        WITHDRAW,
         REJECT(['review', 'exam', 'approval'])
     ]
 });
@@ -231,7 +246,7 @@ export const renewalFlow = (examForm: string) => {
             task('review', REVIEW_LABEL, 'competency.officer', 1),
             task('offence_check', text('የጥፋት መዝገብ ማጣራት', 'Offence record check'), 'competency.officer', 2),
             task('field_exam', text('የተግባር ፈተና', 'Practical exam'), 'competency.examiner', 10, { stepForm: examForm }),
-            ...lastStates(['review', 'field_exam'])
+            ...lastStates(['draft', 'review', 'offence_check', 'field_exam'])
         ],
         transitions: [
             { from: 'draft', to: 'review', action: 'submit', effects: [E.checkRenewal] },
@@ -268,12 +283,13 @@ export const renewalFlow = (examForm: string) => {
                 effects: [`${E.recordExam}:failed`]
             },
             ...finish([E.requestRenewal], [E.renewLicence, ...CARD_AND_PRINT]),
+            WITHDRAW,
             REJECT(['review', 'offence_check', 'field_exam', 'approval'])
         ]
     };
 };
 
-/** A form as it stands published: a new version only if it changed. */
+/** The published form of this key, or this one published for the first time. A bureau's own version is never replaced. */
 async function publishedForm(
     tx: Tx,
     root: { id: string; regionId: string },
@@ -281,11 +297,18 @@ async function publishedForm(
     name: I18nText,
     document: object
 ): Promise<{ versionId: string; number: number }> {
-    const hash = contentHash(document);
     const [existing] = await tx
         .select()
         .from(formDefinitions)
         .where(and(eq(formDefinitions.regionId, root.regionId), eq(formDefinitions.key, key)));
+    if (existing?.publishedVersionId) {
+        const [live] = await tx
+            .select({ number: formVersions.number })
+            .from(formVersions)
+            .where(eq(formVersions.id, existing.publishedVersionId));
+        return { versionId: existing.publishedVersionId, number: live?.number ?? 1 };
+    }
+    const hash = contentHash(document);
     const form =
         existing ??
         (await insertAudited(tx, formDefinitions, {
@@ -296,32 +319,20 @@ async function publishedForm(
             document,
             documentHash: hash
         }));
-    const [known] = await tx
-        .select()
-        .from(formVersions)
-        .where(and(eq(formVersions.formId, form.id), eq(formVersions.contentHash, hash)));
-    let version = known;
-    if (!version) {
-        const [last] = await tx
-            .select({ n: max(formVersions.number) })
-            .from(formVersions)
-            .where(eq(formVersions.formId, form.id));
-        version = await insertAudited(tx, formVersions, {
-            regionId: root.regionId,
-            ownerUnitId: root.id,
-            formId: form.id,
-            number: (last?.n ?? 0) + 1,
-            contentHash: hash,
-            document
-        });
-    }
-    if (form.publishedVersionId !== version.id)
-        await updateAudited(tx, formDefinitions, form.id, form.rowVersion, {
-            document,
-            documentHash: hash,
-            publishedVersionId: version.id,
-            publishedAt: new Date()
-        });
+    const version = await insertAudited(tx, formVersions, {
+        regionId: root.regionId,
+        ownerUnitId: root.id,
+        formId: form.id,
+        number: 1,
+        contentHash: hash,
+        document
+    });
+    await updateAudited(tx, formDefinitions, form.id, form.rowVersion, {
+        document,
+        documentHash: hash,
+        publishedVersionId: version.id,
+        publishedAt: new Date()
+    });
     return { versionId: version.id, number: version.number };
 }
 
@@ -332,12 +343,12 @@ async function workflowVersion(
     name: I18nText,
     definition: unknown
 ): Promise<string> {
-    const parsed = workflowDefinitionSchema.parse(definition);
-    const hash = contentHash(parsed);
     const [existing] = await tx
         .select()
         .from(workflowDefinitions)
         .where(and(eq(workflowDefinitions.regionId, root.regionId), eq(workflowDefinitions.key, key)));
+    if (existing?.latestVersionId) return existing.latestVersionId;
+    const parsed = workflowDefinitionSchema.parse(definition);
     const flow =
         existing ??
         (await insertAudited(tx, workflowDefinitions, {
@@ -346,85 +357,55 @@ async function workflowVersion(
             key,
             name
         }));
-    const [known] = await tx
-        .select({ id: workflowDefinitionVersions.id })
-        .from(workflowDefinitionVersions)
-        .where(
-            and(eq(workflowDefinitionVersions.definitionId, flow.id), eq(workflowDefinitionVersions.contentHash, hash))
-        );
-    if (known && flow.latestVersionId === known.id) return known.id;
-    const [last] = await tx
-        .select({ n: max(workflowDefinitionVersions.number) })
-        .from(workflowDefinitionVersions)
-        .where(eq(workflowDefinitionVersions.definitionId, flow.id));
-    const versionId =
-        known?.id ??
-        (
-            await insertAudited(tx, workflowDefinitionVersions, {
-                regionId: root.regionId,
-                ownerUnitId: root.id,
-                definitionId: flow.id,
-                number: (last?.n ?? 0) + 1,
-                contentHash: hash,
-                definition: parsed
-            })
-        ).id;
-    await updateAudited(tx, workflowDefinitions, flow.id, flow.rowVersion, { latestVersionId: versionId });
-    return versionId;
+    const version = await insertAudited(tx, workflowDefinitionVersions, {
+        regionId: root.regionId,
+        ownerUnitId: root.id,
+        definitionId: flow.id,
+        number: 1,
+        contentHash: contentHash(parsed),
+        definition: parsed
+    });
+    await updateAudited(tx, workflowDefinitions, flow.id, flow.rowVersion, { latestVersionId: version.id });
+    return version.id;
 }
 
-/** The service's current version: a new one only if something in it changed, effective today. */
-async function serviceVersion(
+/** The region's newest approved version of a fee rule: a version still waiting for its second person can't be charged by. */
+async function approvedFeeRule(tx: Tx, regionId: string, key: string): Promise<string> {
+    const [approved] = await tx
+        .select({ id: feeRuleVersions.id })
+        .from(feeRuleVersions)
+        .innerJoin(feeRules, eq(feeRules.id, feeRuleVersions.ruleId))
+        .innerJoin(feeRuleApprovals, eq(feeRuleApprovals.versionId, feeRuleVersions.id))
+        .where(and(eq(feeRules.regionId, regionId), eq(feeRules.key, key), eq(feeRuleApprovals.decision, 'approved')))
+        .orderBy(desc(feeRuleVersions.number))
+        .limit(1);
+    if (!approved) throw new Error(`fee rule ${key}: seed and approve the fee rules first`);
+    return approved.id;
+}
+
+/** A service's first version. One that has any version already is the bureau's to change, and is left alone. */
+async function firstServiceVersion(
     tx: Tx,
-    regionId: string,
-    code: string,
+    root: { id: string; regionId: string },
+    service: typeof serviceDefinitions.$inferSelect,
     parts: { formVersionId: string; workflowVersionId: string; feeRuleVersionId: string }
-): Promise<boolean> {
-    const [service] = await tx
-        .select()
-        .from(serviceDefinitions)
-        .where(and(eq(serviceDefinitions.regionId, regionId), eq(serviceDefinitions.code, code)))
-        .for('update');
-    if (!service) throw new Error(`service ${code}: seed the catalogue first`);
+): Promise<void> {
     const content = {
         ...parts,
         defaults: { approval_unit: 'handling' },
         // a bureau, or an office below it, may say whose lead gives the final approval (docs/demo-plan.md, step 10)
         overridePolicy: { approval_unit: ['region', 'unit'], sla: ['region', 'unit'] },
-        inputMap: {}
-    };
-    const hash = contentHash(content);
-    if (service.currentVersionId) {
-        const [current] = await tx
-            .select({ hash: serviceVersions.contentHash })
-            .from(serviceVersions)
-            .where(eq(serviceVersions.id, service.currentVersionId));
-        // nosemgrep: ajinabraham.njsscan.crypto.timing_attack_node.node_timing_attack -- a hash of published configuration, compared to see if it changed: no secret
-        if (current?.hash === hash) return false;
-    }
-    const [last] = await tx
-        .select({ n: sql<number>`coalesce(max(${serviceVersions.number}), 0)::int` })
-        .from(serviceVersions)
-        .where(eq(serviceVersions.serviceId, service.id));
-    const version = await insertAudited(tx, serviceVersions, {
-        regionId,
-        serviceId: service.id,
-        number: (last?.n ?? 0) + 1,
-        contentHash: hash,
-        ...content,
+        inputMap: {},
         effectiveFrom: addisDay()
+    };
+    const version = await insertAudited(tx, serviceVersions, {
+        regionId: root.regionId,
+        serviceId: service.id,
+        number: 1,
+        contentHash: contentHash(content),
+        ...content
     });
     await updateAudited(tx, serviceDefinitions, service.id, service.rowVersion, { currentVersionId: version.id });
-    return true;
-}
-
-async function approvedFeeRule(tx: Tx, regionId: string, key: string): Promise<string> {
-    const [rule] = await tx
-        .select({ latest: feeRules.latestVersionId })
-        .from(feeRules)
-        .where(and(eq(feeRules.regionId, regionId), eq(feeRules.key, key)));
-    if (!rule?.latest) throw new Error(`fee rule ${key}: seed the fee rules first`);
-    return rule.latest;
 }
 
 /** Both services at the region's root. Needs the catalogue and the fee rules seeded first. Returns how many services changed. */
@@ -451,13 +432,20 @@ export async function importLicenceServices(tx: Tx, root: { id: string; regionId
     ];
     let changed = 0;
     for (const s of services) {
+        const [service] = await tx
+            .select()
+            .from(serviceDefinitions)
+            .where(and(eq(serviceDefinitions.regionId, root.regionId), eq(serviceDefinitions.code, s.code)))
+            .for('update');
+        if (!service) throw new Error(`service ${s.code}: seed the catalogue first`);
+        if (service.currentVersionId) continue;
         const form = await publishedForm(tx, root, s.key, s.name, s.form);
-        const moved = await serviceVersion(tx, root.regionId, s.code, {
+        await firstServiceVersion(tx, root, service, {
             formVersionId: form.versionId,
             workflowVersionId: await workflowVersion(tx, root, s.key, s.name, s.flow),
             feeRuleVersionId: await approvedFeeRule(tx, root.regionId, s.feeRule)
         });
-        if (moved) changed += 1;
+        changed += 1;
     }
     return changed;
 }

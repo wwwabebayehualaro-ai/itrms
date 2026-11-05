@@ -5,6 +5,8 @@
 import { i18nTextSchema } from '@itrms/schemas';
 import { z } from 'zod';
 
+import { MEDICAL_MONTHS_SETTING, RENEWAL_WINDOW_SETTING } from './rules';
+
 export * from './rules';
 
 export const LICENCE_STATUSES = ['pending_national', 'active', 'voided'] as const;
@@ -17,6 +19,12 @@ export const GRADE_FAMILIES = ['motorcycle', 'automobile', 'truck', 'public', 't
 /** The regional counter a licence number comes from, until the national platform issues numbers (architecture.md §15). */
 export const LICENCE_COUNTER = 'competency.licence';
 export const LICENCE_PATTERN = '{unit}/DL/{seq:06}';
+
+const monthsSetting = z.number().int().min(1).max(60);
+export const COMPETENCY_SETTINGS = {
+    [MEDICAL_MONTHS_SETTING]: monthsSetting,
+    [RENEWAL_WINDOW_SETTING]: monthsSetting
+} as const;
 
 /** The document a licence prints as. */
 export const LICENCE_CARD_TEMPLATE = 'licence-card';
