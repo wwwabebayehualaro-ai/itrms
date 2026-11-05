@@ -138,18 +138,10 @@ jobs:
           LEFTHOOK: '0'
       - name: Start the dev stack (writes the apps' local settings)
         run: pnpm dev:infra
-      - name: Build the API, migrate, and seed the reference design (org, service catalogue, demo users, Keycloak groups)
+      - name: Build the API, and the demo from nothing in under 2 minutes (pnpm demo:reset, task 0.25a)
         run: |
           pnpm --filter @itrms/api build
-          pnpm --filter @itrms/api dev:migrate
-          pnpm --filter @itrms/api dev:seed org seed/org/south-ethiopia.wolaita.yaml
-          pnpm --filter @itrms/api dev:seed services ../../platform/services/seed/catalogue.yaml --region SER
-          pnpm --filter @itrms/api dev:seed users seed/users/wolaita.demo.yaml
-          pnpm --filter @itrms/api dev:seed fees ../../modules/competency/seed/fee-rules.demo.yaml --region SER
-          pnpm --filter @itrms/api dev:seed counters --region SER
-          pnpm --filter @itrms/api dev:seed documents --region SER
-          pnpm --filter @itrms/api dev:seed competency --region SER
-          pnpm --filter @itrms/api dev:seed identity
+          pnpm demo:reset
       - name: Start the worker (outbox relay, the forms' value fill and exports)
         run: nohup pnpm --filter @itrms/api dev:worker > worker.log 2>&1 &
       - name: Start the PDF worker (with the runner's Chrome)

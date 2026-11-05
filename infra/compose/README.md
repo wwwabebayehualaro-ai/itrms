@@ -33,6 +33,7 @@ dev:migrate | dev:seed`; the worker relays the outbox through the queues' Valkey
 and `apps/web/.env.local` (Next.js). They are git-ignored and owner-only like `.env`. Signing in end to end:
 
 ```
+# the whole demo at once, from an emptied database, in under 2 minutes: pnpm --filter @itrms/api build && pnpm demo:reset
 pnpm --filter @itrms/api build && pnpm --filter @itrms/api dev:migrate
 pnpm --filter @itrms/api dev:seed org seed/org/south-ethiopia.wolaita.yaml
 pnpm --filter @itrms/api dev:seed users seed/users/wolaita.demo.yaml

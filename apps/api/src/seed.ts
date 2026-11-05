@@ -23,7 +23,14 @@ import { createDatabase } from '@itrms/kernel/db';
 import { syncIdentity } from '@itrms/kernel/iam';
 import { importUsers, userImportSchema } from '@itrms/kernel/seed';
 import { importOrg, orgUnits, parseOrgCsv, parseOrgWorkbook, parseOrgYaml, type OrgImport } from '@itrms/kernel/org';
-import { importLicenceGrades, importLicenceServices, setUpLicenceCounters } from '@itrms/competency/seed';
+import {
+    importDemoData,
+    importLicenceGrades,
+    importLicenceServices,
+    setUpLicenceCounters
+} from '@itrms/competency/seed';
+import { FieldCrypto } from '@itrms/kernel/crypto';
+import { OrganisationsService, PersonsService } from '@itrms/parties/api';
 import { importDocumentTemplates } from '@itrms/documents/seed';
 import { importFeeRules, parseFeeRules, setUpReceiptCounters } from '@itrms/fees/seed';
 import { importCatalogue } from '@itrms/services/api';
@@ -55,6 +62,7 @@ async function main() {
         kind === 'counters' ||
         kind === 'documents' ||
         kind === 'competency' ||
+        kind === 'demo' ||
         ((kind === 'org' || kind === 'users' || kind === 'services' || kind === 'fees') && file)
     ))
         fail(
@@ -62,11 +70,15 @@ async function main() {
             new Error(
                 'usage: seed org <file.yaml|file.csv|file.xlsx> [--region <code>] | seed users <file.yaml> | ' +
                     'seed services <catalogue.yaml> --region <code> | seed fees <rules.yaml> --region <code> | ' +
-                    'seed counters --region <code> | seed competency --region <code> | seed identity'
+                    'seed counters --region <code> | seed competency --region <code> | seed demo --region <code> | seed identity'
             )
         );
 
-    const db = createDatabase(config.DATABASE_MIGRATE_URL, { max: 1, applicationName: 'itrms-seed' });
+    const db = createDatabase(config.DATABASE_MIGRATE_URL, {
+        max: 1,
+        applicationName: 'itrms-seed',
+        ...(config.AUDIT_HMAC_KEY ? { auditKey: config.AUDIT_HMAC_KEY } : {})
+    });
     try {
         const ctx = { requestId: `seed:${file ?? kind}` };
         if (kind === 'identity') {
@@ -149,6 +161,21 @@ async function main() {
                 };
             });
             logger.info({ region: code, ...result }, 'licence grades, counters and services applied');
+        } else if (kind === 'demo') {
+            // the demo's generated people and licences (task 0.25a): registered as the API would, so their sensitive fields are encrypted
+            const code = file === '--region' ? rest[0] : region;
+            if (!code) throw new Error('seed demo needs --region <code>');
+            if (!config.FIELD_KEYS || !config.BLIND_INDEX_KEY)
+                throw new Error('seed demo needs FIELD_KEYS and BLIND_INDEX_KEY: it writes encrypted fields');
+            const persons = new PersonsService(
+                db,
+                new FieldCrypto({ fieldKeys: config.FIELD_KEYS, blindIndexKey: config.BLIND_INDEX_KEY })
+            );
+            const made = await importDemoData(db, code, {
+                persons,
+                organisations: new OrganisationsService(persons)
+            });
+            logger.info({ region: code, ...made }, made ? 'demo data applied' : 'the demo data was already there');
         } else if (file) {
             const doc = userImportSchema.parse(parseYaml(await readFile(file, 'utf8')));
             logger.info({ file, ...(await db.scoped(ctx, (tx) => importUsers(tx, doc))) }, 'users seed applied');

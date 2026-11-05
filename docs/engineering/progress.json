@@ -1203,8 +1203,8 @@
         {
           "id": "0.25a",
           "title": "Demo, part 1: the data and demo:reset",
-          "status": "ready",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.25a-demo-data",
           "commits": [],
           "evidence": [],
           "blockers": [],

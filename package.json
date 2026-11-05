@@ -28,6 +28,7 @@
     "dev:infra:down": "node tools/dev-infra.mjs down",
     "dev:infra:status": "node tools/dev-infra.mjs status",
     "dev:infra:reset": "node tools/dev-infra.mjs reset",
+    "demo:reset": "node tools/demo-reset.mjs",
     "ci:local": "node tools/ci-local.mjs",
     "openapi": "pnpm --filter @itrms/api openapi && pnpm --filter @itrms/api-client generate"
   },

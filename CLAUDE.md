@@ -144,7 +144,8 @@ can't run it). Available now (task 0.2):
 
 Added by later tasks (legacy commands until then: `docs/legacy/CLAUDE.digital-file-cabinet.md`):
 - `pnpm dev` (web :3000, api :4000) · `pnpm e2e`
-- `pnpm --filter @itrms/api db:generate` (drizzle-kit, review the SQL) · `db:migrate` · `pnpm demo:reset`
+- `pnpm --filter @itrms/api db:generate` (drizzle-kit, review the SQL) · `db:migrate`
+- `pnpm demo:reset` (the demo from an emptied database, on the dev stack, with the API built)
 - `pnpm i18n:check` · `pnpm licences:report` · `pnpm openapi` (regenerate `packages/api-client/openapi.json`)
 
 Windows: run Docker via WSL2. Prefer pnpm over npm (npm 10's resolver crashed on this codebase).

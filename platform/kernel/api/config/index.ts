@@ -214,6 +214,9 @@ const schemas = {
         ...common,
         /** The migration owner: role itrms_owner. */
         DATABASE_MIGRATE_URL: postgresUrl,
+        /** only for the demo's seed, which registers generated people as the API would */
+        AUDIT_HMAC_KEY: auditKey,
+        ...fieldKeys,
         ...identityAdmin
     })
 };
