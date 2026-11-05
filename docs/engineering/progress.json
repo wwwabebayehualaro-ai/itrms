@@ -1203,10 +1203,17 @@
         {
           "id": "0.25a",
           "title": "Demo, part 1: the data and demo:reset",
-          "status": "ready",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.25a-demo-data",
+          "commits": [
+            "50ed3bd"
+          ],
+          "evidence": [
+            "CI run 42075280687 on 50ed3bd: all 9 jobs success. pnpm demo:reset ran twice on one stack in the e2e job: 10.8 s and 11.0 s against the 120 s limit, which fails the step when passed; the journeys then ran on what it made",
+            "demo.int.spec: 200 people with no Fayda number or phone, 5 organisations, 60 licences in the plan's states on their legal terms, holders old enough when issued, gapless numbers per office, exam days and the zone holiday on working days, neutral branding, audit rows for every table written, a second run adds nothing",
+            "keycloak-identity-admin.spec: a region set up again takes over its groups, and running again changes nothing",
+            "task-verifier on dbb15fc: ready, no blocker; its gaps on an environment guard and audit coverage closed in 50ed3bd. Code review at high on dbb15fc: 10 findings, fixed in 50ed3bd"
+          ],
           "blockers": [],
           "notes": ""
         },

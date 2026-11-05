@@ -107,6 +107,24 @@ export class KeycloakIdentityAdmin implements IdentityAdmin {
         return byUnit;
     }
 
+    /**
+     * A group of this code and place whose unit no longer exists: a region's units set up again have new ids (a database restored or
+     * rebuilt, `pnpm demo:reset`), and Keycloak allows one group of a name in a place. It is taken over, keeping its members' links.
+     */
+    private orphanOf(
+        byUnit: Map<string, Group>,
+        units: readonly IdentityUnit[],
+        unit: IdentityUnit,
+        parentId?: string
+    ) {
+        const orphan = [...byUnit].find(
+            ([unitId, g]) => g.name === unit.code && g.parentId === parentId && !units.some((u) => u.id === unitId)
+        );
+        if (!orphan) return undefined;
+        byUnit.delete(orphan[0]);
+        return orphan[1];
+    }
+
     async syncUnits(units: readonly IdentityUnit[]) {
         const byUnit = await this.groupsByUnit();
         let created = 0;
@@ -116,7 +134,7 @@ export class KeycloakIdentityAdmin implements IdentityAdmin {
             if (unit.parentId && !parentGroup)
                 throw new Error(`unit ${unit.code}: its parent has no group (parents first)`);
             const attributes = { [UNIT_ATTRIBUTE]: [unit.id], itrms_unit_name: [unit.name] };
-            const existing = byUnit.get(unit.id);
+            const existing = byUnit.get(unit.id) ?? this.orphanOf(byUnit, units, unit, parentGroup?.id);
             const where = parentGroup ? `/groups/${parentGroup.id}/children` : '/groups';
             if (!existing) {
                 const res = await this.call('POST', where, { name: unit.code, attributes });
@@ -128,7 +146,10 @@ export class KeycloakIdentityAdmin implements IdentityAdmin {
             }
             const moved = existing.parentId !== parentGroup?.id;
             const changed =
-                existing.name !== unit.code || existing.attributes?.itrms_unit_name?.[0] !== unit.name || moved;
+                existing.attributes?.[UNIT_ATTRIBUTE]?.[0] !== unit.id ||
+                existing.name !== unit.code ||
+                existing.attributes.itrms_unit_name?.[0] !== unit.name ||
+                moved;
             if (!changed) continue;
             // posting an existing group under a parent moves it there (or to the top level)
             if (moved) await this.call('POST', where, { id: existing.id, name: unit.code });

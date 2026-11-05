@@ -6,6 +6,7 @@
 //   pnpm dev:infra:status              container health
 //   pnpm dev:infra:down                stop (data is kept)
 //   pnpm dev:infra:reset --yes         stop and delete all local dev data (volumes)
+//   node tools/dev-infra.mjs empty-database --yes   drop the database's schemas only (pnpm demo:reset)
 //
 // Secrets never enter git: infra/compose/.env is ignored, generated here and readable only by its owner. Seeding is
 // idempotent. Only `up` ever writes secrets.
@@ -504,6 +505,12 @@ function writeAppEnv(env) {
             KEYCLOAK_URL: `http://localhost:${p.KEYCLOAK_HOST_PORT}`,
             KEYCLOAK_ADMIN_CLIENT_SECRET: env.KEYCLOAK_IDENTITY_ADMIN_SECRET
         },
+        // only `pnpm demo:reset`'s seed of generated people: migrations and the other seeds never hold these keys
+        [join(ROOT, 'apps', 'api', '.env.demo.local')]: {
+            NODE_ENV: 'development',
+            DATABASE_MIGRATE_URL: pg('owner'),
+            ...personalData
+        },
         [join(ROOT, 'apps', 'api', '.env.worker.local')]: {
             NODE_ENV: 'development',
             DATABASE_URL: pg('app'),
@@ -603,6 +610,50 @@ function seedDatabaseRoles(env) {
         { input: variables + bootstrap, stdio: ['pipe', 'ignore', 'inherit'] }
     );
     console.log(`  PostgreSQL roles: ${roles.map((r) => `itrms_${r}`).join(', ')}`);
+}
+
+/**
+ * Drops every schema of the ITRMS database, for `pnpm demo:reset`, keeping the roles and the extensions (in `public`). Quicker than the
+ * volumes going, and Keycloak and the object store stay up. The queues and sessions go too.
+ */
+function emptyDatabase() {
+    if (process.env.NODE_ENV === 'production') throw new Error('empty-database is for the local development stack.');
+    const sql = `DO $$ DECLARE s text; BEGIN
+        FOR s IN SELECT nspname FROM pg_namespace
+                  WHERE nspname NOT LIKE 'pg\\_%' AND nspname NOT IN ('public', 'information_schema')
+        LOOP EXECUTE format('DROP SCHEMA %I CASCADE', s); END LOOP;
+    END $$;`;
+    execFileSync(
+        'docker',
+        [
+            'compose',
+            '-f',
+            COMPOSE,
+            '--env-file',
+            ENV_FILE,
+            'exec',
+            '-T',
+            'postgres',
+            'psql',
+            '-q',
+            '-v',
+            'ON_ERROR_STOP=1',
+            '-U',
+            'postgres',
+            '-d',
+            'itrms'
+        ],
+        { input: sql, stdio: ['pipe', 'ignore', 'inherit'] }
+    );
+    // what waited for the old rows: queued jobs, and sessions naming units that are gone (the object store's files are only left unread)
+    for (const service of ['valkey-queues', 'valkey-sessions'])
+        execFileSync(
+            'docker',
+            ['compose', '-f', COMPOSE, '--env-file', ENV_FILE, 'exec', '-T', service, 'valkey-cli', 'FLUSHALL'],
+            {
+                stdio: ['ignore', 'ignore', 'inherit']
+            }
+        );
 }
 
 /** Runs `bash -c script` in a stack container; true when it exits 0. */
@@ -743,7 +794,14 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
             if (!rest.includes('--yes'))
                 throw new Error('reset deletes all local dev data (volumes). Re-run with --yes.');
             compose(['--profile', 'observability', 'down', '--volumes']);
-        } else throw new Error(`Unknown command "${cmd}" (up | check | status | down | reset --yes)`);
+        } else if (cmd === 'empty-database') {
+            if (!rest.includes('--yes'))
+                throw new Error('empty-database drops every ITRMS schema of the local stack. Re-run with --yes.');
+            emptyDatabase();
+        } else
+            throw new Error(
+                `Unknown command "${cmd}" (up | check | status | down | reset --yes | empty-database --yes)`
+            );
     } catch (e) {
         console.error(`dev-infra: ${e.message}`);
         process.exit(1);

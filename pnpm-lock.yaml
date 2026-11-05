@@ -619,6 +619,9 @@ importers:
       '@itrms/documents':
         specifier: workspace:*
         version: link:../../platform/documents
+      '@itrms/ethiopian-calendar':
+        specifier: workspace:*
+        version: link:../../packages/ethiopian-calendar
       '@itrms/fees':
         specifier: workspace:*
         version: link:../../platform/fees
