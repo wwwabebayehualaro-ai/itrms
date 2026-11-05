@@ -1184,10 +1184,11 @@
         {
           "id": "0.24c",
           "title": "Driver licences, part 3: the registry views",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.24c-licence-screens",
           "commits": [
-            "7ac1144"
+            "7ac1144",
+            "20db7bb"
           ],
           "evidence": [
             "CI run 42065227098 on 7ac1144: all 9 jobs success, including the e2e job and openapi.spec against the committed contract",
