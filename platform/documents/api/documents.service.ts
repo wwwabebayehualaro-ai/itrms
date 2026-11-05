@@ -13,6 +13,21 @@ import type { IssuedDocumentOut } from '../contracts';
 import { documentTemplates, issuedDocuments } from './documents.table';
 import { issueDocument, revokeDocument, supersedeDocument, type IssueInput, type IssuedRow } from './issue';
 
+/** The same values, however each was stored: PostgreSQL keeps a jsonb's keys in an order of its own. */
+const sameData = (a: unknown, b: unknown): boolean => {
+    const sorted = (value: unknown): unknown =>
+        Array.isArray(value)
+            ? value.map(sorted)
+            : value !== null && typeof value === 'object'
+              ? Object.fromEntries(
+                    Object.entries(value)
+                        .sort(([x], [y]) => x.localeCompare(y))
+                        .map(([k, v]) => [k, sorted(v)])
+                )
+              : value;
+    return JSON.stringify(sorted(a)) === JSON.stringify(sorted(b));
+};
+
 @Injectable()
 export class DocumentsService {
     constructor(@Inject(SettingsService) private readonly settings: SettingsService) {}
@@ -28,7 +43,7 @@ export class DocumentsService {
      */
     async reissue(tx: Tx, input: IssueInput & { subject: NonNullable<IssueInput['subject']> }): Promise<IssuedRow> {
         const current = await issueDocument(tx, this.settings, input);
-        if (JSON.stringify(current.data) === JSON.stringify(input.data)) return current;
+        if (sameData(current.data, input.data)) return current;
         return supersedeDocument(tx, this.settings, current.id, {
             data: input.data,
             language: input.language,

@@ -86,6 +86,16 @@ const RENEW_FORM = {
     fields: [field('licence', 'RegistryLookup', { provider: 'driver-licence' }), ...MEDICAL]
 };
 
+const EXAM_FORM = {
+    schemaVersion: 2,
+    fields: [
+        field('heldOn', 'EthDate'),
+        field('theory', 'InputNumber', { required: false }),
+        field('practical', 'InputNumber', { required: false }),
+        field('passed', 'Checkbox')
+    ]
+};
+
 const state = (key: string, role: string) => ({
     key,
     kind: 'task',
@@ -105,7 +115,7 @@ const NEW_FLOW = {
     states: [
         { key: 'draft', kind: 'start', label: t('Draft') },
         state('review', 'competency.officer'),
-        state('exam', 'competency.examiner'),
+        { ...state('exam', 'competency.examiner'), stepForm: 'test-exam@1' },
         state('approval', 'competency.lead'),
         ...ENDS
     ],
@@ -122,7 +132,7 @@ const RENEW_FLOW = {
     states: [
         { key: 'draft', kind: 'start', label: t('Draft') },
         state('review', 'competency.officer'),
-        state('field_exam', 'competency.examiner'),
+        { ...state('field_exam', 'competency.examiner'), stepForm: 'test-exam@1' },
         state('approval', 'competency.lead'),
         ...ENDS
     ],
@@ -183,11 +193,16 @@ const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Addis_A
 const yearsAgo = (years: number) => `${Number(today().slice(0, 4)) - years}${today().slice(4)}`;
 
 let personSerial = 0;
+const ETHIOPIC = 'ሀለሐመሠረሰሸቀበቨተቸኀነኘአከኸወዐዘዠየደጀገጠጨጰጸፀፈፐ';
+const LATIN = 'abcdefghijklmnopqrstuvwxyz';
+/** Names may hold letters only, and two people with one name would be a possible duplicate. */
+const lettersOf = (n: number, alphabet: string) =>
+    [Math.floor(n / alphabet.length), n % alphabet.length].map((i) => alphabet[i % alphabet.length] ?? '').join('');
 async function registered(birthDate: string | null): Promise<string> {
     personSerial += 1;
     const res = await api.call('POST', '/api/v1/persons', as.officer, {
-        nameAm: { given: 'አበበ', father: `ከበደ${personSerial}`, grandfather: 'ተሰማ' },
-        nameEn: { given: 'Generated', father: `Holder${personSerial}`, grandfather: 'Person' },
+        nameAm: { given: 'አበበ', father: `ከበደ${lettersOf(personSerial, ETHIOPIC)}`, grandfather: 'ተሰማ' },
+        nameEn: { given: 'Generated', father: `Holder${lettersOf(personSerial, LATIN)}`, grandfather: 'Person' },
         sex: 'male',
         ...(birthDate ? { birthYear: Number(birthDate.slice(0, 4)), sensitive: { birthDate } } : {}),
         acknowledgedDuplicates: []
@@ -293,7 +308,10 @@ beforeAll(async () => {
             sub: SUB.officer,
             region: 'SER',
             home: 'WOL-BODITI',
-            roles: [['WOL-BODITI', 'competency.officer']]
+            roles: [
+                ['WOL-BODITI', 'competency.officer'],
+                ['WOL-BODITI', 'records_officer']
+            ]
         },
         {
             username: 'test.comp.examiner',
@@ -331,6 +349,7 @@ beforeAll(async () => {
         licences: api.http.get(LicencesService),
         cases: api.http.get(CasesService)
     };
+    await publishedForm('test-exam', EXAM_FORM);
     await publishService(NEW, 'test-new-licence', NEW_FLOW, await publishedForm('test-new-licence', NEW_FORM));
     await publishService(RENEW, 'test-renewal', RENEW_FLOW, await publishedForm('test-renewal', RENEW_FORM));
     const made = await api.call('POST', '/api/v1/organisations', as.officer, {
