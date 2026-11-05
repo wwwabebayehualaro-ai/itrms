@@ -35,6 +35,7 @@ export interface Api {
     get<T = any>(path: string): Promise<T>;
     post<T = any>(path: string, body?: unknown, version?: number): Promise<T>;
     patch<T = any>(path: string, body: unknown, version: number): Promise<T>;
+    put<T = any>(path: string, body: unknown, version: number): Promise<T>;
     delete(path: string, version: number): Promise<unknown>;
 }
 
@@ -59,6 +60,7 @@ export function api(page: Page): Api {
         get: (path) => call('GET', path),
         post: (path, body = {}, version) => call('POST', path, body, version),
         patch: (path, body, version) => call('PATCH', path, body, version),
+        put: (path, body, version) => call('PUT', path, body, version),
         delete: (path, version) => call('DELETE', path, undefined, version)
     };
 }

@@ -114,6 +114,24 @@ export default defineModule({
             ]
         },
         {
+            key: 'competency.licences',
+            group: 'work-process',
+            order: 15,
+            label: 'competency.nav.licences',
+            icon: 'id-card',
+            route: '/competency/licences',
+            requires: { permission: 'licence:read', services: LICENSING }
+        },
+        {
+            key: 'competency.training',
+            group: 'work-process',
+            order: 18,
+            label: 'competency.nav.training',
+            icon: 'list-checks',
+            route: '/competency/training',
+            requires: { permission: 'training:read', services: LICENSING }
+        },
+        {
             key: 'competency.exams',
             group: 'work-process',
             order: 20,

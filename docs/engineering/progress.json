@@ -1184,8 +1184,8 @@
         {
           "id": "0.24c",
           "title": "Driver licences, part 3: the registry views",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.24c-licence-screens",
           "commits": [],
           "evidence": [],
           "blockers": [],
