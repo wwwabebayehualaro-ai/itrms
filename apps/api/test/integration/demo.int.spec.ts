@@ -184,7 +184,7 @@ describe('the demo’s data', () => {
 
 describe('the second demo region', () => {
     const CITY_ADMIN = '0199f0a0-d000-7000-8000-000000000501';
-    const seeds = join(HERE, '..', '..', '..', 'seed');
+    const seeds = join(HERE, '..', '..', 'seed');
 
     beforeAll(async () => {
         const org = parseOrgYaml(readFileSync(join(seeds, 'org', 'sample-city.yaml'), 'utf8'));
