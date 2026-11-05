@@ -23,5 +23,7 @@
   "competency.rule.examOutcome": "ይህ የፈተና ውጤት ከተወሰደው እርምጃ ጋር አይጣጣምም።",
   "competency.rule.otherOffice": "ይህን መንጃ ፈቃድ የሚያስተናግደው ሌላ ጽ/ቤት ነው። መጀመሪያ ወደዚህ ጽ/ቤት ያዛውሩት።",
   "competency.rule.tooEarly": "መንጃ ፈቃድ ሊታደስ የሚችለው ከማብቂያው {months} ወራት በፊት ጀምሮ ነው።",
-  "competency.rule.renewalFacts": "በዚህ ጥያቄ ላይ ያለው ደረጃ ወይም የማብቂያ ቀን በመዝገቡ ካለው መንጃ ፈቃድ ጋር አይጣጣምም።"
+  "competency.rule.renewalFacts": "በዚህ ጥያቄ ላይ ያለው ደረጃ ወይም የማብቂያ ቀን በመዝገቡ ካለው መንጃ ፈቃድ ጋር አይጣጣምም።",
+  "competency.setting.medical_valid_months": "የህክምና ምርመራ ለመንጃ ፈቃድ የሚያገለግልባቸው ወራት",
+  "competency.setting.renewal_window_months": "መንጃ ፈቃድ ከማብቂያው በፊት ሊታደስ የሚችልባቸው ወራት"
 }
