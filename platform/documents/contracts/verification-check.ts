@@ -80,6 +80,7 @@ const signedBy = async (key: PublishedKey, bytes: Uint8Array, signature: string)
 
 /** What a scanned text proves. The address in it is read and never opened: a fake QR's own page is what this check is against. */
 export async function checkQr(text: string, keys: readonly PublishedKey[], today: string): Promise<QrCheck> {
+    // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- anchored, with no nested repetition: linear, and on the phone that scanned it
     const url = addressOf(text);
     const token = url && TOKEN_PATH.exec(url.pathname)?.[1];
     if (!url || !token) return { state: 'notOurs' };

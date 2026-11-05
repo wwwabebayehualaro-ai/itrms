@@ -383,7 +383,7 @@ describe('every tenant table', () => {
             SELECT p.oid::regprocedure::text AS name FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
             WHERE p.prosecdef AND n.nspname NOT IN ('pg_catalog', 'information_schema')
               AND has_function_privilege('itrms_app', p.oid, 'EXECUTE')
-            ORDER BY 1 COLLATE "C"`);
+            ORDER BY p.oid::regprocedure::text COLLATE "C"`);
         expect(rows.map((r) => r.name)).toEqual([
             // a document's status by its token's hash, for the public endpoint: a checker's minimum (ADR-0045)
             'documents.verification(text)',

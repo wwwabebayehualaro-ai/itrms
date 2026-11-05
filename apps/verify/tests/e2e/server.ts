@@ -31,6 +31,7 @@ export async function serve(out: string, answers: Answers) {
             request.socket.destroy();
             return;
         }
+        // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- a test's own server, and an anchored fixed-length pattern
         const path = new URL(request.url ?? '/', 'http://localhost').pathname;
         const json = (status: number, body: unknown) => {
             response.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' });

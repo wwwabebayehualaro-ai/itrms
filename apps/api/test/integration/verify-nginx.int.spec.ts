@@ -26,7 +26,7 @@ function verifyServer(): string {
     if (!zone || start < 0 || after < 0) throw new Error('the verify server is not in the template');
     const locations = template
         .slice(start, end)
-        .replace('proxy_pass http://api:4000;', 'proxy_pass http://127.0.0.1:8081;');
+        .replaceAll('proxy_pass http://api:4000;', 'proxy_pass http://127.0.0.1:8081;');
     if (locations.includes('http://api:4000')) throw new Error('the API upstream is still there');
     return `${zone}limit_req_status 429;
 map $http_upgrade $connection_upgrade { default upgrade; '' close; }
