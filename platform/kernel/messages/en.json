@@ -38,6 +38,7 @@
   "kernel.role.viewer": "Viewer",
   "kernel.nav.languages": "Languages",
   "kernel.setting.i18n.languages": "Languages",
+  "kernel.setting.ui.brandName": "Organisation name",
   "kernel.setting.ui.theme": "Theme",
   "kernel.settingOption.ui.theme.system": "As the computer",
   "kernel.settingOption.ui.theme.light": "Light",

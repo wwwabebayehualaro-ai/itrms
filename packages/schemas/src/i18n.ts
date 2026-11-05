@@ -19,7 +19,7 @@ export const i18nTextSchema = z
 
 export type I18nText = z.infer<typeof i18nTextSchema>;
 
-/** The languages ITRMS ships catalogues for: Amharic first, English, Wolaytta (Latin script); a region adds others. */
+/** The languages ITRMS ships catalogues for, complete or not: Amharic first, English, Wolaytta (Latin script), Afaan Oromo; a region adds others. */
 export const SHIPPED_LANGUAGES = ['am', 'en', 'wal-Latn', 'om'] as const;
 
 /** Every language a region may turn on (its catalogues shipped or added later): the one list the code reads. */

@@ -34,7 +34,7 @@ import shellEn from '../../messages/en.json';
 import shellOm from '../../messages/om.json';
 import shellWal from '../../messages/wal-Latn.json';
 
-/** The languages the shell has catalogues for; a region's others (om, ti) show Amharic until theirs are added. */
+/** The languages the shell has catalogues for, some partial (om); a region's others (ti) show Amharic until theirs are added. */
 export const UI_LANGUAGES = SHIPPED_LANGUAGES;
 export type UiLanguage = (typeof UI_LANGUAGES)[number];
 export const DEFAULT_LANGUAGE: UiLanguage = 'am';

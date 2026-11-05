@@ -36,6 +36,7 @@ import {
     SidebarTrigger,
     type AppearanceLabels
 } from '@itrms/ui';
+import { i18nTextSchema } from '@itrms/schemas';
 import { NO_LABELS, useAuthStore } from '@/lib/auth/authStore';
 import { forgetLocalDrafts, unsyncedCount } from '@/lib/drafts';
 import {
@@ -188,7 +189,10 @@ function useAppearanceLabels(): AppearanceLabels {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-    const { t } = useText();
+    const { t, text } = useText();
+    // the bureau's own name (`ui.brandName`), once the workspace is here
+    const named = i18nTextSchema.safeParse(useAuthStore((s) => s.workspace?.settings['ui.brandName']));
+    const brand = named.success ? text(named.data) : t('shell.app.name');
     const appearance = useAppearanceLabels();
     const onAppearance = usePersonalAppearance();
     return (
@@ -203,10 +207,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <SidebarHeader>
                     <SidebarMenu>
                         <SidebarMenuItem>
-                            <SidebarMenuButton asChild size="lg" tooltip={t('shell.app.name')}>
+                            <SidebarMenuButton asChild size="lg" tooltip={brand}>
                                 <Link href="/">
                                     <Logo className="size-8 shrink-0" />
-                                    <span className="truncate font-semibold">{t('shell.app.name')}</span>
+                                    <span className="truncate font-semibold" data-app-brand>
+                                        {brand}
+                                    </span>
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>

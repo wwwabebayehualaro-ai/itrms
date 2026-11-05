@@ -100,6 +100,7 @@ shown, **where**, **with which data**, and **which facts it rests on**. Sources:
 - The demo e2e test (Playwright) runs the journey green in `am` and `en`, and `wal-Latn` loads with fallback.
 - `pnpm demo:reset` restores the data in under 2 minutes.
 - Switching to the second demo region (`demo.city.admin`, a made-up city administration with sub-cities) shows its own levels, units,
-  language and branding, with no code change. Its few Afaan Oromo words are a draft for a speaker to check.
+  language and branding, with no code change. Its look comes from the data file `apps/api/seed/settings/sample-city.demo.yaml`. Its few Afaan Oromo words are a draft for a speaker to
+  check. Afaan Oromo itself needed one step, once and not per region: adding it to the shipped languages with its catalogue.
 - The demo has been shown to officials of **at least two bureaus or zones**, with their feedback recorded in
   `docs/discovery/`.

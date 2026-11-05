@@ -8,7 +8,6 @@ import { ethiopianHolidays } from '@itrms/ethiopian-calendar';
 import { insertAudited, type Database, type DbContext } from '@itrms/kernel/db';
 import { nextNumber } from '@itrms/kernel/numbering';
 import { orgUnits } from '@itrms/kernel/tables';
-import { settingsValues } from '@itrms/kernel/settings';
 import type { OrganisationsService, PersonsService } from '@itrms/parties/api';
 import { holidays } from '@itrms/workflow/api';
 
@@ -238,20 +237,6 @@ export async function importDemoData(
         ])
             await deps.organisations.create(tx, zoneCtx, { kind: 'health_facility', name });
 
-        // neutral branding (real names, logos and stamps appear only with permission); a header a bureau has set stays
-        const [header] = await tx
-            .select({ id: settingsValues.id })
-            .from(settingsValues)
-            .where(and(eq(settingsValues.unitId, root.id), eq(settingsValues.key, 'documents.header')));
-        if (!header)
-            await insertAudited(tx, settingsValues, {
-                regionId,
-                unitId: root.id,
-                unitTypeId: null,
-                key: 'documents.header',
-                value: { title: { am: 'ናሙና የክልል ትራንስፖርት ቢሮ', en: 'Sample Regional Transport Bureau' } }
-            });
-
         // the people: each a different name, past the register's own duplicate check
         type Person = { id: string; birthDate: string; age: number; unit: keyof typeof offices };
         const seen = new Set<string>();
@@ -395,53 +380,5 @@ export async function importDemoData(
             enrolments,
             examSessions: sessions
         };
-    });
-}
-
-/**
- * What makes the second demo region look like its own (task 0.25b, docs/demo-plan.md §6): its branding and its languages, as settings a
- * bureau would set. Already set, they stay.
- */
-export async function importSecondRegionDemo(db: Database, code: string): Promise<number> {
-    const base = { requestId: 'seed:demo-city' };
-    const root = await db.scoped(base, async (tx) => {
-        const [found] = await tx
-            .select()
-            .from(orgUnits)
-            .where(and(isNull(orgUnits.parentId), eq(orgUnits.code, code)));
-        if (!found) throw new Error(`no region ${code}`);
-        return found;
-    });
-    const settings: readonly (readonly [string, unknown])[] = [
-        [
-            'documents.header',
-            {
-                title: {
-                    am: 'ናሙና የከተማ ትራንስፖርት ባለሥልጣን',
-                    en: 'Sample City Transport Authority',
-                    om: 'Abbaa Taayitaa Geejjibaa Magaalaa Fakkeenyaa'
-                }
-            }
-        ],
-        ['i18n.languages', ['am', 'en', 'om']]
-    ];
-    return db.scoped({ ...base, regionId: root.regionId, unitId: root.id, scopePath: root.path }, async (tx) => {
-        let made = 0;
-        for (const [key, value] of settings) {
-            const [set] = await tx
-                .select({ id: settingsValues.id })
-                .from(settingsValues)
-                .where(and(eq(settingsValues.unitId, root.id), eq(settingsValues.key, key)));
-            if (set) continue;
-            await insertAudited(tx, settingsValues, {
-                regionId: root.regionId,
-                unitId: root.id,
-                unitTypeId: null,
-                key,
-                value
-            });
-            made += 1;
-        }
-        return made;
     });
 }

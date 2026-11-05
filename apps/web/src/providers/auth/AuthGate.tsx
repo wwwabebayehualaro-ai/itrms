@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useLocale } from 'next-intl';
 import { useAuthStore } from '@/lib/auth/authStore';
 import { session } from '@/lib/auth/session';
-import { availableLanguages, setLanguageCookie, usePreferences } from '@/lib/preferences';
+import { languageToShow, setLanguageCookie, usePreferences } from '@/lib/preferences';
 import { Spinner } from '@itrms/ui';
 
 /**
@@ -26,14 +26,14 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
     // the person's preferences, saved on the server: this PC shows them too (the language by rendering again in it).
     // Applied once per workspace loaded: a language chosen on this page since then is the newer one. Only a language the
-    // shell has a catalogue for and the region offers: another (om, ti before their catalogues) stays as it is.
+    // shell has a catalogue for and the region offers: this browser's language from another account's choice is put right.
     const applied = useRef<unknown>(undefined);
     useEffect(() => {
         if (!preferences || applied.current === preferences) return;
         applied.current = preferences;
         usePreferences.getState().load(preferences);
-        const language = availableLanguages(languages).find((l) => l === preferences.language);
-        if (language && language !== locale) {
+        const language = languageToShow(locale, preferences.language, languages);
+        if (language !== locale) {
             setLanguageCookie(language);
             router.refresh();
         }

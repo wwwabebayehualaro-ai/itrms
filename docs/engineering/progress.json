@@ -1226,7 +1226,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Second region SCA is data at runtime (org yaml, users, settings). One-time language plumbing: om added to SHIPPED_LANGUAGES with a 5-key draft shell catalogue, the rest falls back to Amharic. Demo seeding code: seed kind demo-city, importSecondRegionDemo and 8 demo-reset steps. demo:reset 26 s of the 120 s limit in CI run 42081699613. After the verifier: isolation test now runs both ways with a positive control, the journey checks level names and the printed header; those edits are not yet through CI."
         },
         {
           "id": "0.25c",

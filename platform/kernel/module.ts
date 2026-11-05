@@ -187,6 +187,7 @@ export default defineModule({
     // data-entry offices (compact), and each person's own choice
     settings: [
         { key: 'i18n.languages', default: ['am', 'en'], overridableAt: ['installation', 'region'] },
+        { key: 'ui.brandName', default: { am: 'ITRMS', en: 'ITRMS' }, overridableAt: ['region'] },
         { key: 'ui.theme', default: 'system', overridableAt: ['region'], userPreference: true },
         {
             key: 'ui.density',

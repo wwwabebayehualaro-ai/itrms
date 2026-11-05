@@ -6,14 +6,11 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import {
-    importDemoData,
-    importLicenceGrades,
-    importSecondRegionDemo,
-    setUpLicenceCounters,
-    type DemoCounts
-} from '@itrms/competency/seed';
-import { importUsers, userImportSchema } from '@itrms/kernel/seed';
+import { importDemoData, importLicenceGrades, setUpLicenceCounters, type DemoCounts } from '@itrms/competency/seed';
+import { importRegionSettings, importUsers, regionSettingsSchema, userImportSchema } from '@itrms/kernel/seed';
+import { buildSettingsRegistry } from '@itrms/kernel/settings';
+import { DocumentsService } from '@itrms/documents/api';
+import { importDocumentTemplates } from '@itrms/documents/seed';
 import { importOrg, parseOrgYaml } from '@itrms/kernel/org';
 import { parse as parseYaml } from 'yaml';
 import { addisDay, addMonths, addYears } from '@itrms/competency/contracts';
@@ -22,6 +19,7 @@ import { OrganisationsService, PersonsService } from '@itrms/parties/api';
 import { importFeeRules, parseFeeRules } from '@itrms/fees/seed';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { SLICES } from '../../src/slices';
 import { startApi, type TestApi } from './support/api';
 import { startPostgres, type TestPostgres } from './support/postgres';
 
@@ -37,6 +35,16 @@ const deps = () => ({
     persons: api.http.get(PersonsService),
     organisations: api.http.get(OrganisationsService)
 });
+/** A region's settings file, as `seed settings` applies it. Returns how many it set. */
+const applySettings = async (name: string) => {
+    const doc = regionSettingsSchema.parse(
+        parseYaml(readFileSync(join(HERE, '..', '..', 'seed', 'settings', name), 'utf8'))
+    );
+    const root = await api.unit(doc.region, doc.region);
+    return api.installer.scoped({}, (tx) =>
+        importRegionSettings(tx, root, doc.settings, buildSettingsRegistry(SLICES))
+    );
+};
 const count = async (sql: string, params: unknown[] = []) =>
     (await api.owner.query<{ n: number }>(sql, params)).rows[0]?.n ?? 0;
 
@@ -51,6 +59,7 @@ beforeAll(async () => {
         await setUpLicenceCounters(tx, root.regionId);
     });
     seeded = await importDemoData(api.installer, 'SER', deps(), TODAY);
+    await applySettings('sample-region.demo.yaml');
 }, 240_000);
 
 afterAll(async () => {
@@ -195,7 +204,7 @@ describe('the second demo region', () => {
             await importOrg(tx, org);
             await importUsers(tx, users);
         });
-        expect(await importSecondRegionDemo(api.installer, 'SCA')).toBe(2);
+        expect(await applySettings('sample-city.demo.yaml')).toBe(3);
     });
 
     it('has its own levels, its sub-cities, and a language of its own', async () => {
@@ -224,33 +233,51 @@ describe('the second demo region', () => {
         ]);
     });
 
-    it('sees none of the first region’s register, and the first sees none of its own', async () => {
-        const CITY_RECORDS = '0199f0a0-d000-7000-8000-000000000502';
-        const { rows } = await api.owner.query<{ name: string }>(
-            `select p.given_name_en as name from parties.persons p
-               join kernel.org_units u on u.region_id = p.region_id and u.code = 'SER' and u.parent_id is null
-              where p.given_name_en is not null limit 1`
-        );
-        const name = rows[0]?.name;
-        expect(name, 'the first region has people').toBeTruthy();
+    it('keeps the two registers apart, each way', async () => {
+        const firstName = async (region: string) => {
+            const { rows } = await api.owner.query<{ name: string }>(
+                `select p.given_name_en as name from parties.persons p
+                   join kernel.org_units u on u.region_id = p.region_id and u.code = $1 and u.parent_id is null
+                  where p.given_name_en is not null limit 1`,
+                [region]
+            );
+            return rows[0]?.name ?? '';
+        };
+        const search = async (as: { sub: string; unit: Awaited<ReturnType<TestApi['unit']>> }, name: string) => {
+            const res = await api.call('GET', `/api/v1/persons?q=${encodeURIComponent(name)}`, as);
+            expect(res.statusCode, res.body).toBe(200);
+            return res.json<{ items: unknown[] }>().items;
+        };
+        const north = await api.unit('SCA', 'SCA-NORTH');
+        const asCity = { sub: '0199f0a0-d000-7000-8000-000000000502', unit: north };
+        const asFirst = { sub: '0199f0a0-d000-7000-8000-000000000202', unit: await api.unit('SER', 'WOL-DAMOT-GALE') };
 
-        const asCity = { sub: CITY_RECORDS, unit: await api.unit('SCA', 'SCA-NORTH') };
-        const found = await api.call('GET', `/api/v1/persons?q=${encodeURIComponent(name ?? '')}`, asCity);
-        expect(found.statusCode, found.body).toBe(200);
-        expect(found.json<{ items: unknown[] }>().items).toEqual([]);
+        // a name the first region's own officer finds, and the city's does not
+        const theirs = await firstName('SER');
+        expect(theirs, 'the first region has people').not.toBe('');
+        expect((await search(asFirst, theirs)).length).toBeGreaterThan(0);
+        expect(await search(asCity, theirs)).toEqual([]);
 
-        const city = await api.unit('SCA', 'SCA');
-        const subtree = await api.call('GET', `/api/v1/org-units/${city.id}/subtree`, {
-            sub: CITY_ADMIN,
-            unit: city
+        // and the other way: a person registered in the city, under a name the first region has no one of
+        const created = await api.call('POST', '/api/v1/persons', asCity, {
+            nameAm: { given: 'ቀነኒ', father: 'ከተማ', grandfather: 'ናሙና' },
+            nameEn: { given: 'Qananii', father: 'Katama', grandfather: 'Namuna' },
+            sex: 'female',
+            address: { unitId: north.id, kebele: '01' },
+            sensitive: { birthDate: '1990-03-14', phone: '0911 500501', fin: '400000000501' }
         });
-        expect(subtree.statusCode, subtree.body).toBe(200);
-        expect(
-            subtree
-                .json<{ code: string }[]>()
-                .map((u) => u.code)
-                .sort()
-        ).toEqual(['SCA', 'SCA-NORTH', 'SCA-NORTH-D1', 'SCA-SOUTH']);
+        expect(created.statusCode, created.body).toBe(201);
+        expect((await search(asCity, 'Qananii')).length).toBe(1);
+        expect(await search(asFirst, 'Qananii')).toEqual([]);
+    });
+
+    it('has its own units and level names, and none of the first region', async () => {
+        const city = await api.unit('SCA', 'SCA');
+        const res = await api.call('GET', `/api/v1/org-units/${city.id}/subtree`, { sub: CITY_ADMIN, unit: city });
+        expect(res.statusCode, res.body).toBe(200);
+        const units = res.json<{ code: string; level: { name: { en: string } } }[]>();
+        expect(units.map((u) => u.code).sort()).toEqual(['SCA', 'SCA-NORTH', 'SCA-NORTH-D1', 'SCA-SOUTH']);
+        expect(units.find((u) => u.code === 'SCA-SOUTH')?.level.name.en).toBe('Sub-city');
     });
 
     it('offers its people its languages', async () => {
@@ -264,7 +291,70 @@ describe('the second demo region', () => {
         ]);
     });
 
-    it('sets its settings only once', async () => {
-        expect(await importSecondRegionDemo(api.installer, 'SCA')).toBe(0);
+    it('prints its own name on a document of a sub-city, which inherits it', async () => {
+        const city = await api.unit('SCA', 'SCA');
+        const north = await api.unit('SCA', 'SCA-NORTH');
+        await api.installer.scoped({}, (tx) => importDocumentTemplates(tx, { id: city.id, regionId: city.regionId }));
+        const issued = await api.installer.scoped({ requestId: 'system:test' }, (tx) =>
+            api.http.get(DocumentsService).issue(tx, {
+                regionId: north.regionId,
+                handlingUnitId: north.id,
+                templateKey: 'licence-card',
+                language: 'am',
+                number: 'SCA-1',
+                data: {
+                    number: 'SCA-1',
+                    holderName: 'Generated Holder',
+                    birthDate: null,
+                    grades: [{ grade: 'B', name: { am: 'አውቶሞቢል', en: 'Automobile' } }],
+                    issuedOn: '2020-01-01',
+                    validUntil: '2024-01-01',
+                    photo: null
+                }
+            })
+        );
+        const { rows } = await api.owner.query<{ header: { title?: { en?: string } } }>(
+            'select header from documents.issued_documents where id = $1',
+            [issued.id]
+        );
+        expect(rows[0]?.header.title?.en).toBe('Sample City Transport Authority');
+    });
+
+    it('has a team that can take a case from counter to document', async () => {
+        const { rows } = await api.owner.query<{ role_key: string }>(
+            `select distinct a.role_key from kernel.role_assignments a
+               join kernel.org_units u on u.id = a.unit_id where u.code = 'SCA-NORTH' order by a.role_key`
+        );
+        expect(rows.map((r) => r.role_key)).toEqual([
+            'cashier',
+            'competency.examiner',
+            'competency.lead',
+            'competency.officer',
+            'records_officer'
+        ]);
+    });
+
+    it('sets its settings once, each on the record, and leaves one a bureau has changed', async () => {
+        const written = () =>
+            count(`select count(*)::int as n from kernel.audit_log where table_name = 'kernel.settings_values'`);
+        const before = await written();
+        expect(before, 'every setting written has its audit row').toBe(
+            await count('select count(*)::int as n from kernel.settings_values')
+        );
+        await api.owner.query(
+            `update kernel.settings_values set value = '["am","en"]' where key = 'i18n.languages'
+                and unit_id = (select id from kernel.org_units where code = 'SCA' and parent_id is null)`
+        );
+        expect(await applySettings('sample-city.demo.yaml')).toBe(0);
+        expect(await written()).toBe(before);
+        const { rows } = await api.owner.query<{ value: unknown }>(
+            `select v.value from kernel.settings_values v join kernel.org_units u on u.id = v.unit_id
+              where u.code = 'SCA' and v.key = 'i18n.languages'`
+        );
+        expect(rows[0]?.value).toEqual(['am', 'en']);
+        await api.owner.query(
+            `update kernel.settings_values set value = '["am","en","om"]' where key = 'i18n.languages'
+                and unit_id = (select id from kernel.org_units where code = 'SCA' and parent_id is null)`
+        );
     });
 });

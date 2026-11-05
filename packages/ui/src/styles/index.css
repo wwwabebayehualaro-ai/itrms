@@ -43,7 +43,9 @@
     }
     :root:lang(am) body,
     :root:lang(ti) body,
-    :root:lang(gez) body {
+    :root:lang(gez) body,
+    :root:lang(wal-Latn) body,
+    :root:lang(om) body {
         line-height: 1.6;
     }
 }

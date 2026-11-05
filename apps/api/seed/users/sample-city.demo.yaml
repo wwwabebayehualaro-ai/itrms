@@ -24,3 +24,24 @@ users:
       home: SCA-NORTH,
       roles: [{ unit: SCA-NORTH, role: competency.officer }]
     }
+  - {
+      username: demo.city.lead,
+      displayName: North Sub-city Licensing Lead (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000504,
+      home: SCA-NORTH,
+      roles: [{ unit: SCA-NORTH, role: competency.lead }]
+    }
+  - {
+      username: demo.city.examiner,
+      displayName: North Sub-city Examiner (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000505,
+      home: SCA-NORTH,
+      roles: [{ unit: SCA-NORTH, role: competency.examiner }]
+    }
+  - {
+      username: demo.city.cashier,
+      displayName: North Sub-city Cashier (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000506,
+      home: SCA-NORTH,
+      roles: [{ unit: SCA-NORTH, role: cashier }]
+    }

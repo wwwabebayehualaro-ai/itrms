@@ -389,8 +389,11 @@ export const fonts = {
     mono: "'Noto Sans Mono Variable', 'Noto Sans Ethiopic Variable', ui-monospace, monospace"
 } as const;
 
-/** Languages written in Ethiopic script get the taller line heights and the 14 px floor (design-system.md §5). */
-export const ETHIOPIC_LANGUAGES = ['am', 'ti', 'gez'] as const;
+/**
+ * Languages written in Ethiopic script get the taller line heights and the 14 px floor (design-system.md §5). So do the Latin-script
+ * ones whose catalogues are still mostly Amharic fallback (wal-Latn, om): until they are complete, most of their screen is Ethiopic.
+ */
+export const ETHIOPIC_LANGUAGES = ['am', 'ti', 'gez', 'wal-Latn', 'om'] as const;
 
 export const typography = {
     baseSize: '16px',

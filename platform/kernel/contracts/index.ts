@@ -1,5 +1,5 @@
 // Public entry of @itrms/kernel (code-structure.md §4): the payloads of the events the kernel emits.
-import { DOCUMENT_TYPES, INSTALLABLE_LANGUAGES } from '@itrms/schemas';
+import { DOCUMENT_TYPES, i18nTextSchema, INSTALLABLE_LANGUAGES } from '@itrms/schemas';
 import { z } from 'zod';
 
 /** A unit was created, renamed, moved or deactivated (the identity provider's groups follow). */
@@ -29,6 +29,8 @@ export const KERNEL_SETTINGS = {
         .max(INSTALLABLE_LANGUAGES.length)
         .refine((l) => new Set(l).size === l.length, 'a language is listed twice')
         .refine((l) => l.includes('am') && l.includes('en'), 'Amharic and English are always on'),
+    /** the name at the top of the menu: the bureau's own */
+    'ui.brandName': i18nTextSchema,
     'ui.theme': z.enum(UI_THEMES),
     'ui.density': z.enum(UI_DENSITIES)
 } as const;

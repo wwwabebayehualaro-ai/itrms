@@ -22,6 +22,23 @@ const inApi = (env, script, args = []) => {
 };
 const seed = (...args) => inApi('.env.migrate.local', 'seed.cjs', args);
 
+/** What every region is built from, in order. */
+const regionSteps = (code, org, users) => [
+    [`${code}: the org tree`, () => seed('org', `seed/org/${org}.yaml`)],
+    [
+        `${code}: the service catalogue`,
+        () => seed('services', '../../platform/services/seed/catalogue.yaml', '--region', code)
+    ],
+    [`${code}: the users`, () => seed('users', `seed/users/${users}.yaml`)],
+    [
+        `${code}: the fee rules`,
+        () => seed('fees', '../../modules/competency/seed/fee-rules.demo.yaml', '--region', code)
+    ],
+    [`${code}: the receipt counters`, () => seed('counters', '--region', code)],
+    [`${code}: the document templates`, () => seed('documents', '--region', code)],
+    [`${code}: the licence services`, () => seed('competency', '--region', code)]
+];
+
 const STEPS = [
     [
         'empty the database',
@@ -32,26 +49,12 @@ const STEPS = [
             })
     ],
     ['migrate', () => inApi('.env.migrate.local', 'migrate.cjs')],
-    ['the org tree', () => seed('org', 'seed/org/south-ethiopia.wolaita.yaml')],
-    [
-        'the service catalogue',
-        () => seed('services', '../../platform/services/seed/catalogue.yaml', '--region', REGION)
-    ],
-    ['the demo users', () => seed('users', 'seed/users/wolaita.demo.yaml')],
-    ['the fee rules', () => seed('fees', '../../modules/competency/seed/fee-rules.demo.yaml', '--region', REGION)],
-    ['the receipt counters', () => seed('counters', '--region', REGION)],
-    ['the document templates', () => seed('documents', '--region', REGION)],
-    ['the licence services', () => seed('competency', '--region', REGION)],
+    ...regionSteps(REGION, 'south-ethiopia.wolaita', 'wolaita.demo'),
     ['the demo’s people and licences', () => inApi('.env.demo.local', 'seed.cjs', ['demo', '--region', REGION])],
+    [`${REGION}: its branding`, () => seed('settings', 'seed/settings/sample-region.demo.yaml')],
     // the second region: a city administration with sub-cities (task 0.25b), with the same services and rules
-    ['the second region', () => seed('org', 'seed/org/sample-city.yaml')],
-    ['its catalogue', () => seed('services', '../../platform/services/seed/catalogue.yaml', '--region', CITY)],
-    ['its users', () => seed('users', 'seed/users/sample-city.demo.yaml')],
-    ['its fee rules', () => seed('fees', '../../modules/competency/seed/fee-rules.demo.yaml', '--region', CITY)],
-    ['its receipt counters', () => seed('counters', '--region', CITY)],
-    ['its document templates', () => seed('documents', '--region', CITY)],
-    ['its licence services', () => seed('competency', '--region', CITY)],
-    ['its branding and languages', () => seed('demo-city', '--region', CITY)],
+    ...regionSteps(CITY, 'sample-city', 'sample-city.demo'),
+    [`${CITY}: its branding and languages`, () => seed('settings', 'seed/settings/sample-city.demo.yaml')],
     ['the accounts in Keycloak', () => seed('identity')]
 ];
 
