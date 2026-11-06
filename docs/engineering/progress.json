@@ -1243,7 +1243,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Step 4 returns the case over the ID's scan, not the medical certificate (demo-plan.md changed): the medical certificate is a sensitive attachment, so the records officer's correction form leaves it out ('what you may not see is kept'). Owner question: should a clerk be able to replace a sensitive attachment without seeing it?"
         },
         {
           "id": "0.25d",

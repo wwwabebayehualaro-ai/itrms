@@ -51,12 +51,14 @@ ID, medical, training), and point out the fee shown before filing. File it, then
 - **en:** "Damot Gale's officer cannot see Boditi's case. The zone, above Boditi, follows it; the work stays with Boditi."
 
 ## 4. Returned once, corrected, on the record
-**Do (licensing expert):** open the case → **ለማስተካከያ መልስ**, with the comment "የህክምና ማስረጃው አይነበብም" ("the medical certificate is
-unreadable"). **Do (records officer):** open the case, read the comment, **አስተካክለህ አስገባ**, attach a new scan, resubmit. Show the
-timeline: the return, its comment, and the correction naming the changed document.
+**Do (licensing expert):** open the case → **ለማስተካከያ መልስ**, with the comment "የመታወቂያው ቅጂ አይነበብም" ("the scan of the ID is
+unreadable"). **Do (records officer):** open the case, read the comment, **አስተካክለህ አስገባ**, attach a new scan of the ID, resubmit.
+Show the timeline: the return, its comment, and the correction naming the changed document. The medical certificate is not in the
+correction form: it is sensitive, the records officer never sees it, and it stays as it was.
 
-- **am:** «ጉዳዩ በአስተያየት ይመለሳል፤ የተስተካከለውም ሰነድ በጊዜ ቅደም ተከተሉ ላይ ይታያል። ማን፣ መቼ፣ ምን እንደሠራ ይመዘገባል።»
-- **en:** "A case goes back with a comment, and the corrected document is on its timeline: who did what, and when."
+- **am:** «ጉዳዩ በአስተያየት ይመለሳል፤ የተስተካከለውም ሰነድ በጊዜ ቅደም ተከተሉ ላይ ይታያል። ማን፣ መቼ፣ ምን እንደሠራ ይመዘገባል። የህክምና ማስረጃ ሚስጥራዊ ስለሆነ መዝገብ ሠራተኛው አያየውም።»
+- **en:** "A case goes back with a comment, and the corrected document is on its timeline: who did what, and when. The medical
+  certificate is confidential: the records officer never sees it."
 
 ## 5. The exam
 **Do (licensing expert, as examiner):** approve the documents, then on the exam step enter the exam date (Ethiopian calendar), the

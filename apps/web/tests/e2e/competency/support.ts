@@ -54,7 +54,7 @@ export const WORDS = {
         register: 'መዝግብ',
         newPerson: 'ሰው መመዝገብ',
         school_a: 'ናሙና ማሰልጠኛ ተቋም ሀ',
-        unreadable: 'የህክምና ማስረጃው አይነበብም'
+        unreadable: 'የመታወቂያው ቅጂ አይነበብም'
     },
     en: {
         applicant: 'Applicant',
@@ -88,7 +88,7 @@ export const WORDS = {
         register: 'Register',
         newPerson: 'Register a person',
         school_a: 'Sample Driving School A',
-        unreadable: 'The medical certificate is unreadable'
+        unreadable: 'The scan of the ID is unreadable'
     }
 } as const satisfies Record<Lang, Record<string, string>>;
 

@@ -55,8 +55,9 @@ The presenter's words, step by step: [demo-script.md](demo-script.md).
    - the form shows the fee preview; the officer submits.
 3. **Isolation:** the **Damot Gale** road-safety officer sees no licence cases at all. The **zone** competency officer sees
    Boditi's case (subtree), but cannot act on Boditi's steps unless the configuration routes them to the zone.
-4. **Boditi licensing expert:** reviews the documents and returns the case once with a comment ("medical certificate
-   unreadable"). The records officer re-uploads it and resubmits. The timeline shows both steps.
+4. **Boditi licensing expert:** reviews the documents and returns the case once with a comment ("the scan of the ID is
+   unreadable"). The records officer re-uploads it and resubmits. The timeline shows both steps. (Not the medical certificate:
+   it is sensitive, so the records officer never sees it, and a correction keeps it as it is.)
 5. **Boditi licensing expert (as examiner):** enters the theory (computer) and field results (Ethiopian date).
 6. **Payment at Boditi:** the daily revenue collector (cashier role) records the cash payment, and a receipt is issued
    with a gapless Boditi number and a QR code. The alternative, "paid at the revenue office" with a receipt reference, is

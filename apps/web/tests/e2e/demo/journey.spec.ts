@@ -5,7 +5,8 @@
  *   1  sign-in with a second factor; the sign-in screen in Amharic; the app in Wolaytta (falling back to Amharic) and back
  *   2  a new applicant registered at Boditi, the school's list, a new licence filed with its documents and its fee
  *   3  the isolation: Damot Gale sees no licence case; the zone sees Boditi's, and has nothing to do on it
- *   4  the case returned with a comment, corrected with a new medical certificate, both on the timeline
+ *   4  the case returned with a comment, corrected with a new scan of the ID, both on the timeline (the medical certificate is
+ *      sensitive: the records officer never sees it, so a correction keeps it as it is)
  *   5  the exam
  *   6  the fee at the till, a numbered receipt with a QR
  *   7  final approval (the reviewer refused), a temporary licence for 2 years, the print batch, the card
@@ -235,9 +236,9 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
             await records.locator('[data-actions] [data-action="correct"]').click();
             const dialog = records.locator('[data-action-dialog="correct"]');
             await dialog
-                .locator('[data-field-id="medicalCertificate"] input[type="file"]')
-                .setInputFiles(scan('medical-rescanned'));
-            await expect(dialog.locator('[data-field-id="medicalCertificate"]')).toContainText('medical-rescanned.pdf');
+                .locator('[data-field-id="identityDocument"] input[type="file"]')
+                .setInputFiles(scan('kebele-id-rescanned'));
+            await expect(dialog.locator('[data-field-id="identityDocument"]')).toContainText('kebele-id-rescanned.pdf');
             await expect(dialog.locator('[data-field-fee]')).toContainText(/\d[\d,]*\.\d{2}/);
             await expect(async () => {
                 await dialog.getByRole('button', { name: W.correct, exact: true }).click();
@@ -248,8 +249,8 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
             await records.reload();
             const timeline = records.locator('[data-timeline]');
             await expect(timeline).toContainText(W.unreadable);
-            // the return, then the correction that changed the medical certificate
-            await expect(timeline.locator('[data-amended]')).toHaveAttribute('data-amended', /medicalCertificate/);
+            // the return, then the correction that changed the ID's scan
+            await expect(timeline.locator('[data-amended]')).toHaveAttribute('data-amended', /identityDocument/);
             expect(await timeline.locator('[data-event="transition"]').count()).toBeGreaterThanOrEqual(3);
         });
 
