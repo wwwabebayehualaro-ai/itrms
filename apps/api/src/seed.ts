@@ -10,6 +10,7 @@
  *   `node dist/seed.cjs counters --region <code>`                    the receipt counters of the region's offices that
  *                                                                     collect cash (`pnpm seed:counters`; again when an
  *                                                                     office is added)
+ *   `node dist/seed.cjs settings <file.yaml>`                       a region's settings, as a bureau would set them
  *   `node dist/seed.cjs identity`                                     org units → Keycloak groups, people → their units'
  *                                                                     groups (needs KEYCLOAK_URL and the admin client secret)
  * Both imports are idempotent, so a seed can run on every start; each file goes in in one transaction, and its writes are
@@ -21,7 +22,8 @@ import { extname } from 'node:path';
 import { KeycloakIdentityAdmin } from '@itrms/integrations/api';
 import { createDatabase } from '@itrms/kernel/db';
 import { syncIdentity } from '@itrms/kernel/iam';
-import { importUsers, userImportSchema } from '@itrms/kernel/seed';
+import { importRegionSettings, importUsers, regionSettingsSchema, userImportSchema } from '@itrms/kernel/seed';
+import { loadSlices } from '@itrms/kernel/api';
 import { importOrg, orgUnits, parseOrgCsv, parseOrgWorkbook, parseOrgYaml, type OrgImport } from '@itrms/kernel/org';
 import {
     importDemoData,
@@ -38,6 +40,7 @@ import { parseCatalogue } from '@itrms/services/seed';
 import { and, eq, isNull } from 'drizzle-orm';
 import { parse as parseYaml } from 'yaml';
 
+import { SLICES } from './slices';
 import { fail, start } from './start';
 
 async function readOrgFile(file: string, region: string | undefined): Promise<OrgImport> {
@@ -63,14 +66,14 @@ async function main() {
         kind === 'documents' ||
         kind === 'competency' ||
         kind === 'demo' ||
-        ((kind === 'org' || kind === 'users' || kind === 'services' || kind === 'fees') && file)
+        ((kind === 'org' || kind === 'users' || kind === 'services' || kind === 'fees' || kind === 'settings') && file)
     ))
         fail(
             logger,
             new Error(
                 'usage: seed org <file.yaml|file.csv|file.xlsx> [--region <code>] | seed users <file.yaml> | ' +
                     'seed services <catalogue.yaml> --region <code> | seed fees <rules.yaml> --region <code> | ' +
-                    'seed counters --region <code> | seed competency --region <code> | seed demo --region <code> | seed identity'
+                    'seed counters --region <code> | seed competency --region <code> | seed demo --region <code> | seed settings <file.yaml> | seed identity'
             )
         );
 
@@ -161,6 +164,25 @@ async function main() {
                 };
             });
             logger.info({ region: code, ...result }, 'licence grades, counters and services applied');
+        } else if (kind === 'settings' && file) {
+            // a region's settings from a data file, checked against the slices' schemas (task 0.25b)
+            const doc = regionSettingsSchema.parse(parseYaml(await readFile(file, 'utf8')));
+            // the settings of the modules this installation runs, as the API's own registry has them
+            const { settings: registry } = loadSlices(SLICES, { disabled: config.MODULES_DISABLED });
+            const root = await db.scoped(ctx, async (tx) => {
+                const [found] = await tx
+                    .select()
+                    .from(orgUnits)
+                    .where(and(isNull(orgUnits.parentId), eq(orgUnits.code, doc.region)));
+                if (!found) throw new Error(`no region ${doc.region}`);
+                return found;
+            });
+            // on the record as set in the region, like a bureau's own change
+            const made = await db.scoped(
+                { ...ctx, regionId: root.regionId, unitId: root.id, scopePath: root.path },
+                (tx) => importRegionSettings(tx, root, doc.settings, registry)
+            );
+            logger.info({ region: doc.region, settings: made }, 'the region settings applied');
         } else if (kind === 'demo') {
             // the demo's generated people and licences (task 0.25a): registered as the API would, so their sensitive fields are encrypted
             const code = file === '--region' ? rest[0] : region;

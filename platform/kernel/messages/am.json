@@ -38,6 +38,7 @@
   "kernel.role.viewer": "ተመልካች",
   "kernel.nav.languages": "ቋንቋዎች",
   "kernel.setting.i18n.languages": "ቋንቋዎች",
+  "kernel.setting.ui.brandName": "የተቋሙ ስም",
   "kernel.setting.ui.theme": "ቀለም",
   "kernel.settingOption.ui.theme.system": "እንደ ስርዓቱ",
   "kernel.settingOption.ui.theme.light": "ብሩህ",

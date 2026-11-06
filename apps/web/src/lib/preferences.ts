@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { create } from 'zustand';
 
-import { INSTALLABLE_LANGUAGES, LANGUAGE_ENDONYMS, SHIPPED_LANGUAGES } from '@itrms/schemas';
+import { fallbackChain, INSTALLABLE_LANGUAGES, LANGUAGE_ENDONYMS, SHIPPED_LANGUAGES } from '@itrms/schemas';
 
 import { LANGUAGE_COOKIE } from './auth/cookies';
 import client from './api/client';
@@ -29,8 +29,19 @@ export function availableLanguages(setting: unknown): Language[] {
 }
 
 /**
+ * The language to show: the person's saved one if this region offers it, else this browser's if it does (a saved choice may not
+ * have reached the server yet), else the nearest it offers. A cookie left by another account never shows a language the region
+ * does not offer.
+ */
+export function languageToShow(locale: string, saved: string | undefined, setting: unknown): Language {
+    const offered = availableLanguages(setting);
+    const among = (tag: string | undefined) => offered.find((l) => l === tag);
+    return among(saved) ?? among(locale) ?? fallbackChain(locale).map(among).find(Boolean) ?? 'am';
+}
+
+/**
  * The languages a form's texts are written in: Amharic and English first, then the installation's other languages
- * (`i18n.languages`), including those the shell has no catalogue for (om, ti); unknown tags are dropped.
+ * (`i18n.languages`), including those the shell has no catalogue for (ti); unknown tags are dropped.
  */
 export function formLanguages(setting: unknown): string[] {
     const listed: unknown[] = Array.isArray(setting) ? setting : [];

@@ -1,0 +1,6 @@
+# The first demo region's neutral branding (docs/demo-plan.md §1): real names, logos and stamps appear only with permission.
+region: SER
+settings:
+  ui.brandName:
+    am: ናሙና የክልል ትራንስፖርት ቢሮ
+    en: Sample Regional Transport Bureau

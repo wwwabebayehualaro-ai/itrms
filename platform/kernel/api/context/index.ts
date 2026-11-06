@@ -8,6 +8,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 import type { TransactionHook } from '../db/types';
 
+// the languages with API catalogues: a person reading another (om, the shell only so far) gets its titles in Amharic
 export const LANGUAGES = ['am', 'en', 'wal-Latn'] as const;
 export type Language = (typeof LANGUAGES)[number];
 /** Amharic is the default language of every installation (i18n-and-languages.md). */

@@ -1,5 +1,5 @@
 // Public entry of @itrms/kernel (code-structure.md §4): the payloads of the events the kernel emits.
-import { DOCUMENT_TYPES, INSTALLABLE_LANGUAGES } from '@itrms/schemas';
+import { DOCUMENT_TYPES, i18nTextSchema, INSTALLABLE_LANGUAGES } from '@itrms/schemas';
 import { z } from 'zod';
 
 /** A unit was created, renamed, moved or deactivated (the identity provider's groups follow). */
@@ -22,6 +22,9 @@ export const roleAssignmentChangedV1 = z.strictObject({
  */
 export const UI_THEMES = ['system', 'light', 'dark', 'high-contrast'] as const;
 export const UI_DENSITIES = ['comfortable', 'compact'] as const;
+/** The bureau's own name: at the top of the menu, and heading its documents unless their header names another. */
+export const BRAND_NAME_SETTING = 'ui.brandName';
+
 export const KERNEL_SETTINGS = {
     'i18n.languages': z
         .array(z.enum(INSTALLABLE_LANGUAGES))
@@ -29,6 +32,8 @@ export const KERNEL_SETTINGS = {
         .max(INSTALLABLE_LANGUAGES.length)
         .refine((l) => new Set(l).size === l.length, 'a language is listed twice')
         .refine((l) => l.includes('am') && l.includes('en'), 'Amharic and English are always on'),
+    /** the bureau's own name (none: the product's) */
+    [BRAND_NAME_SETTING]: i18nTextSchema.nullable(),
     'ui.theme': z.enum(UI_THEMES),
     'ui.density': z.enum(UI_DENSITIES)
 } as const;

@@ -187,6 +187,8 @@ export default defineModule({
     // data-entry offices (compact), and each person's own choice
     settings: [
         { key: 'i18n.languages', default: ['am', 'en'], overridableAt: ['installation', 'region'] },
+        // the bureau's own name: at the top of the menu, and heading its documents unless a header names another
+        { key: 'ui.brandName', default: null, overridableAt: ['region'] },
         { key: 'ui.theme', default: 'system', overridableAt: ['region'], userPreference: true },
         {
             key: 'ui.density',

@@ -8,7 +8,6 @@ import { ethiopianHolidays } from '@itrms/ethiopian-calendar';
 import { insertAudited, type Database, type DbContext } from '@itrms/kernel/db';
 import { nextNumber } from '@itrms/kernel/numbering';
 import { orgUnits } from '@itrms/kernel/tables';
-import { settingsValues } from '@itrms/kernel/settings';
 import type { OrganisationsService, PersonsService } from '@itrms/parties/api';
 import { holidays } from '@itrms/workflow/api';
 
@@ -237,20 +236,6 @@ export async function importDemoData(
             { am: 'ናሙና ጤና ጣቢያ ሁለት', en: 'Sample Health Centre Two' }
         ])
             await deps.organisations.create(tx, zoneCtx, { kind: 'health_facility', name });
-
-        // neutral branding (real names, logos and stamps appear only with permission); a header a bureau has set stays
-        const [header] = await tx
-            .select({ id: settingsValues.id })
-            .from(settingsValues)
-            .where(and(eq(settingsValues.unitId, root.id), eq(settingsValues.key, 'documents.header')));
-        if (!header)
-            await insertAudited(tx, settingsValues, {
-                regionId,
-                unitId: root.id,
-                unitTypeId: null,
-                key: 'documents.header',
-                value: { title: { am: 'ናሙና የክልል ትራንስፖርት ቢሮ', en: 'Sample Regional Transport Bureau' } }
-            });
 
         // the people: each a different name, past the register's own duplicate check
         type Person = { id: string; birthDate: string; age: number; unit: keyof typeof offices };

@@ -5,6 +5,7 @@
 import {
     densities,
     ETHIOPIC_LANGUAGES,
+    MOSTLY_ETHIOPIC_FALLBACK,
     fonts,
     palette,
     radius,
@@ -28,7 +29,7 @@ export function renderTokensCss(): string {
     const primitive = Object.entries(palette).flatMap(([hue, steps]) =>
         Object.entries(steps).map(([s, v]) => `--${hue}-${s}: ${v};`)
     );
-    const ethiopic = ETHIOPIC_LANGUAGES.map((l) => `:root:lang(${l})`).join(', ');
+    const ethiopic = [...ETHIOPIC_LANGUAGES, ...MOSTLY_ETHIOPIC_FALLBACK].map((l) => `:root:lang(${l})`).join(', ');
     const { bodyLineHeight: body, headingLineHeight: heading } = typography;
     return [
         '/* Generated from src/tokens/tokens.ts by `pnpm --filter @itrms/ui tokens`. Do not edit by hand. */',
