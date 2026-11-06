@@ -1238,10 +1238,11 @@
         {
           "id": "0.25c",
           "title": "Demo, part 3: the script and the journey, steps 1–8",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.25c-demo-journey",
           "commits": [
-            "0381cc5"
+            "0381cc5",
+            "f9a6a23"
           ],
           "evidence": [
             "GitHub Actions run 42279194706 (PR #41) on 0381cc5 → all jobs success; e2e 39 passed (15.9m) incl. tests/e2e/demo/journey.spec.ts: steps 1–8 of demo-plan.md §3 in am and en (16 tests); demo:reset 27.8 s and 27.5 s (limit 120 s)",
