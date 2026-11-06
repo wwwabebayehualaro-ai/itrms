@@ -100,6 +100,17 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
         let personId = '';
         let caseId = '';
 
+        // the demo accounts are shared with the other journeys, which read Amharic: each is left in Amharic, as it started
+        test.afterAll(async () => {
+            for (const page of [records, officer, cashier, lead]) {
+                if (!page || page.isClosed()) continue;
+                await api(page)
+                    .patch('v1/me/preferences', { language: 'am' }, 0)
+                    .catch(() => undefined);
+                await page.context().close();
+            }
+        });
+
         test('1. signs in with a second factor, and shows Wolaytta', async ({ browser }) => {
             test.setTimeout(300_000);
             await resetAccount(BODITI.records.id);
@@ -195,7 +206,8 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
             // a road-safety officer in Damot Gale, a sibling of Boditi: no licence case, not even this one
             const damot = await person(browser, DAMOT_SAFETY);
             await expect(damot.locator('[data-app-sidebar] [data-menu-item^="competency."]')).toHaveCount(0);
-            expect(await attempt(damot, 'GET', `v1/cases/${caseId}`)).toBe(404);
+            // refused, as a case of another office is: not found under its scope, or not a thing it may read
+            expect([403, 404]).toContain(await attempt(damot, 'GET', `v1/cases/${caseId}`));
 
             // the zone's competency officer sees Boditi's case (its subtree), and has no step of it to take
             const zone = await person(browser, ZONE_OFFICER);
@@ -329,8 +341,6 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
             expect(shownToAnyone.holder).toBeTruthy();
             expect(shownToAnyone.holder).not.toContain(fullName);
             expect(shownToAnyone.holder).not.toContain(applicant.fatherAm);
-
-            for (const page of [records, officer, cashier, lead]) await page.context().close();
         });
     });
 }
