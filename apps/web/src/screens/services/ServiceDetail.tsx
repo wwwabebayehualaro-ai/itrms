@@ -303,8 +303,7 @@ function OverrideEditor({ code }: { code: string }) {
                 : value;
     // the choices at this office: the one it has (a level rule a bureau set elsewhere stays shown), and never the office above
     // the region's root
-    // a region's root is the only unit whose path has one label
-    const isRoot = subtree.data?.find((u) => u.id === shown)?.path.includes('.') === false;
+    const isRoot = subtree.data?.find((u) => u.id === shown)?.parentId === null;
     const ruleChoices = [...new Set([...APPROVAL_RULES.filter((r) => !(isRoot && r === 'parent')), rule])];
     const [reason, setReason] = useState('');
     const unitName = (id?: string) => {
