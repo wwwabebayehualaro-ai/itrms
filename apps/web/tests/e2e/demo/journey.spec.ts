@@ -506,7 +506,8 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
             const second = await renewalToPayment(zone, lang, another);
             await paidElsewhere(desk, lang, second);
             await enterReceipt(desk, lang, reference);
-            await expect(desk.getByText(W.referenceUsed)).toBeVisible();
+            // said on the form and in a notice
+            await expect(desk.getByText(W.referenceUsed).first()).toBeVisible();
             await expect(desk.locator('[data-external-refs] [data-state="pending_verification"]')).toHaveCount(0);
         });
 
