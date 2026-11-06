@@ -393,8 +393,9 @@ async function firstServiceVersion(
     const content = {
         ...parts,
         defaults: { approval_unit: 'handling' },
-        // a bureau, or an office below it, may say whose lead gives the final approval (docs/demo-plan.md, step 10)
-        overridePolicy: { approval_unit: ['region', 'unit'], sla: ['region', 'unit'] },
+        // a bureau, or an office below it, may say whose lead gives the final approval (docs/demo-plan.md, step 10), and whether
+        // an office takes the fee at its till or it is paid at the revenue office (step 9: who collects is a bureau's call, §5)
+        overridePolicy: { approval_unit: ['region', 'unit'], sla: ['region', 'unit'], payment: ['region', 'unit'] },
         inputMap: {},
         effectiveFrom: addisDay()
     };

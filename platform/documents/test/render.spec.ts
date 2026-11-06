@@ -219,6 +219,8 @@ describe.skipIf(!chrome)('a QR on the page', () => {
         const browser = await puppeteer.launch({
             executablePath: chrome ?? '',
             headless: true,
+            // a runner busy with the other packages' tests can take longer than the 30 s default to start Chrome (the worker's own)
+            timeout: 90_000,
             args: process.env.CHROME_NO_SANDBOX === '1' ? ['--no-sandbox'] : []
         });
         try {

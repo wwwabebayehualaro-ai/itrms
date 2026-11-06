@@ -9,6 +9,7 @@ import { insertAudited, type Database, type DbContext } from '@itrms/kernel/db';
 import { nextNumber } from '@itrms/kernel/numbering';
 import { orgUnits } from '@itrms/kernel/tables';
 import type { OrganisationsService, PersonsService } from '@itrms/parties/api';
+import { serviceDefinitions, serviceOverrides } from '@itrms/services/api';
 import { holidays } from '@itrms/workflow/api';
 
 import {
@@ -373,6 +374,26 @@ export async function importDemoData(
             key: 'gifaata',
             name: { am: 'ጊፋታ (የናሙና ቀን)', en: 'Gifaata (sample date)' }
         });
+        // the zone's renewals are paid at the revenue office, and verified by its finance officer (demo-plan.md §3, step 9);
+        // Boditi takes its fees at its own till
+        const [renewal] = await tx
+            .select({ id: serviceDefinitions.id })
+            .from(serviceDefinitions)
+            .where(and(eq(serviceDefinitions.regionId, regionId), eq(serviceDefinitions.code, 'DVC-04')));
+        if (renewal) {
+            const [set] = await tx
+                .select({ id: serviceOverrides.id })
+                .from(serviceOverrides)
+                .where(and(eq(serviceOverrides.unitId, offices.zone.id), eq(serviceOverrides.serviceId, renewal.id)));
+            if (!set)
+                await insertAudited(tx, serviceOverrides, {
+                    regionId,
+                    unitId: offices.zone.id,
+                    serviceId: renewal.id,
+                    values: { 'payment.collection': 'elsewhere' },
+                    reason: 'Renewals at the zone are paid at the revenue office (demo)'
+                });
+        }
         return {
             persons: people.length,
             organisations: schools.length + 2,
