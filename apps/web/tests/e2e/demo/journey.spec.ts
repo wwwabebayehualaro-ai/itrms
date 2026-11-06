@@ -399,11 +399,14 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
             await expect(switcher).toHaveAttribute('data-active-unit', 'WOL');
 
             // a permanent licence that expired 14 months ago (the demo counts its data from the day of its reset)
-            const fourteen = addMonths(addisDay(), -14);
+            // around 14 months: a reset just before midnight in Addis Ababa and a journey just after see different todays
+            const [from, to] = [addMonths(addisDay(), -15), addMonths(addisDay(), -13)];
             const { items } = await api(reviewer).get<{ items: LicenceRow[] }>(
                 'v1/competency/licences?status=active&limit=100'
             );
-            const late = items.filter((l) => l.validUntil === fourteen && l.kind === 'permanent');
+            const late = items.filter(
+                (l) => l.kind === 'permanent' && l.validUntil !== null && l.validUntil >= from && l.validUntil <= to
+            );
             // each language and each retry takes another of them: a renewal already filed for one would refuse it
             const licence = late[(lang === 'am' ? 0 : 3) + test.info().retry];
             if (!licence?.number || !licence.validUntil)
