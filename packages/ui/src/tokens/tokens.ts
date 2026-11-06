@@ -389,11 +389,15 @@ export const fonts = {
     mono: "'Noto Sans Mono Variable', 'Noto Sans Ethiopic Variable', ui-monospace, monospace"
 } as const;
 
+/** Languages written in Ethiopic script get the taller line heights and the 14 px floor (design-system.md §5). */
+export const ETHIOPIC_LANGUAGES = ['am', 'ti', 'gez'] as const;
+
 /**
- * Languages written in Ethiopic script get the taller line heights and the 14 px floor (design-system.md §5). So do the Latin-script
- * ones whose catalogues are still mostly Amharic fallback (wal-Latn, om): until they are complete, most of their screen is Ethiopic.
+ * Latin-script languages whose catalogues are still mostly Amharic fallback, so most of their screen is Ethiopic: they get the same
+ * metrics until then. Remove one when `pnpm i18n:check` reports its catalogues complete (the fallback text itself carries no
+ * `lang` of its own yet: a follow-up of task 0.25b).
  */
-export const ETHIOPIC_LANGUAGES = ['am', 'ti', 'gez', 'wal-Latn', 'om'] as const;
+export const MOSTLY_ETHIOPIC_FALLBACK = ['wal-Latn', 'om'] as const;
 
 export const typography = {
     baseSize: '16px',

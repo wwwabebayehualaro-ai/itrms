@@ -5,9 +5,4 @@ settings:
     am: ናሙና የከተማ ትራንስፖርት ባለሥልጣን
     en: Sample City Transport Authority
     om: Abbaa Taayitaa Geejjibaa Magaalaa Fakkeenyaa
-  documents.header:
-    title:
-      am: ናሙና የከተማ ትራንስፖርት ባለሥልጣን
-      en: Sample City Transport Authority
-      om: Abbaa Taayitaa Geejjibaa Magaalaa Fakkeenyaa
   i18n.languages: [am, en, om]

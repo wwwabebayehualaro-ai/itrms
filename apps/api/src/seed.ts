@@ -23,7 +23,7 @@ import { KeycloakIdentityAdmin } from '@itrms/integrations/api';
 import { createDatabase } from '@itrms/kernel/db';
 import { syncIdentity } from '@itrms/kernel/iam';
 import { importRegionSettings, importUsers, regionSettingsSchema, userImportSchema } from '@itrms/kernel/seed';
-import { buildSettingsRegistry } from '@itrms/kernel/settings';
+import { loadSlices } from '@itrms/kernel/api';
 import { importOrg, orgUnits, parseOrgCsv, parseOrgWorkbook, parseOrgYaml, type OrgImport } from '@itrms/kernel/org';
 import {
     importDemoData,
@@ -66,8 +66,7 @@ async function main() {
         kind === 'documents' ||
         kind === 'competency' ||
         kind === 'demo' ||
-        kind === 'settings' ||
-        ((kind === 'org' || kind === 'users' || kind === 'services' || kind === 'fees') && file)
+        ((kind === 'org' || kind === 'users' || kind === 'services' || kind === 'fees' || kind === 'settings') && file)
     ))
         fail(
             logger,
@@ -168,15 +167,21 @@ async function main() {
         } else if (kind === 'settings' && file) {
             // a region's settings from a data file, checked against the slices' schemas (task 0.25b)
             const doc = regionSettingsSchema.parse(parseYaml(await readFile(file, 'utf8')));
-            const registry = buildSettingsRegistry(SLICES);
-            const made = await db.scoped({}, async (tx) => {
-                const [root] = await tx
+            // the settings of the modules this installation runs, as the API's own registry has them
+            const { settings: registry } = loadSlices(SLICES, { disabled: config.MODULES_DISABLED });
+            const root = await db.scoped(ctx, async (tx) => {
+                const [found] = await tx
                     .select()
                     .from(orgUnits)
                     .where(and(isNull(orgUnits.parentId), eq(orgUnits.code, doc.region)));
-                if (!root) throw new Error(`no region ${doc.region}`);
-                return importRegionSettings(tx, root, doc.settings, registry);
+                if (!found) throw new Error(`no region ${doc.region}`);
+                return found;
             });
+            // on the record as set in the region, like a bureau's own change
+            const made = await db.scoped(
+                { ...ctx, regionId: root.regionId, unitId: root.id, scopePath: root.path },
+                (tx) => importRegionSettings(tx, root, doc.settings, registry)
+            );
             logger.info({ region: doc.region, settings: made }, 'the region settings applied');
         } else if (kind === 'demo') {
             // the demo's generated people and licences (task 0.25a): registered as the API would, so their sensitive fields are encrypted

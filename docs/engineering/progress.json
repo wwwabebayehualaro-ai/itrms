@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-11-05",
+  "updated": "2026-11-06",
   "statuses": [
     "planned",
     "ready",
@@ -1226,7 +1226,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Second region SCA is data at runtime (org yaml, users, settings). One-time language plumbing: om added to SHIPPED_LANGUAGES with a 5-key draft shell catalogue, the rest falls back to Amharic. Demo seeding code: seed kind demo-city, importSecondRegionDemo and 8 demo-reset steps. demo:reset 26 s of the 120 s limit in CI run 42081699613. After the verifier: isolation test now runs both ways with a positive control, the journey checks level names and the printed header; those edits are not yet through CI."
+          "notes": "Second region SCA is data at runtime (org yaml, users, settings). One-time language plumbing: om added to SHIPPED_LANGUAGES with a 5-key draft shell catalogue, the rest falls back to Amharic. Demo seeding code: seed kind demo-city, importSecondRegionDemo and 8 demo-reset steps. demo:reset 26 s of the 120 s limit in CI run 42081699613. After the verifier: isolation test now runs both ways with a positive control, the journey checks level names and the printed header; those edits are not yet through CI. Superseding the earlier note after two code reviews: no region's values are in code. Both demo regions' looks are data files (apps/api/seed/settings/*.demo.yaml), applied by the generic 'seed settings <file>', which checks them against the enabled slices' registry, stores the parsed values, takes an advisory lock, and writes audited rows in the region's context. The seed kind demo-city and importSecondRegionDemo are gone. New region setting ui.brandName (default none, so the product name): shown at the top of the menu, and heading documents unless their header names another. A language the region does not offer no longer stays from another account's cookie (languageToShow). The city team now has cashier, examiner and lead. The reset steps are one list per region."
         },
         {
           "id": "0.25c",
@@ -2850,6 +2850,16 @@
       "foundIn": "0.24b",
       "item": "Fee inputs from case facts are still refused, so a renewal's grade and expiry are form answers checked against the register; the fee's over-a-year test can differ from the exam's by a day around a leap year",
       "movedTo": "Phase 1"
+    },
+    {
+      "foundIn": "0.25b",
+      "item": "Mark Amharic fallback strings with lang=am, so the Ethiopic metrics and screen readers follow the text, then drop MOSTLY_ETHIOPIC_FALLBACK (tokens.ts)",
+      "movedTo": "Phase 1 i18n"
+    },
+    {
+      "foundIn": "0.25b",
+      "item": "Settings screen edits object settings (documents.header, ui.brandName) as raw JSON text: give them a translation-table editor",
+      "movedTo": "Phase 1 settings"
     }
   ]
 }

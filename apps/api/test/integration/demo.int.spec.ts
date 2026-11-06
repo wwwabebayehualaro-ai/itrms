@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import { importDemoData, importLicenceGrades, setUpLicenceCounters, type DemoCounts } from '@itrms/competency/seed';
 import { importRegionSettings, importUsers, regionSettingsSchema, userImportSchema } from '@itrms/kernel/seed';
-import { buildSettingsRegistry } from '@itrms/kernel/settings';
+import { loadSlices } from '@itrms/kernel/api';
 import { DocumentsService } from '@itrms/documents/api';
 import { importDocumentTemplates } from '@itrms/documents/seed';
 import { importOrg, parseOrgYaml } from '@itrms/kernel/org';
@@ -41,8 +41,9 @@ const applySettings = async (name: string) => {
         parseYaml(readFileSync(join(HERE, '..', '..', 'seed', 'settings', name), 'utf8'))
     );
     const root = await api.unit(doc.region, doc.region);
-    return api.installer.scoped({}, (tx) =>
-        importRegionSettings(tx, root, doc.settings, buildSettingsRegistry(SLICES))
+    return api.installer.scoped(
+        { requestId: 'seed:settings', regionId: root.regionId, unitId: root.id, scopePath: root.path },
+        (tx) => importRegionSettings(tx, root, doc.settings, loadSlices(SLICES).settings)
     );
 };
 const count = async (sql: string, params: unknown[] = []) =>
@@ -157,10 +158,10 @@ describe('the demo’s data', () => {
     });
 
     it('is under the neutral branding, and has a zone’s holiday', async () => {
-        const { rows } = await api.owner.query<{ value: { title: { en: string } } }>(
-            `select value from kernel.settings_values where key = 'documents.header'`
+        const { rows } = await api.owner.query<{ value: { en: string } }>(
+            `select value from kernel.settings_values where key = 'ui.brandName'`
         );
-        expect(rows[0]?.value.title.en).toBe('Sample Regional Transport Bureau');
+        expect(rows[0]?.value.en).toBe('Sample Regional Transport Bureau');
         expect(await count(`select count(*)::int as n from workflow.holidays where key = 'gifaata'`)).toBe(1);
     });
 
@@ -204,7 +205,7 @@ describe('the second demo region', () => {
             await importOrg(tx, org);
             await importUsers(tx, users);
         });
-        expect(await applySettings('sample-city.demo.yaml')).toBe(3);
+        expect(await applySettings('sample-city.demo.yaml')).toBe(2);
     });
 
     it('has its own levels, its sub-cities, and a language of its own', async () => {
@@ -224,8 +225,8 @@ describe('the second demo region', () => {
 
     it('has its own branding, and the first region keeps its own', async () => {
         const { rows } = await api.owner.query<{ code: string; title: string }>(
-            `select u.code, v.value->'title'->>'en' as title from kernel.settings_values v
-               join kernel.org_units u on u.id = v.unit_id where v.key = 'documents.header' order by u.code`
+            `select u.code, v.value->>'en' as title from kernel.settings_values v
+               join kernel.org_units u on u.id = v.unit_id where v.key = 'ui.brandName' order by u.code`
         );
         expect(rows).toEqual([
             { code: 'SCA', title: 'Sample City Transport Authority' },
@@ -341,20 +342,26 @@ describe('the second demo region', () => {
         expect(before, 'every setting written has its audit row').toBe(
             await count('select count(*)::int as n from kernel.settings_values')
         );
-        await api.owner.query(
-            `update kernel.settings_values set value = '["am","en"]' where key = 'i18n.languages'
-                and unit_id = (select id from kernel.org_units where code = 'SCA' and parent_id is null)`
+        // a bureau's own change, by its screen's path (here straight in the table, put back whatever happens)
+        const languages = `update kernel.settings_values set value = $1::jsonb where key = 'i18n.languages'
+            and unit_id = (select id from kernel.org_units where code = 'SCA' and parent_id is null)`;
+        await api.owner.query(languages, ['["am","en"]']);
+        try {
+            expect(await applySettings('sample-city.demo.yaml')).toBe(0);
+            expect(await written()).toBe(before);
+            const { rows } = await api.owner.query<{ value: unknown }>(
+                `select v.value from kernel.settings_values v join kernel.org_units u on u.id = v.unit_id
+                  where u.code = 'SCA' and v.key = 'i18n.languages'`
+            );
+            expect(rows[0]?.value).toEqual(['am', 'en']);
+        } finally {
+            await api.owner.query(languages, ['["am","en","om"]']);
+        }
+        // and on the record as set in the region
+        const { rows: audited } = await api.owner.query<{ code: string }>(
+            `select distinct u.code from kernel.audit_log a join kernel.org_units u on u.id = a.unit_id
+              where a.table_name = 'kernel.settings_values' order by u.code`
         );
-        expect(await applySettings('sample-city.demo.yaml')).toBe(0);
-        expect(await written()).toBe(before);
-        const { rows } = await api.owner.query<{ value: unknown }>(
-            `select v.value from kernel.settings_values v join kernel.org_units u on u.id = v.unit_id
-              where u.code = 'SCA' and v.key = 'i18n.languages'`
-        );
-        expect(rows[0]?.value).toEqual(['am', 'en']);
-        await api.owner.query(
-            `update kernel.settings_values set value = '["am","en","om"]' where key = 'i18n.languages'
-                and unit_id = (select id from kernel.org_units where code = 'SCA' and parent_id is null)`
-        );
+        expect(audited.map((r) => r.code)).toEqual(['SCA', 'SER']);
     });
 });

@@ -76,7 +76,7 @@ ltree ancestors, so regions without zones, special woredas and cities with sub-c
 | Setting | Declared default | Overridable at | User preference |
 |---|---|---|---|
 | `i18n.languages` | `[am, en]` | installation, region | — |
-| `ui.brandName` | `ITRMS` | region | — |
+| `ui.brandName` | none (the product name) | region | — |
 | `ui.theme` | `system` | region | yes (light / dark / high contrast) |
 | `ui.density` | `comfortable` | region, unit, unit type | yes (`compact` for data-entry staff) |
 | `forms.exports.keepDays`, `forms.exports.backgroundMaxRows` | 7, 100 000 (also the ceiling) | region | — |

@@ -190,7 +190,7 @@ function useAppearanceLabels(): AppearanceLabels {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
     const { t, text } = useText();
-    // the bureau's own name (`ui.brandName`), once the workspace is here
+    // the bureau's own name (`ui.brandName`), or the product's when it has none
     const named = i18nTextSchema.safeParse(useAuthStore((s) => s.workspace?.settings['ui.brandName']));
     const brand = named.success ? text(named.data) : t('shell.app.name');
     const appearance = useAppearanceLabels();

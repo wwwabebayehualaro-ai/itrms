@@ -6,6 +6,7 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { addisDate, isoDate } from '@itrms/ethiopian-calendar';
 import { insertAudited, newId, updateAudited, type Tx } from '@itrms/kernel/db';
+import { BRAND_NAME_SETTING } from '@itrms/kernel/contracts';
 import { ConflictError } from '@itrms/kernel/errors';
 import { unitRefs } from '@itrms/kernel/org';
 import { emit } from '@itrms/kernel/outbox';
@@ -91,7 +92,12 @@ export async function issueDocument(
                 .join(', ')}`
         });
     const facts = factsOf(version.dataSchema, checked.data);
-    const header = await settings.value<DocumentHeader>(tx, input.handlingUnitId, DOCUMENT_HEADER_SETTING);
+    // the bureau's own name heads its documents, unless the header names another (a zone department's, say)
+    const stored = await settings.value<DocumentHeader>(tx, input.handlingUnitId, DOCUMENT_HEADER_SETTING);
+    const brand = stored.title
+        ? null
+        : await settings.value<I18nText | null>(tx, input.handlingUnitId, BRAND_NAME_SETTING);
+    const header: DocumentHeader = brand ? { ...stored, title: brand } : stored;
     const unit = (await unitRefs(tx, [input.handlingUnitId])).get(input.handlingUnitId);
     // frozen on the document for good: a blank office would print on it, and fail its public check, for ever
     if (!unit) throw new ConflictError('not_configured', { detail: 'The issuing office could not be read.' });
