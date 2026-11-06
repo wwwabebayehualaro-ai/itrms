@@ -239,7 +239,7 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
                 .locator('[data-field-id="identityDocument"] input[type="file"]')
                 .setInputFiles(scan('kebele-id-rescanned'));
             await expect(dialog.locator('[data-field-id="identityDocument"]')).toContainText('kebele-id-rescanned.pdf');
-            await expect(dialog.locator('[data-field-fee]')).toContainText(/\d[\d,]*\.\d{2}/);
+            // a correction shows no fee: it is worked out again as the corrected request goes in (fees.assess)
             await expect(async () => {
                 await dialog.getByRole('button', { name: W.correct, exact: true }).click();
                 await expect(dialog).toBeHidden({ timeout: 30_000 });
