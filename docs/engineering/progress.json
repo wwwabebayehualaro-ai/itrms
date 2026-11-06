@@ -1221,10 +1221,11 @@
         {
           "id": "0.25b",
           "title": "Demo, part 2: the second region",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.25b-second-region",
           "commits": [
-            "00a6d04"
+            "00a6d04",
+            "d16bf52"
           ],
           "evidence": [
             "GitHub Actions run 42151621081 (PR #39) on 00a6d04 → all jobs success; e2e 23 passed incl. second-region.spec.ts (levels, units, brand name, am/en/om menu, om with Amharic fallback, server preference after cookie cleared, an unoffered cookie language put right); demo:reset 22.5 s and 22.3 s (limit 120 s), both regions built",
