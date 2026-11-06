@@ -96,19 +96,18 @@ renewal**: pick a licence that expired 14 months ago (the demo has eight), its g
 medical facility and examination date. Submit. As `demo.zone.officer1`, approve the documents: the case goes to the **practical
 exam**, which a renewal more than a year late needs (Art. 19(5)). As `demo.zone.examiner`, record the pass. Open **Paid
 elsewhere**: the payment order shows the late component. Enter the revenue office's receipt number, amount, date and payer: it
-waits for verification. As `demo.zone.finance`, verify it. As `demo.zone.lead`, approve: the licence is renewed.
+waits for verification. As `demo.zone.finance`, verify it. As `demo.zone.lead`, approve: the licence is renewed. Then take a
+second late renewal to its payment and enter the same receipt number: refused.
 
-- **am:** «ከአንድ ዓመት በላይ የዘገየ እድሳት የተግባር ፈተና ይጨምራል፣ የመዘግየት ክፍያም ይታከላል። በገቢዎች ጽ/ቤት የተከፈለ ደረሰኝ በሌላ ሰው እስኪረጋገጥ ጉዳዩ አይቀጥልም።»
+- **am:** «ከአንድ ዓመት በላይ የዘገየ እድሳት የተግባር ፈተና ይጨምራል፣ የመዘግየት ክፍያም ይታከላል። በገቢዎች ጽ/ቤት የተከፈለ ደረሰኝ በሌላ ሰው እስኪረጋገጥ ጉዳዩ አይቀጥልም። አንድ ደረሰኝ ሁለት ጊዜ አያገለግልም።»
 - **en:** "A renewal more than a year late adds a practical exam and a late fee. A receipt paid at the revenue office moves the case on
-  only once another person has verified it."
+  only once another person has verified it, and it pays one order only."
 
 ## 10. The bureau decides who gives final approval
 **Do:** as `demo.bureau.admin`, open **Services** → **DVC-03 New driver licence** → *An office's configuration*, choose **Boditi**,
 and change **the office that gives final approval** to **the office above it**, with a reason. Point out what cannot be changed
-there: the fee rule is the region's. File Boditi's next new licence (as in steps 2 and 5). At payment, try step 9's receipt number
-on it: refused, one receipt pays one order. Pay at the till instead. The final approval is now in the **zone** team leader's
-tasks, not Boditi's.
+there: the fee rule is the region's. File Boditi's next new licence (as in steps 2 and 5) and pay it at Boditi's till. The final
+approval is now in the **zone** team leader's tasks, not Boditi's.
 
-- **am:** «ቢሮው ለእያንዳንዱ ጽ/ቤት የመጨረሻ ማጽደቂያውን ማን እንደሚሰጥ ይወስናል፤ ክፍያው ግን የክልሉ ደንብ ነው፣ ጽ/ቤት አይቀይረውም። አንድ ደረሰኝ ሁለት ጊዜ አያገለግልም።»
-- **en:** "The bureau decides, office by office, who gives the final approval; the fee is the region's rule, which no office changes.
-  A receipt pays one order only."
+- **am:** «ቢሮው ለእያንዳንዱ ጽ/ቤት የመጨረሻ ማጽደቂያውን ማን እንደሚሰጥ ይወስናል፤ ክፍያው ግን የክልሉ ደንብ ነው፣ ጽ/ቤት አይቀይረውም።»
+- **en:** "The bureau decides, office by office, who gives the final approval; the fee is the region's rule, which no office changes."

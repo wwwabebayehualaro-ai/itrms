@@ -12,9 +12,9 @@
  *   7  final approval (the reviewer refused), a temporary licence for 2 years, the print batch, the card
  *   8  the card's QR checked on the public verification endpoint, as a phone does: valid, with a masked name
  *   9  at the zone, a licence 14 months late renewed: the practical exam, the late fee, paid at the revenue office and verified
- *      by the zone's finance officer
+ *      by the zone's finance officer; the same receipt refused on another renewal
  *  10  the bureau sends Boditi's final approvals to the zone (an office's override), not its fee rule (not an office's to
- *      change); Boditi's next case is approved at the zone, and step 9's receipt is refused on it
+ *      change); Boditi's next case is approved at the zone
  */
 import { randomInt } from 'node:crypto';
 import { inflateSync } from 'node:zlib';
@@ -71,6 +71,74 @@ const scan = (name: string) => ({
     mimeType: 'application/pdf',
     buffer: Buffer.from(`%PDF-1.4\n% ${name}\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n`)
 });
+
+type Zone = Partial<Record<keyof typeof ZONE | 'officer', Page>>;
+
+/** A renewal at the zone's counter, through its review and practical exam to its payment. Returns its case's id. */
+async function renewalToPayment(zone: Zone, lang: Lang, licence: LicenceRow): Promise<string> {
+    const W = WORDS[lang];
+    const { records: desk, officer: reviewer, examiner } = zone;
+    if (!desk || !reviewer || !examiner || !licence.number || !licence.validUntil)
+        throw new Error('the zone signed in');
+    const [year = 0, month = 0, day = 0] = licence.validUntil.split('-').map(Number);
+    const expiry = toEthiopian({ year, month, day });
+    const grade = licence.grades[0]?.name[lang] ?? W.automobile;
+
+    await desk.goto('/competency/applications');
+    const applications = desk.locator('[data-applications]');
+    await applications.locator('[data-choice="DVC-04"]').click();
+    await applications.getByRole('link').click();
+    const form = desk.locator('[data-request-form="DVC-04"]');
+    await pick(desk, form, W.licence, licence.number, licence.number, lang);
+    await form.getByRole('combobox', { name: W.grade }).click();
+    await desk.getByRole('option', { name: grade, exact: true }).click();
+    await form.getByRole('button', { name: W.expiry }).click();
+    await desk.getByLabel(W.year).fill(String(expiry.year));
+    await desk.getByLabel(W.month, { exact: true }).selectOption(String(expiry.month));
+    await desk.locator(`[role="grid"] [data-day="${expiry.day}"]`).click();
+    await form.getByLabel(W.facility).fill('Sample Health Centre');
+    await today(desk, form, W.examined);
+    await filing(desk, form, lang);
+    const renewal = /\/cases\/([0-9a-f-]{36})$/.exec(desk.url())?.[1] ?? '';
+    await act(desk, renewal, 'submit', 'submit');
+
+    // more than a year late: the practical exam comes first (Art. 19(5))
+    await act(reviewer, renewal, 'approve', W.approve);
+    await inState(reviewer, renewal, 'field_exam');
+    await act(examiner, renewal, 'pass', W.passed, async (dialog) => {
+        await today(examiner, dialog, W.heldOn);
+        await dialog.getByLabel(W.practical).fill('74');
+        await dialog.getByRole('checkbox', { name: W.passed }).click();
+    });
+    await inState(desk, renewal, 'payment');
+    return renewal;
+}
+
+/** The payment order of a case paid elsewhere, opened from the counter's list. */
+async function paidElsewhere(page: Page, lang: Lang, caseId: string) {
+    const { number } = await api(page).get<{ number: number }>(`v1/cases/${caseId}`);
+    await page.locator('[data-app-sidebar] [data-menu-item="fees.elsewhere"]').click();
+    await page
+        .locator(`[data-queue] [data-case-number="${number}"]`)
+        .getByRole('link', { name: WORDS[lang].open })
+        .click();
+    return page.locator('[data-screen="payment-order"]');
+}
+
+/** A revenue office's receipt entered against the open order, for its whole total. */
+async function enterReceipt(page: Page, lang: Lang, reference: string) {
+    const W = WORDS[lang];
+    const total = await page.locator('[data-screen="payment-order"] [data-total]').getAttribute('data-total');
+    const entry = page.locator('[data-external-form]');
+    await entry.getByRole('combobox', { name: W.paidAt, exact: true }).click();
+    await page.getByRole('option', { name: W.revenueOffice }).click();
+    await entry.getByLabel(W.reference).fill(reference);
+    await entry.locator('#external-amount').fill(birr(total ?? ''));
+    await entry.locator('#external-paid-on').click();
+    await page.locator('[data-day][aria-current="date"]').click();
+    await entry.getByLabel(W.whoPaid).fill('Generated Applicant');
+    await page.locator('[data-action="enter-reference"]').click();
+}
 
 /** A new licence filed and submitted at Boditi's counter (step 2; step 10 files the next one). Returns its case's id. */
 async function fileNewLicence(page: Page, lang: Lang, who: { search: string; shown: RegExp }, withScans: boolean) {
@@ -138,9 +206,8 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
         let personId = '';
         let caseId = '';
         // steps 9 and 10: the zone's people, the bureau, the receipt paid at the revenue office, Boditi's override
-        const zone: Partial<Record<keyof typeof ZONE | 'officer', Page>> = {};
+        const zone: Zone = {};
         let bureau: Page | undefined;
-        let reference = '';
         let boditiId = '';
 
         // the demo accounts are shared with the other journeys, which read Amharic: each is left in Amharic, as it started
@@ -379,7 +446,7 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
             expect(shownToAnyone.holder).not.toContain(applicant.fatherEn);
         });
 
-        test('9. renews at the zone a licence 14 months late: the practical exam, the late fee, paid at the revenue office', async ({
+        test('9. renews at the zone a licence 14 months late: the practical exam, the late fee, a receipt from the revenue office used once', async ({
             browser
         }) => {
             test.setTimeout(600_000);
@@ -407,62 +474,17 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
             const late = items.filter(
                 (l) => l.kind === 'permanent' && l.validUntil !== null && l.validUntil >= from && l.validUntil <= to
             );
-            // each language and each retry takes another of them: a renewal already filed for one would refuse it
-            const licence = late[(lang === 'am' ? 0 : 3) + test.info().retry];
-            if (!licence?.number || !licence.validUntil)
-                throw new Error('the demo has a permanent licence 14 months late');
-            const [year = 0, month = 0, day = 0] = licence.validUntil.split('-').map(Number);
-            const expiry = toEthiopian({ year, month, day });
-            const grade = licence.grades[0]?.name[lang] ?? W.automobile;
-
-            await desk.goto('/competency/applications');
-            const applications = desk.locator('[data-applications]');
-            await applications.locator('[data-choice="DVC-04"]').click();
-            await applications.getByRole('link').click();
-            const form = desk.locator('[data-request-form="DVC-04"]');
-            await pick(desk, form, W.licence, licence.number, licence.number, lang);
-            await form.getByRole('combobox', { name: W.grade }).click();
-            await desk.getByRole('option', { name: grade, exact: true }).click();
-            await form.getByRole('button', { name: W.expiry }).click();
-            await desk.getByLabel(W.year).fill(String(expiry.year));
-            await desk.getByLabel(W.month, { exact: true }).selectOption(String(expiry.month));
-            await desk.locator(`[role="grid"] [data-day="${expiry.day}"]`).click();
-            await form.getByLabel(W.facility).fill('Sample Health Centre');
-            await today(desk, form, W.examined);
-            await filing(desk, form, lang);
-            const renewal = /\/cases\/([0-9a-f-]{36})$/.exec(desk.url())?.[1] ?? '';
-            await act(desk, renewal, 'submit', 'submit');
-
-            // more than a year late: the practical exam comes first (Art. 19(5))
-            await act(reviewer, renewal, 'approve', W.approve);
-            await inState(reviewer, renewal, 'field_exam');
-            await act(examiner, renewal, 'pass', W.passed, async (dialog) => {
-                await today(examiner, dialog, W.heldOn);
-                await dialog.getByLabel(W.practical).fill('74');
-                await dialog.getByRole('checkbox', { name: W.passed }).click();
-            });
-            await inState(desk, renewal, 'payment');
+            // each language and each retry takes others of them: a renewal already filed for one would refuse it
+            const first = (lang === 'am' ? 0 : 4) + 2 * test.info().retry;
+            const [licence, another] = [late[first], late[first + 1]];
+            if (!licence || !another) throw new Error('the demo has permanent licences 14 months late');
+            const renewal = await renewalToPayment(zone, lang, licence);
 
             // the late fee, paid at the revenue office: its receipt entered at the zone's counter
-            const { number: caseNumber } = await api(desk).get<{ number: number }>(`v1/cases/${renewal}`);
-            await desk.locator('[data-app-sidebar] [data-menu-item="fees.elsewhere"]').click();
-            await desk
-                .locator(`[data-queue] [data-case-number="${caseNumber}"]`)
-                .getByRole('link', { name: W.open })
-                .click();
-            const order = desk.locator('[data-screen="payment-order"]');
+            const order = await paidElsewhere(desk, lang, renewal);
             await expect(order.locator('[data-lines]')).toContainText(W.overYear);
-            const total = await order.locator('[data-total]').getAttribute('data-total');
-            reference = `DEMO-${lang.toUpperCase()}-${randomInt(100_000, 999_999)}`;
-            const entry = desk.locator('[data-external-form]');
-            await entry.getByRole('combobox', { name: W.paidAt, exact: true }).click();
-            await desk.getByRole('option', { name: W.revenueOffice }).click();
-            await entry.getByLabel(W.reference).fill(reference);
-            await entry.locator('#external-amount').fill(birr(total ?? ''));
-            await entry.locator('#external-paid-on').click();
-            await desk.locator('[data-day][aria-current="date"]').click();
-            await entry.getByLabel(W.whoPaid).fill('Generated Applicant');
-            await desk.locator('[data-action="enter-reference"]').click();
+            const reference = `DEMO-${lang.toUpperCase()}-${randomInt(100_000, 999_999)}`;
+            await enterReceipt(desk, lang, reference);
             await expect(desk.locator('[data-external-refs] [data-state="pending_verification"]')).toBeVisible();
 
             // another person, the zone's finance officer, verifies it against the revenue office's records
@@ -479,6 +501,13 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
             const renewed = await api(reviewer).get<LicenceRow>(`v1/competency/licences/${licence.id}`);
             expect(renewed.kind).toBe('permanent');
             expect((renewed.validUntil ?? '') > addisDay()).toBe(true);
+
+            // the same receipt on another renewal at its payment: refused, one receipt pays one order
+            const second = await renewalToPayment(zone, lang, another);
+            await paidElsewhere(desk, lang, second);
+            await enterReceipt(desk, lang, reference);
+            await expect(desk.getByText(W.referenceUsed)).toBeVisible();
+            await expect(desk.locator('[data-external-refs] [data-state="pending_verification"]')).toHaveCount(0);
         });
 
         test('10. sends Boditi’s final approval to the zone, as the bureau sets it, but never its fee rule', async ({
@@ -562,28 +591,8 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
             });
             await inState(officer, nextCase, 'payment');
 
-            // step 9's receipt, tried on this case: one receipt pays one order
             const { number: caseNumber } = await api(records).get<{ number: number }>(`v1/cases/${nextCase}`);
-            await records.locator('[data-app-sidebar] [data-menu-item="fees.elsewhere"]').click();
-            await records
-                .locator(`[data-queue] [data-case-number="${caseNumber}"]`)
-                .getByRole('link', { name: W.open })
-                .click();
-            const order = records.locator('[data-screen="payment-order"]');
-            const total = await order.locator('[data-total]').getAttribute('data-total');
-            const entry = records.locator('[data-external-form]');
-            await entry.getByRole('combobox', { name: W.paidAt, exact: true }).click();
-            await records.getByRole('option', { name: W.revenueOffice }).click();
-            await entry.getByLabel(W.reference).fill(reference);
-            await entry.locator('#external-amount').fill(birr(total ?? ''));
-            await entry.locator('#external-paid-on').click();
-            await records.locator('[data-day][aria-current="date"]').click();
-            await entry.getByLabel(W.whoPaid).fill('Generated Applicant');
-            await records.locator('[data-action="enter-reference"]').click();
-            await expect(records.getByText(W.referenceUsed)).toBeVisible();
-            await expect(records.locator('[data-external-refs] [data-state="pending_verification"]')).toHaveCount(0);
-
-            // paid at Boditi's till instead; the approval is now the zone's
+            // paid at Boditi's till; the approval is now the zone's
             await payAtTheTill(cashier, caseNumber, lang);
             await inState(lead, nextCase, 'approval');
             await lead.goto(`/cases/${nextCase}`);
