@@ -1254,7 +1254,17 @@
         },
         {
           "id": "0.25d",
-          "title": "Demo, part 4: the journey, steps 9–12",
+          "title": "Demo, part 4: the journey, steps 9 and 10",
+          "status": "in progress",
+          "branch": "task/0.25d-demo-journey-2",
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.25e",
+          "title": "Demo, part 5: the figures and the audit trail",
           "status": "planned",
           "branch": null,
           "commits": [],
