@@ -270,9 +270,12 @@ const slaText = (t: (key: string, values?: Record<string, string>) => string, sl
 
 interface Editing {
     key: string;
-    kind: 'sla' | 'help';
+    kind: 'sla' | 'help' | 'approval';
     title: string;
 }
+
+/** Who may give final approval, as a bureau chooses it for an office (the workflow's unit rules a screen offers). */
+const APPROVAL_RULES = ['handling', 'parent', 'region'] as const;
 
 function OverrideEditor({ code }: { code: string }) {
     const { t, text } = useText();
@@ -289,6 +292,11 @@ function OverrideEditor({ code }: { code: string }) {
     // a help text in each of the installation's languages (the ones not shown are kept as they are)
     const languages = formLanguages(useAuthStore((s) => s.workspace?.settings['i18n.languages']));
     const [help, setHelp] = useState<Record<string, string>>({});
+    const [rule, setRule] = useState<string>('handling');
+    const ruleText = (value: unknown) =>
+        (APPROVAL_RULES as readonly unknown[]).includes(value)
+            ? t(`services.override.rule.${String(value)}`)
+            : String(value ?? '—');
     const [reason, setReason] = useState('');
     const unitName = (id?: string) => {
         const u = subtree.data?.find((x) => x.id === id);
@@ -312,6 +320,8 @@ function OverrideEditor({ code }: { code: string }) {
             const s = (current ?? {}) as Sla;
             setPer(s.businessDays ? 'days' : 'hours');
             setAmount(String(s.businessDays ?? s.businessHours ?? ''));
+        } else if (e.kind === 'approval') {
+            setRule(typeof current === 'string' ? current : 'handling');
         } else {
             setHelp({ ...((current ?? {}) as Record<string, string>) });
         }
@@ -326,7 +336,9 @@ function OverrideEditor({ code }: { code: string }) {
                 ? per === 'days'
                     ? { businessDays: Number(amount) }
                     : { businessHours: Number(amount) }
-                : Object.fromEntries(Object.entries(help).filter(([, v]) => v.trim() !== ''));
+                : editing.kind === 'approval'
+                  ? rule
+                  : Object.fromEntries(Object.entries(help).filter(([, v]) => v.trim() !== ''));
         // the values a newer version no longer takes are left out: they would refuse the whole override
         const kept = Object.fromEntries(
             Object.entries(c.own?.values ?? {}).filter(([key]) => !c.problems.some((p) => p.key === key))
@@ -373,6 +385,19 @@ function OverrideEditor({ code }: { code: string }) {
                   source: c.values[`sla.${s.key}`]?.source,
                   own: c.own?.values[`sla.${s.key}`] !== undefined
               })),
+              // the office that gives final approval, where the service's workflow lets a bureau choose it
+              ...(c.values.approval_unit
+                  ? [
+                        {
+                            key: 'approval_unit',
+                            kind: 'approval' as const,
+                            title: t('services.override.approvalUnit'),
+                            value: ruleText(c.values.approval_unit.value),
+                            source: c.values.approval_unit.source,
+                            own: c.own?.values.approval_unit !== undefined
+                        }
+                    ]
+                  : []),
               ...c.fields.map((f) => ({
                   key: `help.${f}`,
                   kind: 'help' as const,
@@ -502,6 +527,22 @@ function OverrideEditor({ code }: { code: string }) {
                                                     </SelectContent>
                                                 </Select>
                                             </div>
+                                        </div>
+                                    ) : editing.kind === 'approval' ? (
+                                        <div className="flex flex-col gap-2">
+                                            <Label htmlFor="approval-rule">{t('services.override.approvalRule')}</Label>
+                                            <Select value={rule} onValueChange={setRule}>
+                                                <SelectTrigger id="approval-rule" className="w-full">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {APPROVAL_RULES.map((r) => (
+                                                        <SelectItem key={r} value={r}>
+                                                            {ruleText(r)}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                     ) : (
                                         <div className="flex flex-col gap-2">

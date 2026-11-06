@@ -11,29 +11,12 @@ import type { Tx } from '@itrms/kernel/db';
 import { Effect, type EffectRun, type WorkflowEffect } from '@itrms/kernel/effects';
 import { ConflictError } from '@itrms/kernel/errors';
 import { SettingsService } from '@itrms/kernel/settings';
-import { formVersions, openFieldsFor, submissions } from '@itrms/forms/api';
+import { formVersions, openFieldsFor, RegistryLookups, submissions } from '@itrms/forms/api';
 
 import { ISSUE_DOCUMENT_EFFECT } from '../contracts';
-import am from '../messages/am.json';
-import en from '../messages/en.json';
 import { addisDay, issueDocument } from './issue';
-import { ethiopianDay, pick } from './render/format';
-
-type Field = ReturnType<typeof openFieldsFor>[number];
-
-/** What an answer prints as, in the document's language: an option's label, a day in the Ethiopian calendar, yes or no. */
-function valueOf(field: Field, value: unknown, language: string): string {
-    const words = language === 'en' ? en : am;
-    const one = (v: unknown): string => {
-        if (typeof v === 'boolean') return words[v ? 'documents.answer.yes' : 'documents.answer.no'];
-        const option = field.options?.find((o) => o.value === v);
-        if (option) return pick(option.label, language);
-        if (field.type === 'EthDate' || field.type === 'DatePicker') return ethiopianDay(v, language);
-        return typeof v === 'string' || typeof v === 'number' ? String(v) : '';
-    };
-    if (value === null || value === undefined) return '';
-    return Array.isArray(value) ? value.map(one).filter(Boolean).join(', ') : one(value);
-}
+import { valueOf } from './answers';
+import { pick } from './render/format';
 
 /**
  * The case's request as the applicant filed it, in the document's language. Only what anyone may be shown (the forms slice's
@@ -42,7 +25,8 @@ function valueOf(field: Field, value: unknown, language: string): string {
 async function applicationCopy(
     tx: Tx,
     run: { caseId: string; caseNumber: number; config: Readonly<Record<string, unknown>> },
-    language: string
+    language: string,
+    lookups: RegistryLookups
 ) {
     const [request] = await tx
         .select({ answers: submissions.answers, document: formVersions.document, createdAt: submissions.createdAt })
@@ -52,16 +36,32 @@ async function applicationCopy(
         .orderBy(asc(submissions.createdAt))
         .limit(1);
     if (!request) throw new ConflictError('contract_unmet', { detail: 'The case has no request to copy.' });
+    const fields = openFieldsFor(request.document, [], language);
+    // the names of the records the lookups picked, from each registry, as the person acting may see them
+    const labels = new Map<string, string>();
+    const byProvider = new Map<string, string[]>();
+    for (const field of fields) {
+        const provider = field.type === 'RegistryLookup' ? field.props.provider : undefined;
+        const answer = request.answers[field.id];
+        const ids = (Array.isArray(answer) ? answer : [answer]).filter((v): v is string => typeof v === 'string');
+        if (typeof provider === 'string' && ids.length > 0)
+            byProvider.set(provider, [...(byProvider.get(provider) ?? []), ...ids]);
+    }
+    for (const [key, ids] of byProvider) {
+        const provider = lookups.get(key);
+        if (!provider) continue;
+        for (const item of await provider.resolve(tx, [...new Set(ids)], language)) labels.set(item.id, item.label);
+    }
     return {
         caseNumber: run.caseNumber,
         serviceName: pick(run.config.serviceName, language),
         filedOn: addisDay(request.createdAt),
-        fields: openFieldsFor(request.document, [], language).flatMap((field) =>
+        fields: fields.flatMap((field) =>
             field.id in request.answers
                 ? [
                       {
                           label: field.label || field.id,
-                          value: valueOf(field, request.answers[field.id], language)
+                          value: valueOf(field, request.answers[field.id], language, labels)
                       }
                   ]
                 : []
@@ -72,7 +72,10 @@ async function applicationCopy(
 @Injectable()
 @Effect(ISSUE_DOCUMENT_EFFECT)
 export class IssueDocumentEffect implements WorkflowEffect {
-    constructor(@Inject(SettingsService) private readonly settings: SettingsService) {}
+    constructor(
+        @Inject(SettingsService) private readonly settings: SettingsService,
+        @Inject(RegistryLookups) private readonly lookups: RegistryLookups
+    ) {}
 
     async run({ tx, caseId, caseNumber, regionId, handlingUnitId, config, argument, facts }: EffectRun) {
         if (argument !== 'application-copy')
@@ -84,7 +87,7 @@ export class IssueDocumentEffect implements WorkflowEffect {
             regionId,
             handlingUnitId,
             templateKey: argument,
-            data: await applicationCopy(tx, { caseId, caseNumber, config }, language),
+            data: await applicationCopy(tx, { caseId, caseNumber, config }, language, this.lookups),
             language,
             caseId,
             subject: { table: 'workflow.cases', id: caseId }
