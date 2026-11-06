@@ -240,24 +240,9 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
                 .setInputFiles(scan('kebele-id-rescanned'));
             await expect(dialog.locator('[data-field-id="identityDocument"]')).toContainText('kebele-id-rescanned.pdf');
             // a correction shows no fee: it is worked out again as the corrected request goes in (fees.assess)
-            const said: string[] = [];
-            records.on('console', (m) => said.push(`${m.type()}: ${m.text()}`));
+            // the whole request is taller than the screen: its button is reached by scrolling the dialog
             await dialog.getByRole('button', { name: W.correct, exact: true }).click();
-            try {
-                await expect(dialog).toBeHidden({ timeout: 60_000 });
-            } catch (error) {
-                // TEMPORARY (task 0.25c): what keeps the correction from going in
-                const invalid = await dialog.evaluate((d) =>
-                    Array.from(d.querySelectorAll('[aria-invalid="true"], [role="alert"], .text-destructive')).map(
-                        (e) =>
-                            `${e.closest('[data-field-id]')?.getAttribute('data-field-id') ?? '-'}: ${e.outerHTML.slice(0, 300)}`
-                    )
-                );
-                console.log(`DIAG invalid: ${JSON.stringify(invalid)}`);
-                console.log(`DIAG console: ${JSON.stringify(said.slice(-20))}`);
-                console.log(`DIAG text: ${(await dialog.innerText()).slice(0, 3000)}`);
-                throw error;
-            }
+            await expect(dialog).toBeHidden({ timeout: 60_000 });
             await inState(records, caseId, 'review');
 
             await records.reload();
