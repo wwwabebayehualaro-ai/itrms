@@ -4,12 +4,12 @@
 region:
   code: SCA
   type: city_authority
-  name: { am: ናሙና ከተማ አስተዳደር, en: Sample City Administration, om: Bulchiinsa Magaalaa Fakkeenyaa }
+  name: { am: ናሙና ከተማ አስተዳደር, en: Sample City Administration }
 
 levels:
-  - { key: region, rank: 1, name: { am: ከተማ አስተዳደር, en: City administration, om: Bulchiinsa Magaalaa } }
-  - { key: sub_city, rank: 2, name: { am: ክፍለ ከተማ, en: Sub-city, om: Kutaa Magaalaa } }
-  - { key: district, rank: 3, name: { am: ወረዳ, en: District, om: Aanaa } }
+  - { key: region, rank: 1, name: { am: ከተማ አስተዳደር, en: City administration } }
+  - { key: sub_city, rank: 2, name: { am: ክፍለ ከተማ, en: Sub-city } }
+  - { key: district, rank: 3, name: { am: ወረዳ, en: District } }
 
 unitTypes:
   - key: city_authority
@@ -47,14 +47,14 @@ units:
       kind: sub_city,
       level: sub_city,
       type: sub_city_office,
-      name: { am: ሰሜን ክፍለ ከተማ, en: North Sub-city, om: Kutaa Magaalaa Kaabaa }
+      name: { am: ሰሜን ክፍለ ከተማ, en: North Sub-city }
     }
   - {
       code: SCA-SOUTH,
       kind: sub_city,
       level: sub_city,
       type: sub_city_office,
-      name: { am: ደቡብ ክፍለ ከተማ, en: South Sub-city, om: Kutaa Magaalaa Kibbaa }
+      name: { am: ደቡብ ክፍለ ከተማ, en: South Sub-city }
     }
   - {
       code: SCA-NORTH-D1,
@@ -62,5 +62,5 @@ units:
       kind: woreda,
       level: district,
       type: district_office,
-      name: { am: ወረዳ አንድ, en: District One, om: Aanaa Tokko }
+      name: { am: ወረዳ አንድ, en: District One }
     }

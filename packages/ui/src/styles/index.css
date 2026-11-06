@@ -44,9 +44,8 @@
     :root:lang(am) body,
     :root:lang(ti) body,
     :root:lang(gez) body,
-    /* MOSTLY_ETHIOPIC_FALLBACK in tokens.ts, while their catalogues are mostly Amharic */
-    :root:lang(wal-Latn) body,
-    :root:lang(om) body {
+    /* MOSTLY_ETHIOPIC_FALLBACK in tokens.ts, while its catalogues are mostly Amharic */
+    :root:lang(wal-Latn) body {
         line-height: 1.6;
     }
 }

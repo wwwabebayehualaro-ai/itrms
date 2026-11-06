@@ -4,3 +4,4 @@ settings:
   ui.brandName:
     am: ናሙና የክልል ትራንስፖርት ቢሮ
     en: Sample Regional Transport Bureau
+  i18n.languages: [am, en, wal-Latn]

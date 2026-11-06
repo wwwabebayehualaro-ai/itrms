@@ -220,7 +220,7 @@ describe('the second demo region', () => {
             `select v.value from kernel.settings_values v join kernel.org_units u on u.id = v.unit_id
               where u.code = 'SCA' and v.key = 'i18n.languages'`
         );
-        expect(rows[0]?.value).toEqual(['am', 'en', 'om']);
+        expect(rows[0]?.value).toEqual(['am', 'en']);
     });
 
     it('has its own branding, and the first region keeps its own', async () => {
@@ -285,10 +285,18 @@ describe('the second demo region', () => {
         const city = await api.unit('SCA', 'SCA');
         const res = await api.call('GET', '/api/v1/me/workspace', { sub: CITY_ADMIN, unit: city });
         expect(res.statusCode, res.body).toBe(200);
-        expect(res.json<{ settings: Record<string, unknown> }>().settings['i18n.languages']).toEqual([
+        expect(res.json<{ settings: Record<string, unknown> }>().settings['i18n.languages']).toEqual(['am', 'en']);
+        // and the first region's own, with Wolaytta
+        const first = await api.unit('SER', 'WOL-DAMOT-GALE');
+        const theirs = await api.call('GET', '/api/v1/me/workspace', {
+            sub: '0199f0a0-d000-7000-8000-000000000202',
+            unit: first
+        });
+        expect(theirs.statusCode, theirs.body).toBe(200);
+        expect(theirs.json<{ settings: Record<string, unknown> }>().settings['i18n.languages']).toEqual([
             'am',
             'en',
-            'om'
+            'wal-Latn'
         ]);
     });
 
@@ -345,7 +353,7 @@ describe('the second demo region', () => {
         // a bureau's own change, by its screen's path (here straight in the table, put back whatever happens)
         const languages = `update kernel.settings_values set value = $1::jsonb where key = 'i18n.languages'
             and unit_id = (select id from kernel.org_units where code = 'SCA' and parent_id is null)`;
-        await api.owner.query(languages, ['["am","en"]']);
+        await api.owner.query(languages, ['["am","en","wal-Latn"]']);
         try {
             expect(await applySettings('sample-city.demo.yaml')).toBe(0);
             expect(await written()).toBe(before);
@@ -353,9 +361,9 @@ describe('the second demo region', () => {
                 `select v.value from kernel.settings_values v join kernel.org_units u on u.id = v.unit_id
                   where u.code = 'SCA' and v.key = 'i18n.languages'`
             );
-            expect(rows[0]?.value).toEqual(['am', 'en']);
+            expect(rows[0]?.value).toEqual(['am', 'en', 'wal-Latn']);
         } finally {
-            await api.owner.query(languages, ['["am","en","om"]']);
+            await api.owner.query(languages, ['["am","en"]']);
         }
         // and on the record as set in the region
         const { rows: audited } = await api.owner.query<{ code: string }>(

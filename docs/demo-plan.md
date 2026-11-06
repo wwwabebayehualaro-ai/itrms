@@ -12,8 +12,8 @@ shown, **where**, **with which data**, and **which facts it rests on**. Sources:
   - Their supporting steps: **DVC-10** exams, **DVC-09** fees, and **DVC-11** print batches.
 - **Languages:** Amharic (default), English, Wolaytta (`wal-Latn`) ([i18n-and-languages.md](i18n-and-languages.md)).
 - **For all of Ethiopia:** a second demo region with a different structure, e.g. a **city administration with
-  sub-cities** and **Afaan Oromo (`om`)** enabled (partial translations, with fallback). It shows that every bureau's
-  structure and language are configuration ([go-to-market.md](go-to-market.md) §3).
+  sub-cities**, offering Amharic and English where Wolaita also offers Wolaytta. It shows that every bureau's structure and
+  languages are configuration ([go-to-market.md](go-to-market.md) §3).
 - **Branding:** "Sample Regional Transport Bureau" with a neutral emblem. No real bureau logo, stamp or official's name
   without permission.
 - **Units in the journey** (from the Form 15 staffing tables [D], [tenant-wolaita.md](tenant-wolaita.md) §3):
@@ -100,7 +100,7 @@ shown, **where**, **with which data**, and **which facts it rests on**. Sources:
 - The demo e2e test (Playwright) runs the journey green in `am` and `en`, and `wal-Latn` loads with fallback.
 - `pnpm demo:reset` restores the data in under 2 minutes.
 - Switching to the second demo region (`demo.city.admin`, a made-up city administration with sub-cities) shows its own levels, units,
-  language and branding, with no code change. Its look comes from the data file `apps/api/seed/settings/sample-city.demo.yaml`. Its few Afaan Oromo words are a draft for a speaker to
-  check. Afaan Oromo itself needed one step, once and not per region: adding it to the shipped languages with its catalogue.
+  language and branding, with no code change. Its look comes from the data file `apps/api/seed/settings/sample-city.demo.yaml`. It offers Amharic and English, the first
+  region also Wolaytta. The languages built and shown are Amharic, English and Wolaytta (the product owner, 2026-11-06).
 - The demo has been shown to officials of **at least two bureaus or zones**, with their feedback recorded in
   `docs/discovery/`.

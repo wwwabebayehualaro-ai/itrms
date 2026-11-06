@@ -397,7 +397,7 @@ export const ETHIOPIC_LANGUAGES = ['am', 'ti', 'gez'] as const;
  * metrics until then. Remove one when `pnpm i18n:check` reports its catalogues complete (the fallback text itself carries no
  * `lang` of its own yet: a follow-up of task 0.25b).
  */
-export const MOSTLY_ETHIOPIC_FALLBACK = ['wal-Latn', 'om'] as const;
+export const MOSTLY_ETHIOPIC_FALLBACK = ['wal-Latn'] as const;
 
 export const typography = {
     baseSize: '16px',

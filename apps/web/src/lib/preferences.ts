@@ -41,7 +41,7 @@ export function languageToShow(locale: string, saved: string | undefined, settin
 
 /**
  * The languages a form's texts are written in: Amharic and English first, then the installation's other languages
- * (`i18n.languages`), including those the shell has no catalogue for (ti); unknown tags are dropped.
+ * (`i18n.languages`), including those the shell has no catalogue for (om, ti); unknown tags are dropped.
  */
 export function formLanguages(setting: unknown): string[] {
     const listed: unknown[] = Array.isArray(setting) ? setting : [];
