@@ -911,7 +911,9 @@ Split from 0.25 on 2026-11-06. Needs 0.24c.
 
 ### 0.25b Demo, part 2: the second region
 Split from 0.25 on 2026-11-06. Needs 0.25a.
-- **Do:** a **second demo region** (a city administration with sub-cities, Afaan Oromo enabled with partial translations).
+- **Do:** a **second demo region** (a city administration with sub-cities, with its own languages). Afaan Oromo was dropped
+  on 2026-11-06 by the product owner: the languages built and shown are Amharic, English and Wolaytta, so the city offers
+  Amharic and English and Wolaita adds Wolaytta.
 - **Done when:** switching to the second demo region shows its own levels, units, language and branding, with no code change.
 - **Tests:** an isolation check between the two regions, and a journey that shows the second one.
 
