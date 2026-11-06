@@ -2877,6 +2877,11 @@
       "foundIn": "0.25b",
       "item": "Settings screen edits object settings (documents.header, ui.brandName) as raw JSON text: give them a translation-table editor",
       "movedTo": "Phase 1 settings"
+    },
+    {
+      "foundIn": "0.25c",
+      "item": "Step 8 checks the public verification API with the token read from the card PDF; the verifier page's own UI is covered by the apps/verify e2e, not this journey",
+      "movedTo": "0.25d / demo"
     }
   ]
 }

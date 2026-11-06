@@ -66,7 +66,7 @@ test.describe('the driver licence services', () => {
         // the school's list
         await officer.goto('/competency/training');
         const enrol = officer.locator('[data-enrol]');
-        await pick(officer, enrol, 'ሰው', holder, new RegExp(holder));
+        await pick(officer, enrol, FIELD.person, holder, new RegExp(holder));
         await pick(officer, enrol, FIELD.school, school, school);
         await enrol.getByRole('combobox', { name: 'ደረጃ' }).click();
         await officer.getByRole('option', { name: AUTOMOBILE }).click();

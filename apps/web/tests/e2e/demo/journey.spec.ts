@@ -12,7 +12,7 @@
  *   7  final approval (the reviewer refused), a temporary licence for 2 years, the print batch, the card
  *   8  the card's QR checked on the public verification endpoint, as a phone does: valid, with a masked name
  */
-import { randomInt, randomUUID } from 'node:crypto';
+import { randomInt } from 'node:crypto';
 import { inflateSync } from 'node:zlib';
 
 import { expect, test, type Page } from '@playwright/test';
@@ -38,8 +38,8 @@ import { firstSignIn, resetAccount } from '../keycloak';
 
 const ZONE_OFFICER = { id: '0199f0a0-d000-7000-8000-000000000104', username: 'demo.zone.officer1' };
 const DAMOT_SAFETY = { id: '0199f0a0-d000-7000-8000-000000000203', username: 'demo.damot.safety' };
-const API = 'http://127.0.0.1:4000';
-const CSRF_COOKIE = '__Host-itrms_csrf';
+// the API itself, as the verifier app calls it (the one playwright.config starts, or E2E_API's)
+const API = process.env.E2E_API ?? 'http://127.0.0.1:4000';
 const ETHIOPIC = /[ሀ-፿]/;
 
 /** A tiny PDF, as a scanner would give: the register keeps it, the officer opens it. */
@@ -48,22 +48,6 @@ const scan = (name: string) => ({
     mimeType: 'application/pdf',
     buffer: Buffer.from(`%PDF-1.4\n% ${name}\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n`)
 });
-
-/** A request through the person's session that is meant to be refused: its status, not an error. */
-async function attempt(page: Page, method: string, path: string, data?: unknown, version?: number) {
-    const csrf = (await page.context().cookies()).find((c) => c.name === CSRF_COOKIE)?.value ?? '';
-    const res = await page.request.fetch(`/api/${path}`, {
-        method,
-        data,
-        headers: {
-            'x-csrf-token': csrf,
-            origin: new URL(page.url()).origin,
-            ...(method === 'POST' ? { 'idempotency-key': randomUUID() } : {}),
-            ...(version === undefined ? {} : { 'if-match': `"${version}"` })
-        }
-    });
-    return res.status();
-}
 
 /** The address a document's QR holds: the card links it too, so a phone that opens the PDF can tap it. */
 function verificationUrl(pdf: Buffer): string {
@@ -129,10 +113,10 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
             // Wolaytta, as far as it is translated: the rest in Amharic
             const sidebar = records.locator('[data-app-sidebar]');
             await records.locator('[data-user-menu]').click();
-            await records.getByRole('menuitem', { name: 'ቋንቋ' }).click();
+            await records.getByRole('menuitem', { name: WORDS.am.language }).click();
             await records.getByRole('menuitemradio', { name: 'Wolayttatto' }).click();
             await expect(records.locator('html')).toHaveAttribute('lang', 'wal-Latn');
-            await expect(sidebar.getByRole('link', { name: 'መነሻ' })).toBeVisible();
+            await expect(sidebar.getByRole('link', { name: WORDS.am.home })).toBeVisible();
             await speaks(records, lang);
             await expect(sidebar.getByRole('link', { name: W.home })).toBeVisible();
 
@@ -206,9 +190,11 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
             test.setTimeout(240_000);
             // a road-safety officer in Damot Gale, a sibling of Boditi: no licence case, not even this one
             const damot = await person(browser, DAMOT_SAFETY);
+            // its menu is there (its own work), and has no licence entry
+            await expect(damot.locator('[data-app-sidebar] [data-menu-item]').first()).toBeVisible();
             await expect(damot.locator('[data-app-sidebar] [data-menu-item^="competency."]')).toHaveCount(0);
             // refused, as a case of another office is: not found under its scope, or not a thing it may read
-            expect([403, 404]).toContain(await attempt(damot, 'GET', `v1/cases/${caseId}`));
+            expect([403, 404]).toContain(await api(damot).status('GET', `v1/cases/${caseId}`));
 
             // the zone's competency officer sees Boditi's case (its subtree), and has no step of it to take
             const zone = await person(browser, ZONE_OFFICER);
@@ -216,9 +202,9 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
             await expect(zone.locator('[data-screen="case"]')).toHaveAttribute('data-state', 'review');
             await expect(zone.locator('[data-actions] [data-action]')).toHaveCount(0);
             const { version } = await api(zone).get<{ version: number }>(`v1/cases/${caseId}`);
-            expect(await attempt(zone, 'POST', `v1/cases/${caseId}/transitions`, { action: 'approve' }, version)).toBe(
-                403
-            );
+            expect(
+                await api(zone).status('POST', `v1/cases/${caseId}/transitions`, { action: 'approve' }, version)
+            ).toBe(403);
             await damot.context().close();
             await zone.context().close();
         });
@@ -283,7 +269,7 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
             await expect(officer.locator('[data-actions] [data-action="approve"]')).toHaveCount(0);
             const { version } = await api(officer).get<{ version: number }>(`v1/cases/${caseId}`);
             expect(
-                await attempt(officer, 'POST', `v1/cases/${caseId}/transitions`, { action: 'approve' }, version)
+                await api(officer).status('POST', `v1/cases/${caseId}/transitions`, { action: 'approve' }, version)
             ).toBe(403);
 
             // the team leader approves; the national platform answers (the fake, through the outbox), then the licence is made
@@ -297,11 +283,14 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
             );
 
             // temporary, for two years, numbered by Boditi
-            const { items } = await api(officer).get<{ items: { id: string; number: string }[] }>(
-                `v1/competency/licences?personId=${personId}`
-            );
+            const { items } = await api(officer).get<{
+                items: { id: string; number: string; issuedOn: string | null; validUntil: string | null }[];
+            }>(`v1/competency/licences?personId=${personId}`);
             const licence = items[0];
             expect(licence?.number).toMatch(/^WOL-BODITI\/DL\/\d{6}$/);
+            // valid for two years from its issue (Proclamation 1074/2018: a temporary licence)
+            const [year = '', rest = ''] = (licence?.issuedOn ?? '').split(/-(.*)/s);
+            expect(licence?.validUntil).toBe(`${Number(year) + 2}-${rest}`);
             await officer.goto('/competency/licences');
             await officer.getByLabel(W.licenceNumber).fill(licence?.number ?? '');
             await officer.locator('[data-screen="licences"]').getByRole('button', { name: W.find }).click();
@@ -341,6 +330,8 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
             expect(shownToAnyone.holder).toBeTruthy();
             expect(shownToAnyone.holder).not.toContain(fullName);
             expect(shownToAnyone.holder).not.toContain(applicant.fatherAm);
+            expect(shownToAnyone.holder).not.toContain(`${applicant.givenEn} ${applicant.fatherEn}`);
+            expect(shownToAnyone.holder).not.toContain(applicant.fatherEn);
         });
     });
 }

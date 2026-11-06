@@ -37,13 +37,15 @@ export interface Api {
     patch<T = any>(path: string, body: unknown, version: number): Promise<T>;
     put<T = any>(path: string, body: unknown, version: number): Promise<T>;
     delete(path: string, version: number): Promise<unknown>;
+    /** a request meant to be refused: its status, not an error */
+    status(method: string, path: string, body?: unknown, version?: number): Promise<number>;
 }
 
 /** The forms API as the page's person (`path` without `/api/`, e.g. `v1/forms`). */
 export function api(page: Page): Api {
-    const call = async (method: string, path: string, body?: unknown, version?: number) => {
+    const send = async (method: string, path: string, body?: unknown, version?: number) => {
         const csrf = (await page.context().cookies()).find((c) => c.name === CSRF_COOKIE)?.value ?? '';
-        const res = await page.request.fetch(`/api/${path}`, {
+        return page.request.fetch(`/api/${path}`, {
             method,
             data: body,
             headers: {
@@ -53,6 +55,9 @@ export function api(page: Page): Api {
                 ...(version === undefined ? {} : { 'if-match': `"${version}"` })
             }
         });
+    };
+    const call = async (method: string, path: string, body?: unknown, version?: number) => {
+        const res = await send(method, path, body, version);
         expect(res.ok(), `${method} /api/${path}: ${res.status()} ${await res.text()}`).toBe(true);
         return res.status() === 204 ? undefined : res.json();
     };
@@ -61,7 +66,8 @@ export function api(page: Page): Api {
         post: (path, body = {}, version) => call('POST', path, body, version),
         patch: (path, body, version) => call('PATCH', path, body, version),
         put: (path, body, version) => call('PUT', path, body, version),
-        delete: (path, version) => call('DELETE', path, undefined, version)
+        delete: (path, version) => call('DELETE', path, undefined, version),
+        status: async (method, path, body, version) => (await send(method, path, body, version)).status()
     };
 }
 

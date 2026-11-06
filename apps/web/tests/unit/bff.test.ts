@@ -300,8 +300,10 @@ describe('the sign-in screen’s language', () => {
         expect(signInLocales('wal-Latn')).toBe('wal-Latn am');
     });
 
-    it('ignores a cookie that is not a language tag', () => {
+    it('passes on only a language the app has', () => {
         expect(signInLocales('en" onload="x')).toBe('am');
         expect(signInLocales('')).toBe('am');
+        expect(signInLocales('xx')).toBe('am');
+        expect(signInLocales('om')).toBe('am');
     });
 });

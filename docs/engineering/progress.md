@@ -350,3 +350,4 @@ Last updated: 2026-11-06. Planning: done (docs/reviews/2026-10-18-design-review.
 | 197 | 0.24b | Fee inputs from case facts are still refused, so a renewal's grade and expiry are form answers checked against the register; the fee's over-a-year test can differ from the exam's by a day around a leap year | Phase 1 | open |
 | 198 | 0.25b | Mark Amharic fallback strings with lang=am, so the Ethiopic metrics and screen readers follow the text, then drop MOSTLY_ETHIOPIC_FALLBACK (tokens.ts) | Phase 1 i18n | open |
 | 199 | 0.25b | Settings screen edits object settings (documents.header, ui.brandName) as raw JSON text: give them a translation-table editor | Phase 1 settings | open |
+| 200 | 0.25c | Step 8 checks the public verification API with the token read from the card PDF; the verifier page's own UI is covered by the apps/verify e2e, not this journey | 0.25d / demo | open |

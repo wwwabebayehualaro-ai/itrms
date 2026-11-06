@@ -28,6 +28,7 @@ th{font-weight:700}
 .foot{margin-top:18px;font-size:9pt}
 .stamp{height:80px;margin-top:10px}
 .demo{font-weight:700;border:1px solid #111;padding:2px 6px;display:inline-block}
+.qr-link{display:block;width:max-content}
 .qr{width:26mm;height:26mm;display:block;margin-top:8mm}
 </style>`;
 

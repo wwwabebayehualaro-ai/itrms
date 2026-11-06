@@ -6,6 +6,7 @@
 import * as client from 'openid-client';
 
 import type { BffConfig } from './config';
+import { DEFAULT_LANGUAGE, isUiLanguage } from '@/i18n/messages';
 
 let discovered: Promise<client.Configuration> | undefined;
 
@@ -43,13 +44,14 @@ export interface LoginTransaction {
 }
 
 /**
- * The sign-in screen's languages (OIDC `ui_locales`, in order): the person's language in this app, then Amharic, the installation's
- * default. Keycloak shows the first it has, whatever language the browser asks for: an office PC set to English still signs its
- * clerk in in Amharic, as the app then shows. Anything that isn't a language tag is ignored.
+ * The sign-in screen's languages (OIDC `ui_locales`, in order): the person's language in this app, then the app's default. Keycloak
+ * shows the first it has, whatever language the browser asks for: an office PC set to English still signs its clerk in in the
+ * language the app then shows. Only a language the app has is passed on.
  */
 export function signInLocales(language: string | undefined): string {
-    const asked = language && /^[a-z]{2,3}(-[A-Z][a-z]{3})?$/.test(language) ? language : undefined;
-    return [...new Set([asked, 'am'].filter((l): l is string => Boolean(l)))].join(' ');
+    return isUiLanguage(language) && language !== DEFAULT_LANGUAGE
+        ? `${language} ${DEFAULT_LANGUAGE}`
+        : DEFAULT_LANGUAGE;
 }
 
 export async function startSignIn(
