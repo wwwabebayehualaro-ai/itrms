@@ -45,6 +45,8 @@ shown, **where**, **with which data**, and **which facts it rests on**. Sources:
 | Fees | Fee amounts are **placeholders** marked "demo", until the regional fee schedule is received (Regulation 572/2025 amounts were not found online [N]) |
 
 ## 3. The journey (≈ 20 minutes)
+The presenter's words, step by step: [demo-script.md](demo-script.md).
+
 1. **Sign-in** with 2FA. The Keycloak screen is in Amharic, and the user switches the language to Wolaytta and back.
 2. **Boditi records officer:**
    - registers a new applicant (Ethiopic + Latin name, birth date in the Ethiopian calendar, optional Fayda number, address

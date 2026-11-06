@@ -1238,8 +1238,8 @@
         {
           "id": "0.25c",
           "title": "Demo, part 3: the script and the journey, steps 1–8",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.25c-demo-journey",
           "commits": [],
           "evidence": [],
           "blockers": [],

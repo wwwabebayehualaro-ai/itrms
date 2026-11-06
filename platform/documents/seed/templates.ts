@@ -31,8 +31,11 @@ th{font-weight:700}
 .qr{width:26mm;height:26mm;display:block;margin-top:8mm}
 </style>`;
 
-/** Scanned online it reports the document's status; offline, the verifier checks its signature. */
-const QR = `{% if verification %}<img class="qr" data-qr="{{ verification.url }}" src="{{ verification.qr }}" alt="">{% endif %}`;
+/**
+ * Scanned online it reports the document's status; offline, the verifier checks its signature. It links the same address, so a PDF
+ * opened on a phone is checked with a tap.
+ */
+const QR = `{% if verification %}<a class="qr-link" href="{{ verification.url }}"><img class="qr" data-qr="{{ verification.url }}" src="{{ verification.qr }}" alt=""></a>{% endif %}`;
 
 const HEAD = `<div class="head">{% if header.logo %}<img src="{{ header.logo }}" alt="">{% endif %}<div><h1>{{ header.title | text }}</h1>{% if header.subtitle %}<h2>{{ header.subtitle | text }}</h2>{% endif %}</div></div>`;
 
@@ -121,7 +124,8 @@ export const TEMPLATE_SEEDS: readonly TemplateSeed[] = [
 body{font-size:6.5pt;line-height:1.25}
 .card{display:flex;gap:6px}
 .card img{width:20mm;height:25mm;object-fit:cover}
-.card img.qr{width:30mm;height:30mm;margin-inline-start:auto}
+.card .qr-link{margin-inline-start:auto}
+.card img.qr{width:30mm;height:30mm}
 .org{font-weight:700;font-size:7pt}
 .ttl{font-weight:700;font-size:7.5pt;margin:1mm 0}
 .term{font-weight:700}
