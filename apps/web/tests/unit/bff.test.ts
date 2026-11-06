@@ -10,6 +10,7 @@ import { loadBffConfig } from '@/bff/config';
 import { sameOrigin, tokenMatches } from '@/bff/csrf';
 import { apiRequestHeaders, apiTarget, browserResponseHeaders } from '@/bff/forward';
 import { verifyLogoutToken } from '@/bff/logout-token';
+import { signInLocales } from '@/bff/oidc';
 import { open, parseKeyring, seal } from '@/bff/seal';
 import { ABSOLUTE_SECONDS, IDLE_SECONDS, SessionStore, type KeyValue, type SessionRecord } from '@/bff/session-store';
 import { contentSecurityPolicy, SECURITY_HEADERS } from '../../proxy';
@@ -288,5 +289,21 @@ describe('configuration', () => {
         }
         expect(message).toMatch(/https in production/);
         expect(message).not.toContain(secret);
+    });
+});
+
+describe('the sign-in screen’s language', () => {
+    it('is the person’s language in the app, then Amharic, whatever the browser asks for', () => {
+        expect(signInLocales(undefined)).toBe('am');
+        expect(signInLocales('am')).toBe('am');
+        expect(signInLocales('en')).toBe('en am');
+        expect(signInLocales('wal-Latn')).toBe('wal-Latn am');
+    });
+
+    it('passes on only a language the app has', () => {
+        expect(signInLocales('en" onload="x')).toBe('am');
+        expect(signInLocales('')).toBe('am');
+        expect(signInLocales('xx')).toBe('am');
+        expect(signInLocales('om')).toBe('am');
     });
 });

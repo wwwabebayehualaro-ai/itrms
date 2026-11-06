@@ -16,6 +16,7 @@ context. Where neither says anything, state an assumption and ask.
 | 5 | [roles-and-permissions.md](roles-and-permissions.md) | System roles derived from the Form 15 positions; permission matrix |
 | 6 | [i18n-and-languages.md](i18n-and-languages.md) | Amharic, English and **Wolaytta** (Wolaytattuwa): locales, scripts, fallback, translation workflow |
 | 7 | [demo-plan.md](demo-plan.md) | The Phase 0 driver-licence demo in Wolaita: units, people, journey, data |
+| 7a | [demo-script.md](demo-script.md) | What the presenter does and says at each step of the demo, in Amharic and English |
 | 8 | [architecture.md](architecture.md) | The system design |
 | 8a | [tech-stack.md](tech-stack.md) | **Every tool and version**, and the answers to all technical open questions |
 | 8b | [platform/](platform/README.md) | **One pattern for every office** (unit types, settings), modularization, menus and shell, design system, **security standard**, enterprise capabilities |

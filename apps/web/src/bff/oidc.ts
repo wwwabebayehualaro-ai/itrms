@@ -6,6 +6,7 @@
 import * as client from 'openid-client';
 
 import type { BffConfig } from './config';
+import { DEFAULT_LANGUAGE, isUiLanguage } from '@/i18n/messages';
 
 let discovered: Promise<client.Configuration> | undefined;
 
@@ -42,11 +43,23 @@ export interface LoginTransaction {
     maxAge?: number;
 }
 
+/**
+ * The sign-in screen's languages (OIDC `ui_locales`, in order): the person's language in this app, then the app's default. Keycloak
+ * shows the first it has, whatever language the browser asks for: an office PC set to English still signs its clerk in in the
+ * language the app then shows. Only a language the app has is passed on.
+ */
+export function signInLocales(language: string | undefined): string {
+    return isUiLanguage(language) && language !== DEFAULT_LANGUAGE
+        ? `${language} ${DEFAULT_LANGUAGE}`
+        : DEFAULT_LANGUAGE;
+}
+
 export async function startSignIn(
     configuration: client.Configuration,
     redirectUri: string,
     returnTo: string,
-    maxAge?: number
+    maxAge?: number,
+    language?: string
 ): Promise<{ url: URL; transaction: LoginTransaction }> {
     const verifier = client.randomPKCECodeVerifier();
     const transaction: LoginTransaction = {
@@ -63,7 +76,8 @@ export async function startSignIn(
         code_challenge: await client.calculatePKCECodeChallenge(verifier),
         code_challenge_method: 'S256',
         state: transaction.state,
-        nonce: transaction.nonce
+        nonce: transaction.nonce,
+        ui_locales: signInLocales(language)
     };
     // a step-up: Keycloak asks for the factors again (RFC 9470 with OIDC's max_age; prompt=login for an older session)
     if (maxAge !== undefined) Object.assign(parameters, { max_age: String(maxAge), prompt: 'login' });

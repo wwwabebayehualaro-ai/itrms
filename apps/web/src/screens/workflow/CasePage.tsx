@@ -286,7 +286,8 @@ function ActionDialog({ c, action, onClose }: { c: CaseOut; action: Action; onCl
     const name = action.label ? text(action.label) : action.action;
     return (
         <Dialog open onOpenChange={(open) => !open && onClose()}>
-            <DialogContent data-action-dialog={action.action} className={action.form ? 'max-w-3xl' : undefined}>
+            {/* a step's form (a whole request, when it is corrected) is wide; like every dialog, it scrolls when taller than the screen */}
+            <DialogContent data-action-dialog={action.action} className={action.form ? 'sm:max-w-3xl' : undefined}>
                 <DialogHeader>
                     <DialogTitle>{name}</DialogTitle>
                     <DialogDescription>

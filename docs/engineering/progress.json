@@ -1238,12 +1238,18 @@
         {
           "id": "0.25c",
           "title": "Demo, part 3: the script and the journey, steps 1–8",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.25c-demo-journey",
+          "commits": [
+            "0381cc5"
+          ],
+          "evidence": [
+            "GitHub Actions run 42279194706 (PR #41) on 0381cc5 → all jobs success; e2e 39 passed (15.9m) incl. tests/e2e/demo/journey.spec.ts: steps 1–8 of demo-plan.md §3 in am and en (16 tests); demo:reset 27.8 s and 27.5 s (limit 120 s)",
+            "Step 1: Keycloak screen in Amharic whatever the browser (BFF ui_locales, unit tests in apps/web/tests/unit/bff.test.ts 17 passed); wal-Latn loads with fallback (html lang wal-Latn, Amharic shell: the Wolaytta catalogue is still empty). Step 8: the token read from the card PDF, checked on GET /api/v1/public/verifications/:token (valid, masked holder); the verifier page's UI is the apps/verify e2e's",
+            "task-verifier → ready with caveats (fee asserted by the filing helper; 2-year validity now asserted; evidence recorded); code-review high → 10 findings, all fixed (dialog width and scrolling in packages/ui, sign-in languages from the app's own list, QR link box, one BFF request helper, journey checks)"
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "Step 4 returns the case over the ID's scan, not the medical certificate (demo-plan.md changed): the medical certificate is a sensitive attachment, so the records officer's correction form leaves it out ('what you may not see is kept'). Owner question: should a clerk be able to replace a sensitive attachment without seeing it?"
         },
         {
           "id": "0.25d",
@@ -2877,6 +2883,11 @@
       "foundIn": "0.25b",
       "item": "Settings screen edits object settings (documents.header, ui.brandName) as raw JSON text: give them a translation-table editor",
       "movedTo": "Phase 1 settings"
+    },
+    {
+      "foundIn": "0.25c",
+      "item": "Step 8 checks the public verification API with the token read from the card PDF; the verifier page's own UI is covered by the apps/verify e2e, not this journey",
+      "movedTo": "0.25d / demo"
     }
   ]
 }

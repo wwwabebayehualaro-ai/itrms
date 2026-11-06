@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { oidc, startSignIn } from '@/bff/oidc';
 import { bff, problem, safeReturnPath } from '@/bff/runtime';
 import { seal } from '@/bff/seal';
-import { LOGIN_COOKIE } from '@/lib/auth/cookies';
+import { LANGUAGE_COOKIE, LOGIN_COOKIE } from '@/lib/auth/cookies';
 
 export async function GET(request: NextRequest) {
     const { config } = bff();
@@ -23,7 +23,9 @@ export async function GET(request: NextRequest) {
         configuration,
         `${config.APP_ORIGIN}/auth/callback`,
         returnTo,
-        maxAge
+        maxAge,
+        // the sign-in screen in the person's language here, not the browser's
+        request.cookies.get(LANGUAGE_COOKIE)?.value
     );
     const response = NextResponse.redirect(url, 303);
     response.headers.set('cache-control', 'no-store');

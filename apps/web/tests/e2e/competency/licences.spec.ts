@@ -5,119 +5,21 @@
  * Boditi's people act: the licensing expert enters the school's list, reviews and examines; the records officer files; the revenue
  * collector takes the fee; the team leader gives final approval. A renewal then runs on the licence the first journey made.
  */
-import { randomInt } from 'node:crypto';
-
 import { toEthiopian } from '@itrms/ethiopian-calendar';
-import { expect, test, type Browser, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { api } from '../forms/support';
-import { firstSignIn, resetAccount } from '../keycloak';
 import { PEOPLE, signedIn } from '../workflow/support';
+import { act, BODITI, filing, generated, inState, payAtTheTill, person, pick, today, WORDS } from './support';
 
-/** Demo accounts of apps/api/seed/users/wolaita.demo.yaml (generated people, never real ones). */
-const BODITI = {
-    records: { id: '0199f0a0-d000-7000-8000-000000000302', username: 'demo.boditi.records' },
-    cashier: { id: '0199f0a0-d000-7000-8000-000000000303', username: 'demo.boditi.cashier' },
-    lead: { id: '0199f0a0-d000-7000-8000-000000000304', username: 'demo.boditi.lead' },
-    officer: { id: '0199f0a0-d000-7000-8000-000000000305', username: 'demo.boditi.officer' }
-} as const;
-
-const FIELD = {
-    applicant: 'አመልካች',
-    grade: 'የፈቃድ ደረጃ',
-    education: 'የተጠናቀቀ የትምህርት ክፍል',
-    school: 'የማሰልጠኛ ተቋም',
-    facility: 'የህክምና ተቋም',
-    examined: 'የህክምና ምርመራ ቀን',
-    licence: 'መንጃ ፈቃድ',
-    expiry: 'ፈቃዱ የሚያበቃበት ቀን',
-    heldOn: 'የፈተና ቀን',
-    theory: 'የንድፈ ሀሳብ ውጤት',
-    practical: 'የተግባር ውጤት',
-    passed: 'አልፏል'
-};
-const SEARCH = 'ስም ወይም ቁጥር ይጻፉ…';
-const AUTOMOBILE = 'አውቶሞቢል';
-const FILE = 'ጥያቄውን ጀምር';
-
-/** Letters only, of ones that don't fold into each other: a name a second run won't take for a duplicate. */
-const LETTERS = 'ለመረሰሸቀበተቸነኘአከወዘዠየደጀገጠጨጰፈፐ';
-const generated = () => Array.from({ length: 5 }, () => LETTERS[randomInt(LETTERS.length)] ?? 'ለ').join('');
-
-const birr = (santim: string) => {
-    const digits = santim.padStart(3, '0');
-    return `${digits.slice(0, -2)}.${digits.slice(-2)}`;
-};
+const FIELD = WORDS.am;
+const AUTOMOBILE = WORDS.am.automobile;
 
 interface People {
     records: Page;
     cashier: Page;
     lead: Page;
     officer: Page;
-}
-
-async function person(browser: Browser, who: { id: string; username: string }): Promise<Page> {
-    await resetAccount(who.id);
-    const page = await (await browser.newContext()).newPage();
-    await firstSignIn(page, who.username);
-    return page;
-}
-
-async function pick(page: Page, within: Locator, label: string, search: string, option: string | RegExp) {
-    await within.getByRole('combobox', { name: label }).click();
-    await page.getByPlaceholder(SEARCH).fill(search);
-    await page.getByRole('option', { name: option }).first().click();
-}
-
-async function today(page: Page, within: Locator, label: string) {
-    await within.getByRole('button', { name: new RegExp(label) }).click();
-    await page.locator('[role="grid"] [aria-current="date"]').click();
-}
-
-/**
- * Files what the form holds. The fee is worked out again as answers change, and the server refuses a filing whose fee wasn't shown (and
- * starts no case), so a click made while the last answer's preview is on its way is simply made again.
- */
-async function filing(page: Page, form: Locator) {
-    await expect(form.locator('[data-field-fee]')).toContainText(/\d[\d,]*\.\d{2}/);
-    await expect(async () => {
-        await form.getByRole('button', { name: FILE }).click();
-        await expect(page).toHaveURL(/\/cases\/[0-9a-f-]{36}$/, { timeout: 30_000 });
-    }).toPass({ timeout: 120_000 });
-}
-
-/** A step of a case, by its action and the name of the dialog's button. */
-async function act(
-    page: Page,
-    caseId: string,
-    action: string,
-    button: string,
-    fill?: (dialog: Locator) => Promise<void>
-) {
-    await page.goto(`/cases/${caseId}`);
-    await page.locator(`[data-actions] [data-action="${action}"]`).click();
-    const dialog = page.locator(`[data-action-dialog="${action}"]`);
-    if (fill) await fill(dialog);
-    await dialog.getByRole('button', { name: button, exact: true }).click();
-    await expect(dialog).toBeHidden();
-}
-
-const inState = async (page: Page, caseId: string, state: string) => {
-    await expect
-        .poll(async () => (await api(page).get<{ state: string }>(`v1/cases/${caseId}`)).state, { timeout: 90_000 })
-        .toBe(state);
-};
-
-async function payAtTheTill(page: Page, caseNumber: number) {
-    await page.goto('/cashier');
-    const row = page.locator(`[data-queue] [data-case-number="${caseNumber}"]`);
-    await row.getByRole('link', { name: 'ክፈት' }).click();
-    const order = page.locator('[data-screen="payment-order"]');
-    const total = await order.locator('[data-total]').getAttribute('data-total');
-    await page.locator('[data-payment-form] #payment-amount').fill(birr(total ?? ''));
-    await page.getByLabel('ከፋዩ').fill('Generated Applicant');
-    await page.locator('[data-action="record-payment"]').click();
-    await expect(page).toHaveURL(/\/receipts\/[0-9a-f-]{36}$/);
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -164,7 +66,7 @@ test.describe('the driver licence services', () => {
         // the school's list
         await officer.goto('/competency/training');
         const enrol = officer.locator('[data-enrol]');
-        await pick(officer, enrol, 'ሰው', holder, new RegExp(holder));
+        await pick(officer, enrol, FIELD.person, holder, new RegExp(holder));
         await pick(officer, enrol, FIELD.school, school, school);
         await enrol.getByRole('combobox', { name: 'ደረጃ' }).click();
         await officer.getByRole('option', { name: AUTOMOBILE }).click();
