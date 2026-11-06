@@ -157,6 +157,25 @@ describe('the demo’s data', () => {
         }
     });
 
+    it('has the zone’s renewals paid at the revenue office, and Boditi keep its till', async () => {
+        const { rows } = await api.owner.query<{ code: string; collection: string }>(
+            `select u.code, o.values->>'payment.collection' as collection
+               from services.service_overrides o
+               join services.service_definitions d on d.id = o.service_id and d.code = 'DVC-04'
+               join kernel.org_units u on u.id = o.unit_id
+              order by u.code`
+        );
+        expect(rows).toEqual([
+            { code: 'WOL', collection: 'elsewhere' },
+            { code: 'WOL-BODITI', collection: 'cashier' }
+        ]);
+        expect(
+            await count(
+                `select count(*)::int as n from kernel.audit_log where table_name = 'services.service_overrides'`
+            )
+        ).toBe(2);
+    });
+
     it('is under the neutral branding, and has a zone’s holiday', async () => {
         const { rows } = await api.owner.query<{ value: { en: string } }>(
             `select value from kernel.settings_values where key = 'ui.brandName'`

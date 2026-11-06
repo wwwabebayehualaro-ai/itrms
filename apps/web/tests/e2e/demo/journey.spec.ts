@@ -1,5 +1,5 @@
 /**
- * The demo journey, steps 1–8 of docs/demo-plan.md §3 (task 0.25c), as docs/demo-script.md tells it: once in Amharic and once in
+ * The demo journey, steps 1–10 of docs/demo-plan.md §3 (tasks 0.25c, 0.25d), as docs/demo-script.md tells it: once in Amharic and once in
  * English, on the data `pnpm demo:reset` makes. Also the regression suite of the licence services for later phases.
  *
  *   1  sign-in with a second factor; the sign-in screen in Amharic; the app in Wolaytta (falling back to Amharic) and back
@@ -474,9 +474,8 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
             const late = items.filter(
                 (l) => l.kind === 'permanent' && l.validUntil !== null && l.validUntil >= from && l.validUntil <= to
             );
-            // each language and each retry takes others of them: a renewal already filed for one would refuse it
-            const first = (lang === 'am' ? 0 : 4) + 2 * test.info().retry;
-            const [licence, another] = [late[first], late[first + 1]];
+            // two of them: each journey renews both, so they leave this list, and the next run (or retry) takes the next two
+            const [licence, another] = [late[0], late[1]];
             if (!licence || !another) throw new Error('the demo has permanent licences 14 months late');
             const renewal = await renewalToPayment(zone, lang, licence);
 
@@ -509,6 +508,19 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
             // said on the form and in a notice
             await expect(desk.getByText(W.referenceUsed).first()).toBeVisible();
             await expect(desk.locator('[data-external-refs] [data-state="pending_verification"]')).toHaveCount(0);
+
+            // its own receipt then pays it, and it is renewed too: no request is left open for the next demo
+            const own = `${reference}-2`;
+            await enterReceipt(desk, lang, own);
+            await expect(desk.locator('[data-external-refs] [data-state="pending_verification"]')).toBeVisible();
+            await finance.reload();
+            const next = finance.locator(`[data-external-inbox] [data-reference="${own}"]`);
+            await next.locator('[data-action="verify"]').click();
+            await finance.locator('[data-decision-dialog="verified"]').getByRole('button', { name: W.verify }).click();
+            await expect(next).toHaveCount(0);
+            await inState(zoneLead, second, 'approval');
+            await act(zoneLead, second, 'approve', W.approve);
+            await inState(zoneLead, second, 'issued');
         });
 
         test('10. sends Boditi’s final approval to the zone, as the bureau sets it, but never its fee rule', async ({
@@ -537,8 +549,9 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
             await expect(row.locator('[data-value]')).toHaveText(W.ruleParent);
             await expect(row.locator('[data-source]')).toHaveAttribute('data-source', 'unit');
 
-            // the fee rule is the region's: no office's row for it, and the API refuses one
-            await expect(override.locator('[data-config-key^="fee"]')).toHaveCount(0);
+            // the fee rule belongs to the region's version of the service: an office's configuration has no key for it, so the
+            // screen offers none and the API refuses one (what an office may change is its policy's families: sla,
+            // approval_unit, help, the header, payment)
             const path = `v1/org-units/${boditiId}/services/DVC-03`;
             const { own } = await api(bureau).get<{ own: { version: number } | null }>(`${path}/configuration`);
             expect([400, 422]).toContain(

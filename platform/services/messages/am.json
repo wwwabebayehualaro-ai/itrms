@@ -109,5 +109,6 @@
   "services.override.approvalRule": "የሚያጸድቀው",
   "services.override.rule.handling": "ጉዳዩን የያዘው ጽ/ቤት",
   "services.override.rule.parent": "ከበላዩ ያለው ጽ/ቤት",
-  "services.override.rule.region": "የክልሉ ቢሮ"
+  "services.override.rule.region": "የክልሉ ቢሮ",
+  "services.override.rule.level": "ደረጃ፦ {level}"
 }

@@ -16,10 +16,11 @@ export function valueOf(field: Field, value: unknown, language: string, labels: 
     const one = (v: unknown): string => {
         if (typeof v === 'boolean') return words[v ? 'documents.answer.yes' : 'documents.answer.no'];
         if (field.type === 'RegistryLookup' && typeof v === 'string') return labels.get(v) ?? '';
-        if (field.type === 'FileUpload')
-            return v && typeof v === 'object' && typeof (v as { name?: unknown }).name === 'string'
-                ? String((v as { name: string }).name)
-                : '';
+        if (field.type === 'FileUpload') {
+            // as uploaded (`name`), or as an older form stored it (`filename`)
+            const { name, filename } = (v && typeof v === 'object' ? v : {}) as { name?: unknown; filename?: unknown };
+            return typeof name === 'string' ? name : typeof filename === 'string' ? filename : '';
+        }
         const option = field.options?.find((o) => o.value === v);
         if (option) return pick(option.label, language);
         if (field.type === 'EthDate' || field.type === 'DatePicker') return ethiopianDay(v, language);

@@ -375,21 +375,23 @@ export async function importDemoData(
             name: { am: 'ጊፋታ (የናሙና ቀን)', en: 'Gifaata (sample date)' }
         });
         // the zone's renewals are paid at the revenue office, and verified by its finance officer (demo-plan.md §3, step 9). An
-        // office's configuration is inherited below it, so Boditi says it keeps its own till.
+        // office's configuration is inherited below it, so Boditi says it keeps its own till. Written as a seed writes, audited and not
+        // through the override API's checks: these two values are fixed, and the services' policy allows them (licence-services.ts).
         const [renewal] = await tx
             .select({ id: serviceDefinitions.id })
             .from(serviceDefinitions)
             .where(and(eq(serviceDefinitions.regionId, regionId), eq(serviceDefinitions.code, 'DVC-04')));
+        if (!renewal) throw new Error('seed the service catalogue first: DVC-04 is not in it');
         const collections = [
             [offices.zone, 'elsewhere', 'Renewals at the zone are paid at the revenue office (demo)'],
             [offices.boditi, 'cashier', 'Boditi takes its fees at its own till (demo)']
         ] as const;
-        for (const [unit, collection, reason] of renewal ? collections : []) {
+        for (const [unit, collection, reason] of collections) {
             const [set] = await tx
                 .select({ id: serviceOverrides.id })
                 .from(serviceOverrides)
-                .where(and(eq(serviceOverrides.unitId, unit.id), eq(serviceOverrides.serviceId, renewal?.id ?? '')));
-            if (!set && renewal)
+                .where(and(eq(serviceOverrides.unitId, unit.id), eq(serviceOverrides.serviceId, renewal.id)));
+            if (!set)
                 await insertAudited(tx, serviceOverrides, {
                     regionId,
                     unitId: unit.id,

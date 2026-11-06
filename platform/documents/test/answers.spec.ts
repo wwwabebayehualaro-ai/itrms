@@ -21,6 +21,8 @@ describe('an answer on a document', () => {
             { name: 'kebele-id.pdf', size: 81, type: 'application/pdf' }
         ];
         expect(valueOf(field('FileUpload'), files, 'am', new Map())).toBe('medical.pdf, kebele-id.pdf');
+        // an older form's answer
+        expect(valueOf(field('FileUpload'), [{ file_id: 'x', filename: 'old.pdf' }], 'am', new Map())).toBe('old.pdf');
     });
 
     it('keeps yes and no, options and plain values', () => {

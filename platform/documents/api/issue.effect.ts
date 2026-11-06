@@ -47,11 +47,16 @@ async function applicationCopy(
         if (typeof provider === 'string' && ids.length > 0)
             byProvider.set(provider, [...(byProvider.get(provider) ?? []), ...ids]);
     }
-    for (const [key, ids] of byProvider) {
-        const provider = lookups.get(key);
-        if (!provider) continue;
-        for (const item of await provider.resolve(tx, [...new Set(ids)], language)) labels.set(item.id, item.label);
-    }
+    // only from a registry the person acting may read (as the lookup API asks): otherwise the copy shows no name
+    const permissions = currentContext()?.principal?.permissions;
+    const found = await Promise.all(
+        [...byProvider].map(async ([key, ids]) => {
+            const provider = lookups.get(key);
+            if (!provider || !permissions?.has(provider.permission)) return [];
+            return provider.resolve(tx, [...new Set(ids)], language);
+        })
+    );
+    for (const item of found.flat()) labels.set(item.id, item.label);
     return {
         caseNumber: run.caseNumber,
         serviceName: pick(run.config.serviceName, language),

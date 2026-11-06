@@ -1260,7 +1260,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "The licence services' override policy now allows payment (region, unit), and the demo data makes the zone's renewals (DVC-04) paid at the revenue office; Boditi's stay at its till. Who collects licence fees is still the bureau's question (demo-plan.md §5.3)."
+          "notes": "The licence services' override policy now allows payment (region, unit), and the demo data makes the zone's renewals (DVC-04) paid at the revenue office; Boditi's stay at its till. Who collects licence fees is still the bureau's question (demo-plan.md §5.3). Verifier: ready with caveats. Added: a demo.int check of the two DVC-04 payment overrides and their audit rows, and a seed comment that the override is written as a seed (audited, the policy allows it). Owner item: the payment override is now allowed for both licence services (DVC-03 and DVC-04), not only renewals. Waiting for the code review before moving to review."
         },
         {
           "id": "0.25e",

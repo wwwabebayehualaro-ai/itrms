@@ -687,6 +687,13 @@ export class ServicesService implements FeeRequestSource {
                 if (problem && !refused.some((r) => r.key === key)) refused.push({ key, problem });
             }
         }
+        // the office above it: a region's root has none, and its cases' final approval could never be given
+        if (
+            values.approval_unit === 'parent' &&
+            unit.parentId === null &&
+            !refused.some((r) => r.key === 'approval_unit')
+        )
+            refused.push({ key: 'approval_unit', problem: 'invalid_value' });
         if (refused.some((r) => r.problem === 'not_allowed'))
             throw new ValidationError('setting_level_not_allowed', {
                 detail: `The service's policy does not let this office change ${refused

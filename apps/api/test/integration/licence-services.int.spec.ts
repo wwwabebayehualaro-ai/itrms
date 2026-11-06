@@ -588,6 +588,20 @@ describe('a new licence', () => {
         );
         expect(undo.statusCode, undo.body).toBeLessThan(300);
     }, 240_000);
+
+    it('is never sent above the region: its root has no office above it', async () => {
+        const region = as.bureau.unit;
+        const config = await api.call('GET', `/api/v1/org-units/${region.id}/services/${NEW}/configuration`, as.bureau);
+        const set = await api.call(
+            'PUT',
+            `/api/v1/org-units/${region.id}/services/${NEW}/override`,
+            as.bureau,
+            { values: { approval_unit: 'parent' }, reason: 'above the region' },
+            ifMatch(config.json<{ own: { version: number } | null }>().own?.version ?? 0)
+        );
+        expect(set.statusCode, set.body).toBe(422);
+        expect(set.body).toContain('approval_unit');
+    });
 });
 
 describe('a renewal', () => {

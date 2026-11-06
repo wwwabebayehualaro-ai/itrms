@@ -42,7 +42,7 @@ import { getApiErrorMessage } from '@/lib/api/errors';
 import { useAuthStore } from '@/lib/auth/authStore';
 import { formatDay } from '@/lib/format';
 import { formLanguages, usePreferences, useText } from '@/lib/preferences';
-import { LANGUAGE_ENDONYMS } from '@itrms/schemas';
+import { LANGUAGE_ENDONYMS, WORKFLOW_UNIT_RULES } from '@itrms/schemas';
 import {
     OVERRIDE_FAMILIES,
     OVERRIDE_LEVELS,
@@ -274,8 +274,8 @@ interface Editing {
     title: string;
 }
 
-/** Who may give final approval, as a bureau chooses it for an office (the workflow's unit rules a screen offers). */
-const APPROVAL_RULES = ['handling', 'parent', 'region'] as const;
+/** Who may give final approval, as a bureau chooses it for an office: the workflow's unit rules, but its parameter. */
+const APPROVAL_RULES: readonly string[] = WORKFLOW_UNIT_RULES.filter((r) => r !== '${approval_unit}');
 
 function OverrideEditor({ code }: { code: string }) {
     const { t, text } = useText();
@@ -294,9 +294,18 @@ function OverrideEditor({ code }: { code: string }) {
     const [help, setHelp] = useState<Record<string, string>>({});
     const [rule, setRule] = useState<string>('handling');
     const ruleText = (value: unknown) =>
-        (APPROVAL_RULES as readonly unknown[]).includes(value)
-            ? t(`services.override.rule.${String(value)}`)
-            : String(value ?? '—');
+        typeof value !== 'string'
+            ? '—'
+            : APPROVAL_RULES.includes(value)
+              ? t(`services.override.rule.${value}`)
+              : value.startsWith('level:')
+                ? t('services.override.rule.level', { level: value.slice('level:'.length) })
+                : value;
+    // the choices at this office: the one it has (a level rule a bureau set elsewhere stays shown), and never the office above
+    // the region's root
+    // a region's root is the only unit whose path has one label
+    const isRoot = subtree.data?.find((u) => u.id === shown)?.path.includes('.') === false;
+    const ruleChoices = [...new Set([...APPROVAL_RULES.filter((r) => !(isRoot && r === 'parent')), rule])];
     const [reason, setReason] = useState('');
     const unitName = (id?: string) => {
         const u = subtree.data?.find((x) => x.id === id);
@@ -536,7 +545,7 @@ function OverrideEditor({ code }: { code: string }) {
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {APPROVAL_RULES.map((r) => (
+                                                    {ruleChoices.map((r) => (
                                                         <SelectItem key={r} value={r}>
                                                             {ruleText(r)}
                                                         </SelectItem>
