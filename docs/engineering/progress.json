@@ -1237,7 +1237,17 @@
         },
         {
           "id": "0.25c",
-          "title": "Demo, part 3: the script and the journey",
+          "title": "Demo, part 3: the script and the journey, steps 1–8",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.25d",
+          "title": "Demo, part 4: the journey, steps 9–12",
           "status": "planned",
           "branch": null,
           "commits": [],

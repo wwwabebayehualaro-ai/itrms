@@ -915,12 +915,26 @@ Split from 0.25 on 2026-11-06. Needs 0.25a.
 - **Done when:** switching to the second demo region shows its own levels, units, language and branding, with no code change.
 - **Tests:** an isolation check between the two regions, and a journey that shows the second one.
 
-### 0.25c Demo, part 3: the script and the journey
-Split from 0.25 on 2026-11-06. Needs 0.25b.
-- **Do:** the demo script: the journey of [demo-plan.md](../demo-plan.md) §3, in Amharic and English, with Wolaytta shown. Playwright
-  e2e of the whole journey.
-- **Done when:** the e2e demo journey is green.
-- **Tests:** the demo e2e (also a regression suite for later phases).
+### 0.25c Demo, part 3: the script and the journey, steps 1–8
+Split from 0.25 on 2026-11-06, and again on 2026-11-06 (steps 9–12 in 0.25d). Needs 0.25b.
+- **Do:** the demo script (`docs/demo-script.md`): what the presenter says and does for the journey of
+  [demo-plan.md](../demo-plan.md) §3, in Amharic and English, with Wolaytta shown. A Playwright journey of steps 1–8: sign-in with
+  2FA and the languages; a new applicant registered and a new licence filed with its documents, the school lookup and the fee;
+  the isolation between offices; a return with a comment and a resubmission; the exam; the payment and its receipt; the final
+  approval with the reviewer refused, the temporary licence, the print batch, the national platform and the certificate; the
+  certificate verified on the public page.
+- **Done when:** the journey of steps 1–8 is green in `am` and `en`, and `wal-Latn` loads with fallback.
+- **Tests:** the demo journey (also a regression suite for later phases).
+
+### 0.25d Demo, part 4: the journey, steps 9–12
+Split from 0.25c on 2026-11-06. Needs 0.25c.
+- **Do:** the rest of the journey, in the script and the Playwright journey: a renewal at the zone department of a licence expired
+  14 months ago (the field exam added, the late fee, paid at the revenue office, verified by the zone finance officer, the same
+  receipt refused on another case); the final-approval unit of the new-licence service overridden to the parent unit, and the
+  fee rule refused as an override; the figures (the data viewer with Ethiopian dates and its Excel export, until the dashboards
+  of task 1.16); the case's audit trail. Also the follow-up of 0.23a: the application copy prints lookup ids.
+- **Done when:** the whole journey of demo-plan.md §3 is green in `am` and `en`.
+- **Tests:** the demo journey, steps 9–12.
 
 ### 0.26 Demo installation and Phase 0 hardening
 - **Do:**
