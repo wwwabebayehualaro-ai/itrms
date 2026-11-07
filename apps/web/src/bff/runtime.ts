@@ -71,9 +71,6 @@ export async function currentSession(
     return { id, record };
 }
 
-/** Whether the access token is good for a moment yet, without a refresh (withFreshToken refreshes inside 30 s). */
-export const tokenStillFresh = (session: Session) => session.record.accessExpiresAt - Date.now() > 30_000;
-
 /** Keycloak could not be asked (down, slow, rate-limited): the session stays, the request answers 503. */
 export class KeycloakUnavailableError extends Error {
     constructor(cause: unknown) {
@@ -92,7 +89,7 @@ const lockOf = (id: string) => `refresh:${createHash('sha256').update(id).digest
  * KeycloakUnavailableError when Keycloak could not be asked, which never ends the session.
  */
 export async function withFreshToken(session: Session): Promise<Session | undefined> {
-    const fresh = (r: SessionRecord) => tokenStillFresh({ id: session.id, record: r });
+    const fresh = (r: SessionRecord) => r.accessExpiresAt - Date.now() > 30_000;
     if (fresh(session.record)) return session;
     const { config, store } = bff();
     const lock = lockOf(session.id);

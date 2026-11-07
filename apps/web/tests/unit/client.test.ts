@@ -2,6 +2,7 @@ import createClient from 'openapi-fetch';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ApiError, createHttpClient, isApiError, joinUrl, stepUpMaxAge, type BrowserSession } from '@/lib/api/http';
+import { ACTIVE_MS, markInput, markSent, personActive, pingDue, PING_MS } from '@/lib/auth/activity';
 
 /** The BFF session as the page sees it: only the CSRF token. */
 const fakeSession = (csrf: string | null = 'csrf-1'): BrowserSession => ({ csrfToken: () => csrf });
@@ -251,5 +252,40 @@ describe('typed client (openapi-fetch) on the same path', () => {
         expect(t.seen[0].headers.get('x-csrf-token')).toBe('csrf-1');
         expect(key(t.seen[0])).toBeTruthy();
         expect(await t.seen[0].json()).toEqual({ a: 1 });
+    });
+});
+
+describe('HTTP client: the person’s activity (SEC-SE-2, security review 0.26c1 A1)', () => {
+    it('marks a read made with no input from the person as the page’s own; a write is always the person’s', async () => {
+        const t = transport();
+        let idle = true;
+        const sent = vi.fn();
+        const http = createHttpClient({
+            baseUrl: 'http://api.test/v1/',
+            session: fakeSession(),
+            fetch: t.fetch,
+            background: () => idle,
+            sent
+        });
+        await http.get('x');
+        await http.post('x', {});
+        idle = false;
+        await http.get('x');
+        expect(t.seen.map((r) => r.headers.get('x-itrms-background'))).toEqual(['1', null, null]);
+        // the person's requests restart the BFF's idle timeout: the activity ping waits for longer after them
+        expect(sent).toHaveBeenCalledTimes(2);
+    });
+
+    it('pings the BFF only for a person at the page who made no request of their own for a while', () => {
+        const state = { lastInput: 0, lastPing: 0 };
+        expect(personActive(30_000, state)).toBe(true);
+        expect(personActive(ACTIVE_MS, state)).toBe(false);
+        // no input since the last request: no ping, however long
+        expect(pingDue(PING_MS * 10, state)).toBe(false);
+        markInput(1_000, state);
+        expect(pingDue(PING_MS - 1, state)).toBe(false);
+        expect(pingDue(PING_MS, state)).toBe(true);
+        markSent(PING_MS, state);
+        expect(pingDue(PING_MS * 2, state)).toBe(false);
     });
 });

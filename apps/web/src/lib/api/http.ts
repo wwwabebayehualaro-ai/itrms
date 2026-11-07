@@ -7,6 +7,7 @@
  * Two senders share it: `fetch` for everything, and XMLHttpRequest only when a caller wants upload progress (fetch cannot
  * report it). The typed openapi-fetch client (`client.ts`) goes through the same path.
  */
+import { BACKGROUND_HEADER } from '../auth/cookies';
 
 export type ResponseType = 'json' | 'blob' | 'text';
 export type QueryValue = string | number | boolean | Date | null | undefined;
@@ -76,6 +77,12 @@ export interface HttpDeps {
     onUnauthenticated?: (maxAge?: number) => void;
     /** The person's language: the API answers (error titles, names) in it. */
     language?: () => string | null;
+    /**
+     * Whether a read now is the page's own, not the person's (no input lately): it is marked so, and the BFF does not
+     * restart the session's idle timeout for it (SEC-SE-2). A request that is the person's is reported to `sent`.
+     */
+    background?: () => boolean;
+    sent?: () => void;
     fetch?: typeof fetch;
     xhr?: () => XMLHttpRequest;
     newKey?: () => string;
@@ -230,10 +237,13 @@ export function createHttpClient(deps: HttpDeps = {}): HttpClient {
         return result;
     }
 
-    /** The CSRF header for a state-changing call. */
+    /** The CSRF header for a state-changing call; the background mark on a read the person did not make. */
     function csrfHeaders(method: string, headers: Headers) {
-        const token = SAFE_METHODS.has(method) ? null : (deps.session?.csrfToken() ?? null);
+        const safe = SAFE_METHODS.has(method);
+        const token = safe ? null : (deps.session?.csrfToken() ?? null);
         if (token) headers.set('x-csrf-token', token);
+        if (safe && deps.background?.()) headers.set(BACKGROUND_HEADER, '1');
+        else deps.sent?.();
         return headers;
     }
 

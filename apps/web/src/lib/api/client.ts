@@ -1,5 +1,6 @@
 import createClient from 'openapi-fetch';
 
+import { markSent, personActive } from '../auth/activity';
 import { session } from '../auth/session';
 import { createHttpClient } from './http';
 import type { paths } from './schema';
@@ -17,6 +18,9 @@ const client = createHttpClient({
     session,
     // the page's language is the person's (the root layout sets it)
     language: () => (typeof document === 'undefined' ? null : document.documentElement.lang || null),
+    // a read with no input from the person lately is the page's own (its polling): the session's idle timeout ignores it
+    background: () => typeof window !== 'undefined' && !personActive(),
+    sent: () => markSent(),
     onUnauthenticated: (maxAge) => {
         if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth/')) session.signIn(maxAge);
     }

@@ -21,6 +21,15 @@ x-app: &app
     postgres:
       condition: service_healthy
 
+# the object store and its second store run the same: the processes' identity reads, writes and lists objects in the
+# bucket only, no bucket administration (security review 0.26c1 F2); the bucket is made from inside the store (weed shell)
+x-store-command: &store-command
+  - |
+    cat > /tmp/s3.json <<EOF
+    {"identities":[{"name":"itrms","credentials":[{"accessKey":"${S3_ACCESS_KEY}","secretKey":"${S3_SECRET_KEY}"}],"actions":["Read:${S3_BUCKET}","Write:${S3_BUCKET}","List:${S3_BUCKET}"]}]}
+    EOF
+    exec weed server -dir=/data -master.volumeSizeLimitMB=1024 -volume.max=0 -s3 -s3.port=8333 -s3.config=/tmp/s3.json
+
 x-env: &env
   NODE_ENV: production
   TZ: Africa/Addis_Ababa
@@ -72,16 +81,13 @@ services:
   # the sessions' store: a password, and a network of its own shared with the BFF only (security review 0.26c1 A11)
   valkey-sessions:
     ports: !reset []
+    # the password in a file read at start, never on the command line (where the host's process list shows it)
+    entrypoint: ['/bin/sh', '-c']
     command:
-      - valkey-server
-      - --appendonly
-      - 'yes'
-      - --appendfsync
-      - everysec
-      - --maxmemory-policy
-      - noeviction
-      - --requirepass
-      - ${VALKEY_SESSIONS_PASSWORD:?}
+      - |
+        umask 077
+        printf 'requirepass %s\n' "$$VALKEY_PASSWORD" > /tmp/valkey.conf
+        exec valkey-server /tmp/valkey.conf --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
     environment:
       VALKEY_PASSWORD: ${VALKEY_SESSIONS_PASSWORD:?}
     healthcheck:
@@ -91,12 +97,7 @@ services:
   # 0.26c1 F2); the bucket is made by prod-stack from inside the store (weed shell)
   seaweedfs:
     ports: !reset []
-    command:
-      - |
-        cat > /tmp/s3.json <<EOF
-        {"identities":[{"name":"itrms","credentials":[{"accessKey":"$${S3_ACCESS_KEY}","secretKey":"$${S3_SECRET_KEY}"}],"actions":["Read:$${S3_BUCKET}","Write:$${S3_BUCKET}","List:$${S3_BUCKET}"]}]}
-        EOF
-        exec weed server -dir=/data -master.volumeSizeLimitMB=1024 -volume.max=0 -s3 -s3.port=8333 -s3.config=/tmp/s3.json
+    command: *store-command
     environment:
       S3_BUCKET: ${S3_BUCKET:-itrms}
     networks:
@@ -288,12 +289,7 @@ services:
     restart: unless-stopped
     image: chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
     entrypoint: ['/bin/sh', '-c']
-    command:
-      - |
-        cat > /tmp/s3.json <<EOF
-        {"identities":[{"name":"itrms","credentials":[{"accessKey":"$${S3_ACCESS_KEY}","secretKey":"$${S3_SECRET_KEY}"}],"actions":["Read:$${S3_BUCKET}","Write:$${S3_BUCKET}","List:$${S3_BUCKET}"]}]}
-        EOF
-        exec weed server -dir=/data -master.volumeSizeLimitMB=1024 -volume.max=0 -s3 -s3.port=8333 -s3.config=/tmp/s3.json
+    command: *store-command
     environment:
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:?}
       S3_SECRET_KEY: ${S3_SECRET_KEY:?}

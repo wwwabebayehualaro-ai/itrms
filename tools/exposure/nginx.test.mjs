@@ -94,8 +94,11 @@ test('the verify hostname isolates its pages from other origins (SEC-WB-1)', () 
 });
 
 test('TLS 1.2 offers AEAD suites only, on both hostnames (security.md §11)', () => {
-    for (const block of [app, verify]) {
-        const ciphers = block.match(/ssl_ciphers ([^;]+);/)?.[1];
+    // once, for every server; no server sets its own
+    assert.equal([...conf.matchAll(/ssl_ciphers /g)].length, 1);
+    for (const block of [app, verify]) assert.doesNotMatch(block, /ssl_ciphers/);
+    {
+        const ciphers = conf.match(/^ssl_ciphers ([^;]+);/m)?.[1];
         assert.ok(ciphers, 'ssl_ciphers is set');
         for (const suite of ciphers.split(':'))
             assert.match(suite, /^ECDHE-(ECDSA|RSA)-(AES(128|256)-GCM-SHA(256|384)|CHACHA20-POLY1305)$/);
@@ -103,9 +106,12 @@ test('TLS 1.2 offers AEAD suites only, on both hostnames (security.md §11)', ()
 });
 
 test('a verification token is in no access-log line, and a client never chooses the forwarded address or the request id', () => {
-    const at = verify.indexOf('location ~ "^/v1/public/verifications/');
-    assert.match(verify.slice(at, verify.indexOf('\n    }\n', at)), /access_log \S+ itrms_verification;/);
-    assert.match(conf, /log_format itrms_verification [^;]*verifications\/\[redacted\]/);
+    assert.match(verify, /access_log \S+ itrms_verify;/);
+    assert.match(verify, /error_log \S+ crit;/);
+    assert.match(conf, /log_format itrms_verify [^;]*\$itrms_verify_path/);
+    // both token paths are written as their route
+    assert.match(conf, /"~\^\/v1\/public\/verifications\/" "\/v1\/public\/verifications\/\[redacted\]";/);
+    assert.match(conf, /"~\^\/\[A-Za-z0-9_-\]\{22\}\/\?\$" "\/\[redacted\]";/);
     const proxy = readFileSync(
         join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'infra', 'compose', 'nginx', 'itrms-proxy.conf'),
         'utf8'

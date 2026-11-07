@@ -670,8 +670,9 @@ describe('granting and revoking', () => {
         const answers = (await Promise.all([revoke(first, theirs), revoke(other, mine)]))
             .map((r) => r.statusCode)
             .sort();
-        // a revocation answers 201 (it records the ending); the other, refused, 409
-        expect(answers).toEqual([201, 409]);
+        // one revocation answers 201 (it records the ending); the other, waiting on it, finds its own administrator's
+        // assignment ended meanwhile and is refused (403)
+        expect(answers).toEqual([201, 403]);
         const left = await owner.query<{ n: number }>(
             `SELECT count(*)::int AS n FROM kernel.role_assignments
               WHERE region_id = $1 AND role_key = 'bureau_admin' AND valid_from <= now() AND (valid_to IS NULL OR valid_to > now())`,
