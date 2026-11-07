@@ -155,11 +155,13 @@ describe('due times', () => {
 
     it('follows a unit’s own working week and holidays', async () => {
         const damot = as.damotRecords.unit;
-        // Damot Gale works Saturdays 08:00–09:00 only (a test calendar)
+        // Damot Gale works one day a week, 08:00–09:00 only (a test calendar). The day is never today, so the step always
+        // starts outside its hours, whenever the test runs
+        const day = (addis(new Date()).weekday + 3) % 7;
         await api.owner.query(
             `insert into workflow.working_calendars (id, region_id, unit_id, week, half_days)
-             values (gen_random_uuid(), $1, $2, '{"6": [["08:00", "09:00"]]}', '{}')`,
-            [damot.regionId, damot.id]
+             values (gen_random_uuid(), $1, $2, $3::jsonb, '{}')`,
+            [damot.regionId, damot.id, JSON.stringify({ [day]: [['08:00', '09:00']] })]
         );
         try {
             const id = await start(as.damotRecords);
@@ -170,8 +172,8 @@ describe('due times', () => {
                     [id]
                 )
             ).rows[0]?.due_at;
-            // one business hour of a Saturday 08:00–09:00 week ends at 09:00 on a Saturday
-            expect(addis(due ?? new Date(0))).toEqual({ weekday: 6, time: '09:00' });
+            // one business hour of a week with one 08:00–09:00 day ends at 09:00 on that day
+            expect(addis(due ?? new Date(0))).toEqual({ weekday: day, time: '09:00' });
         } finally {
             await api.owner.query(`delete from workflow.working_calendars where unit_id = $1`, [damot.id]);
         }
