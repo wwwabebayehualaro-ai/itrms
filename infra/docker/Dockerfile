@@ -21,21 +21,23 @@ RUN pnpm --filter @itrms/api build \
     && NEXT_OUTPUT=standalone pnpm --filter @itrms/web build \
     && pnpm --filter @itrms/verify build
 # then only what runs: the development packages go
-RUN pnpm install --frozen-lockfile --prod --config.node-linker=hoisted --ignore-scripts && pnpm rebuild
+RUN pnpm install --frozen-lockfile --prod --config.node-linker=hoisted --ignore-scripts && pnpm rebuild \n    && mkdir -p apps/api/node_modules
 
 FROM ${NODE_IMAGE} AS api
 ENV NODE_ENV=production TZ=Africa/Addis_Ababa
 WORKDIR /app
 COPY --from=build /repo/node_modules ./node_modules
 COPY --from=build /repo/apps/api/package.json ./apps/api/package.json
+# what could not be shared at the top (another version, or peers of its own) stays under the API, where its bundle finds it first
+COPY --from=build /repo/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /repo/apps/api/dist ./apps/api/dist
 COPY --from=build /repo/apps/api/drizzle ./apps/api/drizzle
 # the seeds a fresh installation (and the demo) is made from, at the paths the seed commands name from apps/api
 COPY --from=build /repo/apps/api/seed ./apps/api/seed
 COPY --from=build /repo/modules/competency/seed ./modules/competency/seed
 COPY --from=build /repo/platform/services/seed ./platform/services/seed
-# the processes run from apps/api, and read their packages' files (fonts) from its node_modules
-RUN ln -s /app/node_modules /app/apps/api/node_modules
+# the processes run from apps/api, and read their packages' files (the PDFs' fonts) from its node_modules
+RUN [ -e /app/apps/api/node_modules/@fontsource ] || ln -s /app/node_modules/@fontsource /app/apps/api/node_modules/@fontsource
 WORKDIR /app/apps/api
 USER node
 EXPOSE 4000
