@@ -9,7 +9,7 @@
 // Settings: infra/compose/.env.production (generated, secrets, owner-only, never committed). Certificates: infra/compose/tls
 // (app.*, verify.* and the CA the processes trust); a test installation gets a self-signed set, a bureau puts its own there.
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { request } from 'node:https';
 import { request as plainRequest } from 'node:http';
 import { dirname, join } from 'node:path';
@@ -20,13 +20,18 @@ const DIR = join(ROOT, 'infra', 'compose');
 const ENV = join(DIR, '.env.production');
 const OVERLAY = join(DIR, 'production.yml');
 const TLS = join(DIR, 'tls');
-const DOMAIN = process.env.ITRMS_DOMAIN ?? 'itrms.test';
 
 // dev-infra's helpers, pointed at this profile's settings and Compose file
 process.env.ITRMS_ENV_FILE = ENV;
 process.env.ITRMS_COMPOSE_OVERLAY = OVERLAY;
 const dev = await import('./dev-infra.mjs');
 const { demoSteps } = await import('./demo-reset.mjs');
+
+// what the operator set in the settings file wins (Compose reads it from there), then this run's environment
+const fileSettings = existsSync(ENV) ? dev.readEnv(ENV) : {};
+const setting = (key, fallback) => fileSettings[key] ?? process.env[key] ?? fallback;
+const DOMAIN = setting('ITRMS_DOMAIN', 'itrms.test');
+const VERSION = setting('ITRMS_VERSION', undefined);
 
 const compose = (args, options = {}) =>
     execFileSync(
@@ -116,6 +121,9 @@ function certificates() {
             readFileSync(join(TLS, `${name}.crt`), 'utf8') + readFileSync(join(TLS, 'ca.pem'), 'utf8')
         );
     }
+    // the CA's key signed these two and is gone: nothing else can be issued under the CA the processes trust
+    for (const file of ['ca.key', 'ca.srl', 'app.csr', 'verify.csr', 'app.ext', 'verify.ext', 'app.crt', 'verify.crt'])
+        rmSync(join(TLS, file), { force: true });
     console.log(`  test certificates for app.${DOMAIN} and verify.${DOMAIN} (infra/compose/tls)`);
 }
 
@@ -155,11 +163,14 @@ const inSetup = (_settings, script, args) =>
 async function up(demo) {
     const env = settings();
     certificates();
-    if (!process.env.ITRMS_VERSION) compose(['--profile', 'setup', 'build']);
+    if (!VERSION) compose(['--profile', 'setup', 'build']);
     const backing = ['postgres', 'valkey-queues', 'valkey-sessions', 'keycloak', 'seaweedfs'];
     compose(['up', '-d', '--wait', '--wait-timeout', '300', ...backing]);
     dev.seedDatabaseRoles(env);
-    await dev.seedBuckets(env, [env.S3_BUCKET]);
+    // the bucket, from inside the store (its S3 port is on the stack's network only); an existing one stays
+    compose(['exec', '-T', 'seaweedfs', 'sh', '-c', `echo "s3.bucket.create -name ${env.S3_BUCKET}" | weed shell`], {
+        stdio: ['ignore', 'ignore', 'inherit']
+    });
     await keycloakReady(env);
     await dev.seedKeycloak(env, {
         appOrigin: `https://app.${DOMAIN}`,
@@ -188,7 +199,7 @@ async function up(demo) {
 /** A request to the stack's Nginx on this machine, for a hostname, as a browser that trusts the installation's CA. */
 function get(host, path, { tls = true } = {}) {
     const ca = readFileSync(join(TLS, 'ca.pem'));
-    const port = tls ? Number(process.env.ITRMS_HTTPS_PORT ?? 443) : Number(process.env.ITRMS_HTTP_PORT ?? 80);
+    const port = tls ? Number(setting('ITRMS_HTTPS_PORT', 443)) : Number(setting('ITRMS_HTTP_PORT', 80));
     return new Promise((resolve, reject) => {
         const req = (tls ? request : plainRequest)(
             { host: '127.0.0.1', port, path, servername: host, headers: { host }, ca, timeout: 30_000 },
@@ -203,6 +214,20 @@ function get(host, path, { tls = true } = {}) {
         req.on('timeout', () => req.destroy(new Error(`${host}${path}: no answer`)));
         req.end();
     });
+}
+
+/** Whether a call out from the API's container fails: through the egress proxy (`proxied`), or straight out. */
+function blockedOut(proxied) {
+    const code =
+        "fetch('https://example.com', { signal: AbortSignal.timeout(15000) }).then(() => process.exit(1), () => process.exit(0))";
+    try {
+        compose(['exec', '-T', '-e', `NODE_USE_ENV_PROXY=${proxied ? '1' : '0'}`, 'api', 'node', '-e', code], {
+            stdio: 'ignore'
+        });
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 async function smoke() {
@@ -240,6 +265,8 @@ async function smoke() {
             }
         ],
         ['Keycloak administration is not public', async () => (await get(app, '/auth/admin/')).status === 404],
+        ['the API has no route out of its own', async () => blockedOut(false)],
+        ['the egress proxy refuses a host the installation did not allow', async () => blockedOut(true)],
         [
             'security headers',
             async () => {

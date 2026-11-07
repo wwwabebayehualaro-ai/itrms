@@ -11,10 +11,11 @@ gains their steps then.
   and Keycloak hold personal data at rest. Unlock it at boot with a key kept off the machine.
 - **The clock** kept by **chrony** on the host (`chrony` package, two or more NTP sources): signed tokens, audit times and the QR
   codes' validity depend on it. The containers take the host's clock.
-- **DNS**: `app.<domain>` and `verify.<domain>` to the machine. Only `verify` is public by design; `app` is limited to the
-  offices' networks or a VPN where they have one (architecture §12).
-- **Firewall**: 80 and 443 in. Keycloak's administration (`127.0.0.1:18080/auth`) and the object store's S3 port answer on the
-  machine itself only: reach them over SSH.
+- **The three hostnames** (architecture §12): `app.<domain>` (the staff app, and Keycloak's sign-in pages under `/auth`) and
+  `verify.<domain>` to the machine in DNS; only `verify` is public by design, `app` is limited to the offices' networks or a VPN
+  where they have one. The third, Keycloak's administration, has no public name: it answers on the machine's loopback
+  (`http://127.0.0.1:18080/auth`), reached over SSH.
+- **Firewall**: 80 and 443 in, SSH for the operator. Nothing else listens outside the machine.
 
 ## 2. The certificates
 In `infra/compose/tls/`: `app.fullchain.pem`, `app.key.pem`, `verify.fullchain.pem`, `verify.key.pem` (the bureau's CA or
@@ -44,7 +45,8 @@ Then the bureau's own data: its org tree, catalogue and users with the setup con
 
 ## 5. Upgrades
 Backup → `migrate` → restart (ADR-0008): set `ITRMS_VERSION` to the new release, `docker compose … pull`, take a backup,
-`docker compose … --profile setup run --rm migrate`, then `docker compose … up -d`. Rollback is the previous version, and a
+`docker compose … --profile setup run --rm migrate`, then `docker compose … up -d`, then `docker compose … restart edge s3`
+(Nginx and the gates look the processes' addresses up when they start). Rollback is the previous version, and a
 restore if a migration was not backwards-compatible (migrations follow expand/contract to avoid that).
 
 ## 6. What runs
@@ -56,7 +58,11 @@ restore if a migration was not backwards-compatible (migrations follow expand/co
 | `worker-documents` | `itrms-documents` | the PDF worker (Chromium) |
 | `migrate`, `setup` | `itrms-api` | one-shot: the migrations; the seeds (profile `setup`) |
 | `egress` | `itrms-egress` | the only route out, to `ITRMS_EGRESS_ALLOW` |
+| `s3`, `admin` | `itrms-gate` | one port each between networks: the object store's S3 port; Keycloak's on the loopback |
 | `postgres`, `valkey-*`, `keycloak`, `seaweedfs` | pinned upstream images | the databases, the queues, sign-in, the files |
 
-The processes and the databases are on an internal network with no route out; `edge` alone takes connections, and `egress`
-alone makes them.
+The processes, the databases and Keycloak are on an internal network with no route out; `edge` alone takes connections, and
+`egress` alone makes them (the smoke check tries both ways from the API). The object store is alone on a second internal
+network: its master, volume and filer ports have no authentication, so the processes reach its S3 port only, through `s3`.
+The API believes `X-Forwarded-For` from the internal network's subnet (`ITRMS_SUBNET`) only. The PDF worker's memory is capped
+(`ITRMS_DOCUMENTS_MEMORY`, 1 GB): Chromium's memory is not Node's.

@@ -5,16 +5,18 @@
 #
 #   docker compose -f docker-compose.yml -f production.yml --env-file .env.production up -d
 #
-# Networks: the processes and the databases share `default`, which is internal (no route out). Nginx (`edge`) alone is on
-# `public`, with ports 80 and 443; the API's calls out (the national platform, SMS) go through `egress`, the only service with a
-# route out. Keycloak's admin console and the object store's S3 port answer on 127.0.0.1 only (the management side).
+# Networks: the processes, the databases and Keycloak share `default`, which is internal (no route out). Nginx (`edge`) is
+# on `public` too, with ports 80 and 443; the API's calls out (the national platform, SMS) go through `egress`, the only other
+# service with a route out. The object store sits alone on `storage` (internal too): its master, volume and filer ports have
+# no authentication, so the processes reach only its S3 port, through the `s3` gate. Keycloak's administration answers on
+# the machine's loopback through the `admin` gate, which gives Keycloak itself no route out.
 
 x-app: &app
   restart: unless-stopped
-  networks: [default, storage]
+  networks: [default]
   volumes:
-    # a certificate authority the processes also trust (a bureau's own CA, or the self-signed one of a test install)
-    - ${ITRMS_TLS_DIR:-./tls}:/etc/itrms/tls:ro
+    # the certificate authority the processes also trust (a bureau's own, or a test installation's): that file only
+    - ${ITRMS_TLS_DIR:-./tls}/ca.pem:/etc/itrms/tls/ca.pem:ro
   depends_on: &app-depends
     postgres:
       condition: service_healthy
@@ -54,6 +56,11 @@ services:
     ports: !reset []
   valkey-sessions:
     ports: !reset []
+  seaweedfs:
+    ports: !reset []
+    networks:
+      storage:
+        aliases: [objectstore]
   mailpit:
     profiles: [development]
 
@@ -68,7 +75,34 @@ services:
       KC_HTTP_MANAGEMENT_RELATIVE_PATH: /
       KC_PROXY_HEADERS: xforwarded
     extra_hosts: !reset []
+    ports: !reset []
+
+  # the object store's S3 port, and only that, on the stack's network (under the name the processes use)
+  s3:
+    restart: unless-stopped
+    image: ${ITRMS_REGISTRY:-ghcr.io/wwwabebayehualaro-ai}/itrms-gate:${ITRMS_VERSION:-local}
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: gate }
+    environment:
+      GATE_ROUTES: 8333=objectstore:8333
+    networks:
+      default:
+        aliases: [seaweedfs]
+      storage:
+    depends_on:
+      seaweedfs:
+        condition: service_healthy
+
+  # Keycloak's administration, on the machine's loopback only (over SSH), and its setup by tools/prod-stack.mjs
+  admin:
+    restart: unless-stopped
+    image: ${ITRMS_REGISTRY:-ghcr.io/wwwabebayehualaro-ai}/itrms-gate:${ITRMS_VERSION:-local}
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: gate }
+    environment:
+      GATE_ROUTES: 8080=keycloak:8080
+    ports:
+      - 127.0.0.1:${KEYCLOAK_HOST_PORT:-18080}:8080
     networks: [default, public]
+    depends_on: [keycloak]
 
   # the schema's migrations (the upgrade order: backup → migrate → restart, ADR-0008); `docker compose run --rm migrate`
   migrate:
@@ -100,6 +134,8 @@ services:
       PORT: '4000'
       # on the stack's network, for Nginx (the default is the machine's own loopback)
       HOST: 0.0.0.0
+      # what the BFF and Nginx say a request came from (X-Forwarded-For), believed from the stack's own network only
+      TRUSTED_PROXIES: ${ITRMS_SUBNET:-172.29.0.0/24}
       OIDC_ISSUER: https://app.${ITRMS_DOMAIN:?}/auth/realms/itrms
     healthcheck:
       test:
@@ -133,8 +169,14 @@ services:
     <<: *app
     image: ${ITRMS_REGISTRY:-ghcr.io/wwwabebayehualaro-ai}/itrms-documents:${ITRMS_VERSION:-local}
     build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: documents }
+    # Chromium's memory is not Node's: the container's limit keeps a heavy page from taking the machine
+    mem_limit: ${ITRMS_DOCUMENTS_MEMORY:-1g}
     environment:
-      <<: *worker-env
+      # the PDF worker's own: no identity administration (it never needs Keycloak's secret)
+      <<: [*env, *personal, *store]
+      DATABASE_URL: postgres://itrms_app:${ITRMS_APP_PASSWORD:?}@postgres:5432/itrms
+      DATABASE_SYSTEM_URL: postgres://itrms_system:${ITRMS_SYSTEM_PASSWORD:?}@postgres:5432/itrms
+      VALKEY_QUEUES_URL: redis://valkey-queues:6379/0
       VERIFY_BASE_URL: https://verify.${ITRMS_DOMAIN:?}
       # a container gives Chromium no sandbox of its own; it renders our templates only, offline
       CHROME_NO_SANDBOX: '1'
@@ -174,11 +216,10 @@ services:
       - ${ITRMS_HTTPS_PORT:-443}:443
     networks:
       public:
-      storage:
       default:
         # the processes reach the realm and the verifier by their public names, through Nginx, as browsers do
         aliases: ['app.${ITRMS_DOMAIN:?}', 'verify.${ITRMS_DOMAIN:?}']
-    depends_on: [web, api, keycloak]
+    depends_on: [web, api, keycloak, s3]
 
   # the only way out (the national platform, SMS gateways): HTTPS to the hosts the installation allows
   egress:
@@ -191,6 +232,11 @@ services:
 
 networks:
   default:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${ITRMS_SUBNET:-172.29.0.0/24}
+  storage:
     internal: true
   public:
   outside:

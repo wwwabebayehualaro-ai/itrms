@@ -14,6 +14,8 @@
 **/.env.*
 !**/.env.example
 .git
+# a test installation's certificates and keys (tools/prod-stack.mjs): never in an image or its build cache
+infra/compose/tls
 Documents
 Backend
 docs

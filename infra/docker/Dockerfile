@@ -4,10 +4,14 @@
 #   documents  the PDF worker: the API image with Chromium
 #   web        the staff app (Next.js standalone server, the BFF)
 #   edge       Nginx: TLS, the public exposure rules (infra/compose/nginx) and the verifier's static export
+#   gate       a TCP gate between two networks, one port each (infra/docker/gate.sh)
+#   egress     the only route out: Squid, to an allowlist (infra/docker/egress.sh)
 # Built by CI and published on a release tag (.github/workflows/release.yml); infra/compose/production.yml runs them.
 
-ARG NODE_IMAGE=node:24.20.0-bookworm-slim
-ARG NGINX_IMAGE=nginx:1.27-alpine
+# pinned by digest, as docker-compose.yml's images are (two builds of one release are the same)
+ARG NODE_IMAGE=node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e
+ARG NGINX_IMAGE=nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+ARG ALPINE_IMAGE=alpine:3.22@sha256:bfe7ceb9f09ec0566c48fb93356e45a47a00be5a1dd14fa5b909e7709c66b034
 
 FROM ${NODE_IMAGE} AS build
 ENV CI=1 LEFTHOOK=0 NEXT_TELEMETRY_DISABLED=1
@@ -70,10 +74,15 @@ COPY infra/compose/nginx/itrms.conf.template /etc/nginx/templates/itrms.conf.tem
 COPY infra/compose/nginx/itrms-proxy.conf infra/compose/nginx/itrms-s3-proxy.conf /etc/nginx/
 COPY --from=build /repo/apps/verify/out /srv/verify
 
-FROM alpine:3.22 AS egress
+FROM ${ALPINE_IMAGE} AS egress
 # Squid as the egress proxy: HTTPS (CONNECT) to the hosts in ITRMS_EGRESS_ALLOW (comma-separated), nothing else
 RUN apk add --no-cache squid
 COPY infra/docker/egress.sh /usr/local/bin/egress
 RUN chmod 0755 /usr/local/bin/egress
 EXPOSE 3128
 CMD ["egress"]
+
+FROM ${NGINX_IMAGE} AS gate
+COPY infra/docker/gate.sh /usr/local/bin/gate
+RUN chmod 0755 /usr/local/bin/gate
+CMD ["gate"]
