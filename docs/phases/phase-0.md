@@ -956,13 +956,22 @@ Split from 0.26 on 2026-11-07: what can be built and proven without the demo ser
   check over TLS on its hostnames.
 - **Tests:** the production stack's start and smoke check in CI.
 
-### 0.26b Demo installation, part 2: backups and the restore drill
-Split from 0.26 on 2026-11-07. Needs 0.26a.
-- **Do:** backups pulled by a pgBackRest repository host (a second machine; in CI a second container), encrypted; SeaweedFS
-  `filer.sync` and an append-only restic repository; a restore drill script that restores into a scratch stack and checks files
-  against database rows and the audit log (its hash chain once it has one, ADR-0012, ADR-0031).
-- **Done when:** in CI, a restore of the demo into a scratch stack passes the drill's checks.
-- **Tests:** the restore drill script with its checks, in CI.
+### 0.26b1 Demo installation, part 2a: the database's backups and its restore drill
+Split from 0.26b on 2026-11-07. Needs 0.26a.
+- **Do:** pgBackRest in pull mode (ADR-0012, ADR-0031 item 13): a repository host (in CI a second container; on site a second
+  machine) that takes the backups from PostgreSQL over TLS with client certificates, an encrypted repository, continuous WAL
+  archiving, full and differential backups with the ADR's retention; a restore drill script that restores the latest backup
+  into a scratch PostgreSQL and checks it against the live database (row counts of the business tables, the audit log; its
+  hash chain once it has one).
+- **Done when:** in CI, a backup of the demo is restored into a scratch database and passes the drill's checks.
+- **Tests:** the restore drill with its checks, in CI.
+
+### 0.26b2 Demo installation, part 2b: the files' backups and their restore drill
+Split from 0.26b on 2026-11-07. Needs 0.26b1.
+- **Do:** SeaweedFS `filer.sync` to a second store, and append-only restic snapshots (rest-server); the restore drill extended to
+  the files: restored into a scratch store, every file row's object present with its size and checksum.
+- **Done when:** in CI, the demo's files are restored into a scratch store and match the database's file rows.
+- **Tests:** the files' part of the restore drill, in CI.
 
 ### 0.26c Phase 0 hardening: the security pass and the smoke load test
 Split from 0.26 on 2026-11-07.

@@ -1303,8 +1303,18 @@
           "notes": "Production profile: infra/docker/Dockerfile (api, documents, web, edge, egress), infra/compose/production.yml over the dev compose (internal default network, egress via squid with an allowlist, Keycloak under /auth with its admin on 127.0.0.1), tools/prod-stack.mjs (settings, test certs, roles, bucket, realm, migrations, the demo via demoSteps, a TLS smoke check), CI job 'production', release workflow on v*.*.* tags, runbook docs/operations/installation.md. chrony and LUKS are host steps in the runbook (a container can't keep the host's clock or encrypt its disk)."
         },
         {
-          "id": "0.26b",
-          "title": "Demo installation, part 2: backups and the restore drill",
+          "id": "0.26b1",
+          "title": "Demo installation, part 2a: the database's backups and its restore drill",
+          "status": "in progress",
+          "branch": "task/0.26b-backups",
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.26b2",
+          "title": "Demo installation, part 2b: the files' backups and their restore drill",
           "status": "planned",
           "branch": null,
           "commits": [],
