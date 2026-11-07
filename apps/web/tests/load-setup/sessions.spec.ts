@@ -34,6 +34,8 @@ test('signs the load test’s officers in and keeps their sessions', async ({ br
         const query =
             (await api(page).status('POST', 'v1/submissions/query', { formId: FORM_ID, page: 1, pageSize: 1 })) === 200;
         sessions.push({ username: who.username, sid, csrf, inbox, query });
+        // the browser goes; the session stays in the BFF for k6 (closing a context signs nobody out)
+        await page.context().close();
     }
     // somebody must be able to do each, or the load would measure refusals
     expect(

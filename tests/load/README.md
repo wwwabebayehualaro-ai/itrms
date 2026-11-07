@@ -35,6 +35,9 @@ asks the API, as each officer, which of the two calls their roles allow, and wri
 is never committed. k6 then sends each kind of request only as the officers allowed to make it, so the test measures
 answers and not refusals.
 
+The setup resets the three Boditi demo accounts first (their second factor and their Keycloak sessions, as the e2e
+journeys do): run it on a stack nobody is demonstrating from.
+
 ### Its timings are a dev server's
 
 On a CI runner the web app runs as `next dev`: the BFF of a production build refuses a plain-HTTP origin, and the
