@@ -9,8 +9,8 @@ import { check, sleep } from 'k6';
 import exec from 'k6/execution';
 
 // the setup's sessions, the app's origin and the form it checked the officers' query against
-const setup = JSON.parse(open('./.sessions.json'));
-const APP = setup.base;
+const given = JSON.parse(open('./.sessions.json'));
+const APP = given.base;
 // where the requests go (another name for the same server); the Origin stays the app's own, as the BFF checks it
 const BASE = __ENV.LOAD_BASE || APP;
 
@@ -33,7 +33,7 @@ export const options = {
 };
 
 // the people who may do each (the setup asked the API as each)
-const may = { inbox: setup.sessions.filter((s) => s.inbox), query: setup.sessions.filter((s) => s.query) };
+const may = { inbox: given.sessions.filter((s) => s.inbox), query: given.sessions.filter((s) => s.query) };
 
 /** The cookies and headers a browser sends for a person allowed this kind of request (`n` picks the person). */
 function as(kind, n) {
@@ -56,7 +56,7 @@ const queryPage = (n) =>
     http.post(
         `${BASE}/api/v1/submissions/query`,
         // the first page, as the data viewer opens: a page past the results is refused, and the demo's form may have few
-        JSON.stringify({ formId: setup.formId, page: 1, pageSize: 20 }),
+        JSON.stringify({ formId: given.formId, page: 1, pageSize: 20 }),
         {
             // the Idempotency-Key the client sends with every POST: a UUID v4 from k6's Web Crypto
             headers: { ...as('query', n), 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() },
