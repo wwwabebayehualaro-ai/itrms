@@ -4,8 +4,8 @@ What the presenter does and says in the demo journey of [demo-plan.md](demo-plan
 use, what to do, and the line to say, in **Amharic** (the default, for bureau and zone officials) and **English** (for partners).
 Wolaytta is shown in step 1: its screens fall back to Amharic until the zone's translations arrive (demo-plan.md §5).
 
-The same journey runs as a Playwright test, in Amharic and in English: `apps/web/tests/e2e/demo/journey.spec.ts` (steps 1–10, tasks 0.25c and 0.25d).
-Steps 9 and 10 are task 0.25d; steps 11 and 12 (the figures, the audit trail) follow in task 0.25e.
+The same journey runs as a Playwright test, in Amharic and in English: `apps/web/tests/e2e/demo/journey.spec.ts` (steps 1–12, tasks 0.25c to 0.25e).
+Steps 9 and 10 are task 0.25d; steps 11 and 12 (the figures, the audit trail) task 0.25e.
 
 ## Before the demo
 - `pnpm demo:reset` on the demo stack (under 2 minutes). It builds both demo regions from nothing: the Wolaita zone of the
@@ -111,3 +111,19 @@ approval is now in the **zone** team leader's tasks, not Boditi's.
 
 - **am:** «ቢሮው ለእያንዳንዱ ጽ/ቤት የመጨረሻ ማጽደቂያውን ማን እንደሚሰጥ ይወስናል፤ ክፍያው ግን የክልሉ ደንብ ነው፣ ጽ/ቤት አይቀይረውም።»
 - **en:** "The bureau decides, office by office, who gives the final approval; the fee is the region's rule, which no office changes."
+
+## 11. The figures
+**Do:** as `demo.zone.auditor`, open the requests of the **new driver licence** form in the data viewer: the dates are in the
+Ethiopian calendar, and the view can be filtered, grouped and sorted. **Export** → **Excel (.xlsx)** downloads the requests the
+view shows. The dashboards (cases per office, time limits, revenue per day) are Phase 1's (task 1.16): until then, this is where
+the figures are read.
+
+- **am:** «የጥያቄዎቹ ዝርዝር በኢትዮጵያ አቆጣጠር ይታያል፤ እንደ ኤክሴል ፋይልም ይወርዳል። ዳሽቦርዶቹ በሚቀጥለው ምዕራፍ ይመጣሉ።»
+- **en:** "The requests show in the Ethiopian calendar, and download as an Excel file. The dashboards come in the next phase."
+
+## 12. The audit trail
+**Do:** as `demo.zone.auditor`, open the case of step 2 → **Audit trail**: every change, who made it and when, and the names of the
+fields it changed. The values themselves are not shown: the audit log keeps them for an investigation, not for a screen.
+
+- **am:** «እያንዳንዱ ለውጥ፣ ማን፣ መቼ እንዳደረገው ይመዘገባል፤ ኦዲተሩ የተቀየሩትን መስኮች ስም ያያል፣ የግል መረጃውን ግን አያይም።»
+- **en:** "Every change is on record: who made it and when. The auditor sees which fields changed, never the personal data in them."

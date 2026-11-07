@@ -5,10 +5,11 @@
  * (If-Match); every POST is idempotent (the kernel's interceptor).
  */
 import { Body, Controller, Get, Headers, HttpCode, Inject, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { eq } from 'drizzle-orm';
 import { DATABASE } from '@itrms/kernel/api';
 import { currentContext } from '@itrms/kernel/context';
 import type { Database } from '@itrms/kernel/db';
-import { versionFrom } from '@itrms/kernel/errors';
+import { NotFoundError, versionFrom } from '@itrms/kernel/errors';
 import { Require, currentPrincipal, requestDbContext } from '@itrms/kernel/iam';
 import { createZodDto } from 'nestjs-zod';
 
@@ -19,7 +20,9 @@ import {
     inboxQuerySchema,
     transitionSchema
 } from '../contracts';
+import { caseAuditTrail } from './case-audit';
 import { CasesService, type CaseActor } from './cases.service';
+import { cases } from './workflow.table';
 
 class TransitionDto extends createZodDto(transitionSchema) {}
 class CommentDto extends createZodDto(commentCreateSchema) {}
@@ -51,6 +54,18 @@ export class CasesController {
     @Require('case:read')
     get(@Param('id', ParseUUIDPipe) id: string) {
         return this.db.scoped(requestDbContext(), (tx) => this.cases.get(tx, actor(), id));
+    }
+
+    /** The case's audit trail (task 0.25e): for those who may read the audit log, of what their scope shows. */
+    @Get(':id/audit')
+    @Require('audit-log:read')
+    audit(@Param('id', ParseUUIDPipe) id: string) {
+        return this.db.scoped(requestDbContext(), async (tx) => {
+            // a case the person can't see has no trail they can see either
+            const [found] = await tx.select({ id: cases.id }).from(cases).where(eq(cases.id, id));
+            if (!found) throw new NotFoundError();
+            return caseAuditTrail(tx, id);
+        });
     }
 
     @Post(':id/transitions')

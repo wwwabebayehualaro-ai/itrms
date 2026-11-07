@@ -7,6 +7,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
     Badge,
     Button,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
     IconButton,
     InlineStatus,
     Input,
@@ -20,7 +24,7 @@ import { useCan } from '../host/FormsHost';
 import { useEngineText } from '../host/text';
 import { requestErrorMessage } from '../host/client';
 import { viewKeys, useViewSchema } from './api';
-import { useExportRequests } from './exportApi';
+import { useExportRequests, type ExportFormat } from './exportApi';
 import { FilterBuilder, describeCondition } from './FilterBuilder';
 import { useLabeler } from './labels';
 import './modes';
@@ -181,28 +185,45 @@ export function DataViewer({
                 />
                 <ViewsMenu templateId={templateId} state={state} defaultMode={defaultMode} patch={patch} />
                 {canExport && (
-                    <Button
-                        type="button"
-                        variant="outline"
-                        disabled={exporter.isPending}
-                        onClick={() =>
-                            void (async () =>
-                                notify.success(
-                                    t('form-engine.viewer.export.done', {
-                                        count: await exporter.mutateAsync({
-                                            template_id: templateId,
-                                            filter: state.filter,
-                                            search: state.search || undefined,
-                                            sort: state.sort
-                                        })
-                                    })
-                                ))()
-                        }
-                        title={t('form-engine.viewer.export.title')}
-                    >
-                        {exporter.isPending ? <Spinner /> : <Download />}
-                        {t('form-engine.viewer.export.label')}
-                    </Button>
+                    // as CSV for a program, or as Excel for the person who reads it (task 0.25e)
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={exporter.isPending}
+                                title={t('form-engine.viewer.export.title')}
+                                data-export
+                            >
+                                {exporter.isPending ? <Spinner /> : <Download />}
+                                {t('form-engine.viewer.export.label')}
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            {(['xlsx', 'csv'] as const satisfies readonly ExportFormat[]).map((format) => (
+                                <DropdownMenuItem
+                                    key={format}
+                                    data-export-format={format}
+                                    onSelect={() =>
+                                        void (async () =>
+                                            notify.success(
+                                                t('form-engine.viewer.export.done', {
+                                                    count: await exporter.mutateAsync({
+                                                        template_id: templateId,
+                                                        filter: state.filter,
+                                                        search: state.search || undefined,
+                                                        sort: state.sort,
+                                                        format
+                                                    })
+                                                })
+                                            ))()
+                                    }
+                                >
+                                    {t(`form-engine.viewer.export.${format}`)}
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 )}
                 <IconButton
                     label={t('form-engine.viewer.refresh.label')}

@@ -5581,6 +5581,29 @@
         ]
       }
     },
+    "/api/v1/cases/{id}/audit": {
+      "get": {
+        "operationId": "CasesController_audit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Cases"
+        ]
+      }
+    },
     "/api/v1/cases/{id}/comments": {
       "post": {
         "operationId": "CasesController_comment",

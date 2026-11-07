@@ -7,6 +7,8 @@
  */
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+    CaseAudit,
+    CaseAuditEntry,
     CaseList,
     CaseListItem,
     CaseListQuery,
@@ -24,7 +26,7 @@ import client from './api/client';
 import { createKeys } from './query/keys';
 import { workspaceKeys } from './workspace';
 
-export type { CaseList, CaseListItem, CaseOut, Inbox, InboxItem, PersonRef, SlaState };
+export type { CaseAuditEntry, CaseList, CaseListItem, CaseOut, Inbox, InboxItem, PersonRef, SlaState };
 export type CaseListFilters = Partial<Pick<CaseListQuery, 'list' | 'service' | 'state' | 'number' | 'mine'>>;
 export type InboxFilters = Partial<Pick<InboxQuery, 'claim' | 'sla' | 'state' | 'number'>>;
 
@@ -72,6 +74,14 @@ export function useCase(id: string) {
     return useQuery({
         queryKey: caseKeys.detail(id),
         queryFn: async ({ signal }) => (await client.get<CaseOut>(`v1/cases/${id}`, { signal })).data
+    });
+}
+
+/** A case's audit trail (task 0.25e): read only when it is shown, by those who may read the audit log. */
+export function useCaseAudit(id: string) {
+    return useQuery({
+        queryKey: [...caseKeys.detail(id), 'audit'],
+        queryFn: async ({ signal }) => (await client.get<CaseAudit>(`v1/cases/${id}/audit`, { signal })).data
     });
 }
 

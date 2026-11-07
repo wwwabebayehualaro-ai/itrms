@@ -1272,8 +1272,8 @@
         {
           "id": "0.25e",
           "title": "Demo, part 5: the figures and the audit trail",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.25e-figures-audit",
           "commits": [],
           "evidence": [],
           "blockers": [],
