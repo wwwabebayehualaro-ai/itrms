@@ -20,15 +20,17 @@ const CSP = `add_header Content-Security-Policy "default-src 'none'; script-src 
 function verifyServer(): string {
     const template = readFileSync(join(NGINX_DIR, 'itrms.conf.template'), 'utf8');
     const zone = /limit_req_zone .* zone=itrms_verify:[^\n]*\n/.exec(template)?.[0];
+    // the verification's token-free access-log line (security review 0.26c1 A6)
+    const logFormat = /log_format itrms_verification [^;]*;\n/.exec(template)?.[0];
     const start = template.indexOf('    # the static verify app (apps/verify)');
     const after = template.indexOf('    location / {', start);
     const end = template.indexOf('    }\n', after) + 6;
-    if (!zone || start < 0 || after < 0) throw new Error('the verify server is not in the template');
+    if (!zone || !logFormat || start < 0 || after < 0) throw new Error('the verify server is not in the template');
     const locations = template
         .slice(start, end)
         .replaceAll('proxy_pass http://api:4000;', 'proxy_pass http://127.0.0.1:8081;');
     if (locations.includes('http://api:4000')) throw new Error('the API upstream is still there');
-    return `${zone}limit_req_status 429;
+    return `${zone}${logFormat}limit_req_status 429;
 map $http_upgrade $connection_upgrade { default upgrade; '' close; }
 server {
     listen 80;
