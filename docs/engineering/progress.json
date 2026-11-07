@@ -1255,10 +1255,11 @@
         {
           "id": "0.25d",
           "title": "Demo, part 4: the journey, steps 9 and 10",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.25d-demo-journey-2",
           "commits": [
-            "54fbd63"
+            "54fbd63",
+            "a4b9ac3"
           ],
           "evidence": [
             "GitHub Actions run 42315472431 (PR #42) on 54fbd63 → all jobs success; e2e 43 passed (19.6m), no flaky, incl. demo/journey.spec.ts steps 1–10 in am and en (20 tests); demo:reset 27.5 s and 27.3 s (limit 120 s)",
