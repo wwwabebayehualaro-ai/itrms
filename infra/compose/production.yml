@@ -98,6 +98,8 @@ services:
       <<: [*env, *personal, *store]
       DATABASE_URL: postgres://itrms_app:${ITRMS_APP_PASSWORD:?}@postgres:5432/itrms
       PORT: '4000'
+      # on the stack's network, for Nginx (the default is the machine's own loopback)
+      HOST: 0.0.0.0
       OIDC_ISSUER: https://app.${ITRMS_DOMAIN:?}/auth/realms/itrms
     healthcheck:
       test:

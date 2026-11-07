@@ -14,7 +14,8 @@ allow=$(printf '%s' "${ITRMS_EGRESS_ALLOW:-}" | tr ',' ' ')
     echo 'http_access deny all'
     echo 'cache deny all'
     echo 'access_log stdio:/dev/stdout'
-    echo 'cache_log /dev/stderr'
+    # its own user can't write the container's stderr: its log stays in its own folder
+    echo 'cache_log /var/log/squid/cache.log'
     echo 'pid_filename none'
 } > /etc/squid/squid.conf
 exec squid -N -f /etc/squid/squid.conf
