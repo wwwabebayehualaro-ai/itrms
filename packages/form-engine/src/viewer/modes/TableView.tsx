@@ -134,7 +134,7 @@ export default function TableView({
                                 data-open
                                 className="text-left font-semibold hover:underline focus-visible:underline focus-visible:outline-none"
                                 onClick={() => onOpen(row.original)}
-                                title={cellText(col, row.original, lookups, t)}
+                                title={cellText(col, row.original, lookups, t, labeler.dates)}
                             >
                                 <CellValue col={col} row={row.original} lookups={lookups} />
                             </button>

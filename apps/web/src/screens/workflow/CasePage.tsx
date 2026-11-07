@@ -7,7 +7,7 @@
  */
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { ArrowLeft, FileText, MessageSquare, Route, Send, Workflow } from 'lucide-react';
+import { ArrowLeft, FileText, MessageSquare, Route, Send, ShieldCheck, Workflow } from 'lucide-react';
 import { PrintForm } from '@itrms/form-engine/print';
 import { FormRenderer, useLookupLabels } from '@itrms/form-engine/renderer';
 import {
@@ -43,6 +43,8 @@ import { amendable, lookupIds } from '@/lib/caseAnswers';
 import { useCase, useClaim, useTransition, type CaseOut, type SlaState } from '@/lib/workflow';
 import { CaseDocuments } from '../documents/CaseDocuments';
 import { CasePaymentPanel } from '../fees/CasePaymentPanel';
+import { useCan } from '@/lib/auth/authHooks';
+import { CaseAuditTrail } from './CaseAudit';
 import { CommentBox } from './CommentBox';
 
 const SLA_TONE: Record<SlaState, Tone> = {
@@ -57,6 +59,8 @@ type Action = CaseOut['actionDetails'][number];
 export function CasePage({ id }: { id: string }) {
     const { t, text } = useText();
     const kase = useCase(id);
+    // the audit trail, for those who may read the audit log (an auditor, a unit's head or administrator)
+    const mayAudit = useCan('audit-log:read');
 
     if (kase.isPending) return <Skeleton className="h-64 w-full" />;
     if (kase.error || !kase.data)
@@ -101,6 +105,12 @@ export function CasePage({ id }: { id: string }) {
                         <FileText />
                         {t('workflow.case.answers')}
                     </TabsTrigger>
+                    {mayAudit && (
+                        <TabsTrigger value="audit">
+                            <ShieldCheck />
+                            {t('workflow.case.audit')}
+                        </TabsTrigger>
+                    )}
                 </TabsList>
                 <TabsContent value="timeline" className="flex flex-col gap-4 pt-2">
                     <Timeline c={c} stateName={stateName} />
@@ -109,6 +119,11 @@ export function CasePage({ id }: { id: string }) {
                 <TabsContent value="answers" className="pt-2">
                     <Steps c={c} stateName={stateName} />
                 </TabsContent>
+                {mayAudit && (
+                    <TabsContent value="audit" className="pt-2">
+                        <CaseAuditTrail caseId={c.id} />
+                    </TabsContent>
+                )}
             </Tabs>
         </div>
     );

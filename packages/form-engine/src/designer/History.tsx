@@ -27,6 +27,7 @@ import {
 import { diffDocuments, keepPublishedKeys } from '../core';
 import { usePublishedTemplate, useVersion, useVersions } from '../api/templates';
 import { formatDateTime } from '../host/format';
+import { useDateDisplay } from '../host/FormsHost';
 import { useEngineText } from '../host/text';
 import { fromStored, toStored } from './document';
 import { DiffView } from './PublishReview';
@@ -37,6 +38,7 @@ const WORKING = 'working';
 
 export function HistorySheet({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
     const { t } = useEngineText();
+    const dates = useDateDisplay();
     const actions = useDesignerActions();
     const templateId = useDesigner((s) => s.template.id);
     const doc = useDesigner((s) => s.doc);
@@ -99,14 +101,14 @@ export function HistorySheet({ open, onOpenChange }: { open: boolean; onOpenChan
                                     {v.createdByName
                                         ? t('form-engine.designer.history.savedBy', {
                                               name: v.createdByName,
-                                              date: formatDateTime(v.createdAt, '')
+                                              date: formatDateTime(v.createdAt, '', dates)
                                           })
-                                        : formatDateTime(v.createdAt, '')}
+                                        : formatDateTime(v.createdAt, '', dates)}
                                 </span>
                                 {v.publishedAt && (
                                     <span className="text-muted-foreground">
                                         {t('form-engine.designer.history.publishedAt', {
-                                            date: formatDateTime(v.publishedAt, '')
+                                            date: formatDateTime(v.publishedAt, '', dates)
                                         })}
                                     </span>
                                 )}

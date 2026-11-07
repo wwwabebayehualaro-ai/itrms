@@ -63,6 +63,7 @@ import {
     type SlaState,
     type Transition
 } from '../contracts';
+import type { CaseAudit } from '../contracts';
 import am from '../messages/am.json';
 import en from '../messages/en.json';
 import {
@@ -78,6 +79,7 @@ import {
     type SystemActor,
     type UnitRef
 } from './engine/rules';
+import { caseAuditTrail } from './case-audit';
 import { dueAt } from './sla';
 import { caseEvents, cases, caseTasks, workflowDefinitions, workflowDefinitionVersions } from './workflow.table';
 
@@ -221,6 +223,11 @@ export class CasesService implements FeeCasePort {
         const [row] = await tx.select().from(cases).where(eq(cases.id, id));
         if (!row) throw new NotFoundError();
         return this.out(tx, actor, row);
+    }
+
+    /** The case's audit trail (task 0.25e): who did what and when, the fields changed, never their values. */
+    auditTrail(tx: Tx, id: string): Promise<CaseAudit> {
+        return caseAuditTrail(tx, id);
     }
 
     /** A person's transition out of the case's current state (If-Match: the case's row version). */

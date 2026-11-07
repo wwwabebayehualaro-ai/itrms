@@ -1,8 +1,34 @@
 /**
- * Display formatters of the engine (the legacy en-US formats the web app uses too; Ethiopian dates and the catalogue locale
- * come with task 0.13). Never for money in santim: amounts in form answers are plain numbers until forms get a money field.
+ * Display formatters of the engine. Dates are written in the Ethiopian calendar, in the person's language, unless they chose
+ * the Gregorian (ADR-0015): a screen passes how (`useDateDisplay`, from the host). Never for money in santim: amounts in form
+ * answers are plain numbers until forms get a money field.
  */
+import { addisDayTime, ethiopianDateText } from '../core/dates';
+
 const LOCALE = 'en-US';
+
+/** How a screen writes a date: the person's language and calendar. */
+export interface DateDisplay {
+    language: string;
+    calendar: 'ethiopian' | 'gregorian';
+}
+
+/** Without a host to say otherwise: Amharic, the Ethiopian calendar (ADR-0015). */
+export const DEFAULT_DATE_DISPLAY: DateDisplay = { language: 'am', calendar: 'ethiopian' };
+
+/** An instant or a day as text the Addis Ababa clock reads (a Date or a number is an instant). */
+const isoOf = (value?: string | number | Date | null): string | null => {
+    if (typeof value === 'string') return value;
+    const d = value instanceof Date ? value : typeof value === 'number' ? new Date(value) : null;
+    return d && !Number.isNaN(d.getTime()) ? d.toISOString() : null;
+};
+
+/** The day (and the time, when it has one) in the Ethiopian calendar, or '' when it is not a date. */
+function ethiopian(value: string | number | Date | null | undefined, withTime: boolean, display: DateDisplay): string {
+    const at = addisDayTime(isoOf(value));
+    const day = at ? ethiopianDateText(at.day, { language: display.language, long: true }) : '';
+    return day && withTime && at?.time ? `${day} ${at.time}` : day;
+}
 
 const toDate = (value?: string | number | Date | null) => {
     if (value === undefined || value === null || value === '') return null;
@@ -16,12 +42,22 @@ const toDate = (value?: string | number | Date | null) => {
     return Number.isNaN(d.getTime()) ? null : d;
 };
 
-export function formatDate(value?: string | number | Date | null, empty = 'No date') {
+export function formatDate(
+    value?: string | number | Date | null,
+    empty = 'No date',
+    display: DateDisplay = DEFAULT_DATE_DISPLAY
+) {
+    if (display.calendar === 'ethiopian') return ethiopian(value, false, display) || empty;
     const d = toDate(value);
     return d ? d.toLocaleDateString(LOCALE, { year: 'numeric', month: 'short', day: 'numeric' }) : empty;
 }
 
-export function formatDateTime(value?: string | number | Date | null, empty = 'No date') {
+export function formatDateTime(
+    value?: string | number | Date | null,
+    empty = 'No date',
+    display: DateDisplay = DEFAULT_DATE_DISPLAY
+) {
+    if (display.calendar === 'ethiopian') return ethiopian(value, true, display) || empty;
     const d = toDate(value);
     return d
         ? d.toLocaleString(LOCALE, {

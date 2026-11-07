@@ -10,9 +10,10 @@ import { currentContext } from '@itrms/kernel/context';
 import type { Database } from '@itrms/kernel/db';
 import { versionFrom } from '@itrms/kernel/errors';
 import { Require, currentPrincipal, requestDbContext } from '@itrms/kernel/iam';
-import { createZodDto } from 'nestjs-zod';
+import { ZodResponse, createZodDto } from 'nestjs-zod';
 
 import {
+    caseAuditSchema,
     caseListQuerySchema,
     casePeopleQuerySchema,
     commentCreateSchema,
@@ -22,6 +23,7 @@ import {
 import { CasesService, type CaseActor } from './cases.service';
 
 class TransitionDto extends createZodDto(transitionSchema) {}
+class CaseAuditOut extends createZodDto(caseAuditSchema) {}
 class CommentDto extends createZodDto(commentCreateSchema) {}
 class PeopleQueryDto extends createZodDto(casePeopleQuerySchema) {}
 class InboxQueryDto extends createZodDto(inboxQuerySchema) {}
@@ -51,6 +53,14 @@ export class CasesController {
     @Require('case:read')
     get(@Param('id', ParseUUIDPipe) id: string) {
         return this.db.scoped(requestDbContext(), (tx) => this.cases.get(tx, actor(), id));
+    }
+
+    /** The case's audit trail (task 0.25e): for those who may read the audit log, of what their scope shows. */
+    @Get(':id/audit')
+    @Require('audit-log:read')
+    @ZodResponse({ status: 200, type: CaseAuditOut })
+    audit(@Param('id', ParseUUIDPipe) id: string) {
+        return this.db.scoped(requestDbContext(), (tx) => this.cases.auditTrail(tx, id));
     }
 
     @Post(':id/transitions')

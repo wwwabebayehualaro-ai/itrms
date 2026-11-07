@@ -1,5 +1,5 @@
 /**
- * The demo journey, steps 1–10 of docs/demo-plan.md §3 (tasks 0.25c, 0.25d), as docs/demo-script.md tells it: once in Amharic and once in
+ * The demo journey, steps 1–12 of docs/demo-plan.md §3 (tasks 0.25c to 0.25e), as docs/demo-script.md tells it: once in Amharic and once in
  * English, on the data `pnpm demo:reset` makes. Also the regression suite of the licence services for later phases.
  *
  *   1  sign-in with a second factor; the sign-in screen in Amharic; the app in Wolaytta (falling back to Amharic) and back
@@ -15,12 +15,15 @@
  *      by the zone's finance officer; the same receipt refused on another renewal
  *  10  the bureau sends Boditi's final approvals to the zone (an office's override), not its fee rule (not an office's to
  *      change); Boditi's next case is approved at the zone
+ *  11  the figures: the zone's auditor reads the licence requests in the data viewer, in the Ethiopian calendar, and takes
+ *      them as Excel (the dashboards are task 1.16's)
+ *  12  the case's audit trail: who did what and when, the fields changed, never their values
  */
 import { randomInt } from 'node:crypto';
 import { inflateSync } from 'node:zlib';
 
 import { addisDay, addMonths } from '@itrms/competency/contracts';
-import { toEthiopian } from '@itrms/ethiopian-calendar';
+import { addisEthiopianDate, MONTH_NAMES, toEthiopian } from '@itrms/ethiopian-calendar';
 import { expect, test, type Page } from '@playwright/test';
 
 import {
@@ -51,7 +54,8 @@ const ZONE = {
     records: { id: '0199f0a0-d000-7000-8000-000000000401', username: 'demo.dual' },
     lead: { id: '0199f0a0-d000-7000-8000-000000000103', username: 'demo.zone.lead' },
     examiner: { id: '0199f0a0-d000-7000-8000-000000000106', username: 'demo.zone.examiner' },
-    finance: { id: '0199f0a0-d000-7000-8000-000000000108', username: 'demo.zone.finance' }
+    finance: { id: '0199f0a0-d000-7000-8000-000000000108', username: 'demo.zone.finance' },
+    auditor: { id: '0199f0a0-d000-7000-8000-000000000109', username: 'demo.zone.auditor' }
 } as const;
 
 interface LicenceRow {
@@ -193,7 +197,7 @@ function verificationUrl(pdf: Buffer): string {
 for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
     const W = WORDS[lang];
 
-    test.describe(`the demo journey, steps 1–10 (${lang})`, () => {
+    test.describe(`the demo journey (${lang})`, () => {
         test.describe.configure({ mode: 'serial' });
 
         let records: Page;
@@ -616,6 +620,57 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
             if (!zoneLead) throw new Error('step 9 signed the zone in');
             await act(zoneLead, nextCase, 'approve', W.approve);
             await inState(zoneLead, nextCase, 'issued');
+        });
+
+        test('11. shows the zone’s auditor the licence requests, in the Ethiopian calendar, and gives them as Excel', async ({
+            browser
+        }) => {
+            test.setTimeout(300_000);
+            zone.auditor = await person(browser, ZONE.auditor);
+            const auditor = zone.auditor;
+            await speaks(auditor, lang);
+            // the requests of the new-licence form, as its data viewer shows them (the dashboards of task 1.16 come later)
+            const { steps } = await api(auditor).get<{ steps: { formId: string | null }[] }>(`v1/cases/${caseId}`);
+            const formId = steps.find((s) => s.formId)?.formId;
+            if (!formId) throw new Error('the case has its request');
+            await auditor.goto(`/submitted-forms/template/${formId}?view=table`);
+            const table = auditor.locator('[data-viewer]');
+            await expect(table.locator('tbody tr').first()).toBeVisible();
+            // dates as the bureau reads them: the Ethiopian year and month of the medical examination of step 2
+            // the day each was filed, as the bureau reads it: today's Ethiopian month and year, and no Gregorian date
+            const now = addisEthiopianDate(new Date());
+            await expect(table).toContainText(`${MONTH_NAMES[lang][now.month - 1] ?? ''}`);
+            await expect(table).toContainText(String(now.year));
+            await expect(table).not.toContainText(
+                /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, 20\d\d/
+            );
+            // and the same requests as an Excel file
+            const download = auditor.waitForEvent('download');
+            await auditor.locator('[data-export]').click();
+            await auditor.locator('[data-export-format="xlsx"]').click();
+            expect((await download).suggestedFilename()).toMatch(/\.xlsx$/);
+        });
+
+        test('12. shows the auditor who did what to the case and when, and none of the applicant’s data', async () => {
+            test.setTimeout(240_000);
+            const auditor = zone.auditor;
+            if (!auditor) throw new Error('step 11 signed the auditor in');
+            await auditor.goto(`/cases/${caseId}`);
+            await auditor.getByRole('tab', { name: W.auditTab }).click();
+            const trail = auditor.locator('[data-audit]');
+            await expect(trail.locator('[data-audit-row]').first()).toBeVisible();
+            // the people of steps 2 to 7, by name
+            await expect(
+                trail.locator('[data-actor]', { hasText: 'Boditi Records Officer (demo)' }).first()
+            ).toBeVisible();
+            await expect(
+                trail.locator('[data-actor]', { hasText: 'Boditi Competency Team Leader (demo)' }).first()
+            ).toBeVisible();
+            // the fields a step changed, never what they hold
+            await expect(trail.locator('[data-fields]').first()).toBeVisible();
+            await expect(trail).not.toContainText(applicant.givenAm);
+            await expect(trail).not.toContainText(applicant.givenEn);
+            await expect(trail).not.toContainText(W.unreadable);
         });
     });
 }

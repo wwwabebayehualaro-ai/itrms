@@ -67,7 +67,8 @@ export const WORDS = {
         change: 'ቀይር',
         save: 'አስቀምጥ',
         ruleParent: 'ከበላዩ ያለው ጽ/ቤት',
-        overrideReason: 'የመጨረሻ ማጽደቂያ በዞኑ'
+        overrideReason: 'የመጨረሻ ማጽደቂያ በዞኑ',
+        auditTab: 'የኦዲት መዝገብ'
     },
     en: {
         applicant: 'Applicant',
@@ -114,7 +115,8 @@ export const WORDS = {
         change: 'Change',
         save: 'Save',
         ruleParent: 'The office above it',
-        overrideReason: 'Final approval at the zone'
+        overrideReason: 'Final approval at the zone',
+        auditTab: 'Audit trail'
     }
 } as const satisfies Record<Lang, Record<string, string>>;
 

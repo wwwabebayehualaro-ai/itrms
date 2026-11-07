@@ -12,6 +12,9 @@ import { isRequestError, type FormsClient, type FormsResponse } from '../host/cl
 import { DIRECT_EXPORT_ROWS, FORMS_API, filterKeys, sortKeys, toWireKey, type WireQueryResult } from '../api/wire';
 import type { FilterGroup, SortKey } from './types';
 
+/** The files an export is made as (the server's EXPORT_FORMATS). */
+export type ExportFormat = 'csv' | 'xlsx';
+
 /** How often a background export is looked at while it is made, and for how long at most. */
 const POLL_MS = 2_000;
 const POLL_FOR_MS = 10 * 60_000;
@@ -64,7 +67,7 @@ async function inBackground(
 }
 
 /**
- * Export the requests the viewer is showing (same filter, search and sort) as CSV. The server resolves names and labels
+ * Export the requests the viewer is showing (same filter, search and sort) as CSV or Excel (task 0.25e). The server resolves names and labels
  * and audits it. Up to DIRECT_EXPORT_ROWS rows come at once; more are made in the background and downloaded when ready.
  */
 export function useExportRequests() {
@@ -80,10 +83,17 @@ export function useExportRequests() {
     }, []);
     const alive = () => mounted.current;
     return useMutation({
-        mutationFn: async (req: { template_id: string; filter?: FilterGroup; search?: string; sort?: SortKey[] }) => {
+        mutationFn: async (req: {
+            template_id: string;
+            filter?: FilterGroup;
+            search?: string;
+            sort?: SortKey[];
+            format?: ExportFormat;
+        }) => {
+            const format = req.format ?? 'csv';
             const body = {
                 formId: req.template_id,
-                format: 'csv' as const,
+                format,
                 ...(req.filter ? { filter: filterKeys(req.filter, toWireKey) } : {}),
                 ...(req.search ? { search: req.search } : {}),
                 sort: sortKeys(req.sort, toWireKey)
@@ -107,7 +117,7 @@ export function useExportRequests() {
                     return inBackground(client, body, alive, t);
                 throw error;
             }
-            saveBlob(res.data, filenameFromDisposition(res.headers['content-disposition'], 'requests.csv'));
+            saveBlob(res.data, filenameFromDisposition(res.headers['content-disposition'], `requests.${format}`));
             return Number(res.headers['x-row-count'] ?? 0);
         },
         // a failed export arrives as a blob: say what the server said, not "Failed"

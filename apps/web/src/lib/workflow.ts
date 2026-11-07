@@ -7,6 +7,8 @@
  */
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+    CaseAudit,
+    CaseAuditEntry,
     CaseList,
     CaseListItem,
     CaseListQuery,
@@ -24,7 +26,7 @@ import client from './api/client';
 import { createKeys } from './query/keys';
 import { workspaceKeys } from './workspace';
 
-export type { CaseList, CaseListItem, CaseOut, Inbox, InboxItem, PersonRef, SlaState };
+export type { CaseAuditEntry, CaseList, CaseListItem, CaseOut, Inbox, InboxItem, PersonRef, SlaState };
 export type CaseListFilters = Partial<Pick<CaseListQuery, 'list' | 'service' | 'state' | 'number' | 'mine'>>;
 export type InboxFilters = Partial<Pick<InboxQuery, 'claim' | 'sla' | 'state' | 'number'>>;
 
@@ -75,6 +77,14 @@ export function useCase(id: string) {
     });
 }
 
+/** A case's audit trail (task 0.25e): read only when it is shown, by those who may read the audit log. */
+export function useCaseAudit(id: string) {
+    return useQuery({
+        queryKey: [...caseKeys.detail(id), 'audit'],
+        queryFn: async ({ signal }) => (await client.get<CaseAudit>(`v1/cases/${id}/audit`, { signal })).data
+    });
+}
+
 /** What changes a case: the case as it is afterwards replaces the cached one, and the inbox is read again. */
 function useCaseChange<V>(id: string, run: (input: V) => Promise<CaseOut>) {
     const queries = useQueryClient();
@@ -82,6 +92,7 @@ function useCaseChange<V>(id: string, run: (input: V) => Promise<CaseOut>) {
         mutationFn: run,
         onSuccess: (after) => {
             queries.setQueryData(caseKeys.detail(id), after);
+            void queries.invalidateQueries({ queryKey: [...caseKeys.detail(id), 'audit'] });
             void queries.invalidateQueries({ queryKey: inboxKeys.all });
             void queries.invalidateQueries({ queryKey: caseKeys.lists() });
             void queries.invalidateQueries({ queryKey: workspaceKeys.all });

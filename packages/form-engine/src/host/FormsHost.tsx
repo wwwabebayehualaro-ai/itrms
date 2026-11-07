@@ -5,9 +5,10 @@
  * links. The app builds one `FormsHost` at module scope (its hooks never change) and wraps its screens in
  * `<FormsHostProvider host={...}>`. Nothing in core/ uses this: core runs in the API too.
  */
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, type ReactNode, useMemo } from 'react';
 
 import type { FormsClient } from './client';
+import type { DateDisplay } from './format';
 
 /** The signed-in person as templates see it (`{{user.*}}`, `user.role` conditions) and as the engine checks rights. */
 export interface FormsUser {
@@ -54,6 +55,8 @@ export interface FormsHost {
      * are drawn in it, and the builder translates into them. Without it: the page's language, Amharic and English.
      */
     useLanguages?: () => FormsLanguages;
+    /** A hook: the calendar the person reads dates in (ADR-0015); without it, the Ethiopian. */
+    useCalendar?: () => 'ethiopian' | 'gregorian';
 }
 
 export interface FormsLanguages {
@@ -80,6 +83,20 @@ export function useFormsHost(): FormsHost {
 export const useFormsClient = () => useFormsHost().client;
 
 /** The language forms are drawn in, and the installation's languages. */
+const ethiopianCalendar = () => 'ethiopian' as const;
+
+/**
+ * How the engine's screens write dates (task 0.25e): in the screen's language and the person's calendar (the host's
+ * `useCalendar`; without one, the Ethiopian, ADR-0015). A screen re-renders when either changes.
+ */
+export function useDateDisplay(): DateDisplay {
+    const host = useContext(HostContext);
+    const language = useScreenLanguage();
+    const { useCalendar = ethiopianCalendar } = host ?? {};
+    const calendar = useCalendar();
+    return useMemo(() => ({ language, calendar }), [language, calendar]);
+}
+
 export function useFormsLanguages(): FormsLanguages {
     const { useLanguages = noLanguages } = useFormsHost();
     return useLanguages();

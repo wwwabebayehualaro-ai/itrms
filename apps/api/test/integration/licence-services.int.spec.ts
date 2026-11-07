@@ -41,7 +41,10 @@ const SUB = {
     zoneOfficer: '0199f0a0-d000-7000-8000-00000000d606',
     finance: '0199f0a0-d000-7000-8000-000000000108',
     cashier: '0199f0a0-d000-7000-8000-000000000303',
-    damotRecords: '0199f0a0-d000-7000-8000-000000000202'
+    damotRecords: '0199f0a0-d000-7000-8000-000000000202',
+    // the demo's own (apps/api/seed/users/wolaita.demo.yaml): the zone's auditor, Damot Gale's head
+    auditor: '0199f0a0-d000-7000-8000-000000000109',
+    damotHead: '0199f0a0-d000-7000-8000-000000000201'
 };
 const NEW = 'DVC-03';
 const RENEW = 'DVC-04';
@@ -262,6 +265,8 @@ beforeAll(async () => {
     as.zoneOfficer = { sub: SUB.zoneOfficer, unit: zone };
     as.finance = { sub: SUB.finance, unit: zone };
     as.damotRecords = { sub: SUB.damotRecords, unit: await api.unit('SER', 'WOL-DAMOT-GALE') };
+    as.auditor = { sub: SUB.auditor, unit: zone };
+    as.damotHead = { sub: SUB.damotHead, unit: await api.unit('SER', 'WOL-DAMOT-GALE') };
 
     const root = { id: region.id, regionId: region.regionId };
     await api.installer.scoped({}, async (tx) => {
@@ -601,6 +606,58 @@ describe('a new licence', () => {
         );
         expect(set.statusCode, set.body).toBe(422);
         expect(set.body).toContain('approval_unit');
+    });
+});
+
+describe('a case’s audit trail', () => {
+    interface Line {
+        action: string;
+        table: string | null;
+        event: string | null;
+        actor: { id: string; name: string } | null;
+        fields: string[];
+    }
+
+    it('tells an auditor above the office who did what and when, with the fields changed but none of their values', async () => {
+        const person = await registered(yearsAgo(30));
+        await trained(person);
+        let c = await filed(NEW, application(person));
+        c = await moved(c, as.officer, 'submit');
+        c = await moved(c, as.officer, 'return', { comment: 'The scan of the ID is unreadable' });
+
+        const res = await api.call('GET', `/api/v1/cases/${c.id}/audit`, as.auditor);
+        expect(res.statusCode, res.body).toBe(200);
+        const { items } = res.json<{ items: Line[] }>();
+        // the case, its request and its steps, by the office's people
+        expect(items.some((l) => l.table === 'workflow.cases' && l.action === 'insert')).toBe(true);
+        expect(items.some((l) => l.table === 'forms.submissions')).toBe(true);
+        // a step taken on: the task's update names its case beside the change
+        expect(items.some((l) => l.table === 'workflow.case_tasks' && l.action === 'update')).toBe(true);
+        expect(
+            items.some((l) => l.table === 'workflow.cases' && l.action === 'update' && l.fields.includes('state'))
+        ).toBe(true);
+        // each by the person who did it, by name (the test's officer acts at Boditi)
+        expect(items.filter((l) => l.actor !== null).length).toBeGreaterThan(0);
+        expect(items.every((l) => l.actor === null || l.actor.name !== '')).toBe(true);
+        // never a value: not the applicant, not the comment, not the new state
+        expect(res.body).not.toContain(person);
+        expect(res.body).not.toContain('unreadable');
+        expect(res.body).not.toContain('"draft"');
+
+        // the read is on record, and the trail shows it
+        const again = await api.call('GET', `/api/v1/cases/${c.id}/audit`, as.auditor);
+        expect(again.json<{ items: Line[] }>().items.some((l) => l.event === 'case.audit_read')).toBe(true);
+    });
+
+    it('is for those who may read the audit log, of the cases their scope shows', async () => {
+        const person = await registered(yearsAgo(31));
+        await trained(person);
+        const c = await filed(NEW, application(person));
+        // a licensing officer works the case, but doesn't read the audit log
+        expect((await api.call('GET', `/api/v1/cases/${c.id}/audit`, as.officer)).statusCode).toBe(403);
+        // a woreda's head reads its own audit, and Boditi's case is not in its scope
+        expect((await api.call('GET', `/api/v1/cases/${c.id}/audit`, as.damotHead)).statusCode).toBe(404);
+        expect((await api.call('GET', `/api/v1/cases/${c.id}/audit`, as.auditor)).statusCode).toBe(200);
     });
 });
 

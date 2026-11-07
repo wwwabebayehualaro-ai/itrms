@@ -78,6 +78,7 @@ The presenter's words, step by step: [demo-script.md](demo-script.md).
 
     The fee rule cannot be overridden (a disallowed key).
 11. **Dashboards:** cases per office, SLA status, revenue per day, the data viewer with Ethiopian dates, and an Excel export.
+    Until the dashboards of task 1.16, the figures are read in the data viewer, with its Excel export.
 12. **Audit:** the case's audit trail, showing who did what and when.
 
 ## 4. Demo data (generated; never real people) [task 0.25]

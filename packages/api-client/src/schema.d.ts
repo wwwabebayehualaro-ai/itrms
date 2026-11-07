@@ -97,6 +97,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cases/{id}/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CasesController_audit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/cases/{id}/comments": {
         parameters: {
             query?: never;
@@ -2021,6 +2037,23 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        CaseAuditOut_Output: {
+            items: {
+                /** @enum {string} */
+                action: "insert" | "update" | "delete" | "event";
+                actor: {
+                    /** Format: uuid */
+                    id: string;
+                    name: string;
+                } | null;
+                /** Format: date-time */
+                at: string;
+                event: string | null;
+                fields: string[];
+                table: string | null;
+            }[];
+            truncated: boolean;
+        };
         CommentDto: {
             /** @default [] */
             mentions: string[];
@@ -3370,6 +3403,27 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    CasesController_audit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseAuditOut_Output"];
+                };
             };
         };
     };

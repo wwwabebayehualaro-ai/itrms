@@ -184,6 +184,7 @@ test('every mode of the data viewer shows the requests as the API counts them', 
         await expect(approverPage.locator('[data-viewer] tbody tr')).toHaveCount(ROWS.length);
         const download = approverPage.waitForEvent('download');
         await approverPage.getByRole('button', { name: am('form-engine.viewer.export.label') }).click();
+        await approverPage.getByRole('menuitem', { name: am('form-engine.viewer.export.csv') }).click();
         expect((await download).suggestedFilename()).toMatch(/\.csv$/);
     } finally {
         await switchOff(author, formId);

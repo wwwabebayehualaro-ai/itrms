@@ -12,7 +12,7 @@ import { isReported } from '@/lib/api/errors';
 import { useLocale } from 'next-intl';
 import { useAuthUser } from '@/lib/auth/authHooks';
 import { useAuthStore } from '@/lib/auth/authStore';
-import { formLanguages } from '@/lib/preferences';
+import { formLanguages, usePreferences } from '@/lib/preferences';
 import logger from '@/lib/logger';
 import { ROLE_KEYS } from '@/shell/role-keys.generated';
 
@@ -52,6 +52,8 @@ const host: FormsHost = {
     useUser: useAuthUser,
     useLocation,
     useLanguages,
+    // the engine writes its dates in the person's calendar (Ethiopian unless they chose the Gregorian, ADR-0015)
+    useCalendar: () => usePreferences((s) => s.calendar),
     roleKeys: ROLE_KEYS,
     dataSourceAllowList: DATA_SOURCE_ALLOWLIST,
     templatesHref: '/dynamic-template/saved-templates',

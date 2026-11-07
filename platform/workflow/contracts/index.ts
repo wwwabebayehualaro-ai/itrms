@@ -218,6 +218,22 @@ const caseActionSchema = z.object({
     amends: z.uuid().nullable()
 });
 
+/** One line of a case's audit trail (task 0.25e): who did what and when, and the names of the fields changed, never their values. */
+export const caseAuditEntrySchema = z.object({
+    at: z.iso.datetime(),
+    action: z.enum(['insert', 'update', 'delete', 'event']),
+    /** the schema-qualified table of a row change (`workflow.cases`) */
+    table: z.string().nullable(),
+    /** the kind of an event (`document.printed`) */
+    event: z.string().nullable(),
+    actor: z.object({ id: z.uuid(), name: z.string() }).nullable(),
+    fields: z.array(z.string())
+});
+/** Newest first; `truncated` when the case has more lines than a trail gives (CASE_AUDIT_LIMIT). */
+export const caseAuditSchema = z.object({ items: z.array(caseAuditEntrySchema), truncated: z.boolean() });
+export type CaseAudit = z.infer<typeof caseAuditSchema>;
+export type CaseAuditEntry = z.infer<typeof caseAuditEntrySchema>;
+
 export const caseSchema = z.object({
     id: z.uuid(),
     /** the row version, for If-Match */
