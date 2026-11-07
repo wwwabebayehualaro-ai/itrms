@@ -1,0 +1,14 @@
+# The monthly restore drill (ADR-0012, task 0.26b1): the latest backup restored into a scratch database and checked against the
+# live one; its report in infra/compose/drill-reports. Installed on the installation's machine with itrms-drill.timer
+# (docs/operations/installation.md §7). A failed drill fails the unit: the monitoring alerts on it (OnFailure, or the journal).
+[Unit]
+Description=ITRMS monthly restore drill
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+# the checkout of the release the installation runs
+WorkingDirectory=/opt/itrms
+ExecStart=/usr/bin/node tools/prod-stack.mjs drill
+TimeoutStartSec=8h

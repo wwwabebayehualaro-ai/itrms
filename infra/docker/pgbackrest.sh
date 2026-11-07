@@ -2,8 +2,8 @@
 # pgBackRest in the production profile (task 0.26b1, ADR-0012, ADR-0031 item 13): one script for its three places.
 #   itrms-pgbackrest postgres ...   the database: its TLS server (the repository host pulls from it), then PostgreSQL itself
 #   itrms-pgbackrest backup         the repository host: the encrypted repository, its TLS server, the nightly schedule
-#   itrms-pgbackrest drill          a scratch database: the latest backup restored into an emptied volume, recovered to the end
-#                                   of the archive, then PostgreSQL with no archiving (a drill never writes to the repository)
+#   itrms-pgbackrest drill          a scratch database: the latest backup restored into an emptied volume, recovered to the
+#                                   restore point DRILL_TARGET (or the end of the archive), then PostgreSQL with no archiving
 #   itrms-pgbackrest restore ...    a real restore into the database's emptied volume (pgBackRest's restore options), then exit
 # Mutual TLS: each side presents its certificate (CN postgres, backup or drill), signed by the installation's backup CA, and the
 # servers accept only the CNs named in tls-server-auth. Certificates come in /run/pgbackrest-tls and are copied where only the
@@ -63,10 +63,11 @@ pg1-socket-path=/var/run/postgresql
 EOF
     chown -R pgbackrest /etc/pgbackrest /var/lib/pgbackrest
     chmod 0600 /etc/pgbackrest/pgbackrest.conf "$tls/me.key"
-    # the schedule (Addis Ababa time): a full backup on Sunday night, a differential the other nights; to the container's log
-    cat > /etc/crontabs/pgbackrest << 'EOF'
-0 1 * * 0 pgbackrest --stanza=itrms --type=full backup >> /proc/1/fd/1 2>&1
-0 1 * * 1-6 pgbackrest --stanza=itrms --type=diff backup >> /proc/1/fd/1 2>&1
+    # the schedule (Addis Ababa time): a full backup on Sunday night, a differential the other nights. Root's crontab, stepping
+    # down to pgbackrest: root can write to the container's log (PID 1's stdout), the pgbackrest user cannot
+    cat > /etc/crontabs/root << EOF
+0 1 * * 0 $as pgbackrest pgbackrest --stanza=itrms --type=full backup >> /proc/1/fd/1 2>&1
+0 1 * * 1-6 $as pgbackrest pgbackrest --stanza=itrms --type=diff backup >> /proc/1/fd/1 2>&1
 EOF
     crond -b
     exec "$as" pgbackrest pgbackrest server
@@ -99,7 +100,11 @@ if [ "$role" = drill ]; then
     find "$data" -mindepth 1 -delete
     chown postgres "$data"
     chmod 0700 "$data"
-    "$as" postgres pgbackrest --stanza=itrms restore
+    if [ -n "${DRILL_TARGET:-}" ]; then
+        "$as" postgres pgbackrest --stanza=itrms restore --type=name "--target=$DRILL_TARGET" --target-action=promote
+    else
+        "$as" postgres pgbackrest --stanza=itrms restore
+    fi
     exec docker-entrypoint.sh postgres -c archive_mode=off
 fi
 

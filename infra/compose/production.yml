@@ -64,7 +64,9 @@ services:
       - -c
       - archive_timeout=300
     volumes:
-      - ${ITRMS_BACKUP_TLS_DIR:-./backup-tls}:/run/pgbackrest-tls:ro
+      - ${ITRMS_BACKUP_TLS_DIR:-./backup-tls}/ca.pem:/run/pgbackrest-tls/ca.pem:ro
+      - ${ITRMS_BACKUP_TLS_DIR:-./backup-tls}/postgres.crt:/run/pgbackrest-tls/postgres.crt:ro
+      - ${ITRMS_BACKUP_TLS_DIR:-./backup-tls}/postgres.key:/run/pgbackrest-tls/postgres.key:ro
   valkey-queues:
     ports: !reset []
   valkey-sessions:
@@ -245,7 +247,9 @@ services:
       TZ: Africa/Addis_Ababa
     volumes:
       - pgbackrest-repo:/var/lib/pgbackrest
-      - ${ITRMS_BACKUP_TLS_DIR:-./backup-tls}:/run/pgbackrest-tls:ro
+      - ${ITRMS_BACKUP_TLS_DIR:-./backup-tls}/ca.pem:/run/pgbackrest-tls/ca.pem:ro
+      - ${ITRMS_BACKUP_TLS_DIR:-./backup-tls}/backup.crt:/run/pgbackrest-tls/backup.crt:ro
+      - ${ITRMS_BACKUP_TLS_DIR:-./backup-tls}/backup.key:/run/pgbackrest-tls/backup.key:ro
     networks: [default]
 
   # the restore drill's scratch database (`node tools/prod-stack.mjs drill`): the latest backup, recovered, nothing archived
@@ -255,16 +259,23 @@ services:
     entrypoint: ['itrms-pgbackrest', 'drill']
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      # the restore point the drill made in its snapshot of the live database (prod-stack drill)
+      DRILL_TARGET: ${DRILL_TARGET:-}
       TZ: Africa/Addis_Ababa
     volumes:
       - drill-data:/var/lib/postgresql/data
-      - ${ITRMS_BACKUP_TLS_DIR:-./backup-tls}:/run/pgbackrest-tls:ro
+      - ${ITRMS_BACKUP_TLS_DIR:-./backup-tls}/ca.pem:/run/pgbackrest-tls/ca.pem:ro
+      - ${ITRMS_BACKUP_TLS_DIR:-./backup-tls}/drill.crt:/run/pgbackrest-tls/drill.crt:ro
+      - ${ITRMS_BACKUP_TLS_DIR:-./backup-tls}/drill.key:/run/pgbackrest-tls/drill.key:ro
     networks: [default]
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U postgres -d itrms']
       interval: 5s
       timeout: 5s
-      retries: 120
+      retries: 12
+      # the restore runs before PostgreSQL starts: hours for a large database, not counted as failures
+      start_period: 6h
+      start_interval: 5s
 
   # the only way out (the national platform, SMS gateways): HTTPS to the hosts the installation allows
   egress:

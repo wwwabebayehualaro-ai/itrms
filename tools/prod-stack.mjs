@@ -14,7 +14,7 @@
 // Backups (task 0.26b1): pgBackRest, its repository host pulling over mutual TLS with certificates from infra/compose/backup-tls.
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { request } from 'node:https';
 import { request as plainRequest } from 'node:http';
 import { dirname, join } from 'node:path';
@@ -26,6 +26,7 @@ const ENV = join(DIR, '.env.production');
 const OVERLAY = join(DIR, 'production.yml');
 const TLS = join(DIR, 'tls');
 const BACKUP_TLS = join(DIR, 'backup-tls');
+const DRILL_REPORTS = join(DIR, 'drill-reports');
 
 // dev-infra's helpers, pointed at this profile's settings and Compose file
 process.env.ITRMS_ENV_FILE = ENV;
@@ -68,21 +69,31 @@ function settings() {
     return { ...derived, ...env };
 }
 
-/** A self-signed set for a test installation: a CA, and the app's and the verifier's certificates it signs. */
-function certificates() {
-    if (existsSync(join(TLS, 'ca.pem'))) return;
-    mkdirSync(TLS, { recursive: true });
-    const ssl = (...args) => execFileSync('openssl', args, { cwd: TLS, stdio: ['ignore', 'ignore', 'inherit'] });
+/**
+ * A CA and the certificates it signs, made in a scratch folder and moved into place once all are signed; the CA's key is then
+ * deleted, so nothing else can be issued under it. A complete set is kept. A partial one (a bureau's set missing a file) stops
+ * the start with what it lacks rather than being overwritten.
+ */
+function issue(dir, { ca, days, bits, leaves }) {
+    const outputs = ['ca.pem', ...leaves.flatMap((leaf) => [leaf.key, leaf.cert])];
+    const missing = outputs.filter((file) => !existsSync(join(dir, file)));
+    if (missing.length === 0) return false;
+    if (missing.length < outputs.length)
+        throw new Error(`${dir} is incomplete (no ${missing.join(', ')}): complete it, or empty it for a new test set`);
+    const work = `${dir}.new`;
+    rmSync(work, { recursive: true, force: true });
+    mkdirSync(work, { recursive: true });
+    const ssl = (...args) => execFileSync('openssl', args, { cwd: work, stdio: ['ignore', 'ignore', 'inherit'] });
     ssl(
         'req',
         '-x509',
         '-newkey',
-        'rsa:2048',
+        `rsa:${bits}`,
         '-nodes',
         '-days',
-        '30',
+        String(days),
         '-subj',
-        '/CN=ITRMS test CA',
+        `/CN=${ca}`,
         '-keyout',
         'ca.key',
         '-out',
@@ -92,117 +103,76 @@ function certificates() {
         '-addext',
         'keyUsage=critical,keyCertSign,cRLSign'
     );
-    for (const name of ['app', 'verify']) {
-        const host = `${name}.${DOMAIN}`;
-        writeFileSync(join(TLS, `${name}.ext`), `subjectAltName=DNS:${host}\nextendedKeyUsage=serverAuth\n`);
+    for (const [i, leaf] of leaves.entries()) {
+        writeFileSync(join(work, `${i}.ext`), `subjectAltName=DNS:${leaf.cn}\nextendedKeyUsage=${leaf.usage}\n`);
         ssl(
             'req',
             '-newkey',
-            'rsa:2048',
+            `rsa:${bits}`,
             '-nodes',
             '-subj',
-            `/CN=${host}`,
+            `/CN=${leaf.cn}`,
             '-keyout',
-            `${name}.key.pem`,
+            leaf.key,
             '-out',
-            `${name}.csr`
+            `${i}.csr`
         );
         ssl(
             'x509',
             '-req',
             '-in',
-            `${name}.csr`,
+            `${i}.csr`,
             '-CA',
             'ca.pem',
             '-CAkey',
             'ca.key',
             '-CAcreateserial',
             '-days',
-            '30',
+            String(days),
             '-extfile',
-            `${name}.ext`,
+            `${i}.ext`,
             '-out',
-            `${name}.crt`
+            `${i}.crt`
         );
-        writeFileSync(
-            join(TLS, `${name}.fullchain.pem`),
-            readFileSync(join(TLS, `${name}.crt`), 'utf8') + readFileSync(join(TLS, 'ca.pem'), 'utf8')
-        );
+        const signed = readFileSync(join(work, `${i}.crt`), 'utf8');
+        writeFileSync(join(work, leaf.cert), leaf.chain ? signed + readFileSync(join(work, 'ca.pem'), 'utf8') : signed);
     }
-    // the CA's key signed these two and is gone: nothing else can be issued under the CA the processes trust
-    for (const file of ['ca.key', 'ca.srl', 'app.csr', 'verify.csr', 'app.ext', 'verify.ext', 'app.crt', 'verify.crt'])
-        rmSync(join(TLS, file), { force: true });
-    console.log(`  test certificates for app.${DOMAIN} and verify.${DOMAIN} (infra/compose/tls)`);
+    mkdirSync(dir, { recursive: true });
+    for (const file of outputs) renameSync(join(work, file), join(dir, file));
+    // the CA's key, the requests and the serial go with the scratch folder
+    rmSync(work, { recursive: true, force: true });
+    return true;
+}
+
+/** A self-signed set for a test installation: a CA, and the app's and the verifier's certificates it signs. */
+function certificates() {
+    const leaves = ['app', 'verify'].map((name) => ({
+        cn: `${name}.${DOMAIN}`,
+        usage: 'serverAuth',
+        key: `${name}.key.pem`,
+        cert: `${name}.fullchain.pem`,
+        chain: true
+    }));
+    if (issue(TLS, { ca: 'ITRMS test CA', days: 30, bits: 2048, leaves }))
+        console.log(`  test certificates for app.${DOMAIN} and verify.${DOMAIN} (infra/compose/tls)`);
 }
 
 /**
  * The backups' own CA (not the one the processes trust) and the three identities it signs: the database, the repository host
- * and the drill's scratch database. Each pgBackRest server accepts only the names it lists (infra/docker/pgbackrest.sh). On
- * site the database machine keeps ca.pem and postgres.*, the backup machine ca.pem, backup.* and drill.*.
+ * and the drill's scratch database. Each pgBackRest server accepts only the names it lists (infra/docker/pgbackrest.sh), and
+ * each container mounts only its own key. On site the database machine keeps ca.pem and postgres.*, the backup machine
+ * ca.pem, backup.* and drill.*.
  */
 function backupCertificates() {
-    if (existsSync(join(BACKUP_TLS, 'ca.pem'))) return;
-    mkdirSync(BACKUP_TLS, { recursive: true });
-    const ssl = (...args) => execFileSync('openssl', args, { cwd: BACKUP_TLS, stdio: ['ignore', 'ignore', 'inherit'] });
-    ssl(
-        'req',
-        '-x509',
-        '-newkey',
-        'rsa:3072',
-        '-nodes',
-        '-days',
-        '825',
-        '-subj',
-        '/CN=ITRMS backup CA',
-        '-keyout',
-        'ca.key',
-        '-out',
-        'ca.pem',
-        '-addext',
-        'basicConstraints=critical,CA:TRUE',
-        '-addext',
-        'keyUsage=critical,keyCertSign,cRLSign'
-    );
-    const names = ['postgres', 'backup', 'drill'];
-    for (const name of names) {
-        writeFileSync(
-            join(BACKUP_TLS, `${name}.ext`),
-            `subjectAltName=DNS:${name}\nextendedKeyUsage=serverAuth,clientAuth\n`
-        );
-        ssl(
-            'req',
-            '-newkey',
-            'rsa:3072',
-            '-nodes',
-            '-subj',
-            `/CN=${name}`,
-            '-keyout',
-            `${name}.key`,
-            '-out',
-            `${name}.csr`
-        );
-        ssl(
-            'x509',
-            '-req',
-            '-in',
-            `${name}.csr`,
-            '-CA',
-            'ca.pem',
-            '-CAkey',
-            'ca.key',
-            '-CAcreateserial',
-            '-days',
-            '825',
-            '-extfile',
-            `${name}.ext`,
-            '-out',
-            `${name}.crt`
-        );
-    }
-    // as the app's CA: it signed these three and is gone
-    for (const file of ['ca.key', 'ca.srl', ...names.flatMap((n) => [`${n}.csr`, `${n}.ext`])])
-        rmSync(join(BACKUP_TLS, file), { force: true });
-    console.log('  backup certificates (infra/compose/backup-tls)');
+    const leaves = ['postgres', 'backup', 'drill'].map((name) => ({
+        cn: name,
+        usage: 'serverAuth,clientAuth',
+        key: `${name}.key`,
+        cert: `${name}.crt`,
+        chain: false
+    }));
+    if (issue(BACKUP_TLS, { ca: 'ITRMS backup CA', days: 825, bits: 3072, leaves }))
+        console.log('  backup certificates (infra/compose/backup-tls)');
 }
 
 /**
@@ -290,7 +260,7 @@ const repository = (...args) =>
     compose(['exec', '-T', '-u', 'pgbackrest', 'backup', 'pgbackrest', '--stanza=itrms', ...args]);
 
 /** SQL as the superuser, on the live database or the drill's, by psql over the container's socket; its one output line. */
-const sql = (service, text) =>
+const sql = (service, text, database = 'itrms') =>
     String(
         compose(
             [
@@ -306,7 +276,7 @@ const sql = (service, text) =>
                 '-U',
                 'postgres',
                 '-d',
-                'itrms'
+                database
             ],
             {
                 input: text,
@@ -316,13 +286,8 @@ const sql = (service, text) =>
         )
     ).trim();
 
-/**
- * What the drill compares, in one snapshot: the rows of every table (the business tables, the registries, the cases, the
- * kernel's), and the audit log's rows with a digest over them in order (its hash chain, once it has one, is checked the same way).
- */
-const STATE = `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
-SELECT json_build_object(
-  'tables', (
+/** The rows of every table of a database (none: an empty object). */
+const TABLES = `coalesce((
     SELECT json_object_agg(t.name, t.rows ORDER BY t.name)
     FROM (
       SELECT format('%I.%I', n.nspname, c.relname) AS name,
@@ -330,11 +295,25 @@ SELECT json_build_object(
       FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
       WHERE c.relkind IN ('r', 'p') AND n.nspname NOT IN ('pg_catalog', 'information_schema') AND n.nspname NOT LIKE 'pg\\_%'
     ) t
-  ),
+  ), '{}'::json)`;
+
+/**
+ * What the drill compares, in one snapshot: the rows of every table (the business tables, the registries, the cases, the
+ * kernel's), and the audit log's rows with a digest over them in order (its hash chain, once it has one, is checked the same way).
+ * On the live database the same statement makes the restore point the drill recovers to: the snapshot and the point are the
+ * same moment, so the restored database matches exactly, however busy the live one is (`point`: its name).
+ */
+const state = (point) => `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SELECT json_build_object(
+  ${point ? `'point', pg_create_restore_point('${point}')::text,` : ''}
+  'tables', ${TABLES},
   'audit', (SELECT json_build_object('rows', count(*), 'digest', md5(coalesce(string_agg(md5(a::text), '' ORDER BY a.id), '')))
             FROM kernel.audit_log a)
 );
 COMMIT;`;
+
+/** Keycloak's database (the users, their second factors) is in the same backup: its tables' rows are compared too. */
+const KEYCLOAK_STATE = `SELECT json_build_object('tables', ${TABLES});`;
 
 async function backup(type) {
     if (!['full', 'diff'].includes(type)) throw new Error(`a backup is full or diff, not ${type}`);
@@ -354,25 +333,39 @@ CREATE TABLE IF NOT EXISTS itrms_drill.probe (id integer GENERATED ALWAYS AS IDE
 INSERT INTO itrms_drill.probe DEFAULT VALUES;`
         );
     }
-    const live = JSON.parse(sql('postgres', STATE));
-    // the WAL up to now in the repository (check switches to a new segment and waits for the old one to be archived)
+    // Keycloak's first (its own snapshot: a sign-in in between differs by a session), then ITRMS's with the restore point
+    const keycloak = JSON.parse(sql('postgres', KEYCLOAK_STATE, 'keycloak'));
+    const point = `itrms-drill-${Date.now()}`;
+    const live = JSON.parse(sql('postgres', state(point)));
+    // the restore point's WAL in the repository (check switches to a new segment and waits for the old one to be archived)
     repository('check');
     const from = Date.now();
-    compose(['--profile', 'drill', 'up', '-d', '--force-recreate', '--wait', '--wait-timeout', '900', 'drill']);
-    // open once it is consistent, but not yet at the end of the archive: until it is promoted
-    const recovering = () => {
-        try {
-            return sql('drill', 'SELECT pg_is_in_recovery();') !== 'f';
-        } catch {
-            return true;
+    let restored;
+    let restoredKeycloak;
+    try {
+        compose(['--profile', 'drill', 'up', '-d', '--force-recreate', '--wait', '--wait-timeout', '21600', 'drill'], {
+            env: { ...process.env, DRILL_TARGET: point }
+        });
+        // open once it is consistent, before it reaches the restore point: until it is promoted
+        const recovering = () => {
+            try {
+                return sql('drill', 'SELECT pg_is_in_recovery();') !== 'f';
+            } catch {
+                return true;
+            }
+        };
+        for (const until = Date.now() + 6 * 3600_000; recovering();) {
+            if (Date.now() > until) throw new Error('the drill database did not finish its recovery');
+            await new Promise((resolve) => setTimeout(resolve, 2_000));
         }
-    };
-    for (let i = 0; recovering(); i += 1) {
-        if (i > 300) throw new Error('the drill database did not finish its recovery');
-        await new Promise((resolve) => setTimeout(resolve, 2_000));
+        restored = JSON.parse(sql('drill', state()));
+        restoredKeycloak = JSON.parse(sql('drill', KEYCLOAK_STATE, 'keycloak'));
+    } finally {
+        // the scratch database and its volume are gone again, whatever happened: it holds a copy of the personal data
+        compose(['--profile', 'drill', 'rm', '-f', '-s', '-v', 'drill']);
+        execFileSync('docker', ['volume', 'rm', '-f', 'itrms_drill-data'], { stdio: 'ignore' });
     }
-    const restored = JSON.parse(sql('drill', STATE));
-    console.log(`  restored and recovered in ${((Date.now() - from) / 1000).toFixed(1)} s`);
+    console.log(`  restored and recovered to ${point} in ${((Date.now() - from) / 1000).toFixed(1)} s`);
 
     const problems = [];
     const names = new Set([...Object.keys(live.tables), ...Object.keys(restored.tables)]);
@@ -390,15 +383,32 @@ INSERT INTO itrms_drill.probe DEFAULT VALUES;`
     if (rows === 0 || restored.audit.rows === 0) problems.push('the restored database is empty');
     if (probe && !(restored.tables['itrms_drill.probe'] > 0))
         problems.push('the write after the backup was not replayed');
+    const keycloakNames = new Set([...Object.keys(keycloak.tables), ...Object.keys(restoredKeycloak.tables)]);
+    for (const name of [...keycloakNames].sort()) {
+        const [a, b] = [keycloak.tables[name], restoredKeycloak.tables[name]];
+        if (a !== b) problems.push(`keycloak ${name}: ${a ?? 'missing'} live, ${b ?? 'missing'} restored`);
+    }
+    if (keycloakNames.size === 0) problems.push("the restored database has no Keycloak's tables");
 
-    // the scratch database is gone again: it holds a copy of the personal data
-    compose(['--profile', 'drill', 'rm', '-f', '-s', '-v', 'drill']);
+    // ADR-0012's report: what was compared, kept beside the installation (counts and digests, no personal data)
+    mkdirSync(DRILL_REPORTS, { recursive: true });
+    const at = new Date().toISOString();
+    const report = join(DRILL_REPORTS, `${at.replace(/[:.]/g, '-')}.json`);
+    writeFileSync(
+        report,
+        JSON.stringify(
+            { at, point, passed: problems.length === 0, problems, live, restored, keycloak, restoredKeycloak },
+            null,
+            2
+        )
+    );
+    console.log(`  the report: ${report}`);
     if (problems.length) {
         console.error(`The restore drill failed:\n  ${problems.join('\n  ')}`);
         process.exit(1);
     }
     console.log(
-        `The restore drill passed: ${names.size} tables, ${rows} rows and ${restored.audit.rows} audit rows as live.`
+        `The restore drill passed: ${names.size} tables, ${rows} rows and ${restored.audit.rows} audit rows as live; Keycloak's ${keycloakNames.size} tables too.`
     );
 }
 
