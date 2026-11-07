@@ -5,7 +5,7 @@
 # the operator (not a route out for Keycloak).
 set -eu
 {
-    echo 'load_module modules/ngx_stream_module.so;'
+    # the stream module is built into the official image
     echo 'worker_processes 1;'
     echo 'error_log /dev/stderr warn;'
     echo 'pid /tmp/nginx.pid;'
