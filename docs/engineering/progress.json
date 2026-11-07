@@ -1350,8 +1350,8 @@
         {
           "id": "0.26c2",
           "title": "Phase 0 hardening, part 2: the smoke load test",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.26c2-load-smoke",
           "commits": [],
           "evidence": [],
           "blockers": [],

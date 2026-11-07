@@ -1,0 +1,84 @@
+# The nightly checks (testing-strategy.md): the smoke load test with its thresholds (task 0.26c2). Also on a pull request that
+# changes the load test, and by hand.
+name: nightly
+
+on:
+  schedule:
+    # 00:30 Addis Ababa time
+    - cron: '30 21 * * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - tests/load/**
+      - apps/web/tests/load-setup/**
+      - apps/web/playwright.load.config.ts
+      - .github/workflows/nightly.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  load:
+    # staff on the inbox and the query API through the BFF, against the dev stack with the demo; thresholds in
+    # tests/load/smoke.js (nfr.md: reads p95 < 300 ms, no failed request)
+    name: smoke load test (k6, inbox and query API)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        env:
+          LEFTHOOK: '0'
+      - name: Start the dev stack (writes the apps' local settings)
+        run: pnpm dev:infra
+      - name: Build the API, and the demo from nothing
+        run: |
+          pnpm --filter @itrms/api build
+          pnpm demo:reset
+      - name: Start the API and the web app
+        run: |
+          nohup pnpm --filter @itrms/api dev:start > api.log 2>&1 &
+          nohup pnpm --filter @itrms/web exec next dev -p 3000 > web.log 2>&1 &
+          for i in $(seq 1 120); do
+            curl -fsS http://127.0.0.1:4000/healthz > /dev/null 2>&1 && curl -fsS http://localhost:3000/auth/error > /dev/null 2>&1 && exit 0
+            sleep 2
+          done
+          echo "the API or the web app did not start"; exit 1
+      - name: Chromium for Playwright
+        run: pnpm --filter @itrms/web exec playwright install --with-deps chromium
+      - name: Sign the officers in (their sessions for k6)
+        run: pnpm --filter @itrms/web exec playwright test -c playwright.load.config.ts
+        env:
+          E2E_WEB: http://localhost:3000
+      - name: The form the query API is asked about (the demo's busiest)
+        run: |
+          id=$(docker compose -f infra/compose/docker-compose.yml --env-file infra/compose/.env exec -T postgres \
+            psql -U postgres -d itrms -Atc "select form_id from forms.submissions group by form_id order by count(*) desc limit 1")
+          test -n "$id"
+          echo "FORM_ID=$id" >> "$GITHUB_ENV"
+      - uses: grafana/setup-k6-action@v1.2.2
+        with:
+          k6-version: 2.3.0
+      - name: The smoke load test (its thresholds fail the job)
+        run: k6 run --summary-export tests/load/summary.json tests/load/smoke.js
+      - if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: load-results
+          path: |
+            tests/load/summary.json
+            api.log
+            web.log
+          retention-days: 14
+      - name: Container logs on failure
+        if: failure()
+        run: docker compose -f infra/compose/docker-compose.yml --env-file infra/compose/.env logs --tail 200
