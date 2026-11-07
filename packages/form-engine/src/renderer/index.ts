@@ -17,6 +17,7 @@ export {
 } from '../host/FormsHost';
 export type { FormsHost, FormsUser, FormsLocation } from '../host/FormsHost';
 export { isRequestError, requestErrorMessage, serverFormErrors } from '../host/client';
+export { setDateDisplay } from '../host/format';
 export type {
     FormsClient,
     FormsRequest,

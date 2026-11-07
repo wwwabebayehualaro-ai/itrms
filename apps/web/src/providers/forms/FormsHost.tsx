@@ -6,13 +6,13 @@
  */
 import { useMemo, type ReactNode } from 'react';
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { FormsHostProvider, type FormsHost, type FormsLocation } from '@itrms/form-engine/renderer';
+import { FormsHostProvider, setDateDisplay, type FormsHost, type FormsLocation } from '@itrms/form-engine/renderer';
 import client from '@/lib/api/client';
 import { isReported } from '@/lib/api/errors';
 import { useLocale } from 'next-intl';
 import { useAuthUser } from '@/lib/auth/authHooks';
 import { useAuthStore } from '@/lib/auth/authStore';
-import { formLanguages } from '@/lib/preferences';
+import { formLanguages, usePreferences } from '@/lib/preferences';
 import logger from '@/lib/logger';
 import { ROLE_KEYS } from '@/shell/role-keys.generated';
 
@@ -60,5 +60,9 @@ const host: FormsHost = {
 };
 
 export function FormsHost({ children }: { children: ReactNode }) {
+    // the engine's dates in the person's language and calendar (Ethiopian unless they chose the Gregorian), from the first paint
+    const language = useLocale();
+    const { calendar } = usePreferences();
+    setDateDisplay({ language, calendar });
     return <FormsHostProvider host={host}>{children}</FormsHostProvider>;
 }
