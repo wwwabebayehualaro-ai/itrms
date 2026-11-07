@@ -68,5 +68,6 @@ playwright-report/
 infra/compose/tls/
 # the backups' certificates and keys (tools/prod-stack.mjs, task 0.26b1)
 infra/compose/backup-tls/
+infra/compose/files-tls/
 # the restore drills' reports (counts and digests; the operations log keeps them)
 infra/compose/drill-reports/

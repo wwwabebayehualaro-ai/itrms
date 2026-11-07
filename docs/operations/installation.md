@@ -125,29 +125,32 @@ only the archived WAL holds (`drill --probe`).
 4. Start `postgres`, take a full backup (`backup --type full`), then `docker compose … up -d`, then `restart edge s3` (§5).
 
 ## 8. Backups and the restore drill (the files)
-ADR-0031 item 13: the files are copied two ways, each on the backup machine on site (here, containers beside the others).
+ADR-0031 item 13: the stored files are copied two ways, each on the backup machine on site (here, containers beside the
+others). Only the bucket's `files/` is copied: an upload waiting for its check, or rejected, stays in `quarantine/` and is in
+neither copy.
 
-- **A second store** (`replica`), kept a copy of the bucket by `weed filer.sync` (`files-sync`, `-isActivePassive`)
-  within seconds of every change, one way (the second store never writes back), deletions included. It is what a lost disk is
-  restored from fastest: the processes can be pointed at it.
-- **Snapshots, append-only:** `files-backup` mirrors the bucket as plain files (`weed filer.backup`, as they change,
-  deletions included: a purged file leaves the mirror, and the snapshots' retention ages it out) and takes
-  a restic snapshot of the mirror every night at 01:30 to `restic`, restic's rest-server run `--append-only`: a client can
-  add a snapshot but never remove or rewrite one, so a broken-into application machine cannot destroy the history. The retention
-  (ADR-0012: 30 daily, 12 monthly) runs on the rest-server's own side every night at 04:00.
+- **A second store** (`replica`), kept a copy of `files/` by `weed filer.sync` (`files-sync`, `-isActivePassive`) within
+  seconds of every change, one way (the second store never writes back), deletions included. It has the store's S3 port and
+  credentials: when the store is lost, the processes are pointed at it (`ITRMS_S3_STORE=replica` in `.env.production`, then
+  `docker compose … up -d s3`) while the store is rebuilt.
+- **Snapshots, append-only:** `files-backup` mirrors `files/` as plain files (`weed filer.backup`, as they change, deletions
+  included: a purged file leaves the mirror, and the snapshots' retention ages it out) and takes a restic snapshot of the
+  mirror every night at 01:30 to `restic`, restic's rest-server run `--append-only`: a client can add a snapshot but never
+  remove or rewrite one, so a broken-into application machine cannot destroy the history. The retention (ADR-0012: 30 daily, 12
+  monthly) runs on the rest-server's own side every night at 04:00.
 - **Secrets:** the repository is encrypted with `RESTIC_PASSWORD`, and the rest-server takes `RESTIC_SERVER_PASSWORD` (one
   user, its own repository, `--private-repos`), both from `.env.production`; on site they are on the backup machine. **Without
   `RESTIC_PASSWORD` the snapshots cannot be read**: keep its copy in the bureau's safe. The rest-server's TLS certificate is
-  `restic.*` from the backups' CA (§7).
-- **What is not in them:** a file still being uploaded or checked (`pending`, `checking`) and a rejected one: the drill counts
-  only `stored` files.
+  from a CA of its own, `infra/compose/files-tls/` (`ca.pem` for the client, `restic.*` for the server), made like §7's.
 
 **The drill** (§7, the same command) checks the files as well: every `stored` file the live database names is in the second
-store and the mirror, with its size and SHA-256 (they are given ten minutes to follow a new upload); then a snapshot is taken,
-the latest snapshot is restored into a scratch folder, and every `stored` file the *restored* database names is in it with its
-size and SHA-256. The scratch folder is removed after the listing.
+store and the mirror, with its size and SHA-256 (they are given ten minutes to follow a new upload, and each pass asks only for
+what was still missing); then a snapshot is taken, the latest snapshot is restored into a scratch folder in `files-backup`, and
+every `stored` file the *restored* database names is in it with its size and SHA-256. The scratch folder is removed after the
+check, also when the restore fails; it needs free space for one copy of the files while the drill runs.
 
-**A real restore** (the store lost): stop the processes, then either point them at the second store, or restore the latest
-snapshot into a new store: `docker compose … run --rm --entrypoint sh files-backup -c 'restic restore latest --host itrms
---target /restore'` with a volume at `/restore`, and upload its `mirror/` folder to the bucket at the same keys (`weed
-filer.copy` or any S3 client). Then run the drill.
+**A real restore** (the store and its second store both lost): stop the processes, restore the latest snapshot into a folder
+on the machine, `docker compose … run --rm -v /srv/itrms-restore:/restore files-backup restore /restore` (the repository's
+settings come from the container; `/srv/itrms-restore/mirror/files` then holds the files at their keys under `files/`),
+upload that folder to the bucket at the same keys (`weed filer.copy` or any S3 client), start the processes, then run the
+drill.

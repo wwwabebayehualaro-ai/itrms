@@ -26,6 +26,7 @@ const ENV = join(DIR, '.env.production');
 const OVERLAY = join(DIR, 'production.yml');
 const TLS = join(DIR, 'tls');
 const BACKUP_TLS = join(DIR, 'backup-tls');
+const FILES_TLS = join(DIR, 'files-tls');
 const DRILL_REPORTS = join(DIR, 'drill-reports');
 
 // dev-infra's helpers, pointed at this profile's settings and Compose file
@@ -47,6 +48,8 @@ const compose = (args, options = {}) =>
         {
             cwd: DIR,
             stdio: 'inherit',
+            // the drill's listings and states are as long as the installation has files (Node's default is 1 MiB)
+            maxBuffer: 1024 ** 3,
             ...options
         }
     );
@@ -161,21 +164,31 @@ function certificates() {
 }
 
 /**
- * The backups' own CA (not the one the processes trust) and the identities it signs: the database, the repository host, the
- * drill's scratch database, and the files' rest-server. Each pgBackRest server accepts only the names it lists (infra/docker/pgbackrest.sh), and
- * each container mounts only its own key. On site the database machine keeps ca.pem and postgres.*, the backup machine
- * ca.pem, backup.*, drill.* and restic.*.
+ * The database backups' own CA (not the one the processes trust) and the three identities it signs: the database, the
+ * repository host and the drill's scratch database. Each pgBackRest server accepts only the names it lists
+ * (infra/docker/pgbackrest.sh), and each container mounts only its own key. On site the database machine keeps ca.pem and
+ * postgres.*, the backup machine ca.pem, backup.* and drill.*.
  */
 function backupCertificates() {
-    const leaves = ['postgres', 'backup', 'drill', 'restic'].map((name) => ({
+    const leaves = ['postgres', 'backup', 'drill'].map((name) => ({
         cn: name,
-        usage: name === 'restic' ? 'serverAuth' : 'serverAuth,clientAuth',
+        usage: 'serverAuth,clientAuth',
         key: `${name}.key`,
         cert: `${name}.crt`,
         chain: false
     }));
     if (issue(BACKUP_TLS, { ca: 'ITRMS backup CA', days: 825, bits: 3072, leaves }))
         console.log('  backup certificates (infra/compose/backup-tls)');
+}
+
+/**
+ * The files' rest-server's certificate, under a CA of its own (a set is issued whole and its CA's key deleted, so a later
+ * identity is a new set, never an addition to the database backups' one). The client trusts ca.pem.
+ */
+function filesCertificates() {
+    const leaves = [{ cn: 'restic', usage: 'serverAuth', key: 'restic.key', cert: 'restic.crt', chain: false }];
+    if (issue(FILES_TLS, { ca: 'ITRMS files backup CA', days: 825, bits: 3072, leaves }))
+        console.log('  files backup certificates (infra/compose/files-tls)');
 }
 
 /**
@@ -215,6 +228,7 @@ async function up(demo) {
     const env = settings();
     certificates();
     backupCertificates();
+    filesCertificates();
     if (!VERSION) compose(['--profile', 'setup', 'build']);
     // and the gates: the setup reaches Keycloak's administration through `admin`, the processes the store through `s3`
     // and the repository host, which the database archives its WAL to
@@ -274,28 +288,34 @@ const files = (mode, input, args = []) =>
         })
     );
 
-/** "<size> <sha256> <key>" lines as a map from the key. */
+/** "<size> <sha256> <key>" lines as a map from the key ("missing <key>" lines are not in it). */
 const listing = (text) =>
     new Map(
         text
             .split('\n')
-            .filter((line) => line.trim())
+            .filter((line) => line.trim() && !line.startsWith('missing '))
             .map((line) => {
                 const [size, sha256, ...key] = line.trim().split(' ');
                 return [key.join(' '), { size: Number(size), sha256 }];
             })
     );
 
-/** The stored files a database's rows name that a listing lacks or holds otherwise. */
-function fileProblems(rows, found, where) {
-    const problems = [];
-    for (const row of rows) {
+/**
+ * The stored files a database's rows name, looked up in one copy (files-backup.sh's mirror, replica or restored, which check
+ * only the keys asked): the rows it lacks or holds otherwise, and what to say of them.
+ */
+function inCopy(mode, rows, where) {
+    const found = listing(files(mode, rows.map((row) => `${row.key}\n`).join('')));
+    const bad = rows.filter((row) => {
         const got = found.get(row.key);
-        if (!got) problems.push(`${where}: no ${row.key}`);
-        else if (got.size !== Number(row.size) || got.sha256 !== row.sha256)
-            problems.push(`${where}: ${row.key} differs (${got.size} bytes, not ${row.size}; or its checksum)`);
-    }
-    return problems;
+        return !got || got.size !== Number(row.size) || got.sha256 !== row.sha256;
+    });
+    const problems = bad.map((row) =>
+        found.has(row.key)
+            ? `${where}: ${row.key} differs (${found.get(row.key)?.size} bytes, not ${row.size}; or its checksum)`
+            : `${where}: no ${row.key}`
+    );
+    return { bad, problems };
 }
 
 /** SQL as the superuser, on the live database or the drill's, by psql over the container's socket; its one output line. */
@@ -403,17 +423,17 @@ VALUES ('${id}', '${regionId}', '${unitId}', 'generated', 'stored', 'drill-probe
     // the files: the second store and the mirror hold every stored file of the snapshot (both follow the bucket within
     // seconds; a new upload may take that long), then a restic snapshot of the mirror, restored below
     const problems = [];
+    // each pass asks again only for what was missing or different
+    let toMirror = live.files;
+    let toReplica = live.files;
     for (const until = Date.now() + 600_000; ;) {
-        // the last try also shows what the second store answers (its log, for the operator)
         const last = Date.now() > until;
-        const mirrored = fileProblems(live.files, listing(files('mirror')), 'the mirror');
-        const replicated = fileProblems(
-            live.files,
-            listing(files('replica', live.files.map((f) => `${f.key}\n`).join(''), last ? ['--tell'] : [])),
-            'the second store'
-        );
-        if ((mirrored.length === 0 && replicated.length === 0) || last) {
-            problems.push(...mirrored, ...replicated);
+        const mirrored = inCopy('mirror', toMirror, 'the mirror');
+        const replicated = inCopy('replica', toReplica, 'the second store');
+        toMirror = mirrored.bad;
+        toReplica = replicated.bad;
+        if ((toMirror.length === 0 && toReplica.length === 0) || last) {
+            problems.push(...mirrored.problems, ...replicated.problems);
             break;
         }
         await new Promise((resolve) => setTimeout(resolve, 5_000));
@@ -441,7 +461,7 @@ VALUES ('${id}', '${regionId}', '${unitId}', 'generated', 'stored', 'drill-probe
         restored = JSON.parse(sql('drill', state()));
         restoredKeycloak = JSON.parse(sql('drill', KEYCLOAK_STATE, 'keycloak'));
         // the latest files snapshot, restored into a scratch folder: every stored file the restored database names, whole
-        problems.push(...fileProblems(restored.files, listing(files('restored')), 'the files snapshot'));
+        problems.push(...inCopy('restored', restored.files, 'the files snapshot').problems);
     } finally {
         // the scratch database and its volume are gone again, whatever happened: it holds a copy of the personal data
         compose(['--profile', 'drill', 'rm', '-f', '-s', '-v', 'drill']);
