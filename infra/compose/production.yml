@@ -52,6 +52,19 @@ services:
   # the databases and the queues: no host ports in production
   postgres:
     ports: !reset []
+    # with pgBackRest (task 0.26b1): every WAL segment archived to the repository host, which pulls the backups
+    image: ${ITRMS_REGISTRY:-ghcr.io/wwwabebayehualaro-ai}/itrms-postgres:${ITRMS_VERSION:-local}
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: postgres }
+    command:
+      - postgres
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command=pgbackrest --stanza=itrms archive-push %p
+      - -c
+      - archive_timeout=300
+    volumes:
+      - ${ITRMS_BACKUP_TLS_DIR:-./backup-tls}:/run/pgbackrest-tls:ro
   valkey-queues:
     ports: !reset []
   valkey-sessions:
@@ -221,6 +234,38 @@ services:
         aliases: ['app.${ITRMS_DOMAIN:?}', 'verify.${ITRMS_DOMAIN:?}']
     depends_on: [web, api, keycloak, s3]
 
+  # the pgBackRest repository host (ADR-0012, ADR-0031 item 13): on site a second machine; here, to show it whole, a container
+  # with its own volume. It pulls the backups over mutual TLS, and its repository is encrypted
+  backup:
+    restart: unless-stopped
+    image: ${ITRMS_REGISTRY:-ghcr.io/wwwabebayehualaro-ai}/itrms-backup:${ITRMS_VERSION:-local}
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: backup }
+    environment:
+      PGBACKREST_CIPHER_PASS: ${PGBACKREST_CIPHER_PASS:?}
+      TZ: Africa/Addis_Ababa
+    volumes:
+      - pgbackrest-repo:/var/lib/pgbackrest
+      - ${ITRMS_BACKUP_TLS_DIR:-./backup-tls}:/run/pgbackrest-tls:ro
+    networks: [default]
+
+  # the restore drill's scratch database (`node tools/prod-stack.mjs drill`): the latest backup, recovered, nothing archived
+  drill:
+    profiles: [drill]
+    image: ${ITRMS_REGISTRY:-ghcr.io/wwwabebayehualaro-ai}/itrms-postgres:${ITRMS_VERSION:-local}
+    entrypoint: ['itrms-pgbackrest', 'drill']
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      TZ: Africa/Addis_Ababa
+    volumes:
+      - drill-data:/var/lib/postgresql/data
+      - ${ITRMS_BACKUP_TLS_DIR:-./backup-tls}:/run/pgbackrest-tls:ro
+    networks: [default]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U postgres -d itrms']
+      interval: 5s
+      timeout: 5s
+      retries: 120
+
   # the only way out (the national platform, SMS gateways): HTTPS to the hosts the installation allows
   egress:
     restart: unless-stopped
@@ -240,3 +285,7 @@ networks:
     internal: true
   public:
   outside:
+
+volumes:
+  pgbackrest-repo:
+  drill-data:

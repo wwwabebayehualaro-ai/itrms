@@ -16,6 +16,7 @@
 .git
 # a test installation's certificates and keys (tools/prod-stack.mjs): never in an image or its build cache
 infra/compose/tls
+infra/compose/backup-tls
 Documents
 Backend
 docs
