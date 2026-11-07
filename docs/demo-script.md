@@ -4,8 +4,8 @@ What the presenter does and says in the demo journey of [demo-plan.md](demo-plan
 use, what to do, and the line to say, in **Amharic** (the default, for bureau and zone officials) and **English** (for partners).
 Wolaytta is shown in step 1: its screens fall back to Amharic until the zone's translations arrive (demo-plan.md §5).
 
-The same journey runs as a Playwright test, in Amharic and in English: `apps/web/tests/e2e/demo/journey.spec.ts` (steps 1–8, task 0.25c).
-Steps 9–12 follow in task 0.25d.
+The same journey runs as a Playwright test, in Amharic and in English: `apps/web/tests/e2e/demo/journey.spec.ts` (steps 1–10, tasks 0.25c and 0.25d).
+Steps 9 and 10 are task 0.25d; steps 11 and 12 (the figures, the audit trail) follow in task 0.25e.
 
 ## Before the demo
 - `pnpm demo:reset` on the demo stack (under 2 minutes). It builds both demo regions from nothing: the Wolaita zone of the
@@ -89,3 +89,25 @@ masked name.
 
 - **am:** «ማንም ሰው ካርዱን በስልኩ ማረጋገጥ ይችላል፤ ስሙ ግን ተደብቆ ይታያል።»
 - **en:** "Anyone can check a card with their phone, and sees only a masked name."
+
+## 9. A renewal at the zone, 14 months late, paid at the revenue office
+**Do:** as `demo.dual`, switch the active office to the **zone department** (unit switcher), then **Applications** → **Licence
+renewal**: pick a licence that expired 14 months ago (the demo has eight), its grade, its expiry date (Ethiopian calendar), the
+medical facility and examination date. Submit. As `demo.zone.officer1`, approve the documents: the case goes to the **practical
+exam**, which a renewal more than a year late needs (Art. 19(5)). As `demo.zone.examiner`, record the pass. Open **Paid
+elsewhere**: the payment order shows the late component. Enter the revenue office's receipt number, amount, date and payer: it
+waits for verification. As `demo.zone.finance`, verify it. As `demo.zone.lead`, approve: the licence is renewed. Then take a
+second late renewal to its payment and enter the same receipt number: refused.
+
+- **am:** «ከአንድ ዓመት በላይ የዘገየ እድሳት የተግባር ፈተና ይጨምራል፣ የመዘግየት ክፍያም ይታከላል። በገቢዎች ጽ/ቤት የተከፈለ ደረሰኝ በሌላ ሰው እስኪረጋገጥ ጉዳዩ አይቀጥልም። አንድ ደረሰኝ ሁለት ጊዜ አያገለግልም።»
+- **en:** "A renewal more than a year late adds a practical exam and a late fee. A receipt paid at the revenue office moves the case on
+  only once another person has verified it, and it pays one order only."
+
+## 10. The bureau decides who gives final approval
+**Do:** as `demo.bureau.admin`, open **Services** → **DVC-03 New driver licence** → *An office's configuration*, choose **Boditi**,
+and change **the office that gives final approval** to **the office above it**, with a reason. Point out what cannot be changed
+there: the fee rule is the region's. File Boditi's next new licence (as in steps 2 and 5) and pay it at Boditi's till. The final
+approval is now in the **zone** team leader's tasks, not Boditi's.
+
+- **am:** «ቢሮው ለእያንዳንዱ ጽ/ቤት የመጨረሻ ማጽደቂያውን ማን እንደሚሰጥ ይወስናል፤ ክፍያው ግን የክልሉ ደንብ ነው፣ ጽ/ቤት አይቀይረውም።»
+- **en:** "The bureau decides, office by office, who gives the final approval; the fee is the region's rule, which no office changes."

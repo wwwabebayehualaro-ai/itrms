@@ -104,5 +104,11 @@
   "services.contract.fee_not_reassessed": "የሥራ ፍሰቱ ጥያቄውን ሲቀይር ክፍያውን እንደገና አያሰላም፤ ጥያቄውን በሚቀይር እያንዳንዱ ሽግግር ላይ {effect} የሚለውን ተግባር ያክሉ።",
   "services.contract.fee_field_without_rule": "ቅጹ ክፍያ ያሳያል፤ ስሪቱ ግን የክፍያ ደንብ አልሰየመም።",
   "services.contract.fee_field_conditional": "የክፍያ መስኩ ሁልጊዜ መታየት አለበት፤ ሁኔታ ወይም የሚና ገደብ ይደብቀዋል።",
-  "services.contract.fee_field_missing": "ስሪቱ ክፍያ ያስከፍላል፤ ቅጹ ግን ክፍያ አያሳይም። ባለሙያው የሚያስገባውን ክፍያ እንዲያይ የክፍያ መስክ ያክሉ።"
+  "services.contract.fee_field_missing": "ስሪቱ ክፍያ ያስከፍላል፤ ቅጹ ግን ክፍያ አያሳይም። ባለሙያው የሚያስገባውን ክፍያ እንዲያይ የክፍያ መስክ ያክሉ።",
+  "services.override.approvalUnit": "የመጨረሻ ማጽደቂያ የሚሰጠው ጽ/ቤት",
+  "services.override.approvalRule": "የሚያጸድቀው",
+  "services.override.rule.handling": "ጉዳዩን የያዘው ጽ/ቤት",
+  "services.override.rule.parent": "ከበላዩ ያለው ጽ/ቤት",
+  "services.override.rule.region": "የክልሉ ቢሮ",
+  "services.override.rule.level": "ደረጃ፦ {level}"
 }

@@ -928,15 +928,24 @@ Split from 0.25 on 2026-11-06, and again on 2026-11-06 (steps 9–12 in 0.25d). 
 - **Done when:** the journey of steps 1–8 is green in `am` and `en`, and `wal-Latn` loads with fallback.
 - **Tests:** the demo journey (also a regression suite for later phases).
 
-### 0.25d Demo, part 4: the journey, steps 9–12
-Split from 0.25c on 2026-11-06. Needs 0.25c.
-- **Do:** the rest of the journey, in the script and the Playwright journey: a renewal at the zone department of a licence expired
-  14 months ago (the field exam added, the late fee, paid at the revenue office, verified by the zone finance officer, the same
-  receipt refused on another case); the final-approval unit of the new-licence service overridden to the parent unit, and the
-  fee rule refused as an override; the figures (the data viewer with Ethiopian dates and its Excel export, until the dashboards
-  of task 1.16); the case's audit trail. Also the follow-up of 0.23a: the application copy prints lookup ids.
+### 0.25d Demo, part 4: the journey, steps 9 and 10
+Split from 0.25c on 2026-11-06, and again on 2026-11-06 (steps 11 and 12 in 0.25e). Needs 0.25c.
+- **Do:** steps 9 and 10, in the script and the Playwright journey: a renewal at the zone department of a licence expired 14
+  months ago (the field exam added, the late fee, paid at the revenue office, verified by the zone finance officer, the same
+  receipt refused on another case); the final-approval unit of the new-licence service overridden to the parent unit, so the
+  next Boditi case's approval goes to the zone, and the fee rule refused as an override. Also the follow-up of 0.23a: the
+  application copy prints lookup ids.
+- **Done when:** the journey of steps 1–10 is green in `am` and `en`.
+- **Tests:** the demo journey, steps 9 and 10.
+
+### 0.25e Demo, part 5: the figures and the audit trail
+Split from 0.25d on 2026-11-06. Needs 0.25d.
+- **Do:** steps 11 and 12: the figures (the data viewer with Ethiopian dates and its Excel export, until the dashboards of task
+  1.16) and the case's audit trail: who did what and when, from the audit log, for those allowed to read it (`audit-log:read`):
+  an API that reads a case's audit rows within the reader's scope, and its view on the case page. Nothing of a sensitive value
+  is shown.
 - **Done when:** the whole journey of demo-plan.md §3 is green in `am` and `en`.
-- **Tests:** the demo journey, steps 9–12.
+- **Tests:** the demo journey, steps 11 and 12; the audit trail API's isolation and permission tests.
 
 ### 0.26 Demo installation and Phase 0 hardening
 - **Do:**

@@ -104,5 +104,11 @@
   "services.contract.fee_not_reassessed": "The workflow changes the request without working its fee out again: add the effect {effect} to each transition that changes the request.",
   "services.contract.fee_field_without_rule": "The form shows a fee, but the version names no fee rule.",
   "services.contract.fee_field_conditional": "The Fee field must always be shown: a condition or a role restriction hides it.",
-  "services.contract.fee_field_missing": "The version charges a fee, but its form shows none: add a Fee field, so the counter sees the fee it files."
+  "services.contract.fee_field_missing": "The version charges a fee, but its form shows none: add a Fee field, so the counter sees the fee it files.",
+  "services.override.approvalUnit": "The office that gives final approval",
+  "services.override.approvalRule": "Approved by",
+  "services.override.rule.handling": "The office handling the case",
+  "services.override.rule.parent": "The office above it",
+  "services.override.rule.region": "The regional bureau",
+  "services.override.rule.level": "The office of level {level} above it"
 }

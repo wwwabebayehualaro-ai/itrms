@@ -54,7 +54,20 @@ export const WORDS = {
         register: 'መዝግብ',
         newPerson: 'ሰው መመዝገብ',
         school_a: 'ናሙና ማሰልጠኛ ተቋም ሀ',
-        unreadable: 'የመታወቂያው ቅጂ አይነበብም'
+        unreadable: 'የመታወቂያው ቅጂ አይነበብም',
+        year: 'ዓመት',
+        month: 'ወር',
+        overYear: 'ከአንድ ዓመት በላይ የዘገየ',
+        paidAt: 'የተከፈለበት',
+        revenueOffice: 'የገቢዎች ጽ/ቤት',
+        reference: 'የደረሰኝ ወይም የማጣቀሻ ቁጥር',
+        whoPaid: 'የከፈለው',
+        verify: 'አረጋግጥ',
+        referenceUsed: 'ይህ ማጣቀሻ ሌላ ትዕዛዝ ቀድሞ ከፍሏል።',
+        change: 'ቀይር',
+        save: 'አስቀምጥ',
+        ruleParent: 'ከበላዩ ያለው ጽ/ቤት',
+        overrideReason: 'የመጨረሻ ማጽደቂያ በዞኑ'
     },
     en: {
         applicant: 'Applicant',
@@ -88,7 +101,20 @@ export const WORDS = {
         register: 'Register',
         newPerson: 'Register a person',
         school_a: 'Sample Driving School A',
-        unreadable: 'The scan of the ID is unreadable'
+        unreadable: 'The scan of the ID is unreadable',
+        year: 'Year',
+        month: 'Month',
+        overYear: 'Expired more than a year',
+        paidAt: 'Paid at',
+        revenueOffice: 'Revenue office',
+        reference: 'Receipt or reference number',
+        whoPaid: 'Who paid',
+        verify: 'Verify',
+        referenceUsed: 'This reference has paid another order already.',
+        change: 'Change',
+        save: 'Save',
+        ruleParent: 'The office above it',
+        overrideReason: 'Final approval at the zone'
     }
 } as const satisfies Record<Lang, Record<string, string>>;
 

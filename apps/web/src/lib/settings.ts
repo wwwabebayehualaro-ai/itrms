@@ -53,11 +53,13 @@ export interface UnitSettings {
     settings: UnitSetting[];
 }
 
+/** A unit of the subtree, as `GET /org-units/:id/subtree` describes it (the API sends no path). */
 export interface SubtreeUnit {
     id: string;
     code: string;
     name: Text;
-    path: string;
+    /** none for a region's root */
+    parentId: string | null;
 }
 
 const settingsKey = (unitId: string) => ['settings', unitId] as const;

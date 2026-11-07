@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-11-06",
+  "updated": "2026-11-07",
   "statuses": [
     "planned",
     "ready",
@@ -1254,7 +1254,23 @@
         },
         {
           "id": "0.25d",
-          "title": "Demo, part 4: the journey, steps 9–12",
+          "title": "Demo, part 4: the journey, steps 9 and 10",
+          "status": "in review",
+          "branch": "task/0.25d-demo-journey-2",
+          "commits": [
+            "54fbd63"
+          ],
+          "evidence": [
+            "GitHub Actions run 42315472431 (PR #42) on 54fbd63 → all jobs success; e2e 43 passed (19.6m), no flaky, incl. demo/journey.spec.ts steps 1–10 in am and en (20 tests); demo:reset 27.5 s and 27.3 s (limit 120 s)",
+            "Step 9: a zone renewal 14 months late (practical exam, the late line on the order, paid at the revenue office, verified by the zone's finance officer, approved by the zone lead), the same receipt refused on a second renewal which is then paid and renewed; step 10: the bureau's approval-unit override for Boditi on the screen, the fee rule refused as an override, Boditi's next case approved by the zone lead and not Boditi's",
+            "Unit and integration: platform/documents/test/answers.spec.ts (lookups by name, files by name); demo.int (the zone and Boditi payment overrides, audited); licence-services.int ('parent' refused at the region's root). task-verifier → ready with caveats (evidence now recorded); code-review high → 9 findings, all fixed"
+          ],
+          "blockers": [],
+          "notes": "The licence services' override policy now allows payment (region, unit), and the demo data makes the zone's renewals (DVC-04) paid at the revenue office; Boditi's stay at its till. Who collects licence fees is still the bureau's question (demo-plan.md §5.3). Verifier: ready with caveats. Added: a demo.int check of the two DVC-04 payment overrides and their audit rows, and a seed comment that the override is written as a seed (audited, the policy allows it). Owner item: the payment override is now allowed for both licence services (DVC-03 and DVC-04), not only renewals. Waiting for the code review before moving to review."
+        },
+        {
+          "id": "0.25e",
+          "title": "Demo, part 5: the figures and the audit trail",
           "status": "planned",
           "branch": null,
           "commits": [],
