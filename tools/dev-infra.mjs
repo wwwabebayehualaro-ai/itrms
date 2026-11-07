@@ -27,7 +27,10 @@ import { parse as parseYaml } from 'yaml';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const COMPOSE = join(ROOT, 'infra', 'compose', 'docker-compose.yml');
-const ENV_FILE = join(ROOT, 'infra', 'compose', '.env');
+// the production profile's tool (tools/prod-stack.mjs) points these at its own settings and its Compose file (task 0.26a)
+const ENV_FILE = process.env.ITRMS_ENV_FILE ?? join(ROOT, 'infra', 'compose', '.env');
+const OVERLAYS = (process.env.ITRMS_COMPOSE_OVERLAY ?? '').split(',').filter(Boolean);
+const composeFiles = () => ['-f', COMPOSE, ...OVERLAYS.flatMap((file) => ['-f', file])];
 
 /** Every secret the stack needs; .env.example lists the same keys without values. */
 export const SECRET_KEYS = [
@@ -162,7 +165,7 @@ function compose(args, { observability = false } = {}) {
     const placeholders = hasEnv ? {} : Object.fromEntries(SECRET_KEYS.map((k) => [k, 'placeholder']));
     execFileSync(
         'docker',
-        ['compose', '-f', COMPOSE, ...(hasEnv ? ['--env-file', ENV_FILE] : []), ...profile, ...args],
+        ['compose', ...composeFiles(), ...(hasEnv ? ['--env-file', ENV_FILE] : []), ...profile, ...args],
         { stdio: 'inherit', env: { ...process.env, ...placeholders } }
     );
 }
@@ -241,9 +244,9 @@ function s3Client(env) {
     });
 }
 
-async function seedBuckets(env) {
+export async function seedBuckets(env, buckets = BUCKETS) {
     const s3 = s3Client(env);
-    for (const Bucket of BUCKETS) {
+    for (const Bucket of buckets) {
         try {
             await s3.send(new HeadBucketCommand({ Bucket }));
         } catch {
@@ -272,7 +275,8 @@ async function seedBuckets(env) {
 }
 
 async function keycloak(env, path, { token, method = 'GET', body, form } = {}) {
-    const res = await fetch(`http://127.0.0.1:${ports(env).KEYCLOAK_HOST_PORT}${path}`, {
+    // production serves Keycloak under /auth (KC_HTTP_RELATIVE_PATH)
+    const res = await fetch(`http://127.0.0.1:${ports(env).KEYCLOAK_HOST_PORT}${env.KEYCLOAK_BASE_PATH ?? ''}${path}`, {
         method,
         headers: {
             ...(token ? { authorization: `Bearer ${token}` } : {}),
@@ -385,16 +389,34 @@ function demoUsers() {
  * flow with a required second factor, the clients), brought up to date on every start; the dev users and the demo users
  * of the API's seed (same ids as their ITRMS users), each asked to set up TOTP at the first sign-in.
  */
-async function seedKeycloak(env) {
+/**
+ * The realm, its clients with their secrets, and the users. The realm file is development's: `appOrigin` is where the BFF is
+ * (its redirects and logout), `backchannel` where Keycloak reaches the BFF itself. Production also leaves out the dev users.
+ */
+export async function seedKeycloak(
+    env,
+    {
+        appOrigin = 'http://localhost:3000',
+        backchannel = 'http://host.docker.internal:3000',
+        displayName = 'ITRMS (development)',
+        devUsers = true,
+        demoAccounts = true
+    } = {}
+) {
     const token = await keycloakToken(env);
-    const realm = JSON.parse(readFileSync(join(ROOT, 'infra', 'compose', 'keycloak', 'realm-itrms.json'), 'utf8'));
+    const file = readFileSync(join(ROOT, 'infra', 'compose', 'keycloak', 'realm-itrms.json'), 'utf8')
+        .split('http://host.docker.internal:3000')
+        .join(backchannel)
+        .split('http://localhost:3000')
+        .join(appOrigin);
+    const realm = JSON.parse(file);
     const secrets = {
         'itrms-web': env.KEYCLOAK_WEB_CLIENT_SECRET,
         'itrms-identity-admin': env.KEYCLOAK_IDENTITY_ADMIN_SECRET
     };
     const clients = realm.clients.map((c) => (secrets[c.clientId] ? { ...c, secret: secrets[c.clientId] } : c));
     const { authenticationFlows, requiredActions, browserFlow, ...rest } = realm;
-    const settings = { ...rest, clients: undefined, displayName: 'ITRMS (development)' };
+    const settings = { ...rest, clients: undefined, displayName };
     if ((await keycloak(env, '/admin/realms/itrms', { token })).status === 404) {
         await keycloak(env, '/admin/realms', { token, method: 'POST', body: { ...realm, ...settings, clients } });
         console.log('  realm itrms created');
@@ -422,8 +444,8 @@ async function seedKeycloak(env) {
 
     const credentials = [{ type: 'password', value: env.DEV_USER_PASSWORD, temporary: false }];
     const users = [
-        ...DEV_USERS.map((u) => ({ ...u, email: `${u.username}@example.test` })),
-        ...demoUsers().map((u) => ({
+        ...(devUsers ? DEV_USERS : []).map((u) => ({ ...u, email: `${u.username}@example.test` })),
+        ...(demoAccounts ? demoUsers() : []).map((u) => ({
             id: u.keycloakSub,
             username: u.username,
             // Keycloak's name check refuses brackets: "Zone Head (demo)" becomes Zone Head / Demo
@@ -583,7 +605,7 @@ Passwords and keys are in infra/compose/.env. Check it end to end: pnpm dev:infr
  * on every `up`, so a stack whose volume predates the roles gets them too. The passwords go in on stdin, as psql
  * variables, never on a command line.
  */
-function seedDatabaseRoles(env) {
+export function seedDatabaseRoles(env) {
     const roles = ['owner', 'app', 'system', 'backup'];
     const variables = roles.map((r) => `\\set ${r}_password '${env[`ITRMS_${r.toUpperCase()}_PASSWORD`]}'\n`).join('');
     const bootstrap = readFileSync(join(ROOT, 'platform', 'kernel', 'api', 'db', 'sql', 'roles.psql'), 'utf8');
@@ -591,8 +613,7 @@ function seedDatabaseRoles(env) {
         'docker',
         [
             'compose',
-            '-f',
-            COMPOSE,
+            ...composeFiles(),
             '--env-file',
             ENV_FILE,
             'exec',
@@ -627,8 +648,7 @@ function emptyDatabase() {
         'docker',
         [
             'compose',
-            '-f',
-            COMPOSE,
+            ...composeFiles(),
             '--env-file',
             ENV_FILE,
             'exec',

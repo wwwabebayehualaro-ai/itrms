@@ -63,3 +63,6 @@ next-env.d.ts
 storybook-static/
 test-results/
 playwright-report/
+
+# the production profile's certificates (tools/prod-stack.mjs; a bureau's own in production)
+infra/compose/tls/

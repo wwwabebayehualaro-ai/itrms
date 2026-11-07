@@ -1,0 +1,194 @@
+# The production profile (task 0.26a, ADR-0008): one installation per region, on one machine. It goes over docker-compose.yml
+# (the backing services: PostgreSQL, Valkey, Keycloak, SeaweedFS, pinned there) and adds the ITRMS processes from the released
+# images (infra/docker/Dockerfile). `node tools/prod-stack.mjs up` runs it with its settings (infra/compose/.env.production)
+# and the certificates (infra/compose/tls); docs/operations/installation.md is the operator's runbook.
+#
+#   docker compose -f docker-compose.yml -f production.yml --env-file .env.production up -d
+#
+# Networks: the processes and the databases share `default`, which is internal (no route out). Nginx (`edge`) alone is on
+# `public`, with ports 80 and 443; the API's calls out (the national platform, SMS) go through `egress`, the only service with a
+# route out. Keycloak's admin console and the object store's S3 port answer on 127.0.0.1 only (the management side).
+
+x-app: &app
+  restart: unless-stopped
+  networks: [default, storage]
+  volumes:
+    # a certificate authority the processes also trust (a bureau's own CA, or the self-signed one of a test install)
+    - ${ITRMS_TLS_DIR:-./tls}:/etc/itrms/tls:ro
+  depends_on: &app-depends
+    postgres:
+      condition: service_healthy
+
+x-env: &env
+  NODE_ENV: production
+  TZ: Africa/Addis_Ababa
+  NODE_EXTRA_CA_CERTS: /etc/itrms/tls/ca.pem
+  # Node's own proxy support (fetch): out only through egress, and never for what is on the stack's network
+  NODE_USE_ENV_PROXY: '1'
+  HTTPS_PROXY: http://egress:3128
+  HTTP_PROXY: http://egress:3128
+  NO_PROXY: postgres,valkey-queues,valkey-sessions,keycloak,seaweedfs,api,web,edge,app.${ITRMS_DOMAIN:?},verify.${ITRMS_DOMAIN:?},localhost,127.0.0.1
+
+x-personal: &personal
+  AUDIT_HMAC_KEY: ${AUDIT_HMAC_KEY:?}
+  FIELD_KEYS: ${FIELD_KEYS:?}
+  BLIND_INDEX_KEY: ${BLIND_INDEX_KEY:?}
+
+x-store: &store
+  S3_ENDPOINT: http://seaweedfs:8333
+  S3_BUCKET: ${S3_BUCKET:-itrms}
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:?}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:?}
+  S3_PUBLIC_PATH: /files
+
+x-images:
+  api: &api-image
+    image: ${ITRMS_REGISTRY:-ghcr.io/wwwabebayehualaro-ai}/itrms-api:${ITRMS_VERSION:-local}
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: api }
+
+services:
+  # the databases and the queues: no host ports in production
+  postgres:
+    ports: !reset []
+  valkey-queues:
+    ports: !reset []
+  valkey-sessions:
+    ports: !reset []
+  mailpit:
+    profiles: [development]
+
+  keycloak:
+    command: ['start']
+    environment:
+      # its sign-in pages are on the app's hostname, under /auth (Nginx routes them); its admin console is internal only
+      KC_HOSTNAME: https://app.${ITRMS_DOMAIN:?}/auth
+      KC_HOSTNAME_ADMIN: http://127.0.0.1:${KEYCLOAK_HOST_PORT:-18080}/auth
+      KC_HTTP_ENABLED: 'true'
+      KC_HTTP_RELATIVE_PATH: /auth
+      KC_HTTP_MANAGEMENT_RELATIVE_PATH: /
+      KC_PROXY_HEADERS: xforwarded
+    extra_hosts: !reset []
+    networks: [default, public]
+
+  # the schema's migrations (the upgrade order: backup → migrate → restart, ADR-0008); `docker compose run --rm migrate`
+  migrate:
+    <<: [*app, *api-image]
+    restart: 'no'
+    profiles: [setup]
+    command: ['node', '--enable-source-maps', 'dist/migrate.cjs']
+    environment:
+      <<: *env
+      DATABASE_MIGRATE_URL: postgres://itrms_owner:${ITRMS_OWNER_PASSWORD:?}@postgres:5432/itrms
+
+  # the seeds (an installation's org tree, catalogue and users; the demo's data), as the operator runs them
+  setup:
+    <<: [*app, *api-image]
+    restart: 'no'
+    profiles: [setup]
+    command: ['node', '--enable-source-maps', 'dist/seed.cjs']
+    environment:
+      <<: [*env, *personal]
+      DATABASE_MIGRATE_URL: postgres://itrms_owner:${ITRMS_OWNER_PASSWORD:?}@postgres:5432/itrms
+      KEYCLOAK_URL: http://keycloak:8080/auth
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_IDENTITY_ADMIN_SECRET:?}
+
+  api:
+    <<: [*app, *api-image]
+    environment:
+      <<: [*env, *personal, *store]
+      DATABASE_URL: postgres://itrms_app:${ITRMS_APP_PASSWORD:?}@postgres:5432/itrms
+      PORT: '4000'
+      OIDC_ISSUER: https://app.${ITRMS_DOMAIN:?}/auth/realms/itrms
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4000/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  worker:
+    <<: [*app, *api-image]
+    command: ['node', '--enable-source-maps', 'dist/worker.cjs']
+    environment: &worker-env
+      <<: [*env, *personal, *store]
+      DATABASE_URL: postgres://itrms_app:${ITRMS_APP_PASSWORD:?}@postgres:5432/itrms
+      DATABASE_SYSTEM_URL: postgres://itrms_system:${ITRMS_SYSTEM_PASSWORD:?}@postgres:5432/itrms
+      VALKEY_QUEUES_URL: redis://valkey-queues:6379/0
+      KEYCLOAK_URL: http://keycloak:8080/auth
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_IDENTITY_ADMIN_SECRET:?}
+    depends_on:
+      <<: *app-depends
+      valkey-queues:
+        condition: service_healthy
+
+  worker-documents:
+    <<: *app
+    image: ${ITRMS_REGISTRY:-ghcr.io/wwwabebayehualaro-ai}/itrms-documents:${ITRMS_VERSION:-local}
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: documents }
+    environment:
+      <<: *worker-env
+      VERIFY_BASE_URL: https://verify.${ITRMS_DOMAIN:?}
+      # a container gives Chromium no sandbox of its own; it renders our templates only, offline
+      CHROME_NO_SANDBOX: '1'
+    depends_on:
+      <<: *app-depends
+      valkey-queues:
+        condition: service_healthy
+
+  web:
+    <<: *app
+    image: ${ITRMS_REGISTRY:-ghcr.io/wwwabebayehualaro-ai}/itrms-web:${ITRMS_VERSION:-local}
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: web }
+    environment:
+      <<: *env
+      APP_ORIGIN: https://app.${ITRMS_DOMAIN:?}
+      API_URL: http://api:4000
+      OIDC_ISSUER: https://app.${ITRMS_DOMAIN:?}/auth/realms/itrms
+      OIDC_CLIENT_ID: itrms-web
+      OIDC_CLIENT_SECRET: ${KEYCLOAK_WEB_CLIENT_SECRET:?}
+      FILES_UPSTREAM: http://seaweedfs:8333
+      SESSION_VALKEY_URL: redis://valkey-sessions:6379/0
+      SESSION_KEYS: ${SESSION_KEYS:?}
+    depends_on:
+      valkey-sessions:
+        condition: service_healthy
+
+  edge:
+    restart: unless-stopped
+    image: ${ITRMS_REGISTRY:-ghcr.io/wwwabebayehualaro-ai}/itrms-edge:${ITRMS_VERSION:-local}
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: edge }
+    environment:
+      ITRMS_DOMAIN: ${ITRMS_DOMAIN:?}
+    volumes:
+      - ${ITRMS_TLS_DIR:-./tls}:/etc/nginx/tls:ro
+    ports:
+      - ${ITRMS_HTTP_PORT:-80}:80
+      - ${ITRMS_HTTPS_PORT:-443}:443
+    networks:
+      public:
+      storage:
+      default:
+        # the processes reach the realm and the verifier by their public names, through Nginx, as browsers do
+        aliases: ['app.${ITRMS_DOMAIN:?}', 'verify.${ITRMS_DOMAIN:?}']
+    depends_on: [web, api, keycloak]
+
+  # the only way out (the national platform, SMS gateways): HTTPS to the hosts the installation allows
+  egress:
+    restart: unless-stopped
+    image: ${ITRMS_REGISTRY:-ghcr.io/wwwabebayehualaro-ai}/itrms-egress:${ITRMS_VERSION:-local}
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: egress }
+    environment:
+      ITRMS_EGRESS_ALLOW: ${ITRMS_EGRESS_ALLOW:-}
+    networks: [default, outside]
+
+networks:
+  default:
+    internal: true
+  public:
+  outside:

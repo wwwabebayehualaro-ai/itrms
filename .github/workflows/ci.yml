@@ -172,6 +172,31 @@ jobs:
         if: failure()
         run: docker compose -f infra/compose/docker-compose.yml --env-file infra/compose/.env logs --tail 200
 
+  production:
+    # the production profile (task 0.26a, ADR-0008): the images built, the stack started from them, migrated and seeded with the
+    # demo, then checked over TLS on its hostnames as a browser would see it
+    name: production profile (images, TLS, the demo)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        env:
+          LEFTHOOK: '0'
+      - name: Build the images and start the stack with the demo
+        run: node tools/prod-stack.mjs up --demo
+      - name: Smoke check over TLS
+        run: node tools/prod-stack.mjs smoke
+      - name: Container logs on failure
+        if: failure()
+        run: >-
+          docker compose -f infra/compose/docker-compose.yml -f infra/compose/production.yml
+          --env-file infra/compose/.env.production --profile setup logs --tail 200
   perf:
     # the NFR timings on 10^6 generated rows with EXPLAIN under RLS (tasks 0.14, 0.16b); the reference server repeats
     # them in 0.26

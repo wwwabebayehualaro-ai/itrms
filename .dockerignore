@@ -1,0 +1,19 @@
+# What the image build (infra/docker/Dockerfile) never needs: installed packages, build output, local secrets, the domain
+# source material (never published), and the repository's history.
+**/node_modules
+**/.next
+**/.next-e2e
+**/dist
+**/out
+**/.turbo
+**/coverage
+**/test-results
+**/playwright-report
+**/*.local
+**/.env
+**/.env.*
+!**/.env.example
+.git
+Documents
+Backend
+docs
