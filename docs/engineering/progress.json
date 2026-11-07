@@ -1333,8 +1333,18 @@
           "notes": "Second store: weed filer.sync -isActivePassive of the bucket's files/ (never quarantine/) to a replica SeaweedFS with its own S3 port (ITRMS_S3_STORE=replica points the gate at it). Snapshots: weed filer.backup mirrors files/ as plain files (deletions included), restic snapshots it nightly to rest-server --append-only --private-repos over TLS (its own CA, files-tls); retention 30 daily / 12 monthly runs on the server side. CI's only stored file is the drill's --probe file (the demo has none stored at drill time), inserted as superuser without an audit row."
         },
         {
-          "id": "0.26c",
-          "title": "Phase 0 hardening: the security pass and the smoke load test",
+          "id": "0.26c1",
+          "title": "Phase 0 hardening, part 1: the security pass",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.26c2",
+          "title": "Phase 0 hardening, part 2: the smoke load test",
           "status": "planned",
           "branch": null,
           "commits": [],

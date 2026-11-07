@@ -973,11 +973,17 @@ Split from 0.26b on 2026-11-07. Needs 0.26b1.
 - **Done when:** in CI, the demo's files are restored into a scratch store and match the database's file rows.
 - **Tests:** the files' part of the restore drill, in CI.
 
-### 0.26c Phase 0 hardening: the security pass and the smoke load test
-Split from 0.26 on 2026-11-07.
+### 0.26c1 Phase 0 hardening, part 1: the security pass
+Split from 0.26c on 2026-11-07.
 - **Do:** a security pass (reviewer agent + `security-review`) over auth, RLS, files and the verification page, its findings
-  fixed or recorded with a decision; a smoke load test of the inbox and the query API with **k6**, thresholds in CI (nightly).
-- **Done when:** the security findings are fixed or recorded with a decision, and the k6 smoke test meets its thresholds in CI.
+  fixed or recorded with a decision.
+- **Done when:** the security findings are fixed or recorded with a decision.
+- **Tests:** a regression test for each fixed finding; the existing suites green.
+
+### 0.26c2 Phase 0 hardening, part 2: the smoke load test
+Split from 0.26c on 2026-11-07. Needs 0.26a.
+- **Do:** a smoke load test of the inbox and the query API with **k6**, thresholds in CI (nightly).
+- **Done when:** the k6 smoke test meets its thresholds in CI.
 - **Tests:** the k6 smoke thresholds in CI (nightly).
 
 ### 0.26d Demo installation, part 3: on the demo server
