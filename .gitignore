@@ -71,3 +71,7 @@ infra/compose/backup-tls/
 infra/compose/files-tls/
 # the restore drills' reports (counts and digests; the operations log keeps them)
 infra/compose/drill-reports/
+
+# the smoke load test's sessions and results (task 0.26c2)
+tests/load/.sessions.json
+tests/load/summary.json
