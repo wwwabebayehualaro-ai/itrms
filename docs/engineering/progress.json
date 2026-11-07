@@ -1350,12 +1350,21 @@
         {
           "id": "0.26c2",
           "title": "Phase 0 hardening, part 2: the smoke load test",
-          "status": "in progress",
+          "status": "in review",
           "branch": "task/0.26c2-load-smoke",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "57ba867"
+          ],
+          "evidence": [
+            "nightly run 42401234495 (PR #48, 57ba867) → k6 thresholds met: inbox p95 141.33 ms, query p95 150.13 ms (< 300 ms), http_req_failed 0.00% both, checks 100% both",
+            "earlier nightly run 42396916048 (d0fbf48) → inbox p95 50.92 ms, query p95 55.43 ms, 0/599 failed, 587/587 checks",
+            "ci run 42401234646 (57ba867) → all jobs success (lint/typecheck/test/build/boundaries, e2e, Semgrep, Trivy, gitleaks, production profile, performance, stories)",
+            "local: web lint, web typecheck, format:check, boundaries (1289 modules) → pass",
+            "task-verifier → Done when met; no scope creep; gaps were the unrecorded evidence and the pending ci run (now recorded/green)",
+            "reviewer agent not run: test-only change (CI workflow, k6 script, Playwright setup); no API, table, auth or money path changed"
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "The nightly workflow runs on schedule (00:30 Addis Ababa) once on main, by hand, and on PRs touching the load test. The smoke runs against next dev on a CI runner (a production BFF refuses a plain-HTTP origin); k6 setup() warms both routes so compilation is not in the p95. The full load test (1×/3× regional, 10^6 records, search and transitions) is follow-up to 3.13."
         },
         {
           "id": "0.26d",
