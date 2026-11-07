@@ -80,7 +80,7 @@ registry or the project page on 2026-10-18.
 | API and worker | NestJS 11, Fastify 5, intl-messageformat (the form engine's words), nestjs-zod, @nestjs/swagger + Scalar, Drizzle ORM + drizzle-kit, pg, jose, uuid, decimal.js, date-fns + @date-fns/tz, pino, OpenTelemetry SDK, @fastify/rate-limit, BullMQ 5, Bull Board, Puppeteer, LiquidJS, qrcode, ExcelJS, yaml, nodemailer, `@sentry/node` → GlitchTip |
 | Data | PostgreSQL 16 (ltree, pgcrypto, pg_trgm, btree_gist), Valkey 8, SeaweedFS |
 | Identity | Keycloak 26 (TOTP, passkeys) |
-| Edge and operations | Nginx, certbot, Docker Engine + Compose, cosign, sops + age, pgBackRest, restic + rest-server, Grafana Alloy, Prometheus, Loki, Tempo, Grafana, GlitchTip, ClamAV (Phase 1) |
+| Edge and operations | Nginx (the edge, and the TCP gates between networks), Squid on Alpine (the egress proxy, an allowlist), the images' bases node:24 bookworm-slim, nginx:1.27-alpine and alpine:3.22 (pinned by digest), the docker/setup-buildx, login and build-push GitHub actions (released images with provenance and SBOM; cosign signing follows), chrony on the host, LUKS for the data disk, certbot, Docker Engine + Compose, cosign, sops + age, pgBackRest, restic + rest-server, Grafana Alloy, Prometheus, Loki, Tempo, Grafana, GlitchTip, ClamAV (Phase 1) |
 | Tests and CI | Vitest (unit and browser mode), Storybook 10, Playwright + axe-core, Testcontainers, fast-check, otplib, k6, gitleaks, Trivy, Semgrep, GitHub Actions |
 
 ## 3. Considered and not chosen

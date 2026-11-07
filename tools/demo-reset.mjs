@@ -20,24 +20,45 @@ const inApi = (env, script, args = []) => {
         stdio: 'inherit'
     });
 };
-const seed = (...args) => inApi('.env.migrate.local', 'seed.cjs', args);
+/**
+ * The demo's seed steps (task 0.26a: also the production profile's, tools/prod-stack.mjs), with the caller's runner:
+ * `run(settings, script, args)` where settings is 'migrate' (the owner's connection, Keycloak) or 'demo' (also the personal
+ * data keys, for the generated people).
+ */
+export function demoSteps(run) {
+    const seed = (...args) => run('migrate', 'seed.cjs', args);
 
-/** What every region is built from, in order. */
-const regionSteps = (code, org, users) => [
-    [`${code}: the org tree`, () => seed('org', `seed/org/${org}.yaml`)],
-    [
-        `${code}: the service catalogue`,
-        () => seed('services', '../../platform/services/seed/catalogue.yaml', '--region', code)
-    ],
-    [`${code}: the users`, () => seed('users', `seed/users/${users}.yaml`)],
-    [
-        `${code}: the fee rules`,
-        () => seed('fees', '../../modules/competency/seed/fee-rules.demo.yaml', '--region', code)
-    ],
-    [`${code}: the receipt counters`, () => seed('counters', '--region', code)],
-    [`${code}: the document templates`, () => seed('documents', '--region', code)],
-    [`${code}: the licence services`, () => seed('competency', '--region', code)]
-];
+    /** What every region is built from, in order. */
+    const regionSteps = (code, org, users) => [
+        [`${code}: the org tree`, () => seed('org', `seed/org/${org}.yaml`)],
+        [
+            `${code}: the service catalogue`,
+            () => seed('services', '../../platform/services/seed/catalogue.yaml', '--region', code)
+        ],
+        [`${code}: the users`, () => seed('users', `seed/users/${users}.yaml`)],
+        [
+            `${code}: the fee rules`,
+            () => seed('fees', '../../modules/competency/seed/fee-rules.demo.yaml', '--region', code)
+        ],
+        [`${code}: the receipt counters`, () => seed('counters', '--region', code)],
+        [`${code}: the document templates`, () => seed('documents', '--region', code)],
+        [`${code}: the licence services`, () => seed('competency', '--region', code)]
+    ];
+
+    return [
+        ['migrate', () => run('migrate', 'migrate.cjs', [])],
+        ...regionSteps(REGION, 'south-ethiopia.wolaita', 'wolaita.demo'),
+        ['the demo’s people and licences', () => run('demo', 'seed.cjs', ['demo', '--region', REGION])],
+        [`${REGION}: its branding`, () => seed('settings', 'seed/settings/sample-region.demo.yaml')],
+        // the second region: a city administration with sub-cities (task 0.25b), with the same services and rules
+        ...regionSteps(CITY, 'sample-city', 'sample-city.demo'),
+        [`${CITY}: its branding and languages`, () => seed('settings', 'seed/settings/sample-city.demo.yaml')],
+        ['the accounts in Keycloak', () => seed('identity')]
+    ];
+}
+
+const devRun = (settings, script, args) =>
+    inApi(settings === 'demo' ? '.env.demo.local' : '.env.migrate.local', script, args);
 
 const STEPS = [
     [
@@ -48,39 +69,35 @@ const STEPS = [
                 stdio: ['ignore', 'ignore', 'inherit']
             })
     ],
-    ['migrate', () => inApi('.env.migrate.local', 'migrate.cjs')],
-    ...regionSteps(REGION, 'south-ethiopia.wolaita', 'wolaita.demo'),
-    ['the demo’s people and licences', () => inApi('.env.demo.local', 'seed.cjs', ['demo', '--region', REGION])],
-    [`${REGION}: its branding`, () => seed('settings', 'seed/settings/sample-region.demo.yaml')],
-    // the second region: a city administration with sub-cities (task 0.25b), with the same services and rules
-    ...regionSteps(CITY, 'sample-city', 'sample-city.demo'),
-    [`${CITY}: its branding and languages`, () => seed('settings', 'seed/settings/sample-city.demo.yaml')],
-    ['the accounts in Keycloak', () => seed('identity')]
+    ...demoSteps(devRun)
 ];
 
-// all before anything is dropped
-if (!existsSync(join(API, 'dist', 'seed.cjs'))) {
-    console.error('demo:reset needs the API built: pnpm --filter @itrms/api build');
-    process.exit(1);
-}
-for (const env of ['.env.migrate.local', '.env.demo.local']) {
-    const file = join(API, env);
-    if (!existsSync(file) || !readFileSync(file, 'utf8').includes('NODE_ENV=development')) {
-        console.error(
-            `demo:reset is for the local development stack: ${env} is not one of its settings. Run pnpm dev:infra.`
-        );
+const main = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+if (main) {
+    // all before anything is dropped
+    if (!existsSync(join(API, 'dist', 'seed.cjs'))) {
+        console.error('demo:reset needs the API built: pnpm --filter @itrms/api build');
         process.exit(1);
     }
-}
-const started = Date.now();
-for (const [name, run] of STEPS) {
-    const from = Date.now();
-    run();
-    console.log(`  ${name}: ${((Date.now() - from) / 1000).toFixed(1)} s`);
-}
-const seconds = (Date.now() - started) / 1000;
-console.log(`The demo is ready in ${seconds.toFixed(1)} s (limit ${LIMIT_SECONDS} s).`);
-if (seconds > LIMIT_SECONDS) {
-    console.error(`demo:reset took longer than its ${LIMIT_SECONDS} s.`);
-    process.exit(1);
+    for (const env of ['.env.migrate.local', '.env.demo.local']) {
+        const file = join(API, env);
+        if (!existsSync(file) || !readFileSync(file, 'utf8').includes('NODE_ENV=development')) {
+            console.error(
+                `demo:reset is for the local development stack: ${env} is not one of its settings. Run pnpm dev:infra.`
+            );
+            process.exit(1);
+        }
+    }
+    const started = Date.now();
+    for (const [name, run] of STEPS) {
+        const from = Date.now();
+        run();
+        console.log(`  ${name}: ${((Date.now() - from) / 1000).toFixed(1)} s`);
+    }
+    const seconds = (Date.now() - started) / 1000;
+    console.log(`The demo is ready in ${seconds.toFixed(1)} s (limit ${LIMIT_SECONDS} s).`);
+    if (seconds > LIMIT_SECONDS) {
+        console.error(`demo:reset took longer than its ${LIMIT_SECONDS} s.`);
+        process.exit(1);
+    }
 }

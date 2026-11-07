@@ -1289,12 +1289,17 @@
         {
           "id": "0.26a",
           "title": "Demo installation, part 1: the production profile and released images",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.26a-production-profile",
+          "commits": [
+            "204da02"
+          ],
+          "evidence": [
+            "GitHub Actions run 42337297648 (PR #44) on 204da02 → all jobs success; job 'production profile (images, TLS, the demo)': the images built from infra/docker/Dockerfile, the stack started from them, migrated and seeded with the demo in 43.1 s, 'All 9 smoke checks passed' over TLS on app.itrms.test and verify.itrms.test (http→https, the verifier, its keys from the API through Nginx, the API refused on the verify host, sign-in to Keycloak's page, Keycloak administration not public, HSTS, no route out from the API, the egress proxy refusing a host not allowed); e2e green",
+            "task-verifier → runtime proven, tech-stack rows and evidence then added; code-review high → 10 findings, all fixed (internal networks with TCP gates for the store's S3 port and Keycloak's admin, TRUSTED_PROXIES, CA-only mounts and the test CA's key deleted, the PDF worker's own env and memory limit, settings read from the file, base images pinned by digest). Not provable in CI and recorded: chrony and LUKS are host steps in the runbook; the release workflow runs on a tag only; cosign signing follows"
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "Production profile: infra/docker/Dockerfile (api, documents, web, edge, egress), infra/compose/production.yml over the dev compose (internal default network, egress via squid with an allowlist, Keycloak under /auth with its admin on 127.0.0.1), tools/prod-stack.mjs (settings, test certs, roles, bucket, realm, migrations, the demo via demoSteps, a TLS smoke check), CI job 'production', release workflow on v*.*.* tags, runbook docs/operations/installation.md. chrony and LUKS are host steps in the runbook (a container can't keep the host's clock or encrypt its disk)."
         },
         {
           "id": "0.26b",

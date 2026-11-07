@@ -9,6 +9,8 @@ const monorepoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const nextConfig = {
     // A second dev server (e.g. the e2e tests) must not share .next with the one a developer is running: NEXT_DIST_DIR=.next-e2e
     distDir: process.env.NEXT_DIST_DIR || '.next',
+    // the image (infra/docker/Dockerfile) runs the standalone server; development and the e2e journeys don't need it
+    ...(process.env.NEXT_OUTPUT === 'standalone' ? { output: 'standalone' } : {}),
     // Workspace packages are TypeScript source (code-structure.md §5.5): Next compiles them.
     transpilePackages: ['@itrms/ui', '@itrms/form-engine', '@itrms/schemas', '@itrms/parties'],
     outputFileTracingRoot: monorepoRoot,
