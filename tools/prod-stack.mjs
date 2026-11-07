@@ -409,7 +409,7 @@ VALUES ('${id}', '${regionId}', '${unitId}', 'generated', 'stored', 'drill-probe
         const mirrored = fileProblems(live.files, listing(files('mirror')), 'the mirror');
         const replicated = fileProblems(
             live.files,
-            listing(files('replica', live.files.map((f) => f.key).join('\n'), last ? ['--tell'] : [])),
+            listing(files('replica', live.files.map((f) => `${f.key}\n`).join(''), last ? ['--tell'] : [])),
             'the second store'
         );
         if ((mirrored.length === 0 && replicated.length === 0) || last) {

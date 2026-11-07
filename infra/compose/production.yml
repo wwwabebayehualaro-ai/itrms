@@ -253,7 +253,7 @@ services:
     networks: [default]
 
   # the files' backups (task 0.26b2, ADR-0031 item 13). On site the three run on the backup machine:
-  # a second store, kept a copy of the bucket as it changes (one way, deletions included)
+  # a second store, kept a copy of the bucket as it changes (filer.sync, one way, deletions included)
   replica:
     restart: unless-stopped
     image: chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
@@ -271,15 +271,17 @@ services:
       retries: 30
       start_period: 10s
 
-  # weed filer.backup with the replica's filer as its sink (filer.sync, tried first, received no change in this layout)
   files-sync:
     restart: unless-stopped
-    image: ${ITRMS_REGISTRY:-ghcr.io/wwwabebayehualaro-ai}/itrms-files-backup:${ITRMS_VERSION:-local}
-    command: ['replicate']
-    environment:
-      RESTIC_PASSWORD: ${RESTIC_PASSWORD:?}
-      RESTIC_SERVER_PASSWORD: ${RESTIC_SERVER_PASSWORD:?}
-      TZ: Africa/Addis_Ababa
+    image: chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
+    entrypoint: ['weed']
+    command:
+      - filer.sync
+      - -a=objectstore:8888
+      - -b=replica:8888
+      - -a.path=/buckets/itrms
+      - -b.path=/buckets/itrms
+      - -isActivePassive
     depends_on:
       seaweedfs: { condition: service_healthy }
       replica: { condition: service_healthy }

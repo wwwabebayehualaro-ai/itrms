@@ -2,12 +2,11 @@
 # The files' backups (task 0.26b2, ADR-0012, ADR-0031 item 13), in the SeaweedFS image with restic:
 #   itrms-files-backup run         the bucket mirrored as plain files (weed filer.backup, as they change) into /mirror, and a
 #                                  restic snapshot of the mirror every night to the append-only rest-server
-#   itrms-files-backup replicate   the bucket followed into the second store (weed filer.backup, a filer sink), as it changes
 #   itrms-files-backup init        the restic repository, once (an existing one is kept)
 #   itrms-files-backup snapshot    a snapshot now
 #   itrms-files-backup mirror      the mirror's files: "<size> <sha256> <path>", one a line
 #   itrms-files-backup restored    the latest snapshot restored into a scratch folder, listed the same way, then removed
-#   itrms-files-backup replica     for each object key on stdin, the copy in the second store: the same line, or
+#   itrms-files-backup replica     for each object key on stdin, the copy in the second store (filer.sync): the same line, or
 #                                  "missing <key>"
 #   itrms-files-backup put <key>   stdin into the bucket at that key (the CI drill's probe file)
 # The repository's password and the rest-server's are the container's environment; cron's jobs get them from a root-only file.
@@ -49,23 +48,6 @@ EOF
         # deletions too: a file the application purged (its retention) leaves the mirror, then restic's history ages it out
         exec weed filer.backup -filer=objectstore:8888 -filerPath=/buckets/itrms -doDeleteFiles
         ;;
-    replicate)
-        # the second store: the same follower with the replica's filer as the sink, one way, deletions included. Its own
-        # configuration folder (weed reads replication.toml from the working directory first), its own checkpoint
-        mkdir -p /etc/itrms-replicate
-        cat > /etc/itrms-replicate/replication.toml << 'EOF'
-[sink.filer]
-enabled = true
-grpcAddress = "replica:18888"
-directory = "/buckets/itrms"
-replication = ""
-collection = ""
-ttlSec = 0
-is_incremental = false
-EOF
-        cd /etc/itrms-replicate
-        exec weed filer.backup -filer=objectstore:8888 -filerPath=/buckets/itrms -doDeleteFiles
-        ;;
     init)
         restic cat config > /dev/null 2>&1 || restic init
         ;;
@@ -83,7 +65,7 @@ EOF
         ;;
     replica)
         tmp=$(mktemp)
-        while IFS= read -r key; do
+        while IFS= read -r key || [ -n "$key" ]; do
             if wget -q -O "$tmp" "http://replica:8888/buckets/itrms/$key"; then
                 printf '%s %s %s\n' "$(stat -c %s "$tmp")" "$(sha256sum "$tmp" | cut -c1-64)" "$key"
             else

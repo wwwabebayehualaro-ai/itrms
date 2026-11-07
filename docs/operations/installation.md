@@ -63,7 +63,7 @@ restore if a migration was not backwards-compatible (migrations follow expand/co
 | `backup` | `itrms-backup` | the pgBackRest repository host: pulls the backups, keeps the encrypted repository (§7) |
 | `drill` | `itrms-postgres` | the restore drill's scratch database (profile `drill`; removed after each drill) |
 | `replica` | pinned SeaweedFS image | a second store, kept a copy of the bucket (§8) |
-| `files-sync` | `itrms-files-backup` | keeps that copy: every change to the bucket, into the second store (§8) |
+| `files-sync` | pinned SeaweedFS image | `weed filer.sync`: every change to the bucket, into the second store (§8) |
 | `files-backup` | `itrms-files-backup` | the bucket mirrored as files, a restic snapshot of them every night (§8) |
 | `restic` | `itrms-restic` | restic's rest-server, append-only: the files' backup repository (§8) |
 | `valkey-*`, `keycloak`, `seaweedfs` | pinned upstream images | the queues, sign-in, the files |
@@ -127,10 +127,9 @@ only the archived WAL holds (`drill --probe`).
 ## 8. Backups and the restore drill (the files)
 ADR-0031 item 13: the files are copied two ways, each on the backup machine on site (here, containers beside the others).
 
-- **A second store** (`replica`), kept a copy of the bucket by `files-sync` within seconds of every change, one way (the
-  second store never writes back), deletions included: `weed filer.backup` following the bucket's changes with the second
-  store's filer as its sink. (ADR-0031 names `weed filer.sync`; in this layout it received no change, so the same follower
-  that makes the mirror makes the copy.) It is what a lost disk is restored from fastest: the processes can be pointed at it.
+- **A second store** (`replica`), kept a copy of the bucket by `weed filer.sync` (`files-sync`, `-isActivePassive`)
+  within seconds of every change, one way (the second store never writes back), deletions included. It is what a lost disk is
+  restored from fastest: the processes can be pointed at it.
 - **Snapshots, append-only:** `files-backup` mirrors the bucket as plain files (`weed filer.backup`, as they change,
   deletions included: a purged file leaves the mirror, and the snapshots' retention ages it out) and takes
   a restic snapshot of the mirror every night at 01:30 to `restic`, restic's rest-server run `--append-only`: a client can
