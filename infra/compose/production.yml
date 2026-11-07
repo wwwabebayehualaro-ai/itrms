@@ -282,6 +282,7 @@ services:
       - -a.path=/buckets/itrms
       - -b.path=/buckets/itrms
       - -isActivePassive
+      - -debug
     depends_on:
       seaweedfs: { condition: service_healthy }
       replica: { condition: service_healthy }
