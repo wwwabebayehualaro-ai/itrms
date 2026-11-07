@@ -2,8 +2,8 @@
 
 The operator's runbook for one installation (one region, ADR-0008), on one machine. The production profile is
 `infra/compose/production.yml` over `infra/compose/docker-compose.yml`; `tools/prod-stack.mjs` runs its steps and CI runs the
-same steps on every change (the *production profile* job, task 0.26a). Backups and the restore drill are task 0.26b; this page
-gains their steps then.
+same steps on every change (the *production profile* job, task 0.26a), with the database's backups and its restore drill
+(task 0.26b1, §7). The files' backups are task 0.26b2.
 
 ## 1. The machine
 - **Linux** with Docker Engine and the Compose plugin (not Docker Desktop: ADR-0008), in Ethiopia (PDP Proclamation 1321/2024).
@@ -59,10 +59,63 @@ restore if a migration was not backwards-compatible (migrations follow expand/co
 | `migrate`, `setup` | `itrms-api` | one-shot: the migrations; the seeds (profile `setup`) |
 | `egress` | `itrms-egress` | the only route out, to `ITRMS_EGRESS_ALLOW` |
 | `s3`, `admin` | `itrms-gate` | one port each between networks: the object store's S3 port; Keycloak's on the loopback |
-| `postgres`, `valkey-*`, `keycloak`, `seaweedfs` | pinned upstream images | the databases, the queues, sign-in, the files |
+| `postgres` | `itrms-postgres` | PostgreSQL 16 (the pinned upstream image) with pgBackRest: archives every WAL segment |
+| `backup` | `itrms-backup` | the pgBackRest repository host: pulls the backups, keeps the encrypted repository (§7) |
+| `drill` | `itrms-postgres` | the restore drill's scratch database (profile `drill`; removed after each drill) |
+| `valkey-*`, `keycloak`, `seaweedfs` | pinned upstream images | the queues, sign-in, the files |
 
 The processes, the databases and Keycloak are on an internal network with no route out; `edge` alone takes connections, and
 `egress` alone makes them (the smoke check tries both ways from the API). The object store is alone on a second internal
 network: its master, volume and filer ports have no authentication, so the processes reach its S3 port only, through `s3`.
 The API believes `X-Forwarded-For` from the internal network's subnet (`ITRMS_SUBNET`) only. The PDF worker's memory is capped
 (`ITRMS_DOCUMENTS_MEMORY`, 1 GB): Chromium's memory is not Node's.
+
+## 7. Backups and the restore drill (the database)
+pgBackRest (ADR-0012, ADR-0031 item 13), in **pull mode**: the repository host (`backup`) takes the backups from the database
+and keeps them; the database only archives its WAL to it. The application machine does not hold the repository, the
+repository host's key or (on site) the repository's encryption key. It is not a protection against a broken-into application
+machine: pgBackRest has no archive-only permission, so the database's certificate can write to and remove from its stanza.
+That protection is the off-site, append-only copy (task 0.26d).
+
+- **Where:** on site, `backup` runs on a **second machine** in the bureau (its own disk, LUKS too); the profile runs it as a
+  container beside the others so that one machine shows it whole. Off-site copies inside Ethiopia are task 0.26d.
+- **Mutual TLS:** each side has a certificate from the backups' own CA, `infra/compose/backup-tls/` (`ca.pem`; `postgres.*`,
+  `backup.*`, `drill.*`), made by `tools/prod-stack.mjs` when the folder is empty; the CA's key is deleted once they are
+  signed. Each container mounts `ca.pem` and its own pair only. The database accepts only `backup`; the repository host only
+  `postgres` and `drill`. On site the database machine keeps `ca.pem` and `postgres.*`, the backup machine `ca.pem`,
+  `backup.*` and `drill.*`. They are valid 825 days: renew them (empty the folder, run `up`, restart `postgres` and
+  `backup`) before then.
+- **Encrypted:** the repository is AES-256 with `PGBACKREST_CIPHER_PASS`. Only the repository host needs it: on site it is in
+  the backup machine's settings, not the application machine's. **Without that key the backups cannot be read**: keep its copy
+  in the bureau's safe.
+- **The schedule** (Addis Ababa time, on the repository host): a full backup on Sunday at 01:00, a differential the other nights,
+  the WAL continuously (a segment at least every 5 minutes, `archive_timeout`). Retention: 30 days back, to any moment in them.
+  ADR-0012's 12 monthly copies are kept off-site (task 0.26d). The archive command is set by `up` (`ALTER SYSTEM`) once the
+  stanza exists, so the database's first start never waits on the repository host.
+
+```bash
+node tools/prod-stack.mjs backup --type full   # a backup now (before an upgrade: §5); --type diff for a differential
+node tools/prod-stack.mjs drill                # the restore drill, by hand
+```
+**The drill** takes one snapshot of the live database and, in the same statement, a restore point. It restores the latest
+backup into the scratch database `drill`, recovers it to that point, and compares the two: the row count of every table, the
+audit log's rows with a digest over them in order, and the row count of every table of Keycloak's database (the users and their
+second factors, in the same backup; its snapshot is a moment earlier, so a sign-in in between fails the drill, which is then run
+again). It fails on any difference and on an empty restore, and writes its report (counts and digests, no personal data) to
+`infra/compose/drill-reports/`. The scratch database and its volume are removed afterwards, also when it fails: they are a copy
+of the personal data.
+
+**Monthly, automated** (ADR-0012): `infra/backup/itrms-drill.service` and `itrms-drill.timer` run it on the first Sunday of every
+month at 03:00, after the night's backup. Install them with the checkout in `/opt/itrms`: copy both to `/etc/systemd/system/`,
+then `systemctl enable --now itrms-drill.timer`. A failed drill fails the unit (`systemctl status itrms-drill`, the journal), and
+the next one is an incident until it passes. CI runs the drill on every change after a full and a differential backup and a write
+only the archived WAL holds (`drill --probe`).
+
+**A real restore** (the database lost), with the repository host running:
+1. Stop what uses the database: `docker compose … stop api worker worker-documents web keycloak edge`.
+2. Remove the database's container and its volume (Docker keeps a volume a container still has):
+   `docker compose … rm -s -f postgres`, then `docker volume rm itrms_postgres-data`.
+3. Restore into a new volume: `docker compose … run --rm --no-deps --entrypoint "itrms-pgbackrest restore" postgres
+   --type=default` (the arguments are pgBackRest's restore options: `--type=time "--target=<time>"` for a moment before a
+   mistake; it refuses a volume that is not empty).
+4. Start `postgres`, take a full backup (`backup --type full`), then `docker compose … up -d`, then `restart edge s3` (§5).

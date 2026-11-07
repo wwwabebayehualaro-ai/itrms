@@ -175,7 +175,7 @@ jobs:
   production:
     # the production profile (task 0.26a, ADR-0008): the images built, the stack started from them, migrated and seeded with the
     # demo, then checked over TLS on its hostnames as a browser would see it
-    name: production profile (images, TLS, the demo)
+    name: production profile (images, TLS, the demo, backups)
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -192,6 +192,14 @@ jobs:
         run: node tools/prod-stack.mjs up --demo
       - name: Smoke check over TLS
         run: node tools/prod-stack.mjs smoke
+      # task 0.26b1: a full and a differential backup pulled by the repository host, then the restore drill (a write after
+      # them, which only the archived WAL holds, then the latest backup restored into a scratch database and checked)
+      - name: Backups
+        run: |
+          node tools/prod-stack.mjs backup --type full
+          node tools/prod-stack.mjs backup --type diff
+      - name: Restore drill
+        run: node tools/prod-stack.mjs drill --probe
       - name: Container logs on failure
         if: failure()
         run: >-

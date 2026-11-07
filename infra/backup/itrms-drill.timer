@@ -1,0 +1,11 @@
+# The restore drill on the first Sunday of every month at 03:00 Addis Ababa time, after the night's backup and with the offices
+# closed (the drill compares exactly however busy the database is, but it is a load on it).
+[Unit]
+Description=ITRMS monthly restore drill
+
+[Timer]
+OnCalendar=Sun *-*-01..07 03:00:00 Africa/Addis_Ababa
+Persistent=true
+
+[Install]
+WantedBy=timers.target

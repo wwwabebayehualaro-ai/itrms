@@ -1303,8 +1303,22 @@
           "notes": "Production profile: infra/docker/Dockerfile (api, documents, web, edge, egress), infra/compose/production.yml over the dev compose (internal default network, egress via squid with an allowlist, Keycloak under /auth with its admin on 127.0.0.1), tools/prod-stack.mjs (settings, test certs, roles, bucket, realm, migrations, the demo via demoSteps, a TLS smoke check), CI job 'production', release workflow on v*.*.* tags, runbook docs/operations/installation.md. chrony and LUKS are host steps in the runbook (a container can't keep the host's clock or encrypt its disk)."
         },
         {
-          "id": "0.26b",
-          "title": "Demo installation, part 2: backups and the restore drill",
+          "id": "0.26b1",
+          "title": "Demo installation, part 2a: the database's backups and its restore drill",
+          "status": "in review",
+          "branch": "task/0.26b-backups",
+          "commits": [
+            "76884b2"
+          ],
+          "evidence": [
+            "CI run 42344180398 green on 76884b2 (all 10 jobs). Production profile job: full (5.5 s) + diff (0.8 s) backup pulled by the repository host over mutual TLS, a write after them, then the drill restored to its restore point in 7.1 s and passed: 73 tables, 2816 rows and 1340 audit rows as live, Keycloak's 100 tables too (report written). task-verifier: Done when and Tests met. code-review high: 10 findings, all fixed in 158afdb (root cron stepping down, restore-point-exact drill, cleanup in finally incl. the named volume, Keycloak compared, monthly systemd timer, start_period, per-container key mounts, one certificate helper, runbook corrections). Also fixed a time-dependent SLA int test (76884b2)."
+          ],
+          "blockers": [],
+          "notes": "pgBackRest pull mode: repository host 'backup' (a container in the profile; a second machine on site), mutual TLS with its own CA (key deleted after signing; certs 825 days), AES-256 repo, time retention 30 days, weekly full + nightly diff by busybox cron. ADR-0012's 12 monthly copies go with the off-site copy (0.26d). Drill compares every table's row count and the audit log's ordered digest in one REPEATABLE READ snapshot after 'pgbackrest check' (WAL switched and archived), restoring to the end of the archive. Exact on a quiet database; a write during the drill fails it (run it out of hours). Release matrix now also publishes gate (missing since 0.26a), postgres and backup."
+        },
+        {
+          "id": "0.26b2",
+          "title": "Demo installation, part 2b: the files' backups and their restore drill",
           "status": "planned",
           "branch": null,
           "commits": [],

@@ -6,12 +6,16 @@
 #   edge       Nginx: TLS, the public exposure rules (infra/compose/nginx) and the verifier's static export
 #   gate       a TCP gate between two networks, one port each (infra/docker/gate.sh)
 #   egress     the only route out: Squid, to an allowlist (infra/docker/egress.sh)
+#   postgres   PostgreSQL with pgBackRest: WAL archived to, and backups pulled by, the repository host (infra/docker/pgbackrest.sh)
+#   backup     the pgBackRest repository host: encrypted, on a second machine on site
 # Built by CI and published on a release tag (.github/workflows/release.yml); infra/compose/production.yml runs them.
 
 # pinned by digest, as docker-compose.yml's images are (two builds of one release are the same)
 ARG NODE_IMAGE=node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e
 ARG NGINX_IMAGE=nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
 ARG ALPINE_IMAGE=alpine:3.22@sha256:bfe7ceb9f09ec0566c48fb93356e45a47a00be5a1dd14fa5b909e7709c66b034
+# the same PostgreSQL as docker-compose.yml's, with pgBackRest
+ARG POSTGRES_IMAGE=postgres:16.15-alpine3.23@sha256:621a761097839bdb50207afd6b87a72f38e2d718dd46c3d744828d8917c4f1e0
 
 FROM ${NODE_IMAGE} AS build
 ENV CI=1 LEFTHOOK=0 NEXT_TELEMETRY_DISABLED=1
@@ -86,3 +90,20 @@ FROM ${NGINX_IMAGE} AS gate
 COPY infra/docker/gate.sh /usr/local/bin/gate
 RUN chmod 0755 /usr/local/bin/gate
 CMD ["gate"]
+
+FROM ${POSTGRES_IMAGE} AS postgres
+RUN apk add --no-cache pgbackrest
+COPY infra/docker/pgbackrest.sh /usr/local/bin/itrms-pgbackrest
+RUN chmod 0755 /usr/local/bin/itrms-pgbackrest
+ENTRYPOINT ["itrms-pgbackrest", "postgres"]
+CMD ["postgres"]
+
+FROM ${POSTGRES_IMAGE} AS backup
+# the repository host: pgBackRest (and the psql the drill compares with), its own user, cron for the schedule
+RUN apk add --no-cache pgbackrest \
+    && (id -u pgbackrest > /dev/null 2>&1 || adduser -D -H -u 1001 pgbackrest) \
+    && mkdir -p /var/lib/pgbackrest /etc/crontabs
+COPY infra/docker/pgbackrest.sh /usr/local/bin/itrms-pgbackrest
+RUN chmod 0755 /usr/local/bin/itrms-pgbackrest
+ENTRYPOINT ["itrms-pgbackrest"]
+CMD ["backup"]
