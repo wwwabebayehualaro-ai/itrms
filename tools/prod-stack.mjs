@@ -251,15 +251,14 @@ async function smoke() {
     let failed = 0;
     for (const [name, check] of checks) {
         let ok = false;
+        // the kind of failure only (a refused connection, an untrusted certificate): the logs step has the rest
+        let kind = '';
         try {
             ok = await check();
         } catch (error) {
-            // the kind of failure only (a refused connection, an untrusted certificate): the logs step has the rest
-            console.error(
-                `    ${String((error && typeof error === 'object' && 'code' in error && error.code) || 'no answer')}`
-            );
+            kind = String((error && typeof error === 'object' && 'code' in error && error.code) || 'no answer');
         }
-        console.log(`  ${ok ? '✓' : '✗'} ${name}`);
+        console.log(`  ${ok ? '✓' : '✗'} ${name}${kind ? ` (${kind})` : ''}`);
         if (!ok) failed += 1;
     }
     if (failed) {
