@@ -59,10 +59,14 @@ jobs:
         run: pnpm --filter @itrms/web exec playwright test -c playwright.load.config.ts
         env:
           E2E_WEB: http://localhost:3000
-      - name: The form the query API is asked about (the demo's busiest)
+      # the demo's busiest form, else its first published one: the smoke loads the path (the BFF, the token, RLS, the
+      # planner); the timings on 10^6 rows are the perf job's
+      - name: The form the query API is asked about
         run: |
           id=$(docker compose -f infra/compose/docker-compose.yml --env-file infra/compose/.env exec -T postgres \
-            psql -U postgres -d itrms -Atc "select form_id from forms.submissions group by form_id order by count(*) desc limit 1")
+            psql -U postgres -d itrms -Atc "select coalesce(
+              (select form_id from forms.submissions group by form_id order by count(*) desc limit 1),
+              (select id from forms.form_definitions where published_version_id is not null order by published_at limit 1))")
           test -n "$id"
           echo "FORM_ID=$id" >> "$GITHUB_ENV"
       - uses: grafana/setup-k6-action@v1.2.2
