@@ -1320,8 +1320,8 @@
         {
           "id": "0.26b2",
           "title": "Demo installation, part 2b: the files' backups and their restore drill",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.26b2-files-backups",
           "commits": [],
           "evidence": [],
           "blockers": [],

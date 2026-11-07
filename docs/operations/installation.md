@@ -2,8 +2,8 @@
 
 The operator's runbook for one installation (one region, ADR-0008), on one machine. The production profile is
 `infra/compose/production.yml` over `infra/compose/docker-compose.yml`; `tools/prod-stack.mjs` runs its steps and CI runs the
-same steps on every change (the *production profile* job, task 0.26a), with the database's backups and its restore drill
-(task 0.26b1, §7). The files' backups are task 0.26b2.
+same steps on every change (the *production profile* job, task 0.26a), with the backups and the restore drill: the
+database's (task 0.26b1, §7) and the files' (task 0.26b2, §8).
 
 ## 1. The machine
 - **Linux** with Docker Engine and the Compose plugin (not Docker Desktop: ADR-0008), in Ethiopia (PDP Proclamation 1321/2024).
@@ -62,6 +62,9 @@ restore if a migration was not backwards-compatible (migrations follow expand/co
 | `postgres` | `itrms-postgres` | PostgreSQL 16 (the pinned upstream image) with pgBackRest: archives every WAL segment |
 | `backup` | `itrms-backup` | the pgBackRest repository host: pulls the backups, keeps the encrypted repository (§7) |
 | `drill` | `itrms-postgres` | the restore drill's scratch database (profile `drill`; removed after each drill) |
+| `replica`, `files-sync` | pinned SeaweedFS image | a second store, and `filer.sync` keeping the bucket's copy in it (§8) |
+| `files-backup` | `itrms-files-backup` | the bucket mirrored as files, a restic snapshot of them every night (§8) |
+| `restic` | `itrms-restic` | restic's rest-server, append-only: the files' backup repository (§8) |
 | `valkey-*`, `keycloak`, `seaweedfs` | pinned upstream images | the queues, sign-in, the files |
 
 The processes, the databases and Keycloak are on an internal network with no route out; `edge` alone takes connections, and
@@ -94,14 +97,14 @@ That protection is the off-site, append-only copy (task 0.26d).
   stanza exists, so the database's first start never waits on the repository host.
 
 ```bash
-node tools/prod-stack.mjs backup --type full   # a backup now (before an upgrade: §5); --type diff for a differential
+node tools/prod-stack.mjs backup --type full   # a backup now, and a snapshot of the files (§8); before an upgrade (§5)
 node tools/prod-stack.mjs drill                # the restore drill, by hand
 ```
 **The drill** takes one snapshot of the live database and, in the same statement, a restore point. It restores the latest
 backup into the scratch database `drill`, recovers it to that point, and compares the two: the row count of every table, the
 audit log's rows with a digest over them in order, and the row count of every table of Keycloak's database (the users and their
 second factors, in the same backup; its snapshot is a moment earlier, so a sign-in in between fails the drill, which is then run
-again). It fails on any difference and on an empty restore, and writes its report (counts and digests, no personal data) to
+again). It checks the files too (§8). It fails on any difference and on an empty restore, and writes its report (counts and digests, no personal data) to
 `infra/compose/drill-reports/`. The scratch database and its volume are removed afterwards, also when it fails: they are a copy
 of the personal data.
 
@@ -119,3 +122,30 @@ only the archived WAL holds (`drill --probe`).
    --type=default` (the arguments are pgBackRest's restore options: `--type=time "--target=<time>"` for a moment before a
    mistake; it refuses a volume that is not empty).
 4. Start `postgres`, take a full backup (`backup --type full`), then `docker compose … up -d`, then `restart edge s3` (§5).
+
+## 8. Backups and the restore drill (the files)
+ADR-0031 item 13: the files are copied two ways, each on the backup machine on site (here, containers beside the others).
+
+- **A second store** (`replica`), kept a copy of the bucket by `weed filer.sync` (`files-sync`) within seconds of every
+  change, one way (the second store never writes back). It is what a lost disk is restored from fastest: the processes can be
+  pointed at it.
+- **Snapshots, append-only:** `files-backup` mirrors the bucket as plain files (`weed filer.backup`, as they change) and takes
+  a restic snapshot of the mirror every night at 01:30 to `restic`, restic's rest-server run `--append-only`: a client can
+  add a snapshot but never remove or rewrite one, so a broken-into application machine cannot destroy the history. The retention
+  (ADR-0012: 30 daily, 12 monthly) runs on the rest-server's own side every night at 04:00.
+- **Secrets:** the repository is encrypted with `RESTIC_PASSWORD`, and the rest-server takes `RESTIC_SERVER_PASSWORD` (one
+  user, its own repository, `--private-repos`), both from `.env.production`; on site they are on the backup machine. **Without
+  `RESTIC_PASSWORD` the snapshots cannot be read**: keep its copy in the bureau's safe. The rest-server's TLS certificate is
+  `restic.*` from the backups' CA (§7).
+- **What is not in them:** a file still being uploaded or checked (`pending`, `checking`) and a rejected one: the drill counts
+  only `stored` files.
+
+**The drill** (§7, the same command) checks the files as well: every `stored` file the live database names is in the second
+store and the mirror, with its size and SHA-256 (they are given ten minutes to follow a new upload); then a snapshot is taken,
+the latest snapshot is restored into a scratch folder, and every `stored` file the *restored* database names is in it with its
+size and SHA-256. The scratch folder is removed after the listing.
+
+**A real restore** (the store lost): stop the processes, then either point them at the second store, or restore the latest
+snapshot into a new store: `docker compose … run --rm --entrypoint sh files-backup -c 'restic restore latest --host itrms
+--target /restore'` with a volume at `/restore`, and upload its `mirror/` folder to the bucket at the same keys (`weed
+filer.copy` or any S3 client). Then run the drill.

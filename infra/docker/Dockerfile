@@ -8,6 +8,8 @@
 #   egress     the only route out: Squid, to an allowlist (infra/docker/egress.sh)
 #   postgres   PostgreSQL with pgBackRest: WAL archived to, and backups pulled by, the repository host (infra/docker/pgbackrest.sh)
 #   backup     the pgBackRest repository host: encrypted, on a second machine on site
+#   files-backup  the bucket mirrored as files, snapshotted by restic every night (infra/docker/files-backup.sh)
+#   restic     restic's rest-server, append-only: the files' backup repository (infra/docker/restic-server.sh)
 # Built by CI and published on a release tag (.github/workflows/release.yml); infra/compose/production.yml runs them.
 
 # pinned by digest, as docker-compose.yml's images are (two builds of one release are the same)
@@ -16,6 +18,9 @@ ARG NGINX_IMAGE=nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd
 ARG ALPINE_IMAGE=alpine:3.22@sha256:bfe7ceb9f09ec0566c48fb93356e45a47a00be5a1dd14fa5b909e7709c66b034
 # the same PostgreSQL as docker-compose.yml's, with pgBackRest
 ARG POSTGRES_IMAGE=postgres:16.15-alpine3.23@sha256:621a761097839bdb50207afd6b87a72f38e2d718dd46c3d744828d8917c4f1e0
+# the same SeaweedFS as docker-compose.yml's, with restic; restic's rest-server
+ARG SEAWEEDFS_IMAGE=chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
+ARG REST_SERVER_IMAGE=restic/rest-server:0.14.0@sha256:d2aff06f47eb38637dff580c3e6bce4af98f386c396a25d32eb6727ec96214a5
 
 FROM ${NODE_IMAGE} AS build
 ENV CI=1 LEFTHOOK=0 NEXT_TELEMETRY_DISABLED=1
@@ -107,3 +112,18 @@ COPY infra/docker/pgbackrest.sh /usr/local/bin/itrms-pgbackrest
 RUN chmod 0755 /usr/local/bin/itrms-pgbackrest
 ENTRYPOINT ["itrms-pgbackrest"]
 CMD ["backup"]
+
+FROM ${SEAWEEDFS_IMAGE} AS files-backup
+RUN apk add --no-cache restic
+COPY infra/docker/files-backup.sh /usr/local/bin/itrms-files-backup
+RUN chmod 0755 /usr/local/bin/itrms-files-backup
+ENTRYPOINT ["itrms-files-backup"]
+CMD ["run"]
+
+FROM ${REST_SERVER_IMAGE} AS restic
+# restic itself for the retention, which only the repository's side may run (the clients append)
+RUN apk add --no-cache restic
+COPY infra/docker/restic-server.sh /usr/local/bin/itrms-restic-server
+RUN chmod 0755 /usr/local/bin/itrms-restic-server
+ENTRYPOINT ["itrms-restic-server"]
+CMD []

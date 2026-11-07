@@ -62,7 +62,10 @@ function settings() {
         // Keycloak serves under /auth here (KC_HTTP_RELATIVE_PATH): its admin API too
         KEYCLOAK_BASE_PATH: '/auth',
         // the backup repository's encryption key: lost with the settings file, the backups are unreadable (keep its copy)
-        PGBACKREST_CIPHER_PASS: env.PGBACKREST_CIPHER_PASS ?? randomBytes(32).toString('base64url')
+        PGBACKREST_CIPHER_PASS: env.PGBACKREST_CIPHER_PASS ?? randomBytes(32).toString('base64url'),
+        // the files' restic repository's password (the same warning) and the rest-server's
+        RESTIC_PASSWORD: env.RESTIC_PASSWORD ?? randomBytes(32).toString('base64url'),
+        RESTIC_SERVER_PASSWORD: env.RESTIC_SERVER_PASSWORD ?? randomBytes(32).toString('base64url')
     };
     const missing = Object.entries(derived).filter(([k]) => env[k] === undefined);
     if (missing.length) appendFileSync(ENV, missing.map(([k, v]) => `${k}=${v}\n`).join(''));
@@ -158,15 +161,15 @@ function certificates() {
 }
 
 /**
- * The backups' own CA (not the one the processes trust) and the three identities it signs: the database, the repository host
- * and the drill's scratch database. Each pgBackRest server accepts only the names it lists (infra/docker/pgbackrest.sh), and
+ * The backups' own CA (not the one the processes trust) and the identities it signs: the database, the repository host, the
+ * drill's scratch database, and the files' rest-server. Each pgBackRest server accepts only the names it lists (infra/docker/pgbackrest.sh), and
  * each container mounts only its own key. On site the database machine keeps ca.pem and postgres.*, the backup machine
- * ca.pem, backup.* and drill.*.
+ * ca.pem, backup.*, drill.* and restic.*.
  */
 function backupCertificates() {
-    const leaves = ['postgres', 'backup', 'drill'].map((name) => ({
+    const leaves = ['postgres', 'backup', 'drill', 'restic'].map((name) => ({
         cn: name,
-        usage: 'serverAuth,clientAuth',
+        usage: name === 'restic' ? 'serverAuth' : 'serverAuth,clientAuth',
         key: `${name}.key`,
         cert: `${name}.crt`,
         chain: false
@@ -252,12 +255,48 @@ async function up(demo) {
     }
     console.log(`  migrated${demo ? ' and seeded the demo' : ''} in ${((Date.now() - started) / 1000).toFixed(1)} s`);
     compose(['up', '-d', '--wait', '--wait-timeout', '300']);
+    // the files' restic repository, once
+    files('init');
     console.log(`The installation is up: https://app.${DOMAIN} and https://verify.${DOMAIN}`);
 }
 
 /** pgBackRest on the repository host, as its user. */
 const repository = (...args) =>
     compose(['exec', '-T', '-u', 'pgbackrest', 'backup', 'pgbackrest', '--stanza=itrms', ...args]);
+
+/** The files' backup container (infra/docker/files-backup.sh): its output, or (`inherit`) shown. */
+const files = (mode, input) =>
+    String(
+        compose(['exec', '-T', 'files-backup', 'itrms-files-backup', mode], {
+            input: input ?? '',
+            stdio: ['pipe', 'pipe', 'inherit'],
+            encoding: 'utf8'
+        })
+    );
+
+/** "<size> <sha256> <key>" lines as a map from the key. */
+const listing = (text) =>
+    new Map(
+        text
+            .split('\n')
+            .filter((line) => line.trim())
+            .map((line) => {
+                const [size, sha256, ...key] = line.trim().split(' ');
+                return [key.join(' '), { size: Number(size), sha256 }];
+            })
+    );
+
+/** The stored files a database's rows name that a listing lacks or holds otherwise. */
+function fileProblems(rows, found, where) {
+    const problems = [];
+    for (const row of rows) {
+        const got = found.get(row.key);
+        if (!got) problems.push(`${where}: no ${row.key}`);
+        else if (got.size !== Number(row.size) || got.sha256 !== row.sha256)
+            problems.push(`${where}: ${row.key} differs (${got.size} bytes, not ${row.size}; or its checksum)`);
+    }
+    return problems;
+}
 
 /** SQL as the superuser, on the live database or the drill's, by psql over the container's socket; its one output line. */
 const sql = (service, text, database = 'itrms') =>
@@ -307,6 +346,8 @@ const state = (point) => `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 SELECT json_build_object(
   ${point ? `'point', pg_create_restore_point('${point}')::text,` : ''}
   'tables', ${TABLES},
+  'files', coalesce((SELECT json_agg(json_build_object('key', object_key, 'size', size, 'sha256', sha256) ORDER BY object_key)
+                     FROM kernel.files WHERE status = 'stored'), '[]'::json),
   'audit', (SELECT json_build_object('rows', count(*), 'digest', md5(coalesce(string_agg(md5(a::text), '' ORDER BY a.id), '')))
             FROM kernel.audit_log a)
 );
@@ -319,8 +360,12 @@ async function backup(type) {
     if (!['full', 'diff'].includes(type)) throw new Error(`a backup is full or diff, not ${type}`);
     const from = Date.now();
     repository(`--type=${type}`, 'backup');
-    console.log(`  ${type} backup in ${((Date.now() - from) / 1000).toFixed(1)} s`);
+    console.log(`  ${type} backup of the database in ${((Date.now() - from) / 1000).toFixed(1)} s`);
     repository('info');
+    // the files: a restic snapshot of the mirror (incremental whatever the type)
+    const filesFrom = Date.now();
+    files('snapshot');
+    console.log(`  snapshot of the files in ${((Date.now() - filesFrom) / 1000).toFixed(1)} s`);
 }
 
 async function drill(probe) {
@@ -339,6 +384,24 @@ INSERT INTO itrms_drill.probe DEFAULT VALUES;`
     const live = JSON.parse(sql('postgres', state(point)));
     // the restore point's WAL in the repository (check switches to a new segment and waits for the old one to be archived)
     repository('check');
+
+    // the files: the second store and the mirror hold every stored file of the snapshot (both follow the bucket within
+    // seconds; a new upload may take that long), then a restic snapshot of the mirror, restored below
+    const problems = [];
+    for (const until = Date.now() + 600_000; ;) {
+        const mirrored = fileProblems(live.files, listing(files('mirror')), 'the mirror');
+        const replicated = fileProblems(
+            live.files,
+            listing(files('replica', live.files.map((f) => f.key).join('\n'))),
+            'the second store'
+        );
+        if ((mirrored.length === 0 && replicated.length === 0) || Date.now() > until) {
+            problems.push(...mirrored, ...replicated);
+            break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 5_000));
+    }
+    files('snapshot');
     const from = Date.now();
     let restored;
     let restoredKeycloak;
@@ -360,14 +423,14 @@ INSERT INTO itrms_drill.probe DEFAULT VALUES;`
         }
         restored = JSON.parse(sql('drill', state()));
         restoredKeycloak = JSON.parse(sql('drill', KEYCLOAK_STATE, 'keycloak'));
+        // the latest files snapshot, restored into a scratch folder: every stored file the restored database names, whole
+        problems.push(...fileProblems(restored.files, listing(files('restored')), 'the files snapshot'));
     } finally {
         // the scratch database and its volume are gone again, whatever happened: it holds a copy of the personal data
         compose(['--profile', 'drill', 'rm', '-f', '-s', '-v', 'drill']);
         execFileSync('docker', ['volume', 'rm', '-f', 'itrms_drill-data'], { stdio: 'ignore' });
     }
     console.log(`  restored and recovered to ${point} in ${((Date.now() - from) / 1000).toFixed(1)} s`);
-
-    const problems = [];
     const names = new Set([...Object.keys(live.tables), ...Object.keys(restored.tables)]);
     let rows = 0;
     for (const name of [...names].sort()) {
@@ -389,6 +452,8 @@ INSERT INTO itrms_drill.probe DEFAULT VALUES;`
         if (a !== b) problems.push(`keycloak ${name}: ${a ?? 'missing'} live, ${b ?? 'missing'} restored`);
     }
     if (keycloakNames.size === 0) problems.push("the restored database has no Keycloak's tables");
+    // CI's demo has issued documents: a files check over no file would prove nothing there
+    if (probe && restored.files.length === 0) problems.push('the restored database names no stored file');
 
     // ADR-0012's report: what was compared, kept beside the installation (counts and digests, no personal data)
     mkdirSync(DRILL_REPORTS, { recursive: true });
@@ -397,7 +462,17 @@ INSERT INTO itrms_drill.probe DEFAULT VALUES;`
     writeFileSync(
         report,
         JSON.stringify(
-            { at, point, passed: problems.length === 0, problems, live, restored, keycloak, restoredKeycloak },
+            {
+                at,
+                point,
+                passed: problems.length === 0,
+                problems,
+                // the files by count (their keys and checksums are in the database)
+                live: { ...live, files: live.files.length },
+                restored: { ...restored, files: restored.files.length },
+                keycloak,
+                restoredKeycloak
+            },
             null,
             2
         )
@@ -408,7 +483,7 @@ INSERT INTO itrms_drill.probe DEFAULT VALUES;`
         process.exit(1);
     }
     console.log(
-        `The restore drill passed: ${names.size} tables, ${rows} rows and ${restored.audit.rows} audit rows as live; Keycloak's ${keycloakNames.size} tables too.`
+        `The restore drill passed: ${names.size} tables, ${rows} rows and ${restored.audit.rows} audit rows as live; Keycloak's ${keycloakNames.size} tables too; ${restored.files.length} stored files whole in the second store and the files snapshot.`
     );
 }
 
