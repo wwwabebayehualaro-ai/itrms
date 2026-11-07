@@ -404,13 +404,15 @@ VALUES ('${id}', '${regionId}', '${unitId}', 'generated', 'stored', 'drill-probe
     // seconds; a new upload may take that long), then a restic snapshot of the mirror, restored below
     const problems = [];
     for (const until = Date.now() + 600_000; ;) {
+        // the last try also shows what the second store answers (its log, for the operator)
+        const last = Date.now() > until;
         const mirrored = fileProblems(live.files, listing(files('mirror')), 'the mirror');
         const replicated = fileProblems(
             live.files,
-            listing(files('replica', live.files.map((f) => f.key).join('\n'))),
+            listing(files('replica', live.files.map((f) => f.key).join('\n'), last ? ['--tell'] : [])),
             'the second store'
         );
-        if ((mirrored.length === 0 && replicated.length === 0) || Date.now() > until) {
+        if ((mirrored.length === 0 && replicated.length === 0) || last) {
             problems.push(...mirrored, ...replicated);
             break;
         }

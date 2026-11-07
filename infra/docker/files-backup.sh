@@ -88,6 +88,16 @@ EOF
                 printf '%s %s %s\n' "$(stat -c %s "$tmp")" "$(sha256sum "$tmp" | cut -c1-64)" "$key"
             else
                 printf 'missing %s\n' "$key"
+                # what the second store answered, and what its folders hold, once: for the operator's log
+                if [ "${2:-}" = --tell ] && [ -z "${told:-}" ]; then
+                    told=1
+                    wget -O /dev/null "http://replica:8888/buckets/itrms/$key" 2>&1 | tail -n 2 >&2 || true
+                    for dir in "${key%/*}" files ''; do
+                        wget -q -O - --header 'Accept: application/json' "http://replica:8888/buckets/itrms/$dir/?limit=5" 2>&1 \
+                            | cut -c1-600 >&2 || true
+                        echo >&2
+                    done
+                fi
             fi
         done
         rm -f "$tmp"
