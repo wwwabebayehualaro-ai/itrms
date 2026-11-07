@@ -13,7 +13,7 @@
 // (app.*, verify.* and the CA the processes trust); a test installation gets a self-signed set, a bureau puts its own there.
 // Backups (task 0.26b1): pgBackRest, its repository host pulling over mutual TLS with certificates from infra/compose/backup-tls.
 import { execFileSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { request } from 'node:https';
 import { request as plainRequest } from 'node:http';
@@ -264,10 +264,10 @@ async function up(demo) {
 const repository = (...args) =>
     compose(['exec', '-T', '-u', 'pgbackrest', 'backup', 'pgbackrest', '--stanza=itrms', ...args]);
 
-/** The files' backup container (infra/docker/files-backup.sh): its output, or (`inherit`) shown. */
-const files = (mode, input) =>
+/** A command in the files' backup container (infra/docker/files-backup.sh), with stdin; its output. */
+const files = (mode, input, args = []) =>
     String(
-        compose(['exec', '-T', 'files-backup', 'itrms-files-backup', mode], {
+        compose(['exec', '-T', 'files-backup', 'itrms-files-backup', mode, ...args], {
             input: input ?? '',
             stdio: ['pipe', 'pipe', 'inherit'],
             encoding: 'utf8'
@@ -376,6 +376,21 @@ async function drill(probe) {
             `CREATE SCHEMA IF NOT EXISTS itrms_drill;
 CREATE TABLE IF NOT EXISTS itrms_drill.probe (id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY, at timestamptz NOT NULL DEFAULT now());
 INSERT INTO itrms_drill.probe DEFAULT VALUES;`
+        );
+        // and a stored file (CI's demo has none when the drill runs): its object in the bucket, its row as the superuser
+        // (outside the application, so without an audit row: CI only)
+        const unit = sql('postgres', "SELECT id || ' ' || region_id FROM kernel.org_units ORDER BY path LIMIT 1;");
+        const [unitId, regionId] = unit.split(' ');
+        const id = randomUUID();
+        const key = `files/${regionId}/${id}`;
+        const body = `drill probe ${new Date().toISOString()}\n`;
+        files('put', body, [key]);
+        sql(
+            'postgres',
+            `INSERT INTO kernel.files (id, region_id, unit_id, origin, status, filename, content_type, size, sha256, object_key,
+  document_type, confirmed_at)
+VALUES ('${id}', '${regionId}', '${unitId}', 'generated', 'stored', 'drill-probe.csv', 'text/csv', ${Buffer.byteLength(body)},
+  '${createHash('sha256').update(body).digest('hex')}', '${key}', 'drill_probe', now());`
         );
     }
     // Keycloak's first (its own snapshot: a sign-in in between differs by a session), then ITRMS's with the restore point

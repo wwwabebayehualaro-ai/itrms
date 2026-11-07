@@ -8,6 +8,7 @@
 #   itrms-files-backup restored    the latest snapshot restored into a scratch folder, listed the same way, then removed
 #   itrms-files-backup replica     for each object key on stdin, the copy in the second store (filer.sync): the same line, or
 #                                  "missing <key>"
+#   itrms-files-backup put <key>   stdin into the bucket at that key (the CI drill's probe file)
 # The repository's password and the rest-server's are the container's environment; cron's jobs get them from a root-only file.
 set -eu
 mode="${1:-run}"
@@ -72,8 +73,15 @@ EOF
         done
         rm -f "$tmp"
         ;;
+    put)
+        key="${2:?a key}"
+        dir=$(mktemp -d)
+        cat > "$dir/${key##*/}"
+        weed filer.copy "$dir/${key##*/}" "http://objectstore:8888/buckets/itrms/${key%/*}/" >&2
+        rm -rf "$dir"
+        ;;
     *)
-        echo "usage: itrms-files-backup run|init|snapshot|mirror|restored|replica" >&2
+        echo "usage: itrms-files-backup run|init|snapshot|mirror|restored|replica|put" >&2
         exit 64
         ;;
 esac
