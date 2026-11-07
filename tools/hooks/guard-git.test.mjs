@@ -1,4 +1,4 @@
-// The git guard (tools/hooks/guard-git.mjs): what it denies, what it lets through, what it asks about.
+// The git guard (tools/hooks/guard-git.mjs): what it denies, what it lets through, and what it leaves to the permission flow (it never asks).
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
@@ -17,7 +17,17 @@ function decision(command) {
 }
 
 test('a push to origin on its own goes ahead', () => {
-    for (const command of ['git push origin main', 'git push -u origin task/x', 'git push --set-upstream origin a'])
+    for (const command of [
+        'git push origin main',
+        'git push -u origin task/x',
+        'git push --set-upstream origin a',
+        'git push -q origin HEAD',
+        'git push -q origin main',
+        'git push --quiet -u origin task/x',
+        'git push origin HEAD:main',
+        'git push origin --delete task/x',
+        'git push origin :task/x'
+    ])
         assert.equal(decision(command), 'allow', command);
 });
 
@@ -31,31 +41,26 @@ test('a force-push is denied, however it is written', () => {
         assert.equal(decision(command), 'deny', command);
 });
 
-test('a push that is not a plain branch to origin asks', () => {
-    for (const command of [
-        'git push',
-        'git push origin :main',
-        'git push origin --delete main',
-        'git push origin HEAD:main',
-        'git -c remote.origin.pushurl=https://example.com/x.git push origin main',
-        'git -c core.sshCommand=evil push origin main',
-        'GIT_SSH_COMMAND=evil git push origin main',
-        'rm -rf x git push origin',
-        'git -C elsewhere push origin main'
-    ])
-        assert.equal(decision(command), 'ask', command);
-    assert.equal(decision('git -C "a b" push --force origin main'), 'deny');
-});
-
-test('a push anywhere else, or that it cannot read, asks', () => {
+test('a push that could send the code elsewhere, or delete main, is denied (never asked)', () => {
     for (const command of [
         'git push another main',
         'git push https://example.com/x.git main',
         'git push --mirror origin',
-        'git push --all origin'
+        'git push --all origin',
+        'git -c remote.origin.pushurl=https://example.com/x.git push origin main',
+        'git -c core.sshCommand=evil push origin main',
+        'GIT_SSH_COMMAND=evil git push origin main',
+        'git push origin :main',
+        'git push origin --delete main'
     ])
-        assert.equal(decision(command), 'ask', command);
-    assert.equal(decision('git add . && git push another main'), 'ask');
+        assert.equal(decision(command), 'deny', command);
+    assert.equal(decision('git add . && git push another main'), 'deny');
+    assert.equal(decision('git -C "a b" push --force origin main'), 'deny');
+});
+
+test('a push it cannot place is left to the normal permission flow, never asked', () => {
+    for (const command of ['git push', 'git push -q', 'git -C elsewhere push origin main', 'rm -rf x git push origin'])
+        assert.equal(decision(command), null, command);
 });
 
 test('an approval never covers anything else in the command', () => {
