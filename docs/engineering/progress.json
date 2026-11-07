@@ -1289,10 +1289,11 @@
         {
           "id": "0.26a",
           "title": "Demo installation, part 1: the production profile and released images",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.26a-production-profile",
           "commits": [
-            "204da02"
+            "204da02",
+            "d90c1f6"
           ],
           "evidence": [
             "GitHub Actions run 42337297648 (PR #44) on 204da02 → all jobs success; job 'production profile (images, TLS, the demo)': the images built from infra/docker/Dockerfile, the stack started from them, migrated and seeded with the demo in 43.1 s, 'All 9 smoke checks passed' over TLS on app.itrms.test and verify.itrms.test (http→https, the verifier, its keys from the API through Nginx, the API refused on the verify host, sign-in to Keycloak's page, Keycloak administration not public, HSTS, no route out from the API, the egress proxy refusing a host not allowed); e2e green",
