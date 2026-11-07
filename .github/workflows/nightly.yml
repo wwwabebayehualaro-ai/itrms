@@ -55,10 +55,6 @@ jobs:
           echo "the API or the web app did not start"; exit 1
       - name: Chromium for Playwright
         run: pnpm --filter @itrms/web exec playwright install --with-deps chromium
-      - name: Sign the officers in (their sessions for k6)
-        run: pnpm --filter @itrms/web exec playwright test -c playwright.load.config.ts
-        env:
-          E2E_WEB: http://localhost:3000
       # the demo's busiest form, else its first published one: the smoke loads the path (the BFF, the token, RLS, the
       # planner); the timings on 10^6 rows are the perf job's
       - name: The form the query API is asked about
@@ -69,6 +65,11 @@ jobs:
               (select id from forms.form_definitions where published_version_id is not null order by published_at limit 1))")
           test -n "$id"
           echo "FORM_ID=$id" >> "$GITHUB_ENV"
+      - name: Sign the officers in (their sessions for k6)
+        run: pnpm --filter @itrms/web exec playwright test -c playwright.load.config.ts
+        env:
+          E2E_WEB: http://localhost:3000
+          FORM_ID: ${{ env.FORM_ID }}
       - uses: grafana/setup-k6-action@v1.2.2
         with:
           k6-version: 2.3.0

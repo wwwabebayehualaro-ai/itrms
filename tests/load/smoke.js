@@ -41,9 +41,13 @@ export const options = {
     summaryTrendStats: ['avg', 'med', 'p(90)', 'p(95)', 'max']
 };
 
-/** The session of this virtual user's person: the cookies their browser sends. */
-function as() {
-    const s = setup.sessions[exec.vu.idInTest % setup.sessions.length];
+// the people who may do each (the setup asked the API as each)
+const may = { inbox: setup.sessions.filter((s) => s.inbox), query: setup.sessions.filter((s) => s.query) };
+
+/** The session of this virtual user's person for a kind of request: the cookies their browser sends. */
+function as(kind) {
+    const people = may[kind];
+    const s = people[exec.vu.idInTest % people.length];
     return {
         headers: {
             cookie: `__Host-itrms_sid=${s.sid}; __Host-itrms_csrf=${s.csrf}`,
@@ -60,14 +64,15 @@ const uuid = () =>
         (c === 'x' ? Math.floor(Math.random() * 16) : 8 + Math.floor(Math.random() * 4)).toString(16)
     );
 
-const inboxPage = () => http.get(`${BASE}/api/v1/me/tasks?claim=all&limit=25`, { ...as(), tags: { name: 'inbox' } });
+const inboxPage = () =>
+    http.get(`${BASE}/api/v1/me/tasks?claim=all&limit=25`, { ...as('inbox'), tags: { name: 'inbox' } });
 const queryPage = () =>
     http.post(
         `${BASE}/api/v1/submissions/query`,
         JSON.stringify({ formId: FORM_ID, page: 1 + Math.floor(Math.random() * 3), pageSize: 20 }),
         {
-            ...as(),
-            headers: { ...as().headers, 'content-type': 'application/json', 'idempotency-key': uuid() },
+            ...as('query'),
+            headers: { ...as('query').headers, 'content-type': 'application/json', 'idempotency-key': uuid() },
             tags: { name: 'query' }
         }
     );
