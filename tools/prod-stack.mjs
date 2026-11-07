@@ -164,7 +164,8 @@ async function up(demo) {
     const env = settings();
     certificates();
     if (!VERSION) compose(['--profile', 'setup', 'build']);
-    const backing = ['postgres', 'valkey-queues', 'valkey-sessions', 'keycloak', 'seaweedfs'];
+    // and the gates: the setup reaches Keycloak's administration through `admin`, the processes the store through `s3`
+    const backing = ['postgres', 'valkey-queues', 'valkey-sessions', 'keycloak', 'seaweedfs', 'admin', 's3'];
     compose(['up', '-d', '--wait', '--wait-timeout', '300', ...backing]);
     dev.seedDatabaseRoles(env);
     // the bucket, from inside the store (its S3 port is on the stack's network only); an existing one stays
@@ -285,7 +286,7 @@ async function smoke() {
         } catch (error) {
             kind = String((error && typeof error === 'object' && 'code' in error && error.code) || 'no answer');
         }
-        console.log(`  ${ok ? '✓' : '✗'} ${name}${kind ? ` (${kind})` : ''}`);
+        console.log(`  ${ok ? 'âœ“' : 'âœ—'} ${name}${kind ? ` (${kind})` : ''}`);
         if (!ok) failed += 1;
     }
     if (failed) {
