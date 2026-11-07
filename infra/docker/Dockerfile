@@ -14,13 +14,14 @@ ENV CI=1 LEFTHOOK=0 NEXT_TELEMETRY_DISABLED=1
 RUN npm install --global pnpm@12.9.1
 WORKDIR /repo
 COPY . .
-# one flat node_modules: the API bundle requires its npm packages from it at run time (apps/api/webpack.config.cjs)
-RUN pnpm install --frozen-lockfile --config.node-linker=hoisted
+# one flat node_modules: the API bundle requires its npm packages from it at run time (apps/api/webpack.config.cjs). The
+# repository's own scripts (git hooks) have no git here: only the packages' build scripts run (rebuild)
+RUN pnpm install --frozen-lockfile --config.node-linker=hoisted --ignore-scripts && pnpm rebuild
 RUN pnpm --filter @itrms/api build \
     && NEXT_OUTPUT=standalone pnpm --filter @itrms/web build \
     && pnpm --filter @itrms/verify build
 # then only what runs: the development packages go
-RUN pnpm install --frozen-lockfile --prod --config.node-linker=hoisted
+RUN pnpm install --frozen-lockfile --prod --config.node-linker=hoisted --ignore-scripts && pnpm rebuild
 
 FROM ${NODE_IMAGE} AS api
 ENV NODE_ENV=production TZ=Africa/Addis_Ababa

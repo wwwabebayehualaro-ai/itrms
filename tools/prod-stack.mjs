@@ -235,7 +235,10 @@ async function smoke() {
         try {
             ok = await check();
         } catch (error) {
-            console.error(`    ${error instanceof Error ? error.message : String(error)}`);
+            // the kind of failure only (a refused connection, an untrusted certificate): the logs step has the rest
+            console.error(
+                `    ${String((error && typeof error === 'object' && 'code' in error && error.code) || 'no answer')}`
+            );
         }
         console.log(`  ${ok ? '✓' : '✗'} ${name}`);
         if (!ok) failed += 1;
