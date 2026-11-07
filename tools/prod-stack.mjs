@@ -119,6 +119,24 @@ function certificates() {
     console.log(`  test certificates for app.${DOMAIN} and verify.${DOMAIN} (infra/compose/tls)`);
 }
 
+/**
+ * Keycloak in production mode answers its health check before its first admin exists ("Bootstrap in progress", 503): its
+ * admin token is asked for only once its master realm answers.
+ */
+async function keycloakReady(env, timeoutMs = 300_000) {
+    const url = `http://127.0.0.1:${env.KEYCLOAK_HOST_PORT ?? 18080}/auth/realms/master`;
+    const until = Date.now() + timeoutMs;
+    for (;;) {
+        const status = await fetch(url).then(
+            (r) => r.status,
+            () => 0
+        );
+        if (status === 200) return;
+        if (Date.now() > until) throw new Error(`Keycloak did not answer at ${url} (last status ${status})`);
+        await new Promise((resolve) => setTimeout(resolve, 3_000));
+    }
+}
+
 /** A seed or the migrations, in the setup container (the API image, with the owner's connection). */
 const inSetup = (_settings, script, args) =>
     compose([
@@ -142,6 +160,7 @@ async function up(demo) {
     compose(['up', '-d', '--wait', '--wait-timeout', '300', ...backing]);
     dev.seedDatabaseRoles(env);
     await dev.seedBuckets(env, [env.S3_BUCKET]);
+    await keycloakReady(env);
     await dev.seedKeycloak(env, {
         appOrigin: `https://app.${DOMAIN}`,
         // Keycloak tells the BFF of a sign-out on the stack's own network
