@@ -69,7 +69,8 @@ const inboxPage = () =>
 const queryPage = () =>
     http.post(
         `${BASE}/api/v1/submissions/query`,
-        JSON.stringify({ formId: FORM_ID, page: 1 + Math.floor(Math.random() * 3), pageSize: 20 }),
+        // the first page, as the data viewer opens: a page past the results is refused, and the demo's form may have few
+        JSON.stringify({ formId: FORM_ID, page: 1, pageSize: 20 }),
         {
             ...as('query'),
             headers: { ...as('query').headers, 'content-type': 'application/json', 'idempotency-key': uuid() },

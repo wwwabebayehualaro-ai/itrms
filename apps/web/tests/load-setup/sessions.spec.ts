@@ -30,7 +30,12 @@ test('signs the load test’s officers in and keeps their sessions', async ({ br
         const query = (
             await page.request.post('/api/v1/submissions/query', {
                 data: { formId: FORM_ID, page: 1, pageSize: 1 },
-                headers: { 'x-csrf-token': csrf ?? '', 'idempotency-key': randomUUID() }
+                // as the browser sends them: the BFF checks the Origin and the CSRF token of a state-changing call
+                headers: {
+                    origin: new URL(page.url()).origin,
+                    'x-csrf-token': csrf ?? '',
+                    'idempotency-key': randomUUID()
+                }
             })
         ).ok();
         sessions.push({ username: who.username, sid, csrf, inbox, query });
