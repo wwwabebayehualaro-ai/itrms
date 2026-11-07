@@ -58,11 +58,11 @@ function as(kind) {
     };
 }
 
-/** A UUID v4 for the Idempotency-Key the client sends with every POST (a load test's: Math.random is enough here). */
-const uuid = () =>
-    'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) =>
-        (c === 'x' ? Math.floor(Math.random() * 16) : 8 + Math.floor(Math.random() * 4)).toString(16)
-    );
+/** The Idempotency-Key the client sends with every POST: a UUID v4 from k6's Web Crypto. */
+const uuid = () => crypto.randomUUID();
+
+/** A person's pause between requests: half a second to a second and a half, varying from one iteration to the next. */
+const pause = () => sleep(0.5 + (exec.vu.iterationInScenario % 11) / 10);
 
 const inboxPage = () =>
     http.get(`${BASE}/api/v1/me/tasks?claim=all&limit=25`, { ...as('inbox'), tags: { name: 'inbox' } });
@@ -86,11 +86,11 @@ export function warmup() {
 export function inbox() {
     const res = inboxPage();
     check(res, { 'the inbox answers': (r) => r.status === 200 && Array.isArray(r.json('items')) });
-    sleep(0.5 + Math.random());
+    pause();
 }
 
 export function query() {
     const res = queryPage();
     check(res, { 'the query answers': (r) => r.status === 200 && Array.isArray(r.json('items')) });
-    sleep(0.5 + Math.random());
+    pause();
 }
