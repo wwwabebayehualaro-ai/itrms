@@ -1305,10 +1305,11 @@
         {
           "id": "0.26b1",
           "title": "Demo installation, part 2a: the database's backups and its restore drill",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.26b-backups",
           "commits": [
-            "76884b2"
+            "76884b2",
+            "efa986c"
           ],
           "evidence": [
             "CI run 42344180398 green on 76884b2 (all 10 jobs). Production profile job: full (5.5 s) + diff (0.8 s) backup pulled by the repository host over mutual TLS, a write after them, then the drill restored to its restore point in 7.1 s and passed: 73 tables, 2816 rows and 1340 audit rows as live, Keycloak's 100 tables too (report written). task-verifier: Done when and Tests met. code-review high: 10 findings, all fixed in 158afdb (root cron stepping down, restore-point-exact drill, cleanup in finally incl. the named volume, Keycloak compared, monthly systemd timer, start_period, per-container key mounts, one certificate helper, runbook corrections). Also fixed a time-dependent SLA int test (76884b2)."
