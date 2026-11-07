@@ -3006,6 +3006,11 @@
       "foundIn": "0.26c1",
       "item": "R1: audit hash chain and signed daily digest off-site (ADR-0018)",
       "movedTo": "Phase 1"
+    },
+    {
+      "foundIn": "0.26c2",
+      "item": "The full load test: inbox, query API, search and transitions at 1× and 3× regional load on a generated 10⁶-record data set, on the reference server (testing-strategy.md; release gate)",
+      "movedTo": "3.13"
     }
   ]
 }

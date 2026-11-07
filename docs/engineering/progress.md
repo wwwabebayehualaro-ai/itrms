@@ -361,3 +361,4 @@ Last updated: 2026-11-07. Planning: done (docs/reviews/2026-10-18-design-review.
 | 202 | 0.26c1 | A7: session list and sign out everywhere (SEC-SE-4) | Phase 1 | open |
 | 203 | 0.26c1 | A1: browser idle timer that warns, then signs out | Phase 1 | open |
 | 204 | 0.26c1 | R1: audit hash chain and signed daily digest off-site (ADR-0018) | Phase 1 | open |
+| 205 | 0.26c2 | The full load test: inbox, query API, search and transitions at 1× and 3× regional load on a generated 10⁶-record data set, on the reference server (testing-strategy.md; release gate) | 3.13 | open |
