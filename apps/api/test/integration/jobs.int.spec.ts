@@ -194,6 +194,24 @@ describe('numbering (architecture.md §15)', () => {
         ).rejects.toMatchObject({ status: 409, code: 'invalid_transition' });
     });
 
+    it('never lets request code give a period, and so a new start at 1, to a counter not numbered by year', async () => {
+        // security review 0.26c1 R2: only the application's own check stood between a counter and its numbers again
+        await owner.query(
+            `insert into kernel.number_counters (id, region_id, unit_id, key, pattern, last_value, period)
+             values (gen_random_uuid(), $1, $2, 'fees.plain', '{seq}', 77, '')`,
+            [boditi.regionId, boditi.id]
+        );
+        await expect(
+            app.scoped(contextFor(boditi), (tx) =>
+                tx.execute(
+                    sql`update kernel.number_counters set period = ${String(efy(new Date()))}, last_value = 1
+                        where key = 'fees.plain'`
+                )
+            )
+        ).rejects.toMatchObject({ cause: { code: '23514' } });
+        expect((await app.scoped(contextFor(boditi), (tx) => nextNumber(tx, 'fees.plain', boditi.id))).value).toBe(78n);
+    });
+
     it("keeps a unit's counter to its scope", async () => {
         await expect(
             app.scoped(contextFor(damot), (tx) => nextNumber(tx, 'fees.receipt', boditi.id))

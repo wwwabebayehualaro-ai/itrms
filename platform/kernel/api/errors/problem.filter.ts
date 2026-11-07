@@ -153,6 +153,7 @@ export class ProblemFilter implements ExceptionFilter {
             await this.database.recordSensitiveEvent(
                 {
                     requestId: request?.requestId,
+                    ip: request?.ip,
                     ...(principal && {
                         userId: principal.userId,
                         unitId: principal.unitId,

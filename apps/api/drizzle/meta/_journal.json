@@ -421,6 +421,20 @@
       "when": 1794011312711,
       "tag": "0059_case_audit_index",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1794062478177,
+      "tag": "0060_kernel_users_region_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1794062498709,
+      "tag": "0061_kernel_counters_period_by_pattern",
+      "breakpoints": true
     }
   ]
 }

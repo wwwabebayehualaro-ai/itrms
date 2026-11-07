@@ -151,7 +151,12 @@ export function requestDbContext(): DbContext {
     const request = currentContext();
     const principal = request?.principal;
     if (!request || !principal) throw new UnauthenticatedError();
-    return { requestId: request.requestId, ...dbContextOf(principal), transactionHook: request.transactionHook };
+    return {
+        requestId: request.requestId,
+        ip: request.ip,
+        ...dbContextOf(principal),
+        transactionHook: request.transactionHook
+    };
 }
 
 /** The signed-in caller of the request being served; 401 outside one. */

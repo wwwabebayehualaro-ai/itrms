@@ -55,13 +55,19 @@ export interface Session {
     record: SessionRecord;
 }
 
-/** The session the request's cookie names, its idle timeout restarted; undefined when there is none. */
-export async function currentSession(request: NextRequest): Promise<Session | undefined> {
+/**
+ * The session the request's cookie names, its idle timeout restarted (`touch`; not for the app's own background reads);
+ * undefined when there is none.
+ */
+export async function currentSession(
+    request: NextRequest,
+    { touch = true }: { touch?: boolean } = {}
+): Promise<Session | undefined> {
     const id = request.cookies.get(SESSION_COOKIE)?.value;
     if (!id || !SESSION_ID.test(id)) return undefined;
     const { store } = bff();
     const record = await store.get(id);
-    if (!record || !(await store.touch(id, record))) return undefined;
+    if (!record || (touch && !(await store.touch(id, record)))) return undefined;
     return { id, record };
 }
 

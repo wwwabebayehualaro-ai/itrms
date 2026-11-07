@@ -68,7 +68,9 @@ function settings() {
         PGBACKREST_CIPHER_PASS: env.PGBACKREST_CIPHER_PASS ?? randomBytes(32).toString('base64url'),
         // the files' restic repository's password (the same warning) and the rest-server's
         RESTIC_PASSWORD: env.RESTIC_PASSWORD ?? randomBytes(32).toString('base64url'),
-        RESTIC_SERVER_PASSWORD: env.RESTIC_SERVER_PASSWORD ?? randomBytes(32).toString('base64url')
+        RESTIC_SERVER_PASSWORD: env.RESTIC_SERVER_PASSWORD ?? randomBytes(32).toString('base64url'),
+        // the sessions' Valkey (in its URL: hex, nothing to escape)
+        VALKEY_SESSIONS_PASSWORD: env.VALKEY_SESSIONS_PASSWORD ?? randomBytes(32).toString('hex')
     };
     const missing = Object.entries(derived).filter(([k]) => env[k] === undefined);
     if (missing.length) appendFileSync(ENV, missing.map(([k, v]) => `${k}=${v}\n`).join(''));
@@ -544,6 +546,29 @@ function get(host, path, { tls = true } = {}) {
     });
 }
 
+/**
+ * Whether the processes' S3 identity holds objects in its bucket and nothing more: an object written and removed, a new
+ * bucket refused (403).
+ */
+function objectsOnly() {
+    const code = `const s3 = require('@aws-sdk/client-s3');
+const client = new s3.S3Client({ endpoint: process.env.S3_ENDPOINT, region: 'us-east-1', forcePathStyle: true,
+  credentials: { accessKeyId: process.env.S3_ACCESS_KEY, secretAccessKey: process.env.S3_SECRET_KEY } });
+(async () => {
+  const at = { Bucket: process.env.S3_BUCKET, Key: 'quarantine/smoke-' + Date.now() };
+  await client.send(new s3.PutObjectCommand({ ...at, Body: 'smoke' }));
+  await client.send(new s3.DeleteObjectCommand(at));
+  try { await client.send(new s3.CreateBucketCommand({ Bucket: 'itrms-smoke-' + Date.now() })); process.exit(1); }
+  catch (e) { process.exit(e && e.$metadata && e.$metadata.httpStatusCode === 403 ? 0 : 2); }
+})().catch(() => process.exit(3));`;
+    try {
+        compose(['exec', '-T', 'api', 'node', '-e', code], { stdio: 'ignore' });
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 /** Whether a call out from the API's container fails: through the egress proxy (`proxied`), or straight out. */
 function blockedOut(proxied) {
     const code =
@@ -595,6 +620,10 @@ async function smoke() {
         ['Keycloak administration is not public', async () => (await get(app, '/auth/admin/')).status === 404],
         ['the API has no route out of its own', async () => blockedOut(false)],
         ['the egress proxy refuses a host the installation did not allow', async () => blockedOut(true)],
+        [
+            "the processes' S3 identity holds objects in its bucket, not the store's administration",
+            async () => objectsOnly()
+        ],
         [
             'security headers',
             async () => {

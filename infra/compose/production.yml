@@ -21,6 +21,15 @@ x-app: &app
     postgres:
       condition: service_healthy
 
+# the object store and its second store run the same: the processes' identity reads, writes and lists objects in the
+# bucket only, no bucket administration (security review 0.26c1 F2); the bucket is made from inside the store (weed shell)
+x-store-command: &store-command
+  - |
+    cat > /tmp/s3.json <<EOF
+    {"identities":[{"name":"itrms","credentials":[{"accessKey":"${S3_ACCESS_KEY}","secretKey":"${S3_SECRET_KEY}"}],"actions":["Read:${S3_BUCKET}","Write:${S3_BUCKET}","List:${S3_BUCKET}"]}]}
+    EOF
+    exec weed server -dir=/data -master.volumeSizeLimitMB=1024 -volume.max=0 -s3 -s3.port=8333 -s3.config=/tmp/s3.json
+
 x-env: &env
   NODE_ENV: production
   TZ: Africa/Addis_Ababa
@@ -69,10 +78,28 @@ services:
       - ${ITRMS_BACKUP_TLS_DIR:-./backup-tls}/postgres.key:/run/pgbackrest-tls/postgres.key:ro
   valkey-queues:
     ports: !reset []
+  # the sessions' store: a password, and a network of its own shared with the BFF only (security review 0.26c1 A11)
   valkey-sessions:
     ports: !reset []
+    # the password in a file read at start, never on the command line (where the host's process list shows it)
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        umask 077
+        printf 'requirepass %s\n' "$$VALKEY_PASSWORD" > /tmp/valkey.conf
+        exec valkey-server /tmp/valkey.conf --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
+    environment:
+      VALKEY_PASSWORD: ${VALKEY_SESSIONS_PASSWORD:?}
+    healthcheck:
+      test: ['CMD-SHELL', 'valkey-cli -a "$$VALKEY_PASSWORD" --no-auth-warning ping | grep -q PONG']
+    networks: [sessions]
+  # the processes' identity reads, writes and lists objects in their bucket only: no bucket administration (security review
+  # 0.26c1 F2); the bucket is made by prod-stack from inside the store (weed shell)
   seaweedfs:
     ports: !reset []
+    command: *store-command
+    environment:
+      S3_BUCKET: ${S3_BUCKET:-itrms}
     networks:
       storage:
         aliases: [objectstore]
@@ -89,6 +116,8 @@ services:
       KC_HTTP_RELATIVE_PATH: /auth
       KC_HTTP_MANAGEMENT_RELATIVE_PATH: /
       KC_PROXY_HEADERS: xforwarded
+      # the forwarded headers are believed from the stack's own network only (the edge sets them; security review 0.26c1 A4)
+      KC_PROXY_TRUSTED_ADDRESSES: ${ITRMS_SUBNET:-172.29.0.0/24}
     extra_hosts: !reset []
     ports: !reset []
 
@@ -212,8 +241,9 @@ services:
       OIDC_CLIENT_ID: itrms-web
       OIDC_CLIENT_SECRET: ${KEYCLOAK_WEB_CLIENT_SECRET:?}
       FILES_UPSTREAM: http://seaweedfs:8333
-      SESSION_VALKEY_URL: redis://valkey-sessions:6379/0
+      SESSION_VALKEY_URL: redis://:${VALKEY_SESSIONS_PASSWORD:?}@valkey-sessions:6379/0
       SESSION_KEYS: ${SESSION_KEYS:?}
+    networks: [default, sessions]
     depends_on:
       valkey-sessions:
         condition: service_healthy
@@ -259,15 +289,11 @@ services:
     restart: unless-stopped
     image: chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
     entrypoint: ['/bin/sh', '-c']
-    command:
-      - |
-        cat > /tmp/s3.json <<EOF
-        {"identities":[{"name":"itrms","credentials":[{"accessKey":"$${S3_ACCESS_KEY}","secretKey":"$${S3_SECRET_KEY}"}],"actions":["Admin","Read","Write","List","Tagging"]}]}
-        EOF
-        exec weed server -dir=/data -master.volumeSizeLimitMB=1024 -volume.max=0 -s3 -s3.port=8333 -s3.config=/tmp/s3.json
+    command: *store-command
     environment:
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:?}
       S3_SECRET_KEY: ${S3_SECRET_KEY:?}
+      S3_BUCKET: ${S3_BUCKET:-itrms}
       TZ: Africa/Addis_Ababa
     volumes:
       - replica-data:/data
@@ -379,6 +405,9 @@ networks:
       config:
         - subnet: ${ITRMS_SUBNET:-172.29.0.0/24}
   storage:
+    internal: true
+  # the sessions' store and the BFF, nothing else
+  sessions:
     internal: true
   public:
   outside:

@@ -47,6 +47,9 @@ export async function POST(request: NextRequest) {
     const asked = new Headers({ accept: 'application/json' });
     const language = request.headers.get('accept-language');
     if (language) asked.set('accept-language', language);
+    // the person's address, as Nginx passed it on: the API records it on the switch's audit rows
+    const forwarded = request.headers.get('x-forwarded-for');
+    if (forwarded) asked.set('x-forwarded-for', forwarded);
     let workspace: Response;
     try {
         workspace = await fetch(`${config.API_URL}/api/v1/me/workspace`, {

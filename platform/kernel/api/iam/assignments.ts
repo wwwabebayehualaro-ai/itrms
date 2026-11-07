@@ -14,7 +14,7 @@
  * authority, and a request not decided within REQUEST_DAYS can only be refused. A revocation takes rights away and needs
  * no second person: one administrator ends an assignment at once.
  */
-import { and, asc, count, eq, gt, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, count, eq, gt, isNull, lte, ne, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 
@@ -299,32 +299,57 @@ export async function pendingRequests(tx: Tx, unitId?: string) {
 
 /** Ends an assignment now (one that has not started yet ends before it starts). */
 export async function revokeRole(tx: Tx, revoker: Granter, id: string, version: number): Promise<RoleAssignment> {
-    const [current] = await tx.select().from(roleAssignments).where(eq(roleAssignments.id, id));
+    const [found] = await tx.select().from(roleAssignments).where(eq(roleAssignments.id, id));
+    if (!found) throw new NotFoundError();
+    // security review 0.26c1 A10: a bureau administrator's assignment ends one at a time per region, and everything the
+    // decision reads is read after the lock, against the clock (clock_timestamp, not the transaction's start: an ending
+    // another revocation committed while this one waited is seen as ended)
+    const lastAdmin = found.roleKey === 'bureau_admin';
+    if (lastAdmin)
+        await tx.execute(
+            sql`select pg_advisory_xact_lock(hashtextextended(${`iam.bureau_admin:${found.regionId}`}, 0))`
+        );
+    const [current] = lastAdmin ? await tx.select().from(roleAssignments).where(eq(roleAssignments.id, id)) : [found];
     if (!current) throw new NotFoundError();
     if (current.userId === revoker.userId) refuse('self_revoke');
     await checkAuthority(tx, revoker, await getUnit(tx, current.unitId), current.roleKey);
+    const at = sql`clock_timestamp()`;
+    const inOffice = and(
+        lte(roleAssignments.validFrom, at),
+        or(isNull(roleAssignments.validTo), gt(roleAssignments.validTo, at))
+    );
     const [{ ended } = { ended: false }] = await tx
-        .select({ ended: sql<boolean>`${roleAssignments.validTo} is not null and ${roleAssignments.validTo} <= now()` })
+        .select({ ended: sql<boolean>`${roleAssignments.validTo} is not null and ${roleAssignments.validTo} <= ${at}` })
         .from(roleAssignments)
         .where(eq(roleAssignments.id, id));
     if (ended) throw new ConflictError('invalid_transition', { detail: 'The assignment has already ended.' });
-    if (current.roleKey === 'bureau_admin') {
-        const [{ open } = { open: 0 }] = await tx
-            .select({ open: count() })
-            .from(roleAssignments)
-            .where(
-                and(
-                    eq(roleAssignments.regionId, current.regionId),
-                    eq(roleAssignments.roleKey, 'bureau_admin'),
-                    or(isNull(roleAssignments.validTo), gt(roleAssignments.validTo, sql`now()`))
+    if (lastAdmin) {
+        const admins = (except?: string, user?: string) =>
+            tx
+                .select({ n: count() })
+                .from(roleAssignments)
+                .where(
+                    and(
+                        eq(roleAssignments.regionId, current.regionId),
+                        eq(roleAssignments.roleKey, 'bureau_admin'),
+                        except ? ne(roleAssignments.id, except) : undefined,
+                        user ? eq(roleAssignments.userId, user) : undefined,
+                        inOffice
+                    )
                 )
-            );
-        if (open <= 1)
+                .then(([row]) => row?.n ?? 0);
+        // the revoker's own authority as it is now: theirs may have ended while this request waited
+        if ((await admins(undefined, revoker.userId)) === 0) refuse('not_in_office');
+        const [{ thisInOffice } = { thisInOffice: false }] = await tx
+            .select({ thisInOffice: sql<boolean>`${inOffice}` })
+            .from(roleAssignments)
+            .where(eq(roleAssignments.id, id));
+        if (thisInOffice && (await admins(id)) === 0)
             throw new ConflictError('invalid_transition', { detail: 'The region would have no bureau administrator.' });
     }
     // ended by the database's clock, which the next request's check reads
     const revoked = await updateAudited(tx, roleAssignments, id, version, {
-        validTo: sql`greatest(now(), ${roleAssignments.validFrom})` as unknown as Date
+        validTo: sql`greatest(clock_timestamp(), ${roleAssignments.validFrom})` as unknown as Date
     });
     await assignmentChanged(tx, revoked, 'revoked');
     return revoked;

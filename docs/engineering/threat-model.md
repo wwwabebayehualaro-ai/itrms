@@ -21,13 +21,13 @@ Assets, in order of importance:
 
 | # | STRIDE | Threat | Controls | Proven by |
 |---|---|---|---|---|
-| 1 | Spoofing | stolen staff password / shared PC | 2FA (TOTP, hardware token, passkey); idle timeout; session list and revoke; brute-force detection | 0.10 e2e |
+| 1 | Spoofing | stolen staff password / shared PC | 2FA (TOTP, hardware token, passkey); a 30-minute idle timeout the app's own polling never restarts (0.26c1); no self-service password reset (recovery is two administrators'); brute-force detection; session list and "sign out everywhere": Phase 1 | 0.10 e2e, 0.26c1 |
 | 2 | Spoofing | forged licence, bolo or receipt | Ed25519-signed QR, offline verifier, online revocation status, gapless receipts, stationery serials | 0.23, 1.12a |
 | 3 | Spoofing | fake "paid at revenue office" reference | unique external references, second-person verification or an exact statement match, never by the statement's importer | 0.22c |
 | 4 | Tampering | staff alter a case or registry record outside the workflow | no generic status updates; transitions only; class-R write scope; maker-checker; audit | 0.9, 0.19 |
-| 5 | Tampering | admin edits the database directly to hide fraud | hash-chained audit, signed daily digest off-site, DB roles without UPDATE on audit | 0.7, 0.26 drill |
+| 5 | Tampering | admin edits the database directly to hide fraud | **partly in place**: the app's and the system's roles have no UPDATE, DELETE or TRUNCATE on the audit log and a trigger refuses them, and the restore drill compares the audit log's rows and an ordered digest with a backup (0.26b1). The schema owner can still disable the trigger: the hash chain and the signed daily digest off-site are Phase 1 (ADR-0018; security review 0.26c1 R1) | 0.7, 0.26b1 drill |
 | 6 | Tampering | injected markup in issued PDFs | escaped templates, JavaScript-free renderer, CSP | 0.23 |
-| 7 | Repudiation | "I didn't approve that" | per-user actions with unit, time, IP and request id in the audit; no shared accounts | 0.7 |
+| 7 | Repudiation | "I didn't approve that" | per-user actions with unit, time, IP and request id in the audit (the IP from the trusted proxies, since 0.26c1); no shared accounts | 0.7, 0.26c1 |
 | 8 | Information disclosure | one office reads another's cases | guards + RLS without bypass, null-safe settings, isolation matrix | 0.9 |
 | 9 | Information disclosure | staff browse personal data | sensitive tables encrypted, `reveal()` with reason, masked exports and audit, "who accessed my data", anomaly rules | 0.14, Phase 1–2 |
 | 10 | Information disclosure | backup or disk theft | LUKS, encrypted repositories, backups in Ethiopia under a data-processing agreement | 0.26 |

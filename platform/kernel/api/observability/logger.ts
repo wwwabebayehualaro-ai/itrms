@@ -31,8 +31,13 @@ export const REDACTED_PATHS = [
 // around a URL is left alone. Bounded, so a long token cannot make the match slow.
 const URL_CREDENTIALS = /\b([a-z][a-z0-9+.-]{0,30}:\/\/)([^\s"',]{0,256}:[^\s"',]{0,256})@/gi;
 
-/** Masks the user and password of every `scheme://user:password@` in a text. */
-export const maskSecrets = (text: string): string => text.replace(URL_CREDENTIALS, '$1***@');
+// a public verification token is the key to its document's status, kept only as its hash (SEC-SC-2; security review
+// 0.26c1 A6): its path is logged, never the token
+const VERIFICATION_TOKEN = /(\/v1\/public\/verifications\/)[A-Za-z0-9_-]{1,64}/g;
+
+/** Masks the user and password of every `scheme://user:password@` in a text, and every verification token in a path. */
+export const maskSecrets = (text: string): string =>
+    text.replace(URL_CREDENTIALS, '$1***@').replace(VERIFICATION_TOKEN, `$1${CENSOR}`);
 
 const isPlain = (value: object) => {
     const proto: unknown = Object.getPrototypeOf(value);
@@ -56,6 +61,17 @@ export function scrub(value: unknown, depth = 0, seen = new WeakSet<object>()): 
     return Object.fromEntries(
         Object.entries(value).map(([k, v]) => [k, SECRET_KEY.test(k) ? CENSOR : scrub(v, depth + 1, seen)])
     );
+}
+
+/** A request (Fastify's, or Node's) as its method, its path (masked) and its peer: never its headers or body. */
+function serializeRequest(req: unknown): unknown {
+    if (!req || typeof req !== 'object') return req;
+    const r = req as { method?: unknown; url?: unknown; ip?: unknown; socket?: { remoteAddress?: unknown } };
+    return {
+        method: r.method,
+        url: typeof r.url === 'string' ? maskSecrets(r.url) : undefined,
+        remoteAddress: r.ip ?? r.socket?.remoteAddress
+    };
 }
 
 /** Errors, and anything thrown that is not one (a string, null, a plain object), as a scrubbed log value. */
@@ -84,7 +100,7 @@ export function createLogger(
                 const context = currentContext();
                 return context ? { requestId: context.requestId } : {};
             },
-            serializers: { err: serializeError },
+            serializers: { err: serializeError, req: serializeRequest },
             hooks: {
                 logMethod(args, method) {
                     const masked = args.map((a: unknown) => (typeof a === 'string' ? maskSecrets(a) : a));

@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 
 import { NextResponse, type NextRequest } from 'next/server';
 
-import { isSafeMethod, sameOrigin, tokenMatches } from '@/bff/csrf';
+import { isBackgroundRead, isSafeMethod, sameOrigin, tokenMatches } from '@/bff/csrf';
 import { apiRequestHeaders, apiTarget, browserResponseHeaders } from '@/bff/forward';
 import { bff, clearSessionCookies, currentSession, problem, withFreshToken } from '@/bff/runtime';
 import { CSRF_HEADER } from '@/lib/auth/cookies';
@@ -22,7 +22,9 @@ async function handle(request: NextRequest, context: Context) {
     const target = apiTarget(config.API_URL, (await context.params).path, request.nextUrl.search);
     if (!target) return problem(request, 404, 'not_found');
 
-    const current = await currentSession(request);
+    // the page's own polling never restarts the idle timeout: a person away from the PC is signed out after 30 minutes
+    // however often the page asks (SEC-SE-2)
+    const current = await currentSession(request, { touch: !isBackgroundRead(request.headers, request.method) });
     if (!current) return problem(request, 401, 'unauthenticated');
     const unsafe = !isSafeMethod(request.method);
     if (

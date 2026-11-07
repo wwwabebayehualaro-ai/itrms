@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale } from 'next-intl';
 import { useAuthStore } from '@/lib/auth/authStore';
+import { trackActivity } from '@/lib/auth/activity';
 import { session } from '@/lib/auth/session';
 import { languageToShow, setLanguageCookie, usePreferences } from '@/lib/preferences';
 import { Spinner } from '@itrms/ui';
@@ -23,6 +24,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         if (status === 'loading') void hydrate();
         if (status === 'anonymous') session.signIn();
     }, [status, hydrate]);
+
+    // the person's own input on the page: what keeps the session (SEC-SE-2), never the page's polling
+    useEffect(() => (status === 'authenticated' ? trackActivity() : undefined), [status]);
 
     // the person's preferences, saved on the server: this PC shows them too (the language by rendering again in it).
     // Applied once per workspace loaded: a language chosen on this page since then is the newer one. Only a language the

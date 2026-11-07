@@ -32,6 +32,8 @@ export interface Principal {
 
 export interface RequestContext {
     readonly requestId: string;
+    /** The client's address, as the trusted proxies passed it on (Fastify's request.ip): on every audit row (SEC-LG-1). */
+    readonly ip?: string;
     readonly language: Language;
     /** The signed-in caller and their active unit, set by the AccessGuard (`@itrms/kernel/iam`). */
     principal?: Principal;

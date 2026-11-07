@@ -52,7 +52,11 @@ export async function createHttpApp(
     const contexts = new WeakMap<object, RequestContext>();
     fastify.addHook('onRequest', (request, reply, done) => {
         void reply.header('x-request-id', request.id);
-        const context = { requestId: request.id, language: languageFrom(request.headers['accept-language']) };
+        const context = {
+            requestId: request.id,
+            ip: request.ip,
+            language: languageFrom(request.headers['accept-language'])
+        };
         contexts.set(request, context);
         runInContext(context, () => done());
     });

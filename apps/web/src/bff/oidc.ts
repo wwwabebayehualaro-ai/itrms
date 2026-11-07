@@ -77,10 +77,13 @@ export async function startSignIn(
         code_challenge_method: 'S256',
         state: transaction.state,
         nonce: transaction.nonce,
-        ui_locales: signInLocales(language)
+        ui_locales: signInLocales(language),
+        // every sign-in asks for the password and the second factor: a Keycloak session left from before (a session ended
+        // by the idle timeout, on a shared PC) never lets anyone in by itself (SEC-SE-2; security review 0.26c1 A1)
+        prompt: 'login'
     };
-    // a step-up: Keycloak asks for the factors again (RFC 9470 with OIDC's max_age; prompt=login for an older session)
-    if (maxAge !== undefined) Object.assign(parameters, { max_age: String(maxAge), prompt: 'login' });
+    // a step-up: factors entered no longer ago than that (RFC 9470 with OIDC's max_age)
+    if (maxAge !== undefined) parameters.max_age = String(maxAge);
     return { url: client.buildAuthorizationUrl(configuration, parameters), transaction };
 }
 

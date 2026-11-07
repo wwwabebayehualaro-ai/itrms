@@ -7,7 +7,7 @@ import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type JWTPayload
 import { describe, expect, it } from 'vitest';
 
 import { loadBffConfig } from '@/bff/config';
-import { sameOrigin, tokenMatches } from '@/bff/csrf';
+import { isBackgroundRead, sameOrigin, tokenMatches } from '@/bff/csrf';
 import { apiRequestHeaders, apiTarget, browserResponseHeaders } from '@/bff/forward';
 import { verifyLogoutToken } from '@/bff/logout-token';
 import { signInLocales } from '@/bff/oidc';
@@ -208,6 +208,17 @@ describe('the /api proxy', () => {
         expect(out.get('server')).toBeNull();
         expect(out.get('etag')).toBe('"2"');
         expect(out.get('cache-control')).toBe('no-store');
+    });
+
+    it('tells the app’s own polling from the person’s requests, and keeps the mark from the API (SEC-SE-2)', () => {
+        // security review 0.26c1 A1: a minute’s polling never restarts the idle timeout
+        const polled = new Headers({ 'x-itrms-background': '1' });
+        expect(isBackgroundRead(polled, 'GET')).toBe(true);
+        // a write is always the person’s, whatever it says
+        expect(isBackgroundRead(polled, 'POST')).toBe(false);
+        expect(isBackgroundRead(new Headers(), 'GET')).toBe(false);
+        expect(isBackgroundRead(new Headers({ 'x-itrms-background': 'yes' }), 'GET')).toBe(false);
+        expect(apiRequestHeaders(polled, 't', undefined, 'r').get('x-itrms-background')).toBeNull();
     });
 
     it('serves only versioned API paths', () => {

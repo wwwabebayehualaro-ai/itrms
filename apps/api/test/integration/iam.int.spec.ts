@@ -154,8 +154,13 @@ async function call(
 /** The refusals recorded since `mark()`: counted, not timed (the host's and the database's clocks differ). */
 const denials = async () =>
     (
-        await owner.query<{ actor_id: string | null; region_id: string | null; diff: Record<string, string> }>(
-            "SELECT actor_id, region_id, diff FROM kernel.audit_log WHERE event_type = 'access.denied' ORDER BY at, id"
+        await owner.query<{
+            actor_id: string | null;
+            region_id: string | null;
+            ip: string | null;
+            diff: Record<string, string>;
+        }>(
+            "SELECT actor_id, region_id, ip, diff FROM kernel.audit_log WHERE event_type = 'access.denied' ORDER BY at, id"
         )
     ).rows;
 const mark = async () => (await denials()).length;
@@ -353,6 +358,8 @@ describe('the guards and the scope', () => {
         const [event] = await deniedEvents(since);
         expect(event).toMatchObject({ diff: { reason: 'missing_permission', permission: 'org-unit:create' } });
         expect(event?.region_id).toBe(zone.regionId);
+        // the client's address is on the row (security review 0.26c1 A2): here the test client's, with no proxy in front
+        expect(event?.ip).toBe('127.0.0.1');
 
         expect((await call('GET', `/api/v1/org-units/${boditi.id}`, { token: damotRecords })).statusCode).toBe(404);
         expect(
@@ -634,6 +641,81 @@ describe('granting and revoking', () => {
             }
         );
         expect(res.statusCode).toBe(403);
+    });
+
+    it('keeps the region one bureau administrator in office when two end each other at once (security review 0.26c1 A10)', async () => {
+        const region = await unitAt('SER');
+        const second = (
+            await owner.query<{ id: string }>('SELECT id FROM kernel.users WHERE keycloak_sub = $1', [SUB.dual])
+        ).rows[0];
+        // a second administrator, in office now (written as a confirmed grant would leave it)
+        await owner.query(
+            `INSERT INTO kernel.role_assignments (id, region_id, user_id, unit_id, role_key, reason)
+             VALUES (gen_random_uuid(), $1, $2, $3, 'bureau_admin', 'a test')`,
+            [region.regionId, second?.id, region.id]
+        );
+        const list = async (as: string) =>
+            (await call('GET', `/api/v1/org-units/${region.id}/role-assignments`, { token: as, unit: region.id }))
+                .json<{ id: string; username: string; roleKey: string; version: number }[]>()
+                .filter((a) => a.roleKey === 'bureau_admin');
+        const first = await token(SUB.bureauAdmin);
+        const other = await token(SUB.dual);
+        const admins = await list(first);
+        const theirs = admins.find((a) => a.username !== 'demo.bureau.admin');
+        const mine = admins.find((a) => a.username === 'demo.bureau.admin');
+        const revoke = (as: string, a: typeof mine) =>
+            call('POST', `/api/v1/role-assignments/${a?.id}/revocations`, { token: as, unit: region.id }, undefined, {
+                'if-match': String(a?.version)
+            });
+        const answers = (await Promise.all([revoke(first, theirs), revoke(other, mine)]))
+            .map((r) => r.statusCode)
+            .sort();
+        // one revocation answers 201 (it records the ending); the other, waiting on it, finds its own administrator's
+        // assignment ended meanwhile and is refused (403)
+        expect(answers).toEqual([201, 403]);
+        const left = await owner.query<{ n: number }>(
+            `SELECT count(*)::int AS n FROM kernel.role_assignments
+              WHERE region_id = $1 AND role_key = 'bureau_admin' AND valid_from <= now() AND (valid_to IS NULL OR valid_to > now())`,
+            [region.regionId]
+        );
+        expect(left.rows[0]?.n).toBe(1);
+        // the file's later tests act as the region's one administrator, demo.bureau.admin, as before
+        await owner.query(
+            "UPDATE kernel.role_assignments SET valid_to = now() WHERE user_id = $1 AND role_key = 'bureau_admin' AND valid_to IS NULL",
+            [second?.id]
+        );
+        // when it was demo.bureau.admin's that ended, a new one (the owner's write: nobody else is left to grant it)
+        await owner.query(
+            `INSERT INTO kernel.role_assignments (id, region_id, user_id, unit_id, role_key, reason)
+             SELECT gen_random_uuid(), $1, u.id, $2, 'bureau_admin', 'a test' FROM kernel.users u
+              WHERE u.keycloak_sub = $3
+                AND NOT EXISTS (SELECT 1 FROM kernel.role_assignments a WHERE a.user_id = u.id
+                                   AND a.role_key = 'bureau_admin' AND a.valid_to IS NULL)`,
+            [region.regionId, region.id, SUB.bureauAdmin]
+        );
+    });
+
+    it('never names a user of another region, even written past the application (security review 0.26c1 R3)', async () => {
+        await installer.scoped({}, (tx) =>
+            importOrg(tx, parseOrgYaml(readFileSync(join(SEEDS, 'org', 'sample-city.yaml'), 'utf8')))
+        );
+        const cityUsers = userImportSchema.parse(
+            parseYaml(readFileSync(join(SEEDS, 'users', 'sample-city.demo.yaml'), 'utf8'))
+        );
+        await installer.scoped({}, (tx) => importUsers(tx, cityUsers));
+        const zone = await unitAt('WOL');
+        const cityAdmin = (
+            await owner.query<{ id: string }>("SELECT id FROM kernel.users WHERE username = 'demo.city.admin'")
+        ).rows[0];
+        // the owner is not held by RLS: only the composite key stands in the way
+        for (const table of ['role_assignments', 'role_grant_requests'])
+            await expect(
+                owner.query(
+                    `INSERT INTO kernel.${table} (id, region_id, user_id, unit_id, role_key, reason)
+                     VALUES (gen_random_uuid(), $1, $2, $3, 'records_officer', 'a test')`,
+                    [zone.regionId, cityAdmin?.id, zone.id]
+                )
+            ).rejects.toMatchObject({ code: '23503' });
     });
 });
 
