@@ -92,6 +92,7 @@ function useCaseChange<V>(id: string, run: (input: V) => Promise<CaseOut>) {
         mutationFn: run,
         onSuccess: (after) => {
             queries.setQueryData(caseKeys.detail(id), after);
+            void queries.invalidateQueries({ queryKey: [...caseKeys.detail(id), 'audit'] });
             void queries.invalidateQueries({ queryKey: inboxKeys.all });
             void queries.invalidateQueries({ queryKey: caseKeys.lists() });
             void queries.invalidateQueries({ queryKey: workspaceKeys.all });

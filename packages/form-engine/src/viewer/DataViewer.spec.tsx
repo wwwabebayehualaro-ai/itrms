@@ -56,7 +56,8 @@ const labeler: Labeler = {
             ? `$${String(v)}`
             : (schema.fields.find((x) => x.key === k)?.options.find((o) => o.value === v)?.label ?? String(v)),
     loading: false,
-    t: enText
+    t: enText,
+    dates: { language: 'en', calendar: 'ethiopian' }
 };
 const wrap = hostRenderer({ language: 'en' });
 

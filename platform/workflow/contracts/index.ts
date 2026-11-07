@@ -229,7 +229,8 @@ export const caseAuditEntrySchema = z.object({
     actor: z.object({ id: z.uuid(), name: z.string() }).nullable(),
     fields: z.array(z.string())
 });
-export const caseAuditSchema = z.object({ items: z.array(caseAuditEntrySchema) });
+/** Newest first; `truncated` when the case has more lines than a trail gives (CASE_AUDIT_LIMIT). */
+export const caseAuditSchema = z.object({ items: z.array(caseAuditEntrySchema), truncated: z.boolean() });
 export type CaseAudit = z.infer<typeof caseAuditSchema>;
 export type CaseAuditEntry = z.infer<typeof caseAuditEntrySchema>;
 

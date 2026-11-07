@@ -12,6 +12,9 @@ import { formatMoment } from '@/lib/format';
 import { usePreferences, useText } from '@/lib/preferences';
 import { useCaseAudit, type CaseAuditEntry } from '@/lib/workflow';
 
+/** The events of a case's life the catalogues name; another shows as its code. */
+const EVENTS = ['case.audit_read'];
+
 /** The tables of a case's life, by name; another shows as it is called in the database. */
 const TABLES = [
     'workflow.cases',
@@ -33,15 +36,23 @@ export function CaseAuditTrail({ caseId }: { caseId: string }) {
     const { t, language } = useText();
     const { calendar } = usePreferences();
     const audit = useCaseAudit(caseId);
+    // identifiers the catalogues have no words for (a table or event of a later slice, a column) are shown as code
     const what = (e: CaseAuditEntry) =>
-        e.action === 'event'
-            ? t('workflow.audit.event', { event: e.event ?? '' })
-            : t(`workflow.audit.action.${e.action}`, {
-                  table:
-                      e.table && TABLES.includes(e.table)
-                          ? t(`workflow.audit.table.${e.table.replace('.', '_')}`)
-                          : (e.table ?? '')
-              });
+        e.action === 'event' ? (
+            e.event && EVENTS.includes(e.event) ? (
+                t(`workflow.audit.events.${e.event.replace('.', '_')}`)
+            ) : (
+                <>
+                    {t('workflow.audit.eventCode')} <code>{e.event}</code>
+                </>
+            )
+        ) : e.table && TABLES.includes(e.table) ? (
+            t(`workflow.audit.action.${e.action}`, { table: t(`workflow.audit.table.${e.table.replace('.', '_')}`) })
+        ) : (
+            <>
+                {t(`workflow.audit.action.${e.action}`, { table: '' })} <code>{e.table}</code>
+            </>
+        );
     if (audit.isPending) return <InlineStatus loading />;
     if (audit.error) return <p className="text-destructive text-sm">{getApiErrorMessage(audit.error)}</p>;
     if (audit.data.items.length === 0)
@@ -52,6 +63,11 @@ export function CaseAuditTrail({ caseId }: { caseId: string }) {
                 <ShieldCheck className="size-4" aria-hidden />
                 {t('workflow.audit.intro')}
             </p>
+            {audit.data.truncated && (
+                <p className="text-sm text-muted-foreground" data-truncated>
+                    {t('workflow.audit.truncated', { count: String(audit.data.items.length) })}
+                </p>
+            )}
             <ol className="flex flex-col gap-1">
                 {audit.data.items.map((e, i) => (
                     <li
@@ -66,14 +82,20 @@ export function CaseAuditTrail({ caseId }: { caseId: string }) {
                         <div className="flex flex-col">
                             <span>
                                 <span className="font-medium" data-actor>
-                                    {e.actor?.name || t('workflow.audit.system')}
+                                    {e.actor ? e.actor.name || t('workflow.audit.unnamed') : t('workflow.audit.system')}
                                 </span>
                                 {': '}
                                 {what(e)}
                             </span>
                             {e.fields.length > 0 && (
                                 <span className="text-xs text-muted-foreground" data-fields>
-                                    {t('workflow.audit.fields', { fields: e.fields.join(', ') })}
+                                    {t('workflow.audit.fields')}{' '}
+                                    {e.fields.map((f, n) => (
+                                        <span key={f}>
+                                            {n > 0 && ', '}
+                                            <code>{f}</code>
+                                        </span>
+                                    ))}
                                 </span>
                             )}
                         </div>

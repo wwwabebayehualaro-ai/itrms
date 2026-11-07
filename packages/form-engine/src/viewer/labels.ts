@@ -1,9 +1,9 @@
 'use client';
 
 import { useMemo } from 'react';
-import { formatCurrency, formatDate, formatDateTime } from '../host/format';
+import { formatCurrency, formatDate, formatDateTime, type DateDisplay } from '../host/format';
 import type { EngineTranslate } from '../core/messages';
-import { useFormsLanguages } from '../host/FormsHost';
+import { useDateDisplay, useFormsLanguages } from '../host/FormsHost';
 import { useEngineText } from '../host/text';
 import { ethiopianDateText } from '../core/dates';
 import type { ViewField, ViewOption, ViewSchema } from './types';
@@ -31,12 +31,15 @@ export interface Labeler {
     loading: boolean;
     /** The engine's words in the screen's language. */
     t: EngineTranslate;
+    /** How its dates are written: the person's language and calendar. */
+    dates: DateDisplay;
 }
 
 /** Turns stored values into what people read. One place, used by every view mode, filter chip and export. */
 export function useLabeler(schema?: ViewSchema): Labeler {
     const { language } = useFormsLanguages();
     const { t } = useEngineText();
+    const dates = useDateDisplay();
     return useMemo(() => {
         const fields = new Map((schema?.fields ?? []).map((f) => [f.key, f]));
         const field = (key: string) => fields.get(key);
@@ -64,9 +67,9 @@ export function useLabeler(schema?: ViewSchema): Labeler {
                     // a day picked on the Ethiopian calendar is read in it, in the screens' language
                     return f.type === 'EthDate' && typeof v === 'string'
                         ? ethiopianDateText(v, { language, long: true }) || EMPTY
-                        : formatDate(v as string, EMPTY);
+                        : formatDate(v as string, EMPTY, dates);
                 case 'datetime':
-                    return formatDateTime(v as string, EMPTY);
+                    return formatDateTime(v as string, EMPTY, dates);
                 case 'number':
                     return f.currency && Number.isFinite(Number(v))
                         ? formatCurrency(Number(v), f.currency)
@@ -82,6 +85,6 @@ export function useLabeler(schema?: ViewSchema): Labeler {
             if (Array.isArray(value)) return value.length ? value.map((x) => one(f, x)).join(', ') : EMPTY;
             return one(f, value);
         };
-        return { field, options, lookup, text, loading: false, t };
-    }, [schema, language, t]);
+        return { field, options, lookup, text, loading: false, t, dates };
+    }, [schema, language, t, dates]);
 }

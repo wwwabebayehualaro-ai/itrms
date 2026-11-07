@@ -173,8 +173,7 @@
   "workflow.audit.action.insert": "{table} ተፈጠረ",
   "workflow.audit.action.update": "{table} ተቀየረ",
   "workflow.audit.action.delete": "{table} ተሰረዘ",
-  "workflow.audit.event": "ክስተት፦ {event}",
-  "workflow.audit.fields": "መስኮች፦ {fields}",
+  "workflow.audit.fields": "መስኮች፦",
   "workflow.audit.table.workflow_cases": "ጉዳዩ",
   "workflow.audit.table.workflow_case_tasks": "የሥራ ደረጃ",
   "workflow.audit.table.workflow_case_events": "የጉዳዩ ታሪክ",
@@ -187,5 +186,9 @@
   "workflow.audit.table.documents_issued_documents": "ሰነድ",
   "workflow.audit.table.competency_driver_licences": "መንጃ ፈቃድ",
   "workflow.audit.table.competency_exam_results": "የፈተና ውጤት",
-  "workflow.audit.table.competency_medical_certificates": "የህክምና ማስረጃ"
+  "workflow.audit.table.competency_medical_certificates": "የህክምና ማስረጃ",
+  "workflow.audit.unnamed": "ስሙ የማይታይ ሰው",
+  "workflow.audit.eventCode": "ክስተት፦",
+  "workflow.audit.events.case_audit_read": "የኦዲት መዝገቡን አነበበ",
+  "workflow.audit.truncated": "የቅርብ ጊዜዎቹ {count} ብቻ ይታያሉ፤ የቀደሙት በኦዲት መዝገቡ ውስጥ አሉ።"
 }

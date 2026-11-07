@@ -6,7 +6,7 @@
  */
 import { useMemo, type ReactNode } from 'react';
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { FormsHostProvider, setDateDisplay, type FormsHost, type FormsLocation } from '@itrms/form-engine/renderer';
+import { FormsHostProvider, type FormsHost, type FormsLocation } from '@itrms/form-engine/renderer';
 import client from '@/lib/api/client';
 import { isReported } from '@/lib/api/errors';
 import { useLocale } from 'next-intl';
@@ -52,6 +52,8 @@ const host: FormsHost = {
     useUser: useAuthUser,
     useLocation,
     useLanguages,
+    // the engine writes its dates in the person's calendar (Ethiopian unless they chose the Gregorian, ADR-0015)
+    useCalendar: () => usePreferences((s) => s.calendar),
     roleKeys: ROLE_KEYS,
     dataSourceAllowList: DATA_SOURCE_ALLOWLIST,
     templatesHref: '/dynamic-template/saved-templates',
@@ -60,9 +62,5 @@ const host: FormsHost = {
 };
 
 export function FormsHost({ children }: { children: ReactNode }) {
-    // the engine's dates in the person's language and calendar (Ethiopian unless they chose the Gregorian), from the first paint
-    const language = useLocale();
-    const { calendar } = usePreferences();
-    setDateDisplay({ language, calendar });
     return <FormsHostProvider host={host}>{children}</FormsHostProvider>;
 }

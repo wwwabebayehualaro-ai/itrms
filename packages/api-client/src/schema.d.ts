@@ -2037,6 +2037,23 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        CaseAuditOut_Output: {
+            items: {
+                /** @enum {string} */
+                action: "insert" | "update" | "delete" | "event";
+                actor: {
+                    /** Format: uuid */
+                    id: string;
+                    name: string;
+                } | null;
+                /** Format: date-time */
+                at: string;
+                event: string | null;
+                fields: string[];
+                table: string | null;
+            }[];
+            truncated: boolean;
+        };
         CommentDto: {
             /** @default [] */
             mentions: string[];
@@ -3404,7 +3421,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CaseAuditOut_Output"];
+                };
             };
         };
     };

@@ -9,6 +9,7 @@ import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Download, Eye, Pencil, S
 import { Button, Input, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@itrms/ui';
 import { useCan, useFormsLanguages } from '../../host/FormsHost';
 import { useEngineText } from '../../host/text';
+import { useDateDisplay } from '../../host/FormsHost';
 import { formTextIn } from '@itrms/schemas';
 import { saveBlob } from '@itrms/ui';
 import { cellText, type LookupMaps } from '../runtime/cellText';
@@ -23,6 +24,7 @@ import { useRuntimeApi, useRuntimeSelector } from '../runtimeScope';
 
 function DataTableView({ field }: DisplayFieldProps) {
     const { t } = useEngineText();
+    const dates = useDateDisplay();
     const api = useRuntimeApi();
     const binding = field.rowsBinding;
     const columns: TableColumn[] = useMemo(
@@ -89,14 +91,14 @@ function DataTableView({ field }: DisplayFieldProps) {
     const shown = useMemo(() => {
         const q = search.trim().toLowerCase();
         let list = q
-            ? rows.filter((r) => columns.some((c) => cellText(c, r, lookups, t).toLowerCase().includes(q)))
+            ? rows.filter((r) => columns.some((c) => cellText(c, r, lookups, t, dates).toLowerCase().includes(q)))
             : rows;
         if (sort) {
             const col = columns.find((c) => c.field === sort.field);
             if (col) {
                 const key = (r: unknown) => {
                     const v = getByPath(r, col.field);
-                    return typeof v === 'number' ? v : cellText(col, r, lookups, t).toLowerCase();
+                    return typeof v === 'number' ? v : cellText(col, r, lookups, t, dates).toLowerCase();
                 };
                 list = [...list].sort((a, b) => {
                     const x = key(a);
@@ -106,7 +108,7 @@ function DataTableView({ field }: DisplayFieldProps) {
             }
         }
         return list;
-    }, [rows, columns, lookups, search, sort, t]);
+    }, [rows, columns, lookups, search, sort, t, dates]);
     const pages = paged ? Math.max(1, Math.ceil(shown.length / pageSize)) : 1;
     const current = Math.min(page, pages - 1);
     const visible = paged ? shown.slice(current * pageSize, current * pageSize + pageSize) : shown;
@@ -115,7 +117,7 @@ function DataTableView({ field }: DisplayFieldProps) {
         const cell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
         const lines = [
             columns.map((c) => cell(c.header || c.field)).join(','),
-            ...shown.map((r) => columns.map((c) => cell(cellText(c, r, lookups, t))).join(','))
+            ...shown.map((r) => columns.map((c) => cell(cellText(c, r, lookups, t, dates))).join(','))
         ];
         saveBlob(
             new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }),

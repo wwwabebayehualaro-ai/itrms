@@ -1277,7 +1277,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Owner items: (1) the audit trail shows column names and unknown event or table identifiers as code, as no catalogue names every column; (2) the audit index is built plainly in the migration (a big installation builds it ahead); (3) every audited write of a case-linked row now carries its caseId beside the change (kernel audit), so a case's trail finds updates of its tasks, fees and licence; rows linked only through another row (a receipt through its order) aren't on it."
         },
         {
           "id": "0.26",

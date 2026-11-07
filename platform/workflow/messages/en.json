@@ -173,8 +173,7 @@
   "workflow.audit.action.insert": "created {table}",
   "workflow.audit.action.update": "changed {table}",
   "workflow.audit.action.delete": "deleted {table}",
-  "workflow.audit.event": "event: {event}",
-  "workflow.audit.fields": "fields: {fields}",
+  "workflow.audit.fields": "fields:",
   "workflow.audit.table.workflow_cases": "the case",
   "workflow.audit.table.workflow_case_tasks": "a step",
   "workflow.audit.table.workflow_case_events": "the case's history",
@@ -187,5 +186,9 @@
   "workflow.audit.table.documents_issued_documents": "a document",
   "workflow.audit.table.competency_driver_licences": "the licence",
   "workflow.audit.table.competency_exam_results": "an exam result",
-  "workflow.audit.table.competency_medical_certificates": "a medical certificate"
+  "workflow.audit.table.competency_medical_certificates": "a medical certificate",
+  "workflow.audit.unnamed": "someone whose name is not shown",
+  "workflow.audit.eventCode": "event:",
+  "workflow.audit.events.case_audit_read": "read the audit trail",
+  "workflow.audit.truncated": "Only the latest {count} are shown; the earlier ones are in the audit log."
 }

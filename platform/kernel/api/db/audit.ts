@@ -102,6 +102,13 @@ function auditable(row: Record<string, unknown>, options: AuditOptions, auditKey
     return out;
 }
 
+/**
+ * The case a row belongs to, beside its change: a case's audit trail finds the row's update even when the update left the
+ * case as it was (an update's diff holds only what changed). Task 0.25e.
+ */
+const caseOf = (row: Record<string, unknown>): { caseId?: string } =>
+    typeof row.caseId === 'string' ? { caseId: row.caseId } : {};
+
 /** What changes on every write: not part of what the person changed. */
 const BOOKKEEPING = new Set(['updatedAt', 'updatedBy', 'rowVersion']);
 
@@ -142,7 +149,7 @@ export async function insertAudited<T extends BaseTable>(
         action: 'insert',
         table,
         rowId: created.id,
-        diff: { after: auditable(created, auditOptionsOf(table), auditKey) }
+        diff: { ...caseOf(created), after: auditable(created, auditOptionsOf(table), auditKey) }
     });
     return created;
 }
@@ -195,6 +202,7 @@ export async function updateAudited<T extends BaseTable>(
         table,
         rowId: id,
         diff: {
+            ...caseOf(before),
             before: Object.fromEntries(changed.map((k) => [k, was[k]])),
             after: Object.fromEntries(changed.map((k) => [k, is[k]]))
         }
@@ -218,7 +226,7 @@ export async function deleteAudited<T extends BaseTable>(
         action: 'delete',
         table,
         rowId: id,
-        diff: { before: auditable(before, auditOptionsOf(table), auditKey) }
+        diff: { ...caseOf(before), before: auditable(before, auditOptionsOf(table), auditKey) }
     });
 }
 

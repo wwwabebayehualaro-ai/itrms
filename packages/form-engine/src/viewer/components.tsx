@@ -81,7 +81,7 @@ export function RecordCard({ row, schema, labeler, onOpen, actions, facts = 3 }:
             </dl>
             <div className="mt-auto flex items-center justify-between gap-2 border-t pt-2 text-xs text-muted-foreground">
                 <span>
-                    {row.submitted_by_name ?? ''} · {formatDateTime(row.created_at)}
+                    {row.submitted_by_name ?? ''} · {formatDateTime(row.created_at, undefined, labeler.dates)}
                 </span>
                 {actions && <span className="flex">{actions}</span>}
             </div>

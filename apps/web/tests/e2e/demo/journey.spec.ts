@@ -1,5 +1,5 @@
 /**
- * The demo journey, steps 1–10 of docs/demo-plan.md §3 (tasks 0.25c, 0.25d), as docs/demo-script.md tells it: once in Amharic and once in
+ * The demo journey, steps 1–12 of docs/demo-plan.md §3 (tasks 0.25c to 0.25e), as docs/demo-script.md tells it: once in Amharic and once in
  * English, on the data `pnpm demo:reset` makes. Also the regression suite of the licence services for later phases.
  *
  *   1  sign-in with a second factor; the sign-in screen in Amharic; the app in Wolaytta (falling back to Amharic) and back
@@ -23,7 +23,7 @@ import { randomInt } from 'node:crypto';
 import { inflateSync } from 'node:zlib';
 
 import { addisDay, addMonths } from '@itrms/competency/contracts';
-import { MONTH_NAMES, toEthiopian } from '@itrms/ethiopian-calendar';
+import { addisEthiopianDate, MONTH_NAMES, toEthiopian } from '@itrms/ethiopian-calendar';
 import { expect, test, type Page } from '@playwright/test';
 
 import {
@@ -637,17 +637,12 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
             const table = auditor.locator('[data-viewer]');
             await expect(table.locator('tbody tr').first()).toBeVisible();
             // dates as the bureau reads them: the Ethiopian year and month of the medical examination of step 2
-            const now = toEthiopian(
-                (() => {
-                    const [y = 0, m = 0, d = 0] = addisDay().split('-').map(Number);
-                    return { year: y, month: m, day: d };
-                })()
-            );
-            // by the month's name, or its number beside the Ethiopian year, as the table's column writes it
-            const month = MONTH_NAMES[lang][now.month - 1] ?? '';
-            const number = String(now.month).padStart(2, '0');
-            await expect(table).toContainText(
-                new RegExp(`${month}|${number}[/.-]${now.year}|${now.year}[/.-]${number}`)
+            // the day each was filed, as the bureau reads it: today's Ethiopian month and year, and no Gregorian date
+            const now = addisEthiopianDate(new Date());
+            await expect(table).toContainText(`${MONTH_NAMES[lang][now.month - 1] ?? ''}`);
+            await expect(table).toContainText(String(now.year));
+            await expect(table).not.toContainText(
+                /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, 20\d\d/
             );
             // and the same requests as an Excel file
             const download = auditor.waitForEvent('download');

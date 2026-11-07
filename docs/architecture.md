@@ -517,6 +517,8 @@ Object storage through the S3 API (SeaweedFS, ADR-0020).
   id, diff, request id, ip, at, prev_hash, hash)` in the same transaction.
   - **Masking:** fields classified as personal or sensitive (Fayda FIN, phone, medical results, salary, bank account) are
     stored in the diff only as an **HMAC** (proving a change, not revealing the value). Secrets are never stored.
+  - **Reading it:** a case's audit trail (`GET /api/v1/cases/:id/audit`, `audit-log:read`, task 0.25e) gives who did what and
+    when, and the names of the fields changed, never their values, within the reader's scope; each read is itself an audit event.
   - **Tamper evidence:** the table is append-only (trigger, and no UPDATE/DELETE grant) and class T (people see the audit of
     their own scope). Rows are **hash-chained** per partition. A **signed daily digest** of the chain head goes to the
     off-site backup, so any later alteration is detectable.

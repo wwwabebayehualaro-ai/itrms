@@ -631,6 +631,8 @@ describe('a case’s audit trail', () => {
         // the case, its request and its steps, by the office's people
         expect(items.some((l) => l.table === 'workflow.cases' && l.action === 'insert')).toBe(true);
         expect(items.some((l) => l.table === 'forms.submissions')).toBe(true);
+        // a step taken on: the task's update names its case beside the change
+        expect(items.some((l) => l.table === 'workflow.case_tasks' && l.action === 'update')).toBe(true);
         expect(
             items.some((l) => l.table === 'workflow.cases' && l.action === 'update' && l.fields.includes('state'))
         ).toBe(true);
@@ -641,6 +643,10 @@ describe('a case’s audit trail', () => {
         expect(res.body).not.toContain(person);
         expect(res.body).not.toContain('unreadable');
         expect(res.body).not.toContain('"draft"');
+
+        // the read is on record, and the trail shows it
+        const again = await api.call('GET', `/api/v1/cases/${c.id}/audit`, as.auditor);
+        expect(again.json<{ items: Line[] }>().items.some((l) => l.event === 'case.audit_read')).toBe(true);
     });
 
     it('is for those who may read the audit log, of the cases their scope shows', async () => {

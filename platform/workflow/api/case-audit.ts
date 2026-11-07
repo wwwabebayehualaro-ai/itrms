@@ -5,17 +5,19 @@
  * office that acted. Of a change, only the names of the fields changed are given, never their values: a value may be a
  * person's (SEC-PD-2), and the audit log keeps it for those who investigate, not for a screen.
  */
-import { and, asc, eq, inArray, or, sql } from 'drizzle-orm';
-import { auditLog, type Tx } from '@itrms/kernel/db';
+import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
+import { auditLog, recordEvent, type Tx } from '@itrms/kernel/db';
+import { NotFoundError } from '@itrms/kernel/errors';
 import { users } from '@itrms/kernel/tables';
 
 import type { CaseAudit } from '../contracts';
+import { cases } from './workflow.table';
 
-/** The most lines a trail gives: a case has a few dozen; a trail longer than this is cut, not paged. */
+/** The most lines a trail gives, the newest: a case has a few dozen; a longer trail says it was cut (not paged). */
 export const CASE_AUDIT_LIMIT = 500;
 
 /** The case a row names; the migration indexes the same expression (0059_case_audit_index.sql). */
-const caseNamed = sql`coalesce(${auditLog.diff}->'after'->>'caseId', ${auditLog.diff}->'before'->>'caseId', ${auditLog.diff}->>'caseId')`;
+const caseNamed = sql`(${auditLog.diff}->>'caseId')`;
 
 /** What every row has, or what places it: not a change a person made. */
 const BOOKKEEPING = new Set([
@@ -40,7 +42,14 @@ export function fieldsOf(action: string, diff: unknown): string[] {
         .sort();
 }
 
+/**
+ * The trail of a case the reader can see (a case outside their scope: 404), newest first. Reading it is on record: the trail
+ * shows it the next time.
+ */
 export async function caseAuditTrail(tx: Tx, caseId: string): Promise<CaseAudit> {
+    const [found] = await tx.select({ id: cases.id }).from(cases).where(eq(cases.id, caseId));
+    if (!found) throw new NotFoundError();
+    await recordEvent(tx, { type: 'case.audit_read', table: cases, rowId: caseId });
     const rows = await tx
         .select({
             at: auditLog.at,
@@ -54,8 +63,10 @@ export async function caseAuditTrail(tx: Tx, caseId: string): Promise<CaseAudit>
         .where(
             or(and(eq(auditLog.tableName, 'workflow.cases'), eq(auditLog.rowId, caseId)), sql`${caseNamed} = ${caseId}`)
         )
-        .orderBy(asc(auditLog.at), asc(auditLog.id))
-        .limit(CASE_AUDIT_LIMIT);
+        .orderBy(desc(auditLog.at), desc(auditLog.id))
+        .limit(CASE_AUDIT_LIMIT + 1);
+    const truncated = rows.length > CASE_AUDIT_LIMIT;
+    if (truncated) rows.length = CASE_AUDIT_LIMIT;
     const ids = [...new Set(rows.map((r) => r.actorId).filter((id): id is string => Boolean(id)))];
     const names = new Map(
         ids.length === 0
@@ -65,6 +76,7 @@ export async function caseAuditTrail(tx: Tx, caseId: string): Promise<CaseAudit>
               ).map((u) => [u.id, u.name])
     );
     return {
+        truncated,
         items: rows.map((r) => ({
             at: r.at.toISOString(),
             action: r.action,

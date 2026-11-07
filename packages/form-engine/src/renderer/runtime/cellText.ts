@@ -1,5 +1,5 @@
 /** Plain-text formatting of table cells (no UI): shared by every table renderer. */
-import { formatCurrency, formatDate, formatDateTime } from '../../host/format';
+import { DEFAULT_DATE_DISPLAY, formatCurrency, formatDate, formatDateTime, type DateDisplay } from '../../host/format';
 import { getByPath } from '../../core/runtime/expression';
 import { str, text } from '../../core/runtime/path';
 import { ethiopianDateText } from '../../core/dates';
@@ -24,17 +24,23 @@ export const fileName = (f: unknown): string => {
 export const humanize = (s: string) => s.replace(/[_-]+/g, ' ');
 
 /** Plain text of a cell (tooltips, sorting). */
-export function cellText(col: TableColumn, row: unknown, lookups: LookupMaps, t: EngineTranslate): string {
+export function cellText(
+    col: TableColumn,
+    row: unknown,
+    lookups: LookupMaps,
+    t: EngineTranslate,
+    dates: DateDisplay = DEFAULT_DATE_DISPLAY
+): string {
     const v = getByPath(row, col.field);
     if (isBlank(v) && col.type !== 'boolean' && col.type !== 'count') return EMPTY;
     switch (col.type) {
         case 'date':
-            return formatDate(v as string, EMPTY);
+            return formatDate(v as string, EMPTY, dates);
         // a day picked on the Ethiopian calendar is read in it (stored as the Gregorian day)
         case 'ethdate':
-            return (typeof v === 'string' && ethiopianDateText(v)) || EMPTY;
+            return (typeof v === 'string' && ethiopianDateText(v, { language: dates.language })) || EMPTY;
         case 'datetime':
-            return formatDateTime(v as string, EMPTY);
+            return formatDateTime(v as string, EMPTY, dates);
         case 'currency':
             return Number.isFinite(Number(v)) ? formatCurrency(Number(v), col.currency || 'USD') : String(v);
         case 'number':
