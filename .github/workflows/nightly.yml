@@ -17,9 +17,10 @@ on:
 permissions:
   contents: read
 
+# a newer push replaces a pull request's run; the night's run and one started by hand never cancel each other
 concurrency:
-  group: nightly-${{ github.ref }}
-  cancel-in-progress: true
+  group: nightly-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   load:
@@ -47,6 +48,8 @@ jobs:
       - name: Start the API and the web app
         run: |
           nohup pnpm --filter @itrms/api dev:start > api.log 2>&1 &
+          # the dev server: the BFF of a production build refuses a plain-HTTP origin (it is https only), and this
+          # runner has no TLS in front of it; k6 warms each route up before it measures (tests/load/README.md)
           nohup pnpm --filter @itrms/web exec next dev -p 3000 > web.log 2>&1 &
           for i in $(seq 1 120); do
             curl -fsS http://127.0.0.1:4000/healthz > /dev/null 2>&1 && curl -fsS http://localhost:3000/auth/error > /dev/null 2>&1 && exit 0
@@ -55,13 +58,17 @@ jobs:
           echo "the API or the web app did not start"; exit 1
       - name: Chromium for Playwright
         run: pnpm --filter @itrms/web exec playwright install --with-deps chromium
-      # the demo's busiest form, else its first published one: the smoke loads the path (the BFF, the token, RLS, the
-      # planner); the timings on 10^6 rows are the perf job's
+      # the published form with the most submissions handled at Boditi (what its officers see), else the first
+      # published one: the smoke loads the path (the BFF, the token, RLS, the planner); timings on 10^6 rows are the perf job's
       - name: The form the query API is asked about
         run: |
           id=$(docker compose -f infra/compose/docker-compose.yml --env-file infra/compose/.env exec -T postgres \
             psql -U postgres -d itrms -Atc "select coalesce(
-              (select form_id from forms.submissions group by form_id order by count(*) desc limit 1),
+              (select s.form_id from forms.submissions s
+                 join forms.form_definitions d on d.id = s.form_id and d.published_version_id is not null
+                 join kernel.org_units u on u.id = s.handling_unit_id
+                 join kernel.org_units b on b.code = 'WOL-BODITI' and u.path <@ b.path
+                group by s.form_id order by count(*) desc limit 1),
               (select id from forms.form_definitions where published_version_id is not null order by published_at limit 1))")
           test -n "$id"
           echo "FORM_ID=$id" >> "$GITHUB_ENV"
@@ -69,7 +76,6 @@ jobs:
         run: pnpm --filter @itrms/web exec playwright test -c playwright.load.config.ts
         env:
           E2E_WEB: http://localhost:3000
-          FORM_ID: ${{ env.FORM_ID }}
       - uses: grafana/setup-k6-action@v1.2.2
         with:
           k6-version: 2.3.0

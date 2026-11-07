@@ -24,7 +24,7 @@ On the dev stack, with the demo:
 pnpm dev:infra
 pnpm --filter @itrms/api build && pnpm demo:reset
 pnpm dev                                   # web :3000, api :4000
-# the form the query API is asked about: the demo's busiest form, else its first published one
+# the form the query API is asked about (the workflow's query picks the published form busiest at Boditi)
 export FORM_ID=<uuid>
 pnpm --filter @itrms/web exec playwright test -c playwright.load.config.ts
 k6 run tests/load/smoke.js
@@ -34,6 +34,13 @@ The Playwright step (`apps/web/tests/load-setup/sessions.spec.ts`) signs the dem
 asks the API, as each officer, which of the two calls their roles allow, and writes their cookies to `.sessions.json`, which
 is never committed. k6 then sends each kind of request only as the officers allowed to make it, so the test measures
 answers and not refusals.
+
+### Its timings are a dev server's
+
+On a CI runner the web app runs as `next dev`: the BFF of a production build refuses a plain-HTTP origin, and the
+runner has no TLS in front of it. k6's `setup()` asks both routes until they answer quickly before anything is measured,
+so no first-request compilation is in the p95; what remains is a development build's overhead on every request. The timings
+of a production build behind Nginx are the reference server's (0.26d; the full load test, 3.13).
 
 ## What it is not
 
