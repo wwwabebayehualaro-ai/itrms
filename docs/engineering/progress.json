@@ -1350,10 +1350,11 @@
         {
           "id": "0.26c2",
           "title": "Phase 0 hardening, part 2: the smoke load test",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.26c2-load-smoke",
           "commits": [
-            "57ba867"
+            "57ba867",
+            "f2c0f7d"
           ],
           "evidence": [
             "nightly run 42401234495 (PR #48, 57ba867) → k6 thresholds met: inbox p95 141.33 ms, query p95 150.13 ms (< 300 ms), http_req_failed 0.00% both, checks 100% both",
