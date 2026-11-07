@@ -20,8 +20,11 @@ const CSP = `add_header Content-Security-Policy "default-src 'none'; script-src 
 function verifyServer(): string {
     const template = readFileSync(join(NGINX_DIR, 'itrms.conf.template'), 'utf8');
     const zone = /limit_req_zone .* zone=itrms_verify:[^\n]*\n/.exec(template)?.[0];
-    // the verification's token-free access-log line (security review 0.26c1 A6)
-    const logFormat = /map \$uri \$itrms_verify_path \{[^}]*\}\nlog_format itrms_verify [^;]*;\n/.exec(template)?.[0];
+    // the verify host's token-free access-log line, and the map it names the path by (security review 0.26c1 A6); the
+    // map's patterns hold braces of their own ({22}): it ends at the brace alone on its line
+    const logFormat = /map \$uri \$itrms_verify_path \{[\s\S]*?\n\}\nlog_format itrms_verify [^;]*;\n/.exec(
+        template
+    )?.[0];
     const start = template.indexOf('    # the static verify app (apps/verify)');
     const after = template.indexOf('    location / {', start);
     const end = template.indexOf('    }\n', after) + 6;
