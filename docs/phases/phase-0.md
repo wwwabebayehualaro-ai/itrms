@@ -947,18 +947,37 @@ Split from 0.25d on 2026-11-06. Needs 0.25d.
 - **Done when:** the whole journey of demo-plan.md §3 is green in `am` and `en`.
 - **Tests:** the demo journey, steps 11 and 12; the audit trail API's isolation and permission tests.
 
-### 0.26 Demo installation and Phase 0 hardening
-- **Do:**
-  - Compose production profile (Nginx TLS, three hostnames, images from CI, `migrate` service, egress proxy, LUKS data
-    volume, chrony) on a demo server.
-  - Backups pulled by a pgBackRest repository host on a second machine (encrypted), SeaweedFS `filer.sync` + append-only
-    restic, and one restore drill that checks files against database rows and the audit hash chain (ADR-0012, ADR-0031).
-  - A security pass: reviewer agent + `security-review` over auth, RLS, files and the verification page.
-  - A smoke load test on the inbox and the query API with **k6** (thresholds in CI, nightly).
-  - Update the docs.
-- **Done when:** the demo runs on the server from released images, a restore into a scratch stack reproduces the demo, and
-  the security findings are fixed or recorded with a decision.
-- **Tests:** the restore drill script with checks; the smoke load test thresholds in CI (nightly).
+### 0.26a Demo installation, part 1: the production profile and released images
+Split from 0.26 on 2026-11-07: what can be built and proven without the demo server.
+- **Do:** images of the API (with its workers and `migrate`), the web app and the verifier, built by CI and published to the
+  registry on a release tag; a Compose production profile: Nginx with TLS and the three hostnames, the `migrate` service, an
+  egress proxy for the API's outbound calls, chrony, data on a volume meant for LUKS; the operator's steps in a runbook.
+- **Done when:** in CI, the production profile starts from the images CI built, migrates, seeds the demo and answers a smoke
+  check over TLS on its hostnames.
+- **Tests:** the production stack's start and smoke check in CI.
+
+### 0.26b Demo installation, part 2: backups and the restore drill
+Split from 0.26 on 2026-11-07. Needs 0.26a.
+- **Do:** backups pulled by a pgBackRest repository host (a second machine; in CI a second container), encrypted; SeaweedFS
+  `filer.sync` and an append-only restic repository; a restore drill script that restores into a scratch stack and checks files
+  against database rows and the audit log (its hash chain once it has one, ADR-0012, ADR-0031).
+- **Done when:** in CI, a restore of the demo into a scratch stack passes the drill's checks.
+- **Tests:** the restore drill script with its checks, in CI.
+
+### 0.26c Phase 0 hardening: the security pass and the smoke load test
+Split from 0.26 on 2026-11-07.
+- **Do:** a security pass (reviewer agent + `security-review`) over auth, RLS, files and the verification page, its findings
+  fixed or recorded with a decision; a smoke load test of the inbox and the query API with **k6**, thresholds in CI (nightly).
+- **Done when:** the security findings are fixed or recorded with a decision, and the k6 smoke test meets its thresholds in CI.
+- **Tests:** the k6 smoke thresholds in CI (nightly).
+
+### 0.26d Demo installation, part 3: on the demo server
+Split from 0.26 on 2026-11-07. Needs 0.26a and 0.26b, and a demo server and a second machine for the backups (the product
+owner's).
+- **Do:** install the released images on the demo server with the production profile; the backup host on the second machine;
+  one restore drill there.
+- **Done when:** the demo runs on the server from released images, and a restore into a scratch stack reproduces the demo.
+- **Tests:** the restore drill on the server.
 
 ## Phase acceptance criteria
 1. All tasks done (0.1–0.26 with 0.19 as 0.19a and 0.19b, 0.20 as 0.20a, 0.20b, 0.20c and 0.20d, 0.4a, 0.4b, 0.4c, 0.18a, and 0.21 as 0.21a to 0.21f), CI green on `main` (lint, typecheck, unit, integration on Postgres, isolation matrix, i18n keys,

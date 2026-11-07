@@ -1287,13 +1287,45 @@
           "notes": "Owner items: (1) the audit trail shows column names and unknown event or table identifiers as code, as no catalogue names every column; (2) the audit index is built plainly in the migration (a big installation builds it ahead); (3) every audited write of a case-linked row now carries its caseId beside the change (kernel audit), so a case's trail finds updates of its tasks, fees and licence; rows linked only through another row (a receipt through its order) aren't on it."
         },
         {
-          "id": "0.26",
-          "title": "Demo installation and Phase 0 hardening",
+          "id": "0.26a",
+          "title": "Demo installation, part 1: the production profile and released images",
           "status": "planned",
           "branch": null,
           "commits": [],
           "evidence": [],
           "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.26b",
+          "title": "Demo installation, part 2: backups and the restore drill",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.26c",
+          "title": "Phase 0 hardening: the security pass and the smoke load test",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "0.26d",
+          "title": "Demo installation, part 3: on the demo server",
+          "status": "blocked",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [
+            "Needs a demo server and a second machine for the backups (the product owner's)"
+          ],
           "notes": ""
         }
       ]
