@@ -10,7 +10,7 @@
  * confirms it (security.md SEC-AC-6): the assignment then names both (`granted_by` asked, `confirmed_by` confirmed).
  */
 import { sql } from 'drizzle-orm';
-import { boolean, index, jsonb, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { boolean, foreignKey, index, jsonb, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 import { audited } from '../db/audit-policy';
 import { kernelSchema } from '../db/audit-log.table';
@@ -44,7 +44,9 @@ export const users = withRls(
             },
             (t) => [
                 uniqueIndex('users_keycloak_sub_uq').on(t.keycloakSub),
-                uniqueIndex('users_username_uq').on(t.username)
+                uniqueIndex('users_username_uq').on(t.username),
+                // the target of the composite keys below: a role is held, or asked for, by a user of the same region
+                unique('users_id_region_uq').on(t.id, t.regionId)
             ]
         )
     ),
@@ -60,9 +62,8 @@ export const roleAssignments = withRls(
                 regionId: uuid('region_id').notNull(),
                 /** set by trigger from the unit */
                 orgPath: ltree('org_path').notNull().default(''),
-                userId: uuid('user_id')
-                    .notNull()
-                    .references(() => users.id),
+                /** a user of the row's region (the composite key below; security review 0.26c1 R3) */
+                userId: uuid('user_id').notNull(),
                 unitId: uuid('unit_id')
                     .notNull()
                     .references(() => orgUnits.id),
@@ -78,6 +79,11 @@ export const roleAssignments = withRls(
             (t) => [
                 index('role_assignments_user_idx').on(t.userId, t.unitId),
                 index('role_assignments_unit_idx').on(t.unitId),
+                foreignKey({
+                    name: 'role_assignments_user_fk',
+                    columns: [t.userId, t.regionId],
+                    foreignColumns: [users.id, users.regionId]
+                }),
                 // one open assignment of a role per user and unit; a revoked one may be granted again
                 uniqueIndex('role_assignments_open_uq')
                     .on(t.userId, t.unitId, t.roleKey)
@@ -101,9 +107,8 @@ export const roleGrantRequests = withRls(
                 regionId: uuid('region_id').notNull(),
                 /** set by trigger from the unit */
                 orgPath: ltree('org_path').notNull().default(''),
-                userId: uuid('user_id')
-                    .notNull()
-                    .references(() => users.id),
+                /** a user of the row's region (the composite key below; security review 0.26c1 R3) */
+                userId: uuid('user_id').notNull(),
                 unitId: uuid('unit_id')
                     .notNull()
                     .references(() => orgUnits.id),
@@ -121,6 +126,11 @@ export const roleGrantRequests = withRls(
             },
             (t) => [
                 index('role_grant_requests_unit_idx').on(t.unitId, t.state),
+                foreignKey({
+                    name: 'role_grant_requests_user_fk',
+                    columns: [t.userId, t.regionId],
+                    foreignColumns: [users.id, users.regionId]
+                }),
                 // one request waiting per person, unit and role
                 uniqueIndex('role_grant_requests_pending_uq')
                     .on(t.userId, t.unitId, t.roleKey)

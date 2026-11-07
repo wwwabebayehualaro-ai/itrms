@@ -7,6 +7,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import client from './api/client';
+import { BACKGROUND_HEADER } from './auth/cookies';
 import { createKeys } from './query/keys';
 
 export interface Notice {
@@ -27,7 +28,14 @@ export function useNotices() {
         refetchInterval: 60_000,
         refetchOnWindowFocus: true,
         queryFn: async ({ signal }) =>
-            (await client.get<{ items: Notice[] }>('v1/me/notifications', { params: { limit: 30 }, signal })).data.items
+            // read by the app itself, every minute: not the person's activity
+            (
+                await client.get<{ items: Notice[] }>('v1/me/notifications', {
+                    params: { limit: 30 },
+                    headers: { [BACKGROUND_HEADER]: '1' },
+                    signal
+                })
+            ).data.items
     });
 }
 

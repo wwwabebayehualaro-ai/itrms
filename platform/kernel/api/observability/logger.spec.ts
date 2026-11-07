@@ -64,6 +64,19 @@ describe('logs', () => {
         expect(text()).not.toMatch(/hunter2|a:b@|fieldpw|urlpw/);
     });
 
+    it('never write a verification token, only its path (security review 0.26c1 A6)', () => {
+        const token = 'Ab_cdefghijklmnopqrstu';
+        expect(maskSecrets(`GET /api/v1/public/verifications/${token}`)).toBe(
+            'GET /api/v1/public/verifications/[redacted]'
+        );
+        const { logger, text } = capture();
+        logger.info({ req: { method: 'GET', url: `/api/v1/public/verifications/${token}` } }, 'incoming request');
+        logger.info(`asked /v1/public/verifications/${token}`);
+        const out = text();
+        expect(out).not.toContain(token);
+        expect(out).toContain('/api/v1/public/verifications/[redacted]');
+    });
+
     it('log what was thrown even when it is not an Error', () => {
         const { logger, text } = capture();
         logger.error({ err: 'timeout talking to postgres://a:strpw@db/x' }, 'a string');

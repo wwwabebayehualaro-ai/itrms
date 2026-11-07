@@ -1335,12 +1335,12 @@
         {
           "id": "0.26c1",
           "title": "Phase 0 hardening, part 1: the security pass",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/0.26c1-security-pass",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "F1 (low): /files/:id and its download check the unit's scope, not the record a file is linked to. Decided: kept for Phase 0 (UUIDv7 ids, RLS to the unit's subtree, file:read held by office staff only); Phase 1 serves a linked file only through its record's endpoint after that record's read and field checks (ADR-0037), the generic endpoints only the uploader's unlinked uploads. A7 (low): no session list and no sign out everywhere (SEC-SE-4). Decided: Phase 1 feature (SessionStore.deleteBySubject exists); the 30-minute idle timeout and the back-channel logout cover Phase 0. R1 (low): no audit hash chain or signed daily digest; the owner role can disable the append-only trigger. Decided: Phase 1 per ADR-0018 (the existing follow-up); threat-model row 5 now says partly in place; the 0.26b1 drill compares the audit rows and an ordered digest. A1 remainder: a browser idle timer that warns, then signs out, is Phase 1 UX; the BFF now enforces idle against the person's own requests only. Already-open follow-ups the auth review re-confirmed (not fixed here): administrators' phishing-resistant factor and acr/amr checks (SEC-ID-2); itrms-identity-admin holds manage-users; resolve_principal takes p_sub from app code; rate-limiting access.denied rows; per-user and per-IP API rate limits in Valkey (SEC-AP-2); Trusted Types report-only."
         },
         {
           "id": "0.26c2",
@@ -2981,6 +2981,26 @@
       "foundIn": "0.25c",
       "item": "Step 8 checks the public verification API with the token read from the card PDF; the verifier page's own UI is covered by the apps/verify e2e, not this journey",
       "movedTo": "0.25d / demo"
+    },
+    {
+      "foundIn": "0.26c1",
+      "item": "F1: linked files only through their record's endpoint (record read + field checks)",
+      "movedTo": "Phase 1"
+    },
+    {
+      "foundIn": "0.26c1",
+      "item": "A7: session list and sign out everywhere (SEC-SE-4)",
+      "movedTo": "Phase 1"
+    },
+    {
+      "foundIn": "0.26c1",
+      "item": "A1: browser idle timer that warns, then signs out",
+      "movedTo": "Phase 1"
+    },
+    {
+      "foundIn": "0.26c1",
+      "item": "R1: audit hash chain and signed daily digest off-site (ADR-0018)",
+      "movedTo": "Phase 1"
     }
   ]
 }

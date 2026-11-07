@@ -8,12 +8,15 @@
 import { useQuery } from '@tanstack/react-query';
 
 import client from './api/client';
+import { BACKGROUND_HEADER } from './auth/cookies';
 import { useCan } from './auth/authHooks';
 import { createKeys } from './query/keys';
 
 export const workspaceKeys = createKeys('workspace');
 
 const FRESH = { refetchInterval: 60_000, refetchOnWindowFocus: true } as const;
+/** These counts are read by the app itself, every minute: not the person's activity (BACKGROUND_HEADER). */
+const BACKGROUND = { headers: { [BACKGROUND_HEADER]: '1' } } as const;
 
 export interface TaskCount {
     open: number;
@@ -27,7 +30,8 @@ export function useTaskCount() {
         queryKey: [...workspaceKeys.all, 'tasks'] as const,
         enabled: may,
         ...FRESH,
-        queryFn: async ({ signal }) => (await client.get<TaskCount>('v1/me/tasks/count', { signal })).data
+        queryFn: async ({ signal }) =>
+            (await client.get<TaskCount>('v1/me/tasks/count', { ...BACKGROUND, signal })).data
     });
 }
 
@@ -38,7 +42,8 @@ export function useApprovalCount() {
         enabled: may,
         ...FRESH,
         queryFn: async ({ signal }) =>
-            (await client.get<{ decidable: number }>('v1/form-publications/count', { signal })).data.decidable
+            (await client.get<{ decidable: number }>('v1/form-publications/count', { ...BACKGROUND, signal })).data
+                .decidable
     });
 }
 

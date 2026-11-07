@@ -8,9 +8,9 @@ import { randomUUID } from 'node:crypto';
 
 import { NextResponse, type NextRequest } from 'next/server';
 
-import { isSafeMethod, sameOrigin, tokenMatches } from '@/bff/csrf';
+import { isBackgroundRead, isSafeMethod, sameOrigin, tokenMatches } from '@/bff/csrf';
 import { apiRequestHeaders, apiTarget, browserResponseHeaders } from '@/bff/forward';
-import { bff, clearSessionCookies, currentSession, problem, withFreshToken } from '@/bff/runtime';
+import { bff, clearSessionCookies, currentSession, problem, tokenStillFresh, withFreshToken } from '@/bff/runtime';
 import { CSRF_HEADER } from '@/lib/auth/cookies';
 
 interface Context {
@@ -22,8 +22,12 @@ async function handle(request: NextRequest, context: Context) {
     const target = apiTarget(config.API_URL, (await context.params).path, request.nextUrl.search);
     if (!target) return problem(request, 404, 'not_found');
 
-    const current = await currentSession(request);
+    // the app's own polling neither restarts the idle timeout nor refreshes the token (which would keep Keycloak's
+    // session alive): a person away from the PC is signed out after 30 minutes however often the page asks
+    const background = isBackgroundRead(request.headers, request.method);
+    const current = await currentSession(request, { touch: !background });
     if (!current) return problem(request, 401, 'unauthenticated');
+    if (background && !tokenStillFresh(current)) return problem(request, 503, 'unavailable');
     const unsafe = !isSafeMethod(request.method);
     if (
         unsafe &&

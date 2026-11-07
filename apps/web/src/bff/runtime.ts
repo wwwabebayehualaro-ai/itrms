@@ -55,15 +55,24 @@ export interface Session {
     record: SessionRecord;
 }
 
-/** The session the request's cookie names, its idle timeout restarted; undefined when there is none. */
-export async function currentSession(request: NextRequest): Promise<Session | undefined> {
+/**
+ * The session the request's cookie names, its idle timeout restarted (`touch`; not for the app's own background reads);
+ * undefined when there is none.
+ */
+export async function currentSession(
+    request: NextRequest,
+    { touch = true }: { touch?: boolean } = {}
+): Promise<Session | undefined> {
     const id = request.cookies.get(SESSION_COOKIE)?.value;
     if (!id || !SESSION_ID.test(id)) return undefined;
     const { store } = bff();
     const record = await store.get(id);
-    if (!record || !(await store.touch(id, record))) return undefined;
+    if (!record || (touch && !(await store.touch(id, record)))) return undefined;
     return { id, record };
 }
+
+/** Whether the access token is good for a moment yet, without a refresh (withFreshToken refreshes inside 30 s). */
+export const tokenStillFresh = (session: Session) => session.record.accessExpiresAt - Date.now() > 30_000;
 
 /** Keycloak could not be asked (down, slow, rate-limited): the session stays, the request answers 503. */
 export class KeycloakUnavailableError extends Error {
@@ -83,7 +92,7 @@ const lockOf = (id: string) => `refresh:${createHash('sha256').update(id).digest
  * KeycloakUnavailableError when Keycloak could not be asked, which never ends the session.
  */
 export async function withFreshToken(session: Session): Promise<Session | undefined> {
-    const fresh = (r: SessionRecord) => r.accessExpiresAt - Date.now() > 30_000;
+    const fresh = (r: SessionRecord) => tokenStillFresh({ id: session.id, record: r });
     if (fresh(session.record)) return session;
     const { config, store } = bff();
     const lock = lockOf(session.id);

@@ -7,7 +7,7 @@
   "supportedLocales": ["am", "en"],
   "defaultLocale": "am",
   "registrationAllowed": false,
-  "resetPasswordAllowed": true,
+  "resetPasswordAllowed": false,
   "rememberMe": false,
   "loginWithEmailAllowed": false,
   "duplicateEmailsAllowed": false,

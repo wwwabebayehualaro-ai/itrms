@@ -14,7 +14,7 @@
  * authority, and a request not decided within REQUEST_DAYS can only be refused. A revocation takes rights away and needs
  * no second person: one administrator ends an assignment at once.
  */
-import { and, asc, count, eq, gt, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, count, eq, gt, isNull, lte, ne, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 
@@ -309,17 +309,31 @@ export async function revokeRole(tx: Tx, revoker: Granter, id: string, version: 
         .where(eq(roleAssignments.id, id));
     if (ended) throw new ConflictError('invalid_transition', { detail: 'The assignment has already ended.' });
     if (current.roleKey === 'bureau_admin') {
-        const [{ open } = { open: 0 }] = await tx
-            .select({ open: count() })
+        // security review 0.26c1 A10: one revocation at a time per region (two administrators ending each other's
+        // assignments cannot both pass the count), and only an administrator in office now counts, not one who starts later
+        await tx.execute(
+            sql`select pg_advisory_xact_lock(hashtextextended(${`iam.bureau_admin:${current.regionId}`}, 0))`
+        );
+        const inOffice = and(
+            lte(roleAssignments.validFrom, sql`now()`),
+            or(isNull(roleAssignments.validTo), gt(roleAssignments.validTo, sql`now()`))
+        );
+        const [{ others } = { others: 0 }] = await tx
+            .select({ others: count() })
             .from(roleAssignments)
             .where(
                 and(
                     eq(roleAssignments.regionId, current.regionId),
                     eq(roleAssignments.roleKey, 'bureau_admin'),
-                    or(isNull(roleAssignments.validTo), gt(roleAssignments.validTo, sql`now()`))
+                    ne(roleAssignments.id, id),
+                    inOffice
                 )
             );
-        if (open <= 1)
+        const [{ thisInOffice } = { thisInOffice: false }] = await tx
+            .select({ thisInOffice: sql<boolean>`${inOffice}` })
+            .from(roleAssignments)
+            .where(eq(roleAssignments.id, id));
+        if (thisInOffice && others === 0)
             throw new ConflictError('invalid_transition', { detail: 'The region would have no bureau administrator.' });
     }
     // ended by the database's clock, which the next request's check reads

@@ -89,7 +89,7 @@ export class OidcAuthenticator implements Authenticator {
         if (unitHeader !== undefined && (typeof unitHeader !== 'string' || !UUID.test(unitHeader)))
             throw new InvalidRequestError('invalid_request', { detail: 'X-Org-Unit must be a unit id.' });
 
-        const [row] = await this.database.scoped({ requestId: request.id }, async (tx) => {
+        const [row] = await this.database.scoped({ requestId: request.id, ip: request.ip }, async (tx) => {
             const result = await tx.execute<PrincipalRow>(
                 sql`select * from kernel.resolve_principal(${sub}, ${unitHeader ?? null}::uuid)`
             );

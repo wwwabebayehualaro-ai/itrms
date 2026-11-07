@@ -237,6 +237,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
 
         const scope = {
             requestId: reqContext.requestId,
+            ip: reqContext.ip,
             userId: principal.userId,
             regionId: principal.regionId,
             unitId: principal.unitId,

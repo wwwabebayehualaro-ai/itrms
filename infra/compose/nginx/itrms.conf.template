@@ -10,6 +10,10 @@ limit_req_zone $binary_remote_addr zone=itrms_signin:10m rate=10r/m;
 limit_req_zone $binary_remote_addr zone=itrms_verify:10m rate=60r/m;
 limit_req_status 429;
 
+# a verification's access-log line names its route, never its token (SEC-SC-2; security review 0.26c1 A6)
+log_format itrms_verification '$remote_addr - [$time_local] "$request_method /v1/public/verifications/[redacted]" '
+                              '$status $body_bytes_sent $request_time "$http_user_agent"';
+
 map $http_upgrade $connection_upgrade {
     default upgrade;
     '' close;
@@ -42,6 +46,8 @@ server {
     ssl_certificate /etc/nginx/tls/app.fullchain.pem;
     ssl_certificate_key /etc/nginx/tls/app.key.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
+    # TLS 1.2 with AEAD suites only (security.md §11; security review 0.26c1 A9); TLS 1.3's are all AEAD
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
     ssl_prefer_server_ciphers off;
     server_tokens off;
     client_max_body_size 25m;
@@ -131,12 +137,17 @@ server {
     ssl_certificate /etc/nginx/tls/verify.fullchain.pem;
     ssl_certificate_key /etc/nginx/tls/verify.key.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
+    # TLS 1.2 with AEAD suites only (security.md §11; security review 0.26c1 A9); TLS 1.3's are all AEAD
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
     server_tokens off;
 
     add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "no-referrer" always;
     add_header X-Frame-Options "DENY" always;
+    # SEC-WB-1 on every response (security review 0.26c1 A8)
+    add_header Cross-Origin-Opener-Policy "same-origin" always;
+    add_header Cross-Origin-Resource-Policy "same-origin" always;
     # the static verify app (apps/verify): its hash-based CSP, written at its build (ADR-0045)
     include /srv/verify/csp.conf;
     # the verifier reads a QR with the camera; nothing else
@@ -152,6 +163,7 @@ server {
         proxy_pass http://api:4000;
     }
     location ~ "^/v1/public/verifications/[A-Za-z0-9_-]{22}$" {
+        access_log /var/log/nginx/access.log itrms_verification;
         limit_except GET { deny all; }
         limit_req zone=itrms_verify burst=30 nodelay;
         rewrite ^/v1/(.*)$ /api/v1/$1 break;
