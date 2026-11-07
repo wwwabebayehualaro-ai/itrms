@@ -21,7 +21,8 @@ RUN pnpm --filter @itrms/api build \
     && NEXT_OUTPUT=standalone pnpm --filter @itrms/web build \
     && pnpm --filter @itrms/verify build
 # then only what runs: the development packages go
-RUN pnpm install --frozen-lockfile --prod --config.node-linker=hoisted --ignore-scripts && pnpm rebuild \n    && mkdir -p apps/api/node_modules
+RUN pnpm install --frozen-lockfile --prod --config.node-linker=hoisted --ignore-scripts && pnpm rebuild \
+    && mkdir -p apps/api/node_modules
 
 FROM ${NODE_IMAGE} AS api
 ENV NODE_ENV=production TZ=Africa/Addis_Ababa
