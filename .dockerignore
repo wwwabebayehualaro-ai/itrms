@@ -17,6 +17,7 @@
 # a test installation's certificates and keys (tools/prod-stack.mjs): never in an image or its build cache
 infra/compose/tls
 infra/compose/backup-tls
+infra/compose/files-tls
 infra/compose/drill-reports
 Documents
 Backend

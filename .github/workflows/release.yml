@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 60
     strategy:
       matrix:
-        target: [api, documents, web, edge, egress, gate, postgres, backup]
+        target: [api, documents, web, edge, egress, gate, postgres, backup, files-backup, restic]
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: docker/setup-buildx-action@v3.11.1

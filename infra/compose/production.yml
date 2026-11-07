@@ -98,7 +98,7 @@ services:
     image: ${ITRMS_REGISTRY:-ghcr.io/wwwabebayehualaro-ai}/itrms-gate:${ITRMS_VERSION:-local}
     build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: gate }
     environment:
-      GATE_ROUTES: 8333=objectstore:8333
+      GATE_ROUTES: 8333=${ITRMS_S3_STORE:-objectstore}:8333
     networks:
       default:
         aliases: [seaweedfs]
@@ -252,6 +252,92 @@ services:
       - ${ITRMS_BACKUP_TLS_DIR:-./backup-tls}/backup.key:/run/pgbackrest-tls/backup.key:ro
     networks: [default]
 
+  # the files' backups (task 0.26b2, ADR-0031 item 13). On site the three run on the backup machine:
+  # a second store, kept a copy of the bucket as it changes (filer.sync, one way, deletions included)
+  # with the store's S3 port and credentials, so that the processes can be pointed at it (ITRMS_S3_STORE=replica, §8)
+  replica:
+    restart: unless-stopped
+    image: chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        cat > /tmp/s3.json <<EOF
+        {"identities":[{"name":"itrms","credentials":[{"accessKey":"$${S3_ACCESS_KEY}","secretKey":"$${S3_SECRET_KEY}"}],"actions":["Admin","Read","Write","List","Tagging"]}]}
+        EOF
+        exec weed server -dir=/data -master.volumeSizeLimitMB=1024 -volume.max=0 -s3 -s3.port=8333 -s3.config=/tmp/s3.json
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?}
+      TZ: Africa/Addis_Ababa
+    volumes:
+      - replica-data:/data
+    networks: [storage]
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'wget -q -O /dev/null http://127.0.0.1:8333/healthz && wget -q -O /dev/null http://127.0.0.1:8888/'
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+
+  files-sync:
+    restart: unless-stopped
+    image: chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
+    entrypoint: ['weed']
+    command:
+      - filer.sync
+      - -a=objectstore:8888
+      - -b=replica:8888
+      # the stored files only (files/): an upload waiting or rejected in quarantine/ is never copied
+      - -a.path=/buckets/itrms/files
+      - -b.path=/buckets/itrms/files
+      - -isActivePassive
+    depends_on:
+      seaweedfs: { condition: service_healthy }
+      replica: { condition: service_healthy }
+    networks: [storage]
+
+  # the bucket mirrored as plain files, a restic snapshot of them every night to the append-only repository
+  files-backup:
+    restart: unless-stopped
+    image: ${ITRMS_REGISTRY:-ghcr.io/wwwabebayehualaro-ai}/itrms-files-backup:${ITRMS_VERSION:-local}
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: files-backup }
+    environment:
+      RESTIC_PASSWORD: ${RESTIC_PASSWORD:?}
+      RESTIC_SERVER_PASSWORD: ${RESTIC_SERVER_PASSWORD:?}
+      TZ: Africa/Addis_Ababa
+    volumes:
+      - files-mirror:/mirror
+      - ${ITRMS_FILES_TLS_DIR:-./files-tls}/ca.pem:/run/files-tls/ca.pem:ro
+    depends_on:
+      seaweedfs: { condition: service_healthy }
+      restic: { condition: service_healthy }
+    networks: [storage]
+
+  # restic's rest-server: clients add snapshots, never remove one; the retention runs on its side
+  restic:
+    restart: unless-stopped
+    image: ${ITRMS_REGISTRY:-ghcr.io/wwwabebayehualaro-ai}/itrms-restic:${ITRMS_VERSION:-local}
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: restic }
+    environment:
+      RESTIC_PASSWORD: ${RESTIC_PASSWORD:?}
+      RESTIC_SERVER_PASSWORD: ${RESTIC_SERVER_PASSWORD:?}
+      TZ: Africa/Addis_Ababa
+    volumes:
+      - restic-repo:/data
+      - ${ITRMS_FILES_TLS_DIR:-./files-tls}/restic.crt:/run/files-tls/restic.crt:ro
+      - ${ITRMS_FILES_TLS_DIR:-./files-tls}/restic.key:/run/files-tls/restic.key:ro
+    networks: [storage]
+    healthcheck:
+      test: ['CMD-SHELL', 'nc -z 127.0.0.1 8000']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+
   # the restore drill's scratch database (`node tools/prod-stack.mjs drill`): the latest backup, recovered, nothing archived
   drill:
     profiles: [drill]
@@ -300,3 +386,6 @@ networks:
 volumes:
   pgbackrest-repo:
   drill-data:
+  replica-data:
+  files-mirror:
+  restic-repo:

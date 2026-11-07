@@ -1320,12 +1320,16 @@
         {
           "id": "0.26b2",
           "title": "Demo installation, part 2b: the files' backups and their restore drill",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/0.26b2-files-backups",
+          "commits": [
+            "757095e"
+          ],
+          "evidence": [
+            "CI run 42379705464 green on 757095e (all 10 jobs). Production profile job: full (7.7 s) + diff (1.3 s) database backups each with a files snapshot (0.9 s), then the drill: restored to its restore point in 7.8 s and passed: 73 tables, 2818 rows and 1341 audit rows as live, Keycloak's 100 tables, and every stored file (1, the probe) whole by size and SHA-256 in the second store (filer.sync) and in the latest restic snapshot restored into a scratch folder. task-verifier: Done when and Tests met (caveat: the probe file). code-review high: 10 findings, all fixed in 757095e. An earlier failure was the drill's own key loop (no final newline), not filer.sync."
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "Second store: weed filer.sync -isActivePassive of the bucket's files/ (never quarantine/) to a replica SeaweedFS with its own S3 port (ITRMS_S3_STORE=replica points the gate at it). Snapshots: weed filer.backup mirrors files/ as plain files (deletions included), restic snapshots it nightly to rest-server --append-only --private-repos over TLS (its own CA, files-tls); retention 30 daily / 12 monthly runs on the server side. CI's only stored file is the drill's --probe file (the demo has none stored at drill time), inserted as superuser without an audit row."
         },
         {
           "id": "0.26c",
