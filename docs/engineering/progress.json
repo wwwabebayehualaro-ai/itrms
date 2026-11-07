@@ -1335,10 +1335,11 @@
         {
           "id": "0.26c1",
           "title": "Phase 0 hardening, part 1: the security pass",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.26c1-security-pass",
           "commits": [
-            "5b0d3f7"
+            "5b0d3f7",
+            "392e5d8"
           ],
           "evidence": [
             "CI run 42392044462 green on 5b0d3f7 (all 10 jobs: lint/typecheck/test/build, dev stack + S3 suite, e2e journeys, production profile, performance, stories, Semgrep, Trivy, gitleaks, licences). Two security reviews (auth/sessions/verification; RLS/files): 16 findings, no high; 13 fixed with regression tests (A1 A2 A3 A4 A5 A6 A8 A9 A10 A11 F2 R2 R3), 3 decided for Phase 1 with follow-ups (F1 A7 R1); record docs/engineering/security-pass-0.26c1.md; threat model rows 1, 5, 7 corrected. Production smoke: 10/10 incl. the S3 identity objects-only check; restore drill passed. code-review high on the fixes: 10 findings, all fixed (463bc6d, 5b0d3f7). task-verifier: ready (Done when and Tests met)."
