@@ -1272,10 +1272,11 @@
         {
           "id": "0.25e",
           "title": "Demo, part 5: the figures and the audit trail",
-          "status": "in review",
+          "status": "done",
           "branch": "task/0.25e-figures-audit",
           "commits": [
-            "445b88d"
+            "445b88d",
+            "5e718ba"
           ],
           "evidence": [
             "GitHub Actions run 42327292417 (PR #43) on 445b88d → all jobs success; e2e 47 passed (16.5m), no flaky, incl. demo/journey.spec.ts steps 1–12 in am and en (24 tests); demo:reset 21.7 s and 21.6 s (limit 120 s)",
