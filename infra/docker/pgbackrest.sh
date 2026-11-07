@@ -29,7 +29,8 @@ cp /run/pgbackrest-tls/ca.pem "$tls/ca.pem"
 cp "/run/pgbackrest-tls/$me.crt" "$tls/me.crt"
 cp "/run/pgbackrest-tls/$me.key" "$tls/me.key"
 
-server="tls-server-address=*
+# every IPv4 address of the container (musl does not resolve '*')
+server="tls-server-address=0.0.0.0
 tls-server-ca-file=$tls/ca.pem
 tls-server-cert-file=$tls/me.crt
 tls-server-key-file=$tls/me.key"

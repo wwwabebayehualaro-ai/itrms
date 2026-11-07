@@ -52,15 +52,15 @@ services:
   # the databases and the queues: no host ports in production
   postgres:
     ports: !reset []
-    # with pgBackRest (task 0.26b1): every WAL segment archived to the repository host, which pulls the backups
+    # with pgBackRest (task 0.26b1): every WAL segment archived to the repository host, which pulls the backups. The archive
+    # command itself is set by `prod-stack up` (ALTER SYSTEM, kept in the data directory) once the stanza exists: the first
+    # start's initialization never waits on the repository host
     image: ${ITRMS_REGISTRY:-ghcr.io/wwwabebayehualaro-ai}/itrms-postgres:${ITRMS_VERSION:-local}
     build: { context: ../.., dockerfile: infra/docker/Dockerfile, target: postgres }
     command:
       - postgres
       - -c
       - archive_mode=on
-      - -c
-      - archive_command=pgbackrest --stanza=itrms archive-push %p
       - -c
       - archive_timeout=300
     volumes:

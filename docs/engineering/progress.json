@@ -1310,7 +1310,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "pgBackRest pull mode: repository host 'backup' (a container in the profile; a second machine on site), mutual TLS with its own CA (key deleted after signing; certs 825 days), AES-256 repo, time retention 30 days, weekly full + nightly diff by busybox cron. ADR-0012's 12 monthly copies go with the off-site copy (0.26d). Drill compares every table's row count and the audit log's ordered digest in one REPEATABLE READ snapshot after 'pgbackrest check' (WAL switched and archived), restoring to the end of the archive. Exact on a quiet database; a write during the drill fails it (run it out of hours). Release matrix now also publishes gate (missing since 0.26a), postgres and backup."
         },
         {
           "id": "0.26b2",

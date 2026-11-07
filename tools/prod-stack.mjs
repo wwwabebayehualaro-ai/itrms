@@ -244,11 +244,16 @@ async function up(demo) {
     backupCertificates();
     if (!VERSION) compose(['--profile', 'setup', 'build']);
     // and the gates: the setup reaches Keycloak's administration through `admin`, the processes the store through `s3`
-    // and the repository host, which the database archives its WAL to from its first start
+    // and the repository host, which the database archives its WAL to
     const backing = ['postgres', 'backup', 'valkey-queues', 'valkey-sessions', 'keycloak', 'seaweedfs', 'admin', 's3'];
     compose(['up', '-d', '--wait', '--wait-timeout', '300', ...backing]);
     dev.seedDatabaseRoles(env);
-    // the stanza (an existing one is checked and kept), then that WAL reaches the repository
+    // the WAL to the repository (kept in postgresql.auto.conf, so a restored database archives again), the stanza (an
+    // existing one is checked and kept), then that the WAL reaches it
+    sql(
+        'postgres',
+        `ALTER SYSTEM SET archive_command = 'pgbackrest --stanza=itrms archive-push %p';\nSELECT pg_reload_conf();`
+    );
     repository('stanza-create');
     repository('check');
     // the bucket, from inside the store (its S3 port is on the stack's network only); an existing one stays
