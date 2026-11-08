@@ -89,6 +89,7 @@ export class PersonsController {
     }
 
     @Post('duplicates')
+    @RateLimit('search')
     @HttpCode(200)
     @NotReplayable()
     @Require('person:create')

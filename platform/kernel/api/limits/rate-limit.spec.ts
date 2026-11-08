@@ -28,10 +28,9 @@ const asCaller = <T>(userId: string, ip: string, fn: () => T) =>
 
 describe('rate limits (SEC-AP-2)', () => {
     it('counts per person and per address, and per installation for exports', () => {
-        expect(countersOf('search', { userId: 'u1', ip: '10.0.0.1' }).map((c) => c.key)).toEqual([
-            'search:u:u1',
-            'search:ip:10.0.0.1'
-        ]);
+        // a signed-in caller is a person; offices share their public addresses (NAT), so the address counts only before sign-in
+        expect(countersOf('search', { userId: 'u1', ip: '10.0.0.1' }).map((c) => c.key)).toEqual(['search:u:u1']);
+        expect(countersOf('search', { ip: '10.0.0.1' }).map((c) => c.key)).toEqual(['search:ip:10.0.0.1']);
         expect(countersOf('export', { userId: 'u1' }).map((c) => c.key)).toEqual(['export:u:u1', 'export:all']);
     });
 
@@ -59,6 +58,24 @@ describe('rate limits (SEC-AP-2)', () => {
         // another person in the same office is still served; an unmarked route is never counted
         await expect(asCaller('u2', '10.0.0.1', () => guard.canActivate(contextOf('reveal')))).resolves.toBe(true);
         await expect(asCaller('u1', '10.0.0.1', () => guard.canActivate(contextOf('open')))).resolves.toBe(true);
+    });
+
+    it('does not count a refused request on the installation’s counter', async () => {
+        const limiter = new MemoryRateLimiter();
+        const guard = new RateLimitGuard(new Reflector(), limiter, logger);
+        class Exports {
+            @RateLimit('export')
+            run() {}
+        }
+        const ctx = {
+            getHandler: () => Object.getOwnPropertyDescriptor(Exports.prototype, 'run')?.value as unknown,
+            getClass: () => Exports
+        } as unknown as ExecutionContext;
+        const max = RATE_LIMITS.export.perPerson.max;
+        for (let i = 0; i < max + 10; i++)
+            await asCaller('u1', '10.0.0.1', () => guard.canActivate(ctx)).catch(() => undefined);
+        // the person's 20 went through; the 10 refused ones are not on the installation's count
+        expect((await limiter.hit('export:all', 3600)).count).toBe(max + 1);
     });
 
     it('lets the request through when the counter cannot be reached, and says so in the log', async () => {

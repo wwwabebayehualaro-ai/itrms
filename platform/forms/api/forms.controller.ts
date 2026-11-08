@@ -384,6 +384,7 @@ export class SubmissionsController {
     }
 
     @Get()
+    @RateLimit('query')
     @Require('submission:read')
     list(@Query() query: SubmissionListDto) {
         const ctx = requestDbContext();

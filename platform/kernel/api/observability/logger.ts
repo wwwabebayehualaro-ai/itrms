@@ -51,9 +51,13 @@ const isPlain = (value: object) => {
 // A failed query's values never reach a log (follow-up 95): Drizzle writes them into its message ("params: …", so the stack
 // too) and keeps them as `params`; PostgreSQL names a duplicate's value in `detail` ("Key (fin_index)=(…) already exists").
 // They are ciphertexts, blind indexes and names. The statement itself stays: it is what the log is read for.
-const QUERY_PARAMS = /(\nparams: )[^\n]*/g;
+// the values run to the stack's first frame or the text's end: a value may hold newlines (a comment, an address)
+const QUERY_PARAMS = /(\nparams: )[\s\S]*?(?=\n\s+at |$)/g;
 const KEY_VALUE = /(Key \([^)]{0,200}\)=\()[^)]{0,2000}(\))/g;
-const maskQueryValues = (text: string) => text.replace(QUERY_PARAMS, `$1${CENSOR}`).replace(KEY_VALUE, `$1${CENSOR}$2`);
+// a not-null or check violation names the whole row
+const FAILING_ROW = /(Failing row contains \()[^\n]*(\))/g;
+const maskQueryValues = (text: string) =>
+    text.replace(QUERY_PARAMS, `$1${CENSOR}`).replace(KEY_VALUE, `$1${CENSOR}$2`).replace(FAILING_ROW, `$1${CENSOR}$2`);
 const QUERY_VALUE_KEY = /^(params|parameters)$/;
 
 export function scrub(value: unknown, depth = 0, seen = new WeakSet<object>(), inError = false): unknown {
@@ -69,7 +73,10 @@ export function scrub(value: unknown, depth = 0, seen = new WeakSet<object>(), i
     return Object.fromEntries(
         Object.entries(value).map(([k, v]) => [
             k,
-            SECRET_KEY.test(k) || (inError && QUERY_VALUE_KEY.test(k)) ? CENSOR : scrub(v, depth + 1, seen, inError)
+            // a query's values are an array (an AppError's params, the detail's placeholders, stay readable)
+            SECRET_KEY.test(k) || (inError && QUERY_VALUE_KEY.test(k) && Array.isArray(v))
+                ? CENSOR
+                : scrub(v, depth + 1, seen, inError)
         ])
     );
 }

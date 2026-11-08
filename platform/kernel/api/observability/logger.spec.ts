@@ -146,3 +146,28 @@ describe('a failed query in the log (follow-up 95)', () => {
         expect(text()).not.toContain('c2VjcmV0LWJsaW5kLWluZGV4');
     });
 });
+
+describe('a failed query whose values hold newlines', () => {
+    it('drops every line of them, in the message and in the stack', () => {
+        const { logger, text } = capture();
+        const failed = new Error(
+            'Failed query: insert into "workflow"."case_comments" ("body") values ($1)\nparams: first line\nAbebe 0911000000'
+        );
+        Object.assign(failed, { params: ['first line\nAbebe 0911000000'] });
+        logger.error({ err: failed }, 'request failed');
+        expect(text()).toContain('case_comments');
+        expect(text()).not.toContain('Abebe');
+        expect(text()).not.toContain('0911000000');
+        expect(text()).toContain('at ');
+    });
+
+    it('keeps an AppError’s detail placeholders and masks a violated row', () => {
+        const { logger, text } = capture();
+        logger.error(
+            { err: { code: '23502', detail: 'Failing row contains (1, Abebe, c2VjcmV0).', params: { seconds: 30 } } },
+            'x'
+        );
+        expect(text()).not.toContain('Abebe');
+        expect(text()).toContain('"seconds":30');
+    });
+});

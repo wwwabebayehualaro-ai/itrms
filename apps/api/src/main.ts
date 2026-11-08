@@ -18,16 +18,25 @@ async function main() {
             auditKey: config.AUDIT_HMAC_KEY,
             onError: (err) => logger.warn({ err }, 'an idle database connection failed')
         });
-        // the rate limits count in the queues' Valkey (SEC-AP-2); a request never waits on a reconnect for long
-        const rateLimiter = config.VALKEY_QUEUES_URL
-            ? new ValkeyRateLimiter(
-                  new Redis({
-                      ...queueConnection(config.VALKEY_QUEUES_URL),
-                      maxRetriesPerRequest: 1,
-                      enableOfflineQueue: false
-                  })
-              )
+        // the rate limits count in the queues' Valkey (SEC-AP-2). A request never waits on it for long: commands fail after
+        // half a second (the guard then lets the request through), and a dropped connection fails them at once
+        const valkey = config.VALKEY_QUEUES_URL
+            ? new Redis({
+                  ...queueConnection(config.VALKEY_QUEUES_URL),
+                  maxRetriesPerRequest: 1,
+                  enableOfflineQueue: false,
+                  commandTimeout: 500,
+                  connectTimeout: 2000
+              })
             : undefined;
+        // its reconnect errors go to the logger (redacted), once a minute, not to the console
+        let reported = 0;
+        valkey?.on('error', (err: Error) => {
+            if (Date.now() - reported < 60_000) return;
+            reported = Date.now();
+            logger.warn({ err }, "the rate limits' Valkey cannot be reached");
+        });
+        const rateLimiter = valkey ? new ValkeyRateLimiter(valkey) : undefined;
         const app = await createHttpApp(
             AppModule.forRoot(config, logger, { database, objectStore: objectStoreOf(config), rateLimiter }),
             config,

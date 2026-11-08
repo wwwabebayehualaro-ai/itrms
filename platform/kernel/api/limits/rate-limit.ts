@@ -1,5 +1,5 @@
 /**
- * Rate limits (security.md SEC-AP-2, OWASP API4): per person and per client address on search, lookups, the data viewer's
+ * Rate limits (security.md SEC-AP-2, OWASP API4): per person (per client address before sign-in) on search, lookups, the data viewer's
  * queries, reveals, exports and comments; exports also per installation. A route names its bucket with `@RateLimit()`;
  * the RateLimitGuard (after the AccessGuard, so the caller is known) counts each request in fixed windows and refuses one
  * over a limit with 429 and `Retry-After`. The counts live in the queues' Valkey, so every API replica shares them; a
@@ -102,7 +102,12 @@ const BUCKET = 'itrms:rate-limit';
 /** The route counts against `bucket` (RATE_LIMITS). */
 export const RateLimit = (bucket: RateLimitBucket) => SetMetadata(BUCKET, bucket);
 
-/** The counters a request of `bucket` hits, with their limits. */
+/**
+ * The counters a request of `bucket` hits, with their limits, in the order they are checked. A signed-in caller counts as
+ * a person, not as an address: government networks (WoredaNet) and carrier NAT put many offices behind a few public
+ * addresses, so a per-address limit would refuse a whole zone for one busy office. An address counts only for a caller
+ * not known yet.
+ */
 export function countersOf(
     bucket: RateLimitBucket,
     caller: { userId?: string; ip?: string },
@@ -110,7 +115,7 @@ export function countersOf(
 ): { key: string; limit: Limit }[] {
     return [
         ...(caller.userId ? [{ key: `${bucket}:u:${caller.userId}`, limit: limits.perPerson }] : []),
-        ...(caller.ip ? [{ key: `${bucket}:ip:${caller.ip}`, limit: limits.perIp }] : []),
+        ...(!caller.userId && caller.ip ? [{ key: `${bucket}:ip:${caller.ip}`, limit: limits.perIp }] : []),
         ...(limits.perInstallation ? [{ key: `${bucket}:all`, limit: limits.perInstallation }] : [])
     ];
 }
@@ -123,6 +128,9 @@ export class RateLimitGuard implements CanActivate {
         @Inject(LOGGER) private readonly logger: Logger
     ) {}
 
+    // while Valkey is down every limited request would log: once a minute is enough to raise the alarm
+    private unreachableLoggedAt = 0;
+
     async canActivate(context: ExecutionContext): Promise<boolean> {
         const bucket = this.reflector.getAllAndOverride<RateLimitBucket | undefined>(BUCKET, [
             context.getHandler(),
@@ -133,15 +141,23 @@ export class RateLimitGuard implements CanActivate {
         const counters = countersOf(bucket, { userId: request?.principal?.userId, ip: request?.ip });
         let wait = 0;
         try {
+            // a request refused by one counter is not counted on the next: one person's runaway client must not use up
+            // the installation's exports for everyone
             for (const { key, limit } of counters) {
                 const { count, resetsIn } = await this.limiter.hit(key, limit.windowSeconds);
-                if (count > limit.max) wait = Math.max(wait, resetsIn);
+                if (count > limit.max) {
+                    wait = resetsIn;
+                    break;
+                }
             }
         } catch (error) {
-            this.logger.error(
-                { err: error, bucket },
-                'the rate limiter could not be reached: the request goes through'
-            );
+            if (Date.now() - this.unreachableLoggedAt > 60_000) {
+                this.unreachableLoggedAt = Date.now();
+                this.logger.error(
+                    { err: error, bucket },
+                    'the rate limiter could not be reached: requests go through until it answers'
+                );
+            }
             return true;
         }
         if (wait > 0) {

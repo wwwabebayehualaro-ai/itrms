@@ -35,8 +35,10 @@ describe('rate limits on Valkey', () => {
         expect(third.count).toBe(3);
         expect(third.resetsIn).toBeGreaterThan(0);
         expect(third.resetsIn).toBeLessThanOrEqual(60);
-        // the expiry is the first request's: later requests do not push it out
-        expect(await redis.ttl(`itrms:rl:${key}`)).toBeLessThanOrEqual(60);
+        // the expiry is the first request's: a request two seconds later does not push it back out
+        await new Promise((r) => setTimeout(r, 2_100));
+        await b.hit(key, 60);
+        expect(await redis.ttl(`itrms:rl:${key}`)).toBeLessThanOrEqual(58);
     });
 
     it('starts a new window when the old one expires', async () => {
