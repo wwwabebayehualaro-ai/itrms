@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
 
-import { ensureEnv, readEnv, SECRET_KEYS } from './dev-infra.mjs';
+import { ensureEnv, readEnv, SECRET_KEYS, secondFactorSetting, withSecondFactor } from './dev-infra.mjs';
 
 const dir = mkdtempSync(join(tmpdir(), 'itrms-env-'));
 after(() => rmSync(dir, { recursive: true, force: true }));
@@ -51,5 +51,37 @@ test('only the owner can read the file', () => {
         assert.doesNotMatch(acl, /BUILTIN\\Users|Authenticated Users|Everyone/);
     } else {
         assert.equal(statSync(file).mode & 0o777, 0o600);
+    }
+});
+
+test('the second factor is required unless the local stack turns it off', () => {
+    const realm = JSON.parse(
+        readFileSync(new URL('../infra/compose/keycloak/realm-itrms.json', import.meta.url), 'utf8')
+    );
+    const otp = (r) =>
+        r.authenticationFlows
+            .flatMap((f) => f.authenticationExecutions)
+            .find((e) => e.authenticator === 'auth-otp-form');
+    assert.equal(otp(realm).requirement, 'REQUIRED');
+    assert.equal(otp(withSecondFactor(realm, 'required')).requirement, 'REQUIRED');
+    assert.equal(otp(withSecondFactor(realm, 'off')).requirement, 'DISABLED');
+    // the realm file itself is not changed
+    assert.equal(otp(realm).requirement, 'REQUIRED');
+    assert.equal(secondFactorSetting({}), 'required');
+    assert.equal(secondFactorSetting({ DEV_SECOND_FACTOR: 'on' }), 'required');
+    assert.equal(secondFactorSetting({ DEV_SECOND_FACTOR: ' OFF ' }), 'off');
+    assert.throws(() => secondFactorSetting({ DEV_SECOND_FACTOR: 'no' }), /on or off/);
+});
+
+test('the dev password may have symbols; the other secrets stay letters and digits', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'itrms-env-'));
+    try {
+        const file = join(dir, '.env');
+        writeFileSync(file, 'DEV_USER_PASSWORD=itrms@123456\n');
+        assert.equal(ensureEnv(file).env.DEV_USER_PASSWORD, 'itrms@123456');
+        writeFileSync(file, 'DEV_USER_PASSWORD=itrms@123456\nS3_SECRET_KEY=a@b\n');
+        assert.throws(() => ensureEnv(file), /S3_SECRET_KEY/);
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
     }
 });

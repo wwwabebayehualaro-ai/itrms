@@ -25,6 +25,7 @@
     "prepare": "lefthook install",
     "dev": "node tools/dev.mjs",
     "dev:infra": "node tools/dev-infra.mjs up",
+    "dev:2fa": "node tools/dev-infra.mjs second-factor",
     "dev:infra:check": "node tools/dev-infra.mjs check",
     "dev:infra:down": "node tools/dev-infra.mjs down",
     "dev:infra:status": "node tools/dev-infra.mjs status",

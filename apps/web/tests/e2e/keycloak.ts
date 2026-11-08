@@ -22,6 +22,9 @@ function stackEnv(): Record<string, string> {
 }
 
 const env = stackEnv();
+// the journeys sign in with TOTP, as a real installation does
+if ((env.DEV_SECOND_FACTOR ?? 'on').trim().toLowerCase() === 'off')
+    throw new Error('The e2e journeys need the second factor: run `pnpm dev:2fa on` first (DEV_SECOND_FACTOR=off).');
 export const KEYCLOAK = `http://localhost:${env.KEYCLOAK_HOST_PORT ?? '18080'}`;
 export const DEMO_PASSWORD = env.DEV_USER_PASSWORD ?? '';
 
