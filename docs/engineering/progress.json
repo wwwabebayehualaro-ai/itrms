@@ -2058,7 +2058,8 @@
     {
       "foundIn": "0.4",
       "item": "Hard-coded English labels in PdfViewer and LazyFileViewer (packages/ui/src/files): move to message catalogues",
-      "movedTo": "0.17 (the form engine part 1 renders file previews: pass catalogue labels to PdfViewer and LazyFileViewer)"
+      "movedTo": "0.17 (the form engine part 1 renders file previews: pass catalogue labels to PdfViewer and LazyFileViewer)",
+      "closedIn": "#52 (35a19ab): FileViewer and PdfViewer take labels; the template preview passes the shell's"
     },
     {
       "foundIn": "0.4",
@@ -2115,7 +2116,8 @@
     {
       "foundIn": "0.4a",
       "item": "DatePicker shows Gregorian dates and English month/day names in Amharic (seen in the visual baselines): the Ethiopian calendar mode and localized labels",
-      "movedTo": "0.17 (the form engine adopts EthiopianDatePicker, built in 0.13)"
+      "movedTo": "0.17 (the form engine adopts EthiopianDatePicker, built in 0.13)",
+      "closedIn": "#52 (35a19ab): the Gregorian calendar spells months and weekdays in the page's language (Intl; Amharic for wal-Latn); visual baselines updated"
     },
     {
       "foundIn": "0.4a",
@@ -2441,7 +2443,8 @@
     {
       "foundIn": "0.14",
       "item": "Rate limits on person search, lookup and reveal (SEC-AP-2)",
-      "movedTo": "0.26"
+      "movedTo": "0.26",
+      "closedIn": "#53 (e69465f): the kernel's RateLimitGuard (SEC-AP-2): per person (per address before sign-in), exports also per installation, counted in the queues' Valkey; 429 with Retry-After; RATE_LIMIT_SCALE per installation"
     },
     {
       "foundIn": "0.14",
@@ -2451,7 +2454,8 @@
     {
       "foundIn": "0.14",
       "item": "A failed query's error log carries its parameters (ciphertexts, names): redact query parameters in the logger",
-      "movedTo": "0.26"
+      "movedTo": "0.26",
+      "closedIn": "#53 (e69465f): the logger drops a failed query's values (Drizzle params in message, stack and params; PostgreSQL Key/Failing row details)"
     },
     {
       "foundIn": "0.14",
@@ -2461,7 +2465,8 @@
     {
       "foundIn": "0.14",
       "item": "A name search of only one- or two-letter words cannot use the trigram index (full scan): rate-limit it with the other searches",
-      "movedTo": "0.26"
+      "movedTo": "0.26",
+      "closedIn": "#53 (e69465f): the kernel's RateLimitGuard (SEC-AP-2): per person (per address before sign-in), exports also per installation, counted in the queues' Valkey; 429 with Retry-After; RATE_LIMIT_SCALE per installation"
     },
     {
       "foundIn": "0.15",
@@ -2590,7 +2595,8 @@
     {
       "foundIn": "0.16d",
       "item": "Rate limits on exports per person and per installation (SEC-AP-2); 0.16d only caps concurrent renders per process (2, then 429)",
-      "movedTo": "0.26"
+      "movedTo": "0.26",
+      "closedIn": "#53 (e69465f): the kernel's RateLimitGuard (SEC-AP-2): per person (per address before sign-in), exports also per installation, counted in the queues' Valkey; 429 with Retry-After; RATE_LIMIT_SCALE per installation"
     },
     {
       "foundIn": "0.16e",
@@ -2758,7 +2764,8 @@
     {
       "foundIn": "0.17d",
       "item": "The app's own words are still English in places the journeys meet (the request dialog's 'New request' / 'Submit request' / 'Save changes', the gallery's publish dialog, approvals, the record page's History tab, home tiles) and the date picker's calendar (react-day-picker month names and navigation): move them to apps/web catalogues and give the calendar a locale",
-      "movedTo": "0.18"
+      "movedTo": "0.18",
+      "closedIn": "#52 (35a19ab): the start page, forms, requests, record, approvals, templates, status and auth pages read the shell catalogues (171 keys am/en)"
     },
     {
       "foundIn": "0.18",
@@ -2833,7 +2840,8 @@
     {
       "foundIn": "0.20b",
       "item": "Rate limits for comments (up to 20 mentions each) and the case people search (SEC-AP-2)",
-      "movedTo": "0.26 (hardening)"
+      "movedTo": "0.26 (hardening)",
+      "closedIn": "#53 (e69465f): the kernel's RateLimitGuard (SEC-AP-2): per person (per address before sign-in), exports also per installation, counted in the queues' Valkey; 429 with Retry-After; RATE_LIMIT_SCALE per installation"
     },
     {
       "foundIn": "0.20b",
@@ -2858,7 +2866,8 @@
     {
       "foundIn": "0.20d",
       "item": "Rate-limit reveals (a person's and a submission's) as architecture §15 says of sensitive events",
-      "movedTo": "0.26 (hardening)"
+      "movedTo": "0.26 (hardening)",
+      "closedIn": "#53 (e69465f): the kernel's RateLimitGuard (SEC-AP-2): per person (per address before sign-in), exports also per installation, counted in the queues' Valkey; 429 with Retry-After; RATE_LIMIT_SCALE per installation"
     },
     {
       "foundIn": "0.20d",
@@ -2963,12 +2972,14 @@
     {
       "foundIn": "0.22b",
       "item": "A workflow that gives a service without guarding on payment.settled lets a reversed case go on, and closing it cancels the unpaid order (ADR-0042 consequence): check for the guard when a workflow is published",
-      "movedTo": "0.24 (guard on its workflows, phase file); the publish check Phase 1"
+      "movedTo": "0.24 (guard on its workflows, phase file); the publish check Phase 1",
+      "closedIn": "#54 (a41eced): effects declare givesService; publishing a fee-bearing service version refuses a transition that gives it without a payment.settled guard (422 unguarded_service)"
     },
     {
       "foundIn": "0.22b",
       "item": "Refusal details in English outside the catalogues in 0.22a's fees.service.ts and fee-rules.service.ts (also forms.service.ts): the web shows detail first, so an Amharic user reads English",
-      "movedTo": "0.26 hardening"
+      "movedTo": "0.26 hardening",
+      "closedIn": "#52 (35a19ab): 145+ refusals carry detailKey + params; the problem filter renders them in the request's language"
     },
     {
       "foundIn": "0.22b",
@@ -3060,6 +3071,16 @@
     {
       "foundIn": "--help",
       "movedTo": ""
+    },
+    {
+      "foundIn": "0.26",
+      "item": "getApiErrorMessage, the HTTP client and the QueryProvider toast keep English default texts (about 92 callers pass translated fallbacks where they were converted); give the non-hook code a translator from the active language",
+      "movedTo": "Phase 1 i18n"
+    },
+    {
+      "foundIn": "0.26",
+      "item": "Service and workflow publish checks still answer some field messages in English (services.service.ts publish: defaults that do not fit, effective date, unknown workflow or effect)",
+      "movedTo": "Phase 1 i18n"
     }
   ]
 }
