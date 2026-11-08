@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { Module, type DynamicModule } from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { createHttpApp, createLogger, KernelModule, loadSlices } from '@itrms/kernel/api';
+import { NO_RATE_LIMITS } from '@itrms/kernel/testing';
 import { loadConfig } from '@itrms/kernel/config';
 import { createDatabase, type Database } from '@itrms/kernel/db';
 import { rolePermissions } from '@itrms/kernel/iam';
@@ -98,6 +99,7 @@ beforeAll(async () => {
                 module: Root,
                 imports: [
                     KernelModule.forRoot(config, logger, {
+                        rateLimiter: NO_RATE_LIMITS,
                         database,
                         identity: { issuer: ISSUER, audience: AUDIENCE, keys: createLocalJWKSet({ keys: [jwk] }) },
                         roles: rolePermissions(installed.manifests),

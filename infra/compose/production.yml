@@ -181,6 +181,8 @@ services:
       # what the BFF and Nginx say a request came from (X-Forwarded-For), believed from the stack's own network only
       TRUSTED_PROXIES: ${ITRMS_SUBNET:-172.29.0.0/24}
       OIDC_ISSUER: https://app.${ITRMS_DOMAIN:?}/auth/realms/itrms
+      # the rate limits' counters (SEC-AP-2), shared by every API replica
+      VALKEY_QUEUES_URL: redis://valkey-queues:6379/0
     healthcheck:
       test:
         [

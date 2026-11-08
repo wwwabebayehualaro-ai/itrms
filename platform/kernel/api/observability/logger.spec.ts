@@ -116,3 +116,58 @@ describe('request context helpers', () => {
         expect(requestIdFrom(['a', 'b'])).toHaveLength(36);
     });
 });
+
+describe('a failed query in the log (follow-up 95)', () => {
+    it('keeps the statement and drops its values, wherever the error carries them', () => {
+        const { logger, text } = capture();
+        // as drizzle-orm's DrizzleQueryError builds it, around node-postgres's error
+        const cause = Object.assign(
+            new Error('duplicate key value violates unique constraint "persons_fin_index_key"'),
+            {
+                code: '23505',
+                detail: 'Key (fin_index)=(c2VjcmV0LWJsaW5kLWluZGV4) already exists.'
+            }
+        );
+        const failed = Object.assign(
+            new Error(
+                'Failed query: insert into "parties"."persons" ("name", "fin_index") values ($1, $2)\nparams: Abebe Kebede,c2VjcmV0LWJsaW5kLWluZGV4'
+            ),
+            { params: ['Abebe Kebede', 'c2VjcmV0LWJsaW5kLWluZGV4'], cause }
+        );
+        logger.error({ err: failed }, 'request failed');
+        const line = text();
+        expect(line).toContain('insert into \\"parties\\".\\"persons\\"');
+        expect(line).not.toContain('Abebe Kebede');
+        expect(line).not.toContain('c2VjcmV0LWJsaW5kLWluZGV4');
+        expect(line).toContain('"params":"[redacted]"');
+        // node-postgres's error passed on its own (a plain object, as some callers log it): its detail names the value
+        logger.error({ err: { code: '23505', detail: cause.detail } }, 'insert refused');
+        expect(text()).toContain('Key (fin_index)=([redacted]) already exists.');
+        expect(text()).not.toContain('c2VjcmV0LWJsaW5kLWluZGV4');
+    });
+});
+
+describe('a failed query whose values hold newlines', () => {
+    it('drops every line of them, in the message and in the stack', () => {
+        const { logger, text } = capture();
+        const failed = new Error(
+            'Failed query: insert into "workflow"."case_comments" ("body") values ($1)\nparams: first line\nAbebe 0911000000'
+        );
+        Object.assign(failed, { params: ['first line\nAbebe 0911000000'] });
+        logger.error({ err: failed }, 'request failed');
+        expect(text()).toContain('case_comments');
+        expect(text()).not.toContain('Abebe');
+        expect(text()).not.toContain('0911000000');
+        expect(text()).toContain('at ');
+    });
+
+    it('keeps an AppError’s detail placeholders and masks a violated row', () => {
+        const { logger, text } = capture();
+        logger.error(
+            { err: { code: '23502', detail: 'Failing row contains (1, Abebe, c2VjcmV0).', params: { seconds: 30 } } },
+            'x'
+        );
+        expect(text()).not.toContain('Abebe');
+        expect(text()).toContain('"seconds":30');
+    });
+});

@@ -33,6 +33,14 @@ import { JobsController } from './outbox/jobs.controller';
 import { SettingsController } from './settings/settings.controller';
 import { SettingsService } from './settings/settings';
 import { SHELL, type Shell } from './iam/shell';
+import {
+    MemoryRateLimiter,
+    RATE_LIMIT_POLICY,
+    RATE_LIMITER,
+    RateLimitGuard,
+    scaledLimits,
+    type RateLimiter
+} from './limits/rate-limit';
 import { OrgAdminService } from './org/org-admin.service';
 import { OrgController } from './org/org.controller';
 import { HealthController, ReadinessRegistry } from './observability/health';
@@ -69,6 +77,8 @@ export interface KernelOptions {
     objectStore?: ObjectStore;
     /** The enabled manifests and their catalogues: the menu `/me/workspace` computes (ADR-0028). */
     shell?: Shell;
+    /** Where the rate limits count (SEC-AP-2): the queues' Valkey in the API; in memory without one. */
+    rateLimiter?: RateLimiter;
 }
 
 /** The OpenAPI writer and unit tests run without a database: a route that reaches it fails loudly. */
@@ -98,6 +108,10 @@ export class KernelModule {
                       { provide: APP_FILTER, useClass: ProblemFilter },
                       { provide: APP_PIPE, useClass: ZodValidationPipe },
                       { provide: APP_GUARD, useClass: AccessGuard },
+                      // after the access guard (it counts per caller): search, reveal, export and comment limits
+                      { provide: APP_GUARD, useClass: RateLimitGuard },
+                      { provide: RATE_LIMITER, useValue: options.rateLimiter ?? new MemoryRateLimiter() },
+                      { provide: RATE_LIMIT_POLICY, useValue: scaledLimits(config.RATE_LIMIT_SCALE) },
                       // after the guard (it needs the caller): every POST is idempotent
                       { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
                       RouteInventory,

@@ -93,5 +93,6 @@
   "kernel.detail.setting_not_for_unit": "\"{key}\" ለጽ/ቤት ሊቀመጥ አይችልም።",
   "kernel.detail.setting_not_for_unitType": "\"{key}\" ለጽ/ቤት ዓይነት ሊቀመጥ አይችልም።",
   "kernel.detail.not_personal": "\"{key}\" የግል ምርጫ አይደለም።",
-  "kernel.detail.setting_version_changed": "ስሪት {expected} ተቀይሯል፤ ቅንብሩን እንደገና ያንብቡት።"
+  "kernel.detail.setting_version_changed": "ስሪት {expected} ተቀይሯል፤ ቅንብሩን እንደገና ያንብቡት።",
+  "kernel.detail.rate_limited": "በአጭር ጊዜ ውስጥ በጣም ብዙ ጥያቄዎች ቀርበዋል። ከ{seconds} ሰከንድ በኋላ እንደገና ይሞክሩ።"
 }

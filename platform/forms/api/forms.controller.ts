@@ -25,6 +25,7 @@ import { ForbiddenError, versionFrom } from '@itrms/kernel/errors';
 import { reveal } from '@itrms/kernel/crypto';
 import { currentContext } from '@itrms/kernel/context';
 import { Require, currentPrincipal, requestDbContext } from '@itrms/kernel/iam';
+import { RateLimit } from '@itrms/kernel/limits';
 import { createZodDto } from 'nestjs-zod';
 
 import {
@@ -305,6 +306,7 @@ export class SubmissionsController {
      * a right of its own, and every export is on record, with its size, even when sending it fails.
      */
     @Post('export')
+    @RateLimit('export')
     @HttpCode(200)
     @NotReplayable()
     @Require('submission:export')
@@ -344,6 +346,7 @@ export class SubmissionsController {
      * idempotency record.
      */
     @Post(':id/reveal')
+    @RateLimit('reveal')
     @HttpCode(200)
     @NotReplayable()
     @Require('pii:reveal', { recentAuth: REVEAL_RECENT_AUTH })
@@ -371,6 +374,7 @@ export class SubmissionsController {
 
     // a read sent as POST (the query is a document): no idempotency record is kept for it
     @Post('query')
+    @RateLimit('query')
     @HttpCode(200)
     @NotReplayable()
     @Require('submission:read')
@@ -380,6 +384,7 @@ export class SubmissionsController {
     }
 
     @Get()
+    @RateLimit('query')
     @Require('submission:read')
     list(@Query() query: SubmissionListDto) {
         const ctx = requestDbContext();
@@ -499,6 +504,7 @@ export class ExportsController {
     ) {}
 
     @Post()
+    @RateLimit('export')
     @HttpCode(202)
     @Require('submission:export')
     request(@Body() body: SubmissionExportDto) {

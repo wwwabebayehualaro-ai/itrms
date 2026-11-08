@@ -19,7 +19,7 @@ import { createDatabase, type Database } from '@itrms/kernel/db';
 import { rolePermissions } from '@itrms/kernel/iam';
 import { findUnitByCode, importOrg, orgUnits, parseOrgYaml, type OrgUnit } from '@itrms/kernel/org';
 import { importUsers, userImportSchema } from '@itrms/kernel/seed';
-import { asUnit } from '@itrms/kernel/testing';
+import { asUnit, NO_RATE_LIMITS } from '@itrms/kernel/testing';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { Client } from 'pg';
@@ -131,6 +131,7 @@ beforeAll(async () => {
                 module: Root,
                 imports: [
                     KernelModule.forRoot(config, logger, {
+                        rateLimiter: NO_RATE_LIMITS,
                         database: app,
                         identity: { issuer: ISSUER, audience: AUDIENCE, keys: createLocalJWKSet({ keys: [jwk] }) },
                         roles: rolePermissions(installed.manifests),

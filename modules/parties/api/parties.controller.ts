@@ -20,6 +20,7 @@ import { DATABASE, NotReplayable } from '@itrms/kernel/api';
 import type { Database } from '@itrms/kernel/db';
 import { versionFrom } from '@itrms/kernel/errors';
 import { Require, requestDbContext } from '@itrms/kernel/iam';
+import { RateLimit } from '@itrms/kernel/limits';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
@@ -69,6 +70,7 @@ export class PersonsController {
     ) {}
 
     @Get()
+    @RateLimit('search')
     @Require('person:read')
     search(@Query() query: PersonSearchDto) {
         return this.db.scoped(requestDbContext(), async (tx) => ({
@@ -78,6 +80,7 @@ export class PersonsController {
 
     // the lookup and the duplicate check carry a FIN, phone or birth date: no idempotency record (reads; audited)
     @Post('lookup')
+    @RateLimit('search')
     @HttpCode(200)
     @NotReplayable()
     @Require('person:lookup')
@@ -86,6 +89,7 @@ export class PersonsController {
     }
 
     @Post('duplicates')
+    @RateLimit('search')
     @HttpCode(200)
     @NotReplayable()
     @Require('person:create')
@@ -119,6 +123,7 @@ export class PersonsController {
     }
 
     @Post(':id/reveal')
+    @RateLimit('reveal')
     @HttpCode(200)
     @NotReplayable()
     @Require('pii:reveal', { recentAuth: REVEAL_RECENT_AUTH })
@@ -182,6 +187,7 @@ export class OrganisationsController {
     ) {}
 
     @Get()
+    @RateLimit('search')
     @Require('organisation:read')
     search(@Query() query: OrganisationSearchDto) {
         return this.db.scoped(requestDbContext(), async (tx) => ({

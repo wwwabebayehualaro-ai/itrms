@@ -8,6 +8,7 @@ import type { Database } from '@itrms/kernel/db';
 import { currentContext } from '@itrms/kernel/context';
 import { NotFoundError } from '@itrms/kernel/errors';
 import { Require, currentPrincipal, requestDbContext } from '@itrms/kernel/iam';
+import { RateLimit } from '@itrms/kernel/limits';
 import { ZodResponse, createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
@@ -49,6 +50,7 @@ export class RegistryLookupsController {
     }
 
     @Get(':provider')
+    @RateLimit('search')
     @Require('form:read')
     @ZodResponse({ status: 200, type: LookupItemsOut })
     search(@Param('provider') key: string, @Query() query: LookupSearchDto) {
@@ -60,6 +62,7 @@ export class RegistryLookupsController {
     }
 
     @Get(':provider/items')
+    @RateLimit('search')
     @Require('form:read')
     @ZodResponse({ status: 200, type: LookupItemsOut })
     items(@Param('provider') key: string, @Query() query: LookupItemsDto) {
