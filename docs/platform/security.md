@@ -115,8 +115,8 @@ The BFF holds the session (ADR-0021). The browser never sees an access or refres
 
 * **SEC-AC-1** **Default deny.** Every controller handler has `@Require('resource:action')`; a handler without it fails
   the build (lint rule and a route-inventory test).
-* **SEC-AC-2** **Two independent layers:** guards (role and unit) **and** PostgreSQL RLS, policies `TO itrms_app`, null-safe
-  settings and no bypass setting (ADR-0011, ADR-0031). Every query runs in `db.scoped(ctx, …)`.
+* **SEC-AC-2** **Two independent layers:** guards (role and unit) **and** PostgreSQL RLS, policies `TO itrms_app` reading only
+  the API's signed, database-verified request context and no bypass setting (ADR-0011, ADR-0031, ADR-0048). Every query runs in `db.scoped(ctx, …)`.
 * **SEC-AC-3** **Object-level checks** (OWASP API1, BOLA): record ids from the client are never trusted; the scoped query
   returns nothing for a record outside the user's read scope: the subtree for local records, the region for class R
   registries (ADR-0011). A record outside scope answers 404 and a missing permission 403, with
@@ -422,7 +422,7 @@ is possible whenever INSA or a bureau asks.
 | Rule | Enforced by | From task |
 |---|---|---|
 | SEC-AC-1 (`@Require` on every handler) | `RouteInventory` stops a process with an unmarked handler; `AccessGuard` denies by default (`platform/kernel/api/iam/access.spec.ts`) | 0.8 |
-| SEC-AC-2, SEC-AC-10 (RLS, isolation matrix) | `apps/api/test/integration/isolation.int.spec.ts` on PostgreSQL 16: every class × own, child, parent, sibling, other zone, other region, no context on a reused connection; every table with `region_id` declared, RLS on, exactly its class's policies `TO itrms_app` | 0.9 |
+| SEC-AC-2, SEC-AC-10 (RLS, isolation matrix) | `apps/api/test/integration/isolation.int.spec.ts` on PostgreSQL 16: every class × own, child, parent, sibling, other zone, other region, no context on a reused connection; every table with `region_id` declared, RLS on, exactly its class's policies `TO itrms_app`; the signed context: a tampered, wrong-key, retired-key or expired token is refused (42501 `kernel.ctx:`), the old plain settings are ignored, no policy or function but `kernel.ctx()` reads `current_setting('app.`, the audit log takes its actor and scope from the context, `kernel.context_keys` is unreadable by `itrms_app` and `itrms_system` | 0.9, ADR-0048 |
 | SEC-IN-1, SEC-AP-5 (Zod in and out) | controller base + contract tests | 0.6 |
 | SEC-IN-3, SEC-IN-5, SEC-CR-5 (no raw SQL, no unlisted `dangerouslySetInnerHTML`, no `Math.random` for security) | ESLint rules in `packages/config` (Semgrep already reports `Math.random` and unsafe regexes) | 0.6 |
 | SEC-IN-2 (author patterns on RE2, bounded) | `safePattern.test.ts`; Semgrep's ReDoS rule for fixed patterns | now |
