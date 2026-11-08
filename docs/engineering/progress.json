@@ -2256,7 +2256,8 @@
     {
       "foundIn": "0.9",
       "item": "The request settings (app.region_id, app.scope_path) are plain settings: SQL injection as itrms_app could set them. Set them through a SECURITY DEFINER set_context that checks role_assignments and locks them for the transaction",
-      "movedTo": "0.26"
+      "movedTo": "0.26",
+      "closedIn": "#55 (e4e9574, ADR-0048): the request context is HMAC-signed by the API and verified by kernel.ctx(); RLS and the definer functions read only kernel.ctx_*(); audit identity from the context; resolve_principal/my_units from the verified subject; refusals of realm accounts without a user rate-limited"
     },
     {
       "foundIn": "0.9",
@@ -2272,7 +2273,8 @@
     {
       "foundIn": "0.9",
       "item": "Audit rows take unit_id and org_path from the request context; once the authenticator resolves the active unit server-side (0.10), nothing else may set them",
-      "movedTo": "0.26"
+      "movedTo": "0.26",
+      "closedIn": "#55 (e4e9574, ADR-0048): the request context is HMAC-signed by the API and verified by kernel.ctx(); RLS and the definer functions read only kernel.ctx_*(); audit identity from the context; resolve_principal/my_units from the verified subject; refusals of realm accounts without a user rate-limited"
     },
     {
       "foundIn": "0.10",
@@ -2312,7 +2314,8 @@
     {
       "foundIn": "0.10",
       "item": "kernel.resolve_principal/principal_units take p_sub from app code: bind it to a verified, transaction-local value with set_context; rate-limit access.denied rows from realm accounts without an ITRMS user",
-      "movedTo": "0.26"
+      "movedTo": "0.26",
+      "closedIn": "#55 (e4e9574, ADR-0048): the request context is HMAC-signed by the API and verified by kernel.ctx(); RLS and the definer functions read only kernel.ctx_*(); audit identity from the context; resolve_principal/my_units from the verified subject; refusals of realm accounts without a user rate-limited"
     },
     {
       "foundIn": "0.10a",
