@@ -373,6 +373,31 @@ describe('a fee rule', () => {
             await problems({ ...base, workflowVersionId: unchecked, feeRuleVersionId: approvedVersionId })
         ).toContain('fee_not_reassessed');
 
+        // a transition that gives the service (an effect marked givesService) must guard on its payment (ADR-0042)
+        const giving = async (key: string, guard?: object) => {
+            const definition = workflowOf(['fees.assess']);
+            const approve = definition.transitions.find((t) => t.action === 'approve');
+            Object.assign(approve ?? {}, { effects: ['competency.issueLicenceCard'], ...(guard ? { guard } : {}) });
+            const res = await api.call('POST', '/api/v1/workflow-definitions', as.bureau, {
+                key,
+                name: t(key),
+                definition
+            });
+            expect(res.statusCode, res.body).toBe(201);
+            return res.json<{ latestVersion: { id: string } }>().latestVersion.id;
+        };
+        const unguarded = await giving('renewal-gives-unpaid');
+        expect(
+            await problems({ ...base, workflowVersionId: unguarded, feeRuleVersionId: approvedVersionId })
+        ).toContain('unguarded_service');
+        const guarded = await giving('renewal-gives-paid', { fact: 'payment.settled', op: 'eq', value: true });
+        const withGuard = await publish({ ...base, workflowVersionId: guarded, feeRuleVersionId: approvedVersionId });
+        expect(withGuard.body).not.toContain('unguarded_service');
+        // a service without a fee may give it on any transition
+        expect((await publish({ ...base, workflowVersionId: unguarded, feeRuleVersionId: null })).body).not.toContain(
+            'unguarded_service'
+        );
+
         const published = await publish({ ...base, feeRuleVersionId: approvedVersionId });
         expect(published.statusCode, published.body).toBe(201);
         expect(published.json()).toMatchObject({ version: { feeRuleVersionId: approvedVersionId } });

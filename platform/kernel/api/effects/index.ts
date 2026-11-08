@@ -50,6 +50,7 @@ type EffectClass = abstract new (...args: never[]) => WorkflowEffect;
 
 const MARKS = new WeakMap<object, string>();
 const CONTRACTS = new WeakMap<object, EffectContract>();
+const GIVES = new WeakSet<object>();
 
 export interface EffectOptions {
     /**
@@ -58,6 +59,11 @@ export interface EffectOptions {
      * meet it; the builder locks the fields.
      */
     input?: EffectContract;
+    /**
+     * Running it gives the service (a licence made active, a card or certificate issued): in a service with a fee, every
+     * transition that runs it must guard on `payment.settled` (ADR-0042), or publishing the service version is refused.
+     */
+    givesService?: boolean;
 }
 
 /** Marks an injectable class as the effect `key`, with its input contract. */
@@ -70,6 +76,7 @@ export function Effect(key: string, options: EffectOptions = {}) {
     return (target: EffectClass): void => {
         MARKS.set(target, key);
         if (contract?.success) CONTRACTS.set(target, contract.data);
+        if (options.givesService) GIVES.add(target);
     };
 }
 
@@ -90,6 +97,7 @@ export function effectKeys(classes: readonly EffectClass[]): string[] {
 export class EffectRegistry implements OnModuleInit {
     private readonly effects = new Map<string, WorkflowEffect>();
     private readonly contracts = new Map<string, EffectContract>();
+    private readonly giving = new Set<string>();
 
     constructor(private readonly discovery: DiscoveryService) {}
 
@@ -106,6 +114,7 @@ export class EffectRegistry implements OnModuleInit {
             this.effects.set(key, instance as WorkflowEffect);
             const contract = CONTRACTS.get(metatype);
             if (contract) this.contracts.set(key, contract);
+            if (GIVES.has(metatype)) this.giving.add(key);
         }
     }
 
@@ -116,6 +125,11 @@ export class EffectRegistry implements OnModuleInit {
 
     get(key: string): WorkflowEffect | undefined {
         return this.effects.get(key);
+    }
+
+    /** Whether running the effect gives the service (`givesService`): a fee-bearing service guards it on payment. */
+    givesService(key: string): boolean {
+        return this.giving.has(key);
     }
 
     /** The effect's input contract, if it declares one. */

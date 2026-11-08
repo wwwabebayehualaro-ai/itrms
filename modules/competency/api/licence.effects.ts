@@ -69,7 +69,7 @@ export class RecordExamEffect implements WorkflowEffect {
 }
 
 @Injectable()
-@Effect(COMPETENCY_EFFECTS.activateLicence)
+@Effect(COMPETENCY_EFFECTS.activateLicence, { givesService: true })
 export class ActivateLicenceEffect implements WorkflowEffect {
     constructor(@Inject(LicencesService) private readonly licences: LicencesService) {}
 
@@ -126,7 +126,7 @@ export class RequestRenewalEffect implements WorkflowEffect {
 }
 
 @Injectable()
-@Effect(COMPETENCY_EFFECTS.renewLicence)
+@Effect(COMPETENCY_EFFECTS.renewLicence, { givesService: true })
 export class RenewLicenceEffect implements WorkflowEffect {
     constructor(@Inject(LicencesService) private readonly licences: LicencesService) {}
 
@@ -136,7 +136,7 @@ export class RenewLicenceEffect implements WorkflowEffect {
 }
 
 @Injectable()
-@Effect(COMPETENCY_EFFECTS.issueLicenceCard)
+@Effect(COMPETENCY_EFFECTS.issueLicenceCard, { givesService: true })
 export class IssueLicenceCardEffect implements WorkflowEffect {
     constructor(@Inject(LicencesService) private readonly licences: LicencesService) {}
 
@@ -146,7 +146,7 @@ export class IssueLicenceCardEffect implements WorkflowEffect {
 }
 
 @Injectable()
-@Effect(COMPETENCY_EFFECTS.addToPrintBatch)
+@Effect(COMPETENCY_EFFECTS.addToPrintBatch, { givesService: true })
 export class AddToPrintBatchEffect implements WorkflowEffect {
     constructor(@Inject(LicencesService) private readonly licences: LicencesService) {}
 

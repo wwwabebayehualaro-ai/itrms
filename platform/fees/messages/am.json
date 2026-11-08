@@ -282,5 +282,7 @@
   "fees.errors.fee_not_shown": "ክፍያው አልታየም።",
   "fees.errors.fee_not_computable": "ክፍያው ከእነዚህ መልሶች ሊሰላ አይችልም።",
   "fees.errors.fee_changed": "ክፍያው አሁን {now} ሳንቲም ነው፤ የታየው {shown} ነበር።",
-  "fees.errors.fee_not_computable_corrected": "ክፍያው ከታረሙት መልሶች ሊሰላ አይችልም።"
+  "fees.errors.fee_not_computable_corrected": "ክፍያው ከታረሙት መልሶች ሊሰላ አይችልም።",
+  "fees.errors.rule_not_chargeable": "በአገልግሎቱ የክፍያ ደንብ ማስከፈል አይቻልም።",
+  "fees.errors.request_unreadable": "የጉዳዩ ጥያቄ እዚህ ሊነበብ አይችልም።"
 }

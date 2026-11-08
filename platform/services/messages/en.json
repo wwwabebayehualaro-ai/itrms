@@ -116,5 +116,7 @@
   "services.errors.policy_refuses": "The service's policy does not let this office change {keys}.",
   "services.errors.not_offered": "{code} is not offered by this office.",
   "services.errors.no_fee_now": "The service charges no fee now.",
-  "services.errors.version_changed": "Version {expected} was changed; read it again."
+  "services.errors.version_changed": "Version {expected} was changed; read it again.",
+  "services.errors.version_unusable": "The service's workflow or form is switched off, or names an effect no longer installed.",
+  "services.publish.unguarded_service": "Transition {transition} of the workflow gives the service without checking that its fee is paid: guard it on payment.settled."
 }

@@ -282,5 +282,7 @@
   "fees.errors.fee_not_shown": "The fee was not shown.",
   "fees.errors.fee_not_computable": "The fee cannot be worked out from these answers.",
   "fees.errors.fee_changed": "The fee is now {now} santim, not the {shown} shown.",
-  "fees.errors.fee_not_computable_corrected": "The fee cannot be worked out from the corrected answers."
+  "fees.errors.fee_not_computable_corrected": "The fee cannot be worked out from the corrected answers.",
+  "fees.errors.rule_not_chargeable": "The service's fee rule cannot be charged by.",
+  "fees.errors.request_unreadable": "The case's request cannot be read here."
 }

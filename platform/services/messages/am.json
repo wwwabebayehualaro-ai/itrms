@@ -116,5 +116,7 @@
   "services.errors.policy_refuses": "የአገልግሎቱ ፖሊሲ ይህ ጽ/ቤት {keys} እንዲቀይር አይፈቅድም።",
   "services.errors.not_offered": "{code} በዚህ ጽ/ቤት አይሰጥም።",
   "services.errors.no_fee_now": "አገልግሎቱ አሁን ምንም ክፍያ አያስከፍልም።",
-  "services.errors.version_changed": "ስሪት {expected} ተቀይሯል፤ እንደገና ያንብቡት።"
+  "services.errors.version_changed": "ስሪት {expected} ተቀይሯል፤ እንደገና ያንብቡት።",
+  "services.errors.version_unusable": "የአገልግሎቱ የሥራ ፍሰት ወይም ቅጽ ተዘግቷል፣ ወይም ከእንግዲህ ያልተጫነ ተግባር ይጠቅሳል።",
+  "services.publish.unguarded_service": "የሥራ ፍሰቱ ሽግግር {transition} ክፍያው መከፈሉን ሳያረጋግጥ አገልግሎቱን ይሰጣል፤ በpayment.settled ጥበቃ ያድርጉለት።"
 }

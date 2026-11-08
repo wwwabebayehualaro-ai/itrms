@@ -43,6 +43,7 @@ import {
 } from '../contracts';
 import {
     factsOf,
+    unpaidGiving,
     frozenConfig,
     keyProblem,
     resolveConfig,
@@ -215,14 +216,14 @@ export class ServicesService implements FeeRequestSource {
         tx: Tx,
         input: { workflowVersionId: string; formVersionId: string | null },
         regionPath?: string
-    ): Promise<VersionFacts & { effects: string[]; formDocument: unknown; reassessed: boolean }> {
+    ): Promise<
+        VersionFacts & { effects: string[]; formDocument: unknown; reassessed: boolean; unpaidGiving: number[] }
+    > {
         try {
             return await this.checkedFacts(tx, input, regionPath);
         } catch (error) {
             if (regionPath === undefined && error instanceof ValidationError)
-                throw new ConflictError('not_configured', {
-                    detail: "The service's workflow or form is switched off, or names an effect no longer installed."
-                });
+                throw new ConflictError('not_configured', { detailKey: 'services.errors.version_unusable' });
             throw error;
         }
     }
@@ -231,7 +232,9 @@ export class ServicesService implements FeeRequestSource {
         tx: Tx,
         input: { workflowVersionId: string; formVersionId: string | null },
         regionPath?: string
-    ): Promise<VersionFacts & { effects: string[]; formDocument: unknown; reassessed: boolean }> {
+    ): Promise<
+        VersionFacts & { effects: string[]; formDocument: unknown; reassessed: boolean; unpaidGiving: number[] }
+    > {
         const problems: { path: string; code: string; message: string }[] = [];
         const [workflow] = await tx
             .select({
@@ -305,7 +308,9 @@ export class ServicesService implements FeeRequestSource {
         const reassessed = definition.transitions.every(
             (t) => !t.amendsRequest || (t.effects ?? []).some((e) => effectKeyOf(e) === FEE_ASSESS_EFFECT)
         );
-        return { ...factsOf(definition, fieldKeys), effects, formDocument, reassessed };
+        // transitions that give the service without guarding on its payment (ADR-0042): refused for a service with a fee
+        const unpaid = unpaidGiving(definition, (e) => this.effects.givesService(e), effectKeyOf).map((u) => u.index);
+        return { ...factsOf(definition, fieldKeys), effects, formDocument, reassessed, unpaidGiving: unpaid };
     }
 
     /** The region's root, if the person's seat is there (a bureau's decision); else 403. */
@@ -339,6 +344,15 @@ export class ServicesService implements FeeRequestSource {
         );
         problems.push(...this.contractProblems(facts, input.inputMap, currentLanguage()));
         problems.push(...(await this.feeProblems(tx, facts, input, root.path, currentLanguage())));
+        if (input.feeRuleVersionId)
+            for (const index of facts.unpaidGiving)
+                problems.push({
+                    path: 'workflowVersionId',
+                    code: 'unguarded_service',
+                    message: servicesText('services.publish.unguarded_service', currentLanguage(), {
+                        transition: String(index + 1)
+                    })
+                });
         if (problems.length) throw fieldErrors(problems);
         const effectiveFrom = input.effectiveFrom ?? addisToday();
         // a version holds from today or later, never before the one before it: what cases froze is never rewritten, and

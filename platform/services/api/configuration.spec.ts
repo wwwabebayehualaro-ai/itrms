@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import { configValuesSchema, overridePolicySchema } from '../contracts';
-import { allowedBy, frozenConfig, keyProblem, resolveConfig, type VersionConfig } from './configuration';
+import {
+    allowedBy,
+    frozenConfig,
+    keyProblem,
+    requiresSettled,
+    resolveConfig,
+    unpaidGiving,
+    type VersionConfig
+} from './configuration';
 
 const help = (en: string) => ({ am: `${en} (am)`, en });
 const facts = { timedStates: new Set(['review', 'approval']), fieldKeys: new Set(['plate', 'remark']) };
@@ -98,5 +106,36 @@ describe("a service's configuration for a unit", () => {
         expect(configValuesSchema.safeParse({ 'sla.review.extra': { businessHours: 8 } }).success).toBe(false);
         expect(configValuesSchema.safeParse({ approval_unit: '${approval_unit}' }).success).toBe(false);
         expect(overridePolicySchema.safeParse({ colour: ['unit'] }).success).toBe(false);
+    });
+});
+
+describe('a service with a fee gives it only while the fee stands paid (ADR-0042)', () => {
+    const PAID = { fact: 'payment.settled', op: 'eq', value: true } as const;
+    const gives = (e: string) => e === 'competency.activateLicence' || e === 'documents.issue';
+    const keyOf = (reference: string) => reference.split(':')[0] ?? reference;
+    const workflow = (transitions: object[]) =>
+        ({ key: 'w', states: [], transitions }) as unknown as Parameters<typeof unpaidGiving>[0];
+
+    it('reads a guard as requiring the payment only when every branch does', () => {
+        expect(requiresSettled(PAID)).toBe(true);
+        expect(requiresSettled({ all: [{ fact: 'exam.passed', op: 'eq', value: true }, PAID] })).toBe(true);
+        expect(requiresSettled({ any: [PAID, { fact: 'exam.passed', op: 'eq', value: true }] })).toBe(false);
+        expect(requiresSettled({ any: [PAID, { all: [PAID] }] })).toBe(true);
+        expect(requiresSettled({ not: { fact: 'payment.settled', op: 'eq', value: false } })).toBe(false);
+        expect(requiresSettled({ fact: 'payment.settled', op: 'ne', value: false })).toBe(false);
+        expect(requiresSettled(undefined)).toBe(false);
+    });
+
+    it('names the transitions that give the service without that guard', () => {
+        const found = unpaidGiving(
+            workflow([
+                { from: 'a', to: 'b', action: 'approve', effects: ['competency.createPendingLicence'] },
+                { from: 'b', to: 'c', on: 'event:x', guard: PAID, effects: ['competency.activateLicence'] },
+                { from: 'b', to: 'd', action: 'print', effects: ['documents.issue:licence-card'] }
+            ]),
+            gives,
+            keyOf
+        );
+        expect(found).toEqual([{ index: 2, effects: ['documents.issue'] }]);
     });
 });
