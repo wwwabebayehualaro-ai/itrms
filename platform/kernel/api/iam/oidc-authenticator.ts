@@ -3,7 +3,7 @@
  *   1. The BFF sends the Keycloak access token as `Authorization: Bearer …` and the active unit as `X-Org-Unit`.
  *   2. The token is verified against the realm's keys (JWKS via jose): signature, issuer, audience, expiry. Its claims
  *      say who the person is and nothing more: roles in the token are never read.
- *   3. `kernel.resolve_principal(sub, unit)` returns their roles in that unit from `role_assignments`, on every request,
+ *   3. `kernel.resolve_principal(unit)` (for the subject in the signed context) returns their roles in that unit from `role_assignments`, on every request,
  *      so a revoked assignment stops working at the next request.
  *   4. The permissions are those the installed modules' manifests give those roles.
  */
@@ -89,12 +89,16 @@ export class OidcAuthenticator implements Authenticator {
         if (unitHeader !== undefined && (typeof unitHeader !== 'string' || !UUID.test(unitHeader)))
             throw new InvalidRequestError('invalid_request', { detailKey: 'kernel.detail.org_unit_header' });
 
-        const [row] = await this.database.scoped({ requestId: request.id, ip: request.ip }, async (tx) => {
-            const result = await tx.execute<PrincipalRow>(
-                sql`select * from kernel.resolve_principal(${sub}, ${unitHeader ?? null}::uuid)`
-            );
-            return result.rows;
-        });
+        // the subject travels in the signed context: the function answers for it and for nobody else
+        const [row] = await this.database.scoped(
+            { requestId: request.id, ip: request.ip, subject: sub },
+            async (tx) => {
+                const result = await tx.execute<PrincipalRow>(
+                    sql`select * from kernel.resolve_principal(${unitHeader ?? null}::uuid)`
+                );
+                return result.rows;
+            }
+        );
         // signed in, but no role in that unit (or none at all): the refusal records the account and the unit asked for
         if (!row)
             throw new ForbiddenError({

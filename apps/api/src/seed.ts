@@ -21,7 +21,7 @@ import { readFile } from 'node:fs/promises';
 import { extname } from 'node:path';
 
 import { KeycloakIdentityAdmin } from '@itrms/integrations/api';
-import { createDatabase } from '@itrms/kernel/db';
+import { contextKeyOf, createDatabase } from '@itrms/kernel/db';
 import { syncIdentity } from '@itrms/kernel/iam';
 import { importRegionSettings, importUsers, regionSettingsSchema, userImportSchema } from '@itrms/kernel/seed';
 import { loadSlices } from '@itrms/kernel/api';
@@ -75,7 +75,8 @@ async function main() {
     const db = createDatabase(config.DATABASE_MIGRATE_URL, {
         max: 1,
         applicationName: 'itrms-seed',
-        ...(config.AUDIT_HMAC_KEY ? { auditKey: config.AUDIT_HMAC_KEY } : {})
+        ...(config.AUDIT_HMAC_KEY ? { auditKey: config.AUDIT_HMAC_KEY } : {}),
+        contextKey: contextKeyOf(config.CONTEXT_HMAC_KEY)
     });
     try {
         // one process for a run's commands: on Windows a Node start alone takes seconds (demo:reset's limit)

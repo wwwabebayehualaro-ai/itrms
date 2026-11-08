@@ -8,6 +8,7 @@
  *   otherZone    a unit below the sibling         otherRegion  a unit of another region
  * and runs every read and write as the acting unit, and once with no context on a connection that has just served one.
  */
+import { contextKeyId } from '../db/context-token';
 import type { Database } from '../db/database';
 import type { RlsClass } from '../db/rls';
 import type { RateLimiter } from '../limits/rate-limit';
@@ -18,6 +19,16 @@ export interface UnitLike {
     regionId: string;
     path: string;
 }
+
+export { contextKeyId, signContext } from '../db/context-token';
+
+/**
+ * The request-context key of a test database (ADR-0048): the test container installs it in `kernel.context_keys` after the
+ * migrations (apps/api/test/integration/support/postgres.ts), and every test `createDatabase` signs with it.
+ */
+// nosemgrep: ajinabraham.njsscan.generic.hardcoded_secrets.node_username -- a fixed key of a throw-away test container
+export const TEST_CONTEXT_KEY = Buffer.alloc(32, 0x5a);
+export const TEST_CONTEXT_KID = contextKeyId(TEST_CONTEXT_KEY);
 
 // nosemgrep: ajinabraham.njsscan.generic.hardcoded_secrets.node_username -- a fixed test user id, not a credential
 export const TEST_USER = '0199f0a0-0000-7000-8000-00000000aaaa';

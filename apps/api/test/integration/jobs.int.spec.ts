@@ -32,7 +32,7 @@ import { efy } from '@itrms/ethiopian-calendar';
 import { nextNumber, setUpCounter } from '@itrms/kernel/numbering';
 import { findUnitByCode, importOrg, orgUnits, parseOrgYaml, type OrgUnit } from '@itrms/kernel/org';
 import { emit } from '@itrms/kernel/outbox';
-import { contextFor, NO_RATE_LIMITS } from '@itrms/kernel/testing';
+import { contextFor, NO_RATE_LIMITS, TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import { Queue } from 'bullmq';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { Redis } from 'ioredis';
@@ -77,8 +77,8 @@ beforeAll(async () => {
     pg = await startPostgres();
     owner = new Client({ connectionString: pg.url('owner') });
     await owner.connect();
-    installer = createDatabase(pg.url('owner'));
-    app = createDatabase(pg.url('app'));
+    installer = createDatabase(pg.url('owner'), { contextKey: TEST_CONTEXT_KEY });
+    app = createDatabase(pg.url('app'), { contextKey: TEST_CONTEXT_KEY });
     system = createSystemDatabase(pg.url('system'), { onUse: () => undefined });
     await installer.scoped({}, (tx) => importOrg(tx, parseOrgYaml(readFileSync(SEED, 'utf8'))));
     [boditi, damot, zone] = await Promise.all([unitAt('WOL-BODITI'), unitAt('WOL-DAMOT-GALE'), unitAt('WOL')]);
@@ -238,7 +238,7 @@ describe('idempotent POSTs (architecture.md §15)', () => {
         @Module({})
         class Root {
             static forRoot(): DynamicModule {
-                const database = createDatabase(config.DATABASE_URL);
+                const database = createDatabase(config.DATABASE_URL, { contextKey: TEST_CONTEXT_KEY });
                 return {
                     module: Root,
                     imports: [

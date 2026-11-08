@@ -40,6 +40,10 @@ x-env: &env
   HTTP_PROXY: http://egress:3128
   NO_PROXY: postgres,valkey-queues,valkey-sessions,keycloak,seaweedfs,api,web,edge,app.${ITRMS_DOMAIN:?},verify.${ITRMS_DOMAIN:?},localhost,127.0.0.1
 
+# the key the API signs its request context with; the migrate service installs it in the database (ADR-0048)
+x-context: &context
+  CONTEXT_HMAC_KEY: ${CONTEXT_HMAC_KEY:?}
+
 x-personal: &personal
   AUDIT_HMAC_KEY: ${AUDIT_HMAC_KEY:?}
   FIELD_KEYS: ${FIELD_KEYS:?}
@@ -155,7 +159,7 @@ services:
     profiles: [setup]
     command: ['node', '--enable-source-maps', 'dist/migrate.cjs']
     environment:
-      <<: *env
+      <<: [*env, *context]
       DATABASE_MIGRATE_URL: postgres://itrms_owner:${ITRMS_OWNER_PASSWORD:?}@postgres:5432/itrms
 
   # the seeds (an installation's org tree, catalogue and users; the demo's data), as the operator runs them
@@ -165,7 +169,7 @@ services:
     profiles: [setup]
     command: ['node', '--enable-source-maps', 'dist/seed.cjs']
     environment:
-      <<: [*env, *personal]
+      <<: [*env, *context, *personal]
       DATABASE_MIGRATE_URL: postgres://itrms_owner:${ITRMS_OWNER_PASSWORD:?}@postgres:5432/itrms
       KEYCLOAK_URL: http://keycloak:8080/auth
       KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_IDENTITY_ADMIN_SECRET:?}
@@ -173,7 +177,7 @@ services:
   api:
     <<: [*app, *api-image]
     environment:
-      <<: [*env, *personal, *store]
+      <<: [*env, *context, *personal, *store]
       DATABASE_URL: postgres://itrms_app:${ITRMS_APP_PASSWORD:?}@postgres:5432/itrms
       PORT: '4000'
       # on the stack's network, for Nginx (the default is the machine's own loopback)
@@ -200,7 +204,7 @@ services:
     <<: [*app, *api-image]
     command: ['node', '--enable-source-maps', 'dist/worker.cjs']
     environment: &worker-env
-      <<: [*env, *personal, *store]
+      <<: [*env, *context, *personal, *store]
       DATABASE_URL: postgres://itrms_app:${ITRMS_APP_PASSWORD:?}@postgres:5432/itrms
       DATABASE_SYSTEM_URL: postgres://itrms_system:${ITRMS_SYSTEM_PASSWORD:?}@postgres:5432/itrms
       VALKEY_QUEUES_URL: redis://valkey-queues:6379/0
@@ -219,7 +223,7 @@ services:
     mem_limit: ${ITRMS_DOCUMENTS_MEMORY:-1g}
     environment:
       # the PDF worker's own: no identity administration (it never needs Keycloak's secret)
-      <<: [*env, *personal, *store]
+      <<: [*env, *context, *personal, *store]
       DATABASE_URL: postgres://itrms_app:${ITRMS_APP_PASSWORD:?}@postgres:5432/itrms
       DATABASE_SYSTEM_URL: postgres://itrms_system:${ITRMS_SYSTEM_PASSWORD:?}@postgres:5432/itrms
       VALKEY_QUEUES_URL: redis://valkey-queues:6379/0

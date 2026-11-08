@@ -48,6 +48,8 @@ export const SECRET_KEYS = [
     'AUDIT_HMAC_KEY',
     'FIELD_KEK',
     'BLIND_INDEX_KEY',
+    // the key the API signs its request context with (ADR-0048; 32 bytes, hex); the migrate process installs it in the database
+    'CONTEXT_HMAC_KEY',
     'S3_ACCESS_KEY',
     'S3_SECRET_KEY',
     'GLITCHTIP_DB_PASSWORD',
@@ -134,7 +136,11 @@ export function ensureEnv(file = ENV_FILE) {
     if (missing.length) {
         const lines = missing.map((k) => {
             env[k] = randomBytes(
-                k === 'S3_ACCESS_KEY' ? 10 : k === 'BFF_SESSION_KEY' || k === 'FIELD_KEK' ? 32 : 24
+                k === 'S3_ACCESS_KEY'
+                    ? 10
+                    : k === 'BFF_SESSION_KEY' || k === 'FIELD_KEK' || k === 'CONTEXT_HMAC_KEY'
+                      ? 32
+                      : 24
             ).toString('hex');
             return `${k}=${env[k]}`;
         });
@@ -591,10 +597,12 @@ function writeAppEnv(env) {
         FIELD_KEYS: `dev:${Buffer.from(env.FIELD_KEK, 'hex').toString('base64')}`,
         BLIND_INDEX_KEY: env.BLIND_INDEX_KEY
     };
+    const contextKey = { CONTEXT_HMAC_KEY: env.CONTEXT_HMAC_KEY };
     const files = {
         [join(ROOT, 'apps', 'api', '.env.http.local')]: {
             NODE_ENV: 'development',
             DATABASE_URL: pg('app'),
+            ...contextKey,
             ...personalData,
             ...objectStore,
             PORT: '4000',
@@ -604,6 +612,7 @@ function writeAppEnv(env) {
         [join(ROOT, 'apps', 'api', '.env.migrate.local')]: {
             NODE_ENV: 'development',
             DATABASE_MIGRATE_URL: pg('owner'),
+            ...contextKey,
             KEYCLOAK_URL: `http://localhost:${p.KEYCLOAK_HOST_PORT}`,
             KEYCLOAK_ADMIN_CLIENT_SECRET: env.KEYCLOAK_IDENTITY_ADMIN_SECRET
         },
@@ -611,12 +620,14 @@ function writeAppEnv(env) {
         [join(ROOT, 'apps', 'api', '.env.demo.local')]: {
             NODE_ENV: 'development',
             DATABASE_MIGRATE_URL: pg('owner'),
+            ...contextKey,
             ...personalData
         },
         [join(ROOT, 'apps', 'api', '.env.worker.local')]: {
             NODE_ENV: 'development',
             DATABASE_URL: pg('app'),
             DATABASE_SYSTEM_URL: pg('system'),
+            ...contextKey,
             ...personalData,
             ...objectStore,
             VALKEY_QUEUES_URL: `redis://127.0.0.1:${p.VALKEY_QUEUES_HOST_PORT}/0`,

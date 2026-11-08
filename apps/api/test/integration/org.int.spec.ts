@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { Module, type DynamicModule } from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { createHttpApp, createLogger, KernelModule } from '@itrms/kernel/api';
-import { NO_RATE_LIMITS } from '@itrms/kernel/testing';
+import { NO_RATE_LIMITS, TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import { loadConfig } from '@itrms/kernel/config';
 import { auditLog, createDatabase, type Database, type Tx } from '@itrms/kernel/db';
 import type { Authenticator, Principal } from '@itrms/kernel/iam';
@@ -66,8 +66,8 @@ const unit = async (regionCode: string, code: string): Promise<OrgUnit> =>
 
 beforeAll(async () => {
     pg = await startPostgres();
-    installer = createDatabase(pg.url('owner'));
-    app = createDatabase(pg.url('app'));
+    installer = createDatabase(pg.url('owner'), { contextKey: TEST_CONTEXT_KEY });
+    app = createDatabase(pg.url('app'), { contextKey: TEST_CONTEXT_KEY });
     owner = new Client({ connectionString: pg.url('owner') });
     await owner.connect();
 }, 240_000);
@@ -327,7 +327,7 @@ describe('the admin API', () => {
         class Root {
             static forRoot(): DynamicModule {
                 // a database of its own: the app closes it at shutdown
-                const database = createDatabase(config.DATABASE_URL);
+                const database = createDatabase(config.DATABASE_URL, { contextKey: TEST_CONTEXT_KEY });
                 return {
                     module: Root,
                     imports: [

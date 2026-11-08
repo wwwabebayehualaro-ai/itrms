@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 import { createDatabase, type Database } from '@itrms/kernel/db';
 import { findUnitByCode, importOrg, orgUnits, parseOrgYaml, type OrgUnit } from '@itrms/kernel/org';
-import { asUnit } from '@itrms/kernel/testing';
+import { asUnit, TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import { FormsService, SubmissionQueryService, SubmissionsService } from '@itrms/forms/api';
 import { submissionQuerySchema } from '@itrms/forms/contracts';
 import { and, eq, isNull, sql, type SQL } from 'drizzle-orm';
@@ -64,8 +64,8 @@ async function unitAt(code: string): Promise<OrgUnit> {
 
 beforeAll(async () => {
     pg = await startPostgres();
-    installer = createDatabase(pg.url('owner'));
-    app = createDatabase(pg.url('app'));
+    installer = createDatabase(pg.url('owner'), { contextKey: TEST_CONTEXT_KEY });
+    app = createDatabase(pg.url('app'), { contextKey: TEST_CONTEXT_KEY });
     owner = new Client({ connectionString: pg.url('owner') });
     await owner.connect();
     const seed = join(HERE, '..', '..', 'seed', 'org', 'south-ethiopia.wolaita.yaml');

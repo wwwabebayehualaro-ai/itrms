@@ -101,9 +101,28 @@ export function databaseRefusalOf(error: unknown): { status: number; code: strin
         if (e.code === '23503') return { status: 404, code: 'not_found' };
         if (e.code === '42501' && typeof e.message === 'string' && e.message.includes('violates row-level security'))
             return { status: 403, code: 'forbidden' };
+        if (e.code === '42501' && isForgedContextMessage(e.message)) return { status: 403, code: 'forbidden' };
         e = e.cause as typeof e;
     }
     return undefined;
+}
+
+const isForgedContextMessage = (message: unknown) => typeof message === 'string' && message.startsWith('kernel.ctx:');
+
+/**
+ * The database refused the request context as not the API's own (a forged, tampered, expired or retired-key token,
+ * ADR-0048): either a bug or an attack, so it is logged at error level, whatever the person is told.
+ */
+export function isForgedContext(error: unknown): boolean {
+    for (
+        let e = error as { code?: unknown; message?: unknown; cause?: unknown } | undefined, depth = 0;
+        e && depth < 3;
+        depth++
+    ) {
+        if (e.code === '42501' && isForgedContextMessage(e.message)) return true;
+        e = e.cause as typeof e;
+    }
+    return false;
 }
 
 /**
@@ -203,7 +222,9 @@ export class ProblemFilter implements ExceptionFilter {
             context?.requestId ?? requestIdFrom(request.id),
             this.shell?.messages
         );
-        if (problem.status >= 500) this.logger.error({ err: error, status: problem.status }, 'request failed');
+        if (isForgedContext(error))
+            this.logger.error({ err: error, status: problem.status }, 'security: forged_context');
+        else if (problem.status >= 500) this.logger.error({ err: error, status: problem.status }, 'request failed');
         else if (databaseRefusalOf(error)?.code === 'forbidden')
             this.logger.warn(
                 { code: problem.code, status: problem.status },

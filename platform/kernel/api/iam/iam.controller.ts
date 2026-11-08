@@ -67,8 +67,7 @@ export class IamController {
         return this.db.scoped(requestDbContext(), async (tx) => {
             const [user] = await tx.select().from(users).where(eq(users.id, principal.userId));
             const unit = await getUnit(tx, principal.unitId);
-            const sub = user?.keycloakSub ?? '';
-            const units = await tx.execute<UnitRow>(sql`select * from kernel.principal_units(${sub})`);
+            const units = await tx.execute<UnitRow>(sql`select * from kernel.my_units()`);
             const described = await describeUnit(tx, unit);
             const services = await effectiveServices(tx, unit.id);
             return {

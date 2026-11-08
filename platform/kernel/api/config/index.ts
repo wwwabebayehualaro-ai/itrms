@@ -79,6 +79,28 @@ const identityAdmin = {
 const auditKey = z.string().min(32, 'must be at least 32 characters').optional();
 
 /**
+ * The key the API signs the request context with (ADR-0048): 32 bytes as 64 hex characters. The migrate process installs
+ * it in `kernel.context_keys`, where the database verifies the signature and the application role cannot read it.
+ */
+const contextKey = z
+    .string()
+    .regex(/^[0-9a-f]{64}$/i, 'must be 64 hexadecimal characters')
+    .optional();
+
+/** Required in production for every process that uses the app pool or installs the key; never shared with another key. */
+function contextKeyRule(
+    c: { NODE_ENV: string; CONTEXT_HMAC_KEY?: string; AUDIT_HMAC_KEY?: string; BLIND_INDEX_KEY?: string },
+    ctx: z.RefinementCtx
+) {
+    if (c.NODE_ENV === 'production' && c.CONTEXT_HMAC_KEY === undefined)
+        ctx.addIssue({ code: 'custom', path: ['CONTEXT_HMAC_KEY'], message: 'is required in production' });
+    if (c.CONTEXT_HMAC_KEY !== undefined && c.CONTEXT_HMAC_KEY === c.AUDIT_HMAC_KEY)
+        ctx.addIssue({ code: 'custom', path: ['CONTEXT_HMAC_KEY'], message: 'must differ from AUDIT_HMAC_KEY' });
+    if (c.CONTEXT_HMAC_KEY !== undefined && c.CONTEXT_HMAC_KEY === c.BLIND_INDEX_KEY)
+        ctx.addIssue({ code: 'custom', path: ['CONTEXT_HMAC_KEY'], message: 'must differ from BLIND_INDEX_KEY' });
+}
+
+/**
  * Sensitive personal fields (security.md §11, task 0.14): the key-encryption keys, `id:base64` of 32 bytes each, the
  * first wrapping new data keys; and the separate key of the blind indexes. Without them nothing sensitive can be written.
  */
@@ -151,6 +173,7 @@ const schemas = {
             /** The API's pool: role itrms_app, subject to RLS. */
             DATABASE_URL: postgresUrl,
             AUDIT_HMAC_KEY: auditKey,
+            CONTEXT_HMAC_KEY: contextKey,
             ...fieldKeys,
             ...objectStore,
             /** The queues' Valkey: the rate limits' counters (SEC-AP-2), shared by every API replica; in memory without it. */
@@ -189,6 +212,7 @@ const schemas = {
             OIDC_JWKS_URL: z.url({ protocol: /^https?$/ }).optional()
         })
         .superRefine(personalDataKeys)
+        .superRefine(contextKeyRule)
         .refine((c) => c.NODE_ENV !== 'production' || c.OIDC_ISSUER !== undefined, {
             path: ['OIDC_ISSUER'],
             message: 'is required in production'
@@ -206,6 +230,7 @@ const schemas = {
             /** The worker's request-like work: role itrms_app. */
             DATABASE_URL: postgresUrl,
             AUDIT_HMAC_KEY: auditKey,
+            CONTEXT_HMAC_KEY: contextKey,
             ...fieldKeys,
             ...objectStore,
             /** The system pool (role itrms_system, BYPASSRLS): outbox relay and sweeps (task 0.11). */
@@ -216,7 +241,8 @@ const schemas = {
             VERIFY_BASE_URL: z.url({ protocol: /^https?$/ }).optional(),
             ...identityAdmin
         })
-        .superRefine(personalDataKeys),
+        .superRefine(personalDataKeys)
+        .superRefine(contextKeyRule),
     migrate: z
         .object({
             ...common,
@@ -224,6 +250,7 @@ const schemas = {
             DATABASE_MIGRATE_URL: postgresUrl,
             /** only for the demo's seed, which registers generated people as the API would */
             AUDIT_HMAC_KEY: auditKey,
+            CONTEXT_HMAC_KEY: contextKey,
             ...fieldKeys,
             ...identityAdmin
         })
@@ -231,6 +258,7 @@ const schemas = {
             path: ['BLIND_INDEX_KEY'],
             message: 'must differ from AUDIT_HMAC_KEY'
         })
+        .superRefine(contextKeyRule)
 };
 
 export type HttpConfig = z.infer<typeof schemas.http> & { process: 'http' };

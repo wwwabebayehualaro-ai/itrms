@@ -5,11 +5,12 @@
  * checked to be declared (`withRls`), to have RLS on and to carry exactly its class's policies: a new tenant table
  * without policies fails this suite.
  */
+import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { createDatabase, declaredRlsTables, type Database, type Tx } from '@itrms/kernel/db';
+import { actFor, createDatabase, declaredRlsTables, recordEvent, type Database, type Tx } from '@itrms/kernel/db';
 import { createSystemDatabase } from '@itrms/kernel/db/system';
 import { findUnitByCode, importOrg, moveUnit, orgUnits, parseOrgYaml, type OrgUnit } from '@itrms/kernel/org';
 import {
@@ -19,7 +20,11 @@ import {
     POLICIES,
     VISIBLE,
     WRITABLE,
-    type IsolationCase
+    type IsolationCase,
+    contextKeyId,
+    signContext,
+    TEST_CONTEXT_KEY,
+    TEST_USER
 } from '@itrms/kernel/testing';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { Client } from 'pg';
@@ -69,9 +74,9 @@ async function unitAt(region: string, code: string): Promise<OrgUnit> {
 
 beforeAll(async () => {
     pg = await startPostgres();
-    installer = createDatabase(pg.url('owner'));
+    installer = createDatabase(pg.url('owner'), { contextKey: TEST_CONTEXT_KEY });
     // one connection: the "no context" case runs on the connection the scoped cases used
-    app = createDatabase(pg.url('app'), { max: 1 });
+    app = createDatabase(pg.url('app'), { max: 1, contextKey: TEST_CONTEXT_KEY });
     owner = new Client({ connectionString: pg.url('owner') });
     await owner.connect();
     for (const file of ORG_FILES)
@@ -395,17 +400,23 @@ describe('every tenant table', () => {
             'fees.slip_in_use(text,text,date,date)',
             // which of the form versions the caller reads a second person approved (task 0.19b)
             'forms.approved_versions(uuid[])',
+            // the verified request context, and the one call that sets it (ADR-0048): the policies and the functions below read it
+            'kernel.ctx()',
             // the caller's region's first data key, once (task 0.14)
             'kernel.ensure_region_data_key(uuid,text,bytea)',
-            // the caller's own notifications only (by app.user_id), and marking them read (task 0.20a)
+            // the caller's own notifications only (by the context's user), and marking them read (task 0.20a)
             'kernel.my_notifications(integer,timestamp with time zone)',
-            'kernel.principal_units(text)',
+            // the units the caller can act for (the unit switcher), by the context's user
+            'kernel.my_units()',
             'kernel.read_my_notifications(uuid[])',
-            'kernel.record_context_free_event(text,jsonb,uuid,text,text)',
+            // an access or auth event before a unit is known; the actor, request and address are the context's
+            'kernel.record_context_free_event(text,jsonb)',
             // ids, codes and names of units of the caller's region only (task 0.14)
             'kernel.region_units(uuid[])',
-            'kernel.resolve_principal(text,uuid)',
-            // the caller's own preferences only (by app.user_id), task 0.13
+            // the caller's roles for the unit asked, by the context's subject
+            'kernel.resolve_principal(uuid)',
+            'kernel.set_context(text)',
+            // the caller's own preferences only (by the context's user), task 0.13
             'kernel.set_my_preferences(jsonb)',
             // the registers' searches, limited to the caller's region; ids only (task 0.14)
             'parties.search_organisations(text,integer)',
@@ -467,5 +478,226 @@ describe('a move under RLS', () => {
             'SELECT org_path::text FROM kernel.audit_log ORDER BY at, id'
         );
         expect(auditAfter.rows.slice(0, auditBefore.rows.length)).toEqual(auditBefore.rows);
+    });
+});
+
+describe('the signed request context (ADR-0048)', () => {
+    /** A connection as itrms_app that runs exactly the statements given: what an injection could send. */
+    async function asApp<T>(work: (client: Client) => Promise<T>): Promise<T> {
+        const client = new Client({ connectionString: pg.url('app') });
+        await client.connect();
+        try {
+            await client.query('begin');
+            return await work(client);
+        } finally {
+            await client.end();
+        }
+    }
+    const fails = async (work: Promise<unknown>) => {
+        try {
+            await work;
+        } catch (error) {
+            return error as { code?: string; message: string };
+        }
+        throw new Error('expected the database to refuse');
+    };
+    const setContext = (client: Client, token: string) => client.query('select kernel.set_context($1)', [token]);
+    const transactionLabels = async (client: Client) =>
+        (await client.query<{ label: string }>('select label from sample.t_rows order by label')).rows.map(
+            (r) => r.label
+        );
+    const parts = (token: string) => {
+        const [mac = '', kid = ''] = token.split(':');
+        return { mac, kid, body: JSON.parse(token.slice(mac.length + kid.length + 2)) as Record<string, unknown> };
+    };
+    const own = () => contextFor(units.own);
+    /** what the unit sees through the application's own path: earlier tests leave rows behind */
+    const ownRows = () => asUnit(app, units.own, (tx) => labels(tx, 'sample.t_rows'));
+
+    it('accepts what the API signed, and shows the context to the policies', async () => {
+        const seen = await asApp(async (client) => {
+            await setContext(client, signContext(own(), TEST_CONTEXT_KEY));
+            return transactionLabels(client);
+        });
+        expect(seen).toEqual(await ownRows());
+    });
+
+    it('refuses a token whose scope was widened with the MAC unchanged, however it is set', async () => {
+        const { mac, kid, body } = parts(signContext(own(), TEST_CONTEXT_KEY));
+        const forged = `${mac}:${kid}:${JSON.stringify({ ...body, scope: units.parent.path })}`;
+        const viaFunction = await asApp((client) => fails(setContext(client, forged)));
+        expect(viaFunction.code).toBe('42501');
+        expect(viaFunction.message).toMatch(/^kernel\.ctx:/);
+        // set directly, the setting is refused at the first policy that reads it
+        const viaSetting = await asApp(async (client) => {
+            await client.query("select set_config('app.ctx', $1, true)", [forged]);
+            return fails(client.query('select label from sample.t_rows'));
+        });
+        expect(viaSetting.code).toBe('42501');
+        expect(viaSetting.message).toMatch(/^kernel\.ctx:/);
+    });
+
+    it('ignores the old plain settings, even set to a parent unit', async () => {
+        const widen = (client: Client) =>
+            client.query("select set_config('app.region_id', $1, true), set_config('app.scope_path', $2, true)", [
+                units.parent.regionId,
+                units.parent.path
+            ]);
+        const seen = await asApp(async (client) => {
+            await setContext(client, signContext(own(), TEST_CONTEXT_KEY));
+            await widen(client);
+            return transactionLabels(client);
+        });
+        expect(seen).toEqual(await ownRows());
+        // and with only the old settings, nothing at all
+        const bare = await asApp(async (client) => {
+            await widen(client);
+            return transactionLabels(client);
+        });
+        expect(bare).toEqual([]);
+    });
+
+    it('refuses a token of another key, of a retired key, and an expired one; a key in its grace still serves', async () => {
+        const retired = randomBytes(32);
+        const grace = randomBytes(32);
+        await owner.query(
+            `INSERT INTO kernel.context_keys (kid, key, retired_at) VALUES
+                ($1, $2, now() - interval '1 minute'), ($3, $4, now() + interval '5 minutes')`,
+            [contextKeyId(retired), retired, contextKeyId(grace), grace]
+        );
+        const refused = async (token: string) => (await asApp((client) => fails(setContext(client, token)))).message;
+        expect(await refused(signContext(own(), randomBytes(32)))).toMatch(/^kernel\.ctx: .*not the API's/);
+        expect(await refused(signContext(own(), retired))).toMatch(/^kernel\.ctx: .*not the API's/);
+        expect(await refused(signContext(own(), TEST_CONTEXT_KEY, { now: Date.now() - 120_000 }))).toMatch(
+            /^kernel\.ctx: .*expired/
+        );
+        expect(await refused('not-a-token')).toMatch(/^kernel\.ctx:/);
+        const seen = await asApp(async (client) => {
+            await setContext(client, signContext(own(), grace));
+            return transactionLabels(client);
+        });
+        expect(seen).toEqual(await ownRows());
+    });
+
+    it('shows nothing on a connection that has just served a context (the setting is local to the transaction)', async () => {
+        const client = new Client({ connectionString: pg.url('app') });
+        await client.connect();
+        try {
+            await client.query('begin');
+            await setContext(client, signContext(own(), TEST_CONTEXT_KEY));
+            expect(await transactionLabels(client)).not.toEqual([]);
+            await client.query('commit');
+            expect(await transactionLabels(client)).toEqual([]);
+        } finally {
+            await client.end();
+        }
+    });
+
+    it("stores the context's actor, unit, scope, request and address on a row the API writes, whatever the statement said", async () => {
+        const stranger = '0199f0a0-0000-7000-8000-00000000beef';
+        await app.scoped({ ...own(), requestId: 'req-real', ip: '10.9.9.9' }, (tx) =>
+            tx.execute(sql`
+                insert into kernel.audit_log (id, action, event_type, actor_id, unit_id, region_id, org_path, request_id, ip)
+                values (gen_random_uuid(), 'event', 'test.spoof', ${stranger}::uuid, ${units.sibling.id}::uuid,
+                        ${units.sibling.regionId}::uuid, ${units.sibling.path}::ltree, 'req-fake', '6.6.6.6')`)
+        );
+        const { rows } = await owner.query(
+            `SELECT actor_id, unit_id, region_id, org_path::text AS org_path, request_id, ip
+               FROM kernel.audit_log WHERE event_type = 'test.spoof'`
+        );
+        expect(rows).toEqual([
+            {
+                actor_id: TEST_USER,
+                unit_id: units.own.id,
+                region_id: units.own.regionId,
+                org_path: units.own.path,
+                request_id: 'req-real',
+                ip: '10.9.9.9'
+            }
+        ]);
+    });
+
+    it('takes no actor, request or address for an event before a unit is known, and adds the subject', async () => {
+        const named = app.scoped({}, (tx) =>
+            tx.execute(
+                sql`select kernel.record_context_free_event('access.denied', '{}'::jsonb, gen_random_uuid(), 'x', 'y')`
+            )
+        );
+        expect(await pgRefusal(named)).toMatch(/does not exist/);
+        await app.recordSensitiveEvent(
+            { requestId: 'req-subject', subject: 'sub-1', ip: '10.0.0.1' },
+            { type: 'access.denied', data: { reason: 'no_role_in_unit' } }
+        );
+        const { rows } = await owner.query(
+            "SELECT actor_id, request_id, ip, diff FROM kernel.audit_log WHERE request_id = 'req-subject'"
+        );
+        expect(rows).toEqual([
+            {
+                actor_id: null,
+                request_id: 'req-subject',
+                ip: '10.0.0.1',
+                diff: { reason: 'no_role_in_unit', subject: 'sub-1' }
+            }
+        ]);
+    });
+
+    it("keeps what the system role wrote when it acts for a unit's record (actFor)", async () => {
+        const system = createSystemDatabase(pg.url('system'), { onUse: () => undefined });
+        try {
+            await system.systemContext('test.actfor', async (tx) => {
+                actFor(tx, { regionId: units.own.regionId, unitId: units.own.id, scopePath: units.own.path });
+                await recordEvent(tx, { type: 'test.actfor' });
+            });
+        } finally {
+            await system.close();
+        }
+        const { rows } = await owner.query(
+            "SELECT actor_id, unit_id, region_id, org_path::text AS org_path FROM kernel.audit_log WHERE event_type = 'test.actfor'"
+        );
+        expect(rows).toEqual([
+            { actor_id: null, unit_id: units.own.id, region_id: units.own.regionId, org_path: units.own.path }
+        ]);
+    });
+
+    it("has no policy or function that reads the plain settings, except the verifier's", async () => {
+        const policies = await owner.query(
+            `SELECT schemaname || '.' || tablename || ' ' || policyname AS name FROM pg_policies
+              WHERE coalesce(qual, '') LIKE '%current_setting%' OR coalesce(with_check, '') LIKE '%current_setting%'`
+        );
+        expect(policies.rows).toEqual([]);
+        const functions = await owner.query(
+            `SELECT p.oid::regprocedure::text AS name FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+              WHERE n.nspname NOT IN ('pg_catalog', 'information_schema') AND p.oid <> 'kernel.ctx()'::regprocedure
+                AND p.prosrc LIKE '%current_setting(''app.%'`
+        );
+        expect(functions.rows).toEqual([]);
+    });
+
+    it('marks the verifier and the accessors parallel safe (a plan may use workers)', async () => {
+        const { rows } = await owner.query<{ name: string; proparallel: string }>(
+            `SELECT p.oid::regprocedure::text AS name, p.proparallel FROM pg_proc p
+              WHERE p.oid = ANY (ARRAY['kernel.ctx()'::regprocedure, 'kernel.ctx_region()'::regprocedure,
+                'kernel.ctx_scope()'::regprocedure, 'kernel.ctx_party()'::regprocedure, 'kernel.ctx_user()'::regprocedure,
+                'kernel.ctx_unit()'::regprocedure]) ORDER BY 1`
+        );
+        expect(rows).toHaveLength(6);
+        expect(rows.filter((r) => r.proparallel !== 's')).toEqual([]);
+    });
+
+    it('keeps the keys from the API role and the system role', async () => {
+        for (const role of ['itrms_app', 'itrms_system'])
+            for (const privilege of ['SELECT', 'INSERT', 'UPDATE', 'DELETE'])
+                expect(
+                    (
+                        await owner.query<{ ok: boolean }>('SELECT has_table_privilege($1, $2, $3) AS ok', [
+                            role,
+                            'kernel.context_keys',
+                            privilege
+                        ])
+                    ).rows[0]?.ok,
+                    `${role} ${privilege}`
+                ).toBe(false);
+        const read = await asApp((client) => fails(client.query('select key from kernel.context_keys')));
+        expect(read.message).toMatch(/permission denied/);
     });
 });

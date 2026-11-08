@@ -15,6 +15,7 @@ import { createHttpApp, createLogger, KernelModule, loadSlices } from '@itrms/ke
 import { NO_RATE_LIMITS } from '@itrms/kernel/testing';
 import { loadConfig } from '@itrms/kernel/config';
 import { createDatabase, type Database } from '@itrms/kernel/db';
+import { TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import { rolePermissions } from '@itrms/kernel/iam';
 import { importUsers, userImportSchema } from '@itrms/kernel/seed';
 import {
@@ -68,7 +69,7 @@ async function unitAt(code: string): Promise<OrgUnit> {
 
 beforeAll(async () => {
     pg = await startPostgres();
-    installer = createDatabase(pg.url('owner'));
+    installer = createDatabase(pg.url('owner'), { contextKey: TEST_CONTEXT_KEY });
     owner = new Client({ connectionString: pg.url('owner') });
     await owner.connect();
     await installer.scoped({}, (tx) =>
@@ -89,7 +90,7 @@ beforeAll(async () => {
 
     const config = loadConfig('http', { DATABASE_URL: pg.url('app') });
     const logger = createLogger(config, new Writable({ write: (_c, _e, done) => done() }));
-    const database = createDatabase(config.DATABASE_URL);
+    const database = createDatabase(config.DATABASE_URL, { contextKey: TEST_CONTEXT_KEY });
     // the installation's real slices: their roles, menus and catalogues
     const installed = loadSlices(SLICES);
     @Module({})

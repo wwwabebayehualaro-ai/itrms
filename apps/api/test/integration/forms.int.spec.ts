@@ -17,6 +17,7 @@ import { createHttpApp, createLogger, KernelModule, loadSlices } from '@itrms/ke
 import { NO_RATE_LIMITS } from '@itrms/kernel/testing';
 import { loadConfig } from '@itrms/kernel/config';
 import { createDatabase, type Database } from '@itrms/kernel/db';
+import { TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import { rolePermissions } from '@itrms/kernel/iam';
 import { findUnitByCode, importOrg, orgUnits, parseOrgYaml, type OrgUnit } from '@itrms/kernel/org';
 import { importUsers, userImportSchema } from '@itrms/kernel/seed';
@@ -75,7 +76,7 @@ async function unitAt(region: string, code: string): Promise<OrgUnit> {
 
 beforeAll(async () => {
     pg = await startPostgres();
-    installer = createDatabase(pg.url('owner'));
+    installer = createDatabase(pg.url('owner'), { contextKey: TEST_CONTEXT_KEY });
     owner = new Client({ connectionString: pg.url('owner') });
     await owner.connect();
     for (const file of [
@@ -143,7 +144,7 @@ beforeAll(async () => {
         config,
         process.env.INT_LOG ? process.stderr : new Writable({ write: (_c, _e, done) => done() })
     );
-    app = createDatabase(config.DATABASE_URL, { auditKey: keys.AUDIT_HMAC_KEY });
+    app = createDatabase(config.DATABASE_URL, { auditKey: keys.AUDIT_HMAC_KEY, contextKey: TEST_CONTEXT_KEY });
     const installed = loadSlices(SLICES);
     @Module({})
     class Root {

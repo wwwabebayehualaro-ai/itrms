@@ -28,6 +28,7 @@ import {
     type Database,
     type Tx
 } from '@itrms/kernel/db';
+import { contextKeyId, TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import { ForbiddenError } from '@itrms/kernel/errors';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { eq, sql } from 'drizzle-orm';
@@ -101,6 +102,10 @@ beforeAll(async () => {
         migrationsSchema: 'drizzle',
         migrationsTable: '__drizzle_migrations'
     });
+    await migrator.query('INSERT INTO kernel.context_keys (kid, key) VALUES ($1, $2)', [
+        contextKeyId(TEST_CONTEXT_KEY),
+        TEST_CONTEXT_KEY
+    ]);
     await migrator.end();
 
     // a sample business table, as a slice's migration would create it
@@ -118,7 +123,10 @@ beforeAll(async () => {
         GRANT USAGE ON SCHEMA sample TO itrms_app;
         GRANT SELECT, INSERT, UPDATE, DELETE ON sample.things, sample.scratch, sample.people TO itrms_app;`);
 
-    db = createDatabase(urlFor('itrms_app', PASSWORDS.app), { auditKey: randomBytes(32).toString('hex') });
+    db = createDatabase(urlFor('itrms_app', PASSWORDS.app), {
+        auditKey: randomBytes(32).toString('hex'),
+        contextKey: TEST_CONTEXT_KEY
+    });
 }, 240_000);
 
 afterAll(async () => {
@@ -383,7 +391,7 @@ describe('over HTTP', () => {
         const config = loadConfig('http', { DATABASE_URL: urlFor('itrms_app', PASSWORDS.app) });
         const logger = createLogger(config, new Writable({ write: (_c, _e, cb) => cb() }));
         // a database of its own: the app closes it at shutdown
-        const database = createDatabase(config.DATABASE_URL);
+        const database = createDatabase(config.DATABASE_URL, { contextKey: TEST_CONTEXT_KEY });
         const root: DynamicModule = {
             module: ThingsModule,
             imports: [KernelModule.forRoot(config, logger, { database, rateLimiter: NO_RATE_LIMITS })]
