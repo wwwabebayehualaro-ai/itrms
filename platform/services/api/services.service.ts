@@ -601,7 +601,11 @@ export class ServicesService implements FeeRequestSource {
         const unit = await this.visibleUnit(tx, unitId);
         const d = await this.definition(tx, unit.regionId, code);
         const v = await this.effectiveVersion(tx, d.id);
-        if (!v) throw new ConflictError('not_configured', { detail: `${code} is not configured yet.` });
+        if (!v)
+            throw new ConflictError('not_configured', {
+                detailKey: 'services.errors.not_configured_yet',
+                params: { code }
+            });
         const version = await this.versionConfig(tx, v);
         const { chain, overrides } = await this.chainUnits(tx, unit, d.id);
         const own = overrides.find((o) => o.unitId === unit.id);
@@ -675,7 +679,11 @@ export class ServicesService implements FeeRequestSource {
         const unit = await this.writableUnit(tx, ctx, unitId);
         const d = await this.definition(tx, unit.regionId, code);
         const versions = await this.versionsToFit(tx, d.id);
-        if (!versions.length) throw new ConflictError('not_configured', { detail: `${code} is not configured yet.` });
+        if (!versions.length)
+            throw new ConflictError('not_configured', {
+                detailKey: 'services.errors.not_configured_yet',
+                params: { code }
+            });
         const values = configValuesSchema.parse(input.values);
         const level = unit.parentId === null ? 'region' : 'unit';
         // each value must fit the version in effect and those to come (else it would quietly stop holding)
@@ -696,10 +704,13 @@ export class ServicesService implements FeeRequestSource {
             refused.push({ key: 'approval_unit', problem: 'invalid_value' });
         if (refused.some((r) => r.problem === 'not_allowed'))
             throw new ValidationError('setting_level_not_allowed', {
-                detail: `The service's policy does not let this office change ${refused
-                    .filter((r) => r.problem === 'not_allowed')
-                    .map((r) => r.key)
-                    .join(', ')}.`
+                detailKey: 'services.errors.policy_refuses',
+                params: {
+                    keys: refused
+                        .filter((r) => r.problem === 'not_allowed')
+                        .map((r) => r.key)
+                        .join(', ')
+                }
             });
         if (refused.length)
             throw fieldErrors(
@@ -754,9 +765,13 @@ export class ServicesService implements FeeRequestSource {
         const unit = await this.visibleUnit(tx, ctx.unitId ?? '');
         const d = await this.definition(tx, unit.regionId, code);
         if (!d.active || !(await effectiveServices(tx, unit.id)).includes(code))
-            throw new ConflictError('not_configured', { detail: `${code} is not offered by this office.` });
+            throw new ConflictError('not_configured', { detailKey: 'services.errors.not_offered', params: { code } });
         const v = await this.effectiveVersion(tx, d.id);
-        if (!v) throw new ConflictError('not_configured', { detail: `${code} is not configured yet.` });
+        if (!v)
+            throw new ConflictError('not_configured', {
+                detailKey: 'services.errors.not_configured_yet',
+                params: { code }
+            });
         const version = await this.versionConfig(tx, v);
         const { chain } = await this.chainUnits(tx, unit, d.id);
         const config = frozenConfig(resolveConfig(version, chain), {
@@ -904,7 +919,7 @@ export class ServicesService implements FeeRequestSource {
                 : null;
         // a fee shown for a version that no longer charges one: the clerk sees that first
         if (!v.feeRuleVersionId && fee)
-            throw new ConflictError('fee_changed', { detail: 'The service charges no fee now.' });
+            throw new ConflictError('fee_changed', { detailKey: 'services.errors.no_fee_now' });
         // the fee worked out from the answers as filed, kept with the case in its transaction (task 0.22a)
         if (v.feeRuleVersionId)
             await this.fees.assessFiled(
@@ -951,7 +966,10 @@ const sortedEntries = (values: Record<string, unknown>) =>
     Object.entries(values).sort(([a], [b]) => a.localeCompare(b));
 
 const stale = (expectedVersion: number) =>
-    new ConflictError('stale_version', { detail: `Version ${expectedVersion} was changed; read it again.` });
+    new ConflictError('stale_version', {
+        detailKey: 'services.errors.version_changed',
+        params: { expected: String(expectedVersion) }
+    });
 
 const isUniqueViolation = (error: unknown) => {
     for (let e: unknown = error; e; e = (e as { cause?: unknown }).cause)

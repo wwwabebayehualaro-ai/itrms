@@ -13,5 +13,15 @@
   "documents.state.rendered": "ዝግጁ ነው",
   "documents.state.requested": "በመዘጋጀት ላይ",
   "documents.state.revoked": "ተሰርዟል",
-  "documents.state.superseded": "ተተክቷል"
+  "documents.state.superseded": "ተተክቷል",
+  "documents.errors.case_no_request": "ጉዳዩ የሚቀዳ ጥያቄ የለውም።",
+  "documents.errors.effect_cannot_build": "documents.issue ሰነዱን {document} ማዘጋጀት አይችልም፤ ሰነዱን የሚያወጣው የሥራ ሂደቱ ራሱ ነው።",
+  "documents.errors.already_issued": "ይህ ሰነድ በሌላ ጽ/ቤት ወይም አሁን ልክ አስቀድሞ ወጥቷል።",
+  "documents.errors.template_not_set_up": "የሰነድ አብነት {template} በዚህ ክልል አልተዘጋጀም።",
+  "documents.errors.template_no_version": "አብነቱ ምንም ስሪት የለውም።",
+  "documents.errors.data_invalid": "ሰነዱ {template} ከዚህ መረጃ ሊዘጋጅ አይችልም፤ የተበላሹ መስኮች፦ {fields}",
+  "documents.errors.issuing_office_unreadable": "ሰነዱን የሚያወጣውን ጽ/ቤት ማንበብ አልተቻለም።",
+  "documents.errors.no_document_to_correct": "የሚታረም እንዲህ ያለ ሰነድ የለም።",
+  "documents.errors.document_not_standing": "ይህ ሰነድ ከእንግዲህ ተፈጻሚ አይደለም፤ ማረም አይቻልም።",
+  "documents.errors.template_gone": "የዚህ ሰነድ አብነት ጠፍቷል።"
 }

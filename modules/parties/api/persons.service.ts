@@ -229,13 +229,13 @@ export class PersonsService {
         const sameFin = duplicates.items.filter((d) => d.reasons.includes('fin'));
         if (sameFin.length)
             throw new ConflictError('duplicate_reference', {
-                detail: 'A person with this Fayda number is registered.'
+                detailKey: 'parties.errors.fin_taken'
             });
         const acknowledged = new Set(input.acknowledgedDuplicates ?? []);
         const unseen = duplicates.items.filter((d) => !acknowledged.has(d.person.id));
         if (unseen.length)
             throw new ValidationError('validation_failed', {
-                detail: 'This may be a person already registered: check the possible duplicates first.',
+                detailKey: 'parties.errors.possible_duplicate',
                 errors: unseen.map((d) => ({
                     path: 'acknowledgedDuplicates',
                     code: 'possible_duplicate',
@@ -307,7 +307,7 @@ export class PersonsService {
                 );
                 if (others.length)
                     throw new ConflictError('duplicate_reference', {
-                        detail: 'A person with this Fayda number is registered.'
+                        detailKey: 'parties.errors.fin_taken'
                     });
             }
             const columns = await this.sensitiveColumns(tx, regionId, id, input.sensitive);
@@ -391,9 +391,9 @@ export class PersonsService {
         const [row] = await tx.select().from(persons).where(eq(persons.id, id));
         if (!row) throw new NotFoundError();
         if (!withinScope(row.handlingOrgPath, ctx.scopePath ?? ''))
-            throw new ForbiddenError({ detail: 'This record is handled by another office.' });
+            throw new ForbiddenError({ detailKey: 'parties.errors.handled_by_other_office' });
         if (row.status === 'merged')
-            throw new ConflictError('invalid_transition', { detail: 'This record was merged into another.' });
+            throw new ConflictError('invalid_transition', { detailKey: 'parties.errors.merged_into_other' });
         return row;
     }
 
@@ -459,7 +459,7 @@ export class PersonsService {
         } catch (error) {
             if (isUniqueViolation(error, 'person_sensitive_fin_uq'))
                 throw new ConflictError('duplicate_reference', {
-                    detail: 'A person with this Fayda number is registered.',
+                    detailKey: 'parties.errors.fin_taken',
                     cause: error
                 });
             throw error;

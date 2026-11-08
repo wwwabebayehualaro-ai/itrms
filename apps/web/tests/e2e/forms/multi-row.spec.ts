@@ -6,12 +6,12 @@
 import { engineTranslator } from '@itrms/form-engine/core';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
-import { PEOPLE, api, field, publishedForm, runName, signedIn, switchOff } from './support';
+import { PEOPLE, api, field, publishedForm, runName, shellAm, signedIn, switchOff } from './support';
 
 // the page runs in Amharic, so the engine's own words are looked up in its Amharic catalogue
 const am = engineTranslator('am');
 // the request dialog names its own submit button (the app's label, not the engine's)
-const SUBMIT = 'Submit request';
+const SUBMIT = shellAm('shell.requests.submit');
 
 const EXPENSES = [
     field('InputText', 'title', 'Report title', { props: { required: true } }),
@@ -76,7 +76,7 @@ test('expense lines calculate, ask for what they need, and are filed as rows', a
     try {
         const page = await signedIn(browser, PEOPLE.filler);
         await page.goto(`/submitted-forms/template/${formId}`);
-        await page.getByRole('button', { name: 'New request' }).click();
+        await page.getByRole('button', { name: shellAm('shell.requests.new') }).click();
         const form = page.getByRole('dialog').locator('[data-engine="v2"]');
         await expect(form).toBeVisible();
         await form.getByLabel('Report title').fill(title);

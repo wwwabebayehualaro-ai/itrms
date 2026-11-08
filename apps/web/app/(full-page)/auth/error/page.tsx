@@ -1,12 +1,14 @@
 import { TriangleAlert } from 'lucide-react';
+import { getTranslations } from 'next-intl/server';
 import { StatusScreen } from '../../StatusScreen';
 
-export default function ErrorPage() {
+export default async function ErrorPage() {
+    const t = await getTranslations();
     return (
         <StatusScreen
             icon={TriangleAlert}
-            title="Something went wrong"
-            message="The page could not be shown. Try again in a moment; if it keeps happening, tell your workspace administrator."
+            title={t('shell.status.error.title')}
+            message={t('shell.status.error.message')}
         />
     );
 }

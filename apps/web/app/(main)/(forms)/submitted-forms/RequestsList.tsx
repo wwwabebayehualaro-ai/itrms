@@ -6,6 +6,7 @@ import { useSubmissionList, useTemplateList } from '@itrms/form-engine/renderer'
 import { Button, InlineStatus, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@itrms/ui';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { formatDateTime } from '@/lib/format';
+import { useText } from '@/lib/preferences';
 
 const PAGE_SIZE = 20;
 
@@ -15,6 +16,7 @@ const PAGE_SIZE = 20;
  * Previous goes back down the stack of cursors already used.
  */
 export function RequestsList({ title, description }: { title: string; description: string }) {
+    const { t } = useText();
     // cursors[i] is the `before` of page i; the first page has none
     const [cursors, setCursors] = useState<(string | undefined)[]>([undefined]);
     const before = cursors[cursors.length - 1];
@@ -32,17 +34,17 @@ export function RequestsList({ title, description }: { title: string; descriptio
             {isPending ? (
                 <InlineStatus loading />
             ) : error ? (
-                <InlineStatus error={getApiErrorMessage(error, 'Could not load the requests')} />
+                <InlineStatus error={getApiErrorMessage(error, t('shell.requests.loadFailed'))} />
             ) : !data?.items.length ? (
-                <p className="py-6 text-center text-sm text-muted-foreground">No requests here yet</p>
+                <p className="py-6 text-center text-sm text-muted-foreground">{t('shell.requests.none')}</p>
             ) : (
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Request</TableHead>
-                            <TableHead>Form</TableHead>
-                            <TableHead>Office</TableHead>
-                            <TableHead>Submitted</TableHead>
+                            <TableHead>{t('common.label.request')}</TableHead>
+                            <TableHead>{t('common.label.form')}</TableHead>
+                            <TableHead>{t('common.label.office')}</TableHead>
+                            <TableHead>{t('shell.requests.col.submitted')}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -62,7 +64,7 @@ export function RequestsList({ title, description }: { title: string; descriptio
                                         href={`/submitted-forms/template/${r.template_id}`}
                                         className="hover:underline"
                                     >
-                                        {formNames.get(String(r.template_id)) ?? 'Form'}
+                                        {formNames.get(String(r.template_id)) ?? t('common.label.form')}
                                     </Link>
                                 </TableCell>
                                 <TableCell>{r.handling_unit_name ?? '—'}</TableCell>
@@ -79,7 +81,7 @@ export function RequestsList({ title, description }: { title: string; descriptio
                     disabled={cursors.length === 1}
                     onClick={() => setCursors((c) => c.slice(0, -1))}
                 >
-                    Previous
+                    {t('common.action.previous')}
                 </Button>
                 <Button
                     type="button"
@@ -87,7 +89,7 @@ export function RequestsList({ title, description }: { title: string; descriptio
                     disabled={!next}
                     onClick={() => next && setCursors((c) => [...c, next])}
                 >
-                    Next
+                    {t('common.action.next')}
                 </Button>
             </div>
         </div>

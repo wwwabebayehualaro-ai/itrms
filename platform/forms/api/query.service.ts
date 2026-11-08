@@ -51,7 +51,7 @@ const key = (v: unknown): string | null => {
 
 const tooLong = (cause?: unknown) =>
     new InvalidRequestError('invalid_query', {
-        detail: 'The query took too long: narrow the filter, or ask for fewer groups and counts.',
+        detailKey: 'forms.errors.query_too_slow',
         cause
     });
 
@@ -133,7 +133,10 @@ export class SubmissionQueryService {
                 const keys = input.fields ?? [...BUILTINS.map((b) => b.key), ...fields.map((f) => f.key)];
                 for (const k of keys)
                     if (!BUILTIN_KEYS.has(k) && !byKey.has(k))
-                        throw new InvalidRequestError('invalid_query', { detail: `unknown field "${k}"` });
+                        throw new InvalidRequestError('invalid_query', {
+                            detailKey: 'forms.errors.unknown_field',
+                            params: { field: k }
+                        });
                 const answerKeys = keys.filter((k) => byKey.has(k));
                 const subset = sql`(select coalesce(jsonb_object_agg(k, ${submissions.answers} -> k), '{}'::jsonb)
                     from unnest(${`{${answerKeys.join(',')}}`}::text[]) k where ${submissions.answers} ? k)`;
@@ -251,7 +254,8 @@ export class SubmissionQueryService {
         }
 
         const groups: SubmissionQueryResult['groups'] = [];
-        if (q.thenBy && !q.groupBy) throw new InvalidRequestError('invalid_query', { detail: 'thenBy needs groupBy' });
+        if (q.thenBy && !q.groupBy)
+            throw new InvalidRequestError('invalid_query', { detailKey: 'forms.errors.then_by_needs_group_by' });
         if (q.groupBy) {
             const dims = [q.groupBy, ...(q.thenBy ? [q.thenBy] : [])];
             const keys = dims.map((d) => compiler.groupExpr(d.field, d.bucket));
@@ -315,7 +319,7 @@ export class SubmissionQueryService {
     private async fieldsOf(tx: Tx, roles: readonly string[], formId: string, language = 'am') {
         const form = await this.forms.definition(tx, formId);
         if (!form.publishedVersionId)
-            throw new ConflictError('not_configured', { detail: 'This form has not been published yet.' });
+            throw new ConflictError('not_configured', { detailKey: 'forms.errors.form_not_published' });
         const versions = (
             await tx
                 .select({ id: formVersions.id, document: formVersions.document })
@@ -333,7 +337,7 @@ export class SubmissionQueryService {
             };
         });
         const published = versions.find((v) => v.id === form.publishedVersionId);
-        if (!published) throw new ConflictError('not_configured', { detail: 'This form has not been published yet.' });
+        if (!published) throw new ConflictError('not_configured', { detailKey: 'forms.errors.form_not_published' });
         const fields = published.seen.filter((f) => versions.every((v) => !v.has.has(f.key) || v.sees.has(f.key)));
         return { form, fields, indexedKeys: form.indexedKeys };
     }

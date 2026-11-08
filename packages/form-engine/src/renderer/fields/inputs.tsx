@@ -389,6 +389,7 @@ function DateField({ field, id, value, onChange, onBlur, disabled, invalid, desc
             formatLabel={(d) => formatDateFns(d, fmt) + (withTime ? ` ${formatDateFns(d, timeFmt)}` : '')}
             placeholder={str(p(field, 'placeholder')) || t('form-engine.renderer.date.placeholder')}
             timeLabel={t('form-engine.renderer.date.time')}
+            clearLabel={t('form-engine.renderer.ethDate.clear')}
             disabled={disabled}
             invalid={invalid}
             aria-describedby={describedBy}

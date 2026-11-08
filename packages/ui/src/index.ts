@@ -9,6 +9,8 @@ export { LabeledField } from './form/LabeledField';
 export { KeyValueEditor } from './form/KeyValueEditor';
 export { JsonEditor } from './form/JsonEditor';
 export { FileViewer } from './files/LazyFileViewer';
+export type { FileViewerLabels } from './files/FileViewer';
+export type { PdfViewerLabels } from './files/PdfViewer';
 
 // ---- appearance: themes (light, dark, high contrast) and densities; the stylesheet is @itrms/ui/styles.css, tokens as data are @itrms/ui/tokens
 export { AppearanceProvider, useAppearance } from './theme/AppearanceProvider';

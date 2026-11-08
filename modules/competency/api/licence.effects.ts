@@ -63,7 +63,7 @@ export class RecordExamEffect implements WorkflowEffect {
     async run(run: EffectRun) {
         const person = run.facts.personId;
         if (typeof person !== 'string')
-            throw new ConflictError('contract_unmet', { detail: 'The case does not say whose exam this is.' });
+            throw new ConflictError('contract_unmet', { detailKey: 'competency.errors.exam_owner_unknown' });
         return { facts: await this.licences.recordExam(run.tx, placeOf(run), person, run.input, run.argument) };
     }
 }

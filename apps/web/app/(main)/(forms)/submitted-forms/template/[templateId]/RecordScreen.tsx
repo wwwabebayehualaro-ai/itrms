@@ -39,9 +39,9 @@ import { RequestEditorDialog } from './RequestEditorDialog';
 import { SensitiveAnswers } from '@/form-templates/SensitiveAnswers';
 
 const ACTION: Record<string, { label: string; icon: typeof Send }> = {
-    create: { label: 'Submitted', icon: Send },
-    update: { label: 'Changed', icon: Pencil },
-    delete: { label: 'Deleted', icon: Trash2 }
+    create: { label: 'shell.record.history.created', icon: Send },
+    update: { label: 'shell.record.history.updated', icon: Pencil },
+    delete: { label: 'shell.record.history.deleted', icon: Trash2 }
 };
 const HIDDEN_CHANGES = new Set(['row_version', 'template_version_id', 'updated_at', 'updated_by']);
 
@@ -66,10 +66,12 @@ export function RecordScreen({ templateId, submissionId }: { templateId: string;
     const [editing, setEditing] = useState(false);
 
     if (isPending) return <InlineStatus loading />;
-    if (error || !submission) return <InlineStatus error={getApiErrorMessage(error, 'This request was not found')} />;
+    if (error || !submission) return <InlineStatus error={getApiErrorMessage(error, t('shell.record.notFound'))} />;
 
     const row = { ...submission } as any;
-    const title = schema ? titleOf(row, schema, labeler) : `Request ${String(submission.id).slice(0, 8)}`;
+    const title = schema
+        ? titleOf(row, schema, labeler)
+        : t('shell.record.titleFallback', { id: String(submission.id).slice(0, 8) });
     const fields =
         (Array.isArray(record?.form_config) ? record?.form_config : record?.form_config?.fields) ??
         (template ? storedFieldsOf(template.form_config) : []);
@@ -83,13 +85,13 @@ export function RecordScreen({ templateId, submissionId }: { templateId: string;
 
     const confirmDelete = () =>
         void confirmAction({
-            header: 'Delete this request?',
-            message: 'This cannot be undone.',
-            acceptLabel: 'Delete',
+            header: t('shell.record.delete.title'),
+            message: t('shell.record.delete.message'),
+            acceptLabel: t('common.action.delete'),
             danger: true,
             onAccept: async () => {
                 await remove.mutateAsync(submission.id as string);
-                notify.success('Request deleted');
+                notify.success(t('shell.record.delete.done'));
                 router.push(back);
             }
         });
@@ -98,17 +100,19 @@ export function RecordScreen({ templateId, submissionId }: { templateId: string;
         <div className="flex flex-col gap-4" data-record-page={submission.id as string}>
             <Link href={back} className="flex w-fit items-center gap-2 text-sm text-primary hover:underline">
                 <ArrowLeft className="size-4" />
-                {template?.name ?? 'Requests'}
+                {template?.name ?? t('shell.record.backFallback')}
             </Link>
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex flex-col gap-2">
                     <h1 className="text-2xl font-semibold">{title}</h1>
                     <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                        <span>Office {submission.handling_unit_name ?? '—'}</span>
-                        <span>Submitted by {submission.submitted_by_name ?? '—'}</span>
+                        <span>{t('shell.record.meta.office', { unit: submission.handling_unit_name ?? '—' })}</span>
+                        <span>{t('shell.record.meta.submittedBy', { name: submission.submitted_by_name ?? '—' })}</span>
                         <span>{formatDateTime(submission.created_at)}</span>
                         {submission.updated_at && submission.updated_at !== submission.created_at && (
-                            <span>updated {formatDateTime(submission.updated_at)}</span>
+                            <span>
+                                {t('shell.record.meta.updated', { when: formatDateTime(submission.updated_at) })}
+                            </span>
                         )}
                     </div>
                 </div>
@@ -116,7 +120,7 @@ export function RecordScreen({ templateId, submissionId }: { templateId: string;
                     {canEdit && (
                         <Button type="button" variant="outline" onClick={() => setEditing(true)}>
                             <Pencil />
-                            Edit
+                            {t('common.action.edit')}
                         </Button>
                     )}
                     {canDelete && (
@@ -127,7 +131,7 @@ export function RecordScreen({ templateId, submissionId }: { templateId: string;
                             onClick={confirmDelete}
                         >
                             <Trash2 />
-                            Delete
+                            {t('common.action.delete')}
                         </Button>
                     )}
                 </div>
@@ -136,10 +140,7 @@ export function RecordScreen({ templateId, submissionId }: { templateId: string;
             {record && !record.current && (
                 <Alert data-form-changed>
                     <Info />
-                    <AlertDescription>
-                        The form was changed after this request was filled in. It is shown the way it was submitted;
-                        editing it moves it to the current form.
-                    </AlertDescription>
+                    <AlertDescription>{t('shell.record.formChanged')}</AlertDescription>
                 </Alert>
             )}
 
@@ -157,11 +158,11 @@ export function RecordScreen({ templateId, submissionId }: { templateId: string;
                 <TabsList>
                     <TabsTrigger value="request">
                         <FileText />
-                        Request
+                        {t('shell.record.tab.request')}
                     </TabsTrigger>
                     <TabsTrigger value="history">
                         <History />
-                        History
+                        {t('shell.record.tab.history')}
                     </TabsTrigger>
                 </TabsList>
                 <TabsContent value="request" className="pt-2">
@@ -194,7 +195,7 @@ export function RecordScreen({ templateId, submissionId }: { templateId: string;
                     ) : history.error ? (
                         <InlineStatus error={getApiErrorMessage(history.error)} />
                     ) : (
-                        <ol className="relative ml-3 border-l pl-6" aria-label="History">
+                        <ol className="relative ml-3 border-l pl-6" aria-label={t('shell.record.tab.history')}>
                             {(history.data ?? []).map((e: HistoryEntry, i) => {
                                 const Icon = ACTION[e.action]?.icon ?? Pencil;
                                 return (
@@ -204,8 +205,12 @@ export function RecordScreen({ templateId, submissionId }: { templateId: string;
                                         </span>
                                         <div className="flex flex-col gap-1">
                                             <span className="text-sm">
-                                                <strong>{ACTION[e.action]?.label ?? e.action}</strong> by{' '}
-                                                {e.actor_name ?? 'someone'}{' '}
+                                                <strong>
+                                                    {ACTION[e.action] ? t(ACTION[e.action].label) : e.action}
+                                                </strong>{' '}
+                                                {t('shell.record.history.by', {
+                                                    name: e.actor_name ?? t('common.label.someone')
+                                                })}{' '}
                                                 <span className="text-muted-foreground">
                                                     · {formatDateTime(e.occurred_at)}
                                                 </span>

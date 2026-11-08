@@ -41,7 +41,7 @@ export function assertMayLookUp(
 ): void {
     if (!permissions.has(provider.permission))
         throw new ForbiddenError({
-            detail: 'You may not look up records of this registry.',
+            detailKey: 'forms.errors.lookup_not_allowed',
             audit: { reason: 'missing_permission', permission: provider.permission }
         });
 }

@@ -99,7 +99,10 @@ export class LicencesService {
             .from(licenceGradeTypes)
             .where(and(eq(licenceGradeTypes.regionId, regionId), eq(licenceGradeTypes.key, key)));
         if (!grade?.active)
-            throw new ConflictError('not_configured', { detail: `The licence grade ${key} is not offered here.` });
+            throw new ConflictError('not_configured', {
+                detailKey: 'competency.errors.grade_not_offered',
+                params: { key }
+            });
         return grade;
     }
 
@@ -319,7 +322,7 @@ export class LicencesService {
             ).length > 0;
         if (found && !same) {
             if (found.status !== 'pending_national')
-                throw new ConflictError('invalid_transition', { detail: 'This case has already made a licence.' });
+                throw new ConflictError('invalid_transition', { detailKey: 'competency.errors.licence_already_made' });
             await updateAudited(tx, driverLicences, found.id, found.rowVersion, {
                 status: 'voided',
                 voidReason: 'request_changed'
@@ -361,7 +364,10 @@ export class LicencesService {
             key === 'licence' ? 'id' : 'licenceId'
         ];
         if (typeof id !== 'string')
-            throw new ConflictError('contract_unmet', { detail: `The case has no ${key} to act on.` });
+            throw new ConflictError('contract_unmet', {
+                detailKey: 'competency.errors.case_missing_fact',
+                params: { key }
+            });
         return id;
     }
 
@@ -477,7 +483,7 @@ export class LicencesService {
         const licence = await this.row(tx, this.licenceIdOf(facts, 'renewal'));
         const today = addisDay();
         if (!licence.validUntil)
-            throw new ConflictError('contract_unmet', { detail: 'The licence has no term to renew.' });
+            throw new ConflictError('contract_unmet', { detailKey: 'competency.errors.licence_no_term' });
         // another case renewed it since this one was checked: its term has been given, and terms never stack
         if ((facts.renewal as { fromValidUntil?: string }).fromValidUntil !== licence.validUntil)
             return { licence: { id: licence.id, number: licence.number } };
@@ -506,7 +512,7 @@ export class LicencesService {
         const licence = await this.row(tx, this.licenceIdOf(facts, 'licence'));
         const language = currentContext()?.language ?? 'am';
         if (!licence.number || !licence.issuedOn || !licence.validUntil)
-            throw new ConflictError('contract_unmet', { detail: 'The licence is not active yet.' });
+            throw new ConflictError('contract_unmet', { detailKey: 'competency.errors.licence_not_active' });
         const [holder] = await tx.select().from(persons).where(eq(persons.id, licence.personId));
         if (!holder) throw new NotFoundError();
         const grades = await tx

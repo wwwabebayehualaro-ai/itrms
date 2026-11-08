@@ -7,7 +7,7 @@
 import { engineTranslator } from '@itrms/form-engine/core';
 import { expect, test } from '@playwright/test';
 
-import { PEOPLE, api, field, publishedForm, runName, signedIn, switchOff } from './support';
+import { PEOPLE, api, field, publishedForm, runName, shellAm, signedIn, switchOff } from './support';
 
 const am = engineTranslator('am');
 
@@ -57,7 +57,7 @@ test('a change to a published form shows its diff and the views it affects, and 
 
         // the author opens it in the builder: a published key cannot be renamed
         await page.reload();
-        await page.getByRole('button', { name: `Edit ${name} in the builder` }).click();
+        await page.getByRole('button', { name: shellAm('shell.templates.action.editOf', { name }) }).click();
         const designer = page.locator('[data-designer]');
         await expect(designer.getByRole('heading', { name })).toBeVisible();
         const canvas = designer.locator('[data-canvas]');
@@ -92,11 +92,11 @@ test('a change to a published form shows its diff and the views it affects, and 
         await checker.reload();
         const row = checker.locator('[data-approval]').filter({ hasText: name });
         await expect(row).toBeVisible();
-        await row.getByRole('button', { name: 'Review' }).click();
+        await row.getByRole('button', { name: shellAm('shell.approvals.review') }).click();
         const sheet = checker.getByRole('dialog');
         await expect(sheet.locator('[data-diff="removed"]')).toContainText('office');
         await expect(sheet.locator('[data-review-section="views"]')).toContainText(viewName);
-        await sheet.getByRole('button', { name: /approve/i }).click();
+        await sheet.getByRole('button', { name: shellAm('shell.approvals.decision.approve') }).click();
         await expect(sheet).toBeHidden();
         expect((await author.get<FormOut>(`v1/forms/${formId}`)).status).toBe('published');
 

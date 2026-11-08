@@ -20,7 +20,7 @@ type ViewRow = typeof savedViews.$inferSelect;
 
 const notAllowed = () =>
     new ForbiddenError({
-        detail: 'Sharing a view with the office, or making it its default, needs the right to share.'
+        detailKey: 'forms.errors.view_share_right'
     });
 
 @Injectable()

@@ -38,7 +38,8 @@ class OverrideDto extends createZodDto(serviceOverrideInputSchema) {}
 class RequestDto extends createZodDto(serviceRequestSchema) {}
 
 const codeOf = (code: string): string => {
-    if (!SERVICE_CODE.test(code)) throw new InvalidRequestError('invalid_request', { detail: 'Not a service code.' });
+    if (!SERVICE_CODE.test(code))
+        throw new InvalidRequestError('invalid_request', { detailKey: 'services.errors.not_service_code' });
     return code;
 };
 

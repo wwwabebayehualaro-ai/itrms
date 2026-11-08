@@ -275,7 +275,8 @@ export class SettingsService {
         const entry = this.entry(key);
         if (value !== undefined && !allowedAt(entry, level))
             throw new ValidationError('setting_level_not_allowed', {
-                detail: `"${key}" cannot be set for a ${level === 'unitType' ? 'unit type' : level}.`
+                detailKey: `kernel.detail.setting_not_for_${level}`,
+                params: { key }
             });
         if (entry.declaration.sensitive && !(authAge !== undefined && authAge <= SENSITIVE_STEP_UP))
             throw new StepUpRequiredError(SENSITIVE_STEP_UP);
@@ -385,7 +386,10 @@ export class SettingsService {
     preferenceValue(key: string, value: unknown): unknown {
         const entry = this.entry(key);
         if (!entry.declaration.userPreference)
-            throw new ValidationError('setting_level_not_allowed', { detail: `"${key}" is not a personal choice.` });
+            throw new ValidationError('setting_level_not_allowed', {
+                detailKey: 'kernel.detail.not_personal',
+                params: { key }
+            });
         if (value === null) return null;
         const parsed = entry.schema.safeParse(value);
         if (!parsed.success)
@@ -408,7 +412,10 @@ export interface Who {
 }
 
 const stale = (expectedVersion: number) =>
-    new ConflictError('stale_version', { detail: `Version ${expectedVersion} was changed; read the setting again.` });
+    new ConflictError('stale_version', {
+        detailKey: 'kernel.detail.setting_version_changed',
+        params: { expected: String(expectedVersion) }
+    });
 
 const isUniqueViolation = (error: unknown) => {
     for (let e: unknown = error; e; e = (e as { cause?: unknown }).cause)

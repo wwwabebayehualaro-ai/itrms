@@ -73,12 +73,16 @@ export class RegisterService {
             .from(organisations)
             .where(eq(organisations.id, input.schoolId));
         if (school?.kind !== 'training_school')
-            throw new ConflictError('invalid_transition', { detail: 'This organisation is not a training school.' });
+            throw new ConflictError('invalid_transition', { detailKey: 'competency.errors.not_training_school' });
         const [grade] = await tx
             .select({ id: licenceGradeTypes.id })
             .from(licenceGradeTypes)
             .where(and(eq(licenceGradeTypes.regionId, regionId), eq(licenceGradeTypes.key, input.grade)));
-        if (!grade) throw new ConflictError('not_configured', { detail: `No licence grade ${input.grade}.` });
+        if (!grade)
+            throw new ConflictError('not_configured', {
+                detailKey: 'competency.errors.no_such_grade',
+                params: { grade: String(input.grade) }
+            });
         const made = await insertAudited(tx, trainingEnrolments, {
             regionId,
             handlingUnitId: required(ctx.unitId),
@@ -150,7 +154,7 @@ export class RegisterService {
             .from(licencePrintBatchItems)
             .where(eq(licencePrintBatchItems.batchId, id));
         if (row.status !== 'open' || items.length === 0)
-            throw new ConflictError('invalid_transition', { detail: 'Only an open batch with licences can be sent.' });
+            throw new ConflictError('invalid_transition', { detailKey: 'competency.errors.batch_not_sendable' });
         const updated = await updateAudited(tx, licencePrintBatches, id, version, { status: 'requested' });
         await emit(tx, 'licence-batch.print-requested.v1', { batchId: id });
         return this.batchView(updated, items.length);

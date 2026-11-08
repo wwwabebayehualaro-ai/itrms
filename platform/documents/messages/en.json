@@ -13,5 +13,15 @@
   "documents.state.rendered": "Ready",
   "documents.state.requested": "Being made",
   "documents.state.revoked": "Cancelled",
-  "documents.state.superseded": "Replaced"
+  "documents.state.superseded": "Replaced",
+  "documents.errors.case_no_request": "The case has no request to copy.",
+  "documents.errors.effect_cannot_build": "documents.issue can't build the document {document}: its work process issues it.",
+  "documents.errors.already_issued": "This document has been issued already, by another office or a moment ago.",
+  "documents.errors.template_not_set_up": "The document template {template} is not set up in this region.",
+  "documents.errors.template_no_version": "The template has no version.",
+  "documents.errors.data_invalid": "The document {template} cannot be made from this data: {fields}",
+  "documents.errors.issuing_office_unreadable": "The issuing office could not be read.",
+  "documents.errors.no_document_to_correct": "There is no such document to correct.",
+  "documents.errors.document_not_standing": "This document no longer stands: it cannot be corrected.",
+  "documents.errors.template_gone": "The template of this document is gone."
 }

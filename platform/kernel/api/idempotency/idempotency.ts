@@ -132,7 +132,7 @@ async function storedAnswer(tx: Tx, c: Claim): Promise<IdempotentReplay | undefi
     if (!row) return undefined;
     if (row.requestHash !== c.hash)
         throw new ValidationError('idempotency_mismatch', {
-            detail: 'This Idempotency-Key was used for a different request.'
+            detailKey: 'kernel.detail.idempotency_key_reused'
         });
     return new IdempotentReplay(row.statusCode, row.response);
 }
@@ -215,7 +215,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
         const key = typeof header === 'string' ? header : undefined;
         if (!key || !KEY.test(key))
             throw new InvalidRequestError('invalid_request', {
-                detail: 'Send an Idempotency-Key (1 to 255 visible characters) with every POST.'
+                detailKey: 'kernel.detail.idempotency_key_needed'
             });
         const statusCode = this.reflector.get<number | undefined>(HTTP_CODE_METADATA, context.getHandler()) ?? 201;
         const path = request.url;

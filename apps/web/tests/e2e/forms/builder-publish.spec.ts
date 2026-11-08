@@ -7,7 +7,7 @@
 import { engineTranslator } from '@itrms/form-engine/core';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
-import { PEOPLE, api, field, runName, signedIn, switchOff } from './support';
+import { PEOPLE, api, field, runName, shellAm, signedIn, switchOff } from './support';
 
 // the page runs in Amharic, so the engine's own words are looked up in its Amharic catalogue
 const am = engineTranslator('am');
@@ -141,7 +141,9 @@ test('a form built in the builder is published once a second person approves, th
         // asked for from the gallery: it waits for a second person, and takes no requests meanwhile
         await page.goto('/dynamic-template/saved-templates');
         // the gallery shows it by its Amharic name (the page's language)
-        await page.getByRole('button', { name: `Publish ቅጽ ${name}` }).click();
+        await page
+            .getByRole('button', { name: shellAm('shell.templates.action.publishOf', { name: `ቅጽ ${name}` }) })
+            .click();
         // the publish review (task 0.18a): its labels were written in one language, a warning that does not block
         const review = page.locator('[data-publish-dialog]');
         await expect(review.locator('[data-publish-review]')).toHaveAttribute('data-can-publish', 'true');
@@ -153,7 +155,7 @@ test('a form built in the builder is published once a second person approves, th
         await expect(page.getByText(am('form-engine.designer.publish.sentForApproval')).first()).toBeVisible();
         const filler = await signedIn(browser, PEOPLE.filler);
         await filler.goto(`/submitted-forms/template/${formId}`);
-        await expect(filler.getByRole('button', { name: 'New request' })).toBeDisabled();
+        await expect(filler.getByRole('button', { name: shellAm('shell.requests.new') })).toBeDisabled();
         const asked = await author.get<{ items: { formId: string; canDecide: boolean }[] }>(
             `v1/form-publications?formId=${formId}`
         );
@@ -166,16 +168,16 @@ test('a form built in the builder is published once a second person approves, th
         await checker.goto('/approvals');
         const row = checker.locator('[data-approval]').filter({ hasText: name });
         await expect(row).toBeVisible();
-        await row.getByRole('button', { name: 'Review' }).click();
+        await row.getByRole('button', { name: shellAm('shell.approvals.review') }).click();
         const sheet = checker.getByRole('dialog');
-        await expect(sheet).toContainText('Publishing a form');
-        await sheet.getByRole('button', { name: /approve/i }).click();
+        await expect(sheet).toContainText(shellAm('shell.approvals.policyTitle'));
+        await sheet.getByRole('button', { name: shellAm('shell.approvals.decision.approve') }).click();
         await expect(sheet).toBeHidden();
         expect((await author.get<FormOut>(`v1/forms/${formId}`)).status).toBe('published');
 
         // published: the woreda's records officer fills it in
         await filler.reload();
-        await filler.getByRole('button', { name: 'New request' }).click();
+        await filler.getByRole('button', { name: shellAm('shell.requests.new') }).click();
         const dialog = filler.getByRole('dialog');
         await expect(dialog.getByText('Full name')).toBeVisible();
         await expect(dialog.getByText('Office type')).toBeVisible();
@@ -202,7 +204,9 @@ test('a form with a field that has no data class cannot be published: the review
     });
     try {
         await page.goto('/dynamic-template/saved-templates');
-        await page.getByRole('button', { name: `Publish ቅጽ ${name}` }).click();
+        await page
+            .getByRole('button', { name: shellAm('shell.templates.action.publishOf', { name: `ቅጽ ${name}` }) })
+            .click();
         const review = page.locator('[data-publish-dialog]');
         await expect(review.locator('[data-publish-review]')).toHaveAttribute('data-can-publish', 'false');
         await expect(review.locator('[data-review-section="errors"] [data-problem="unclassified"]')).toContainText(

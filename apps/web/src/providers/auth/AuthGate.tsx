@@ -6,7 +6,7 @@ import { useLocale } from 'next-intl';
 import { useAuthStore } from '@/lib/auth/authStore';
 import { trackActivity } from '@/lib/auth/activity';
 import { session } from '@/lib/auth/session';
-import { languageToShow, setLanguageCookie, usePreferences } from '@/lib/preferences';
+import { languageToShow, setLanguageCookie, useText, usePreferences } from '@/lib/preferences';
 import { Spinner } from '@itrms/ui';
 
 /**
@@ -18,6 +18,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     const preferences = useAuthStore((s) => s.workspace?.preferences);
     const languages = useAuthStore((s) => s.workspace?.settings['i18n.languages']);
     const locale = useLocale();
+    const { t } = useText();
     const router = useRouter();
 
     useEffect(() => {
@@ -45,7 +46,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
     if (status !== 'authenticated') {
         return (
-            <div className="flex min-h-screen items-center justify-center" role="status" aria-label="Loading">
+            <div
+                className="flex min-h-screen items-center justify-center"
+                role="status"
+                aria-label={t('common.label.loading')}
+            >
                 <Spinner className="size-8 text-muted-foreground" />
             </div>
         );

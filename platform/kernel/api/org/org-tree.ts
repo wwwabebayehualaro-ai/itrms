@@ -124,7 +124,10 @@ export async function createUnit(tx: Tx, input: NewUnit): Promise<OrgUnit> {
     if (type && !type.active) invalid('unitTypeId', 'unit_type_inactive', `unit type "${type.key}" is no longer used`);
     checkType(type, input.levelKey, input.category ?? null);
     if (await findUnitByCode(tx, parent.regionId, input.code))
-        throw new ConflictError('duplicate_reference', { detail: `The code ${input.code} is already used.` });
+        throw new ConflictError('duplicate_reference', {
+            detailKey: 'kernel.detail.code_used',
+            params: { code: input.code }
+        });
 
     const unit = await insertAudited(tx, orgUnits, {
         regionId: parent.regionId,
@@ -287,7 +290,10 @@ export async function setServiceOverride(
             reason
         });
     else if (expectedVersion !== undefined && expectedVersion !== 0)
-        throw new ConflictError('stale_version', { detail: `Version ${expectedVersion} was changed; read it again.` });
+        throw new ConflictError('stale_version', {
+            detailKey: 'kernel.detail.version_changed',
+            params: { expected: String(expectedVersion) }
+        });
     else
         await insertAudited(tx, unitServiceOverrides, {
             regionId: unit.regionId,

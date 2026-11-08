@@ -43,7 +43,7 @@ const insertIssued = async (tx: Tx, values: typeof issuedDocuments.$inferInsert)
         for (let e: unknown = error; e; e = (e as { cause?: unknown }).cause)
             if ((e as { constraint?: string }).constraint === 'issued_documents_subject_uq')
                 throw new ConflictError('invalid_transition', {
-                    detail: 'This document has been issued already, by another office or a moment ago.',
+                    detailKey: 'documents.errors.already_issued',
                     cause: error
                 });
         throw error;
@@ -61,7 +61,8 @@ export async function issueDocument(
         .where(and(eq(documentTemplates.regionId, input.regionId), eq(documentTemplates.key, input.templateKey)));
     if (!template?.latestVersionId)
         throw new ConflictError('not_configured', {
-            detail: `The document template ${input.templateKey} is not set up in this region.`
+            detailKey: 'documents.errors.template_not_set_up',
+            params: { template: input.templateKey }
         });
     if (input.subject) {
         const [existing] = await tx
@@ -83,13 +84,15 @@ export async function issueDocument(
         })
         .from(documentTemplateVersions)
         .where(eq(documentTemplateVersions.id, template.latestVersionId));
-    if (!version) throw new ConflictError('not_configured', { detail: 'The template has no version.' });
+    if (!version) throw new ConflictError('not_configured', { detailKey: 'documents.errors.template_no_version' });
     const checked = DOCUMENT_DATA_SCHEMAS[version.dataSchema].safeParse(input.data);
     if (!checked.success)
         throw new ConflictError('contract_unmet', {
-            detail: `The document ${input.templateKey} cannot be made from this data: ${checked.error.issues
-                .map((i) => i.path.join('.'))
-                .join(', ')}`
+            detailKey: 'documents.errors.data_invalid',
+            params: {
+                template: input.templateKey,
+                fields: checked.error.issues.map((i) => i.path.join('.')).join(', ')
+            }
         });
     const facts = factsOf(version.dataSchema, checked.data);
     // the bureau's own name heads its documents, unless the header names another (a zone department's, say)
@@ -100,7 +103,7 @@ export async function issueDocument(
     const header: DocumentHeader = brand ? { ...stored, title: brand } : stored;
     const unit = (await unitRefs(tx, [input.handlingUnitId])).get(input.handlingUnitId);
     // frozen on the document for good: a blank office would print on it, and fail its public check, for ever
-    if (!unit) throw new ConflictError('not_configured', { detail: 'The issuing office could not be read.' });
+    if (!unit) throw new ConflictError('not_configured', { detailKey: 'documents.errors.issuing_office_unreadable' });
     const issued = await insertIssued(tx, {
         ...(input.id ? { id: input.id } : {}),
         regionId: input.regionId,
@@ -146,17 +149,17 @@ export async function supersedeDocument(
         Partial<Pick<IssueInput, 'caseId' | 'handlingUnitId'>>
 ): Promise<IssuedRow> {
     const [old] = await tx.select().from(issuedDocuments).where(eq(issuedDocuments.id, oldId)).for('update');
-    if (!old) throw new ConflictError('invalid_transition', { detail: 'There is no such document to correct.' });
+    if (!old) throw new ConflictError('invalid_transition', { detailKey: 'documents.errors.no_document_to_correct' });
     if (old.supersededBy || old.revokedAt)
         throw new ConflictError('invalid_transition', {
-            detail: 'This document no longer stands: it cannot be corrected.'
+            detailKey: 'documents.errors.document_not_standing'
         });
     // the old one first: only one document of a record stands at a time. Its key to the new one is checked at commit
     const [template] = await tx
         .select({ key: documentTemplates.key })
         .from(documentTemplates)
         .where(eq(documentTemplates.id, old.templateId));
-    if (!template) throw new ConflictError('not_configured', { detail: 'The template of this document is gone.' });
+    if (!template) throw new ConflictError('not_configured', { detailKey: 'documents.errors.template_gone' });
     const id = newId();
     await updateAudited(tx, issuedDocuments, old.id, old.rowVersion, { supersededBy: id });
     return issueDocument(tx, settings, {

@@ -66,6 +66,7 @@ import { PublishDialog, useBuilderActions } from '@itrms/form-engine/designer';
 import { useCan } from '@/lib/auth/authHooks';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { formatDate } from '@/lib/format';
+import { useText } from '@/lib/preferences';
 import type { IFormTemplate } from '@/types/template_builder/form';
 import { DraftedForm } from './DraftedForm';
 import { DraftsList } from './DraftsList';
@@ -94,6 +95,7 @@ const fileIcon = (t: IFormTemplate) => {
 
 export default function TemplatesManager({ mode = 'manage', onFormSubmit }: TemplatesManagerProps) {
     const router = useRouter();
+    const { t: say } = useText();
     const notify = useNotify();
     const builder = useBuilderActions();
     const canPublish = useCan('form:publish');
@@ -160,7 +162,7 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
     const opening = (as: 'preview' | 'start' | 'edit', t: IFormTemplate) => () =>
         void putInBuilder(t).then(
             (full) => (as === 'edit' ? router.push('/dynamic-template/builder') : setOpen({ template: full, as })),
-            (e: unknown) => notify.error(getApiErrorMessage(e, 'Could not open the form'))
+            (e: unknown) => notify.error(getApiErrorMessage(e, say('shell.templates.openFailed')))
         );
     const newForm = () => {
         builder.setFields([]);
@@ -176,14 +178,14 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
 
     const deleteOne = (t: IFormTemplate) =>
         void confirmAction({
-            header: `Delete “${t.name}”?`,
-            message: 'The form and its versions are deleted. Requests already filled in stay.',
-            acceptLabel: 'Delete',
+            header: say('shell.templates.delete.title', { name: t.name }),
+            message: say('shell.templates.delete.message'),
+            acceptLabel: say('common.action.delete'),
             danger: true,
             onAccept: async () => {
                 try {
                     await remove.mutateAsync(t.id as string);
-                    notify.success(`“${t.name}” deleted`);
+                    notify.success(say('shell.templates.delete.done', { name: t.name }));
                 } catch {
                     /* rolled back and reported by the mutation */
                 }
@@ -191,15 +193,23 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
         });
     const deleteSelected = () =>
         void confirmAction({
-            header: `Delete ${selected.size} form${selected.size === 1 ? '' : 's'}?`,
-            message: 'The forms and their versions are deleted. Requests already filled in stay.',
-            acceptLabel: 'Delete',
+            header:
+                selected.size === 1
+                    ? say('shell.templates.deleteMany.titleOne')
+                    : say('shell.templates.deleteMany.titleMany', { count: String(selected.size) }),
+            message: say('shell.templates.deleteMany.message'),
+            acceptLabel: say('common.action.delete'),
             danger: true,
             onAccept: async () => {
                 const ids = [...selected];
                 const results = await Promise.allSettled(ids.map((id) => remove.mutateAsync(id)));
                 const done = results.filter((r) => r.status === 'fulfilled').length;
-                if (done) notify.success(`Deleted ${done} form${done === 1 ? '' : 's'}`);
+                if (done)
+                    notify.success(
+                        done === 1
+                            ? say('shell.templates.deleteMany.doneOne')
+                            : say('shell.templates.deleteMany.doneMany', { count: String(done) })
+                    );
                 setSelected(new Set(ids.filter((_, i) => results[i].status === 'rejected')));
             }
         });
@@ -208,27 +218,35 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
         mode === 'start' ? (
             <Button type="button" size="sm" onClick={opening('start', t)}>
                 <SquarePen />
-                Start
+                {say('common.action.start')}
             </Button>
         ) : (
             <div className="flex items-center gap-0.5">
-                <IconButton label={`Preview ${t.name}`} tooltip="Preview" onClick={opening('preview', t)}>
+                <IconButton
+                    label={say('shell.templates.action.previewOf', { name: t.name })}
+                    tooltip={say('shell.templates.action.preview')}
+                    onClick={opening('preview', t)}
+                >
                     <Eye />
                 </IconButton>
                 <IconButton
-                    label={`Edit ${t.name} in the builder`}
-                    tooltip="Edit the form"
+                    label={say('shell.templates.action.editOf', { name: t.name })}
+                    tooltip={say('shell.templates.action.edit')}
                     onClick={opening('edit', t)}
                 >
                     <PencilRuler />
                 </IconButton>
-                <IconButton label={`Settings of ${t.name}`} tooltip="Settings" onClick={() => setSettings(t)}>
+                <IconButton
+                    label={say('shell.templates.action.settingsOf', { name: t.name })}
+                    tooltip={say('shell.templates.action.settings')}
+                    onClick={() => setSettings(t)}
+                >
                     <Settings2 />
                 </IconButton>
                 {canPublish && t.status === 'draft' && (
                     <IconButton
-                        label={`Publish ${t.name}`}
-                        tooltip="Publish"
+                        label={say('shell.templates.action.publishOf', { name: t.name })}
+                        tooltip={say('shell.templates.action.publish')}
                         disabled={publish.isPending && publish.variables?.id === t.id}
                         onClick={() => publishOne(t)}
                     >
@@ -236,8 +254,8 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
                     </IconButton>
                 )}
                 <IconButton
-                    label={`Delete ${t.name}`}
-                    tooltip="Delete"
+                    label={say('shell.templates.action.deleteOf', { name: t.name })}
+                    tooltip={say('common.action.delete')}
                     className="text-destructive hover:text-destructive"
                     onClick={() => deleteOne(t)}
                 >
@@ -254,7 +272,7 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
                 type="button"
                 disabled={!hasFile}
                 onClick={() => setAttachment(t)}
-                aria-label={hasFile ? `Open the file attached to ${t.name}` : undefined}
+                aria-label={hasFile ? say('shell.templates.action.openFile', { name: t.name }) : undefined}
                 className={cn(
                     'flex shrink-0 items-center justify-center bg-gradient-to-b from-primary/10 to-primary/5 text-muted-foreground enabled:hover:text-primary',
                     size === 'lg' ? 'h-32 w-full' : 'size-11 rounded-md'
@@ -281,7 +299,7 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
                     <Checkbox
                         checked={isSelected}
                         onCheckedChange={() => toggle(t.id as string)}
-                        aria-label={`Select ${t.name}`}
+                        aria-label={say('shell.templates.selectOf', { name: t.name })}
                         className="absolute top-2 left-2 bg-background"
                     />
                 )}
@@ -292,7 +310,7 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
                         t.is_active ? 'border-success/40' : 'text-muted-foreground'
                     )}
                 >
-                    {t.is_active ? 'Active' : 'Inactive'}
+                    {t.is_active ? say('shell.templates.status.active') : say('shell.templates.status.inactive')}
                 </Badge>
                 <div className="flex flex-1 flex-col gap-2 p-4">
                     <div className="flex items-start justify-between gap-2">
@@ -332,7 +350,7 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
                 <Checkbox
                     checked={selected.has(t.id as string)}
                     onCheckedChange={() => toggle(t.id as string)}
-                    aria-label={`Select ${t.name}`}
+                    aria-label={say('shell.templates.selectOf', { name: t.name })}
                 />
             )}
             {thumb(t, 'sm')}
@@ -344,7 +362,7 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
                 </div>
                 <span className="text-xs text-muted-foreground">
                     {[t.category, t.slug, formatDate(t.updated_at || t.created_at)].filter(Boolean).join(' · ')}
-                    {!t.is_active && ' · inactive'}
+                    {!t.is_active && ` · ${say('shell.templates.status.inactive')}`}
                 </span>
             </div>
             {actions(t)}
@@ -364,30 +382,32 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
             )}
             <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
-                    <h1 className="text-2xl font-semibold">{mode === 'start' ? 'Start a request' : 'Forms'}</h1>
+                    <h1 className="text-2xl font-semibold">
+                        {mode === 'start' ? say('shell.templates.start.title') : say('shell.templates.manage.title')}
+                    </h1>
                     <p className="text-sm text-muted-foreground">
-                        {mode === 'start'
-                            ? 'Pick a form and fill it in.'
-                            : 'Build, publish and manage the forms people fill in.'}
+                        {mode === 'start' ? say('shell.templates.start.intro') : say('shell.templates.manage.intro')}
                     </p>
                 </div>
                 {mode === 'manage' &&
                     (selected.size > 0 ? (
                         <div className="flex items-center gap-2">
-                            <span className="text-sm">{selected.size} selected</span>
+                            <span className="text-sm">
+                                {say('shell.templates.selected', { count: String(selected.size) })}
+                            </span>
                             <Button type="button" variant="destructive" size="sm" onClick={deleteSelected}>
                                 <Trash2 />
-                                Delete
+                                {say('common.action.delete')}
                             </Button>
                             <Button type="button" variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
                                 <X />
-                                Clear selection
+                                {say('shell.templates.clearSelection')}
                             </Button>
                         </div>
                     ) : (
                         <Button type="button" onClick={newForm}>
                             <Plus />
-                            New form
+                            {say('shell.templates.new')}
                         </Button>
                     ))}
             </div>
@@ -402,30 +422,30 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
                         type="search"
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
-                        placeholder="Search forms"
-                        aria-label="Search forms"
+                        placeholder={say('shell.templates.search')}
+                        aria-label={say('shell.templates.search')}
                         className="pl-8"
                     />
                 </div>
                 <Select value={status} onValueChange={(v) => setStatus(v as Status)}>
-                    <SelectTrigger aria-label="Status" className="w-36">
+                    <SelectTrigger aria-label={say('shell.templates.status.label')} className="w-36">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">Any status</SelectItem>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
+                        <SelectItem value="all">{say('shell.templates.status.any')}</SelectItem>
+                        <SelectItem value="active">{say('shell.templates.status.active')}</SelectItem>
+                        <SelectItem value="inactive">{say('shell.templates.status.inactive')}</SelectItem>
                     </SelectContent>
                 </Select>
                 <Select value={sort} onValueChange={(v) => setSort(v as Sort)}>
-                    <SelectTrigger aria-label="Sort" className="w-40">
+                    <SelectTrigger aria-label={say('shell.templates.sort.label')} className="w-40">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="newest">Newest first</SelectItem>
-                        <SelectItem value="oldest">Oldest first</SelectItem>
-                        <SelectItem value="name-asc">Name A–Z</SelectItem>
-                        <SelectItem value="name-desc">Name Z–A</SelectItem>
+                        <SelectItem value="newest">{say('shell.templates.sort.newest')}</SelectItem>
+                        <SelectItem value="oldest">{say('shell.templates.sort.oldest')}</SelectItem>
+                        <SelectItem value="name-asc">{say('shell.templates.sort.nameAsc')}</SelectItem>
+                        <SelectItem value="name-desc">{say('shell.templates.sort.nameDesc')}</SelectItem>
                     </SelectContent>
                 </Select>
                 {allCategories.length > 0 && (
@@ -434,8 +454,8 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
                         options={allCategories.map((c) => ({ label: c, value: c }))}
                         value={categories}
                         onChange={(v) => setCategories(v)}
-                        placeholder="Any category"
-                        aria-label="Categories"
+                        placeholder={say('shell.templates.category.any')}
+                        aria-label={say('shell.templates.category.label')}
                         className="w-56"
                     />
                 )}
@@ -444,13 +464,13 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
                     variant="outline"
                     value={layout}
                     onValueChange={(v) => v && setLayout(v as 'grid' | 'list')}
-                    aria-label="Layout"
+                    aria-label={say('shell.templates.layout.label')}
                     className="ml-auto"
                 >
-                    <ToggleGroupItem value="grid" aria-label="Cards">
+                    <ToggleGroupItem value="grid" aria-label={say('shell.templates.layout.cards')}>
                         <LayoutGrid />
                     </ToggleGroupItem>
-                    <ToggleGroupItem value="list" aria-label="List">
+                    <ToggleGroupItem value="list" aria-label={say('shell.templates.layout.list')}>
                         <List />
                     </ToggleGroupItem>
                 </ToggleGroup>
@@ -464,33 +484,35 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
                 </div>
             ) : error && templates.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 p-8" role="alert">
-                    <InlineStatus error={getApiErrorMessage(error, 'Could not load the forms')} />
+                    <InlineStatus error={getApiErrorMessage(error, say('shell.templates.loadFailed'))} />
                     <Button type="button" variant="outline" onClick={() => void refetch()}>
                         <RotateCcw />
-                        Try again
+                        {say('common.action.tryAgain')}
                     </Button>
                 </div>
             ) : shown.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed p-10 text-center">
                     <File className="size-10 text-muted-foreground" />
-                    <h3 className="font-semibold">{filtered ? 'No form matches' : 'No forms yet'}</h3>
+                    <h3 className="font-semibold">
+                        {filtered ? say('shell.templates.empty.noMatch') : say('shell.templates.empty.none')}
+                    </h3>
                     <p className="text-sm text-muted-foreground">
                         {filtered
-                            ? 'Change the search or the filters.'
+                            ? say('shell.templates.empty.changeFilters')
                             : mode === 'manage'
-                              ? 'Build the first one.'
-                              : 'Nothing to fill in yet.'}
+                              ? say('shell.templates.empty.buildFirst')
+                              : say('shell.templates.empty.nothingToFill')}
                     </p>
                     {filtered ? (
                         <Button type="button" variant="outline" onClick={reset}>
                             <RotateCcw />
-                            Show all forms
+                            {say('shell.templates.empty.showAll')}
                         </Button>
                     ) : (
                         mode === 'manage' && (
                             <Button type="button" onClick={newForm}>
                                 <Plus />
-                                New form
+                                {say('shell.templates.new')}
                             </Button>
                         )
                     )}
@@ -504,7 +526,7 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
             <Dialog open={!!settings} onOpenChange={(o) => !o && setSettings(null)}>
                 <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle>Form settings</DialogTitle>
+                        <DialogTitle>{say('shell.templates.dialog.settings')}</DialogTitle>
                         <DialogDescription>{settings?.name}</DialogDescription>
                     </DialogHeader>
                     {settings && (
@@ -521,12 +543,14 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
                 <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
                     <DialogHeader>
                         <DialogTitle>
-                            {open?.as === 'start' ? open.template.name : `Preview: ${open?.template.name ?? ''}`}
+                            {open?.as === 'start'
+                                ? open.template.name
+                                : say('shell.templates.dialog.previewTitle', { name: open?.template.name ?? '' })}
                         </DialogTitle>
                         <DialogDescription>
                             {open?.as === 'start'
-                                ? 'Fill in the form and submit it.'
-                                : 'The working version, as people will see it. Nothing is sent.'}
+                                ? say('shell.templates.dialog.startIntro')
+                                : say('shell.templates.dialog.previewIntro')}
                         </DialogDescription>
                     </DialogHeader>
                     {open?.as === 'preview' && (
@@ -540,7 +564,7 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
                                 ...(getRuntimeConfig(open.template.form_config) ?? EMPTY_RUNTIME),
                                 submit: undefined
                             }}
-                            onFormSubmit={() => notify.info('Preview: nothing was sent')}
+                            onFormSubmit={() => notify.info(say('shell.templates.dialog.previewSent'))}
                         />
                     )}
                     {open?.as === 'start' && (

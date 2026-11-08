@@ -98,5 +98,14 @@
   "competency.training.lookupFailed": "The search failed. Try again.",
   "competency.training.show": "Show",
   "competency.training.showAll": "Everyone",
-  "competency.training.showUnfinished": "Not finished"
+  "competency.training.showUnfinished": "Not finished",
+  "competency.errors.exam_owner_unknown": "The case does not say whose exam this is.",
+  "competency.errors.grade_not_offered": "The licence grade {key} is not offered here.",
+  "competency.errors.licence_already_made": "This case has already made a licence.",
+  "competency.errors.case_missing_fact": "The case has no {key} to act on.",
+  "competency.errors.licence_no_term": "The licence has no term to renew.",
+  "competency.errors.licence_not_active": "The licence is not active yet.",
+  "competency.errors.not_training_school": "This organisation is not a training school.",
+  "competency.errors.no_such_grade": "No licence grade {grade}.",
+  "competency.errors.batch_not_sendable": "Only an open batch with licences can be sent."
 }

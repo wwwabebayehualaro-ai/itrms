@@ -4,6 +4,8 @@
  * header, an Idempotency-Key on every POST and If-Match on a change), for the setup a journey does not show.
  */
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 import { expect, type Browser, type Page } from '@playwright/test';
 
@@ -18,6 +20,17 @@ export const PEOPLE = {
     /** Damot Gale woreda, below the zone: fills forms in and reads its office's requests (records_officer) */
     filler: { id: '0199f0a0-d000-7000-8000-000000000202', username: 'demo.damot.records', name: 'Damot Gale Records' }
 } as const;
+
+const SHELL_AM = JSON.parse(
+    readFileSync(fileURLToPath(new URL('../../../messages/am.json', import.meta.url)), 'utf8')
+) as Record<string, string>;
+
+/** A word of the web app's own catalogue (apps/web/messages) in Amharic, the language the journeys run in. */
+export const shellAm = (key: string, values: Record<string, string> = {}): string => {
+    const text = SHELL_AM[key];
+    if (text === undefined) throw new Error(`no shell message ${key}`);
+    return text.replace(/\{(\w+)\}/g, (_, name: string) => values[name] ?? `{${name}}`);
+};
 
 export type Person = (typeof PEOPLE)[keyof typeof PEOPLE];
 

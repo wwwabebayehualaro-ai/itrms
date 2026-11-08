@@ -17,13 +17,20 @@ import { Button, Card, CardAction, CardContent, CardDescription, CardHeader, Car
 import { useCan } from '@/lib/auth/authHooks';
 import { useAuthStore } from '@/lib/auth/authStore';
 import { formatDateTime } from '@/lib/format';
+import { useText } from '@/lib/preferences';
 import { useApprovalCount } from '@/lib/workspace';
 import { MyTasksWidget } from '@/screens/workflow/MyTasksWidget';
 
-const greeting = (h: number) => (h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening');
+const greetingKey = (h: number) =>
+    h < 12
+        ? 'shell.dashboard.greeting.morning'
+        : h < 18
+          ? 'shell.dashboard.greeting.afternoon'
+          : 'shell.dashboard.greeting.evening';
 
 /** The start page: what waits for the user (requests, approvals), the latest requests and the forms they can start. */
 export function DashboardScreen() {
+    const { t } = useText();
     const user = useAuthStore((s) => s.user);
     const canRead = useCan('submission:read');
     const canStart = useCan('submission:create');
@@ -43,19 +50,21 @@ export function DashboardScreen() {
             <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
                     <h1 className="text-2xl font-semibold">
-                        {greeting(hour)}
-                        {user?.full_name ? `, ${user.full_name.split(' ')[0]}` : ''}
+                        {user?.full_name
+                            ? t('shell.dashboard.greeting.withName', {
+                                  greeting: t(greetingKey(hour)),
+                                  name: user.full_name.split(' ')[0] ?? ''
+                              })
+                            : t(greetingKey(hour))}
                     </h1>
-                    <p className="text-sm text-muted-foreground">
-                        Here is what is going on in your forms and requests.
-                    </p>
+                    <p className="text-sm text-muted-foreground">{t('shell.dashboard.intro')}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                     {canBuild && (
                         <Button asChild variant="outline">
                             <Link href="/dynamic-template/builder">
                                 <LayoutTemplate />
-                                New form
+                                {t('shell.templates.new')}
                             </Link>
                         </Button>
                     )}
@@ -63,7 +72,7 @@ export function DashboardScreen() {
                         <Button asChild>
                             <Link href="/maker/form-intiator">
                                 <FilePlus2 />
-                                Start a request
+                                {t('shell.dashboard.startRequest')}
                             </Link>
                         </Button>
                     )}
@@ -75,27 +84,34 @@ export function DashboardScreen() {
 
             <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
                 <Stat
-                    label="Published forms"
+                    id="published"
+                    label={t('shell.dashboard.stat.published')}
                     icon={FileText}
                     href="/dynamic-template/saved-templates"
                     value={forms.data ? published.length : undefined}
-                    hint={forms.data ? `${forms.data.length} in all` : undefined}
+                    hint={forms.data ? t('shell.dashboard.hint.all', { count: String(forms.data.length) }) : undefined}
                 />
                 {canRead && (
                     <Stat
-                        label="My requests"
+                        id="requests"
+                        label={t('common.label.myRequests')}
                         icon={User}
                         href="/submitted-forms/filter/my-submissions"
                         value={mine.data?.items.length}
-                        hint={mine.data?.next ? 'more than 100, submitted by you' : 'submitted by you'}
+                        hint={
+                            mine.data?.next
+                                ? t('shell.dashboard.hint.moreThanLimit', { count: '100' })
+                                : t('shell.dashboard.hint.mine')
+                        }
                     />
                 )}
                 <Stat
-                    label="Approvals to decide"
+                    id="approvals"
+                    label={t('shell.dashboard.stat.approvals')}
                     icon={CheckSquare}
                     href="/approvals"
                     value={approvals.data}
-                    hint="waiting for your decision"
+                    hint={t('shell.dashboard.hint.waiting')}
                 />
             </div>
 
@@ -103,12 +119,12 @@ export function DashboardScreen() {
                 {canRead && (
                     <Card data-dashboard-latest>
                         <CardHeader>
-                            <CardTitle>My latest requests</CardTitle>
-                            <CardDescription>The newest requests you submitted</CardDescription>
+                            <CardTitle>{t('shell.dashboard.latest.title')}</CardTitle>
+                            <CardDescription>{t('shell.dashboard.latest.intro')}</CardDescription>
                             <CardAction>
                                 <Button asChild variant="ghost" size="sm">
                                     <Link href="/submitted-forms/filter/my-submissions">
-                                        All mine
+                                        {t('shell.dashboard.latest.all')}
                                         <ArrowRight />
                                     </Link>
                                 </Button>
@@ -128,7 +144,7 @@ export function DashboardScreen() {
                                                 <Send className="size-4 shrink-0 text-muted-foreground" />
                                                 <span className="flex min-w-0 flex-1 flex-col">
                                                     <span className="truncate text-sm font-medium">
-                                                        {formName.get(String(s.template_id)) ?? 'Form'}
+                                                        {formName.get(String(s.template_id)) ?? t('common.label.form')}
                                                     </span>
                                                     <span className="truncate text-xs text-muted-foreground">
                                                         {s.handling_unit_name ?? '—'} · {formatDateTime(s.created_at)}
@@ -139,16 +155,18 @@ export function DashboardScreen() {
                                     ))}
                                 </ul>
                             ) : (
-                                <p className="py-6 text-center text-sm text-muted-foreground">No requests yet.</p>
+                                <p className="py-6 text-center text-sm text-muted-foreground">
+                                    {t('shell.dashboard.latest.empty')}
+                                </p>
                             )}
                         </CardContent>
                     </Card>
                 )}
                 <Card data-dashboard-forms>
                     <CardHeader>
-                        <CardTitle>Forms</CardTitle>
+                        <CardTitle>{t('shell.dashboard.forms.title')}</CardTitle>
                         <CardDescription>
-                            {canRead ? 'Open a form to see its requests' : 'The forms you can fill in'}
+                            {canRead ? t('shell.dashboard.forms.introRead') : t('shell.dashboard.forms.introFill')}
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -174,7 +192,9 @@ export function DashboardScreen() {
                                 ))}
                             </ul>
                         ) : (
-                            <p className="py-6 text-center text-sm text-muted-foreground">No published forms yet.</p>
+                            <p className="py-6 text-center text-sm text-muted-foreground">
+                                {t('shell.dashboard.forms.empty')}
+                            </p>
                         )}
                     </CardContent>
                 </Card>
@@ -184,12 +204,15 @@ export function DashboardScreen() {
 }
 
 function Stat({
+    id,
     label,
     icon: Icon,
     href,
     value,
     hint
 }: {
+    /** a stable name for scripts and tests (the label is in the person's language) */
+    id: string;
     label: string;
     icon: LucideIcon;
     href: string;
@@ -200,7 +223,7 @@ function Stat({
         <Link
             href={href}
             className="group rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-            data-stat={label}
+            data-stat={id}
         >
             <Card className="h-full transition-colors group-hover:border-primary/40">
                 <CardHeader>

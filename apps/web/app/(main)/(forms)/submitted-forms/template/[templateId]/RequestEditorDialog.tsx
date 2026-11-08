@@ -5,6 +5,7 @@ import { PublishedFormRenderer, useSubmissionMutations } from '@itrms/form-engin
 
 import { DraftedForm } from '@/form-templates/DraftedForm';
 import type { DraftStart } from '@/lib/drafts';
+import { useText } from '@/lib/preferences';
 
 type Template = Parameters<typeof PublishedFormRenderer>[0]['template'];
 
@@ -18,6 +19,7 @@ interface Props {
 
 /** New request / Edit request in a dialog, for any form. Used by the list of requests and by the record page. */
 export function RequestEditorDialog({ template, editing, onHide, onSaved }: Props) {
+    const { t } = useText();
     const { create, update } = useSubmissionMutations(); // they also refresh every view showing these requests
     const resume = editing && editing !== 'new' && 'resume' in editing ? (editing.resume as DraftStart) : null;
     const existing = editing && editing !== 'new' && !resume ? (editing as IFormSubmission) : null;
@@ -40,7 +42,7 @@ export function RequestEditorDialog({ template, editing, onHide, onSaved }: Prop
                 data-request-editor
             >
                 <DialogHeader>
-                    <DialogTitle>{existing ? 'Edit request' : 'New request'}</DialogTitle>
+                    <DialogTitle>{existing ? t('shell.requests.editTitle') : t('shell.requests.new')}</DialogTitle>
                     <DialogDescription>{template.name}</DialogDescription>
                 </DialogHeader>
                 {editing && !existing && (
@@ -49,7 +51,7 @@ export function RequestEditorDialog({ template, editing, onHide, onSaved }: Prop
                         key={resume ? 'resume' : 'new'}
                         template={template}
                         start={resume ?? undefined}
-                        submitLabel="Submit request"
+                        submitLabel={t('shell.requests.submit')}
                         onFormSubmit={save}
                     />
                 )}
@@ -61,7 +63,7 @@ export function RequestEditorDialog({ template, editing, onHide, onSaved }: Prop
                         template={template}
                         submissionId={existing ? (existing.id as string) : null}
                         initialValues={existing ? existing.submission_data : {}}
-                        submitLabel={existing ? 'Save changes' : 'Submit request'}
+                        submitLabel={existing ? t('shell.requests.saveChanges') : t('shell.requests.submit')}
                         onFormSubmit={save}
                     />
                 )}

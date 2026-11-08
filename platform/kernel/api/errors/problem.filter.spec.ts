@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { testApp } from '../test-app';
 import type { Database } from '../db/database';
 import type { Logger } from '../observability/logger';
+import { ConflictError } from './app-error';
 import { problemOf, ProblemFilter } from './problem.filter';
 
 let app: Awaited<ReturnType<typeof testApp>>;
@@ -210,5 +211,32 @@ describe('database refusals', () => {
         expect(events).toEqual([
             { type: 'access.denied', data: { route: 'POST /api/v1/org-units', reason: 'row_level_security' } }
         ]);
+    });
+});
+
+describe('the detail in the person’s language', () => {
+    const messages = {
+        am: { 'fees.errors.order_settled': 'ትዕዛዝ {number} ተከፍሏል።' },
+        en: { 'fees.errors.order_settled': 'Order {number} is already paid.', 'fees.errors.only_en': 'Only English.' }
+    };
+    const settled = () =>
+        new ConflictError('invalid_transition', {
+            detailKey: 'fees.errors.order_settled',
+            params: { number: 'R-1' },
+            detail: 'fallback'
+        });
+
+    it('takes the detail key from the catalogues, with its placeholders filled', () => {
+        expect(problemOf(settled(), 'am', undefined, messages).detail).toBe('ትዕዛዝ R-1 ተከፍሏል።');
+        expect(problemOf(settled(), 'en', undefined, messages).detail).toBe('Order R-1 is already paid.');
+    });
+
+    it('falls back to Amharic for Wolaytta, then English, then the plain detail', () => {
+        expect(problemOf(settled(), 'wal-Latn', undefined, messages).detail).toBe('ትዕዛዝ R-1 ተከፍሏል።');
+        const onlyEn = new ConflictError('invalid_transition', { detailKey: 'fees.errors.only_en' });
+        expect(problemOf(onlyEn, 'am', undefined, messages).detail).toBe('Only English.');
+        expect(problemOf(settled(), 'am').detail).toBe('fallback');
+        const unknown = new ConflictError('invalid_transition', { detailKey: 'fees.errors.nowhere' });
+        expect(problemOf(unknown, 'am', undefined, messages)).not.toHaveProperty('detail');
     });
 });

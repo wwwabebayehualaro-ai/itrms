@@ -45,7 +45,8 @@ export async function setUpCounter(tx: Tx, setup: CounterSetup): Promise<void> {
         .where(sql`${numberCounters.unitId} = ${setup.unitId} and ${numberCounters.key} = ${setup.key}`);
     if (current && current.period !== '' && hasYear(current.pattern) && !hasYear(setup.pattern))
         throw new ConflictError('invalid_transition', {
-            detail: `Counter ${setup.key} numbers each fiscal year: its pattern keeps {efy}, or numbers would repeat.`
+            detailKey: 'kernel.detail.counter_needs_year',
+            params: { key: setup.key }
         });
     await tx
         .insert(numberCounters)
@@ -124,7 +125,7 @@ export async function nextNumber(tx: Tx, key: string, unitId: string): Promise<I
     } catch (error) {
         if (periodWentBack(error))
             throw new ConflictError('stale_version', {
-                detail: 'The fiscal year just changed. Try again.',
+                detailKey: 'kernel.detail.fiscal_year_changed',
                 cause: error
             });
         throw error;
@@ -132,7 +133,7 @@ export async function nextNumber(tx: Tx, key: string, unitId: string): Promise<I
     const row = result.rows[0];
     if (!row)
         throw new ConflictError('not_configured', {
-            detail: 'This office has no number series for this document yet. Ask the administrator to set it up.'
+            detailKey: 'kernel.detail.no_number_series'
         });
     const value = BigInt(row.last_value);
     const yearly = hasYear(row.pattern);

@@ -272,5 +272,15 @@
   "fees.validation.factInput": "ክፍያ የጉዳዩን መረጃ ገና ማንበብ አይችልም፤ በምትኩ የጥያቄውን መልስ ያንብብ።",
   "fees.validation.needsAnswer": "ያለዚህ መልስ ክፍያውን ማስላት አይቻልም።",
   "fees.validation.notShown": "ክፍያው እስኪታይ ይጠብቁ፤ ከዚያ ጥያቄውን ያስገቡ።",
-  "fees.validation.rejected": "ይህ ይዘት በቀድሞ ስሪት ውድቅ ተደርጓል፤ እንደገና ከመላክዎ በፊት ይቀይሩት።"
+  "fees.validation.rejected": "ይህ ይዘት በቀድሞ ስሪት ውድቅ ተደርጓል፤ እንደገና ከመላክዎ በፊት ይቀይሩት።",
+  "fees.errors.rule_invalid": "የክፍያ ደንቡ ትክክል አይደለም፤ የተዘረዘሩትን ያስተካክሉ።",
+  "fees.errors.rule_key_exists": "በዚህ ቁልፍ የክፍያ ደንብ በክልሉ ውስጥ አስቀድሞ አለ።",
+  "fees.errors.content_rejected": "ይህ ይዘት ተቀባይነት አላገኘም።",
+  "fees.errors.rule_other_decides": "የጻፉትን የክፍያ ደንብ ስሪት የሚወስነው ሌላ ሰው ነው።",
+  "fees.errors.rule_role_cannot_decide": "ሚናዎ በዚህ ክልል የክፍያ ደንቦችን የመወሰን መብት የለውም።",
+  "fees.errors.version_decided": "በዚህ ስሪት ላይ ውሳኔ ተሰጥቷል።",
+  "fees.errors.fee_not_shown": "ክፍያው አልታየም።",
+  "fees.errors.fee_not_computable": "ክፍያው ከእነዚህ መልሶች ሊሰላ አይችልም።",
+  "fees.errors.fee_changed": "ክፍያው አሁን {now} ሳንቲም ነው፤ የታየው {shown} ነበር።",
+  "fees.errors.fee_not_computable_corrected": "ክፍያው ከታረሙት መልሶች ሊሰላ አይችልም።"
 }

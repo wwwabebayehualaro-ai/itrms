@@ -109,10 +109,11 @@ export class DraftsService {
     private async published(tx: Tx, formId: string, versionId: string): Promise<unknown> {
         const [form] = await tx.select().from(formDefinitions).where(eq(formDefinitions.id, formId));
         if (!form) throw new NotFoundError();
-        if (!form.active) throw new ConflictError('invalid_transition', { detail: 'This form takes no submissions.' });
+        if (!form.active)
+            throw new ConflictError('invalid_transition', { detailKey: 'forms.errors.form_no_submissions' });
         if (form.publishedVersionId !== versionId)
             throw new ConflictError('stale_version', {
-                detail: 'Another version of this form is published now: open it again to go on with the draft.'
+                detailKey: 'forms.errors.draft_version_changed'
             });
         return this.version(tx, formId, versionId);
     }

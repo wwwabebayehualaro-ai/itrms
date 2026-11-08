@@ -17,6 +17,7 @@ import { DataViewer, type ViewMode, type ViewRow } from '@itrms/form-engine/view
 import { Button, IconButton, InlineStatus, confirmAction, useNotify } from '@itrms/ui';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { useCan } from '@/lib/auth/authHooks';
+import { useText } from '@/lib/preferences';
 import { RequestEditorDialog } from './RequestEditorDialog';
 import { DraftsList } from '@/form-templates/DraftsList';
 import type { DraftStart } from '@/lib/drafts';
@@ -29,6 +30,7 @@ type Editor = 'new' | { resume: DraftStart } | IFormSubmission | null;
  */
 export default function TemplateSubmissionsPage() {
     const { templateId } = useParams<{ templateId: string }>();
+    const { t } = useText();
     const notify = useNotify();
     const canCreate = useCan('submission:create');
     // a request changes only through its case's workflow (task 0.19)
@@ -50,7 +52,7 @@ export default function TemplateSubmissionsPage() {
                 ? [
                       {
                           id: 'report',
-                          label: 'Report',
+                          label: t('shell.requests.report'),
                           icon: ChartColumn,
                           order: 5,
                           default: true,
@@ -65,7 +67,7 @@ export default function TemplateSubmissionsPage() {
                       }
                   ]
                 : [],
-        [reportTemplate]
+        [reportTemplate, t]
     );
 
     const router = useRouter();
@@ -83,18 +85,18 @@ export default function TemplateSubmissionsPage() {
     const confirmDelete = useCallback(
         (row: IFormSubmission) =>
             confirmAction({
-                header: 'Delete this request?',
-                message: 'This cannot be undone.',
-                acceptLabel: 'Delete',
-                rejectLabel: 'Cancel',
+                header: t('shell.record.delete.title'),
+                message: t('shell.record.delete.message'),
+                acceptLabel: t('common.action.delete'),
+                rejectLabel: t('common.action.cancel'),
                 danger: true,
                 onAccept: async () => {
                     await remove.mutateAsync(row.id as string);
-                    notify.success('Request deleted');
+                    notify.success(t('shell.record.delete.done'));
                     setEditor((cur) => (cur && cur !== 'new' && 'id' in cur && cur.id === row.id ? null : cur));
                 }
             }),
-        [remove, notify]
+        [remove, notify, t]
     );
 
     // View / Edit / Delete buttons of the table report back through a window event
@@ -111,21 +113,23 @@ export default function TemplateSubmissionsPage() {
 
     if (templateLoading) return <InlineStatus loading className="p-6" />;
     if (templateError || !template)
-        return <InlineStatus error={getApiErrorMessage(templateError, 'This form was not found')} className="p-6" />;
+        return (
+            <InlineStatus error={getApiErrorMessage(templateError, t('shell.requests.formNotFound'))} className="p-6" />
+        );
 
     return (
         <div>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <h1 className="text-2xl font-semibold">{template.name}</h1>
                 {canCreate && (
-                    <span title={template.published_version_id ? undefined : 'This form is not published yet'}>
+                    <span title={template.published_version_id ? undefined : t('shell.requests.notPublished')}>
                         <Button
                             type="button"
                             disabled={!template.published_version_id}
                             onClick={() => setEditor('new')}
                         >
                             <Plus />
-                            New request
+                            {t('shell.requests.new')}
                         </Button>
                     </span>
                 )}
@@ -146,17 +150,17 @@ export default function TemplateSubmissionsPage() {
                 templateId={templateId}
                 onOpen={open}
                 customViews={customViews}
-                emptyMessage="No requests yet. Use “New request” to create the first one."
+                emptyMessage={t('shell.requests.empty', { action: t('shell.requests.new') })}
                 rowActions={(row: ViewRow) => (
                     <>
                         {canEdit && (
-                            <IconButton label="Edit" onClick={() => setEditor(row)}>
+                            <IconButton label={t('common.action.edit')} onClick={() => setEditor(row)}>
                                 <Pencil />
                             </IconButton>
                         )}
                         {canDelete && (
                             <IconButton
-                                label="Delete"
+                                label={t('common.action.delete')}
                                 className="text-destructive hover:text-destructive"
                                 onClick={() => confirmDelete(row)}
                             >
