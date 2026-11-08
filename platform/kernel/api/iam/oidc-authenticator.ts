@@ -7,13 +7,16 @@
  *      so a revoked assignment stops working at the next request.
  *   4. The permissions are those the installed modules' manifests give those roles.
  */
+import { createHash } from 'node:crypto';
+
 import type { FastifyRequest } from 'fastify';
 import { sql } from 'drizzle-orm';
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
 
 import type { Principal } from '../context';
 import type { Database } from '../db/database';
-import { ForbiddenError, InvalidRequestError } from '../errors';
+import { ForbiddenError, InvalidRequestError, RateLimitedError } from '../errors';
+import type { RateLimiter } from '../limits/rate-limit';
 import type { Authenticator } from './access';
 import { permissionsOf, type RolePermissions } from './roles';
 
@@ -40,13 +43,18 @@ interface PrincipalRow extends Record<string, unknown> {
     roles: string[];
 }
 
+/** The window refusals of accounts without a role are counted in (follow-up 69). */
+const DENIAL_WINDOW_SECONDS = 600;
+
 export class OidcAuthenticator implements Authenticator {
     private readonly keys: JWTVerifyGetKey;
 
     constructor(
         private readonly database: Database,
         private readonly roles: RolePermissions,
-        private readonly options: OidcOptions
+        private readonly options: OidcOptions,
+        /** counts refusals of realm accounts with no role here (follow-up 69); none: every refusal is recorded */
+        private readonly limiter?: RateLimiter
     ) {
         this.keys =
             options.keys ??
@@ -100,10 +108,7 @@ export class OidcAuthenticator implements Authenticator {
             }
         );
         // signed in, but no role in that unit (or none at all): the refusal records the account and the unit asked for
-        if (!row)
-            throw new ForbiddenError({
-                audit: { reason: 'no_role_in_unit', subject: sub, unit: unitHeader ?? '(default)' }
-            });
+        if (!row) throw await this.refusal(sub, request.ip, unitHeader);
         return {
             userId: row.user_id,
             unitId: row.unit_id,
@@ -113,5 +118,35 @@ export class OidcAuthenticator implements Authenticator {
             permissions: permissionsOf(this.roles, row.roles),
             authAge
         };
+    }
+
+    /**
+     * A signed-in account with no role in the unit asked for. Each refusal is an append-only audit row, and any realm
+     * account can ask on every request: past ten in ten minutes per account (a hundred per address) the refusal is a 429
+     * that writes no row; the tenth row says it was throttled. The account is counted by a hash of its subject, never
+     * the subject itself. A limiter that cannot be reached leaves every refusal recorded.
+     */
+    private async refusal(sub: string, ip: string, unit: string | undefined): Promise<Error> {
+        const audit = { reason: 'no_role_in_unit', subject: sub, unit: unit ?? '(default)' };
+        if (!this.limiter) return new ForbiddenError({ audit });
+        const counters = [
+            { key: `denied:s:${createHash('sha256').update(sub).digest('hex')}`, max: 10 },
+            { key: `denied:ip:${ip}`, max: 100 }
+        ];
+        let throttled = false;
+        try {
+            for (const { key, max } of counters) {
+                const { count, resetsIn } = await this.limiter.hit(key, DENIAL_WINDOW_SECONDS);
+                if (count > max)
+                    return new RateLimitedError(resetsIn, {
+                        detailKey: 'kernel.detail.rate_limited',
+                        params: { seconds: resetsIn }
+                    });
+                if (count === max) throttled = true;
+            }
+        } catch {
+            return new ForbiddenError({ audit });
+        }
+        return new ForbiddenError({ audit: throttled ? { ...audit, throttled: 'true' } : audit });
     }
 }
