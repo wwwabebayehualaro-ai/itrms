@@ -176,7 +176,7 @@ export class FormsService {
         } catch (error) {
             if (isUniqueViolation(error, 'form_definitions_key_uq'))
                 throw new ConflictError('duplicate_reference', {
-                    detail: 'A form with this key already exists in the region.',
+                    detailKey: 'forms.errors.form_key_exists',
                     cause: error
                 });
             throw error;
@@ -314,7 +314,7 @@ export class FormsService {
     async published(tx: Tx, formId: string): Promise<FormVersion> {
         const form = await this.definition(tx, formId);
         if (!form.publishedVersionId)
-            throw new ConflictError('not_configured', { detail: 'This form has not been published yet.' });
+            throw new ConflictError('not_configured', { detailKey: 'forms.errors.form_not_published' });
         return this.version(tx, formId, form.publishedVersionId);
     }
 
@@ -323,7 +323,7 @@ export class FormsService {
         // locked: two requests for one form are made one after the other (version numbers, the open request)
         const form = await this.writable(tx, ctx, formId, { lock: true });
         if (!form.active)
-            throw new ConflictError('invalid_transition', { detail: 'This form is switched off: switch it on first.' });
+            throw new ConflictError('invalid_transition', { detailKey: 'forms.errors.form_switched_off' });
         const [pending] = await tx
             .select({ id: formPublications.id })
             .from(formPublications)
@@ -336,7 +336,7 @@ export class FormsService {
             );
         if (pending)
             throw new ConflictError('invalid_transition', {
-                detail: 'A publication of this form already waits for approval.'
+                detailKey: 'forms.errors.publication_waiting'
             });
         // a form saved under an older contract is checked again before it can go live
         assertReadable(form.document);
@@ -351,7 +351,7 @@ export class FormsService {
         );
         const version = await this.snapshot(tx, form);
         if (version.id === form.publishedVersionId)
-            throw new ConflictError('invalid_transition', { detail: 'This version of the form is already published.' });
+            throw new ConflictError('invalid_transition', { detailKey: 'forms.errors.version_published' });
         try {
             const row = await insertAudited(tx, formPublications, {
                 regionId: form.regionId,
@@ -365,7 +365,7 @@ export class FormsService {
         } catch (error) {
             if (isUniqueViolation(error, 'form_publications_pending_uq'))
                 throw new ConflictError('invalid_transition', {
-                    detail: 'A publication of this form already waits for approval.',
+                    detailKey: 'forms.errors.publication_waiting',
                     cause: error
                 });
             throw error;
@@ -521,7 +521,7 @@ export class FormsService {
         const form = await this.writable(tx, ctx, publication.formId, { lock: true });
         if (!form.active)
             throw new ConflictError('invalid_transition', {
-                detail: 'This form was switched off: reject the request.'
+                detailKey: 'forms.errors.form_switched_off_reject'
             });
         // checked again: the published version may have changed since the request was made
         const candidate = await this.version(tx, form.id, publication.formVersionId);
@@ -583,9 +583,8 @@ export class FormsService {
         const [row] = await tx.select().from(formPublications).where(eq(formPublications.id, id));
         if (!row) throw new NotFoundError();
         if (row.status !== 'pending')
-            throw new ConflictError('invalid_transition', { detail: 'This request was already decided.' });
-        if (row.createdBy !== ctx.userId)
-            throw new ForbiddenError({ detail: 'Only the person who asked can withdraw the request.' });
+            throw new ConflictError('invalid_transition', { detailKey: 'forms.errors.request_decided' });
+        if (row.createdBy !== ctx.userId) throw new ForbiddenError({ detailKey: 'forms.errors.withdraw_only_asker' });
         const withdrawn = await updateAudited(tx, formPublications, id, version, {
             status: 'withdrawn',
             decidedBy: ctx.userId ?? null,
@@ -612,7 +611,7 @@ export class FormsService {
     ): Promise<DefinitionRow> {
         const row = await this.definition(tx, id);
         if (!withinScope(row.orgPath, ctx.scopePath ?? ''))
-            throw new ForbiddenError({ detail: 'This form belongs to an office above yours.' });
+            throw new ForbiddenError({ detailKey: 'forms.errors.form_above_office' });
         if (!options.lock) return row;
         // locked only once it is known to be the caller's (a lock also applies the UPDATE policy)
         const [locked] = await tx.select().from(formDefinitions).where(eq(formDefinitions.id, id)).for('update');
@@ -648,15 +647,15 @@ export class FormsService {
         const [row] = await tx.select().from(formPublications).where(eq(formPublications.id, id));
         if (!row) throw new NotFoundError();
         if (row.status !== 'pending')
-            throw new ConflictError('invalid_transition', { detail: 'This request was already decided.' });
+            throw new ConflictError('invalid_transition', { detailKey: 'forms.errors.request_decided' });
         if (row.createdBy && row.createdBy === ctx.userId)
             throw new ForbiddenError({
-                detail: 'Who asks for a publication cannot approve it: another person decides.',
+                detailKey: 'forms.errors.publication_self_approval',
                 audit: { reason: 'separation_of_duties', publicationId: id }
             });
         if (row.contentBy && row.contentBy === ctx.userId)
             throw new ForbiddenError({
-                detail: 'Who changed the form cannot approve its publication: another person decides.',
+                detailKey: 'forms.errors.publication_author_approval',
                 audit: { reason: 'separation_of_duties', publicationId: id }
             });
         return row;

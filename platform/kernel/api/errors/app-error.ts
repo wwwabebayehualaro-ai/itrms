@@ -8,8 +8,14 @@ export interface FieldError {
 }
 
 export interface AppErrorOptions {
-    /** Shown to the person, in their language; leave it out rather than explain internals. */
+    /** Shown to the person; leave it out rather than explain internals. Prefer `detailKey`, which is in their language. */
     detail?: string;
+    /**
+     * The message catalogue key of the detail (`fees.errors.order_settled`), shown in the person's language with `params`
+     * filled in (`{name}`); `detail` is the text when no catalogue has the key.
+     */
+    detailKey?: string;
+    params?: Readonly<Record<string, string | number>>;
     errors?: FieldError[];
     cause?: unknown;
 }
@@ -17,15 +23,19 @@ export interface AppErrorOptions {
 export abstract class AppError extends Error {
     abstract readonly status: number;
     readonly detail?: string;
+    readonly detailKey?: string;
+    readonly params?: Readonly<Record<string, string | number>>;
     readonly errors?: FieldError[];
 
     constructor(
         readonly code: string,
         options: AppErrorOptions = {}
     ) {
-        super(options.detail ?? code, { cause: options.cause });
+        super(options.detail ?? options.detailKey ?? code, { cause: options.cause });
         this.name = new.target.name;
         this.detail = options.detail;
+        this.detailKey = options.detailKey;
+        this.params = options.params;
         this.errors = options.errors;
     }
 

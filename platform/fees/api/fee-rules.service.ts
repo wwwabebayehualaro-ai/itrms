@@ -75,7 +75,7 @@ export class FeeRulesService {
         const problems = feeRuleProblems(document, language);
         if (problems.length)
             throw new ValidationError('validation_failed', {
-                detail: 'The fee rule is not valid: fix what is listed.',
+                detailKey: 'fees.errors.rule_invalid',
                 errors: problems.map((p) => ({ path: `document.${p.path}`, code: p.code, message: p.message }))
             });
         return document;
@@ -112,7 +112,7 @@ export class FeeRulesService {
         } catch (error) {
             if (isUniqueViolation(error, 'fee_rules_key_uq'))
                 throw new ConflictError('duplicate_reference', {
-                    detail: 'A fee rule with this key already exists in the region.',
+                    detailKey: 'fees.errors.rule_key_exists',
                     cause: error
                 });
             throw error;
@@ -137,7 +137,7 @@ export class FeeRulesService {
             .where(eq(feeRuleApprovals.versionId, version.id));
         if (decided?.decision === 'rejected')
             throw new ValidationError('validation_failed', {
-                detail: 'This content was rejected.',
+                detailKey: 'fees.errors.content_rejected',
                 errors: [
                     {
                         path: 'document',
@@ -193,13 +193,13 @@ export class FeeRulesService {
         if (!version) throw new NotFoundError();
         if (version.createdBy !== null && version.createdBy === ctx.userId)
             throw new ForbiddenError({
-                detail: 'Another person decides a fee rule version you wrote.',
+                detailKey: 'fees.errors.rule_other_decides',
                 audit: { reason: 'fee_rule_self_approval', version: version.id }
             });
         const approvers = await this.settings.value<string[]>(tx, root.id, FEE_APPROVER_ROLES_SETTING);
         if (!roles.some((r) => approvers.includes(r)))
             throw new ForbiddenError({
-                detail: 'Your role does not decide fee rules in this region.',
+                detailKey: 'fees.errors.rule_role_cannot_decide',
                 audit: { reason: 'fee_rule_not_approver', version: version.id }
             });
         try {
@@ -214,7 +214,7 @@ export class FeeRulesService {
         } catch (error) {
             if (isUniqueViolation(error, 'fee_rule_approvals_version_uq'))
                 throw new ConflictError('stale_version', {
-                    detail: 'This version has been decided already.',
+                    detailKey: 'fees.errors.version_decided',
                     cause: error
                 });
             throw error;

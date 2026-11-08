@@ -5,6 +5,7 @@ import { cn } from 'cn';
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import { DayPicker, getDefaultClassNames, type DayButton } from 'react-day-picker';
 
+import { pageLocale } from '../lib/page-locale';
 import { Button, buttonVariants } from './button';
 
 function Calendar({
@@ -20,6 +21,8 @@ function Calendar({
     buttonVariant?: React.ComponentProps<typeof Button>['variant'];
 }) {
     const defaultClassNames = getDefaultClassNames();
+    // month and weekday names in the page's language (Amharic in an Amharic page), not the browser's
+    const locale = pageLocale();
 
     return (
         <DayPicker
@@ -32,7 +35,9 @@ function Calendar({
             )}
             captionLayout={captionLayout}
             formatters={{
-                formatMonthDropdown: (date) => date.toLocaleString('default', { month: 'short' }),
+                formatCaption: (date) => date.toLocaleString(locale, { month: 'long', year: 'numeric' }),
+                formatWeekdayName: (date) => date.toLocaleString(locale, { weekday: 'short' }),
+                formatMonthDropdown: (date) => date.toLocaleString(locale, { month: 'short' }),
                 ...formatters
             }}
             classNames={{

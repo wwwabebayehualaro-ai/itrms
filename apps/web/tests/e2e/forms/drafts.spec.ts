@@ -7,7 +7,7 @@
  */
 import { expect, test, type Page } from '@playwright/test';
 
-import { PEOPLE, api, field, publishedForm, runName, signedIn, switchOff } from './support';
+import { PEOPLE, api, field, publishedForm, runName, shellAm, signedIn, switchOff } from './support';
 
 const FIELDS = [
     field('InputText', 'applicant', 'Applicant', { classification: 'personal' }),
@@ -73,7 +73,7 @@ test('a draft goes on on another PC, survives a dropped network, and goes when i
         // one PC: started, left half-filled
         const first = await signedIn(browser, PEOPLE.filler);
         await first.goto(`/submitted-forms/template/${formId}`);
-        await first.getByRole('button', { name: 'New request' }).click();
+        await first.getByRole('button', { name: shellAm('shell.requests.new') }).click();
         const dialog = first.locator('[data-request-editor]');
         await dialog.getByLabel('Applicant').fill(applicant);
         await dialog.getByLabel('Phone').fill('0911223344');
@@ -98,7 +98,7 @@ test('a draft goes on on another PC, survives a dropped network, and goes when i
         const third = await signedIn(browser, PEOPLE.filler);
         const last = await openDraft(third, formId, applicant);
         await expect(last.getByLabel('Town')).toHaveValue('Boditi');
-        await last.getByRole('button', { name: 'Submit request' }).click();
+        await last.getByRole('button', { name: shellAm('shell.requests.submit') }).click();
         await expect(last).toBeHidden();
         const filed = await api(third).get<{ items: Submission[] }>(`v1/submissions?formId=${formId}&mine=true`);
         // filed with every answer; the list leaves the Sensitive one out and names it (shown below with a reason)

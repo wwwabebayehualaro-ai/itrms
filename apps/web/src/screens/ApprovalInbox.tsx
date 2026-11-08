@@ -14,6 +14,7 @@ import {
 import { useCan } from '@/lib/auth/authHooks';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { formatDateTime } from '@/lib/format';
+import { useText } from '@/lib/preferences';
 import { PublishReview, type PublishCheck } from '@itrms/form-engine/designer';
 import { Alert, AlertDescription, AlertTitle } from '@itrms/ui';
 import { Button } from '@itrms/ui';
@@ -31,6 +32,7 @@ const PAGE_SIZE = 20;
 
 /** The approvals inbox: requests waiting for the user's decision, the user's own requests, and (admins) everything. */
 export function ApprovalInbox() {
+    const { t } = useText();
     // who may decide sees every request of the unit's view
     const canSeeAll = useCan('form:approve');
     const [scope, setScope] = React.useState<ApprovalScope>('to_decide');
@@ -51,10 +53,8 @@ export function ApprovalInbox() {
     return (
         <div className="flex flex-col gap-4" data-slot="screen">
             <div>
-                <h1 className="text-2xl font-semibold">Approvals</h1>
-                <p className="text-muted-foreground text-sm">
-                    Changes that need a second person’s decision. You never decide your own requests.
-                </p>
+                <h1 className="text-2xl font-semibold">{t('shell.approvals.title')}</h1>
+                <p className="text-muted-foreground text-sm">{t('shell.approvals.intro')}</p>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -66,9 +66,9 @@ export function ApprovalInbox() {
                     }}
                 >
                     <TabsList>
-                        <TabsTrigger value="to_decide">To decide</TabsTrigger>
-                        <TabsTrigger value="mine">My requests</TabsTrigger>
-                        {canSeeAll && <TabsTrigger value="all">All</TabsTrigger>}
+                        <TabsTrigger value="to_decide">{t('shell.approvals.tab.toDecide')}</TabsTrigger>
+                        <TabsTrigger value="mine">{t('common.label.myRequests')}</TabsTrigger>
+                        {canSeeAll && <TabsTrigger value="all">{t('shell.approvals.tab.all')}</TabsTrigger>}
                     </TabsList>
                 </Tabs>
                 {scope !== 'to_decide' && (
@@ -79,14 +79,14 @@ export function ApprovalInbox() {
                             setCursors([]);
                         }}
                     >
-                        <SelectTrigger className="w-44" aria-label="Status">
+                        <SelectTrigger className="w-44" aria-label={t('common.label.status')}>
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="pending">Waiting</SelectItem>
-                            <SelectItem value="approved">Approved</SelectItem>
-                            <SelectItem value="rejected">Rejected</SelectItem>
-                            <SelectItem value="cancelled">Withdrawn</SelectItem>
+                            <SelectItem value="pending">{t('shell.approvals.status.pending')}</SelectItem>
+                            <SelectItem value="approved">{t('shell.approvals.status.approved')}</SelectItem>
+                            <SelectItem value="rejected">{t('shell.approvals.status.rejected')}</SelectItem>
+                            <SelectItem value="cancelled">{t('shell.approvals.status.cancelled')}</SelectItem>
                         </SelectContent>
                     </Select>
                 )}
@@ -94,7 +94,7 @@ export function ApprovalInbox() {
 
             {error ? (
                 <Alert variant="destructive">
-                    <AlertTitle>Approvals could not be loaded</AlertTitle>
+                    <AlertTitle>{t('shell.approvals.loadFailed')}</AlertTitle>
                     <AlertDescription>{getApiErrorMessage(error)}</AlertDescription>
                 </Alert>
             ) : (
@@ -103,12 +103,12 @@ export function ApprovalInbox() {
                         <Table aria-busy={isFetching || undefined}>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="pl-6">Request</TableHead>
-                                    <TableHead>Requested by</TableHead>
-                                    <TableHead>When</TableHead>
-                                    <TableHead>Status</TableHead>
+                                    <TableHead className="pl-6">{t('common.label.request')}</TableHead>
+                                    <TableHead>{t('shell.approvals.col.requestedBy')}</TableHead>
+                                    <TableHead>{t('shell.approvals.col.when')}</TableHead>
+                                    <TableHead>{t('common.label.status')}</TableHead>
                                     <TableHead className="pr-6 text-right">
-                                        <span className="sr-only">Open</span>
+                                        <span className="sr-only">{t('common.action.open')}</span>
                                     </TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -132,7 +132,7 @@ export function ApprovalInbox() {
                                             <div className="font-medium">{a.title}</div>
                                             <div className="text-muted-foreground text-xs">{a.policy_title}</div>
                                         </TableCell>
-                                        <TableCell>{a.requested_by_name ?? 'Unknown'}</TableCell>
+                                        <TableCell>{a.requested_by_name ?? t('common.label.unknown')}</TableCell>
                                         <TableCell className="text-muted-foreground">
                                             {formatDateTime(a.created_at)}
                                         </TableCell>
@@ -145,7 +145,7 @@ export function ApprovalInbox() {
                                                 size="sm"
                                                 onClick={(e) => (e.stopPropagation(), setOpenId(a.id))}
                                             >
-                                                {a.can_decide ? 'Review' : 'Open'}
+                                                {a.can_decide ? t('shell.approvals.review') : t('common.action.open')}
                                             </Button>
                                         </TableCell>
                                     </TableRow>
@@ -156,8 +156,8 @@ export function ApprovalInbox() {
                                             <div className="text-muted-foreground flex flex-col items-center gap-2">
                                                 <Inbox className="size-8" aria-hidden />
                                                 {scope === 'to_decide'
-                                                    ? 'Nothing is waiting for your decision.'
-                                                    : 'No requests.'}
+                                                    ? t('shell.approvals.empty.toDecide')
+                                                    : t('shell.approvals.empty.none')}
                                             </div>
                                         </TableCell>
                                     </TableRow>
@@ -170,14 +170,14 @@ export function ApprovalInbox() {
 
             {data && (data.next || page > 1) && (
                 <div className="flex items-center justify-end gap-2 text-sm" data-approvals-pager>
-                    <span className="text-muted-foreground">Page {page}</span>
+                    <span className="text-muted-foreground">{t('shell.approvals.page', { page: String(page) })}</span>
                     <Button
                         variant="outline"
                         size="sm"
                         disabled={page <= 1}
                         onClick={() => setCursors((c) => c.slice(0, -1))}
                     >
-                        Previous
+                        {t('common.action.previous')}
                     </Button>
                     <Button
                         variant="outline"
@@ -188,7 +188,7 @@ export function ApprovalInbox() {
                             if (next) setCursors((c) => [...c, next]);
                         }}
                     >
-                        Next
+                        {t('common.action.next')}
                     </Button>
                 </div>
             )}
@@ -203,15 +203,18 @@ export function ApprovalInbox() {
 }
 
 // `note`, as the API names it: a 422 on it shows on the field
-const decisionSchema = z.object({ note: z.string().max(500, 'At most 500 characters') });
+const decisionSchema = (t: (key: string, values?: Record<string, string>) => string) =>
+    z.object({ note: z.string().max(500, t('common.validation.maxChars', { max: '500' })) });
 
 function ApprovalDetail({ approval: a, onDone }: { approval: Approval; onDone: () => void }) {
+    const { t } = useText();
     const { approve, reject, cancel } = useApprovalActions();
+    const schema = React.useMemo(() => decisionSchema(t), [t]);
     const review = usePublicationReview<PublishCheck>(a.id);
     // which button submitted (a ref: the submit runs before a state update would re-render)
     const action = React.useRef<'approve' | 'reject'>('approve');
     const form = useZodForm({
-        schema: decisionSchema,
+        schema,
         defaultValues: { note: '' },
         // a rejection without a reason comes back as a 422 on `note` and is shown on the field
         onSubmit: async ({ note: comment }) => {
@@ -230,33 +233,35 @@ function ApprovalDetail({ approval: a, onDone }: { approval: Approval; onDone: (
             </SheetHeader>
             <div className="flex flex-col gap-4 px-4 text-sm">
                 <dl className="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-2">
-                    <dt className="text-muted-foreground">Status</dt>
+                    <dt className="text-muted-foreground">{t('common.label.status')}</dt>
                     <dd>
                         <ApprovalStatusTag status={a.status} />
                     </dd>
-                    <dt className="text-muted-foreground">Requested by</dt>
-                    <dd>{a.requested_by_name ?? 'Unknown'}</dd>
-                    <dt className="text-muted-foreground">Requested</dt>
+                    <dt className="text-muted-foreground">{t('shell.approvals.detail.requestedBy')}</dt>
+                    <dd>{a.requested_by_name ?? t('common.label.unknown')}</dd>
+                    <dt className="text-muted-foreground">{t('shell.approvals.detail.requested')}</dt>
                     <dd>{formatDateTime(a.created_at)}</dd>
                     {a.note && (
                         <>
-                            <dt className="text-muted-foreground">Note</dt>
+                            <dt className="text-muted-foreground">{t('shell.approvals.detail.note')}</dt>
                             <dd className="whitespace-pre-wrap">{a.note}</dd>
                         </>
                     )}
                     {a.decided_at && (
                         <>
                             <dt className="text-muted-foreground">
-                                {a.status === 'cancelled' ? 'Withdrawn' : 'Decided by'}
+                                {a.status === 'cancelled'
+                                    ? t('shell.approvals.status.cancelled')
+                                    : t('shell.approvals.detail.decidedBy')}
                             </dt>
                             <dd>
-                                {a.decided_by_name ?? 'Unknown'}, {formatDateTime(a.decided_at)}
+                                {a.decided_by_name ?? t('common.label.unknown')}, {formatDateTime(a.decided_at)}
                             </dd>
                         </>
                     )}
                     {a.comment && (
                         <>
-                            <dt className="text-muted-foreground">Comment</dt>
+                            <dt className="text-muted-foreground">{t('shell.approvals.detail.comment')}</dt>
                             <dd className="whitespace-pre-wrap">{a.comment}</dd>
                         </>
                     )}
@@ -270,8 +275,8 @@ function ApprovalDetail({ approval: a, onDone }: { approval: Approval; onDone: (
                             <form.AppField name="note">
                                 {(f) => (
                                     <f.TextareaField
-                                        label="Comment"
-                                        description="Optional when approving, required when rejecting."
+                                        label={t('shell.approvals.detail.comment')}
+                                        description={t('shell.approvals.decision.hint')}
                                         rows={3}
                                     />
                                 )}
@@ -279,10 +284,10 @@ function ApprovalDetail({ approval: a, onDone }: { approval: Approval; onDone: (
                             <form.AppForm>
                                 <div className="flex gap-2">
                                     <form.SubmitButton onClick={() => (action.current = 'approve')}>
-                                        <Check /> Approve
+                                        <Check /> {t('shell.approvals.decision.approve')}
                                     </form.SubmitButton>
                                     <form.SubmitButton variant="outline" onClick={() => (action.current = 'reject')}>
-                                        <X /> Reject
+                                        <X /> {t('shell.approvals.decision.reject')}
                                     </form.SubmitButton>
                                 </div>
                             </form.AppForm>
@@ -297,7 +302,7 @@ function ApprovalDetail({ approval: a, onDone }: { approval: Approval; onDone: (
                         disabled={cancel.isPending}
                         onClick={() => cancel.mutate({ id: a.id, row_version: a.row_version }, { onSuccess: onDone })}
                     >
-                        <Undo2 /> Withdraw request
+                        <Undo2 /> {t('shell.approvals.decision.withdraw')}
                     </Button>
                 </SheetFooter>
             )}

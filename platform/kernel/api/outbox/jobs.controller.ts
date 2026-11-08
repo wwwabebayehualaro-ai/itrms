@@ -21,7 +21,8 @@ export class JobsController {
     list(@Query('status') status = 'dead') {
         if (!(OUTBOX_STATUSES as readonly string[]).includes(status))
             throw new InvalidRequestError('invalid_query', {
-                detail: `status is one of ${OUTBOX_STATUSES.join(', ')}`
+                detailKey: 'kernel.detail.status_one_of',
+                params: { statuses: OUTBOX_STATUSES.join(', ') }
             });
         return this.db.scoped(requestDbContext(), (tx) =>
             tx

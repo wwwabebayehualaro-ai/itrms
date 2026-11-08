@@ -194,7 +194,7 @@ export class CasesService implements FeeCasePort {
         const userId = required(ctx.userId);
         const def = await this.definition(tx, input.definitionVersionId);
         const start = def.states.find((s) => s.kind === 'start');
-        if (!start) throw new ConflictError('not_configured', { detail: 'The workflow has no start.' });
+        if (!start) throw new ConflictError('not_configured', { detailKey: 'workflow.errors.no_start' });
         const config = caseConfigSchema.parse(input.config ?? {});
         const next = await tx.execute<{ n: string }>(sql`select nextval('workflow.case_number_seq')::text as n`);
         const row = await insertAudited(tx, cases, {
@@ -666,7 +666,11 @@ export class CasesService implements FeeCasePort {
         for (const ref of t.effects ?? []) {
             const key = effectKeyOf(ref);
             const effect = this.effects.get(key);
-            if (!effect) throw new ConflictError('not_configured', { detail: `The effect ${key} is not installed.` });
+            if (!effect)
+                throw new ConflictError('not_configured', {
+                    detailKey: 'workflow.errors.effect_missing',
+                    params: { key }
+                });
             const argument = ref.includes(':') ? ref.slice(ref.indexOf(':') + 1) : undefined;
             const contract = this.effects.contract(key);
             const result = await effect.run({
@@ -759,7 +763,11 @@ export class CasesService implements FeeCasePort {
         language: string
     ): Promise<void> {
         const assignee = state.assignee;
-        if (!assignee) throw new ConflictError('not_configured', { detail: `The step ${state.key} has no assignee.` });
+        if (!assignee)
+            throw new ConflictError('not_configured', {
+                detailKey: 'workflow.errors.step_no_assignee',
+                params: { step: state.key }
+            });
         const chain = await this.chain(tx, row.handlingUnitId);
         const config = caseConfigSchema.safeParse(row.config);
         const assigned = assigneeUnit(assignee.unit, chain, config.success ? config.data.approval_unit : undefined);
@@ -882,7 +890,8 @@ export class CasesService implements FeeCasePort {
         // the request was filed and validated on its form: a gap here is the configuration's, never the actor's to fix
         if (missing.length || invalid.length)
             throw new ConflictError('contract_unmet', {
-                detail: `The effect ${key} cannot run on this request: ${[...missing, ...invalid].join(', ')}.`
+                detailKey: 'workflow.errors.effect_cannot_run',
+                params: { key, fields: [...missing, ...invalid].join(', ') }
             });
         return input;
     }
@@ -962,7 +971,8 @@ export class CasesService implements FeeCasePort {
         const version = await this.forms.stepVersion(tx, wanted.key, wanted.number);
         if (!version)
             throw new ConflictError('not_configured', {
-                detail: `The step form ${state.stepForm ?? ''} is not available.`
+                detailKey: 'workflow.errors.step_form_missing',
+                params: { form: state.stepForm ?? '' }
             });
         const submission = await this.submissions.create(
             tx,
@@ -1412,6 +1422,6 @@ function needsForm(state: WorkflowState, t: WorkflowTransition, to: WorkflowStat
 }
 
 function required(value: string | undefined): string {
-    if (!value) throw new ForbiddenError({ detail: 'This needs a signed-in person in an active unit.' });
+    if (!value) throw new ForbiddenError({ detailKey: 'workflow.errors.needs_active_unit_person' });
     return value;
 }

@@ -33,11 +33,18 @@ import {
     submissionExportSchema,
     type ExportFailure
 } from '../../contracts';
+import en from '../../messages/en.json';
 import { ExportRefused, render } from '../export';
 import { FormsService } from '../forms.service';
 import { submissionExports } from '../forms.table';
 import { SubmissionQueryService } from '../query.service';
 import { SubmissionsService } from '../submissions.service';
+
+/** The stored failure reason is English text: the refusal's catalogue text in English, its params filled in. */
+const englishDetail = (error: AppError): string | undefined => {
+    const text = error.detailKey ? (en as Record<string, string>)[error.detailKey] : undefined;
+    return text?.replace(/\{(\w+)\}/g, (whole, name: string) => String(error.params?.[name] ?? whole));
+};
 
 /** A background export's time in the database, all its statements together. */
 export const BACKGROUND_BUDGET_MS = 120_000;
@@ -218,7 +225,7 @@ export async function runExport(system: SystemDatabase, deps: ExportDeps, export
         await fail(
             refused ?? 'failed',
             refused && error instanceof AppError
-                ? (error.detail ?? error.code)
+                ? (error.detail ?? englishDetail(error) ?? error.code)
                 : 'The export could not be made: ask for it again.'
         ).catch(() => undefined);
         if (!refused) throw error;

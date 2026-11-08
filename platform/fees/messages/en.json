@@ -272,5 +272,15 @@
   "fees.validation.factInput": "A fee may not read a fact of the case yet: read an answer of the request instead.",
   "fees.validation.needsAnswer": "The fee cannot be worked out without this answer.",
   "fees.validation.notShown": "Wait until the fee is shown, then file the request.",
-  "fees.validation.rejected": "This content was rejected as an earlier version: change it before sending it again."
+  "fees.validation.rejected": "This content was rejected as an earlier version: change it before sending it again.",
+  "fees.errors.rule_invalid": "The fee rule is not valid: fix what is listed.",
+  "fees.errors.rule_key_exists": "A fee rule with this key already exists in the region.",
+  "fees.errors.content_rejected": "This content was rejected.",
+  "fees.errors.rule_other_decides": "Another person decides a fee rule version you wrote.",
+  "fees.errors.rule_role_cannot_decide": "Your role does not decide fee rules in this region.",
+  "fees.errors.version_decided": "This version has been decided already.",
+  "fees.errors.fee_not_shown": "The fee was not shown.",
+  "fees.errors.fee_not_computable": "The fee cannot be worked out from these answers.",
+  "fees.errors.fee_changed": "The fee is now {now} santim, not the {shown} shown.",
+  "fees.errors.fee_not_computable_corrected": "The fee cannot be worked out from the corrected answers."
 }

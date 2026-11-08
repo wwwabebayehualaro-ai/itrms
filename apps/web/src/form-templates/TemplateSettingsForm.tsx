@@ -4,21 +4,40 @@
  * A form's own settings (not its fields): name, category, active; the form key and version are shown, not changed. The fields are edited in the
  * builder; saving here keeps them as they are.
  */
+import { useMemo } from 'react';
 import { z } from 'zod';
 import { ZodForm, useNotify, useZodForm } from '@itrms/ui';
 import { useFormsLanguages, useTemplateMutations } from '@itrms/form-engine/renderer';
 import { LANGUAGE_ENDONYMS } from '@itrms/schemas';
+import { useText } from '@/lib/preferences';
 import type { IFormTemplate } from '@/types/template_builder/form';
 
-const schema = z.object({
-    // the forms API's limit; Amharic and English are required, the other languages optional
-    names: z.record(z.string(), z.string().trim().max(200, 'At most 200 characters')).superRefine((names, ctx) => {
-        for (const required of ['am', 'en'])
-            if (!names[required]) ctx.addIssue({ code: 'custom', path: [required], message: 'A form needs a name' });
-    }),
-    category: z.string().trim().max(100, 'At most 100 characters'),
-    is_active: z.boolean()
-});
+const formSchema = (t: (key: string, values?: Record<string, string>) => string) =>
+    z.object({
+        // the forms API's limit; Amharic and English are required, the other languages optional
+        names: z
+            .record(
+                z.string(),
+                z
+                    .string()
+                    .trim()
+                    .max(200, t('common.validation.maxChars', { max: '200' }))
+            )
+            .superRefine((names, ctx) => {
+                for (const required of ['am', 'en'])
+                    if (!names[required])
+                        ctx.addIssue({
+                            code: 'custom',
+                            path: [required],
+                            message: t('shell.templates.settingsForm.nameRequired')
+                        });
+            }),
+        category: z
+            .string()
+            .trim()
+            .max(100, t('common.validation.maxChars', { max: '100' })),
+        is_active: z.boolean()
+    });
 
 const changed = (a: Record<string, string>, b: Record<string, string | undefined>) => {
     const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
@@ -26,7 +45,9 @@ const changed = (a: Record<string, string>, b: Record<string, string | undefined
 };
 
 export function TemplateSettingsForm({ template, onSaved }: { template: IFormTemplate; onSaved: () => void }) {
+    const { t } = useText();
     const notify = useNotify();
+    const schema = useMemo(() => formSchema(t), [t]);
     const { update } = useTemplateMutations();
     const { languages } = useFormsLanguages();
     const stored = template.names ?? { am: template.name, en: template.name };
@@ -55,7 +76,7 @@ export function TemplateSettingsForm({ template, onSaved }: { template: IFormTem
                     ...(template.row_version !== undefined && { row_version: template.row_version })
                 } as Partial<IFormTemplate>
             });
-            notify.success('Form settings saved');
+            notify.success(t('shell.templates.settingsForm.saved'));
             onSaved();
         }
     });
@@ -68,35 +89,42 @@ export function TemplateSettingsForm({ template, onSaved }: { template: IFormTem
                         <form.AppField key={l} name={`names.${l}`}>
                             {(f) => (
                                 <f.TextField
-                                    label={`Name (${LANGUAGE_ENDONYMS[l as keyof typeof LANGUAGE_ENDONYMS] ?? l})`}
-                                    description={l === 'am' ? 'What people see in the list of forms.' : undefined}
+                                    label={t('shell.templates.settingsForm.nameLabel', {
+                                        language: LANGUAGE_ENDONYMS[l as keyof typeof LANGUAGE_ENDONYMS] ?? l
+                                    })}
+                                    description={l === 'am' ? t('shell.templates.settingsForm.nameHint') : undefined}
                                     maxLength={200}
                                 />
                             )}
                         </form.AppField>
                     ))}
                     <form.AppField name="category">
-                        {(f) => <f.TextField label="Category" maxLength={100} />}
+                        {(f) => <f.TextField label={t('shell.templates.settingsForm.category')} maxLength={100} />}
                     </form.AppField>
                 </div>
                 <form.AppField name="is_active">
-                    {(f) => <f.SwitchField label="Active" description="An inactive form cannot be filled in." />}
+                    {(f) => (
+                        <f.SwitchField
+                            label={t('shell.templates.settingsForm.active')}
+                            description={t('shell.templates.settingsForm.activeHint')}
+                        />
+                    )}
                 </form.AppField>
 
                 <dl className="grid gap-2 text-sm sm:grid-cols-2">
                     <div>
-                        <dt className="text-muted-foreground">Form key</dt>
+                        <dt className="text-muted-foreground">{t('shell.templates.settingsForm.key')}</dt>
                         <dd className="font-mono">{template.slug}</dd>
                     </div>
                     <div>
-                        <dt className="text-muted-foreground">Version</dt>
+                        <dt className="text-muted-foreground">{t('shell.templates.settingsForm.version')}</dt>
                         <dd>{template.version}</dd>
                     </div>
                 </dl>
 
                 <div className="flex justify-end gap-2">
                     <form.AppForm>
-                        <form.SubmitButton>Save settings</form.SubmitButton>
+                        <form.SubmitButton>{t('shell.templates.settingsForm.save')}</form.SubmitButton>
                     </form.AppForm>
                 </div>
             </ZodForm>

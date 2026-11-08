@@ -158,8 +158,7 @@ const MAX_CONCURRENT_EXPORTS = 2;
 let running = 0;
 
 export async function rendering<T>(work: () => Promise<T>): Promise<T> {
-    if (running >= MAX_CONCURRENT_EXPORTS)
-        throw new RateLimitedError(5, { detail: 'Other exports are being prepared: try again in a few seconds.' });
+    if (running >= MAX_CONCURRENT_EXPORTS) throw new RateLimitedError(5, { detailKey: 'forms.errors.exports_busy' });
     running += 1;
     try {
         return await work();

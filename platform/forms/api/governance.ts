@@ -101,7 +101,7 @@ export function assertKeysStable(published: unknown, candidate: unknown, languag
     const problems = keyProblems(published, candidate);
     if (problems.length)
         throw new ValidationError('validation_failed', {
-            detail: 'The form drops, retypes or moves a field that was already published: mark it removed instead.',
+            detailKey: 'forms.errors.form_breaks_published',
             errors: problems.map((p) => ({
                 path: `document.${p.path}`,
                 code: 'key_stability',
@@ -182,7 +182,7 @@ export async function assertPublishable(
     });
     if (errors.length === 0 && failed.length === 0) return check;
     throw new ValidationError('validation_failed', {
-        detail: 'The form cannot be published: fix what is listed.',
+        detailKey: 'forms.errors.form_cannot_publish',
         errors: [
             ...errors.map((p) => ({
                 path: p.path,

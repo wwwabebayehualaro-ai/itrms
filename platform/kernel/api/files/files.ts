@@ -93,7 +93,7 @@ export async function beginUpload(
     input: FileUploadRequest
 ): Promise<UploadTicket> {
     if (!ctx.userId || !ctx.unitId || !ctx.regionId)
-        throw new ForbiddenError({ detail: 'Choose the office you act for.' });
+        throw new ForbiddenError({ detailKey: 'kernel.detail.choose_office' });
     // one person's begins one at a time: two at once cannot both pass the quota
     await tx.execute(sql`select pg_advisory_xact_lock(${QUOTA_LOCK}, hashtext(${ctx.userId}))`);
     const [waiting] = await tx
@@ -110,7 +110,7 @@ export async function beginUpload(
         Number(today?.bytes ?? 0) + input.size > DAILY_QUOTA_BYTES
     )
         throw new RateLimitedError(PENDING_HOURS * 3600, {
-            detail: 'Too many uploads are waiting, or too much was uploaded today: finish the ones waiting first.'
+            detailKey: 'kernel.detail.upload_quota'
         });
 
     const id = newId();
@@ -159,7 +159,7 @@ export async function getFile(tx: Tx, id: string): Promise<FileRow> {
 }
 
 const still = (row: FileRow) =>
-    new ConflictError('stale_version', { detail: `The upload ${row.id} changed meanwhile: confirm it again.` });
+    new ConflictError('stale_version', { detailKey: 'kernel.detail.upload_changed', params: { id: row.id } });
 
 /**
  * Checks an upload and stores it. The confirmation first claims the upload (`checking`, on the version read), so a
@@ -176,12 +176,12 @@ export async function confirmUpload(
     parts?: { partNumber: number; etag: string }[]
 ): Promise<StoredFile> {
     const read = await db.scoped(ctx, (tx) => getFile(tx, id));
-    if (read.createdBy !== ctx.userId) throw new ForbiddenError({ detail: 'Only who uploaded a file confirms it.' });
+    if (read.createdBy !== ctx.userId) throw new ForbiddenError({ detailKey: 'kernel.detail.upload_confirm_owner' });
     if (read.status === 'stored') return fileOut(read);
     if (read.status === 'checking')
-        throw new ConflictError('invalid_transition', { detail: 'This upload is being checked: ask again shortly.' });
+        throw new ConflictError('invalid_transition', { detailKey: 'kernel.detail.upload_checking' });
     if (read.status !== 'pending' || (read.expiresAt && read.expiresAt.getTime() <= Date.now()))
-        throw new ConflictError('invalid_transition', { detail: 'This upload was refused or has expired.' });
+        throw new ConflictError('invalid_transition', { detailKey: 'kernel.detail.upload_refused' });
     const row = await db.scoped(ctx, (tx) => updateAudited(tx, files, id, read.rowVersion, { status: 'checking' }));
     let outcome = false;
     try {
@@ -227,14 +227,14 @@ async function checkAndStore(
         } catch (error) {
             if (!(error instanceof ObjectStoreRefusal)) throw error;
             if (error.kind === 'missing')
-                throw new ConflictError('invalid_transition', { detail: 'This upload is no longer open.' });
+                throw new ConflictError('invalid_transition', { detailKey: 'kernel.detail.upload_closed' });
             throw new ValidationError('validation_failed', {
                 errors: [{ path: 'parts', code: 'custom', message: 'the parts do not match the upload' }]
             });
         }
     }
     if (!(await store.head(row.objectKey)))
-        throw new ConflictError('invalid_transition', { detail: 'Nothing was uploaded for this file yet.' });
+        throw new ConflictError('invalid_transition', { detailKey: 'kernel.detail.upload_empty' });
 
     // out of quarantine first: the copy is what is checked and kept, and no URL handed out can reach it
     const key = storedKey(row.regionId, row.id);
@@ -323,7 +323,7 @@ export async function putGeneratedObject(
     file: { contentType: GeneratedFileType; body: Uint8Array }
 ): Promise<GeneratedObject> {
     if (file.body.byteLength < 1 || file.body.byteLength > MAX_GENERATED_BYTES)
-        throw new ValidationError('validation_failed', { detail: 'The file is empty or too large to keep.' });
+        throw new ValidationError('validation_failed', { detailKey: 'kernel.detail.file_size' });
     const id = newId();
     const key = storedKey(regionId, id);
     await store.put({ key, body: file.body, contentType: file.contentType });
@@ -356,7 +356,7 @@ export async function recordGeneratedFile(
         link?: { table: string; id: string };
     }
 ): Promise<StoredFile> {
-    if (!ctx.unitId || !ctx.regionId) throw new ForbiddenError({ detail: 'Choose the office you act for.' });
+    if (!ctx.unitId || !ctx.regionId) throw new ForbiddenError({ detailKey: 'kernel.detail.choose_office' });
     if (!object.key.startsWith(`files/${ctx.regionId}/`)) throw new ForbiddenError();
     const row = await insertAudited(tx, files, {
         id: object.id,
@@ -412,12 +412,12 @@ export async function linkFile(
 ): Promise<StoredFile> {
     const row = await getFile(tx, id);
     if (row.status !== 'stored')
-        throw new ConflictError('invalid_transition', { detail: 'Only a confirmed upload can be attached.' });
+        throw new ConflictError('invalid_transition', { detailKey: 'kernel.detail.attach_unconfirmed' });
     // past its week the purge may already be removing it: a record never gets a file that is going
     if (row.expiresAt && row.expiresAt.getTime() <= Date.now())
-        throw new ConflictError('invalid_transition', { detail: 'This upload has expired: upload it again.' });
+        throw new ConflictError('invalid_transition', { detailKey: 'kernel.detail.upload_expired' });
     if (row.linkedId && (row.linkedId !== to.id || row.linkedTable !== to.table))
-        throw new ConflictError('invalid_transition', { detail: 'This file is attached to another record.' });
+        throw new ConflictError('invalid_transition', { detailKey: 'kernel.detail.file_attached_elsewhere' });
     const linked = await updateAudited(tx, files, id, row.rowVersion, {
         linkedTable: to.table,
         linkedId: to.id,

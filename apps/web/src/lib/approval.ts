@@ -7,6 +7,7 @@
  */
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import client from './api/client';
+import { useText } from './preferences';
 import { useAuthStore } from './auth/authStore';
 import { createKeys } from './query/keys';
 
@@ -75,16 +76,18 @@ const STATUS_ON_WIRE: Record<ApprovalStatus, Publication['status']> = {
     cancelled: 'withdrawn'
 };
 
-const nameIn = (text: Record<string, string>) => {
-    const lang = typeof document === 'undefined' ? 'en' : document.documentElement.lang || 'en';
-    return text[lang] ?? text.en ?? Object.values(text)[0] ?? '';
-};
+/** The words an approval shows that are not the server's: the person's language (the shell's catalogue). */
+interface ApprovalWords {
+    t: (key: string, values?: Record<string, string>) => string;
+    /** a data name (I18nText) in the person's language */
+    text: (value: Record<string, string>) => string;
+}
 
-export function approvalOf(p: Publication): Approval {
+export function approvalOf(p: Publication, { t, text }: ApprovalWords): Approval {
     return {
         id: p.id,
-        title: `Publish “${nameIn(p.formName)}” (version ${p.formVersion.number})`,
-        policy_title: 'Publishing a form',
+        title: t('shell.approvals.publishTitle', { name: text(p.formName), version: String(p.formVersion.number) }),
+        policy_title: t('shell.approvals.policyTitle'),
         form_id: p.formId,
         status: p.status === 'withdrawn' ? 'cancelled' : p.status,
         note: p.note,
@@ -115,9 +118,10 @@ const SCOPE_ON_WIRE: Record<ApprovalScope, 'all' | 'mine' | 'decidable'> = {
  */
 export function useApprovals(params: ApprovalListParams) {
     const me = useAuthStore((s) => s.user?.id);
+    const { t, text } = useText();
     return useQuery({
         queryKey: approvalKeys.list({ ...params, me }),
-        queryFn: async ({ signal }): Promise<ApprovalPage> => {
+        queryFn: async ({ signal }) => {
             const status = params.scope === 'to_decide' ? 'pending' : (params.status ?? 'pending');
             const page = (
                 await client.get<{ items: Publication[]; next: string | null }>(BASE, {
@@ -131,8 +135,9 @@ export function useApprovals(params: ApprovalListParams) {
                     signal
                 })
             ).data;
-            return { items: page.items.map(approvalOf), next: page.next };
+            return page;
         },
+        select: (page): ApprovalPage => ({ items: page.items.map((p) => approvalOf(p, { t, text })), next: page.next }),
         placeholderData: keepPreviousData
     });
 }
@@ -164,27 +169,29 @@ const ifMatch = (version: number) => ({ headers: { 'if-match': `"${version}"` } 
  */
 export function useApprovalActions() {
     const qc = useQueryClient();
+    const { t, text } = useText();
+    const words = { t, text };
     const settle = () => qc.invalidateQueries();
     const decide = async (path: string, row_version: number, body: object) =>
-        approvalOf((await client.post<Publication>(`${BASE}/${path}`, body, ifMatch(row_version))).data);
+        approvalOf((await client.post<Publication>(`${BASE}/${path}`, body, ifMatch(row_version))).data, words);
     const approve = useMutation({
         mutationFn: ({ id, comment, row_version }: { id: string; comment?: string; row_version: number }) =>
             decide(`${id}/approval`, row_version, comment?.trim() ? { note: comment.trim() } : {}),
         onSuccess: settle,
-        meta: { errorMessage: 'Could not approve the request' }
+        meta: { errorMessage: t('shell.approvals.error.approve') }
     });
     // the reason travels as the API's `note`; a rejection without one comes back as a 422 on it
     const reject = useMutation({
         mutationFn: ({ id, comment, row_version }: { id: string; comment: string; row_version: number }) =>
             decide(`${id}/rejection`, row_version, { note: comment.trim() }),
         onSuccess: settle,
-        meta: { errorMessage: 'Could not reject the request' }
+        meta: { errorMessage: t('shell.approvals.error.reject') }
     });
     const cancel = useMutation({
         mutationFn: ({ id, row_version }: { id: string; row_version: number }) =>
             decide(`${id}/withdrawal`, row_version, {}),
         onSuccess: settle,
-        meta: { errorMessage: 'Could not withdraw the request' }
+        meta: { errorMessage: t('shell.approvals.error.withdraw') }
     });
     return { approve, reject, cancel };
 }

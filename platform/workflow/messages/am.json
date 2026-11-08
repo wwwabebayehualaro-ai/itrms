@@ -190,5 +190,15 @@
   "workflow.audit.unnamed": "ስሙ የማይታይ ሰው",
   "workflow.audit.eventCode": "ክስተት፦",
   "workflow.audit.events.case_audit_read": "የኦዲት መዝገቡን አነበበ",
-  "workflow.audit.truncated": "የቅርብ ጊዜዎቹ {count} ብቻ ይታያሉ፤ የቀደሙት በኦዲት መዝገቡ ውስጥ አሉ።"
+  "workflow.audit.truncated": "የቅርብ ጊዜዎቹ {count} ብቻ ይታያሉ፤ የቀደሙት በኦዲት መዝገቡ ውስጥ አሉ።",
+  "workflow.errors.no_start": "የሥራ ፍሰቱ መነሻ የለውም።",
+  "workflow.errors.effect_missing": "ተግባር {key} አልተጫነም።",
+  "workflow.errors.step_no_assignee": "ደረጃ {step} የተመደበለት ሰው የለውም።",
+  "workflow.errors.effect_cannot_run": "ተግባር {key} በዚህ ጥያቄ ላይ መሥራት አይችልም፦ {fields}።",
+  "workflow.errors.step_form_missing": "የደረጃው ቅጽ {form} የለም።",
+  "workflow.errors.needs_active_unit_person": "ይህ በንቁ ጽ/ቤት ውስጥ የገባ ሰው ይፈልጋል።",
+  "workflow.errors.needs_active_unit": "ይህ ንቁ ጽ/ቤት ይፈልጋል።",
+  "workflow.errors.definition_invalid": "የሥራ ፍሰቱ ትክክል አይደለም፤ የተዘረዘሩትን ያስተካክሉ።",
+  "workflow.errors.definition_key_exists": "በዚህ ቁልፍ የሥራ ፍሰት በክልሉ ውስጥ አስቀድሞ አለ።",
+  "workflow.errors.definition_above_office": "ይህ የሥራ ፍሰት የእርስዎ ከሚበልጥ ጽ/ቤት ነው።"
 }

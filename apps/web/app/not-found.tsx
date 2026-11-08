@@ -1,14 +1,16 @@
 import { FileQuestion } from 'lucide-react';
+import { getTranslations } from 'next-intl/server';
 import { StatusScreen } from './(full-page)/StatusScreen';
 
 /** The app's 404 page (any unknown URL). */
-export default function NotFound() {
+export default async function NotFound() {
+    const t = await getTranslations();
     return (
         <StatusScreen
             icon={FileQuestion}
             code="404"
-            title="Page not found"
-            message="This page does not exist or was moved. Check the address, or start again from the dashboard."
+            title={t('shell.status.notFound.title')}
+            message={t('shell.status.notFound.message')}
         />
     );
 }

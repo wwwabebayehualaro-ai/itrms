@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
 import { ArrowLeft } from 'lucide-react';
+import { getTranslations } from 'next-intl/server';
 import { Button } from '@itrms/ui';
 
 /** A full-page message outside the app frame (access denied, error, not found) with a way back. */
-export function StatusScreen({
+export async function StatusScreen({
     icon: Icon,
     code,
     title,
@@ -17,6 +18,7 @@ export function StatusScreen({
     message: string;
     children?: React.ReactNode;
 }) {
+    const t = await getTranslations();
     return (
         <main className="flex min-h-screen items-center justify-center bg-background p-6" data-status-screen>
             <div className="flex max-w-md flex-col items-center gap-4 text-center">
@@ -31,7 +33,7 @@ export function StatusScreen({
                     <Button asChild>
                         <Link href="/">
                             <ArrowLeft />
-                            Go to the dashboard
+                            {t('shell.status.dashboard')}
                         </Link>
                     </Button>
                 </div>

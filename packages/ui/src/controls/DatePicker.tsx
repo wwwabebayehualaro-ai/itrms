@@ -6,6 +6,7 @@ import { Button } from '../primitives/button';
 import { Calendar } from '../primitives/calendar';
 import { Input } from '../primitives/input';
 import { Popover, PopoverContent, PopoverTrigger } from '../primitives/popover';
+import { pageLocale } from '../lib/page-locale';
 import { cn } from '../lib/utils';
 
 export interface DatePickerProps {
@@ -26,13 +27,15 @@ export interface DatePickerProps {
     className?: string;
     /** The time input's accessible name (default "Time"). */
     timeLabel?: string;
+    /** The Clear button's text (default "Clear"); callers pass their catalogue's. */
+    clearLabel?: string;
     onOpenChange?: (open: boolean) => void;
 }
 
 const localLabel = (d: Date, withTime?: boolean) =>
     withTime
-        ? d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-        : d.toLocaleDateString(undefined, { dateStyle: 'medium' });
+        ? d.toLocaleString(pageLocale(), { dateStyle: 'medium', timeStyle: 'short' })
+        : d.toLocaleDateString(pageLocale(), { dateStyle: 'medium' });
 
 /** A date (and optional time) in a popover calendar with month/year dropdowns and a Clear button. */
 export function DatePicker({
@@ -41,6 +44,7 @@ export function DatePicker({
     id,
     placeholder = 'Pick a date',
     timeLabel = 'Time',
+    clearLabel = 'Clear',
     withTime,
     min,
     max,
@@ -122,7 +126,7 @@ export function DatePicker({
                         onClick={() => onChange(null)}
                         disabled={!date}
                     >
-                        Clear
+                        {clearLabel}
                     </Button>
                 </div>
             </PopoverContent>

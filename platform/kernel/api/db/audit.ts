@@ -163,7 +163,8 @@ async function lockCurrent<T extends BaseTable>(tx: Tx, table: T, id: string, ex
     if (!current) throw new NotFoundError();
     if (current.rowVersion !== expectedVersion)
         throw new ConflictError('stale_version', {
-            detail: `Version ${expectedVersion} was changed; the current version is ${String(current.rowVersion)}.`
+            detailKey: 'kernel.detail.version_changed_current',
+            params: { expected: String(expectedVersion), current: String(current.rowVersion) }
         });
     return current;
 }

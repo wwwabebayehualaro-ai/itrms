@@ -110,5 +110,11 @@
   "services.override.rule.handling": "The office handling the case",
   "services.override.rule.parent": "The office above it",
   "services.override.rule.region": "The regional bureau",
-  "services.override.rule.level": "The office of level {level} above it"
+  "services.override.rule.level": "The office of level {level} above it",
+  "services.errors.not_service_code": "Not a service code.",
+  "services.errors.not_configured_yet": "{code} is not configured yet.",
+  "services.errors.policy_refuses": "The service's policy does not let this office change {keys}.",
+  "services.errors.not_offered": "{code} is not offered by this office.",
+  "services.errors.no_fee_now": "The service charges no fee now.",
+  "services.errors.version_changed": "Version {expected} was changed; read it again."
 }

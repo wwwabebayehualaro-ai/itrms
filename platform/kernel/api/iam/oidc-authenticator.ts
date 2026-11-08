@@ -87,7 +87,7 @@ export class OidcAuthenticator implements Authenticator {
 
         const unitHeader = request.headers['x-org-unit'];
         if (unitHeader !== undefined && (typeof unitHeader !== 'string' || !UUID.test(unitHeader)))
-            throw new InvalidRequestError('invalid_request', { detail: 'X-Org-Unit must be a unit id.' });
+            throw new InvalidRequestError('invalid_request', { detailKey: 'kernel.detail.org_unit_header' });
 
         const [row] = await this.database.scoped({ requestId: request.id, ip: request.ip }, async (tx) => {
             const result = await tx.execute<PrincipalRow>(

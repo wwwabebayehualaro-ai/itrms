@@ -46,7 +46,8 @@ export class ExportsService {
             );
         if ((pending?.n ?? 0) >= MAX_PENDING_EXPORTS)
             throw new RateLimitedError(30, {
-                detail: `You have ${MAX_PENDING_EXPORTS} exports being made: wait for one to finish.`
+                detailKey: 'forms.errors.exports_pending',
+                params: { max: MAX_PENDING_EXPORTS }
             });
         const row = await insertAudited(tx, submissionExports, {
             regionId: required(ctx.regionId),

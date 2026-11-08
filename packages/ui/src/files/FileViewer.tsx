@@ -3,7 +3,21 @@
 import { Download, FileQuestion } from 'lucide-react';
 import { Button } from '../primitives/button';
 import { saveBlob } from '../lib/download';
-import PdfViewer from './PdfViewer';
+import PdfViewer, { type PdfViewerLabels } from './PdfViewer';
+
+export interface FileViewerLabels {
+    empty: string;
+    download: string;
+    cannotShow: string;
+    pdf?: Partial<PdfViewerLabels>;
+}
+
+// The design system carries no catalogue of its own: the app passes translated labels (task 0.13); these are the fallback.
+const DEFAULT_LABELS: FileViewerLabels = {
+    empty: 'No file to show',
+    download: 'Download',
+    cannotShow: 'This file cannot be shown here. Download it to open it.'
+};
 
 /** Bytes of raw (or URL-safe) base64; empty when it cannot be read. */
 function bytesOf(base64: string): Uint8Array {
@@ -33,12 +47,15 @@ const sniff = (b: Uint8Array): { type: string; ext: string } | null => {
 export default function FileViewer({
     file,
     identifier,
-    contentType
+    contentType,
+    labels
 }: {
     file?: string | null;
     identifier: string;
     contentType?: string;
+    labels?: Partial<FileViewerLabels>;
 }) {
+    const t = { ...DEFAULT_LABELS, ...labels };
     const bytes = file ? bytesOf(file) : new Uint8Array();
     const kind = sniff(bytes) ?? (contentType ? { type: contentType, ext: contentType.split('/')[1] ?? 'bin' } : null);
     const download = () =>
@@ -50,7 +67,7 @@ export default function FileViewer({
         return (
             <div className="flex flex-col items-center gap-2 p-6 text-sm text-muted-foreground">
                 <FileQuestion className="size-8" />
-                No file to show
+                {t.empty}
             </div>
         );
     return (
@@ -58,12 +75,12 @@ export default function FileViewer({
             <div className="flex justify-end">
                 <Button type="button" variant="outline" size="sm" onClick={download}>
                     <Download />
-                    Download
+                    {t.download}
                 </Button>
             </div>
             {kind?.type === 'application/pdf' ? (
                 <div className="h-[70vh] overflow-hidden rounded-md border">
-                    <PdfViewer base64={file} />
+                    <PdfViewer base64={file} labels={t.pdf} />
                 </div>
             ) : kind?.type.startsWith('image/') ? (
                 <img
@@ -72,9 +89,7 @@ export default function FileViewer({
                     className="mx-auto max-h-[70vh] max-w-full rounded-md object-contain"
                 />
             ) : (
-                <p className="text-center text-sm text-muted-foreground">
-                    This file cannot be shown here. Download it to open it.
-                </p>
+                <p className="text-center text-sm text-muted-foreground">{t.cannotShow}</p>
             )}
         </div>
     );

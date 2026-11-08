@@ -12,10 +12,14 @@ import { ZodError } from 'zod';
 
 import am from '../../messages/am.json';
 import en from '../../messages/en.json';
+import { fallbackChain } from '@itrms/schemas';
+
 import { currentContext, languageFrom, requestIdFrom, type Language } from '../context';
 import type { Database } from '../db/database';
 import { DATABASE, LOGGER } from '../observability/tokens';
 import type { Logger } from '../observability/logger';
+import { SHELL, type Shell } from '../iam/shell';
+import type { Catalogues } from '../iam/menu';
 import { AppError, ForbiddenError, RateLimitedError, StepUpRequiredError, type FieldError } from './app-error';
 
 export interface Problem {
@@ -35,6 +39,23 @@ const titleOf = (code: string, language: Language) => {
     const key = `kernel.errors.${code}`;
     return CATALOGUES[language]?.[key] ?? en[key as keyof typeof en] ?? key;
 };
+
+/**
+ * An AppError's detail in the person's language: its `detailKey` from the installed slices' catalogues (the language,
+ * then its fallbacks, then English), with `{name}` placeholders filled from `params`; else its plain `detail`.
+ */
+function detailOf(error: AppError, language: Language, messages: Catalogues): string | undefined {
+    if (error.detailKey) {
+        for (const lang of [...fallbackChain(language), 'en']) {
+            const text = messages[lang]?.[error.detailKey];
+            if (text)
+                return text.replace(/\{(\w+)\}/g, (whole, name: string) =>
+                    error.params && name in error.params ? String(error.params[name]) : whole
+                );
+        }
+    }
+    return error.detail;
+}
 
 /** Statuses the framework raises itself (unknown route, body too large, malformed JSON) and the code each one reports. */
 const STATUS_CODES: Record<number, string> = {
@@ -106,7 +127,7 @@ function zodErrorOf(error: unknown): { found: boolean; cause?: unknown } {
 }
 
 /** The problem body for anything thrown while serving a request. */
-export function problemOf(error: unknown, language: Language, traceId?: string): Problem {
+export function problemOf(error: unknown, language: Language, traceId?: string, messages: Catalogues = {}): Problem {
     const make = (status: number, code: string, extra: Partial<Problem> = {}): Problem => ({
         type: `urn:itrms:problem:${code}`,
         title: titleOf(code, language),
@@ -115,11 +136,13 @@ export function problemOf(error: unknown, language: Language, traceId?: string):
         ...extra,
         ...(traceId ? { traceId } : {})
     });
-    if (error instanceof AppError)
+    if (error instanceof AppError) {
+        const detail = detailOf(error, language, messages);
         return make(error.status, error.code, {
-            ...(error.detail ? { detail: error.detail } : {}),
+            ...(detail ? { detail } : {}),
             ...(error.errors?.length ? { errors: error.errors } : {})
         });
+    }
     const refusal = databaseRefusalOf(error);
     if (refusal) return make(refusal.status, refusal.code);
     const zod = zodErrorOf(error);
@@ -135,7 +158,8 @@ export function problemOf(error: unknown, language: Language, traceId?: string):
 export class ProblemFilter implements ExceptionFilter {
     constructor(
         @Inject(LOGGER) private readonly logger: Logger,
-        @Optional() @Inject(DATABASE) private readonly database?: Database
+        @Optional() @Inject(DATABASE) private readonly database?: Database,
+        @Optional() @Inject(SHELL) private readonly shell?: Shell
     ) {}
 
     /**
@@ -176,7 +200,8 @@ export class ProblemFilter implements ExceptionFilter {
         const problem = problemOf(
             error,
             context?.language ?? languageFrom(request.headers['accept-language']),
-            context?.requestId ?? requestIdFrom(request.id)
+            context?.requestId ?? requestIdFrom(request.id),
+            this.shell?.messages
         );
         if (problem.status >= 500) this.logger.error({ err: error, status: problem.status }, 'request failed');
         else if (databaseRefusalOf(error)?.code === 'forbidden')

@@ -132,13 +132,14 @@ export class SubmissionsService {
         await lockFormShared(tx, input.formId);
         const [form] = await tx.select().from(formDefinitions).where(eq(formDefinitions.id, input.formId));
         if (!form) throw new NotFoundError();
-        if (!form.active) throw new ConflictError('invalid_transition', { detail: 'This form takes no submissions.' });
+        if (!form.active)
+            throw new ConflictError('invalid_transition', { detailKey: 'forms.errors.form_no_submissions' });
         // a step's version is the workflow's (checked when it was stored); a person's request is on the published one
         if (!step && !form.publishedVersionId)
-            throw new ConflictError('not_configured', { detail: 'This form has not been published yet.' });
+            throw new ConflictError('not_configured', { detailKey: 'forms.errors.form_not_published' });
         if (!step && input.formVersionId !== form.publishedVersionId)
             throw new ConflictError('stale_version', {
-                detail: 'A newer version of this form was published: reload it and fill it in again.'
+                detailKey: 'forms.errors.newer_version'
             });
         const [version] = await tx
             .select({ id: formVersions.id, document: formVersions.document })
@@ -151,7 +152,7 @@ export class SubmissionsService {
             version.id !== form.publishedVersionId &&
             !(await approvedVersions(tx, [version.id])).has(version.id)
         )
-            throw new ConflictError('not_configured', { detail: 'This version of the form was never approved.' });
+            throw new ConflictError('not_configured', { detailKey: 'forms.errors.version_not_approved' });
 
         const { answers, files, values } = await this.checked(
             tx,
@@ -270,7 +271,7 @@ export class SubmissionsService {
                 problems.push({ path: key, code: 'invalid', message: tooManyChoices(language) });
         if (problems.length)
             throw new ValidationError('validation_failed', {
-                detail: 'Some answers are not valid.',
+                detailKey: 'forms.errors.answers_invalid',
                 errors: problems
             });
         return {
@@ -460,7 +461,10 @@ export class SubmissionsService {
             else patch[key] = value;
         }
         if (refused.length)
-            throw new ValidationError('validation_failed', { detail: 'Some answers are not valid.', errors: refused });
+            throw new ValidationError('validation_failed', {
+                detailKey: 'forms.errors.answers_invalid',
+                errors: refused
+            });
 
         // the patch settled as a filing's answers are; every other answer as filed
         const settled = submittedValues(all, { ...stored, ...knownValues(visible, patch) }, scope);
@@ -577,7 +581,7 @@ export class SubmissionsService {
             if (!kept) lost.push({ path: f.id, code: 'hidden_answers', message: rowKept(language) });
         }
         if (lost.length)
-            throw new ValidationError('validation_failed', { detail: 'Some answers are not valid.', errors: lost });
+            throw new ValidationError('validation_failed', { detailKey: 'forms.errors.answers_invalid', errors: lost });
         // every row has its id (a new one for a row added now)
         Object.assign(merged, withRowIds(all, merged));
 

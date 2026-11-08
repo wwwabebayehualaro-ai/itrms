@@ -43,7 +43,7 @@ function messageOf(problem: CheckProblem, language: string): string {
 }
 
 const required = (value: string | undefined): string => {
-    if (!value) throw new ForbiddenError({ detail: 'This needs an active unit.' });
+    if (!value) throw new ForbiddenError({ detailKey: 'workflow.errors.needs_active_unit' });
     return value;
 };
 
@@ -109,7 +109,7 @@ export class WorkflowDefinitionsService {
         const { definition, problems } = await this.check(tx, raw, ownerPath, language);
         if (!definition || problems.length)
             throw new ValidationError('validation_failed', {
-                detail: 'The workflow is not valid: fix what is listed.',
+                detailKey: 'workflow.errors.definition_invalid',
                 errors: problems.slice(0, 100)
             });
         return definition;
@@ -128,7 +128,7 @@ export class WorkflowDefinitionsService {
         } catch (error) {
             if (isUniqueViolation(error, 'workflow_definitions_key_uq'))
                 throw new ConflictError('duplicate_reference', {
-                    detail: 'A workflow with this key already exists in the region.',
+                    detailKey: 'workflow.errors.definition_key_exists',
                     cause: error
                 });
             throw error;
@@ -246,7 +246,7 @@ export class WorkflowDefinitionsService {
         const [row] = await tx.select().from(workflowDefinitions).where(eq(workflowDefinitions.id, id));
         if (!row) throw new NotFoundError();
         if (!withinScope(row.orgPath, ctx.scopePath ?? ''))
-            throw new ForbiddenError({ detail: 'This workflow belongs to an office above yours.' });
+            throw new ForbiddenError({ detailKey: 'workflow.errors.definition_above_office' });
         // locked once it is known to be the caller's: two versions stored at once are numbered one after the other
         const [locked] = await tx
             .select()

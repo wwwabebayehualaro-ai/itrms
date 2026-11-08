@@ -169,7 +169,7 @@ async function overlayRow(tx: Tx, formId: string, unitId: string, lock = false):
 /** The bureau's published version a unit overlays, with its ancestors' overlays already composed onto it. */
 async function overlayBase(tx: Tx, form: DefinitionRow, unit: OrgUnit, locks: ReadonlySet<string>) {
     if (!form.publishedVersionId)
-        throw new ConflictError('not_configured', { detail: 'The form has not been published yet.' });
+        throw new ConflictError('not_configured', { detailKey: 'forms.errors.form_not_published' });
     const [base] = await tx
         .select({ id: formVersions.id, number: formVersions.number, document: formVersions.document })
         .from(formVersions)
@@ -186,15 +186,16 @@ async function overlayBase(tx: Tx, form: DefinitionRow, unit: OrgUnit, locks: Re
 function assertOverlayable(form: DefinitionRow, unit: OrgUnit, ctx: DbContext): void {
     if (!isBureauForm(form))
         throw new ValidationError('validation_failed', {
-            detail: 'Only a bureau form takes overlays: change your own form itself.',
+            detailKey: 'forms.errors.overlay_bureau_only',
             errors: [{ path: 'formId', code: 'not_regional', message: 'only a bureau form takes overlays' }]
         });
     if (unit.id === form.ownerUnitId)
         throw new ValidationError('validation_failed', {
-            detail: 'The bureau changes its form itself, not through an overlay.',
+            detailKey: 'forms.errors.overlay_bureau_direct',
             errors: [{ path: 'unitId', code: 'own_form', message: 'the bureau changes its form itself' }]
         });
-    if (!withinScope(unit.path, ctx.scopePath ?? '')) throw new ForbiddenError({ detail: 'This office is not yours.' });
+    if (!withinScope(unit.path, ctx.scopePath ?? ''))
+        throw new ForbiddenError({ detailKey: 'forms.errors.office_not_yours' });
 }
 
 /** A unit's overlay as it is read: its working copy, where it stands, and what of it does not fit the form now. */
@@ -268,7 +269,7 @@ export async function saveOverlay(
         } catch (error) {
             if (isUniqueViolation(error, 'form_overlays_unit_uq'))
                 throw new ConflictError('stale_version', {
-                    detail: 'Someone else wrote this overlay meanwhile: read it again.',
+                    detailKey: 'forms.errors.overlay_changed',
                     cause: error
                 });
             throw error;
@@ -276,7 +277,7 @@ export async function saveOverlay(
         return;
     }
     if (expected === null)
-        throw new ConflictError('stale_version', { detail: 'Send the overlay version you changed (If-Match).' });
+        throw new ConflictError('stale_version', { detailKey: 'forms.errors.overlay_version_needed' });
     await updateAudited(tx, formOverlays, row.id, expected, values);
 }
 
@@ -302,7 +303,7 @@ async function assertPublishableOverlay(
     const failing = composed && !unsound ? runTestCases(composed.document).filter((t) => !t.passed) : [];
     if (problems.length === 0 && !unsound && failing.length === 0) return { id: base.id, number: base.number };
     throw new ValidationError('validation_failed', {
-        detail: 'The overlay cannot be published: fix what is listed.',
+        detailKey: 'forms.errors.overlay_cannot_publish',
         errors: [
             ...problems.map((p) => ({
                 path: `patch.${p.op}`,
@@ -339,7 +340,7 @@ export async function requestOverlayPublication(
         .where(and(eq(formPublications.overlayId, row.id), eq(formPublications.status, 'pending')));
     if (pending)
         throw new ConflictError('invalid_transition', {
-            detail: 'A publication of this overlay already waits for approval.'
+            detailKey: 'forms.errors.overlay_publication_waiting'
         });
     const patch = formOverlaySchema.parse(row.patch);
     // the version holding the working copy: the one with its content, or a new one numbered after the last
@@ -348,7 +349,7 @@ export async function requestOverlayPublication(
         .from(formOverlayVersions)
         .where(and(eq(formOverlayVersions.overlayId, row.id), eq(formOverlayVersions.contentHash, row.patchHash)));
     if (existing && existing.id === row.publishedVersionId)
-        throw new ConflictError('invalid_transition', { detail: 'This version of the overlay is already published.' });
+        throw new ConflictError('invalid_transition', { detailKey: 'forms.errors.overlay_version_published' });
     const base = await assertPublishableOverlay(tx, form, unit, patch, existing?.id ?? row.id, locks, language);
     const version =
         existing ??

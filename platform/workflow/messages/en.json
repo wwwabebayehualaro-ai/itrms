@@ -190,5 +190,15 @@
   "workflow.audit.unnamed": "someone whose name is not shown",
   "workflow.audit.eventCode": "event:",
   "workflow.audit.events.case_audit_read": "read the audit trail",
-  "workflow.audit.truncated": "Only the latest {count} are shown; the earlier ones are in the audit log."
+  "workflow.audit.truncated": "Only the latest {count} are shown; the earlier ones are in the audit log.",
+  "workflow.errors.no_start": "The workflow has no start.",
+  "workflow.errors.effect_missing": "The effect {key} is not installed.",
+  "workflow.errors.step_no_assignee": "The step {step} has no assignee.",
+  "workflow.errors.effect_cannot_run": "The effect {key} cannot run on this request: {fields}.",
+  "workflow.errors.step_form_missing": "The step form {form} is not available.",
+  "workflow.errors.needs_active_unit_person": "This needs a signed-in person in an active unit.",
+  "workflow.errors.needs_active_unit": "This needs an active unit.",
+  "workflow.errors.definition_invalid": "The workflow is not valid: fix what is listed.",
+  "workflow.errors.definition_key_exists": "A workflow with this key already exists in the region.",
+  "workflow.errors.definition_above_office": "This workflow belongs to an office above yours."
 }

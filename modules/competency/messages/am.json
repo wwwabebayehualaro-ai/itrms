@@ -98,5 +98,14 @@
   "competency.training.lookupFailed": "ፍለጋው አልተሳካም። እንደገና ይሞክሩ።",
   "competency.training.show": "አሳይ",
   "competency.training.showAll": "ሁሉንም",
-  "competency.training.showUnfinished": "ያላጠናቀቁትን"
+  "competency.training.showUnfinished": "ያላጠናቀቁትን",
+  "competency.errors.exam_owner_unknown": "ጉዳዩ ፈተናው የማን እንደሆነ አይገልጽም።",
+  "competency.errors.grade_not_offered": "የፈቃድ ደረጃ {key} እዚህ አይሰጥም።",
+  "competency.errors.licence_already_made": "ይህ ጉዳይ ፈቃድ አስቀድሞ አውጥቷል።",
+  "competency.errors.case_missing_fact": "ጉዳዩ የሚሠራበት {key} የለውም።",
+  "competency.errors.licence_no_term": "ፈቃዱ የሚታደስበት የአገልግሎት ጊዜ የለውም።",
+  "competency.errors.licence_not_active": "ፈቃዱ ገና ንቁ አይደለም።",
+  "competency.errors.not_training_school": "ይህ ድርጅት የስልጠና ትምህርት ቤት አይደለም።",
+  "competency.errors.no_such_grade": "የፈቃድ ደረጃ {grade} የለም።",
+  "competency.errors.batch_not_sendable": "መላክ የሚቻለው ፈቃዶች ያሉት ክፍት ጥቅል ብቻ ነው።"
 }

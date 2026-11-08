@@ -35,7 +35,7 @@ async function applicationCopy(
         .where(eq(submissions.caseId, run.caseId))
         .orderBy(asc(submissions.createdAt))
         .limit(1);
-    if (!request) throw new ConflictError('contract_unmet', { detail: 'The case has no request to copy.' });
+    if (!request) throw new ConflictError('contract_unmet', { detailKey: 'documents.errors.case_no_request' });
     const fields = openFieldsFor(request.document, [], language);
     // the names of the records the lookups picked, from each registry, as the person acting may see them
     const labels = new Map<string, string>();
@@ -85,7 +85,8 @@ export class IssueDocumentEffect implements WorkflowEffect {
     async run({ tx, caseId, caseNumber, regionId, handlingUnitId, config, argument, facts }: EffectRun) {
         if (argument !== 'application-copy')
             throw new ConflictError('not_configured', {
-                detail: `documents.issue can't build the document ${argument ?? '(none named)'}: its work process issues it.`
+                detailKey: 'documents.errors.effect_cannot_build',
+                params: { document: argument ?? '' }
             });
         const language = currentContext()?.language ?? 'am';
         const issued = await issueDocument(tx, this.settings, {

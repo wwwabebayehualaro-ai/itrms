@@ -195,6 +195,7 @@ function ValueEditor({
                     onChange={(d) => set(d ? ymd(d) : null)}
                     placeholder={t(word)}
                     aria-label={part(word)}
+                    clearLabel={t('form-engine.renderer.ethDate.clear')}
                     className="w-40"
                 />
             );

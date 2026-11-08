@@ -14,7 +14,7 @@ export function assertReadable(document: unknown): void {
     const problems = checkDocument(document);
     if (problems.length)
         throw new ValidationError('validation_failed', {
-            detail: 'The form is not one this version can read.',
+            detailKey: 'forms.errors.form_unreadable',
             errors: problems.map((p) => ({ path: `document.${p.path}`, code: 'invalid_form', message: p.message }))
         });
 }
@@ -40,7 +40,7 @@ export function assertLookups(document: unknown, lookups: { get(key: string): un
     });
     if (problems.length)
         throw new ValidationError('validation_failed', {
-            detail: 'The form names a registry this installation does not have.',
+            detailKey: 'forms.errors.registry_missing',
             errors: problems
         });
 }
@@ -91,7 +91,7 @@ export const scopeFor = (ctx: DbContext, roles: readonly string[]): Scope => ({
 
 /** The unit the caller acts for (a request without one cannot write). */
 export function required(value: string | undefined): string {
-    if (!value) throw new ForbiddenError({ detail: 'Choose the office you act for.' });
+    if (!value) throw new ForbiddenError({ detailKey: 'forms.errors.choose_office' });
     return value;
 }
 

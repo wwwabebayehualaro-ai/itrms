@@ -127,5 +127,18 @@
   "parties.role.treasurer": "Treasurer",
   "parties.role.manager": "Manager",
   "parties.role.owner": "Owner",
-  "parties.role.member": "Member"
+  "parties.role.member": "Member",
+  "parties.errors.kept_record_merged": "The record to keep was itself merged.",
+  "parties.errors.merge_waiting": "A merge of this record is already waiting for approval.",
+  "parties.errors.merge_member_other_office": "The record is a member of an organisation another office handles: an office above both approves.",
+  "parties.errors.merge_decided": "This merge was already decided.",
+  "parties.errors.merge_self_approval": "Who asks for a merge cannot approve it: another person decides.",
+  "parties.errors.merged_into_other": "This record was merged into another.",
+  "parties.errors.role_already_held": "This person already holds this role here.",
+  "parties.errors.membership_ended": "This membership already ended.",
+  "parties.errors.handled_by_other_office": "This record is handled by another office.",
+  "parties.errors.tin_taken": "An organisation with this TIN is registered.",
+  "parties.errors.fin_taken": "A person with this Fayda number is registered.",
+  "parties.errors.possible_duplicate": "This may be a person already registered: check the possible duplicates first.",
+  "parties.errors.choose_office": "Choose the office you act for."
 }

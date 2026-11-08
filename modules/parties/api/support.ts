@@ -8,7 +8,7 @@ export { unitRefs, withinScope, type UnitRef } from '@itrms/kernel/org';
 
 /** The unit the caller acts for (a request without one cannot write to a register). */
 export function required(value: string | undefined): string {
-    if (!value) throw new ForbiddenError({ detail: 'Choose the office you act for.' });
+    if (!value) throw new ForbiddenError({ detailKey: 'parties.errors.choose_office' });
     return value;
 }
 

@@ -4,7 +4,7 @@
  * (`PUT /api/v1/me/preferences`), so they follow the person between PCs; the workspace brings them at sign-in. The
  * language is next-intl's locale: the `itrms_lang` cookie lets the server render in it, and changing it renders again.
  */
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { create } from 'zustand';
@@ -179,9 +179,11 @@ type Text = Readonly<Partial<Record<string, string>>>;
 export function useText() {
     const language = useLocale();
     const translate = useTranslations();
-    return {
-        language,
-        t: (key: string, values?: Record<string, string>) => translate(key as never, values as never),
-        text: (value: Text): string => value[language] ?? value.am ?? value.en ?? ''
-    };
+    // stable between renders (until the language changes): screens list them in hook dependencies
+    const t = useCallback(
+        (key: string, values?: Record<string, string>) => translate(key as never, values as never),
+        [translate]
+    );
+    const text = useCallback((value: Text): string => value[language] ?? value.am ?? value.en ?? '', [language]);
+    return useMemo(() => ({ language, t, text }), [language, t, text]);
 }

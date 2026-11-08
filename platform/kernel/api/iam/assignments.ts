@@ -145,7 +145,7 @@ async function holds(tx: Tx, userId: string, unitId: string, roleKey: string): P
 }
 
 function alreadyHeld(): ConflictError {
-    return new ConflictError('duplicate_reference', { detail: 'The person already holds this role here.' });
+    return new ConflictError('duplicate_reference', { detailKey: 'kernel.detail.grant_role_held' });
 }
 
 /** Asks for a grant (the maker): refused now if the maker could not give it, else it waits for a second administrator. */
@@ -183,7 +183,7 @@ export async function requestGrant(tx: Tx, maker: Granter, grant: Grant): Promis
     } catch (error) {
         if ((error as { cause?: { code?: string } }).cause?.code === '23505')
             throw new ConflictError('duplicate_reference', {
-                detail: 'This grant is already waiting for confirmation.'
+                detailKey: 'kernel.detail.grant_waiting'
             });
         throw error;
     }
@@ -202,7 +202,7 @@ async function pendingRequest(tx: Tx, id: string) {
         .where(eq(roleGrantRequests.id, id));
     if (!row) throw new NotFoundError();
     if (row.request.state !== 'pending')
-        throw new ConflictError('invalid_transition', { detail: `The request is already ${row.request.state}.` });
+        throw new ConflictError('invalid_transition', { detailKey: `kernel.detail.request_${row.request.state}` });
     return row;
 }
 
@@ -218,9 +218,10 @@ export async function confirmGrant(
     if (request.createdBy === checker.userId) refuse('own_request');
     if (expired)
         throw new ConflictError('invalid_transition', {
-            detail: `The request waited more than ${REQUEST_DAYS} days: ask for the grant again.`
+            detailKey: 'kernel.detail.request_expired_days',
+            params: { days: REQUEST_DAYS }
         });
-    if (ended) throw new ConflictError('invalid_transition', { detail: 'The period asked for has already ended.' });
+    if (ended) throw new ConflictError('invalid_transition', { detailKey: 'kernel.detail.period_ended' });
     if (await holds(tx, request.userId, request.unitId, request.roleKey)) throw alreadyHeld();
     const assignment = await grantRole(
         tx,
@@ -322,7 +323,7 @@ export async function revokeRole(tx: Tx, revoker: Granter, id: string, version: 
         .select({ ended: sql<boolean>`${roleAssignments.validTo} is not null and ${roleAssignments.validTo} <= ${at}` })
         .from(roleAssignments)
         .where(eq(roleAssignments.id, id));
-    if (ended) throw new ConflictError('invalid_transition', { detail: 'The assignment has already ended.' });
+    if (ended) throw new ConflictError('invalid_transition', { detailKey: 'kernel.detail.assignment_ended' });
     if (lastAdmin) {
         const admins = (except?: string, user?: string) =>
             tx
@@ -345,7 +346,7 @@ export async function revokeRole(tx: Tx, revoker: Granter, id: string, version: 
             .from(roleAssignments)
             .where(eq(roleAssignments.id, id));
         if (thisInOffice && (await admins(id)) === 0)
-            throw new ConflictError('invalid_transition', { detail: 'The region would have no bureau administrator.' });
+            throw new ConflictError('invalid_transition', { detailKey: 'kernel.detail.last_bureau_admin' });
     }
     // ended by the database's clock, which the next request's check reads
     const revoked = await updateAudited(tx, roleAssignments, id, version, {

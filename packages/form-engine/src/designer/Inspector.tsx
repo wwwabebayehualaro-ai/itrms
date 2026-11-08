@@ -843,6 +843,7 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                             onChange={(d) => setRule('props.minDate', d ? day(d) : undefined)}
                             placeholder={t('form-engine.settings.inspector.rules.anyDay')}
                             aria-label={t('form-engine.settings.inspector.rules.notBefore')}
+                            clearLabel={t('form-engine.renderer.ethDate.clear')}
                         />
                     </Row>
                     <Row label={t('form-engine.settings.inspector.rules.notAfter')}>
@@ -851,6 +852,7 @@ function RulesTab({ stored, field, design }: { stored: FormField; field: EngineF
                             onChange={(d) => setRule('props.maxDate', d ? day(d) : undefined)}
                             placeholder={t('form-engine.settings.inspector.rules.anyDay')}
                             aria-label={t('form-engine.settings.inspector.rules.notAfter')}
+                            clearLabel={t('form-engine.renderer.ethDate.clear')}
                         />
                     </Row>
                 </Section>

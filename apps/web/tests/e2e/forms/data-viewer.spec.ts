@@ -10,7 +10,7 @@
 import { engineTranslator } from '@itrms/form-engine/core';
 import { expect, test, type Page } from '@playwright/test';
 
-import { PEOPLE, api, field, publishedForm, runName, signedIn, switchOff, type Api } from './support';
+import { PEOPLE, api, field, publishedForm, runName, shellAm, signedIn, switchOff, type Api } from './support';
 
 // the page runs in Amharic, so the engine's own words are looked up in its Amharic catalogue
 const am = engineTranslator('am');
@@ -172,7 +172,7 @@ test('every mode of the data viewer shows the requests as the API counts them', 
         await expect(record).toBeVisible();
         await expect(record.getByLabel('Title')).toBeDisabled();
         await expect(record).toContainText('Damot Gale Records Officer');
-        await record.getByRole('tab', { name: 'History' }).click();
+        await record.getByRole('tab', { name: shellAm('shell.record.tab.history') }).click();
         await expect(page.locator('[data-history="insert"]')).toHaveCount(1);
         // back: the link to the form, carrying the view the request was opened from
         await record.locator('> a').first().click();

@@ -39,7 +39,8 @@ class ServiceOverrideDto extends createZodDto(
 const SERVICE = /^[A-Z]{2,3}-\d{2}$/;
 
 function serviceFrom(code: string): string {
-    if (!SERVICE.test(code)) throw new InvalidRequestError('invalid_request', { detail: 'Not a service code.' });
+    if (!SERVICE.test(code))
+        throw new InvalidRequestError('invalid_request', { detailKey: 'kernel.detail.not_service_code' });
     return code;
 }
 

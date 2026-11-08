@@ -110,5 +110,11 @@
   "services.override.rule.handling": "ጉዳዩን የያዘው ጽ/ቤት",
   "services.override.rule.parent": "ከበላዩ ያለው ጽ/ቤት",
   "services.override.rule.region": "የክልሉ ቢሮ",
-  "services.override.rule.level": "ደረጃ፦ {level}"
+  "services.override.rule.level": "ደረጃ፦ {level}",
+  "services.errors.not_service_code": "የአገልግሎት ኮድ አይደለም።",
+  "services.errors.not_configured_yet": "{code} ገና አልተዘጋጀም።",
+  "services.errors.policy_refuses": "የአገልግሎቱ ፖሊሲ ይህ ጽ/ቤት {keys} እንዲቀይር አይፈቅድም።",
+  "services.errors.not_offered": "{code} በዚህ ጽ/ቤት አይሰጥም።",
+  "services.errors.no_fee_now": "አገልግሎቱ አሁን ምንም ክፍያ አያስከፍልም።",
+  "services.errors.version_changed": "ስሪት {expected} ተቀይሯል፤ እንደገና ያንብቡት።"
 }

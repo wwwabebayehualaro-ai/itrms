@@ -28,7 +28,7 @@ export class MergesService {
         const [survivor] = await tx.select().from(persons).where(eq(persons.id, input.survivorId));
         if (!survivor) throw new NotFoundError();
         if (survivor.status !== 'active')
-            throw new ConflictError('invalid_transition', { detail: 'The record to keep was itself merged.' });
+            throw new ConflictError('invalid_transition', { detailKey: 'parties.errors.kept_record_merged' });
         try {
             const row = await insertAudited(tx, personMerges, {
                 regionId: required(ctx.regionId),
@@ -42,7 +42,7 @@ export class MergesService {
             for (let e: unknown = error; e; e = (e as { cause?: unknown }).cause)
                 if ((e as { constraint?: string }).constraint === 'person_merges_pending_uq')
                     throw new ConflictError('duplicate_reference', {
-                        detail: 'A merge of this record is already waiting for approval.',
+                        detailKey: 'parties.errors.merge_waiting',
                         cause: error
                     });
             throw error;
@@ -64,7 +64,7 @@ export class MergesService {
         const duplicate = await this.persons.writable(tx, ctx, merge.duplicateId);
         const [survivor] = await tx.select().from(persons).where(eq(persons.id, merge.survivorId));
         if (survivor?.status !== 'active')
-            throw new ConflictError('invalid_transition', { detail: 'The record to keep was itself merged.' });
+            throw new ConflictError('invalid_transition', { detailKey: 'parties.errors.kept_record_merged' });
         // the duplicate's memberships move too: each must be in organisations this office handles (checked first, so a
         // merge is never half done)
         const open = (personId: string) =>
@@ -76,7 +76,7 @@ export class MergesService {
         const held = await open(survivor.id);
         if (memberships.some((m) => !withinScope(m.handlingOrgPath, ctx.scopePath ?? '')))
             throw new ConflictError('invalid_transition', {
-                detail: 'The record is a member of an organisation another office handles: an office above both approves.'
+                detailKey: 'parties.errors.merge_member_other_office'
             });
 
         await updateAudited(tx, persons, duplicate.id, duplicate.rowVersion, {
@@ -123,10 +123,10 @@ export class MergesService {
         const [merge] = await tx.select().from(personMerges).where(eq(personMerges.id, id));
         if (!merge) throw new NotFoundError();
         if (merge.status !== 'pending')
-            throw new ConflictError('invalid_transition', { detail: 'This merge was already decided.' });
+            throw new ConflictError('invalid_transition', { detailKey: 'parties.errors.merge_decided' });
         if (merge.createdBy && merge.createdBy === ctx.userId)
             throw new ForbiddenError({
-                detail: 'Who asks for a merge cannot approve it: another person decides.',
+                detailKey: 'parties.errors.merge_self_approval',
                 audit: { reason: 'separation_of_duties', mergeId: id }
             });
         return merge;

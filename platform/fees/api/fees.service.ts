@@ -94,7 +94,7 @@ export class FeesService {
     ): Promise<CaseFee> {
         if (mustShow && shown === undefined)
             throw new ValidationError('validation_failed', {
-                detail: 'The fee was not shown.',
+                detailKey: 'fees.errors.fee_not_shown',
                 errors: [{ path: 'fee', code: 'fee_not_shown', message: notShown(language) }]
             });
         const asOf = addisToday();
@@ -104,7 +104,7 @@ export class FeesService {
         const result = evaluateFee(usable.rule.rule, { answers: request.answers, asOf, inputMap: request.inputMap });
         if (result.status !== 'complete')
             throw new ValidationError('validation_failed', {
-                detail: 'The fee cannot be worked out from these answers.',
+                detailKey: 'fees.errors.fee_not_computable',
                 errors: (result.status === 'incomplete'
                     ? result.missing.map((k) => request.inputMap[k] ?? k)
                     : ['answers']
@@ -119,7 +119,8 @@ export class FeesService {
             (shown.ruleVersionId !== request.feeRuleVersionId || shown.totalSantim !== santimText(result.total))
         )
             throw new ConflictError('fee_changed', {
-                detail: `The fee is now ${santimText(result.total)} santim, not the ${shown.totalSantim} shown.`
+                detailKey: 'fees.errors.fee_changed',
+                params: { now: santimText(result.total), shown: String(shown.totalSantim) }
             });
         return this.keep(tx, target, usable.rule, request.inputMap, asOf, 'filed', 1, result);
     }
@@ -146,7 +147,7 @@ export class FeesService {
         const result = evaluateFee(rule.rule, { answers: request.answers, asOf, inputMap: first.inputMap });
         if (result.status !== 'complete')
             throw new ValidationError('validation_failed', {
-                detail: 'The fee cannot be worked out from the corrected answers.',
+                detailKey: 'fees.errors.fee_not_computable_corrected',
                 errors: [{ path: 'answers', code: 'fee_not_computable', message: needsAnswer(language) }]
             });
         const before = await this.out(tx, latest);

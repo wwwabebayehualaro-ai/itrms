@@ -127,5 +127,18 @@
   "parties.role.treasurer": "ገንዘብ ያዥ",
   "parties.role.manager": "ሥራ አስኪያጅ",
   "parties.role.owner": "ባለቤት",
-  "parties.role.member": "አባል"
+  "parties.role.member": "አባል",
+  "parties.errors.kept_record_merged": "ተይዞ የሚቆየው መዝገብ ራሱ ከሌላ ጋር ተዋህዷል።",
+  "parties.errors.merge_waiting": "የዚህ መዝገብ ውህደት ማጽደቂያ እየጠበቀ ነው።",
+  "parties.errors.merge_member_other_office": "መዝገቡ ሌላ ጽ/ቤት የሚያስተዳድረው ድርጅት አባል ነው፤ ከሁለቱም በላይ ያለ ጽ/ቤት ያጸድቃል።",
+  "parties.errors.merge_decided": "በዚህ ውህደት ላይ ውሳኔ ተሰጥቷል።",
+  "parties.errors.merge_self_approval": "ውህደት የጠየቀ ሰው ራሱ ሊያጸድቀው አይችልም፤ ሌላ ሰው ይወስናል።",
+  "parties.errors.merged_into_other": "ይህ መዝገብ ከሌላ መዝገብ ጋር ተዋህዷል።",
+  "parties.errors.role_already_held": "ይህ ሰው እዚህ ይህን ሚና አስቀድሞ ይዟል።",
+  "parties.errors.membership_ended": "ይህ አባልነት አስቀድሞ ተጠናቅቋል።",
+  "parties.errors.handled_by_other_office": "ይህን መዝገብ የሚያስተዳድረው ሌላ ጽ/ቤት ነው።",
+  "parties.errors.tin_taken": "በዚህ የግብር ከፋይ መለያ ቁጥር (TIN) ድርጅት ተመዝግቧል።",
+  "parties.errors.fin_taken": "በዚህ የፋይዳ ቁጥር ሰው ተመዝግቧል።",
+  "parties.errors.possible_duplicate": "ይህ ቀደም ሲል የተመዘገበ ሰው ሊሆን ይችላል፤ መጀመሪያ ሊደገሙ የሚችሉ መዝገቦችን ይመልከቱ።",
+  "parties.errors.choose_office": "የሚሠሩለትን ጽ/ቤት ይምረጡ።"
 }

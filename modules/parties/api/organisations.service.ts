@@ -158,7 +158,7 @@ export class OrganisationsService {
         const [person] = await this.persons.summaries(tx, [input.personId]);
         if (!person) throw new NotFoundError();
         if (person.status !== 'active')
-            throw new ConflictError('invalid_transition', { detail: 'This record was merged into another.' });
+            throw new ConflictError('invalid_transition', { detailKey: 'parties.errors.merged_into_other' });
         try {
             await insertAudited(tx, organisationMembers, {
                 regionId: organisation.regionId,
@@ -171,7 +171,7 @@ export class OrganisationsService {
         } catch (error) {
             if (isUniqueViolation(error, 'organisation_members_open_uq'))
                 throw new ConflictError('duplicate_reference', {
-                    detail: 'This person already holds this role here.',
+                    detailKey: 'parties.errors.role_already_held',
                     cause: error
                 });
             throw error;
@@ -191,7 +191,8 @@ export class OrganisationsService {
         await this.writable(tx, ctx, id);
         const [member] = await tx.select().from(organisationMembers).where(eq(organisationMembers.id, memberId));
         if (!member || member.organisationId !== id) throw new NotFoundError();
-        if (member.until) throw new ConflictError('invalid_transition', { detail: 'This membership already ended.' });
+        if (member.until)
+            throw new ConflictError('invalid_transition', { detailKey: 'parties.errors.membership_ended' });
         if (member.since && until < member.since)
             throw new ValidationError('validation_failed', {
                 errors: [{ path: 'until', code: 'custom', message: 'is before the membership began' }]
@@ -204,7 +205,7 @@ export class OrganisationsService {
         const [row] = await tx.select().from(organisations).where(eq(organisations.id, id));
         if (!row) throw new NotFoundError();
         if (!withinScope(row.handlingOrgPath, ctx.scopePath ?? ''))
-            throw new ForbiddenError({ detail: 'This record is handled by another office.' });
+            throw new ForbiddenError({ detailKey: 'parties.errors.handled_by_other_office' });
         return row;
     }
 
@@ -222,7 +223,7 @@ export class OrganisationsService {
         } catch (error) {
             if (isUniqueViolation(error, 'organisations_tin_uq'))
                 throw new ConflictError('duplicate_reference', {
-                    detail: 'An organisation with this TIN is registered.',
+                    detailKey: 'parties.errors.tin_taken',
                     cause: error
                 });
             throw error;
