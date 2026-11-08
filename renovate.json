@@ -6,7 +6,7 @@
   "minimumReleaseAge": "14 days",
   "rangeStrategy": "pin",
   "labels": ["dependencies"],
-  "ignorePaths": ["Backend/**", "tools/boundaries/fixtures/**"],
+  "ignorePaths": ["tools/boundaries/fixtures/**"],
   "packageRules": [
     {
       "description": "Lint, format, type and test tooling move together",

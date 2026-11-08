@@ -12,7 +12,6 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "e2e": "playwright test",
-    "api:types": "openapi-typescript ../../contracts/openapi.json -o src/lib/api/schema.d.ts",
     "gen:icons": "tsx scripts/shell/menu-icons.ts && prettier --write src/shell/menu-icons.generated.ts",
     "gen:roles": "tsx scripts/shell/role-keys.ts && prettier --write src/shell/role-keys.generated.ts"
   },
@@ -42,7 +41,6 @@
     "lucide-react": "1.51.0",
     "next": "16.4.1",
     "next-intl": "4.14.9",
-    "openapi-fetch": "0.17.0",
     "openid-client": "6.8.8",
     "pino": "9.14.0",
     "re2js": "2.8.7",
@@ -67,7 +65,6 @@
     "eslint": "9.39.5",
     "eslint-config-next": "16.4.1",
     "happy-dom": "21.0.4",
-    "openapi-typescript": "7.13.0",
     "pino-pretty": "13.1.3",
     "postcss": "8.5.28",
     "tailwindcss": "4.3.3",

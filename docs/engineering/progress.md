@@ -4,7 +4,7 @@
 > Update it with the CLI or the `/task-*` skills. Rules: [workflow.md](workflow.md). Statuses: planned, ready, in progress,
 > in review, done, blocked. Only the product owner moves a task to **done**.
 
-Last updated: 2026-11-07. Planning: done (docs/reviews/2026-10-18-design-review.md (30 findings resolved); business questionnaire sent via the Wolaita channel).
+Last updated: 2026-11-08. Planning: done (docs/reviews/2026-10-18-design-review.md (30 findings resolved); business questionnaire sent via the Wolaita channel).
 
 ## Phase 0: Core and demo — 66/67 done (99%)
 
@@ -162,7 +162,7 @@ Last updated: 2026-11-07. Planning: done (docs/reviews/2026-10-18-design-review.
 | 3 | 0.1 | Legacy e2e/demo scripts contain the local demo password literal | 0.4 / 0.25 (env-based fixtures) | ✔ d7e79e1: E2E_PASSWORD required, no password in the tree; history entries in .gitleaksignore (history rewrite is follow-up 4) |
 | 4 | 0.1 | First commit b3e108e on origin/main (private repo) still contains the government documents in history | product owner decision before sharing the repository | ✔ Product owner (2026-10-19): keep the government documents; history is not rewritten. The repository stays private. |
 | 5 | 0.2 | Generator templates feature/screen/effect produce compile-safe placeholders; fill them with the real kernel APIs (db.scoped, @Require, Drizzle + withRls, @Effect, page templates) | 0.4 (screen), 0.6 (controller, service), 0.7/0.9 (repository, table), 0.19a (effect) | open |
-| 6 | 0.2 | Trivy and Semgrep skip the legacy dirs Frontend/, Backend/, contracts/, features/ | 0.4–0.6: remove the skips when the legacy code is moved or retired | open |
+| 6 | 0.2 | Trivy and Semgrep skip the legacy dirs Frontend/, Backend/, contracts/, features/ | 0.4–0.6: remove the skips when the legacy code is moved or retired | ✔ chore/retire-legacy (2026-11-08): Backend/, contracts/, features/ removed; Trivy skips only tools/boundaries/fixtures, Semgrep and Prettier no legacy dirs |
 | 7 | 0.2 | Dev machine has Node 22.16 and global pnpm 9.15; the repo requires Node 24 LTS and pnpm 12.9.1 | product owner: install Node 24 LTS and run npm i -g pnpm@12.9.1 | ✔ 0.2: Node 24.20.0 LTS (winget) and pnpm 12.9.1 (npm -g) installed on the dev machine; .nvmrc pinned to 24.20.0; checks re-run on Node 24: 60/60 tasks, 39/39 tool tests |
 | 8 | 0.2 | TypeScript 7 (native compiler) is out but typescript-eslint supports <6.1 | Renovate: upgrade when typescript-eslint supports TS 7 | open |
 | 9 | 0.2 | A registry importing another registry that its manifest's dependsOn does not name is not checked (dependency-cruiser can't read manifests; only cycles are caught) | 0.6: manifest loader compares dependsOn with the package's imports | open |
@@ -176,10 +176,10 @@ Last updated: 2026-11-07. Planning: done (docs/reviews/2026-10-18-design-review.
 | 17 | 0.4 | apps/web lints with eslint-config-next only (no type-aware rules) and keeps its legacy tsconfig strictness (not the workspace base: no noUncheckedIndexedAccess/verbatimModuleSyntax) | 0.5/0.10: adopt the shared presets as the legacy lib, form engine and auth code are replaced | open |
 | 18 | 0.4 | apps/web pins ESLint 9 because eslint-config-next 16.3's plugins (react, jsx-a11y, import) support only ESLint <= 9 | Renovate: move to ESLint 10 when they support it | open |
 | 19 | 0.4 | openapi-typescript 7.13 declares a TypeScript ^5 peer (works with 6.0; generator only) | 0.6: regenerate packages/api-client types; revisit when openapi-typescript supports TS 6 | open |
-| 20 | 0.4 | Legacy e2e specs and seed scripts in apps/web/tests/e2e and scripts/e2e still target the FastAPI backend (and contain the demo password literal, follow-up 3) | 0.5 runs them for the last time; 0.25 replaces them | open |
+| 20 | 0.4 | Legacy e2e specs and seed scripts in apps/web/tests/e2e and scripts/e2e still target the FastAPI backend (and contain the demo password literal, follow-up 3) | 0.5 runs them for the last time; 0.25 replaces them | ✔ chore/retire-legacy (2026-11-08): tests/e2e/legacy and scripts/e2e removed; the journeys are the BFF ones (0.16f, 0.25) |
 | 21 | 0.4 | form-engine core imports Runtime types (bindings, TemplateRuntimeConfig); only the import cycle was broken in 0.4 (core/conditionTypes.ts) | 0.5: core owns the stored shape and imports nothing from Runtime | open |
 | 22 | 0.4 | Audit exception GHSA-vfj7-8cjw-p6xm (braces via eslint-config-next, lint time only, no fixed release); seroval pinned to 1.6.8 by a pnpm override (devtools path) | Renovate / next dependency task: drop the override and the exception when fixed releases reach the tree | open |
-| 23 | 0.4 | apps/web/src/lib/api/schema.d.ts is generated from the legacy contracts/openapi.json and still lists its /core-banking/* paths | 0.6: the new API's contract (packages/api-client) replaces it | open |
+| 23 | 0.4 | apps/web/src/lib/api/schema.d.ts is generated from the legacy contracts/openapi.json and still lists its /core-banking/* paths | 0.6: the new API's contract (packages/api-client) replaces it | ✔ chore/retire-legacy (2026-11-08): apps/web/src/lib/api/schema.d.ts, types.ts, the typed client and api:types removed; the API's contract is packages/api-client |
 | 24 | 0.4 | Hard-coded English labels in PdfViewer and LazyFileViewer (packages/ui/src/files): move to message catalogues | 0.17 (the form engine part 1 renders file previews: pass catalogue labels to PdfViewer and LazyFileViewer) | open |
 | 25 | 0.4 | Login screen copy and branding still say Digital File Cabinet and are English-only | 0.13 | ✔ 0.13: the login screen is Keycloak's itrms theme since 0.10a (am/en) |
 | 26 | 0.4b | Verify the Trivy 0.75.0 image signature with cosign (no signature found on Docker Hub or GHCR, GHCR unreachable for cosign v3); until then the digest is pinned from the immutable signed release | 0.26 | open |
@@ -231,7 +231,7 @@ Last updated: 2026-11-07. Planning: done (docs/reviews/2026-10-18-design-review.
 | 72 | 0.10a | Production wiring: BFF and API reach Keycloak on the internal network (KC_HOSTNAME_BACKCHANNEL_DYNAMIC), the BFF's address in the API's TRUSTED_PROXIES, nginx -t on the exposure template, Keycloak admin on KC_HOSTNAME_ADMIN only | 0.26 | open |
 | 73 | 0.10a | Trusted Types and CSP violation reports: a report-to endpoint feeding GlitchTip, so SEC-WB-2 can move to enforcement on evidence | 0.26 | open |
 | 74 | 0.10a | Narrow the itrms-identity-admin service account with Keycloak fine-grained admin permissions (manage-users can reset any credential) | 0.26 | open |
-| 75 | 0.10a | Port the legacy engine e2e journeys (tests/e2e/legacy) to the BFF sign-in | 0.16f | open |
+| 75 | 0.10a | Port the legacy engine e2e journeys (tests/e2e/legacy) to the BFF sign-in | 0.16f | ✔ 0.16f ported the engine journeys; chore/retire-legacy (2026-11-08) removed the two left (smoke, feature-flags) with the legacy screens |
 | 76 | 0.10b | Favourites, recents, language and calendar preferences stored server-side so they follow the person between PCs (today in the browser) | 0.13 | ✔ 0.13: PUT /api/v1/me/preferences (users.preferences), applied by AuthGate |
 | 77 | 0.10b | Menu entitlement filtering (manifest entitlement vs the installation's licence keys); today only MODULES_DISABLED applies | Phase 1 | open |
 | 78 | 0.10b | Badges, the notifications bell and role workspaces (home widgets) in the shell | 0.20d (badges, role workspaces; the bell came in 0.20b) | ✔ 0.20b bell; 0.20d badges on My tasks and Approvals, and the home page's My tasks widget |
@@ -283,13 +283,13 @@ Last updated: 2026-11-07. Planning: done (docs/reviews/2026-10-18-design-review.
 | 124 | 0.16e | Flaky under the full integration run's load (pass alone): files 'keeps what was checked' re-confirm answered 409, and parties 'moves the memberships' row order; make both deterministic | 0.26 | open |
 | 125 | 0.16c | Cross-form request lists by state (waiting, recent) and changing a request after it is filed: the case workflow and its inbox | 0.21e | ✔ 0.21e: GET /v1/cases waiting/recent across services (Requests screen); a request changes through its case |
 | 126 | 0.16c | Server actions on submit: the designer offers none until service configuration names module effects | 0.21d (effects named by the service version, the contracts) | ✔ 0.21d: the designer offers no server actions; a form's coded work is an effect with an input contract, its fields locked in the builder |
-| 127 | 0.16c | The web still calls the legacy Backend platform routes (platform/modules, platform/flags, platform/sequences) and its schema.d.ts comes from contracts/openapi.json; legacy Backend tests that seed forms (test_feature_flags, test_postgres, test_tenancy_audit_features) no longer run (Backend is not in CI) | 0.26 | open |
-| 128 | 0.16c | The legacy e2e journeys and scripts/e2e (seed-demo, data-viewer) still use the legacy routes and auth/directory | 0.16f | open |
+| 127 | 0.16c | The web still calls the legacy Backend platform routes (platform/modules, platform/flags, platform/sequences) and its schema.d.ts comes from contracts/openapi.json; legacy Backend tests that seed forms (test_feature_flags, test_postgres, test_tenancy_audit_features) no longer run (Backend is not in CI) | 0.26 | ✔ chore/retire-legacy (2026-11-08): the feature-flag and sequence screens, lib/modules.ts, lib/numbering.ts and their routes removed; no web call to platform/* remains; Backend/ removed |
+| 128 | 0.16c | The legacy e2e journeys and scripts/e2e (seed-demo, data-viewer) still use the legacy routes and auth/directory | 0.16f | ✔ chore/retire-legacy (2026-11-08): scripts/e2e and tests/e2e/legacy removed |
 | 129 | 0.16c | A form's name is one string in the builder (sent as am and en alike) until the builder's translation table | 0.17a | open |
 | 130 | 0.16c | The approvals inbox scopes and pages the newest 100 publications of a status client-side: mine/decidable filters and a cursor on GET /v1/form-publications | 0.20d | ✔ 0.20d: GET /v1/form-publications filters by scope (all, mine, decidable) and pages with a cursor on the server; the approvals screen pages by it |
 | 131 | 0.16c | Editing a filed request (PATCH, re-validated on its version, keeping role-restricted values) as a workflow transition | 0.21e | ✔ 0.21e: an amendsRequest transition re-validates the request on its version, keeps restricted, Sensitive and file answers, revisions append-only |
 | 132 | 0.16c | Typed message keys for useText().t (a typo fails typecheck), and the engine's own UI text (designer, viewer: 'Filterable', 'Only for roles', …) is English outside the catalogues | 0.17d | open |
-| 133 | 0.16f | Legacy journeys smoke and feature-flags, and scripts/e2e (demo seed, legacy templates), still use the legacy backend's sign-in and routes | 0.26 | open |
+| 133 | 0.16f | Legacy journeys smoke and feature-flags, and scripts/e2e (demo seed, legacy templates), still use the legacy backend's sign-in and routes | 0.26 | ✔ chore/retire-legacy (2026-11-08): the legacy journeys and scripts/e2e removed |
 | 134 | 0.16f | Generated demo forms for the demo journey (a Wolaita transport bureau's forms in am/en) seeded through the forms API | 0.25 | open |
 | 135 | 0.16f | Board moves (menu and drag) and editing a request from its page in the e2e journeys, once a filed request changes through its case's workflow | 0.25 | open |
 | 136 | 0.16f | A shared and default saved view in the browser journeys (the API's forms-views integration tests cover sharing and defaults) | 0.20d | ✔ 0.20d: e2e forms/saved-views (a shared default view opens for the office) |
@@ -362,3 +362,4 @@ Last updated: 2026-11-07. Planning: done (docs/reviews/2026-10-18-design-review.
 | 203 | 0.26c1 | A1: browser idle timer that warns, then signs out | Phase 1 | open |
 | 204 | 0.26c1 | R1: audit hash chain and signed daily digest off-site (ADR-0018) | Phase 1 | open |
 | 205 | 0.26c2 | The full load test: inbox, query API, search and transitions at 1× and 3× regional load on a generated 10⁶-record data set, on the reference server (testing-strategy.md; release gate) | 3.13 | open |
+| 206 | --help |  |  | open |

@@ -75,3 +75,6 @@ infra/compose/drill-reports/
 # the smoke load test's sessions and results (task 0.26c2)
 tests/load/.sessions.json
 tests/load/summary.json
+
+# the local note of the dev stack's test accounts and passwords (never committed)
+/test-accounts*

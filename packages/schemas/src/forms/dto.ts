@@ -1,6 +1,6 @@
 /**
- * What the forms API sends and takes: templates, the published form, server actions and submissions. The legacy backend
- * (Backend/, until task 0.6) answers in these shapes; the engine and the web app share them from here.
+ * What the forms API sends and takes: templates, the published form, server actions and submissions. The engine and the
+ * web app share them from here.
  */
 import { z } from 'zod';
 

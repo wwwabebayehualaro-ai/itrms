@@ -50,7 +50,7 @@ Bindings resolve in a single pass, so text a user types is never re-evaluated.
 - The details: computed read-only fields (`data.computed = { expression: "{{data.accountLookup.holder_name | default:\"\"}}",
 readOnly: true }`; the default clears them after a failed lookup). Other fields can be enabled on the result
   (`enabledConditions: [{ field: "data.accountLookup.status", operator: "eq", value: "ACTIVE" }]`).
-- On submit the server decides: `submit.serverAction` runs coded work with the request (see `features/README.md`), and a
+- On submit the server decides: `submit.serverAction` names coded work (a service version names module effects instead, task 0.21d), and a
   422 `errors[{field, message}]` is shown on those fields. Reference: `src/renderer/remoteCheck.spec.tsx`.
 
 ## Formulas and multi-record forms

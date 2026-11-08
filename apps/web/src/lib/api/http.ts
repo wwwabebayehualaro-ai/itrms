@@ -5,7 +5,7 @@
  * redirect (with `max_age` when the API asks for a recent second factor, RFC 9470).
  *
  * Two senders share it: `fetch` for everything, and XMLHttpRequest only when a caller wants upload progress (fetch cannot
- * report it). The typed openapi-fetch client (`client.ts`) goes through the same path.
+ * report it).
  */
 import { BACKGROUND_HEADER } from '../auth/cookies';
 
@@ -95,8 +95,6 @@ export interface HttpClient {
     post<T = unknown>(url: string, data?: unknown, options?: RequestOptions): Promise<HttpResponse<T>>;
     put<T = unknown>(url: string, data?: unknown, options?: RequestOptions): Promise<HttpResponse<T>>;
     patch<T = unknown>(url: string, data?: unknown, options?: RequestOptions): Promise<HttpResponse<T>>;
-    /** A fetch with the same authorisation path, for clients that bring their own request building (openapi-fetch). */
-    authFetch(request: Request): Promise<Response>;
 }
 
 /**
@@ -376,16 +374,6 @@ export function createHttpClient(deps: HttpDeps = {}): HttpClient {
         delete: (url, options) => request({ ...options, url, method: 'DELETE' }),
         post: (url, data, options) => request({ ...options, url, data, method: 'POST' }),
         put: (url, data, options) => request({ ...options, url, data, method: 'PUT' }),
-        patch: (url, data, options) => request({ ...options, url, data, method: 'PATCH' }),
-        authFetch(req) {
-            const key = req.method === 'POST' ? newKey() : null;
-            const headers = csrfHeaders(req.method.toUpperCase(), new Headers(req.headers));
-            if (key && !headers.has('idempotency-key')) headers.set('idempotency-key', key);
-            return authorized(
-                false,
-                () => doFetch(new Request(req, { headers })),
-                (r) => r.headers.get('www-authenticate')
-            );
-        }
+        patch: (url, data, options) => request({ ...options, url, data, method: 'PATCH' })
     };
 }

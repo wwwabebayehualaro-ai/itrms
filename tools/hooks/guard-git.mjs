@@ -36,7 +36,20 @@ function argsOnly(cmd) {
         .replace(/'([^']*)'|"((?:[^"\\]|\\.)*)"/g, (m, a, b) => (/\s/.test(a ?? b) ? ' ' : (a ?? b)));
 }
 
-const SAFE_PUSH = /^git push( (-u|--set-upstream))? origin( [A-Za-z0-9][A-Za-z0-9._/-]*)?$/;
+// A push of a branch (or HEAD, or HEAD to a branch) to origin, with only the quiet and upstream flags; or the deletion of a
+// merged branch on origin other than main.
+const REF = '[A-Za-z0-9][A-Za-z0-9._/-]*';
+const FLAGS = '( (-q|--quiet|-u|--set-upstream))*';
+const SAFE_PUSH = new RegExp(
+    `^git push${FLAGS} origin( (${REF}|HEAD:${REF}))?${FLAGS}$|^git push${FLAGS} origin (--delete |:)(?!main$)${REF}$`
+);
+// Pushes that could send the code somewhere else, or replace what origin holds: never done by a session.
+const FOREIGN_PUSH = [
+    /\sgit\s+(-[cC](\s+\S+)?\s+)*-c\s/,
+    /\bGIT_[A-Z_]+=/,
+    /\spush\b[^|;&]*\s--(mirror|all|repo(=|\s))/,
+    /\spush\b[^|;&]*\s(https?:\/\/|ssh:\/\/|git@|file:\/\/|\.{0,2}\/)/
+];
 
 function decide(cmd) {
     const c = ` ${argsOnly(cmd).replace(/\s+/g, ' ')} `;
@@ -61,17 +74,28 @@ function decide(cmd) {
     ];
     for (const [re, reason] of deny) if (re.test(c)) return { kind: 'deny', reason };
     if (/\sgit\s+(-[cC](\s+\S+)?\s+)*push\b/.test(c)) {
-        // The product owner lets sessions push to origin without asking (2026-11-04), and only this: a plain branch, named
-        // on origin. Deleting a branch, another remote, a changed git setting or environment still asks.
+        // The product owner lets sessions push to origin without asking (2026-11-04), and wants no prompts at all
+        // (2026-11-07): a push to origin goes ahead, one that could go elsewhere is denied, anything else is left to the
+        // normal permission flow (auto mode). Nothing here asks.
         const flat = (text) => text.trim().replace(/\s+/g, ' ');
-        if (SAFE_PUSH.test(flat(cmd)))
-            return { kind: 'allow', reason: 'A push to origin (product owner, 2026-11-04).' };
-        // in a longer command an approval here would cover the rest too: the normal permission flow decides
         const parts = argsOnly(cmd)
             .split(/&&|\|\||[;|&\n]/)
             .map(flat);
-        const safe = parts.filter((part) => /\bgit\b.*\bpush\b/.test(part)).every((part) => SAFE_PUSH.test(part));
-        return safe ? null : { kind: 'ask', reason: 'This is not a plain push of a branch to origin.' };
+        const pushes = parts.filter((part) => /\bgit\b.*\bpush\b/.test(part));
+        if (pushes.some((part) => FOREIGN_PUSH.some((re) => re.test(` ${part} `))) || /\sGIT_[A-Z_]+=/.test(c))
+            return {
+                kind: 'deny',
+                reason: 'Only origin is pushed to, with git’s own settings; another remote, URL, mirror or override is not.'
+            };
+        if (pushes.some((part) => / origin (--delete |:)main\b/.test(part)))
+            return { kind: 'deny', reason: 'main is never deleted on origin.' };
+        const named = pushes.filter((part) => !/^git push( (-q|--quiet))*$/.test(part));
+        if (named.some((part) => !/ origin\b/.test(part)))
+            return { kind: 'deny', reason: 'Only origin is pushed to; name it (git push origin <branch>).' };
+        if (SAFE_PUSH.test(flat(cmd)))
+            return { kind: 'allow', reason: 'A push to origin (product owner, 2026-11-04).' };
+        // in a longer command an approval here would cover the rest too: the normal permission flow decides
+        return null;
     }
     return null;
 }
