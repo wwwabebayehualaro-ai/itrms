@@ -320,7 +320,8 @@ describe('a background export', () => {
         const id = (await ask(as.damotHead())).json<Job>().id;
         // their unit_head role (the one that gives the right to export) ends before the worker gets to it
         await api.owner.query(
-            `update kernel.role_assignments set valid_to = now() where role_key = 'unit_head'
+            // a second ago: a check in the same instant as now() would still find the role open
+            `update kernel.role_assignments set valid_to = now() - interval '1 second' where role_key = 'unit_head'
                and user_id = (select id from kernel.users where keycloak_sub = $1)`,
             [SUB.damotHead]
         );
