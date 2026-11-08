@@ -11,7 +11,15 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { ConflictError, ForbiddenError, NotFoundError } from '@itrms/kernel/errors';
 import { createDatabase, type Database, type DbContext, type Tx } from '@itrms/kernel/db';
 import { orgUnits, type OrgUnit } from '@itrms/kernel/org';
-import { asUnit, contextFor, ISOLATION_CASES, VISIBLE, WRITABLE, type IsolationCase } from '@itrms/kernel/testing';
+import {
+    asUnit,
+    contextFor,
+    ISOLATION_CASES,
+    TEST_CONTEXT_KEY,
+    VISIBLE,
+    WRITABLE,
+    type IsolationCase
+} from '@itrms/kernel/testing';
 import { importVehicleCategories } from '@itrms/vehicles/seed';
 import { VehicleRegistry, VehiclesService } from '@itrms/vehicles/api';
 import type { VehicleRegister } from '@itrms/vehicles/contracts';
@@ -155,7 +163,7 @@ beforeAll(async () => {
             roles: [['TRX-W1', 'records_officer']]
         }
     ]);
-    app = createDatabase(pg.url('app'), { auditKey: randomBytes(32).toString('hex') });
+    app = createDatabase(pg.url('app'), { auditKey: randomBytes(32).toString('hex'), contextKey: TEST_CONTEXT_KEY });
     registry = api.http.get(VehicleRegistry);
     reads = api.http.get(VehiclesService);
     units.ser = await api.unit('SER', 'SER');
@@ -343,7 +351,7 @@ describe('finding a vehicle', () => {
     });
 
     it('finds nothing without a context, on a connection that has just served one', async () => {
-        const one = createDatabase(pg.url('app'), { max: 1 });
+        const one = createDatabase(pg.url('app'), { max: 1, contextKey: TEST_CONTEXT_KEY });
         try {
             await asUnit(one, units.damot, (tx) => tx.execute(sql`select 1`));
             const rows = await one.scoped(
@@ -846,7 +854,7 @@ describe('class R: the isolation matrix on vehicles and their ownership periods'
     it.each(['vehicles.vehicles', 'vehicles.vehicle_ownerships'])(
         'shows nothing of %s without a context, on a connection that has just served one',
         async (table) => {
-            const one = createDatabase(pg.url('app'), { max: 1 });
+            const one = createDatabase(pg.url('app'), { max: 1, contextKey: TEST_CONTEXT_KEY });
             try {
                 await asUnit(one, units.zone, (tx) => tx.execute(sql.raw(`select count(*) from ${table}`)));
                 const seen = await one.scoped({}, (tx) =>
