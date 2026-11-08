@@ -12,3 +12,10 @@ regexes = ['''^[a-z]{2,5}-\d{2}-[a-z][a-z-]*$''']
 description = "Container image tags read after a 'valkey:' (valkey/valkey:8.1.10-alpine3.24): an image version, never a secret"
 regexTarget = "secret"
 regexes = ['''^\d+\.\d+(\.\d+)?(-[a-z0-9.]+)?$''']
+
+[[allowlists]]
+description = "Vehicle identification numbers (ISO 3779, 17 characters, no I/O/Q) in the vehicle register and its tests: sample VINs such as the textbook check-digit example, never a secret"
+condition = "AND"
+paths = ['''(^|/)modules/vehicles/''', '''(^|/)apps/api/test/integration/vehicles\.int\.spec\.ts$''']
+regexTarget = "secret"
+regexes = ['''^[A-HJ-NPR-Z0-9]{17}$''']
