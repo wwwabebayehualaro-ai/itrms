@@ -80,13 +80,14 @@ Last updated: 2026-11-08. Planning: done (docs/reviews/2026-10-18-design-review.
 | 0.26c2 | Phase 0 hardening, part 2: the smoke load test | **done** | `task/0.26c2-load-smoke`, 57ba867, f2c0f7d | nightly run 42401234495 (PR #48, 57ba867) → k6 thresholds met: inbox p95 141.33 ms, query p95 150.13 ms (< 300 ms), http_req_failed 0.00% both, checks 100% both; earlier nightly run 42396916048 (d0fbf48) → inbox p95 50.92 ms, query p95 55.43 ms, 0/599 failed, 587/587 checks; ci run 42401234646 (57ba867) → all jobs success (lint/typecheck/test/build/boundaries, e2e, Semgrep, Trivy, gitleaks, production profile, performance, stories); local: web lint, web typecheck, format:check, boundaries (1289 modules) → pass; task-verifier → Done when met; no scope creep; gaps were the unrecorded evidence and the pending ci run (now recorded/green); reviewer agent not run: test-only change (CI workflow, k6 script, Playwright setup); no API, table, auth or money path changed | The nightly workflow runs on schedule (00:30 Addis Ababa) once on main, by hand, and on PRs touching the load test. The smoke runs against next dev on a CI runner (a production BFF refuses a plain-HTTP origin); k6 setup() warms both routes so compilation is not in the p95. The full load test (1×/3× regional, 10^6 records, search and transitions) is follow-up to 3.13. |
 | 0.26d | Demo installation, part 3: on the demo server | **blocked** |  |  | 2026-11-08: product owner: the demo runs from the development laptop for now (pnpm dev, pnpm demo:reset in 44 s, local 2FA switch pnpm dev:2fa); 0.26d stays blocked until a server and a backup machine exist. BLOCKED: Needs a demo server and a second machine for the backups (the product owner's) |
 
-## Phase 1: Licensing services — 0/25 done (0%)
+## Phase 1: Licensing services — 0/26 done (0%)
 
 **Gate:** Entry: a signed pilot agreement. Gate: pilot at one zone office for 8 weeks, INSA evaluation passed
 
 | Task | Title | Status | Branch / commits | Evidence | Notes / blockers |
 |---|---|---|---|---|---|
-| 1.1 | Vehicle registry | planned |  |  |  |
+| 1.1a | Vehicle registry, part 1: data, search API and lookup | **in progress** | `task/1.1a-vehicle-registry-data` |  | Split from 1.1 on 2026-11-08 (one session each): 1.1a the slice, tables, RLS, registry commands, search and read API, lookup provider; 1.1b the screens and the demo data. 2026-11-08: started on the product owner's instruction to move on to the next phase ahead of the phase entry (no signed pilot agreement yet): the build work that does not depend on a pilot. Placeholders to confirm with a bureau: the federal vehicle id format (loose check + federal_id_source, tightened in 1.14), the legacy plate grammar and region codes (a setting), the use codes, the category list (a regional catalogue). Write path: no HTTP create in 1.1 (roles-and-permissions.md: registry tables change through case effects); registration is 1.2's DVC-01 case, back-capture 1.13. |
+| 1.1b | Vehicle registry, part 2: screens and demo data | planned |  |  | Split from 1.1 on 2026-11-08. |
 | 1.2 | Registration and plates | planned |  |  |  |
 | 1.3 | Bolo technical inspection | planned |  |  |  |
 | 1.4 | Ownership transfer and zone transfer out/in | planned |  |  |  |

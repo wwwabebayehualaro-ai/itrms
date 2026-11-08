@@ -1387,14 +1387,24 @@
       "gate": "Entry: a signed pilot agreement. Gate: pilot at one zone office for 8 weeks, INSA evaluation passed",
       "tasks": [
         {
-          "id": "1.1",
-          "title": "Vehicle registry",
+          "id": "1.1a",
+          "title": "Vehicle registry, part 1: data, search API and lookup",
+          "status": "in progress",
+          "branch": "task/1.1a-vehicle-registry-data",
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Split from 1.1 on 2026-11-08 (one session each): 1.1a the slice, tables, RLS, registry commands, search and read API, lookup provider; 1.1b the screens and the demo data. 2026-11-08: started on the product owner's instruction to move on to the next phase ahead of the phase entry (no signed pilot agreement yet): the build work that does not depend on a pilot. Placeholders to confirm with a bureau: the federal vehicle id format (loose check + federal_id_source, tightened in 1.14), the legacy plate grammar and region codes (a setting), the use codes, the category list (a regional catalogue). Write path: no HTTP create in 1.1 (roles-and-permissions.md: registry tables change through case effects); registration is 1.2's DVC-01 case, back-capture 1.13."
+        },
+        {
+          "id": "1.1b",
+          "title": "Vehicle registry, part 2: screens and demo data",
           "status": "planned",
           "branch": null,
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Split from 1.1 on 2026-11-08."
         },
         {
           "id": "1.2",
