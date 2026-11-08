@@ -62,6 +62,8 @@ export const SECRET_KEYS = [
 ];
 /** Secrets are written into SQL (as psql variables) and into SeaweedFS's JSON config: letters and digits only. */
 const SECRET_VALUE = /^[A-Za-z0-9]+$/;
+/** Only sent to Keycloak's admin API, as JSON: any characters the realm's password policy accepts. */
+const FREE_TEXT_KEYS = new Set(['DEV_USER_PASSWORD']);
 
 export const BUCKETS = ['itrms-dev', 'itrms-test'];
 export const DEV_USERS = [
@@ -124,7 +126,7 @@ function restrictToOwner(file) {
 export function ensureEnv(file = ENV_FILE) {
     const existed = existsSync(file);
     const env = existed ? readEnv(file) : {};
-    const bad = SECRET_KEYS.filter((k) => env[k] && !SECRET_VALUE.test(env[k]));
+    const bad = SECRET_KEYS.filter((k) => env[k] && !FREE_TEXT_KEYS.has(k) && !SECRET_VALUE.test(env[k]));
     if (bad.length) {
         throw new Error(`${bad.join(', ')} in infra/compose/.env must be letters and digits only`);
     }
@@ -400,7 +402,9 @@ export async function seedKeycloak(
         backchannel = 'http://host.docker.internal:3000',
         displayName = 'ITRMS (development)',
         devUsers = true,
-        demoAccounts = true
+        demoAccounts = true,
+        // 'off' only on the local development stack (DEV_SECOND_FACTOR): the production profile always requires it
+        secondFactor = 'required'
     } = {}
 ) {
     const token = await keycloakToken(env);
@@ -409,7 +413,7 @@ export async function seedKeycloak(
         .join(backchannel)
         .split('http://localhost:3000')
         .join(appOrigin);
-    const realm = JSON.parse(file);
+    const realm = withSecondFactor(JSON.parse(file), secondFactor);
     const secrets = {
         'itrms-web': env.KEYCLOAK_WEB_CLIENT_SECRET,
         'itrms-identity-admin': env.KEYCLOAK_IDENTITY_ADMIN_SECRET
@@ -453,7 +457,13 @@ export async function seedKeycloak(
             lastName: 'Demo',
             email: `${u.username}@example.test`
         }))
-    ].map((u) => ({ ...u, enabled: true, emailVerified: true, credentials, requiredActions: ['CONFIGURE_TOTP'] }));
+    ].map((u) => ({
+        ...u,
+        enabled: true,
+        emailVerified: true,
+        credentials,
+        requiredActions: secondFactor === 'off' ? [] : ['CONFIGURE_TOTP']
+    }));
     // SKIP: a developer's TOTP set-up survives the next start
     const res = await keycloak(env, '/admin/realms/itrms/partialImport', {
         token,
@@ -462,6 +472,75 @@ export async function seedKeycloak(
     });
     const added = (await res.json()).added ?? 0;
     if (added) console.log(`  ${added} user(s) created`);
+    // an account created earlier keeps what it was created with: bring its profile, its required actions and its password
+    // in line with the settings (a linked authenticator app is kept: turning the second factor back on asks for it again)
+    let renamed = 0;
+    let passwords = 0;
+    for (const u of users) {
+        const path = u.id
+            ? `/admin/realms/itrms/users/${u.id}`
+            : `/admin/realms/itrms/users?exact=true&username=${encodeURIComponent(u.username)}`;
+        const found = await keycloak(env, path, { token });
+        if (found.status === 404) continue;
+        const body = await found.json();
+        const account = Array.isArray(body) ? body[0] : body;
+        if (!account) continue;
+        const actions = account.requiredActions ?? [];
+        const wanted = {
+            firstName: u.firstName,
+            lastName: u.lastName,
+            email: u.email,
+            requiredActions: secondFactor === 'off' ? actions.filter((a) => a !== 'CONFIGURE_TOTP') : actions
+        };
+        if (!Object.entries(wanted).every(([k, v]) => JSON.stringify(account[k] ?? []) === JSON.stringify(v))) {
+            // the whole account: Keycloak checks the user profile on every update
+            await keycloak(env, `/admin/realms/itrms/users/${account.id}`, {
+                token,
+                method: 'PUT',
+                body: { ...account, ...wanted }
+            });
+            renamed++;
+        }
+        if (env.DEV_USER_PASSWORD && (await setPassword(env, token, account.id, env.DEV_USER_PASSWORD))) passwords++;
+    }
+    if (renamed) console.log(`  ${renamed} user(s) updated`);
+    if (passwords) console.log(`  ${passwords} user(s) given DEV_USER_PASSWORD`);
+}
+
+/**
+ * The realm file with the second factor as set: 'off' disables the TOTP step of the sign-in flow (the local stack's
+ * DEV_SECOND_FACTOR=off, for presenting the demo); anything else keeps the realm file's flow, where it is required.
+ */
+export function withSecondFactor(realm, secondFactor) {
+    if (secondFactor !== 'off') return realm;
+    return {
+        ...realm,
+        authenticationFlows: realm.authenticationFlows.map((flow) => ({
+            ...flow,
+            authenticationExecutions: flow.authenticationExecutions.map((e) =>
+                e.authenticator === 'auth-otp-form' ? { ...e, requirement: 'DISABLED' } : e
+            )
+        }))
+    };
+}
+
+/**
+ * Sets an account's password to the dev password. Keycloak refuses one of the account's last five passwords
+ * (passwordHistory): that is what happens when it already has this one, so the refusal counts as done.
+ */
+async function setPassword(env, token, id, password) {
+    const res = await fetch(
+        `http://127.0.0.1:${ports(env).KEYCLOAK_HOST_PORT}${env.KEYCLOAK_BASE_PATH ?? ''}/admin/realms/itrms/users/${id}/reset-password`,
+        {
+            method: 'PUT',
+            headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+            body: JSON.stringify({ type: 'password', value: password, temporary: false })
+        }
+    );
+    if (res.ok) return true;
+    const text = await res.text();
+    if (res.status === 400 && /history/i.test(text)) return false;
+    throw new Error(`Keycloak: setting the dev password of ${id} → ${res.status} ${text}`);
 }
 
 /**
@@ -566,6 +645,33 @@ function writeAppEnv(env) {
     console.log('  app settings: apps/api/.env.{http,worker,migrate}.local, apps/web/.env.local');
 }
 
+/** DEV_SECOND_FACTOR in infra/compose/.env: 'off' turns the TOTP step off on the local stack; unset or 'on' keeps it. */
+export function secondFactorSetting(env) {
+    const value = (env.DEV_SECOND_FACTOR ?? 'on').trim().toLowerCase();
+    if (value !== 'on' && value !== 'off') throw new Error(`DEV_SECOND_FACTOR must be on or off, not "${value}"`);
+    return value === 'off' ? 'off' : 'required';
+}
+
+/** `pnpm dev:2fa on|off`: writes DEV_SECOND_FACTOR to infra/compose/.env and applies it to the running stack's realm. */
+async function setSecondFactor(value) {
+    if (value !== 'on' && value !== 'off') throw new Error('usage: pnpm dev:2fa on | off');
+    const text = readFileSync(ENV_FILE, 'utf8');
+    const line = `DEV_SECOND_FACTOR=${value}`;
+    writeFileSync(
+        ENV_FILE,
+        /^DEV_SECOND_FACTOR=.*$/m.test(text)
+            ? text.replace(/^DEV_SECOND_FACTOR=.*$/m, line)
+            : `${text.replace(/\s*$/, '\n')}# the second factor (TOTP) at sign-in on this local stack: on | off (pnpm dev:2fa)\n${line}\n`
+    );
+    const env = readEnv();
+    await seedKeycloak(env, { secondFactor: secondFactorSetting(env) });
+    console.log(
+        value === 'off'
+            ? 'Second factor OFF on the local stack: the demo and dev accounts sign in with their password only.'
+            : 'Second factor ON: each account asks for its authenticator app (set up at the next sign-in if not linked yet).'
+    );
+}
+
 async function up(observability) {
     if (!existsSync(ENV_FILE) && stackVolumes().length) {
         throw new Error(
@@ -583,7 +689,7 @@ async function up(observability) {
     console.log('Seeding:');
     seedDatabaseRoles(env);
     await seedBuckets(env);
-    await seedKeycloak(env);
+    await seedKeycloak(env, { secondFactor: secondFactorSetting(env) });
     writeAppEnv(env);
     console.log(`
 Development stack is healthy.
@@ -808,6 +914,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     try {
         if (cmd === 'up') await up(rest.includes('--observability'));
         else if (cmd === 'check') await check();
+        else if (cmd === 'second-factor') await setSecondFactor(rest[0]);
         else if (cmd === 'down') compose(['--profile', 'observability', 'down']);
         else if (cmd === 'status') compose(['--profile', 'observability', 'ps']);
         else if (cmd === 'reset') {
@@ -820,7 +927,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
             emptyDatabase();
         } else
             throw new Error(
-                `Unknown command "${cmd}" (up | check | status | down | reset --yes | empty-database --yes)`
+                `Unknown command "${cmd}" (up | check | status | down | reset --yes | empty-database --yes | second-factor on|off)`
             );
     } catch (e) {
         console.error(`dev-infra: ${e.message}`);

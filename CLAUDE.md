@@ -139,6 +139,7 @@ can't run it). Available now (task 0.2):
 - `pnpm gen module|feature|screen|effect` (turbo gen) · `pnpm licences:report`
 - `pnpm ci:local [--ref <commit>]` (the CI jobs in Linux containers: reproduces a CI failure; the CI record is the PR's GitHub Actions run, ADR-0038)
 - `pnpm dev [--no-workers]` (api :4000, both workers, web :3000; needs `dev:infra` and the API built)
+- `pnpm dev:2fa on|off` (the local stack's second factor at sign-in; off only for presenting, the e2e needs on)
 - `pnpm dev:infra [--observability]` · `dev:infra:status|down|reset --yes` (Compose dev stack, task 0.3; see
   `infra/compose/README.md`) · `pnpm test:int` (integration tests against it)
 
