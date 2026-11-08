@@ -13,7 +13,7 @@ import {
     type Source,
     type SourceLevel
 } from '@itrms/kernel/settings';
-import type { WorkflowDefinition } from '@itrms/schemas';
+import type { WorkflowDefinition, WorkflowGuard } from '@itrms/schemas';
 
 import { configFamily, configValueProblem, type OverrideConflict, type OverridePolicy } from '../contracts';
 
@@ -126,4 +126,28 @@ export function frozenConfig(
         config.sources[key] = source;
     }
     return config;
+}
+
+/** Whether a guard holds only when the case's payment is settled (`payment.settled` eq true), in every branch. */
+export function requiresSettled(guard: WorkflowGuard | undefined): boolean {
+    if (!guard) return false;
+    if ('all' in guard) return guard.all.some(requiresSettled);
+    if ('any' in guard) return guard.any.every(requiresSettled);
+    if ('not' in guard) return false;
+    return guard.fact === 'payment.settled' && guard.op === 'eq' && guard.value === true;
+}
+
+/**
+ * The transitions that give the service (they run an effect marked `givesService`) without guarding on the payment: in a
+ * service with a fee, a reversed case could still be given it (ADR-0042). By index, with the effects they give.
+ */
+export function unpaidGiving(
+    workflow: WorkflowDefinition,
+    gives: (effect: string) => boolean,
+    keyOf: (reference: string) => string
+): { index: number; effects: string[] }[] {
+    return workflow.transitions.flatMap((t, index) => {
+        const giving = (t.effects ?? []).map(keyOf).filter(gives);
+        return giving.length && !requiresSettled(t.guard) ? [{ index, effects: giving }] : [];
+    });
 }

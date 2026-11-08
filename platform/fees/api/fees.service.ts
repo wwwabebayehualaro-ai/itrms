@@ -99,8 +99,7 @@ export class FeesService {
             });
         const asOf = addisToday();
         const usable = await this.rules.usable(tx, request.feeRuleVersionId);
-        if (!usable.ok)
-            throw new ConflictError('not_configured', { detail: "The service's fee rule cannot be charged by." });
+        if (!usable.ok) throw new ConflictError('not_configured', { detailKey: 'fees.errors.rule_not_chargeable' });
         const result = evaluateFee(usable.rule.rule, { answers: request.answers, asOf, inputMap: request.inputMap });
         if (result.status !== 'complete')
             throw new ValidationError('validation_failed', {
@@ -142,7 +141,7 @@ export class FeesService {
                   .from(submissions)
                   .where(eq(submissions.id, first.submissionId))
             : [{ answers: {} }];
-        if (!request) throw new ConflictError('not_configured', { detail: "The case's request cannot be read here." });
+        if (!request) throw new ConflictError('not_configured', { detailKey: 'fees.errors.request_unreadable' });
         const asOf = rule.rule.reassessAsOf === 'filing' ? first.asOf : addisToday();
         const result = evaluateFee(rule.rule, { answers: request.answers, asOf, inputMap: first.inputMap });
         if (result.status !== 'complete')
