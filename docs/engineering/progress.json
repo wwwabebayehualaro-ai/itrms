@@ -1377,7 +1377,7 @@
           "blockers": [
             "Needs a demo server and a second machine for the backups (the product owner's)"
           ],
-          "notes": ""
+          "notes": "2026-11-08: product owner: the demo runs from the development laptop for now (pnpm dev, pnpm demo:reset in 44 s, local 2FA switch pnpm dev:2fa); 0.26d stays blocked until a server and a backup machine exist."
         }
       ]
     },
@@ -2014,7 +2014,8 @@
     {
       "foundIn": "0.3",
       "item": "SeaweedFS master/volume/filer have no authentication (isolated on its own network in dev)",
-      "movedTo": "0.26: SeaweedFS security.toml JWT, internal network with only api/worker/nginx"
+      "movedTo": "0.26: SeaweedFS security.toml JWT, internal network with only api/worker/nginx",
+      "closedIn": "Triage 2026-11-08: already fixed: mitigated by 0.26a: SeaweedFS on its own storage network, only the S3 gate exposed, bucket-scoped identity"
     },
     {
       "foundIn": "0.4",
@@ -2040,7 +2041,8 @@
     {
       "foundIn": "0.4",
       "item": "form-engine core imports Runtime types (bindings, TemplateRuntimeConfig); only the import cycle was broken in 0.4 (core/conditionTypes.ts)",
-      "movedTo": "0.5: core owns the stored shape and imports nothing from Runtime"
+      "movedTo": "0.5: core owns the stored shape and imports nothing from Runtime",
+      "closedIn": "Triage 2026-11-08: already fixed: form-engine core has its own core/runtime types and imports nothing outside core"
     },
     {
       "foundIn": "0.4",
@@ -2096,7 +2098,8 @@
     {
       "foundIn": "0.4b",
       "item": "PDF templates need the tokens, but api code may not import packages/ui: move src/tokens to a UI-free package (or allow @itrms/ui/tokens in the boundary rules) and reuse the self-hosted Noto fonts in the PDF worker",
-      "movedTo": "0.23"
+      "movedTo": "0.23",
+      "closedIn": "Triage 2026-11-08: already fixed: the PDF worker embeds the self-hosted Noto fonts (documents/api/render/html.ts); templates need no ui tokens"
     },
     {
       "foundIn": "0.4b",
@@ -2106,7 +2109,8 @@
     {
       "foundIn": "0.4b",
       "item": "Browser checks of Ethiopic layout (two-line labels, line boxes, 14 px floor) and axe in all themes and densities",
-      "movedTo": "0.4a"
+      "movedTo": "0.4a",
+      "closedIn": "Triage 2026-11-08: already fixed: EthiopicTypography stories check line boxes and the 14 px floor; run-stories runs axe in every theme and density"
     },
     {
       "foundIn": "0.4a",
@@ -2136,7 +2140,8 @@
     {
       "foundIn": "0.4c",
       "item": "MoneyInput announces a refused keystroke or paste (aria-describedby message; needs a catalogue key)",
-      "movedTo": "0.22b"
+      "movedTo": "0.22b",
+      "closedIn": "Triage 2026-11-08: already fixed: MoneyInput announces refused input in a live region (common.money.refused)"
     },
     {
       "foundIn": "0.4c",
@@ -2147,7 +2152,8 @@
     {
       "foundIn": "0.5",
       "item": "Type the form engine's renderer, designer, viewer and api (stored templates as unknown + Zod) and remove the scoped any/no-unsafe lint override in packages/form-engine/eslint.config.js",
-      "movedTo": "0.17e"
+      "movedTo": "0.17e",
+      "closedIn": "Triage 2026-11-08: already fixed: form-engine eslint config has no any/no-unsafe override"
     },
     {
       "foundIn": "0.6a",
@@ -2163,7 +2169,8 @@
     {
       "foundIn": "0.7",
       "item": "Audit masking is in place (audited(table,{mask,omit}), HMAC with AUDIT_HMAC_KEY): set AUDIT_HMAC_KEY in every installation and classify the person tables (Fayda FIN, phone, medical, salary, bank account) as mask/omit",
-      "movedTo": "0.14"
+      "movedTo": "0.14",
+      "closedIn": "Triage 2026-11-08: already fixed: production.yml requires AUDIT_HMAC_KEY; person_sensitive is omitted/masked in audit"
     },
     {
       "foundIn": "0.7",
@@ -2203,7 +2210,8 @@
     {
       "foundIn": "0.8",
       "item": "Run the org seed in pnpm demo:reset and the installation script (seed:org after migrate)",
-      "movedTo": "0.25"
+      "movedTo": "0.25",
+      "closedIn": "Triage 2026-11-08: already fixed: demo-reset seeds org first (tools/demo-reset.mjs), shared with prod-stack"
     },
     {
       "foundIn": "0.8",
@@ -2318,7 +2326,8 @@
     {
       "foundIn": "0.10a",
       "item": "Production wiring: BFF and API reach Keycloak on the internal network (KC_HOSTNAME_BACKCHANNEL_DYNAMIC), the BFF's address in the API's TRUSTED_PROXIES, nginx -t on the exposure template, Keycloak admin on KC_HOSTNAME_ADMIN only",
-      "movedTo": "0.26"
+      "movedTo": "0.26",
+      "closedIn": "Triage 2026-11-08: already fixed: 0.26a production wiring: internal Keycloak URL, TRUSTED_PROXIES, admin on loopback; verify-nginx test"
     },
     {
       "foundIn": "0.10a",
@@ -2356,7 +2365,8 @@
     {
       "foundIn": "0.10b",
       "item": "Competency menu routes (/competency/applications, /exams, /print-batches) have no screens yet",
-      "movedTo": "0.24"
+      "movedTo": "0.24",
+      "closedIn": "Triage 2026-11-08: already fixed: every menu route of the manifests has a page"
     },
     {
       "foundIn": "0.10b",
@@ -2492,17 +2502,20 @@
     {
       "foundIn": "0.16a",
       "item": "Remote validation (behavior.validation.remote) is not run on the server: RegistryLookup ids must be checked to exist in the caller's region",
-      "movedTo": "0.18"
+      "movedTo": "0.18",
+      "closedIn": "Triage 2026-11-08: already fixed: platform/forms/api/submission-refs.ts checks registry ids against the caller's scope on the server"
     },
     {
       "foundIn": "0.16a",
       "item": "FileUpload values are what the client reports (name, size): store kernel file ids and check each is a stored file of the caller's subtree",
-      "movedTo": "0.18"
+      "movedTo": "0.18",
+      "closedIn": "Triage 2026-11-08: already fixed: submission-refs resolveFiles checks kernel file rows of the caller's scope"
     },
     {
       "foundIn": "0.16a",
       "item": "Computed fields keep the client's value: recompute formulas on the server before validation and storage",
-      "movedTo": "0.17b"
+      "movedTo": "0.17b",
+      "closedIn": "Triage 2026-11-08: already fixed: submissions.service recomputes computed fields on the server (derivedValues)"
     },
     {
       "foundIn": "0.16a",
@@ -2525,7 +2538,8 @@
     {
       "foundIn": "0.16a",
       "item": "A field the palette does not validate (no behavior.validation.supported) takes any JSON value: check every value-holding field's basic type on the server, by its kit type",
-      "movedTo": "0.17b"
+      "movedTo": "0.17b",
+      "closedIn": "Triage 2026-11-08: already fixed: core/validate.ts runs shapeError on every value-holding field"
     },
     {
       "foundIn": "0.16b",
@@ -2552,12 +2566,14 @@
     {
       "foundIn": "0.16d",
       "item": "Exports show dates Gregorian (Addis time for timestamps): give them the Ethiopian date columns of the EthDate field",
-      "movedTo": "0.17b"
+      "movedTo": "0.17b",
+      "closedIn": "Triage 2026-11-08: already fixed: forms/api/export.ts prints EthDate in Ethiopian dates"
     },
     {
       "foundIn": "0.16d",
       "item": "Field labels in exports and views are the form's plain labels: use the I18nText labels in the caller's language",
-      "movedTo": "0.17a"
+      "movedTo": "0.17a",
+      "closedIn": "Triage 2026-11-08: already fixed: exports read I18nText labels in the caller's language (readDocument)"
     },
     {
       "foundIn": "0.16d",
@@ -2625,7 +2641,8 @@
     {
       "foundIn": "0.16c",
       "item": "A form's name is one string in the builder (sent as am and en alike) until the builder's translation table",
-      "movedTo": "0.17a"
+      "movedTo": "0.17a",
+      "closedIn": "Triage 2026-11-08: already fixed: TemplateSettingsForm edits the form name per language"
     },
     {
       "foundIn": "0.16c",
@@ -2653,7 +2670,8 @@
     {
       "foundIn": "0.16f",
       "item": "Generated demo forms for the demo journey (a Wolaita transport bureau's forms in am/en) seeded through the forms API",
-      "movedTo": "0.25"
+      "movedTo": "0.25",
+      "closedIn": "Triage 2026-11-08: already fixed: modules/competency/seed/licence-services.ts seeds the demo forms, workflows and fees"
     },
     {
       "foundIn": "0.16f",
@@ -2669,22 +2687,26 @@
     {
       "foundIn": "0.17a",
       "item": "More texts in every language: row add/remove button texts, the upload button, the options' empty message, panel and section titles, data table column headers (one entry each in fieldTexts)",
-      "movedTo": "0.17c"
+      "movedTo": "0.17c",
+      "closedIn": "Triage 2026-11-08: already fixed: packages/schemas forms text.ts carries row, upload, options, panel and column texts per language"
     },
     {
       "foundIn": "0.17a",
       "item": "A new field labelled in Amharic first keeps its palette key when the English label is typed later (the key follows only an English/plain label it was made from): track per session which keys still follow their label",
-      "movedTo": "0.17c"
+      "movedTo": "0.17c",
+      "closedIn": "Triage 2026-11-08: already fixed: designer store tracks which field keys follow their label"
     },
     {
       "foundIn": "0.17a",
       "item": "Plain-string texts count as the language of whoever opens the form (the builder's authoring language): consider storing the authoring language with the form, so the untranslated count is the same for everyone",
-      "movedTo": "0.17c"
+      "movedTo": "0.17c",
+      "closedIn": "Triage 2026-11-08: already fixed: the stored form keeps textLanguage"
     },
     {
       "foundIn": "0.17b",
       "item": "today() in rule formulas (browser and server may disagree around midnight: needs the server's date passed to the browser)",
-      "movedTo": "0.18a"
+      "movedTo": "0.18a",
+      "closedIn": "Triage 2026-11-08: already fixed: no today() exists in rule formulas; reopen when one is added"
     },
     {
       "foundIn": "0.17b",
@@ -2704,12 +2726,14 @@
     {
       "foundIn": "0.17c",
       "item": "Print's own words (Yes/No/No rows/No./Item, PRINT_WORDS) are English literals passed by the host; move them to the engine's message catalogues",
-      "movedTo": "0.17d"
+      "movedTo": "0.17d",
+      "closedIn": "Triage 2026-11-08: already fixed: core/print.ts takes printWords(language) from the catalogues"
     },
     {
       "foundIn": "0.17c",
       "item": "Palette defaults written by createField (Text input, Option 1/2, Item, Add row) are English but stored as the builder's language; give them per-language catalogue texts",
-      "movedTo": "0.17d"
+      "movedTo": "0.17d",
+      "closedIn": "Triage 2026-11-08: already fixed: designer defaults come from the palette catalogues per language"
     },
     {
       "foundIn": "0.17d",
@@ -2739,7 +2763,8 @@
     {
       "foundIn": "0.18",
       "item": "Printouts show a RegistryLookup's id until the caller passes labels (PrintOptions.refs): the PDF worker resolves them",
-      "movedTo": "0.23"
+      "movedTo": "0.23",
+      "closedIn": "Triage 2026-11-08: already fixed: documents issue effect resolves lookup labels in the worker"
     },
     {
       "foundIn": "0.18a",
@@ -2922,7 +2947,8 @@
     {
       "foundIn": "0.22a",
       "item": "A Playwright journey of the Fee field at the counter (component and API tests cover 0.22a)",
-      "movedTo": "0.22b"
+      "movedTo": "0.22b",
+      "closedIn": "Triage 2026-11-08: already fixed: apps/web/tests/e2e/fees/counter.spec.ts covers the Fee field at the counter"
     },
     {
       "foundIn": "0.22a",
@@ -2947,7 +2973,8 @@
     {
       "foundIn": "0.22b",
       "item": "Flaky e2e: forms/builder-publish.spec.ts drag into a panel (data-design-field longText not in the panel on first try, passed on retry, run 41872728409)",
-      "movedTo": "0.26 hardening"
+      "movedTo": "0.26 hardening",
+      "closedIn": "Duplicate of follow-up 164 (the same builder-publish drag flake)"
     },
     {
       "foundIn": "0.22b",
@@ -3002,7 +3029,8 @@
     {
       "foundIn": "0.25c",
       "item": "Step 8 checks the public verification API with the token read from the card PDF; the verifier page's own UI is covered by the apps/verify e2e, not this journey",
-      "movedTo": "0.25d / demo"
+      "movedTo": "0.25d / demo",
+      "closedIn": "Triage 2026-11-08: already fixed: apps/verify has its own Playwright e2e of the verifier page"
     },
     {
       "foundIn": "0.26c1",
