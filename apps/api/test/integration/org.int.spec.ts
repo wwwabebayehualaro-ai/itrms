@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { Module, type DynamicModule } from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { createHttpApp, createLogger, KernelModule } from '@itrms/kernel/api';
+import { NO_RATE_LIMITS } from '@itrms/kernel/testing';
 import { loadConfig } from '@itrms/kernel/config';
 import { auditLog, createDatabase, type Database, type Tx } from '@itrms/kernel/db';
 import type { Authenticator, Principal } from '@itrms/kernel/iam';
@@ -327,7 +328,12 @@ describe('the admin API', () => {
             static forRoot(): DynamicModule {
                 // a database of its own: the app closes it at shutdown
                 const database = createDatabase(config.DATABASE_URL);
-                return { module: Root, imports: [KernelModule.forRoot(config, logger, { database, authenticator })] };
+                return {
+                    module: Root,
+                    imports: [
+                        KernelModule.forRoot(config, logger, { database, authenticator, rateLimiter: NO_RATE_LIMITS })
+                    ]
+                };
             }
         }
         http = await createHttpApp(Root.forRoot(), config, logger);

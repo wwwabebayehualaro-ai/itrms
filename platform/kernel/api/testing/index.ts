@@ -10,6 +10,7 @@
  */
 import type { Database } from '../db/database';
 import type { RlsClass } from '../db/rls';
+import type { RateLimiter } from '../limits/rate-limit';
 import type { DbContext, Tx } from '../db/types';
 
 export interface UnitLike {
@@ -58,3 +59,9 @@ export const POLICIES: Record<RlsClass, readonly string[]> = {
     registry: ['rls_registry_delete', 'rls_registry_insert', 'rls_registry_read', 'rls_registry_update'],
     party: ['rls_party']
 };
+
+/**
+ * A rate limiter that never refuses: the integration suites make hundreds of requests as one test user. The limits
+ * themselves are tested on their own (limits/rate-limit.spec.ts, rate-limit.int.spec.ts).
+ */
+export const NO_RATE_LIMITS: RateLimiter = { hit: () => Promise.resolve({ count: 0, resetsIn: 1 }) };

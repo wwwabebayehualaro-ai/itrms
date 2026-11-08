@@ -57,7 +57,7 @@ test('a change to a published form shows its diff and the views it affects, and 
 
         // the author opens it in the builder: a published key cannot be renamed
         await page.reload();
-        await page.getByRole('button', { name: `Edit ${name} in the builder` }).click();
+        await page.getByRole('button', { name: shellAm('shell.templates.action.editOf', { name }) }).click();
         const designer = page.locator('[data-designer]');
         await expect(designer.getByRole('heading', { name })).toBeVisible();
         const canvas = designer.locator('[data-canvas]');

@@ -9,14 +9,14 @@ import { Redis } from 'ioredis';
 import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-const VALKEY = 'valkey/valkey:8.1.10-alpine3.24';
+const IMAGE = 'valkey/valkey:8.1.10-alpine3.24';
 
 describe('rate limits on Valkey', () => {
     let valkey: StartedTestContainer;
     let redis: Redis;
 
     beforeAll(async () => {
-        valkey = await new GenericContainer(VALKEY).withExposedPorts(6379).start();
+        valkey = await new GenericContainer(IMAGE).withExposedPorts(6379).start();
         redis = new Redis({ host: valkey.getHost(), port: valkey.getMappedPort(6379), maxRetriesPerRequest: 1 });
     }, 120_000);
 

@@ -32,7 +32,7 @@ import { efy } from '@itrms/ethiopian-calendar';
 import { nextNumber, setUpCounter } from '@itrms/kernel/numbering';
 import { findUnitByCode, importOrg, orgUnits, parseOrgYaml, type OrgUnit } from '@itrms/kernel/org';
 import { emit } from '@itrms/kernel/outbox';
-import { contextFor } from '@itrms/kernel/testing';
+import { contextFor, NO_RATE_LIMITS } from '@itrms/kernel/testing';
 import { Queue } from 'bullmq';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { Redis } from 'ioredis';
@@ -239,7 +239,12 @@ describe('idempotent POSTs (architecture.md §15)', () => {
         class Root {
             static forRoot(): DynamicModule {
                 const database = createDatabase(config.DATABASE_URL);
-                return { module: Root, imports: [KernelModule.forRoot(config, logger, { database, authenticator })] };
+                return {
+                    module: Root,
+                    imports: [
+                        KernelModule.forRoot(config, logger, { database, authenticator, rateLimiter: NO_RATE_LIMITS })
+                    ]
+                };
             }
         }
         http = await createHttpApp(Root.forRoot(), config, logger);

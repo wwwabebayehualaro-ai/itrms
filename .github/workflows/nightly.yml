@@ -47,7 +47,9 @@ jobs:
           pnpm demo:reset
       - name: Start the API and the web app
         run: |
-          nohup pnpm --filter @itrms/api dev:start > api.log 2>&1 &
+          # ten virtual users share three officers' accounts: the per-person rate limits (SEC-AP-2) would refuse them
+          # the throughput this test measures, so they are scaled up here (node --env-file keeps a variable already set)
+          RATE_LIMIT_SCALE=50 nohup pnpm --filter @itrms/api dev:start > api.log 2>&1 &
           # the dev server: the BFF of a production build refuses a plain-HTTP origin (it is https only), and this
           # runner has no TLS in front of it; k6 warms each route up before it measures (tests/load/README.md)
           nohup pnpm --filter @itrms/web exec next dev -p 3000 > web.log 2>&1 &

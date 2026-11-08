@@ -204,7 +204,9 @@ test('a form with a field that has no data class cannot be published: the review
     });
     try {
         await page.goto('/dynamic-template/saved-templates');
-        await page.getByRole('button', { name: `Publish ቅጽ ${name}` }).click();
+        await page
+            .getByRole('button', { name: shellAm('shell.templates.action.publishOf', { name: `ቅጽ ${name}` }) })
+            .click();
         const review = page.locator('[data-publish-dialog]');
         await expect(review.locator('[data-publish-review]')).toHaveAttribute('data-can-publish', 'false');
         await expect(review.locator('[data-review-section="errors"] [data-problem="unclassified"]')).toContainText(
