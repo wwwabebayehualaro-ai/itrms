@@ -1,0 +1,42 @@
+{
+  "name": "@itrms/vehicles",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Vehicle register: vehicles, chassis and plate keys, ownership history, plates and libres, with search and a lookup.",
+  "exports": {
+    "./manifest": "./module.ts",
+    "./contracts": "./contracts/index.ts",
+    "./api": "./api/index.ts",
+    "./api/worker": "./api/worker.ts",
+    "./web/server": "./web/server.ts",
+    "./web/client": "./web/client.ts",
+    "./messages/*": "./messages/*.json",
+    "./seed": "./seed/index.ts"
+  },
+  "imports": {
+    "#contracts/*": "./contracts/*.ts",
+    "#api/*": "./api/*.ts",
+    "#web/*": "./web/*.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@itrms/forms": "workspace:*",
+    "@itrms/kernel": "workspace:*",
+    "@itrms/module-sdk": "workspace:*",
+    "@itrms/parties": "workspace:*",
+    "@itrms/schemas": "workspace:*",
+    "@nestjs/common": "11.2.7",
+    "drizzle-orm": "0.45.3",
+    "nestjs-zod": "5.5.0",
+    "zod": "4.6.6"
+  },
+  "devDependencies": {
+    "@itrms/config": "workspace:*",
+    "@types/node": "24.19.1"
+  }
+}

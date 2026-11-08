@@ -42,7 +42,8 @@ export function demoSteps(run) {
         ],
         [`${code}: the receipt counters`, () => seed('counters', '--region', code)],
         [`${code}: the document templates`, () => seed('documents', '--region', code)],
-        [`${code}: the licence services`, () => seed('competency', '--region', code)]
+        [`${code}: the licence services`, () => seed('competency', '--region', code)],
+        [`${code}: the vehicle categories`, () => seed('vehicles', '--region', code)]
     ];
 
     return [

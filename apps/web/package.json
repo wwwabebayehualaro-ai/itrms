@@ -25,6 +25,7 @@
     "@itrms/forms": "workspace:*",
     "@itrms/kernel": "workspace:*",
     "@itrms/parties": "workspace:*",
+    "@itrms/vehicles": "workspace:*",
     "@itrms/schemas": "workspace:*",
     "@itrms/services": "workspace:*",
     "@itrms/ui": "workspace:*",

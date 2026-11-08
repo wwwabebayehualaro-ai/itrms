@@ -6,9 +6,10 @@ import { defineModule } from '@itrms/module-sdk';
 // every office uploads and reads its own files (task 0.15): the scope is the unit's subtree (RLS); and reads the forms it
 // fills in (its own, its subtree's and those of the offices above, task 0.16a)
 const READ_ORG = ['org-unit:read', 'service-config:read', 'file:upload', 'file:read', 'form:read'];
-// the register of people and organisations (@itrms/parties, roles-and-permissions.md §2): every office reads it; intake
-// (records officers) registers and corrects, and asks for merges; a unit head approves them
-const REGISTER = ['person:read', 'organisation:read'];
+// the registers of people and organisations (@itrms/parties) and of vehicles (@itrms/vehicles, roles-and-permissions.md §2):
+// every office reads them; intake (records officers) registers and corrects people, and asks for merges; a unit head approves
+// them
+const REGISTER = ['person:read', 'organisation:read', 'vehicle:read'];
 const INTAKE = [
     ...REGISTER,
     'person:lookup',
