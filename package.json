@@ -23,6 +23,7 @@
     "format:check": "prettier --check .",
     "gen": "turbo gen",
     "prepare": "lefthook install",
+    "dev": "node tools/dev.mjs",
     "dev:infra": "node tools/dev-infra.mjs up",
     "dev:infra:check": "node tools/dev-infra.mjs check",
     "dev:infra:down": "node tools/dev-infra.mjs down",

@@ -138,11 +138,12 @@ can't run it). Available now (task 0.2):
 - `pnpm check:slices` (slice shape) · `pnpm test:tools` (boundary fixtures, scaffold) · `pnpm format` / `format:check`
 - `pnpm gen module|feature|screen|effect` (turbo gen) · `pnpm licences:report`
 - `pnpm ci:local [--ref <commit>]` (the CI jobs in Linux containers: reproduces a CI failure; the CI record is the PR's GitHub Actions run, ADR-0038)
+- `pnpm dev [--no-workers]` (api :4000, both workers, web :3000; needs `dev:infra` and the API built)
 - `pnpm dev:infra [--observability]` · `dev:infra:status|down|reset --yes` (Compose dev stack, task 0.3; see
   `infra/compose/README.md`) · `pnpm test:int` (integration tests against it)
 
 Added by later tasks (legacy commands until then: `docs/legacy/CLAUDE.digital-file-cabinet.md`):
-- `pnpm dev` (web :3000, api :4000) · `pnpm e2e`
+- `pnpm e2e`
 - `pnpm --filter @itrms/api db:generate` (drizzle-kit, review the SQL) · `db:migrate`
 - `pnpm demo:reset` (the demo from an emptied database, on the dev stack, with the API built)
 - `pnpm i18n:check` · `pnpm licences:report` · `pnpm openapi` (regenerate `packages/api-client/openapi.json`)
