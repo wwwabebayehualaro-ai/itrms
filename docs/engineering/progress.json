@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-11-07",
+  "updated": "2026-11-08",
   "statuses": [
     "planned",
     "ready",
@@ -1956,7 +1956,8 @@
     {
       "foundIn": "0.2",
       "item": "Trivy and Semgrep skip the legacy dirs Frontend/, Backend/, contracts/, features/",
-      "movedTo": "0.4–0.6: remove the skips when the legacy code is moved or retired"
+      "movedTo": "0.4–0.6: remove the skips when the legacy code is moved or retired",
+      "closedIn": "chore/retire-legacy (2026-11-08): Backend/, contracts/, features/ removed; Trivy skips only tools/boundaries/fixtures, Semgrep and Prettier no legacy dirs"
     },
     {
       "foundIn": "0.2",
@@ -2033,7 +2034,8 @@
     {
       "foundIn": "0.4",
       "item": "Legacy e2e specs and seed scripts in apps/web/tests/e2e and scripts/e2e still target the FastAPI backend (and contain the demo password literal, follow-up 3)",
-      "movedTo": "0.5 runs them for the last time; 0.25 replaces them"
+      "movedTo": "0.5 runs them for the last time; 0.25 replaces them",
+      "closedIn": "chore/retire-legacy (2026-11-08): tests/e2e/legacy and scripts/e2e removed; the journeys are the BFF ones (0.16f, 0.25)"
     },
     {
       "foundIn": "0.4",
@@ -2048,7 +2050,8 @@
     {
       "foundIn": "0.4",
       "item": "apps/web/src/lib/api/schema.d.ts is generated from the legacy contracts/openapi.json and still lists its /core-banking/* paths",
-      "movedTo": "0.6: the new API's contract (packages/api-client) replaces it"
+      "movedTo": "0.6: the new API's contract (packages/api-client) replaces it",
+      "closedIn": "chore/retire-legacy (2026-11-08): apps/web/src/lib/api/schema.d.ts, types.ts, the typed client and api:types removed; the API's contract is packages/api-client"
     },
     {
       "foundIn": "0.4",
@@ -2330,7 +2333,8 @@
     {
       "foundIn": "0.10a",
       "item": "Port the legacy engine e2e journeys (tests/e2e/legacy) to the BFF sign-in",
-      "movedTo": "0.16f"
+      "movedTo": "0.16f",
+      "closedIn": "0.16f ported the engine journeys; chore/retire-legacy (2026-11-08) removed the two left (smoke, feature-flags) with the legacy screens"
     },
     {
       "foundIn": "0.10b",
@@ -2609,12 +2613,14 @@
     {
       "foundIn": "0.16c",
       "item": "The web still calls the legacy Backend platform routes (platform/modules, platform/flags, platform/sequences) and its schema.d.ts comes from contracts/openapi.json; legacy Backend tests that seed forms (test_feature_flags, test_postgres, test_tenancy_audit_features) no longer run (Backend is not in CI)",
-      "movedTo": "0.26"
+      "movedTo": "0.26",
+      "closedIn": "chore/retire-legacy (2026-11-08): the feature-flag and sequence screens, lib/modules.ts, lib/numbering.ts and their routes removed; no web call to platform/* remains; Backend/ removed"
     },
     {
       "foundIn": "0.16c",
       "item": "The legacy e2e journeys and scripts/e2e (seed-demo, data-viewer) still use the legacy routes and auth/directory",
-      "movedTo": "0.16f"
+      "movedTo": "0.16f",
+      "closedIn": "chore/retire-legacy (2026-11-08): scripts/e2e and tests/e2e/legacy removed"
     },
     {
       "foundIn": "0.16c",
@@ -2641,7 +2647,8 @@
     {
       "foundIn": "0.16f",
       "item": "Legacy journeys smoke and feature-flags, and scripts/e2e (demo seed, legacy templates), still use the legacy backend's sign-in and routes",
-      "movedTo": "0.26"
+      "movedTo": "0.26",
+      "closedIn": "chore/retire-legacy (2026-11-08): the legacy journeys and scripts/e2e removed"
     },
     {
       "foundIn": "0.16f",
@@ -3021,6 +3028,10 @@
       "foundIn": "0.26c2",
       "item": "The full load test: inbox, query API, search and transitions at 1× and 3× regional load on a generated 10⁶-record data set, on the reference server (testing-strategy.md; release gate)",
       "movedTo": "3.13"
+    },
+    {
+      "foundIn": "--help",
+      "movedTo": ""
     }
   ]
 }

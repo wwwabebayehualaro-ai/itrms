@@ -31,7 +31,6 @@ export default defineConfig([
         'build/**',
         'next-env.d.ts',
         'public/**',
-        'scripts/e2e/**/out/**',
         'playwright-report/**',
         'test-results/**'
     ]),

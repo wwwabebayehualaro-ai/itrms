@@ -31,7 +31,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
  */
 export const TRIVY_IMAGE =
     'aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa';
-const TRIVY_SKIP_DIRS = 'Backend,contracts,features,tools/boundaries/fixtures';
+const TRIVY_SKIP_DIRS = 'tools/boundaries/fixtures';
 const TRIVY_MUST_LIST = ['vitest', 'eslint', 'typescript'];
 const SEMGREP_ARGS = [
     'scan',

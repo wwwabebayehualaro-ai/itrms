@@ -7,8 +7,6 @@ const WEB = process.env.E2E_WEB || 'http://localhost:3000';
 
 export default defineConfig({
     testDir: 'tests/e2e',
-    // the legacy engine journeys ran against the old backend's password sign-in (tests/e2e/legacy/README.md)
-    testIgnore: ['legacy/**'],
     timeout: 120_000,
     // a cold dev server compiles each page on first visit
     expect: { timeout: 60_000 },

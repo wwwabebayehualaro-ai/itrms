@@ -1,4 +1,3 @@
-import createClient from 'openapi-fetch';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ApiError, createHttpClient, isApiError, joinUrl, stepUpMaxAge, type BrowserSession } from '@/lib/api/http';
@@ -229,29 +228,6 @@ describe('HTTP client: requests and responses', () => {
         const pending = http.get('x', { signal: controller.signal });
         controller.abort();
         await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
-    });
-});
-
-describe('typed client (openapi-fetch) on the same path', () => {
-    it('adds the CSRF token and an Idempotency-Key', async () => {
-        const t = transport();
-        const { http } = make(t);
-        const api = createClient<Record<string, never>>({
-            baseUrl: 'http://api.test/v1',
-            fetch: (r) => http.authFetch(r)
-        });
-        // A path the empty test schema does not know: cast through unknown to call it anyway.
-        const res = await (api as unknown as { POST(p: string, o: object): Promise<{ response: Response }> }).POST(
-            '/x',
-            {
-                body: { a: 1 }
-            }
-        );
-        expect(res.response.status).toBe(200);
-        expect(t.seen).toHaveLength(1);
-        expect(t.seen[0].headers.get('x-csrf-token')).toBe('csrf-1');
-        expect(key(t.seen[0])).toBeTruthy();
-        expect(await t.seen[0].json()).toEqual({ a: 1 });
     });
 });
 
