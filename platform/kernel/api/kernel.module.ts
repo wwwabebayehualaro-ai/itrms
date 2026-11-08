@@ -90,11 +90,13 @@ const NO_DATABASE: Database = {
     close: () => Promise.resolve()
 };
 
-function authenticatorOf(options: KernelOptions, limiter: RateLimiter): Provider[] {
+function authenticatorOf(options: KernelOptions, limiter: RateLimiter, logger: Logger): Provider[] {
     const authenticator =
         options.authenticator ??
         (options.identity && options.database
-            ? new OidcAuthenticator(options.database, options.roles ?? new Map(), options.identity, limiter)
+            ? new OidcAuthenticator(options.database, options.roles ?? new Map(), options.identity, limiter, (err) =>
+                  logger.warn({ err }, 'the rate limiter could not count a refusal: it is recorded')
+              )
             : undefined);
     return authenticator ? [{ provide: AUTHENTICATOR, useValue: authenticator }] : [];
 }
@@ -118,7 +120,7 @@ export class KernelModule {
                       { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
                       RouteInventory,
                       OrgAdminService,
-                      ...authenticatorOf(options, limiter)
+                      ...authenticatorOf(options, limiter, logger)
                   ]
                 : [];
         const database: Provider[] = options.database

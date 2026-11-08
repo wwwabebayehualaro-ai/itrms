@@ -197,6 +197,8 @@ export class ProblemFilter implements ExceptionFilter {
                 {
                     requestId: request?.requestId,
                     ip: request?.ip,
+                    // the refused account, as the authenticator verified it (its token's subject)
+                    ...(request?.subject ? { subject: request.subject } : {}),
                     ...(principal && {
                         userId: principal.userId,
                         unitId: principal.unitId,

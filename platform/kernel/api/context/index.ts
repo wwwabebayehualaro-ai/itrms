@@ -37,6 +37,8 @@ export interface RequestContext {
     readonly language: Language;
     /** The signed-in caller and their active unit, set by the AccessGuard (`@itrms/kernel/iam`). */
     principal?: Principal;
+    /** The verified token's subject, set by the authenticator before it refuses an account with no role (ADR-0048). */
+    subject?: string;
     /** What the request's business transaction runs around its work (the idempotency record of a POST). */
     transactionHook?: TransactionHook;
 }

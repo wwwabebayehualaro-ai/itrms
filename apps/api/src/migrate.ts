@@ -8,7 +8,7 @@ import { join } from 'node:path';
 
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import { contextKeyId, contextKeyOf } from '@itrms/kernel/db';
+import { contextKeyOf, installContextKey } from '@itrms/kernel/db';
 import { Pool } from 'pg';
 
 import { fail, start } from './start';
@@ -28,18 +28,7 @@ async function main() {
         logger.info('migrations applied');
         const key = contextKeyOf(config.CONTEXT_HMAC_KEY);
         if (key) {
-            const kid = contextKeyId(key);
-            await pool.query(
-                `INSERT INTO kernel.context_keys (kid, key) VALUES ($1, $2)
-                 ON CONFLICT (kid) DO UPDATE SET retired_at = NULL`,
-                [kid, key]
-            );
-            // a rotated-out key still verifies the requests already signed with it, for a few minutes
-            await pool.query(
-                `UPDATE kernel.context_keys SET retired_at = now() + interval '5 minutes'
-                  WHERE kid <> $1 AND retired_at IS NULL`,
-                [kid]
-            );
+            const kid = await installContextKey(pool, key);
             logger.info({ kid }, 'request-context key installed');
         } else {
             logger.warn('CONTEXT_HMAC_KEY is not set: the API cannot sign its request context');

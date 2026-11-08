@@ -585,7 +585,9 @@ BEGIN
     END IF;
     INSERT INTO kernel.audit_log (id, action, event_type, diff, actor_id, request_id, ip)
     VALUES (gen_random_uuid(), 'event', event_type,
-            CASE WHEN c.subject IS NULL THEN data ELSE coalesce(data, '{}'::jsonb) || jsonb_build_object('subject', c.subject) END,
+            -- the refused subject is the verified context's: one passed in the data is dropped
+            CASE WHEN c.subject IS NULL THEN coalesce(data, '{}'::jsonb) - 'subject'
+                 ELSE (coalesce(data, '{}'::jsonb) - 'subject') || jsonb_build_object('subject', c.subject) END,
             c.user_id, c.request_id, c.ip);
 END;
 $$;

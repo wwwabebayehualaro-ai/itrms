@@ -10,7 +10,15 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { actFor, createDatabase, declaredRlsTables, recordEvent, type Database, type Tx } from '@itrms/kernel/db';
+import {
+    actFor,
+    createDatabase,
+    declaredRlsTables,
+    installContextKey,
+    recordEvent,
+    type Database,
+    type Tx
+} from '@itrms/kernel/db';
 import { createSystemDatabase } from '@itrms/kernel/db/system';
 import { findUnitByCode, importOrg, moveUnit, orgUnits, parseOrgYaml, type OrgUnit } from '@itrms/kernel/org';
 import {
@@ -27,7 +35,7 @@ import {
     TEST_USER
 } from '@itrms/kernel/testing';
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import { Client } from 'pg';
+import { Client, Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { startPostgres, type TestPostgres } from './support/postgres';
@@ -555,6 +563,36 @@ describe('the signed request context (ADR-0048)', () => {
             return transactionLabels(client);
         });
         expect(bare).toEqual([]);
+    });
+
+    it('installs a key in one audited step: it becomes the active one, the one before serves five more minutes', async () => {
+        const pool = new Pool({ connectionString: pg.url('owner'), max: 1 });
+        const next = randomBytes(32);
+        try {
+            const kid = await installContextKey(pool, next);
+            const keys = await owner.query<{ kid: string; graced: boolean; active: boolean }>(
+                `select kid, retired_at > now() + interval '4 minutes' as graced, retired_at is null as active
+                   from kernel.context_keys where kid = any($1)`,
+                [[kid, contextKeyId(TEST_CONTEXT_KEY)]]
+            );
+            expect(keys.rows.find((k) => k.kid === kid)?.active).toBe(true);
+            expect(keys.rows.find((k) => k.kid === contextKeyId(TEST_CONTEXT_KEY))?.graced).toBe(true);
+            const audit = await owner.query<{ diff: Record<string, unknown> }>(
+                `select diff from kernel.audit_log where event_type = 'system.context_key_installed' order by at desc limit 1`
+            );
+            expect(audit.rows[0]?.diff).toMatchObject({ kid, fresh: true, retired: 1 });
+            expect(JSON.stringify(audit.rows[0]?.diff)).not.toContain(next.toString('hex'));
+            // a database whose key is not installed is not ready: a process signing with it would be refused every request
+            const stranger = createDatabase(pg.url('app'), { max: 1, contextKey: randomBytes(32) });
+            await expect(stranger.ping()).rejects.toMatchObject({
+                cause: { message: expect.stringMatching(/^kernel.ctx: .*not the API's/) as unknown }
+            });
+            await stranger.close();
+        } finally {
+            // the suite's key is the active one again (its grace would end within the run otherwise)
+            await installContextKey(pool, TEST_CONTEXT_KEY);
+            await pool.end();
+        }
     });
 
     it('refuses a token of another key, of a retired key, and an expired one; a key in its grace still serves', async () => {

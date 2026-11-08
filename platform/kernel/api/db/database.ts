@@ -104,7 +104,10 @@ export function createDatabase(url: string, options: DatabaseOptions = {}): Data
             );
         },
         async ping() {
-            await main.query('select 1');
+            // signed and verified like a request: a key the database does not hold (a rotation not applied, a restore from
+            // before it) fails readiness instead of answering every request 403
+            if (options.contextKey) await scoped({ requestId: 'readyz' }, (tx) => tx.execute(sql`select 1`));
+            else await main.query('select 1');
         },
         async close() {
             await Promise.all([main.end(), events.end()]);

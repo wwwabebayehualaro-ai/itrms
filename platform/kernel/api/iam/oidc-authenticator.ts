@@ -13,7 +13,7 @@ import type { FastifyRequest } from 'fastify';
 import { sql } from 'drizzle-orm';
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
 
-import type { Principal } from '../context';
+import { currentContext, type Principal } from '../context';
 import type { Database } from '../db/database';
 import { ForbiddenError, InvalidRequestError, RateLimitedError } from '../errors';
 import type { RateLimiter } from '../limits/rate-limit';
@@ -54,7 +54,9 @@ export class OidcAuthenticator implements Authenticator {
         private readonly roles: RolePermissions,
         private readonly options: OidcOptions,
         /** counts refusals of realm accounts with no role here (follow-up 69); none: every refusal is recorded */
-        private readonly limiter?: RateLimiter
+        private readonly limiter?: RateLimiter,
+        /** told when the limiter fails (the refusal is then recorded as always) */
+        private readonly onLimiterError: (error: unknown) => void = () => undefined
     ) {
         this.keys =
             options.keys ??
@@ -127,6 +129,9 @@ export class OidcAuthenticator implements Authenticator {
      * the subject itself. A limiter that cannot be reached leaves every refusal recorded.
      */
     private async refusal(sub: string, ip: string, unit: string | undefined): Promise<Error> {
+        // the audit row names the subject from the signed context (record_context_free_event drops one passed as data)
+        const request = currentContext();
+        if (request) request.subject = sub;
         const audit = { reason: 'no_role_in_unit', subject: sub, unit: unit ?? '(default)' };
         if (!this.limiter) return new ForbiddenError({ audit });
         const counters = [
@@ -144,7 +149,8 @@ export class OidcAuthenticator implements Authenticator {
                     });
                 if (count === max) throttled = true;
             }
-        } catch {
+        } catch (error) {
+            this.onLimiterError(error);
             return new ForbiddenError({ audit });
         }
         return new ForbiddenError({ audit: throttled ? { ...audit, throttled: 'true' } : audit });
