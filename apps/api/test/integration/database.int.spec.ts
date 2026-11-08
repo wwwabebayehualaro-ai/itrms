@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 import { Body, Controller, Inject, Param, Patch, Module, type DynamicModule } from '@nestjs/common';
 import { createHttpApp, createLogger, DATABASE, KernelModule } from '@itrms/kernel/api';
+import { NO_RATE_LIMITS } from '@itrms/kernel/testing';
 import { Public } from '@itrms/kernel/iam';
 import { loadConfig } from '@itrms/kernel/config';
 import {
@@ -385,7 +386,7 @@ describe('over HTTP', () => {
         const database = createDatabase(config.DATABASE_URL);
         const root: DynamicModule = {
             module: ThingsModule,
-            imports: [KernelModule.forRoot(config, logger, { database })]
+            imports: [KernelModule.forRoot(config, logger, { database, rateLimiter: NO_RATE_LIMITS })]
         };
         const app = await createHttpApp(root, config, logger);
         await app.init();

@@ -5,7 +5,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { runInContext, type Principal } from '../context';
 import { RateLimitedError } from '../errors/app-error';
 import type { Logger } from '../observability/logger';
-import { countersOf, MemoryRateLimiter, RATE_LIMITS, RateLimit, RateLimitGuard, type RateLimiter } from './rate-limit';
+import {
+    countersOf,
+    MemoryRateLimiter,
+    RATE_LIMITS,
+    RateLimit,
+    RateLimitGuard,
+    scaledLimits,
+    type RateLimiter
+} from './rate-limit';
 
 const logger = { error: vi.fn(), warn: vi.fn() } as unknown as Logger;
 
@@ -83,5 +91,14 @@ describe('rate limits (SEC-AP-2)', () => {
         const guard = new RateLimitGuard(new Reflector(), down, logger);
         await expect(asCaller('u1', '10.0.0.1', () => guard.canActivate(contextOf('reveal')))).resolves.toBe(true);
         expect(logger.error).toHaveBeenCalled();
+    });
+});
+
+describe('an installation’s scale', () => {
+    it('multiplies every limit, never below one request', () => {
+        expect(scaledLimits(2).search.perPerson.max).toBe(RATE_LIMITS.search.perPerson.max * 2);
+        expect(scaledLimits(2).export.perInstallation?.max).toBe((RATE_LIMITS.export.perInstallation?.max ?? 0) * 2);
+        expect(scaledLimits(0.001).reveal.perPerson.max).toBe(1);
+        expect(scaledLimits(3).search.perPerson.windowSeconds).toBe(RATE_LIMITS.search.perPerson.windowSeconds);
     });
 });

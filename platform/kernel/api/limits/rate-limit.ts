@@ -54,6 +54,25 @@ export interface RateLimiter {
 }
 
 export const RATE_LIMITER = Symbol('kernel.rateLimiter');
+/** The limits the guard applies: RATE_LIMITS scaled by the installation's RATE_LIMIT_SCALE. */
+export const RATE_LIMIT_POLICY = Symbol('kernel.rateLimitPolicy');
+
+export type RateLimitPolicy = Readonly<Record<RateLimitBucket, BucketLimits>>;
+
+/** Every limit times `scale` (at least 1 request): an installation tunes them to its offices' size. */
+export function scaledLimits(scale: number, limits: RateLimitPolicy = RATE_LIMITS): RateLimitPolicy {
+    const by = (l: Limit): Limit => ({ max: Math.max(1, Math.round(l.max * scale)), windowSeconds: l.windowSeconds });
+    return Object.fromEntries(
+        Object.entries(limits).map(([bucket, b]) => [
+            bucket,
+            {
+                perPerson: by(b.perPerson),
+                perIp: by(b.perIp),
+                ...(b.perInstallation ? { perInstallation: by(b.perInstallation) } : {})
+            }
+        ])
+    ) as RateLimitPolicy;
+}
 
 /** One process's counts (tests, an API without Valkey). Expired windows are dropped as they are met. */
 export class MemoryRateLimiter implements RateLimiter {
@@ -125,7 +144,8 @@ export class RateLimitGuard implements CanActivate {
     constructor(
         private readonly reflector: Reflector,
         @Inject(RATE_LIMITER) private readonly limiter: RateLimiter,
-        @Inject(LOGGER) private readonly logger: Logger
+        @Inject(LOGGER) private readonly logger: Logger,
+        @Inject(RATE_LIMIT_POLICY) private readonly limits: RateLimitPolicy = RATE_LIMITS
     ) {}
 
     // while Valkey is down every limited request would log: once a minute is enough to raise the alarm
@@ -138,7 +158,11 @@ export class RateLimitGuard implements CanActivate {
         ]);
         if (!bucket) return true;
         const request = currentContext();
-        const counters = countersOf(bucket, { userId: request?.principal?.userId, ip: request?.ip });
+        const counters = countersOf(
+            bucket,
+            { userId: request?.principal?.userId, ip: request?.ip },
+            this.limits[bucket]
+        );
         let wait = 0;
         try {
             // a request refused by one counter is not counted on the next: one person's runaway client must not use up

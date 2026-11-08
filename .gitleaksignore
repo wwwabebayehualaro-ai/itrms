@@ -35,3 +35,7 @@ a5cd56ad76fbba08d8e65b3e9bd15646fa0e3eaa:apps/web/scripts/e2e/demo/seed-demo.cjs
 a5cd56ad76fbba08d8e65b3e9bd15646fa0e3eaa:apps/web/scripts/e2e/expense-report/import-template.cjs:generic-api-key:6
 a5cd56ad76fbba08d8e65b3e9bd15646fa0e3eaa:apps/web/scripts/e2e/expense-report/lib.cjs:generic-api-key:13
 a5cd56ad76fbba08d8e65b3e9bd15646fa0e3eaa:apps/web/scripts/e2e/expense-report/seed.cjs:generic-api-key:4
+
+# False positive: the Valkey image tag the rate-limit integration test starts (const VALKEY = 'valkey/valkey:<version>',
+# renamed IMAGE in the next commit); not a key.
+ca79e4ace490d45fc5bf013d0e6ad80fb27d1a81:apps/api/test/integration/rate-limit.int.spec.ts:generic-api-key:12

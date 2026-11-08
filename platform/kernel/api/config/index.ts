@@ -155,6 +155,11 @@ const schemas = {
             ...objectStore,
             /** The queues' Valkey: the rate limits' counters (SEC-AP-2), shared by every API replica; in memory without it. */
             VALKEY_QUEUES_URL: z.url({ protocol: /^rediss?$/ }).optional(),
+            /**
+             * Every rate limit times this (SEC-AP-2): an installation whose offices are larger than the defaults assume
+             * raises it; the nightly load test, whose virtual users share three accounts, too.
+             */
+            RATE_LIMIT_SCALE: z.coerce.number().min(0.1).max(1000).default(1),
             PORT: z.coerce.number().int().min(1).max(65535).default(4000),
             HOST: z.string().min(1).default('127.0.0.1'),
             /**
