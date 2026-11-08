@@ -8,6 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { ROLES_SQL } from '@itrms/kernel/db';
+import { TEST_CONTEXT_KEY, TEST_CONTEXT_KID } from '@itrms/kernel/testing';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
@@ -59,6 +60,11 @@ export async function startPostgres(): Promise<TestPostgres> {
             migrationsSchema: 'drizzle',
             migrationsTable: '__drizzle_migrations'
         });
+        // what the migrate process does with CONTEXT_HMAC_KEY (apps/api/src/migrate.ts)
+        await migrator.query('INSERT INTO kernel.context_keys (kid, key) VALUES ($1, $2)', [
+            TEST_CONTEXT_KID,
+            TEST_CONTEXT_KEY
+        ]);
     } finally {
         await migrator.end();
     }

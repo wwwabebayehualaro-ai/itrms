@@ -18,7 +18,7 @@ import { FakeNationalDriverPlatform, KeycloakIdentityAdmin } from '@itrms/integr
 import { createWorkerContext, loadSlices } from '@itrms/kernel/api';
 import { permissionsOf, rolePermissions } from '@itrms/kernel/iam';
 import { identitySyncHandlers, purgeExpiredUploads, startJobs, type OutboxHandler } from '@itrms/kernel/api/worker';
-import { createDatabase } from '@itrms/kernel/db';
+import { contextKeyOf, createDatabase } from '@itrms/kernel/db';
 import { SettingsService } from '@itrms/kernel/settings';
 import { NO_OBJECT_STORE } from '@itrms/kernel/files';
 import { FakeSms } from '@itrms/kernel/notifications';
@@ -35,6 +35,7 @@ async function main() {
         const database = createDatabase(config.DATABASE_URL, {
             applicationName: 'itrms-worker',
             auditKey: config.AUDIT_HMAC_KEY,
+            contextKey: contextKeyOf(config.CONTEXT_HMAC_KEY),
             onError: (err) => logger.warn({ err }, 'an idle database connection failed')
         });
         const background = Boolean(config.DATABASE_SYSTEM_URL && config.VALKEY_QUEUES_URL);

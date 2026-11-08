@@ -17,8 +17,8 @@ isolated flat tenants.
   * local transaction: the unit's subtree;
   * inherited configuration: the subtree plus its ancestors;
   * party-scoped (external participants): their own organisation's rows (ADR-0031).
-* Each request runs in a transaction that sets `app.region_id`, `app.scope_path` and `app.user_id` with
-  `set_config(..., true)`, read null-safely by the policies. There is **no bypass setting**: system work uses the role
+* Each request runs in a transaction that sets a signed context (`app.ctx`, ADR-0048; it first set `app.region_id`,
+  `app.scope_path` and `app.user_id` as plain settings), which the database verifies and the policies read. There is **no bypass setting**: system work uses the role
   `itrms_system` (BYPASSRLS) on a separate worker pool (ADR-0031).
 * Isolation is **enforced twice**:
   * NestJS guards check role and unit scope before any data access.

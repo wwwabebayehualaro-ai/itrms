@@ -131,8 +131,8 @@ external system).
 3. `PermissionGuard`: `@Require('licence:issue')` metadata on each handler. A route without it is refused at startup
    (a test enumerates routes).
 4. Validation pipe: the Zod schema from the slice's `contracts` (primitives from `packages/schemas`; no class-validator).
-5. Service method runs inside `db.scoped(ctx, tx => …)`. This opens a transaction and sets the RLS settings with
-   `set_config(..., true)` (§5). Every query in the request goes through `tx`.
+5. Service method runs inside `db.scoped(ctx, tx => …)`. This opens a transaction and sets the request's context as one
+   signed, transaction-local token with `kernel.set_context(…)` (§5, ADR-0048). Every query in the request goes through `tx`.
 6. Writes go through repository helpers that write the **audit row in the same transaction** and append **outbox events**
    for side effects (SMS, PDF, SLA timer).
 7. Commit. The outbox relay (worker) enqueues the jobs, and workers do the slow or external work idempotently.
@@ -164,22 +164,29 @@ kept by the `kernel.set_org_path` trigger from the row's unit, and rewritten whe
 | **R: regional registry** | persons (non-sensitive part), organisations, vehicles, plates, licences, associations, routes, terminals, road projects, contracts | whole region | `WITH CHECK`: the record's `handling_org_path` is inside the actor's scope (a unit may change only records it handles); regional creation through registry commands |
 | **T: local transaction** | cases, submissions, inspections, exams, payments, receipts, fines, accidents, issued documents, tasks, **medical certificates**, **audit_log** | region matches **and** `org_path <@ scope` | same |
 | **C: configuration** (inherited down the tree) | service overrides, fee overrides, document headers, unit settings, unit types | own subtree **and** ancestors | own subtree, with an admin role |
-| **P: party-scoped** (external participants, Phase 1) | a training school's readiness lists, an association's schedules | rows whose applicant/organisation = `app.party_id` | same |
+| **P: party-scoped** (external participants, Phase 1) | a training school's readiness lists, an association's schedules | rows whose applicant/organisation = the context's party (`kernel.ctx_party()`) | same |
 
 ```sql
 -- class T policy (sketch). No bypass branch: system work uses a separate role (below).
 CREATE POLICY t_scope ON workflow.cases TO itrms_app USING (
-  region_id = (SELECT nullif(current_setting('app.region_id', true), '')::uuid)
-  AND org_path <@ (SELECT nullif(current_setting('app.scope_path', true), '')::ltree)
+  region_id = (SELECT kernel.ctx_region())
+  AND org_path <@ (SELECT kernel.ctx_scope())
 ) WITH CHECK ( /* same */ );
 ```
 
-- **Fail closed.** A pooled connection that once ran a scoped transaction returns `''` (not NULL) for the setting
-  afterwards, and `''::ltree` is the ancestor of every path. `nullif(…, '')` turns a missing context into NULL, so nothing
-  matches. Every class also checks `region_id`. The `(SELECT …)` wrapper evaluates the setting once per query (an initplan).
-  The isolation matrix runs its "no context" case **on a connection that has already served a scoped transaction**.
-- **No bypass flag.** Custom settings such as `app.*` can be set by any session, so a policy must never trust one to
-  disable itself. System work (outbox relay, SLA sweep, data migrations, cross-unit history) runs on a **separate pool as
+- **A signed context (ADR-0048).** The API sends one setting, `app.ctx`: the context as JSON, signed with an HMAC key that
+  `itrms_app` cannot read (`kernel.context_keys`, installed by the migrate process from `CONTEXT_HMAC_KEY`). `kernel.ctx()`
+  (SECURITY DEFINER) verifies the signature, the key id and a 30-second expiry and returns the user, region, unit, scope,
+  party, subject, request id and address; the policies and every SECURITY DEFINER function read only that, through
+  `kernel.ctx_region()`, `ctx_scope()` and the other accessors. A forged or tampered token raises `42501 kernel.ctx:`
+  (answered 403, logged as `security: forged_context`); an injection as `itrms_app` can no longer set a wider scope. A row
+  the API writes to the audit log takes its actor, unit, scope, request and address from the context, not from the statement.
+- **Fail closed.** A pooled connection that once ran a scoped transaction reads `''` for the setting afterwards, which
+  `kernel.ctx()` turns into NULL, so nothing matches. Every class also checks `region_id`. The `(SELECT …)` wrapper
+  evaluates the accessor once per query (an initplan). The isolation matrix runs its "no context" case **on a connection
+  that has already served a scoped transaction**.
+- **No bypass flag.** Custom settings such as `app.*` can be set by any session, so a policy must never trust one, and no
+  policy reads one but through the verifier; none can disable itself. System work (outbox relay, SLA sweep, data migrations, cross-unit history) runs on a **separate pool as
   role `itrms_system` (BYPASSRLS)**, only inside the worker, and every use is logged.
 - **DB roles:**
   - `itrms_owner` owns the tables and runs migrations. FORCE RLS is *not* set, so the owner's migrations see all rows.

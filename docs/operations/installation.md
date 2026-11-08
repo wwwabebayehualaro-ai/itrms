@@ -123,6 +123,10 @@ only the archived WAL holds (`drill --probe`).
    --type=default` (the arguments are pgBackRest's restore options: `--type=time "--target=<time>"` for a moment before a
    mistake; it refuses a volume that is not empty).
 4. Start `postgres`, take a full backup (`backup --type full`), then `docker compose … up -d`, then `restart edge s3` (§5).
+5. Run `docker compose … run --rm migrate` before the processes serve again: a database restored to a moment before
+   the request-context key was rotated does not hold the key the processes sign with (ADR-0048), and until migrate
+   installs it their readiness check fails. Run it after every change of `CONTEXT_HMAC_KEY` too, and restart the
+   processes within five minutes: the key before keeps verifying their requests only that long.
 
 ## 8. Backups and the restore drill (the files)
 ADR-0031 item 13: the stored files are copied two ways, each on the backup machine on site (here, containers beside the

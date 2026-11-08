@@ -8,6 +8,7 @@
 import { Injectable, Module } from '@nestjs/common';
 import { DATABASE } from '@itrms/kernel/api';
 import { createDatabase, recordEvent, type Database, type DbContext } from '@itrms/kernel/db';
+import { TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import { Effect, type EffectRun, type WorkflowEffect } from '@itrms/kernel/effects';
 import { ConflictError } from '@itrms/kernel/errors';
 import { CasesService } from '@itrms/workflow/api';
@@ -233,7 +234,7 @@ beforeAll(async () => {
         ],
         { modules: [TestEffects] }
     );
-    system = createDatabase(pg.url('system'));
+    system = createDatabase(pg.url('system'), { contextKey: TEST_CONTEXT_KEY });
     const ser = await api.unit('SER', 'SER');
     const wol = await api.unit('SER', 'WOL');
     const damot = await api.unit('SER', 'WOL-DAMOT-GALE');

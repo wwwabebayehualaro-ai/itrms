@@ -11,6 +11,8 @@ export interface DbContext {
     scopePath?: string;
     /** An external participant's organisation (class P rows, ADR-0031). */
     partyId?: string;
+    /** The verified token's subject, before the person is known to ITRMS (`kernel.resolve_principal`, the refusal's audit row). */
+    subject?: string;
     ip?: string;
     /**
      * Runs around the request's business transaction: the idempotency record (`@itrms/kernel/idempotency`) is claimed in

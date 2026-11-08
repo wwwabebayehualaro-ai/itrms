@@ -17,6 +17,7 @@ import { permissionsOf, rolePermissions } from '@itrms/kernel/iam';
 import { S3ObjectStore } from '@itrms/integrations/api';
 import { purgeExpiredUploads } from '@itrms/kernel/api/worker';
 import { createDatabase, type Database } from '@itrms/kernel/db';
+import { TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import { createSystemDatabase, type SystemDatabase } from '@itrms/kernel/db/system';
 import type { OrgUnit } from '@itrms/kernel/org';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -126,7 +127,7 @@ beforeAll(async () => {
         { objectStore: store }
     );
     system = createSystemDatabase(pg.url('system'), { onUse: () => undefined });
-    app = createDatabase(pg.url('app'));
+    app = createDatabase(pg.url('app'), { contextKey: TEST_CONTEXT_KEY });
     units.ser = await api.unit('SER', 'SER');
     units.zone = await api.unit('SER', 'WOL');
     units.damot = await api.unit('SER', 'WOL-DAMOT-GALE');

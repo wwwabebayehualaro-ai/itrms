@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { FieldCrypto } from '@itrms/kernel/crypto';
 import { createDatabase, type Database } from '@itrms/kernel/db';
 import { findUnitByCode, importOrg, orgUnits, parseOrgYaml, type OrgUnit } from '@itrms/kernel/org';
-import { asUnit } from '@itrms/kernel/testing';
+import { asUnit, TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import { PersonsService } from '@itrms/parties/api';
 import { foldForSearch } from '@itrms/schemas';
 import { and, eq, isNull, sql } from 'drizzle-orm';
@@ -95,8 +95,8 @@ const service = () => new PersonsService(app, new FieldCrypto());
 
 beforeAll(async () => {
     pg = await startPostgres();
-    installer = createDatabase(pg.url('owner'));
-    app = createDatabase(pg.url('app'));
+    installer = createDatabase(pg.url('owner'), { contextKey: TEST_CONTEXT_KEY });
+    app = createDatabase(pg.url('app'), { contextKey: TEST_CONTEXT_KEY });
     owner = new Client({ connectionString: pg.url('owner') });
     await owner.connect();
     const seed = join(HERE, '..', '..', 'seed', 'org', 'south-ethiopia.wolaita.yaml');

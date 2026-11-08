@@ -8,6 +8,7 @@
  */
 import { randomUUID } from 'node:crypto';
 
+import { signContext, TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import type { CaseList, CaseOut } from '@itrms/workflow/contracts';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -407,9 +408,11 @@ describe('a filed request', () => {
         await app.connect();
         try {
             await app.query('begin');
-            await app.query("select set_config('app.region_id', $1, true), set_config('app.scope_path', $2, true)", [
-                scope.rows[0]?.region_id,
-                scope.rows[0]?.org_path
+            await app.query('select kernel.set_context($1)', [
+                signContext(
+                    { regionId: scope.rows[0]?.region_id, scopePath: scope.rows[0]?.org_path },
+                    TEST_CONTEXT_KEY
+                )
             ]);
             await expect(
                 app.query(`update forms.submissions set answers = '{"plate":"x"}' where id = $1`, [loose.rows[0]?.id])

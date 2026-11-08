@@ -18,6 +18,7 @@ import { importLicenceGrades, setUpLicenceCounters } from '@itrms/competency/see
 import { importDocumentTemplates } from '@itrms/documents/seed';
 import { FakeNationalDriverPlatform } from '@itrms/integrations/api';
 import { createSystemDatabase, type SystemDatabase } from '@itrms/kernel/db/system';
+import { signContext, TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import { CasesService } from '@itrms/workflow/api';
 import type { CaseOut } from '@itrms/workflow/contracts';
 import { Client } from 'pg';
@@ -1032,10 +1033,9 @@ describe('who sees what', () => {
         try {
             const damot = as.damotRecords.unit;
             await client.query('begin');
-            await client.query(
-                `select set_config('app.region_id', $1, true), set_config('app.unit_id', $2, true), set_config('app.scope_path', $3, true)`,
-                [damot.regionId, damot.id, damot.path]
-            );
+            await client.query('select kernel.set_context($1)', [
+                signContext({ regionId: damot.regionId, unitId: damot.id, scopePath: damot.path }, TEST_CONTEXT_KEY)
+            ]);
             // class T: the office's own; class R: the region reads the register
             const lists = await client.query('select id from competency.training_enrolments where person_id = $1', [
                 person

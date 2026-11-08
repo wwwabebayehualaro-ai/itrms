@@ -22,7 +22,7 @@ import { linkFile } from '@itrms/kernel/files';
 import { rolePermissions } from '@itrms/kernel/iam';
 import { findUnitByCode, importOrg, orgUnits, parseOrgYaml, type OrgUnit } from '@itrms/kernel/org';
 import { importUsers, userImportSchema } from '@itrms/kernel/seed';
-import { asUnit, NO_RATE_LIMITS } from '@itrms/kernel/testing';
+import { asUnit, NO_RATE_LIMITS, TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { Client } from 'pg';
@@ -75,7 +75,7 @@ async function unitAt(code: string): Promise<OrgUnit> {
 beforeAll(async () => {
     if (!S3.accessKeyId || !S3.secretAccessKey) throw new Error('S3 credentials missing: run pnpm dev:infra first');
     pg = await startPostgres();
-    installer = createDatabase(pg.url('owner'));
+    installer = createDatabase(pg.url('owner'), { contextKey: TEST_CONTEXT_KEY });
     owner = new Client({ connectionString: pg.url('owner') });
     await owner.connect();
     await installer.scoped({}, (tx) =>
@@ -98,7 +98,7 @@ beforeAll(async () => {
 
     const config = loadConfig('http', { DATABASE_URL: pg.url('app'), AUDIT_HMAC_KEY: randomBytes(32).toString('hex') });
     const logger = createLogger(config, new Writable({ write: (_c, _e, done) => done() }));
-    app = createDatabase(config.DATABASE_URL);
+    app = createDatabase(config.DATABASE_URL, { contextKey: TEST_CONTEXT_KEY });
     store = new S3ObjectStore({ ...S3 });
     const installed = loadSlices(SLICES);
     @Module({})

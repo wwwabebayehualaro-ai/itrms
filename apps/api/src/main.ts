@@ -2,7 +2,7 @@
 import 'reflect-metadata';
 
 import { createHttpApp } from '@itrms/kernel/api';
-import { createDatabase } from '@itrms/kernel/db';
+import { contextKeyOf, createDatabase } from '@itrms/kernel/db';
 import { ValkeyRateLimiter } from '@itrms/kernel/limits';
 import { Redis } from 'ioredis';
 
@@ -16,6 +16,7 @@ async function main() {
         const database = createDatabase(config.DATABASE_URL, {
             applicationName: 'itrms-api',
             auditKey: config.AUDIT_HMAC_KEY,
+            contextKey: contextKeyOf(config.CONTEXT_HMAC_KEY),
             onError: (err) => logger.warn({ err }, 'an idle database connection failed')
         });
         // the rate limits count in the queues' Valkey (SEC-AP-2). A request never waits on it for long: commands fail after

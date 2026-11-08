@@ -50,7 +50,8 @@ describe('loadConfig', () => {
         expect(problems({ ...DB, NODE_ENV: 'production' }, 'worker')).toEqual([
             'AUDIT_HMAC_KEY: is required in production',
             'FIELD_KEYS: is required in production',
-            'BLIND_INDEX_KEY: is required in production'
+            'BLIND_INDEX_KEY: is required in production',
+            'CONTEXT_HMAC_KEY: is required in production'
         ]);
         const key = 'k'.repeat(40);
         expect(problems({ ...DB, AUDIT_HMAC_KEY: key, BLIND_INDEX_KEY: key }, 'http')).toEqual([
@@ -59,6 +60,31 @@ describe('loadConfig', () => {
         expect(problems({ ...DB, FIELD_KEYS: 'k1:dG9vLXNob3J0' }, 'http')).toEqual([
             'FIELD_KEYS: expected id:base64 entries of 32-byte keys, each id once'
         ]);
+    });
+
+    it('takes the request-context key as 64 hex characters, required in production, apart from the other keys', () => {
+        const problems = (env: Record<string, string>, kind: 'http' | 'worker' = 'http') => {
+            try {
+                loadConfig(kind, env);
+                return [];
+            } catch (e) {
+                return (e as ConfigError).problems;
+            }
+        };
+        const key = 'ab'.repeat(32);
+        expect(problems({ ...DB, CONTEXT_HMAC_KEY: key })).toEqual([]);
+        expect(problems({ ...DB, CONTEXT_HMAC_KEY: 'short' })).toEqual([
+            'CONTEXT_HMAC_KEY: must be 64 hexadecimal characters'
+        ]);
+        expect(problems({ ...DB, AUDIT_HMAC_KEY: key, CONTEXT_HMAC_KEY: key })).toEqual([
+            'CONTEXT_HMAC_KEY: must differ from AUDIT_HMAC_KEY'
+        ]);
+        expect(problems({ ...DB, NODE_ENV: 'production' }, 'worker')).toContain(
+            'CONTEXT_HMAC_KEY: is required in production'
+        );
+        expect(() =>
+            loadConfig('migrate', { DATABASE_MIGRATE_URL: 'postgres://itrms_owner@db/itrms', CONTEXT_HMAC_KEY: 'x' })
+        ).toThrow(/CONTEXT_HMAC_KEY/);
     });
 
     it('fails at startup and names every problem', () => {

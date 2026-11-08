@@ -90,11 +90,13 @@ const NO_DATABASE: Database = {
     close: () => Promise.resolve()
 };
 
-function authenticatorOf(options: KernelOptions): Provider[] {
+function authenticatorOf(options: KernelOptions, limiter: RateLimiter, logger: Logger): Provider[] {
     const authenticator =
         options.authenticator ??
         (options.identity && options.database
-            ? new OidcAuthenticator(options.database, options.roles ?? new Map(), options.identity)
+            ? new OidcAuthenticator(options.database, options.roles ?? new Map(), options.identity, limiter, (err) =>
+                  logger.warn({ err }, 'the rate limiter could not count a refusal: it is recorded')
+              )
             : undefined);
     return authenticator ? [{ provide: AUTHENTICATOR, useValue: authenticator }] : [];
 }
@@ -102,6 +104,8 @@ function authenticatorOf(options: KernelOptions): Provider[] {
 @Module({})
 export class KernelModule {
     static forRoot(config: KernelConfig, logger: Logger, options: KernelOptions = {}): DynamicModule {
+        // one limiter for the guard and the authenticator's refusals
+        const limiter = options.rateLimiter ?? new MemoryRateLimiter();
         const http: Provider[] =
             config.process === 'http'
                 ? [
@@ -110,13 +114,13 @@ export class KernelModule {
                       { provide: APP_GUARD, useClass: AccessGuard },
                       // after the access guard (it counts per caller): search, reveal, export and comment limits
                       { provide: APP_GUARD, useClass: RateLimitGuard },
-                      { provide: RATE_LIMITER, useValue: options.rateLimiter ?? new MemoryRateLimiter() },
+                      { provide: RATE_LIMITER, useValue: limiter },
                       { provide: RATE_LIMIT_POLICY, useValue: scaledLimits(config.RATE_LIMIT_SCALE) },
                       // after the guard (it needs the caller): every POST is idempotent
                       { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
                       RouteInventory,
                       OrgAdminService,
-                      ...authenticatorOf(options)
+                      ...authenticatorOf(options, limiter, logger)
                   ]
                 : [];
         const database: Provider[] = options.database
