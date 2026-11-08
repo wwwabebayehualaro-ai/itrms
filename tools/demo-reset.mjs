@@ -60,6 +60,23 @@ export function demoSteps(run) {
 const devRun = (settings, script, args) =>
     inApi(settings === 'demo' ? '.env.demo.local' : '.env.migrate.local', script, args);
 
+/**
+ * The demo's steps as they run here: seed steps in a row with the same settings go in one process (`seed … --then …`).
+ * On Windows a Node start alone takes about five seconds, and the demo has twenty seed steps (the 2-minute limit).
+ */
+export function batchedSteps(steps, run = devRun) {
+    const planned = steps.map(([name, step]) => ({ name, ...step() }));
+    const runs = [];
+    for (const p of planned) {
+        const last = runs.at(-1);
+        if (p.script === 'seed.cjs' && last?.script === 'seed.cjs' && last.settings === p.settings) {
+            last.names.push(p.name);
+            last.args.push('--then', ...p.args);
+        } else runs.push({ names: [p.name], settings: p.settings, script: p.script, args: [...p.args] });
+    }
+    return runs.map(({ names, settings, script, args }) => [names.join(' · '), () => run(settings, script, args)]);
+}
+
 const STEPS = [
     [
         'empty the database',
@@ -69,7 +86,7 @@ const STEPS = [
                 stdio: ['ignore', 'ignore', 'inherit']
             })
     ],
-    ...demoSteps(devRun)
+    ...batchedSteps(demoSteps((settings, script, args) => ({ settings, script, args })))
 ];
 
 const main = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
