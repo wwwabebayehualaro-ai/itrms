@@ -116,3 +116,33 @@ describe('request context helpers', () => {
         expect(requestIdFrom(['a', 'b'])).toHaveLength(36);
     });
 });
+
+describe('a failed query in the log (follow-up 95)', () => {
+    it('keeps the statement and drops its values, wherever the error carries them', () => {
+        const { logger, text } = capture();
+        // as drizzle-orm's DrizzleQueryError builds it, around node-postgres's error
+        const cause = Object.assign(
+            new Error('duplicate key value violates unique constraint "persons_fin_index_key"'),
+            {
+                code: '23505',
+                detail: 'Key (fin_index)=(c2VjcmV0LWJsaW5kLWluZGV4) already exists.'
+            }
+        );
+        const failed = Object.assign(
+            new Error(
+                'Failed query: insert into "parties"."persons" ("name", "fin_index") values ($1, $2)\nparams: Abebe Kebede,c2VjcmV0LWJsaW5kLWluZGV4'
+            ),
+            { params: ['Abebe Kebede', 'c2VjcmV0LWJsaW5kLWluZGV4'], cause }
+        );
+        logger.error({ err: failed }, 'request failed');
+        const line = text();
+        expect(line).toContain('insert into \\"parties\\".\\"persons\\"');
+        expect(line).not.toContain('Abebe Kebede');
+        expect(line).not.toContain('c2VjcmV0LWJsaW5kLWluZGV4');
+        expect(line).toContain('"params":"[redacted]"');
+        // node-postgres's error passed on its own (a plain object, as some callers log it): its detail names the value
+        logger.error({ err: { code: '23505', detail: cause.detail } }, 'insert refused');
+        expect(text()).toContain('Key (fin_index)=([redacted]) already exists.');
+        expect(text()).not.toContain('c2VjcmV0LWJsaW5kLWluZGV4');
+    });
+});

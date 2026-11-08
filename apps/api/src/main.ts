@@ -3,10 +3,12 @@ import 'reflect-metadata';
 
 import { createHttpApp } from '@itrms/kernel/api';
 import { createDatabase } from '@itrms/kernel/db';
+import { ValkeyRateLimiter } from '@itrms/kernel/limits';
+import { Redis } from 'ioredis';
 
 import { AppModule } from './app.module';
 import { objectStoreOf } from './object-store';
-import { fail, start } from './start';
+import { fail, queueConnection, start } from './start';
 
 async function main() {
     const { config, logger } = start('http');
@@ -16,8 +18,18 @@ async function main() {
             auditKey: config.AUDIT_HMAC_KEY,
             onError: (err) => logger.warn({ err }, 'an idle database connection failed')
         });
+        // the rate limits count in the queues' Valkey (SEC-AP-2); a request never waits on a reconnect for long
+        const rateLimiter = config.VALKEY_QUEUES_URL
+            ? new ValkeyRateLimiter(
+                  new Redis({
+                      ...queueConnection(config.VALKEY_QUEUES_URL),
+                      maxRetriesPerRequest: 1,
+                      enableOfflineQueue: false
+                  })
+              )
+            : undefined;
         const app = await createHttpApp(
-            AppModule.forRoot(config, logger, { database, objectStore: objectStoreOf(config) }),
+            AppModule.forRoot(config, logger, { database, objectStore: objectStoreOf(config), rateLimiter }),
             config,
             logger
         );

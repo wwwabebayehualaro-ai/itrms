@@ -598,7 +598,8 @@ function writeAppEnv(env) {
             ...personalData,
             ...objectStore,
             PORT: '4000',
-            OIDC_ISSUER: issuer
+            OIDC_ISSUER: issuer,
+            VALKEY_QUEUES_URL: `redis://127.0.0.1:${p.VALKEY_QUEUES_HOST_PORT}/0`
         },
         [join(ROOT, 'apps', 'api', '.env.migrate.local')]: {
             NODE_ENV: 'development',

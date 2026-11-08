@@ -10,6 +10,7 @@ import { currentContext } from '@itrms/kernel/context';
 import type { Database } from '@itrms/kernel/db';
 import { versionFrom } from '@itrms/kernel/errors';
 import { Require, currentPrincipal, requestDbContext } from '@itrms/kernel/iam';
+import { RateLimit } from '@itrms/kernel/limits';
 import { ZodResponse, createZodDto } from 'nestjs-zod';
 
 import {
@@ -91,6 +92,7 @@ export class CasesController {
     }
 
     @Post(':id/comments')
+    @RateLimit('comment')
     @Require('case:comment')
     comment(@Param('id', ParseUUIDPipe) id: string, @Body() body: CommentDto) {
         return this.db.scoped(requestDbContext(), (tx) => this.cases.comment(tx, actor(), id, body, language()));
@@ -98,6 +100,7 @@ export class CasesController {
 
     /** Who a comment may mention: the people working on the case, by name. */
     @Get(':id/people')
+    @RateLimit('search')
     @Require('case:comment')
     people(@Param('id', ParseUUIDPipe) id: string, @Query() query: PeopleQueryDto) {
         return this.db.scoped(requestDbContext(), (tx) => this.cases.people(tx, id, query.q));

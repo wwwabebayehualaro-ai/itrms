@@ -9,12 +9,14 @@ import { rolePermissions } from '@itrms/kernel/iam';
 import type { KernelConfig } from '@itrms/kernel/config';
 import type { Database } from '@itrms/kernel/db';
 import type { ObjectStore } from '@itrms/kernel/files';
+import type { RateLimiter } from '@itrms/kernel/limits';
 
 import { SLICES, type ApiSlice } from './slices';
 
 export interface AppOptions {
     database?: Database;
     objectStore?: ObjectStore;
+    rateLimiter?: RateLimiter;
     slices?: readonly ApiSlice[];
 }
 
@@ -23,7 +25,7 @@ export class AppModule {
     static forRoot(
         config: KernelConfig,
         logger: Logger,
-        { database, objectStore, slices = SLICES }: AppOptions = {}
+        { database, objectStore, rateLimiter, slices = SLICES }: AppOptions = {}
     ): DynamicModule {
         const { manifests, modules, messages, settings } = loadSlices(slices, { disabled: config.MODULES_DISABLED });
         logger.info({ modules: manifests.map((m) => m.key) }, 'modules loaded');
@@ -37,6 +39,7 @@ export class AppModule {
                 KernelModule.forRoot(config, logger, {
                     database,
                     objectStore,
+                    rateLimiter,
                     identity,
                     roles: rolePermissions(manifests),
                     shell: { manifests, messages, settings }
