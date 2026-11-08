@@ -462,6 +462,28 @@ export async function seedKeycloak(
     });
     const added = (await res.json()).added ?? 0;
     if (added) console.log(`  ${added} user(s) created`);
+    // an account created by an earlier version keeps its old name: bring the profile in line, never its credentials
+    let renamed = 0;
+    for (const u of users) {
+        const path = u.id
+            ? `/admin/realms/itrms/users/${u.id}`
+            : `/admin/realms/itrms/users?exact=true&username=${encodeURIComponent(u.username)}`;
+        const found = await keycloak(env, path, { token });
+        if (found.status === 404) continue;
+        const body = await found.json();
+        const account = Array.isArray(body) ? body[0] : body;
+        if (!account) continue;
+        const wanted = { firstName: u.firstName, lastName: u.lastName, email: u.email };
+        if (Object.entries(wanted).every(([k, v]) => account[k] === v)) continue;
+        // the whole account: Keycloak checks the user profile on every update
+        await keycloak(env, `/admin/realms/itrms/users/${account.id}`, {
+            token,
+            method: 'PUT',
+            body: { ...account, ...wanted }
+        });
+        renamed++;
+    }
+    if (renamed) console.log(`  ${renamed} user(s) renamed`);
 }
 
 /**
