@@ -205,8 +205,9 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
         menu: { key: string; label: { am: string; en: string }; items: { key: string; route: string }[] }[];
     }
     const itemsOf = (w: Workspace) => w.menu.flatMap((g) => g.items.map((i) => i.key));
-    // every office reads the register of people and organisations (task 0.14); whoever acts on cases has "My tasks" (0.20b)
-    const REGISTER = ['parties.persons', 'parties.organisations'];
+    // every office reads the registers of people, vehicles and organisations (tasks 0.14, 1.1b); whoever acts on cases has
+    // "My tasks" (0.20b)
+    const REGISTER = ['parties.persons', 'vehicles.vehicles', 'parties.organisations'];
     const TASKS = 'workflow.inbox';
     // whoever reads cases has the office's requests (task 0.21e)
     const REQUESTS = 'workflow.requests';

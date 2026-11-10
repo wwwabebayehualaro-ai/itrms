@@ -23,5 +23,15 @@ export default defineModule({
     permissions: {
         vehicle: ['read']
     },
-    menu: []
+    menu: [
+        {
+            key: 'vehicles.vehicles',
+            group: 'registries',
+            order: 15,
+            label: 'vehicles.nav.vehicles',
+            icon: 'car',
+            route: '/registry/vehicles',
+            requires: { permission: 'vehicle:read' }
+        }
+    ]
 });

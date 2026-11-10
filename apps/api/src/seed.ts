@@ -34,7 +34,9 @@ import {
 } from '@itrms/competency/seed';
 import { FieldCrypto } from '@itrms/kernel/crypto';
 import { OrganisationsService, PersonsService } from '@itrms/parties/api';
-import { importVehicleCategories } from '@itrms/vehicles/seed';
+import { VehicleRegistry } from '@itrms/vehicles/api';
+import { DEFAULT_LEGACY_PLATE_REGIONS } from '@itrms/vehicles/contracts';
+import { importVehicleCategories, importVehicleDemo } from '@itrms/vehicles/seed';
 import { importDocumentTemplates } from '@itrms/documents/seed';
 import { importFeeRules, parseFeeRules, setUpReceiptCounters } from '@itrms/fees/seed';
 import { importCatalogue } from '@itrms/services/api';
@@ -61,7 +63,7 @@ async function readOrgFile(file: string, region: string | undefined): Promise<Or
 const USAGE =
     'usage: seed org <file.yaml|file.csv|file.xlsx> [--region <code>] | seed users <file.yaml> | ' +
     'seed services <catalogue.yaml> --region <code> | seed fees <rules.yaml> --region <code> | ' +
-    'seed counters --region <code> | seed competency --region <code> | seed vehicles --region <code> | seed demo --region <code> | seed settings <file.yaml> | seed identity' +
+    'seed counters --region <code> | seed competency --region <code> | seed vehicles --region <code> | seed demo --region <code> | seed demo-vehicles --region <code> | seed settings <file.yaml> | seed identity' +
     ' (several in one run: <seed> --then <seed> …)';
 
 type Started = ReturnType<typeof start<'migrate'>>;
@@ -224,6 +226,26 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
             organisations: new OrganisationsService(persons)
         });
         logger.info({ region: code, ...made }, made ? 'demo data applied' : 'the demo data was already there');
+    } else if (kind === 'demo-vehicles') {
+        // the demo's generated vehicles (task 1.1b), through the register's commands; their owners may be new generated people
+        const code = file === '--region' ? rest[0] : region;
+        if (!code) throw new Error('seed demo-vehicles needs --region <code>');
+        if (!config.FIELD_KEYS || !config.BLIND_INDEX_KEY || !config.AUDIT_HMAC_KEY)
+            throw new Error(
+                'seed demo-vehicles needs FIELD_KEYS, BLIND_INDEX_KEY and AUDIT_HMAC_KEY: it writes personal data'
+            );
+        const persons = new PersonsService(
+            db,
+            new FieldCrypto({ fieldKeys: config.FIELD_KEYS, blindIndexKey: config.BLIND_INDEX_KEY })
+        );
+        const organisations = new OrganisationsService(persons);
+        // the demo regions keep the shipped old plate codes
+        const registry = new VehicleRegistry(persons, organisations, {
+            legacyRegions: () =>
+                Promise.resolve(DEFAULT_LEGACY_PLATE_REGIONS.map((r) => ({ ...r, aliases: [...r.aliases] })))
+        });
+        const made = await importVehicleDemo(db, code, { registry, persons, organisations });
+        logger.info({ region: code, ...made }, made ? 'demo vehicles applied' : 'the demo vehicles were already there');
     } else if (file) {
         const doc = userImportSchema.parse(parseYaml(await readFile(file, 'utf8')));
         logger.info({ file, ...(await db.scoped(ctx, (tx) => importUsers(tx, doc))) }, 'users seed applied');

@@ -49,11 +49,14 @@ export function demoSteps(run) {
     return [
         ['migrate', () => run('migrate', 'migrate.cjs', [])],
         ...regionSteps(REGION, 'south-ethiopia.wolaita', 'wolaita.demo'),
-        ['the demo’s people and licences', () => run('demo', 'seed.cjs', ['demo', '--region', REGION])],
         [`${REGION}: its branding`, () => seed('settings', 'seed/settings/sample-region.demo.yaml')],
         // the second region: a city administration with sub-cities (task 0.25b), with the same services and rules
         ...regionSteps(CITY, 'sample-city', 'sample-city.demo'),
         [`${CITY}: its branding and languages`, () => seed('settings', 'seed/settings/sample-city.demo.yaml')],
+        // the generated records, with the personal data keys, after both regions are built (one process for the three)
+        ['the demo’s people and licences', () => run('demo', 'seed.cjs', ['demo', '--region', REGION])],
+        [`${REGION}: the demo’s vehicles`, () => run('demo', 'seed.cjs', ['demo-vehicles', '--region', REGION])],
+        [`${CITY}: the demo’s vehicles`, () => run('demo', 'seed.cjs', ['demo-vehicles', '--region', CITY])],
         ['the accounts in Keycloak', () => seed('identity')]
     ];
 }

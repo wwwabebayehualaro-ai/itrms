@@ -1,6 +1,6 @@
 /** The seed CLI's commands (`src/seed.ts`): which are known, and how one run lists several. */
 const FILE_KINDS = ['org', 'users', 'services', 'fees', 'settings'];
-const PLAIN_KINDS = ['identity', 'counters', 'documents', 'competency', 'vehicles', 'demo'];
+const PLAIN_KINDS = ['identity', 'counters', 'documents', 'competency', 'vehicles', 'demo', 'demo-vehicles'];
 
 /** `org a.yaml --then users b.yaml` is two commands, applied in order in one process. */
 export function parseSeedCommands(argv: readonly string[]): string[][] {
