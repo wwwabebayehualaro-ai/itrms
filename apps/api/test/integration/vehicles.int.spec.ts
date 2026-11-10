@@ -883,9 +883,6 @@ describe('the isolation matrix on every table of the register (class R, and clas
     const CHILD_UPDATES: Record<string, (vehicleId: string) => ReturnType<typeof sql>> = {
         'vehicles.vehicle_ownerships': (v) =>
             sql`update vehicles.vehicle_ownerships set updated_at = now() where vehicle_id = ${v}`,
-        'vehicles.vehicle_owners': (v) =>
-            sql`update vehicles.vehicle_owners set updated_at = now()
-                where ownership_id = any(${pgArray([...periodOf].filter(([, of]) => of === v).map(([id]) => id))}::uuid[])`,
         'vehicles.plate_assignments': (v) =>
             sql`update vehicles.plate_assignments set updated_at = now() where vehicle_id = ${v}`,
         'vehicles.libres': (v) => sql`update vehicles.libres set updated_at = now() where vehicle_id = ${v}`
@@ -934,6 +931,28 @@ describe('the isolation matrix on every table of the register (class R, and clas
             expect(category.rowCount, 'vehicles.vehicle_categories').toBe(WRITABLE.config.includes(c) ? 1 : 0);
         }
     );
+
+    // a period's holders are written once, with the period (no UPDATE grant): their write is an insert, by the unit that
+    // handles the vehicle only
+    it.each(ISOLATION_CASES)(
+        'lets the acting unit add a holder to the %s period only where the class allows it',
+        async (c) => {
+            const period = [...periodOf].find(([, of]) => of === matrix[c])?.[0] ?? '';
+            const insert = asUnit(app, units.zone, (tx) =>
+                tx.execute(sql`insert into vehicles.vehicle_owners (id, ownership_id, person_id, ordinal)
+                values (gen_random_uuid(), ${period}, ${people.chaltu}, 2)`)
+            );
+            if (WRITABLE.registry.includes(c)) await expect(insert).resolves.toBeDefined();
+            else expect(await refusal(insert)).toMatch(/row-level security|not found|unit not|foreign key/);
+        }
+    );
+
+    it('has no update of a holder for anyone', async () => {
+        const refused = await refusal(
+            asUnit(app, units.zone, (tx) => tx.execute(sql`update vehicles.vehicle_owners set ordinal = ordinal`))
+        );
+        expect(refused).toMatch(/permission denied/);
+    });
 
     it.each(ISOLATION_CASES)('refuses a child row for the %s vehicle unless the unit handles it', async (c) => {
         const n = String(ISOLATION_CASES.indexOf(c)).padStart(4, '0');
