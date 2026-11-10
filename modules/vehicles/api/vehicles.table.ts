@@ -456,7 +456,8 @@ export const plates = withRls(
             ]
         )
     ),
-    'registry'
+    'registry',
+    'holder_org_path'
 );
 
 /** The ledger of the stock: one row per command, however many plates it moved. */
