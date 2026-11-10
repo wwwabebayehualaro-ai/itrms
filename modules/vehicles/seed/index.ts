@@ -17,6 +17,7 @@ export {
     type VehicleDemoCounts,
     type VehicleDemoDeps
 } from './demo';
+export { DEMO_PLATE_STOCK, importPlateStockDemo, type PlateStockDemoCounts } from './plate-stock';
 
 /** The catalogue at the region's root; an installation step, audited. */
 export async function importVehicleCategories(

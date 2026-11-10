@@ -26,7 +26,7 @@ unit_type (per region)             key, name, level, category values allowed (�
                                    default services (service codes + enabled flag),
                                    default teams (org_departments to create),
                                    default role catalogue (roles assignable in this unit),
-                                   capabilities (collects_cash, runs_terminal, prints_documents, has_examiners …)
+                                   capabilities (collects_cash, runs_terminal, prints_documents, has_examiners, holds_plate_stock …)
 org_unit                           parent, path, unit_type, category, name, code, active
 unit_service_override              unit × service → enabled / disabled (+ reason, audited)
 ```
@@ -42,8 +42,8 @@ Effective services of a unit = `unit_type.default_services` ⊕ `unit_service_ov
 
 | Unit type | Level | Default services (codes from [service-catalogue.md](../service-catalogue.md)) | Capabilities | Source |
 |---|---|---|---|---|
-| `zone_department` | zone | all 54 | collects_cash, prints_documents, has_examiners | [D] Form 15 zone tables |
-| `town_unit_f1` | town | RS-01…07, DVC-01…11, FR-01…03, PT-01…06 | collects_cash, runs_terminal, prints_documents, has_examiners | [D] Boditi |
+| `zone_department` | zone | all 54 | collects_cash, prints_documents, has_examiners, holds_plate_stock | [D] Form 15 zone tables |
+| `town_unit_f1` | town | RS-01…07, DVC-01…11, FR-01…03, PT-01…06 | collects_cash, runs_terminal, prints_documents, has_examiners, holds_plate_stock | [D] Boditi |
 | `woreda_office_m1` | woreda | RS-01…07, PT-04, PT-06 (assist), RQ-01…02, DC-01…07 (local), LG-01…03, CP-01…05, HR-01…06, PB-02 | (collects_cash: to confirm) | [D] Damot Gale |
 | `town_unit_f3`, `town_unit_f4` | town | like `town_unit_f1` minus DVC and FR [A] | collects_cash [A] | [A] covers only |
 | `city_admin_department` | region-level (to confirm) | like `zone_department` for its own area [A] | as zone | [A] handwritten chart |
@@ -107,7 +107,8 @@ level definitions and unit types.
   type, key, value JSONB). They are class C configuration (ADR-0011): readable in the subtree and its ancestors.
 * An API `GET /me/workspace` returns the active unit's effective services, capabilities, menu and settings in one call
   (cached, invalidated on change). See [navigation-and-menus.md](navigation-and-menus.md).
-* Tasks: 0.8 (org tree, unit types, the Wolaita seed), 0.21 (service enablement + settings hierarchy).## 6. Implementation notes
+* Tasks: 0.8 (org tree, unit types, the Wolaita seed), 0.21 (service enablement + settings hierarchy).
+## 6. Implementation notes
 * Code: `@itrms/kernel/org` (`platform/kernel/api/org/`). Tables in the `kernel` schema (migrations 0003 and 0004):
   `org_level_definitions` (key, rank, name), `org_units`, `org_departments`, `unit_types` (level, allowed categories,
   **capabilities** and the **default teams** as columns), `unit_type_services`, `unit_type_roles`,

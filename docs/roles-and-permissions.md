@@ -23,6 +23,7 @@ Role keys are `<process>.<function>` for work-process roles, and plain names for
 | `finance_officer` | accountant (ሂሳብ ሠራተኛ) [D] | zone, woreda, town | Approve receipt reversals, cashier-session differences; revenue reports |
 | `auditor` | internal audit [A] | any | Read-only on everything in the subtree, including the audit log and exports; cannot reveal masked data without `pii:reveal` |
 | `viewer` | — | any | Read-only dashboards and registries: names and addresses, never a sensitive field (no FIN, phone or birth date; no lookup by them, no reveal) |
+| `plate_keeper` | — | bureau, zone, ፈርጅ-1 town (units with `holds_plate_stock`) | The office's plate stock (task 1.2a): receives federal deliveries, hands plates to the unit directly below and accepts what it is sent, recalls and writes off with a reason; reads the register. Assumed role: confirm with a bureau who keeps the plates (a storekeeper or competency staff) |
 
 ### Work-process roles
 For each process `p`, `p.officer` handles cases and `p.lead` decides the steps that need a lead or director. Rows marked

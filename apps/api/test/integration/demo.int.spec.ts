@@ -17,8 +17,8 @@ import { addisDay, addMonths, addYears } from '@itrms/competency/contracts';
 import { ethiopianHolidays } from '@itrms/ethiopian-calendar';
 import { OrganisationsService, PersonsService } from '@itrms/parties/api';
 import { importFeeRules, parseFeeRules } from '@itrms/fees/seed';
-import { VehicleRegistry } from '@itrms/vehicles/api';
-import { importVehicleCategories, importVehicleDemo, STORY_PLATE } from '@itrms/vehicles/seed';
+import { PlateStock, VehicleRegistry } from '@itrms/vehicles/api';
+import { importPlateStockDemo, importVehicleCategories, importVehicleDemo, STORY_PLATE } from '@itrms/vehicles/seed';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { SLICES } from '../../src/slices';
@@ -478,5 +478,44 @@ describe('the demo’s vehicles (task 1.1b)', () => {
         expect(await importVehicleDemo(api.installer, 'SER', vehicleDeps(), TODAY)).toBeNull();
         expect(await importVehicleDemo(api.installer, 'SCA', vehicleDeps(), TODAY)).toBeNull();
         expect(await count(`select count(*)::int as n from vehicles.vehicles`)).toBe(54);
+    });
+});
+
+describe('the demo’s plate stock (task 1.2a)', () => {
+    it('has a delivery in each region handed down to the offices that register vehicles, reconciled, seeded once', async () => {
+        const stock = api.http.get(PlateStock);
+        expect(await importPlateStockDemo(api.installer, 'SER', stock, TODAY)).toEqual({
+            received: 500,
+            allocated: 450
+        });
+        expect(await importPlateStockDemo(api.installer, 'SCA', stock, TODAY)).toEqual({
+            received: 300,
+            allocated: 150
+        });
+        const held = await api.owner.query<{ code: string; n: number }>(
+            `select u.code, count(*)::int as n from vehicles.plates p join kernel.org_units u on u.id = p.holder_unit_id
+              where p.status = 'in_stock' group by u.code order by u.code`
+        );
+        expect(held.rows).toEqual([
+            { code: 'SCA', n: 150 },
+            { code: 'SCA-NORTH', n: 150 },
+            { code: 'SER', n: 200 },
+            { code: 'WOL', n: 150 },
+            { code: 'WOL-BODITI', n: 150 }
+        ]);
+        const zone = await api.unit('SER', 'WOL');
+        const summary = await api.installer.scoped(
+            { requestId: 'test:summary', regionId: zone.regionId, unitId: zone.id, scopePath: zone.path },
+            (tx) =>
+                stock.summary(
+                    tx,
+                    { requestId: 'test:summary', regionId: zone.regionId, unitId: zone.id, scopePath: zone.path },
+                    zone.id
+                )
+        );
+        expect([summary.unit, ...summary.children].every((r) => r.reconciled)).toBe(true);
+        expect(await importPlateStockDemo(api.installer, 'SER', stock, TODAY)).toBeNull();
+        expect(await importPlateStockDemo(api.installer, 'SCA', stock, TODAY)).toBeNull();
+        expect(await count(`select count(*)::int as n from vehicles.plates`)).toBe(800);
     });
 });
