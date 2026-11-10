@@ -89,9 +89,13 @@ export type ParsedVin =
 
 /**
  * A typed chassis number. `chassisKind` is what the officer declared (none: an ISO VIN is expected); `modelYear` is the
- * vehicle's, since a vehicle built before 1981 has no ISO VIN.
+ * vehicle's, since a vehicle built before 1981 has no ISO VIN. `acceptMismatch` lets an officer who has checked the plate on
+ * the chassis record a binding check digit that does not match (it is kept as a `mismatch`, not refused).
  */
-export function parseVin(raw: string, options: { chassisKind?: ChassisKind; modelYear?: number } = {}): ParsedVin {
+export function parseVin(
+    raw: string,
+    options: { chassisKind?: ChassisKind; modelYear?: number; acceptMismatch?: boolean } = {}
+): ParsedVin {
     const chassisNumber = raw.normalize('NFC').toUpperCase().replace(/[\s-]/g, '');
     if (options.chassisKind === 'other') {
         if (!/^[A-Z0-9./]{4,30}$/.test(chassisNumber) || vehicleSearchKey(chassisNumber).length < 4)
@@ -112,7 +116,8 @@ export function parseVin(raw: string, options: { chassisKind?: ChassisKind; mode
     if (chassisNumber.length !== 17) return { ok: false, code: 'invalid_vin', problem: 'invalid_length' };
     if (!VIN_PATTERN.test(chassisNumber)) return { ok: false, code: 'invalid_vin', problem: 'invalid_chars' };
     const ok = vinCheckDigit(chassisNumber) === chassisNumber[8];
-    if (!ok && checkDigitBinds(chassisNumber)) return { ok: false, code: 'invalid_vin', problem: 'check_digit' };
+    if (!ok && checkDigitBinds(chassisNumber) && !options.acceptMismatch)
+        return { ok: false, code: 'invalid_vin', problem: 'check_digit' };
     return {
         ok: true,
         chassisNumber,

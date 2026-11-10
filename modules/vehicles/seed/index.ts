@@ -2,10 +2,12 @@
  * Seed entry of @itrms/vehicles (task 1.1a): the catalogue of vehicle categories at a region's root. Run again, it changes
  * only what the table here changed. The demo's vehicles (task 1.1b) are `importVehicleDemo`.
  */
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { Tx } from '@itrms/kernel/db';
 import { insertAudited, updateAudited } from '@itrms/kernel/db';
+import { setUpCounter } from '@itrms/kernel/numbering';
 
+import { LIBRE_COUNTER, LIBRE_PATTERN } from '../contracts';
 import { vehicleCategories } from '../api/vehicles.table';
 import { VEHICLE_CATEGORIES, type CategorySeed } from './categories';
 
@@ -48,4 +50,15 @@ export async function importVehicleCategories(
         }
     }
     return changed;
+}
+
+/** A libre counter for each office whose type offers new vehicle registration (DVC-01). It never lowers one. */
+export async function setUpLibreCounters(tx: Tx, regionId: string, pattern = LIBRE_PATTERN): Promise<number> {
+    const offices = await tx.execute<{ id: string }>(sql`
+        select u.id from kernel.org_units u
+          join kernel.unit_type_services s on s.unit_type_id = u.unit_type_id
+         where u.region_id = ${regionId} and u.active and s.service_code = 'DVC-01'`);
+    for (const office of offices.rows)
+        await setUpCounter(tx, { key: LIBRE_COUNTER, unitId: office.id, regionId, pattern });
+    return offices.rows.length;
 }

@@ -6089,6 +6089,7 @@ export interface operations {
                 q?: string;
                 status?: "in_stock" | "allocated" | "reserved" | "assigned" | "retired" | "void" | "lost";
                 holderUnitId?: string;
+                caseId?: string;
                 series?: string;
                 after?: string;
                 limit?: number;

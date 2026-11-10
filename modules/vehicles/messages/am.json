@@ -140,6 +140,7 @@
   "vehicles.plateStock.noMovements": "እስካሁን የሰሌዳ እንቅስቃሴ የለም።",
   "vehicles.plateStock.ended": "የተጠናቀቁ",
   "vehicles.plateStock.loadFailed": "የሰሌዳ ክምችቱን መጫን አልተቻለም።",
+  "vehicles.plateStock.noStockBelow": "በቀጥታ ከዚህ በታች የሰሌዳ ክምችት የሚይዝ ጽ/ቤት የለም።",
   "vehicles.plateStock.required": "ያስፈልጋል።",
   "vehicles.plateStock.seriesHint": "ሦስት የላቲን ፊደላት፣ ለምሳሌ ABC።",
   "vehicles.plateStock.serialHint": "ከ1 እስከ 9999 ያለ ቁጥር።",
