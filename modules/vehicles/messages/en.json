@@ -110,5 +110,6 @@
   "vehicles.record.endedReason": "Ended because",
   "vehicles.record.libreNumber": "Libre number",
   "vehicles.record.issuedOn": "Issued on",
-  "vehicles.record.issuedBy": "Issued by"
+  "vehicles.record.issuedBy": "Issued by",
+  "vehicles.search.failed": "The search did not work. Try again."
 }

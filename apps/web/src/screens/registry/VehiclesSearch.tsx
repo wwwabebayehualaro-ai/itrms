@@ -9,6 +9,8 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import {
+    Alert,
+    AlertDescription,
     Button,
     EmptyState,
     Input,
@@ -24,6 +26,7 @@ import {
     TableRow
 } from '@itrms/ui';
 
+import { getApiErrorMessage } from '@/lib/api/errors';
 import { useText } from '@/lib/preferences';
 import { useVehicleSearch, type VehicleSummary } from '@/lib/vehicles';
 
@@ -59,12 +62,18 @@ export function VehiclesSearch() {
                         placeholder={t('vehicles.search.placeholder')}
                         autoComplete="off"
                         spellCheck={false}
+                        maxLength={40}
                     />
                 </div>
                 <Button type="submit">{t('vehicles.search.submit')}</Button>
             </form>
 
             {found.isFetching && <Skeleton className="h-24 w-full" />}
+            {!found.isFetching && found.error && (
+                <Alert variant="destructive">
+                    <AlertDescription>{getApiErrorMessage(found.error, t('vehicles.search.failed'))}</AlertDescription>
+                </Alert>
+            )}
             {!found.isFetching && searched && rows?.length === 0 && (
                 <EmptyState title={t('vehicles.search.none')} description={t('vehicles.search.noneHint')} />
             )}

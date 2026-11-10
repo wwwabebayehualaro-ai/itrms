@@ -1,17 +1,17 @@
 /**
  * The demo's vehicles (task 1.1b, docs/demo-plan.md): generated, never real records. A seeded generator makes the same
- * vehicles on every reset: their chassis numbers are ISO 3779 VINs with a correct check digit, their plates are national
+ * vehicles on every reset of the same day (their dates are drawn up to today; the story vehicle is fixed): their chassis numbers are ISO 3779 VINs with a correct check digit, their plates are national
  * (`ETH` + three letters + four digits) or, in the first region, old regional plates and their exchange for national ones
  * (Directive 1050/2025); a share of them changed owners. Everything is written through the register's own commands, so the
  * ownership chain, the uniqueness and the audit rows are those of a real registration. Run again, it adds nothing.
  */
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull, lte } from 'drizzle-orm';
 import { type Database, type DbContext, type Tx } from '@itrms/kernel/db';
 import { orgUnits } from '@itrms/kernel/tables';
 import { persons, type OrganisationsService, type PersonsService } from '@itrms/parties/api';
 
 import type { VehicleRegistry } from '../api/vehicle-registry.service';
-import { vehicles } from '../api/vehicles.table';
+import { libres, vehicles } from '../api/vehicles.table';
 import { vinCheckDigit, type VehicleRegister } from '../contracts';
 
 export interface VehicleDemoDeps {
@@ -254,10 +254,13 @@ export async function importVehicleDemo(
     if (!first) throw new Error(`region ${code} has no demo office`);
 
     return db.scoped(asUnit(root), async (tx) => {
-        // the story vehicle's VIN is the generator's first: when it is there, so is the rest
-        const storyVin = makeVin(generator(7), 'JTF', 2016);
-        const [already] = await tx.select({ id: vehicles.id }).from(vehicles).where(eq(vehicles.vinKey, storyVin));
+        // the region's first demo libre: when it is there, so is the rest (a seed reads every region, so the region is named)
+        const [already] = await tx
+            .select({ id: libres.id })
+            .from(libres)
+            .where(and(eq(libres.regionId, root.regionId), eq(libres.number, `${code}-000001`)));
         if (already) return null;
+        const storyVin = makeVin(generator(7), 'JTF', 2016);
 
         const owners = await demoOwners(tx, random, deps, offices, asUnit, root.regionId);
         const counts: VehicleDemoCounts = {
@@ -392,7 +395,8 @@ async function demoOwners(
     const existing = await tx
         .select({ id: persons.id })
         .from(persons)
-        .where(and(eq(persons.regionId, regionId), eq(persons.status, 'active')))
+        // grown-ups only: the oldest first registration is in 2012, and its owner was of age then
+        .where(and(eq(persons.regionId, regionId), eq(persons.status, 'active'), lte(persons.birthYear, 1990)))
         .orderBy(persons.id)
         .limit(24);
     const people: Holder[] = existing.map((p) => ({ kind: 'person', id: p.id }));
@@ -407,7 +411,7 @@ async function demoOwners(
                 nameAm: { given: given[0], father: father[0], grandfather: grandfather[0] },
                 nameEn: { given: given[1], father: father[1], grandfather: grandfather[1] },
                 sex: given[2],
-                birthYear: 1970 + random.int(30),
+                birthYear: 1965 + random.int(25),
                 address: { unitId: unit.id },
                 acknowledgedDuplicates: []
             });

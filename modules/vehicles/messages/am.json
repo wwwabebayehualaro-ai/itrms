@@ -110,5 +110,6 @@
   "vehicles.record.endedReason": "የተቋረጠበት ምክንያት",
   "vehicles.record.libreNumber": "የሊብሬ ቁጥር",
   "vehicles.record.issuedOn": "የተሰጠበት ቀን",
-  "vehicles.record.issuedBy": "የሰጠው ጽ/ቤት"
+  "vehicles.record.issuedBy": "የሰጠው ጽ/ቤት",
+  "vehicles.search.failed": "ፍለጋው አልተሳካም። እንደገና ይሞክሩ።"
 }
