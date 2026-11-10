@@ -3172,6 +3172,26 @@
       "item": "Isolation matrix covers vehicles and vehicle_ownerships only: add rows for vehicle_owners, plate_assignments, libres (class R) and vehicle_categories (class C)",
       "movedTo": "1.1b",
       "closedIn": "1.1a: the isolation matrix covers vehicle_owners, plate_assignments, libres (class R) and vehicle_categories (class C) (squashed into 40967db)"
+    },
+    {
+      "foundIn": "1.2a",
+      "item": "An exchange (assignStockPlate on a vehicle carrying a stock plate) locks the new plate then the old one, against a bulk command over a run containing both in ascending order: a rare 40P01 deadlock, unmapped (500). Lock the old plate first in an exchange, or map 40P01 to a retryable 409",
+      "movedTo": "1.2c"
+    },
+    {
+      "foundIn": "1.2a",
+      "item": "A stock plate assigned to a vehicle is closed (retired/lost) only within the holder's line (class R on plates): after a vehicle changes handling unit, its new office cannot retire the plate. The transfer effect must hand the assigned plate over (a transfer movement) or close it through the issuing line",
+      "movedTo": "1.4"
+    },
+    {
+      "foundIn": "1.2a",
+      "item": "Plate write-offs are one keeper with a reason (assumed default); maker-checker (a second keeper approves, SEC-AC-6 style) if the bureau requires it",
+      "movedTo": "1.20"
+    },
+    {
+      "foundIn": "1.2a",
+      "item": "The allocate screen lists every unit directly below, also offices without holds_plate_stock (the server refuses them with a field error): show only the stock-keeping children (expose the capability in the summary's children)",
+      "movedTo": "1.2b"
     }
   ]
 }

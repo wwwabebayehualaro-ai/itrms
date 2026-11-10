@@ -25,7 +25,9 @@ CREATE FUNCTION "vehicles"."check_plate_transition"() RETURNS trigger
     SET search_path = pg_catalog, pg_temp
 AS $$
 DECLARE
-    moved constant boolean := NEW.holder_unit_id IS DISTINCT FROM OLD.holder_unit_id;
+    moved boolean;
+    down boolean;
+    up boolean;
     ok boolean;
 BEGIN
     IF TG_OP = 'INSERT' THEN
@@ -35,6 +37,9 @@ BEGIN
         END IF;
         RETURN NEW;
     END IF;
+    moved := NEW.holder_unit_id IS DISTINCT FROM OLD.holder_unit_id;
+    down := moved AND EXISTS (SELECT 1 FROM kernel.org_units u WHERE u.id = NEW.holder_unit_id AND u.parent_id = OLD.holder_unit_id);
+    up := moved AND EXISTS (SELECT 1 FROM kernel.org_units u WHERE u.id = OLD.holder_unit_id AND u.parent_id = NEW.holder_unit_id);
     ok := CASE
         -- the same status: a note, never a new holder, vehicle or case
         WHEN NEW.status = OLD.status AND NOT (OLD.status = 'in_stock' AND moved) THEN
@@ -42,8 +47,8 @@ BEGIN
                 AND NEW.case_id IS NOT DISTINCT FROM OLD.case_id
                 AND OLD.status NOT IN ('retired', 'void', 'lost')
         -- allocate (to the unit below), and recall (back above, from stock or from transit)
-        WHEN OLD.status = 'in_stock' AND NEW.status = 'allocated' THEN moved
-        WHEN OLD.status IN ('in_stock', 'allocated') AND NEW.status = 'in_stock' AND moved THEN true
+        WHEN OLD.status = 'in_stock' AND NEW.status = 'allocated' THEN down
+        WHEN OLD.status IN ('in_stock', 'allocated') AND NEW.status = 'in_stock' AND moved THEN up
         -- accept: the unit below takes what it was sent
         WHEN OLD.status = 'allocated' AND NEW.status = 'in_stock' THEN NOT moved
         WHEN OLD.status = 'in_stock' AND NEW.status = 'reserved' THEN NOT moved
@@ -63,7 +68,9 @@ BEGIN
 END;
 $$;
 --> statement-breakpoint
-CREATE TRIGGER "plate_transition" BEFORE INSERT OR UPDATE ON "vehicles"."plates"
+-- not on the scope column: an org-unit move rewrites every row's holder_org_path, and a final plate must survive it
+CREATE TRIGGER "plate_transition" BEFORE INSERT OR UPDATE OF "holder_unit_id", "status", "status_on", "vehicle_id",
+    "case_id", "end_reason", "note", "last_movement_id" ON "vehicles"."plates"
     FOR EACH ROW EXECUTE FUNCTION "vehicles"."check_plate_transition"();
 --> statement-breakpoint
 -- At commit: a stock plate is 'assigned' exactly while one open plate assignment carries it, on its vehicle and with its key;
@@ -73,11 +80,17 @@ CREATE FUNCTION "vehicles"."check_plate_match"() RETURNS trigger
     SET search_path = pg_catalog, pg_temp
 AS $$
 DECLARE
-    p_id constant uuid := CASE WHEN TG_TABLE_NAME = 'plates' THEN NEW.id ELSE NEW.plate_id END;
+    p_id uuid;
     p record;
     open_count integer;
     matching integer;
 BEGIN
+    -- one statement per table: PL/pgSQL resolves every NEW field an expression names, whichever branch it takes
+    IF TG_TABLE_NAME = 'plates' THEN
+        p_id := NEW.id;
+    ELSE
+        p_id := NEW.plate_id;
+    END IF;
     IF p_id IS NULL THEN
         RETURN NULL;
     END IF;
@@ -89,7 +102,8 @@ BEGIN
     SELECT count(*), count(*) FILTER (WHERE a.vehicle_id = p.vehicle_id AND a.plate_key = p.plate_key)
       INTO open_count, matching
       FROM vehicles.plate_assignments a WHERE a.plate_id = p_id AND a.until IS NULL;
-    IF (p.status = 'assigned') <> (open_count = 1 AND matching = 1) OR open_count > 1 THEN
+    IF (p.status = 'assigned' AND NOT (open_count = 1 AND matching = 1))
+        OR (p.status <> 'assigned' AND open_count > 0) THEN
         RAISE EXCEPTION 'vehicles: plate % is % but % vehicle(s) carry it', p.plate_key, p.status, open_count
             USING ERRCODE = 'check_violation', CONSTRAINT = 'plate_match';
     END IF;

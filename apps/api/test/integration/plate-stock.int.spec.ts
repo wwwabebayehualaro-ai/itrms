@@ -220,6 +220,31 @@ describe('the stock from the federal delivery to the office that issues a plate'
         await expectReconciled(units.ser, units.zone, units.boditi);
     });
 
+    it('reconciles a unit whose child took a delivery in directly', async () => {
+        await run(
+            units.boditi,
+            (ctx) => (tx) =>
+                stock.receive(tx, ctx, {
+                    reference: 'BODITI-PICKUP-1',
+                    receivedOn: '2026-10-01',
+                    plates: range('QSE', 1, 4)
+                })
+        );
+        expect(await countsOf(units.boditi)).toMatchObject({ received: 29, inStock: 28 });
+        await expectReconciled(units.ser, units.zone, units.boditi);
+        // and when the zone takes some of them back
+        await run(
+            units.zone,
+            (ctx) => (tx) =>
+                stock.recall(tx, ctx, {
+                    fromUnitId: units.boditi.id,
+                    plates: range('QSE', 1, 2),
+                    reason: 'needed at the zone counter'
+                })
+        );
+        await expectReconciled(units.ser, units.zone, units.boditi);
+    });
+
     it('moves stock one level at a time, only to a unit that keeps stock, never up', async () => {
         await run(
             units.ser,
@@ -274,7 +299,7 @@ describe('the stock from the federal delivery to the office that issues a plate'
                     (ctx) => (tx) => stock.allocate(tx, ctx, { toUnitId: units.boditi.id, plates: range('QSB', 1, 2) })
                 )
             )
-        ).toMatch(/invalid_transition plate_not_available/);
+        ).toMatch(/invalid_transition .*plate_not_available/);
         // a plate outside the stock, and a run partly in it, are refused whole
         expect(
             await refusal(
@@ -530,6 +555,27 @@ describe('the database is the last word', () => {
                 )
             )
         ).toMatch(/plate_assignments_plate_uq|plate_assignments_open_plate_uq/);
+    });
+
+    it('lets an org-unit move rewrite the scope of every plate, a final one too', async () => {
+        // what kernel.org_units_move_subtree does to every registered table under a moved unit
+        const moved = await api.owner.query(
+            `update vehicles.plates set holder_org_path = holder_org_path where status in ('retired', 'void', 'assigned', 'in_stock')`
+        );
+        expect(moved.rowCount).toBeGreaterThan(0);
+    });
+
+    it('refuses an open assignment of a plate that the stock does not say is assigned', async () => {
+        const id = await plateOf(key('QTA', 37));
+        const vehicle = await newVehicle(units.zone, 'LASTWORD-2');
+        expect(
+            await refusal(
+                asUnit(app, units.zone, (tx) =>
+                    tx.execute(sql`insert into vehicles.plate_assignments (id, vehicle_id, plate_text, plate_key, format, source, since, plate_id)
+                        values (gen_random_uuid(), ${vehicle.id}, 'ETH QTA 0037', 'ETHQTA0037', 'national', 'federal', '2025-09-01', ${id})`)
+                )
+            )
+        ).toMatch(/plate_match|carry it/);
     });
 
     it('keeps the ledger and the batches as written: no update, no delete for anyone', async () => {

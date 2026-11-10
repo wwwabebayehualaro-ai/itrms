@@ -2,14 +2,15 @@
  * The demo's plate stock (task 1.2a): in each demo region a federal delivery received at the root, handed down and
  * accepted level by level to the offices that register vehicles, so a registration (1.2b) or a plate exchange (1.2c) has
  * plates to issue. Series starting with Q, which the demo's generated vehicles never carry. Written through the stock's own
- * commands (audited, reconciled). Run again, it adds nothing: the delivery's reference is the marker.
+ * commands (audited, reconciled). Run again, it adds nothing: the delivery's reference is the marker (a run that stopped
+ * part-way is said so, never taken for done).
  */
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { Database, DbContext } from '@itrms/kernel/db';
 import { orgUnits } from '@itrms/kernel/tables';
 
 import type { PlateStock } from '../api/plate-stock.service';
-import { plateBatches } from '../api/vehicles.table';
+import { plateBatches, plates } from '../api/vehicles.table';
 
 /** Per demo region: the series delivered, and the plates each office hands to the one below it (root first). */
 export const DEMO_PLATE_STOCK: Record<
@@ -64,6 +65,18 @@ export async function importPlateStockDemo(
             .select({ id: plateBatches.id })
             .from(plateBatches)
             .where(and(eq(plateBatches.regionId, found.regionId), eq(plateBatches.reference, reference)));
+        // the last office of the chain holding plates of the delivery: the seed went all the way
+        const last = units.find((u) => u.code === plan.chain[plan.chain.length - 1]?.[0]);
+        const [held] =
+            batch && last
+                ? await tx
+                      .select({ id: plates.id })
+                      .from(plates)
+                      .where(and(eq(plates.batchId, batch.id), eq(plates.holderUnitId, last.id)))
+                      .limit(1)
+                : [];
+        if (batch && !held)
+            throw new Error(`the demo plate stock of ${code} is half-seeded (a run stopped part-way): run demo:reset`);
         return {
             root: found,
             seeded: batch !== undefined,

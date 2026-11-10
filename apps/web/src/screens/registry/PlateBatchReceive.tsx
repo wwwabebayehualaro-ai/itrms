@@ -24,7 +24,7 @@ import { useReceiveBatch } from '@/lib/plate-stock';
 import { usePreferences, useText } from '@/lib/preferences';
 
 function formSchema(t: (key: string) => string) {
-    const whole = (v: string) => /^\d{1,4}$/.test(v.trim()) && Number(v) >= 1;
+    const whole = (v: string) => /^\d{1,4}$/.test(v.trim());
     return z.object({
         reference: z.string().refine((v) => v.trim() !== '', t('vehicles.plateStock.required')),
         receivedOn: z.string().refine((v) => v !== '', t('vehicles.plateStock.required')),
@@ -87,7 +87,9 @@ export function PlateBatchReceive() {
                                     value={field.state.value || null}
                                     onChange={(v) => field.handleChange(v ?? '')}
                                     language={language === 'en' ? 'en' : 'am'}
-                                    max={new Date().toISOString().slice(0, 10)}
+                                    max={new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Addis_Ababa' }).format(
+                                        new Date()
+                                    )}
                                     labels={{
                                         placeholder: t('vehicles.plateStock.pickDate'),
                                         previousMonth: t('vehicles.plateStock.previousMonth'),

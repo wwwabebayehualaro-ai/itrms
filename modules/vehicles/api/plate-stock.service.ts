@@ -362,7 +362,8 @@ export class PlateStock {
     /**
      * A unit's counts and those of the units directly below it, each with its ledger: what a unit took in (received, plus
      * allocated to it, less recalled from it) is what it holds in any status plus what is below it, and what it handed down
-     * (less what it took back) is what is below it. Within the acting unit's subtree only.
+     * (less what it took back) is what is below it; deliveries received directly further down count on both sides. Within
+     * the acting unit's subtree only.
      */
     async summary(tx: Tx, ctx: DbContext, unitId?: string): Promise<StockSummary> {
         const regionId = required(ctx.regionId);
@@ -421,6 +422,10 @@ export class PlateStock {
                 sumOf((l) => l.kind === 'recall' && l.from === id);
             const handedDown =
                 sumOf((l) => l.kind === 'allocate' && l.from === id) - sumOf((l) => l.kind === 'recall' && l.to === id);
+            // deliveries taken in directly by a unit further down are below this one without having come through it
+            const receivedBelow = sumOf(
+                (l) => l.kind === 'receive' && (pathOf.get(l.unitId) ?? '').startsWith(`${path}.`)
+            );
             const holding = Object.values(statuses).reduce((a, b) => a + b, 0);
             return {
                 unit: refs.get(id) ?? emptyRef(id),
@@ -428,7 +433,8 @@ export class PlateStock {
                 ...statuses,
                 allocatedDown,
                 ledger: { received, allocatedDown: handedDown },
-                reconciled: received === holding + allocatedDown && handedDown === allocatedDown
+                reconciled:
+                    received + receivedBelow === holding + allocatedDown && handedDown + receivedBelow === allocatedDown
             };
         };
         return { unit: rowOf(unit.id), children: children.map(rowOf) };

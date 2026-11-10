@@ -187,6 +187,9 @@ export class VehicleRegistry {
         version?: number
     ): Promise<{ plateId: string; key: string }> {
         const vehicle = await this.lock(tx, ctx, vehicleId, version);
+        // the plate comes from the stock of the office that handles the vehicle, which later retires it with the vehicle
+        if (vehicle.handlingUnitId !== ctx.unitId)
+            throw new ForbiddenError({ detailKey: 'vehicles.errors.other_office' });
         notFuture('since', wanted.since);
         const plate = await this.stock.take(tx, ctx, {
             key: wanted.key,

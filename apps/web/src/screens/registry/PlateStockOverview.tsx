@@ -60,6 +60,9 @@ export function PlateStockOverview() {
     const canAllocate = permissions?.includes('plate-stock:allocate') ?? false;
     const summary = useStockSummary();
     const movements = useStockMovements({ limit: 20 });
+    // the allocations sent to this office, on their own: the latest movements of the whole subtree would push them out
+    const activeUnitId = useAuthStore((s) => s.workspace?.activeUnit.id);
+    const sentHere = useStockMovements({ kind: 'allocate', unitId: activeUnitId, limit: 100 });
 
     const unitName = (name: Record<string, string>) => text({ am: '', en: '', ...name });
     const day = (value: string) => formatDay(value, { language, calendar });
@@ -104,7 +107,7 @@ export function PlateStockOverview() {
 
     const active = summary.data.unit;
     const rows: StockSummaryRow[] = [active, ...summary.data.children];
-    const waiting = (movements.data ?? []).filter(
+    const waiting = (sentHere.data ?? []).filter(
         (m) => m.kind === 'allocate' && m.toUnit?.id === active.unit.id && (m.awaiting ?? 0) > 0
     );
 

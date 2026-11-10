@@ -15,7 +15,7 @@ import { useAllocatePlates, useStockSummary } from '@/lib/plate-stock';
 import { useText } from '@/lib/preferences';
 
 function formSchema(t: (key: string) => string) {
-    const whole = (v: string) => /^\d{1,4}$/.test(v.trim()) && Number(v) >= 1;
+    const whole = (v: string) => /^\d{1,4}$/.test(v.trim());
     return z.object({
         toUnit: z.string().refine((v) => v !== '', t('vehicles.plateStock.required')),
         series: z.string().refine((v) => /^[A-Za-z]{3}$/.test(v.trim()), t('vehicles.plateStock.seriesHint')),
