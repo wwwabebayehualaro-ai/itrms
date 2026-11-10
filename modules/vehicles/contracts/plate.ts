@@ -72,10 +72,10 @@ export function parsePlate(
     raw: string,
     regions: readonly LegacyPlateRegion[] = DEFAULT_LEGACY_PLATE_REGIONS
 ): ParsedPlate | null {
+    // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- every pattern below is anchored with bounded classes; input capped at 40
     const folded = foldPlate(raw);
     if (folded === '' || folded.length > 40) return null;
 
-    // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- anchored, fixed-length classes, input capped at 40 (linear time)
     if (/^ETH[A-Z]{3}[0-9]{4}$/.test(folded))
         return { format: 'national', key: folded, text: nationalPlateText(folded), useCode: null, regionCode: null };
 
