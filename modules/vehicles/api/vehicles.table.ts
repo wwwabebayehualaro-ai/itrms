@@ -10,6 +10,11 @@
  *   vehicle_owners       the holders of a period: a person or an organisation, one or more.
  *   plate_assignments    the plates the vehicle carried, the current one has no `until`; old ones stay searchable.
  *   libres               the title booklets issued for an ownership period.
+ *   plate_batches        the deliveries of national plates from the federal source (class T of the receiving unit).
+ *   plates               the stock: one row per national plate, held by a unit, in a status (class R of the holder,
+ *                        task 1.2a); a transition trigger and a deferred match with plate_assignments are in the migration.
+ *   plate_movements      the ledger of the stock: receipts, allocations down the tree and their acceptance, recalls,
+ *                        assignments, retirements and write-offs (class T of the lower unit; insert-only).
  *
  * The four child tables carry the vehicle's region and handling unit, copied from the vehicle by a trigger in the migration
  * (a unit cannot write a child row for a vehicle it does not handle). The foreign keys to the people register, the checks
@@ -41,8 +46,11 @@ import {
     FEDERAL_ID_SOURCES,
     FUELS,
     LIBRE_STATUSES,
+    MOVEMENT_KINDS,
+    PLATE_END_REASONS,
     PLATE_ENDED_REASONS,
     PLATE_FORMATS,
+    PLATE_STATUSES,
     PLATE_SOURCES,
     VEHICLE_STATUSES,
     VEHICLE_USES,
@@ -270,10 +278,20 @@ export const plateAssignments = withRls(
                 source: text('source', { enum: PLATE_SOURCES }).notNull(),
                 since: date('since').notNull(),
                 until: date('until'),
-                endedReason: text('ended_reason', { enum: PLATE_ENDED_REASONS })
+                endedReason: text('ended_reason', { enum: PLATE_ENDED_REASONS }),
+                /** the stock plate, for a national plate issued from stock (task 1.2a); null for one back-captured */
+                plateId: uuid('plate_id').references(() => plates.id)
             },
             (t) => [
                 index('plate_assignments_vehicle_idx').on(t.vehicleId),
+                // a stock plate is assigned once in its life
+                uniqueIndex('plate_assignments_plate_uq')
+                    .on(t.plateId)
+                    .where(sql`${t.plateId} is not null`),
+                check(
+                    'plate_assignments_stock_check',
+                    sql`${t.plateId} is null or (${t.format} = 'national' and ${t.source} = 'federal')`
+                ),
                 // a plate is carried by one vehicle at a time, and a vehicle carries one plate at a time
                 uniqueIndex('plate_assignments_open_plate_uq')
                     .on(t.regionId, t.plateKey)
@@ -346,4 +364,151 @@ export const libres = withRls(
         )
     ),
     'registry'
+);
+
+/** A delivery of national plates from the federal source, as the receiving unit took it in. */
+export const plateBatches = withRls(
+    audited(
+        vehiclesSchema.table(
+            'plate_batches',
+            {
+                ...baseColumns(),
+                regionId: uuid('region_id').notNull(),
+                receivingUnitId: uuid('receiving_unit_id')
+                    .notNull()
+                    .references(() => orgUnits.id),
+                /** set by trigger from the receiving unit */
+                orgPath: ltree('org_path').notNull().default(''),
+                /** the federal dispatch or delivery-note number */
+                reference: text('reference').notNull(),
+                receivedOn: date('received_on').notNull(),
+                quantity: integer('quantity').notNull(),
+                firstKey: text('first_key').notNull(),
+                lastKey: text('last_key').notNull(),
+                note: text('note')
+            },
+            (t) => [
+                uniqueIndex('plate_batches_reference_uq').on(t.regionId, t.reference),
+                index('plate_batches_org_path_gist').using('gist', t.orgPath),
+                check('plate_batches_quantity_check', sql`${t.quantity} between 1 and 10000`),
+                check(
+                    'plate_batches_text_check',
+                    sql`length(${t.reference}) between 1 and 60 and coalesce(length(${t.note}), 0) <= 500`
+                )
+            ]
+        )
+    ),
+    'transaction'
+);
+
+/** A national plate of the stock: who holds it and where it is in its life (contracts/plate-stock.ts). */
+export const plates = withRls(
+    audited(
+        vehiclesSchema.table(
+            'plates',
+            {
+                ...baseColumns(),
+                regionId: uuid('region_id').notNull(),
+                holderUnitId: uuid('holder_unit_id')
+                    .notNull()
+                    .references(() => orgUnits.id),
+                /** set by trigger from the holder unit */
+                holderOrgPath: ltree('holder_org_path').notNull().default(''),
+                batchId: uuid('batch_id')
+                    .notNull()
+                    .references(() => plateBatches.id),
+                plateKey: text('plate_key').notNull(),
+                series: text('series').notNull(),
+                serial: smallint('serial').notNull(),
+                status: text('status', { enum: PLATE_STATUSES }).notNull().default('in_stock'),
+                statusOn: date('status_on').notNull(),
+                vehicleId: uuid('vehicle_id').references(() => vehicles.id),
+                caseId: uuid('case_id'),
+                endReason: text('end_reason', { enum: PLATE_END_REASONS }),
+                note: text('note'),
+                /** the movement that last moved it (an allocation it waits on is how the unit below accepts it) */
+                lastMovementId: uuid('last_movement_id')
+            },
+            (t) => [
+                index('plates_last_movement_idx').on(t.lastMovementId),
+                uniqueIndex('plates_key_uq').on(t.regionId, t.plateKey),
+                uniqueIndex('plates_serial_uq').on(t.regionId, t.series, t.serial),
+                // the next free plate of a unit, its counts and its runs
+                index('plates_holder_status_idx').on(t.regionId, t.holderUnitId, t.status, t.series, t.serial),
+                index('plates_holder_gist').using('gist', t.holderOrgPath),
+                index('plates_batch_idx').on(t.batchId),
+                index('plates_vehicle_idx').on(t.vehicleId),
+                check('plates_status_check', sql`${t.status} in ${oneOf(PLATE_STATUSES)}`),
+                check(
+                    'plates_key_check',
+                    sql`${t.series} ~ '^[A-Z]{3}$' and ${t.serial} between 0 and 9999 and ${t.plateKey} = 'ETH' || ${t.series} || lpad(${t.serial}::text, 4, '0')`
+                ),
+                check(
+                    'plates_vehicle_check',
+                    sql`(${t.status} in ('assigned', 'retired') and ${t.vehicleId} is not null) or (${t.status} in ('in_stock', 'allocated', 'reserved', 'void') and ${t.vehicleId} is null) or ${t.status} = 'lost'`
+                ),
+                check('plates_case_check', sql`${t.status} <> 'reserved' or ${t.caseId} is not null`),
+                check(
+                    'plates_end_check',
+                    sql`(${t.endReason} is null) = (${t.status} not in ('retired', 'void', 'lost')) and (${t.endReason} is null or ${t.endReason} in ${oneOf(PLATE_END_REASONS)})`
+                ),
+                check('plates_note_check', sql`coalesce(length(${t.note}), 0) <= 500`)
+            ]
+        )
+    ),
+    'registry',
+    'holder_org_path'
+);
+
+/** The ledger of the stock: one row per command, however many plates it moved. */
+export const plateMovements = withRls(
+    audited(
+        vehiclesSchema.table(
+            'plate_movements',
+            {
+                ...baseColumns(),
+                regionId: uuid('region_id').notNull(),
+                /** the lower unit of the movement (the child of an allocation or a recall, else the holder) */
+                unitId: uuid('unit_id')
+                    .notNull()
+                    .references(() => orgUnits.id),
+                /** set by trigger from the unit */
+                orgPath: ltree('org_path').notNull().default(''),
+                kind: text('kind', { enum: MOVEMENT_KINDS }).notNull(),
+                fromUnitId: uuid('from_unit_id').references(() => orgUnits.id),
+                toUnitId: uuid('to_unit_id').references(() => orgUnits.id),
+                batchId: uuid('batch_id').references(() => plateBatches.id),
+                /** an acceptance: the allocation it accepts */
+                ofMovementId: uuid('of_movement_id'),
+                quantity: integer('quantity').notNull(),
+                firstKey: text('first_key').notNull(),
+                lastKey: text('last_key').notNull(),
+                /** an assignment, a retirement or a loss: the one plate, and its vehicle */
+                plateId: uuid('plate_id').references(() => plates.id),
+                vehicleId: uuid('vehicle_id').references(() => vehicles.id),
+                caseId: uuid('case_id'),
+                occurredOn: date('occurred_on').notNull(),
+                reason: text('reason'),
+                note: text('note')
+            },
+            (t) => [
+                index('plate_movements_org_path_gist').using('gist', t.orgPath),
+                index('plate_movements_unit_idx').on(t.regionId, t.unitId, t.kind),
+                index('plate_movements_of_idx').on(t.ofMovementId),
+                check('plate_movements_kind_check', sql`${t.kind} in ${oneOf(MOVEMENT_KINDS)}`),
+                check('plate_movements_quantity_check', sql`${t.quantity} between 1 and 10000`),
+                check(
+                    'plate_movements_units_check',
+                    sql`(${t.kind} in ('allocate', 'recall')) = (${t.fromUnitId} is not null and ${t.toUnitId} is not null)`
+                ),
+                check('plate_movements_batch_check', sql`(${t.kind} = 'receive') = (${t.batchId} is not null)`),
+                check('plate_movements_accept_check', sql`(${t.kind} = 'accept') = (${t.ofMovementId} is not null)`),
+                check(
+                    'plate_movements_reason_check',
+                    sql`(${t.kind} not in ('recall', 'write_off') or length(${t.reason}) >= 10) and coalesce(length(${t.reason}), 0) <= 500 and coalesce(length(${t.note}), 0) <= 500`
+                )
+            ]
+        )
+    ),
+    'transaction'
 );

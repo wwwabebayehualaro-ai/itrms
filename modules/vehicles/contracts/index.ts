@@ -13,6 +13,7 @@ import { CHASSIS_KINDS, VIN_CHECKS } from './vin';
 import { DEFAULT_LEGACY_PLATE_REGIONS, foldPlate, PLATE_FORMATS } from './plate';
 
 export * from './plate';
+export * from './plate-stock';
 export * from './vin';
 
 export const VEHICLE_USES = [

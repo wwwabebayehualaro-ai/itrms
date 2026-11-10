@@ -66,7 +66,9 @@ export default defineModule({
             ...REGISTER_INTAKE,
             ...CASE_ACT,
             'pii:reveal',
-            'issued-document:read'
+            'issued-document:read',
+            // the office's plate stock, which a registration takes a plate from (tasks 1.2a, 1.2b)
+            'plate-stock:read'
         ],
         'competency.lead': [
             'issued-document:read',
@@ -78,7 +80,8 @@ export default defineModule({
             ...REGISTER_READ,
             ...CASE_ACT,
             'person:lookup',
-            'pii:reveal'
+            'pii:reveal',
+            'plate-stock:read'
         ],
         'competency.examiner': ['exam:read', 'exam:record', 'training:read', ...REGISTER_READ, ...CASE_ACT],
         'competency.inspector': ['licence:read', ...REGISTER_READ, 'case:read']

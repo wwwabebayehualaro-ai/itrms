@@ -34,9 +34,9 @@ import {
 } from '@itrms/competency/seed';
 import { FieldCrypto } from '@itrms/kernel/crypto';
 import { OrganisationsService, PersonsService } from '@itrms/parties/api';
-import { VehicleRegistry } from '@itrms/vehicles/api';
+import { PlateStock, VehicleRegistry } from '@itrms/vehicles/api';
 import { DEFAULT_LEGACY_PLATE_REGIONS } from '@itrms/vehicles/contracts';
-import { importVehicleCategories, importVehicleDemo } from '@itrms/vehicles/seed';
+import { importPlateStockDemo, importVehicleCategories, importVehicleDemo } from '@itrms/vehicles/seed';
 import { importDocumentTemplates } from '@itrms/documents/seed';
 import { importFeeRules, parseFeeRules, setUpReceiptCounters } from '@itrms/fees/seed';
 import { importCatalogue } from '@itrms/services/api';
@@ -227,7 +227,8 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
         });
         logger.info({ region: code, ...made }, made ? 'demo data applied' : 'the demo data was already there');
     } else if (kind === 'demo-vehicles') {
-        // the demo's generated vehicles (task 1.1b), through the register's commands; their owners may be new generated people
+        // the demo's generated vehicles (task 1.1b) and plate stock (1.2a), through the register's commands; their owners may be
+        // new generated people
         const code = file === '--region' ? rest[0] : region;
         if (!code) throw new Error('seed demo-vehicles needs --region <code>');
         if (!config.FIELD_KEYS || !config.BLIND_INDEX_KEY || !config.AUDIT_HMAC_KEY)
@@ -240,12 +241,23 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
         );
         const organisations = new OrganisationsService(persons);
         // the demo regions keep the shipped old plate codes
-        const registry = new VehicleRegistry(persons, organisations, {
-            legacyRegions: () =>
-                Promise.resolve(DEFAULT_LEGACY_PLATE_REGIONS.map((r) => ({ ...r, aliases: [...r.aliases] })))
-        });
+        const registry = new VehicleRegistry(
+            persons,
+            organisations,
+            {
+                legacyRegions: () =>
+                    Promise.resolve(DEFAULT_LEGACY_PLATE_REGIONS.map((r) => ({ ...r, aliases: [...r.aliases] })))
+            },
+            new PlateStock()
+        );
         const made = await importVehicleDemo(db, code, { registry, persons, organisations });
         logger.info({ region: code, ...made }, made ? 'demo vehicles applied' : 'the demo vehicles were already there');
+        // and the plate stock the region's offices issue plates from (task 1.2a)
+        const stocked = await importPlateStockDemo(db, code, new PlateStock());
+        logger.info(
+            { region: code, ...stocked },
+            stocked ? 'demo plate stock applied' : 'the demo plate stock was already there'
+        );
     } else if (file) {
         const doc = userImportSchema.parse(parseYaml(await readFile(file, 'utf8')));
         logger.info({ file, ...(await db.scoped(ctx, (tx) => importUsers(tx, doc))) }, 'users seed applied');

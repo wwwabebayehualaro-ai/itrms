@@ -19,6 +19,13 @@ users:
       home: SER,
       roles: [{ unit: SER, role: unit_head }]
     }
+  - {
+      username: demo.bureau.plates,
+      displayName: Bureau Plate Keeper (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000003,
+      home: SER,
+      roles: [{ unit: SER, role: plate_keeper }]
+    }
 
   # Wolaita Zone department
   - {
@@ -83,6 +90,13 @@ users:
       keycloakSub: 0199f0a0-d000-7000-8000-000000000109,
       home: WOL,
       roles: [{ unit: WOL, role: auditor }]
+    }
+  - {
+      username: demo.zone.plates,
+      displayName: Zone Plate Keeper (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000110,
+      home: WOL,
+      roles: [{ unit: WOL, role: plate_keeper }]
     }
 
   # Damot Gale woreda (ምድብ 1): no competency roles, the office has no such positions
@@ -150,6 +164,13 @@ users:
       keycloakSub: 0199f0a0-d000-7000-8000-000000000305,
       home: WOL-BODITI,
       roles: [{ unit: WOL-BODITI, role: competency.officer }, { unit: WOL-BODITI, role: competency.examiner }]
+    }
+  - {
+      username: demo.boditi.plates,
+      displayName: Boditi Plate Keeper (demo),
+      keycloakSub: 0199f0a0-d000-7000-8000-000000000306,
+      home: WOL-BODITI,
+      roles: [{ unit: WOL-BODITI, role: plate_keeper }]
     }
 
   # one person in two units: revenue collector at Boditi, records officer at the zone (roles-and-permissions.md §3)

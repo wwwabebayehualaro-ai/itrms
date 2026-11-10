@@ -2,7 +2,9 @@
 
 The regional vehicle register: vehicles (federal id, chassis, engine, category, use), their ownership periods and holders, plate
 history and libres; search by plate (current or old), chassis, engine or federal id from any office of the region; the
-registry commands the case effects call; the `vehicle` lookup provider.
+registry commands the case effects call; the `vehicle` lookup provider; the stock of national plates (task 1.2a: deliveries,
+allocation one level down the tree with acceptance, recalls, write-offs, assignment from an office's own stock through
+`VehicleRegistry.assignStockPlate`, counts reconciled with the ledger).
 
 Layer: registry. Shape, public entries and rules: [code-structure.md](../../docs/platform/code-structure.md) §4.
 

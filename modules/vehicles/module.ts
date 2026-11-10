@@ -21,7 +21,9 @@ export default defineModule({
     ],
     title: { am: 'የተሽከርካሪ መዝገብ', en: 'Vehicle register' },
     permissions: {
-        vehicle: ['read']
+        vehicle: ['read'],
+        // the plate stock (task 1.2a): its keepers receive, hand down, accept and write off; unit heads and auditors read it
+        'plate-stock': ['read', 'receive', 'allocate', 'write-off']
     },
     menu: [
         {
@@ -32,6 +34,15 @@ export default defineModule({
             icon: 'car',
             route: '/registry/vehicles',
             requires: { permission: 'vehicle:read' }
+        },
+        {
+            key: 'vehicles.plateStock',
+            group: 'registries',
+            order: 16,
+            label: 'vehicles.nav.plateStock',
+            icon: 'package',
+            route: '/registry/plate-stock',
+            requires: { permission: 'plate-stock:read', capabilities: ['holds_plate_stock'] }
         }
     ]
 });

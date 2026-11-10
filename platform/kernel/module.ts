@@ -110,6 +110,7 @@ export default defineModule({
         unit_head: [
             ...READ_ORG,
             ...REGISTER,
+            'plate-stock:read',
             'role-assignment:read',
             'audit-log:read',
             'pii:reveal',
@@ -169,6 +170,7 @@ export default defineModule({
         auditor: [
             ...READ_ORG,
             ...REGISTER,
+            'plate-stock:read',
             'role-assignment:read',
             'audit-log:read',
             'workflow-definition:read',
@@ -180,7 +182,16 @@ export default defineModule({
             ...CASE_READ
         ],
         // names and addresses only: never a sensitive field (no pii:reveal)
-        viewer: [...READ_ORG, ...REGISTER]
+        viewer: [...READ_ORG, ...REGISTER],
+        // the keeper of an office's plate stock (task 1.2a): receives plates, hands them down, accepts, writes off
+        plate_keeper: [
+            ...READ_ORG,
+            ...REGISTER,
+            'plate-stock:read',
+            'plate-stock:receive',
+            'plate-stock:allocate',
+            'plate-stock:write-off'
+        ]
     },
     // the settings registry (ADR-0026; value schemas: KERNEL_SETTINGS in the contracts). The languages
     // (i18n-and-languages.md): Amharic and English everywhere; the installation or a region adds its own (Wolaita:

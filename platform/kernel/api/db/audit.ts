@@ -7,7 +7,7 @@
  */
 import { createHmac } from 'node:crypto';
 
-import { eq, getTableColumns, sql, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
+import { eq, getTableColumns, inArray, sql, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 import { getTableConfig, type PgColumn, type PgTable } from 'drizzle-orm/pg-core';
 
 import { ConflictError, NotFoundError } from '../errors/app-error';
@@ -112,24 +112,53 @@ const caseOf = (row: Record<string, unknown>): { caseId?: string } =>
 /** What changes on every write: not part of what the person changed. */
 const BOOKKEEPING = new Set(['updatedAt', 'updatedBy', 'rowVersion']);
 
-async function writeAudit(
-    tx: Tx,
-    entry: { action: AuditAction; table?: PgTable; rowId?: string; eventType?: string; diff?: unknown }
-) {
+type AuditEntry = { action: AuditAction; table?: PgTable; rowId?: string; eventType?: string; diff?: unknown };
+
+async function writeAudit(tx: Tx, entry: AuditEntry) {
+    await writeAudits(tx, [entry]);
+}
+
+/** Audit rows of one transaction, in one statement (a bulk write still has one row per changed record). */
+async function writeAudits(tx: Tx, entries: readonly AuditEntry[]) {
+    if (entries.length === 0) return;
     const { ctx } = bindingOf(tx);
-    await tx.insert(auditLog).values({
-        action: entry.action,
-        tableName: entry.table ? nameOf(entry.table) : null,
-        rowId: entry.rowId ?? null,
-        eventType: entry.eventType ?? null,
-        diff: entry.diff ?? null,
-        actorId: ctx.userId ?? null,
-        unitId: ctx.unitId ?? null,
-        regionId: ctx.regionId ?? null,
-        orgPath: ctx.scopePath ?? null,
-        requestId: ctx.requestId ?? null,
-        ip: ctx.ip ?? null
-    });
+    await tx.insert(auditLog).values(
+        entries.map((entry) => ({
+            action: entry.action,
+            tableName: entry.table ? nameOf(entry.table) : null,
+            rowId: entry.rowId ?? null,
+            eventType: entry.eventType ?? null,
+            diff: entry.diff ?? null,
+            actorId: ctx.userId ?? null,
+            unitId: ctx.unitId ?? null,
+            regionId: ctx.regionId ?? null,
+            orgPath: ctx.scopePath ?? null,
+            requestId: ctx.requestId ?? null,
+            ip: ctx.ip ?? null
+        }))
+    );
+}
+
+/** How many rows a bulk helper writes per statement. */
+const CHUNK = 1000;
+/** The most rows one bulk call may write: a business command, never an import. */
+export const MAX_BULK_ROWS = 10_000;
+
+function chunks<T>(items: readonly T[]): T[][] {
+    const out: T[][] = [];
+    for (let i = 0; i < items.length; i += CHUNK) out.push(items.slice(i, i + CHUNK));
+    return out;
+}
+
+function changedKeys(
+    table: PgTable,
+    options: AuditOptions,
+    was: Record<string, unknown>,
+    is: Record<string, unknown>
+): string[] {
+    return Object.keys(getTableColumns(table)).filter(
+        (k) => !BOOKKEEPING.has(k) && !options.omit?.includes(k) && JSON.stringify(was[k]) !== JSON.stringify(is[k])
+    );
 }
 
 export async function insertAudited<T extends BaseTable>(
@@ -195,9 +224,7 @@ export async function updateAudited<T extends BaseTable>(
     const options = auditOptionsOf(table);
     const was = auditable(before, options, auditKey);
     const is = auditable(after, options, auditKey);
-    const changed = Object.keys(getTableColumns(table)).filter(
-        (k) => !BOOKKEEPING.has(k) && !options.omit?.includes(k) && JSON.stringify(was[k]) !== JSON.stringify(is[k])
-    );
+    const changed = changedKeys(table, options, was, is);
     await writeAudit(tx, {
         action: 'update',
         table,
@@ -209,6 +236,112 @@ export async function updateAudited<T extends BaseTable>(
         }
     });
     return after as InferSelectModel<T>;
+}
+
+/**
+ * Inserts many rows of one table and audits each, in the caller's transaction (a set of plates received at once, task
+ * 1.2a). All are written or, if one is refused, none: the call fails and so does the transaction.
+ */
+export async function insertManyAudited<T extends BaseTable>(
+    tx: Tx,
+    table: T,
+    values: readonly InferInsertModel<T>[]
+): Promise<InferSelectModel<T>[]> {
+    assertAudited(table);
+    if (values.length > MAX_BULK_ROWS) throw new Error(`insertManyAudited takes at most ${MAX_BULK_ROWS} rows`);
+    const { ctx, auditKey } = bindingOf(tx);
+    const options = auditOptionsOf(table);
+    const created: (InferSelectModel<T> & { id: string })[] = [];
+    for (const part of chunks(values)) {
+        const rows = (await tx
+            .insert(table)
+            .values(part.map((v) => ({ ...v, createdBy: ctx.userId ?? null, updatedBy: ctx.userId ?? null })) as never)
+            .returning()) as unknown as (InferSelectModel<T> & { id: string })[];
+        if (rows.length !== part.length) throw new NotFoundError(); // a row refused by a policy: nothing is kept
+        await writeAudits(
+            tx,
+            rows.map((row) => ({
+                action: 'insert' as const,
+                table,
+                rowId: row.id,
+                diff: { ...caseOf(row), after: auditable(row, options, auditKey) }
+            }))
+        );
+        created.push(...rows);
+    }
+    return created;
+}
+
+/**
+ * Applies one change to many rows of one table and audits each row's own diff, in the caller's transaction. The rows are
+ * locked in id order, so two bulk writes over the same rows wait for each other and never deadlock. A row that is missing,
+ * not visible, not writable or not at its expected version refuses the whole call (404, or 409 `stale_version`).
+ */
+export async function updateManyAudited<T extends BaseTable>(
+    tx: Tx,
+    table: T,
+    ids: readonly string[],
+    changes: Partial<InferInsertModel<T>>,
+    expectedVersions?: ReadonlyMap<string, number>
+): Promise<InferSelectModel<T>[]> {
+    assertAudited(table);
+    const unique = [...new Set(ids)].sort();
+    if (unique.length > MAX_BULK_ROWS) throw new Error(`updateManyAudited takes at most ${MAX_BULK_ROWS} rows`);
+    const { ctx, auditKey } = bindingOf(tx);
+    const options = auditOptionsOf(table);
+    // a plain PgTable for select(): Drizzle's typing of a generic table here is a conditional type tsc cannot resolve
+    const source: PgTable = table;
+    const updated: Record<string, unknown>[] = [];
+    for (const part of chunks(unique)) {
+        const before = (await tx
+            .select()
+            .from(source)
+            .where(inArray(table.id, part))
+            .orderBy(table.id)
+            .for('update')) as Record<string, unknown>[];
+        if (before.length !== part.length) throw new NotFoundError();
+        for (const row of before) {
+            const expected = expectedVersions?.get(String(row.id));
+            if (expected !== undefined && row.rowVersion !== expected)
+                throw new ConflictError('stale_version', {
+                    detailKey: 'kernel.detail.version_changed_current',
+                    params: { expected: String(expected), current: String(row.rowVersion) }
+                });
+        }
+        const after = (await tx
+            .update(table)
+            .set({
+                ...changes,
+                rowVersion: sql`${table.rowVersion} + 1`,
+                updatedAt: new Date(),
+                updatedBy: ctx.userId ?? null
+            })
+            .where(inArray(table.id, part))
+            .returning()) as Record<string, unknown>[];
+        // a row the person may read but not change (a stricter UPDATE policy) refuses the whole call
+        if (after.length !== part.length) throw new NotFoundError();
+        const was = new Map(before.map((r) => [String(r.id), auditable(r, options, auditKey)]));
+        await writeAudits(
+            tx,
+            after.map((row) => {
+                const old = was.get(String(row.id)) ?? {};
+                const is = auditable(row, options, auditKey);
+                const keys = changedKeys(table, options, old, is);
+                return {
+                    action: 'update' as const,
+                    table,
+                    rowId: String(row.id),
+                    diff: {
+                        ...caseOf(row),
+                        before: Object.fromEntries(keys.map((k) => [k, old[k]])),
+                        after: Object.fromEntries(keys.map((k) => [k, is[k]]))
+                    }
+                };
+            })
+        );
+        updated.push(...after);
+    }
+    return updated as InferSelectModel<T>[];
 }
 
 export async function deleteAudited<T extends BaseTable>(

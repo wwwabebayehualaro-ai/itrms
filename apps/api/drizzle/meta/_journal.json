@@ -456,6 +456,20 @@
       "when": 1794179855045,
       "tag": "0064_vehicles_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1794337397496,
+      "tag": "0065_plate_stock",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1794337401461,
+      "tag": "0066_plate_stock_rls",
+      "breakpoints": true
     }
   ]
 }

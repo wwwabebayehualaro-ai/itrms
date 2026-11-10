@@ -1,6 +1,93 @@
 {
   "components": {
     "schemas": {
+      "AcceptDto": {
+        "additionalProperties": false,
+        "properties": {
+          "exceptKeys": {
+            "items": {
+              "maxLength": 40,
+              "minLength": 3,
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "type": "array"
+          },
+          "note": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "AllocateDto": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          },
+          "plates": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
+                    "maximum": 9999,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "series": {
+                    "type": "string"
+                  },
+                  "to": {
+                    "maximum": 9999,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "series",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "keys": {
+                    "items": {
+                      "maxLength": 40,
+                      "minLength": 3,
+                      "type": "string"
+                    },
+                    "maxItems": 1000,
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "keys"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "toUnitId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "toUnitId",
+          "plates"
+        ],
+        "type": "object"
+      },
       "CaseAuditOut_Output": {
         "additionalProperties": false,
         "properties": {
@@ -3319,6 +3406,147 @@
         ],
         "type": "object"
       },
+      "RecallDto": {
+        "additionalProperties": false,
+        "properties": {
+          "fromUnitId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "plates": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
+                    "maximum": 9999,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "series": {
+                    "type": "string"
+                  },
+                  "to": {
+                    "maximum": 9999,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "series",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "keys": {
+                    "items": {
+                      "maxLength": 40,
+                      "minLength": 3,
+                      "type": "string"
+                    },
+                    "maxItems": 1000,
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "keys"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 10,
+            "type": "string"
+          }
+        },
+        "required": [
+          "fromUnitId",
+          "plates",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "ReceiveDto": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          },
+          "plates": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
+                    "maximum": 9999,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "series": {
+                    "type": "string"
+                  },
+                  "to": {
+                    "maximum": 9999,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "series",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "keys": {
+                    "items": {
+                      "maxLength": 40,
+                      "minLength": 3,
+                      "type": "string"
+                    },
+                    "maxItems": 1000,
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "keys"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "receivedOn": {
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+            "type": "string"
+          },
+          "reference": {
+            "maxLength": 60,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "receivedOn",
+          "plates"
+        ],
+        "type": "object"
+      },
       "RefDecisionDto": {
         "additionalProperties": false,
         "properties": {
@@ -5461,6 +5689,87 @@
         },
         "required": [
           "definition"
+        ],
+        "type": "object"
+      },
+      "WriteOffDto": {
+        "additionalProperties": false,
+        "properties": {
+          "endReason": {
+            "enum": [
+              "damaged",
+              "misprinted",
+              "lost",
+              "stolen",
+              "other"
+            ],
+            "type": "string"
+          },
+          "plates": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
+                    "maximum": 9999,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "series": {
+                    "type": "string"
+                  },
+                  "to": {
+                    "maximum": 9999,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "series",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "keys": {
+                    "items": {
+                      "maxLength": 40,
+                      "minLength": 3,
+                      "type": "string"
+                    },
+                    "maxItems": 1000,
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "keys"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 10,
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "void",
+              "lost"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "plates",
+          "endReason",
+          "reason"
         ],
         "type": "object"
       }
@@ -8959,6 +9268,364 @@
         },
         "tags": [
           "Persons"
+        ]
+      }
+    },
+    "/api/v1/plate-stock/allocations": {
+      "post": {
+        "operationId": "PlateStockController_allocate",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllocateDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PlateStock"
+        ]
+      }
+    },
+    "/api/v1/plate-stock/batches": {
+      "get": {
+        "operationId": "PlateStockController_batches",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PlateStock"
+        ]
+      },
+      "post": {
+        "operationId": "PlateStockController_receive",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceiveDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PlateStock"
+        ]
+      }
+    },
+    "/api/v1/plate-stock/batches/{id}": {
+      "get": {
+        "operationId": "PlateStockController_batch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PlateStock"
+        ]
+      }
+    },
+    "/api/v1/plate-stock/movements": {
+      "get": {
+        "operationId": "PlateStockController_movements",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "unitId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "enum": [
+                "receive",
+                "allocate",
+                "accept",
+                "recall",
+                "assign",
+                "retire",
+                "lose",
+                "write_off"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PlateStock"
+        ]
+      }
+    },
+    "/api/v1/plate-stock/movements/{id}": {
+      "get": {
+        "operationId": "PlateStockController_movement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PlateStock"
+        ]
+      }
+    },
+    "/api/v1/plate-stock/movements/{id}/acceptance": {
+      "post": {
+        "operationId": "PlateStockController_accept",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PlateStock"
+        ]
+      }
+    },
+    "/api/v1/plate-stock/plates": {
+      "get": {
+        "operationId": "PlateStockController_plates",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "maxLength": 40,
+              "minLength": 3,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "enum": [
+                "in_stock",
+                "allocated",
+                "reserved",
+                "assigned",
+                "retired",
+                "void",
+                "lost"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "holderUnitId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "series",
+            "required": false,
+            "schema": {
+              "maxLength": 3,
+              "minLength": 3,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "maxLength": 20,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PlateStock"
+        ]
+      }
+    },
+    "/api/v1/plate-stock/recalls": {
+      "post": {
+        "operationId": "PlateStockController_recall",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecallDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PlateStock"
+        ]
+      }
+    },
+    "/api/v1/plate-stock/summary": {
+      "get": {
+        "operationId": "PlateStockController_summary",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "unitId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PlateStock"
+        ]
+      }
+    },
+    "/api/v1/plate-stock/write-offs": {
+      "post": {
+        "operationId": "PlateStockController_writeOff",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteOffDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PlateStock"
         ]
       }
     },
