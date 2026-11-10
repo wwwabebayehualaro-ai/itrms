@@ -1461,7 +1461,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Design (architect, 2026-11-11): DVC-01 is a competency service (request form vehicle-registration, step form vehicle-national-entry, workflow draft→review→payment→approval→registration→registered, fee rule dvc-01-registration demo amounts); effects in competency call VehicleRegistry and PlateStock. Defaults: plate reserved at the lead's approval from the case's handling unit stock, assigned at registration, released on reject; the libre is an ITRMS document with a QR numbered from counter vehicles.libre ({unit}/LB/{seq:06}) until the national system numbers it (ADR-0049); federal vehicle id keyed in at registration (source manual); a binding check-digit failure accepted only when the officer confirms it and the lead approves (vin_check mismatch); roles reused (records_officer, competency.officer, cashier, competency.lead). No migration."
         },
         {
           "id": "1.2c",
@@ -3159,12 +3159,12 @@
     },
     {
       "foundIn": "1.1a",
-      "item": "Vehicle search applies status/owner filters after the ranked top 50 (search_vehicles), so an active match ranked past 50 is dropped silently; ownerId + deregistered/transferred_out finds nothing; byOwner stops at 100 unpaged: pass the filters into search_vehicles and page byOwner (the 1.1b screens use neither filter; the 1.2 form lookups do)",
-      "movedTo": "1.2b"
+      "item": "Vehicle search applies status/owner filters after the ranked top 50 (search_vehicles), so an active match ranked past 50 is dropped silently; ownerId + deregistered/transferred_out finds nothing; byOwner stops at 100 unpaged: pass the filters into search_vehicles and page byOwner (the 1.1b screens use neither filter; the 1.2 form lookups do) (DVC-01 looks up no existing vehicle; the plate exchange is the first form that does)",
+      "movedTo": "1.2c"
     },
     {
       "foundIn": "1.1a",
-      "item": "Chassis numbers: a 1-5/L VIN with a wrong stamped check digit can be registered neither as ISO nor as 'other' (some low-cost imports), and vehicles_vin_uq on the folded key alone blocks two pre-1981 vehicles with the same short number: product decision (audited override with vin_check=mismatch; scope uniqueness to iso3779 or add make)",
+      "item": "Chassis numbers: a 1-5/L VIN with a wrong stamped check digit can be registered neither as ISO nor as 'other' (some low-cost imports), and vehicles_vin_uq on the folded key alone blocks two pre-1981 vehicles with the same short number: product decision (audited override with vin_check=mismatch; scope uniqueness to iso3779 or add make) — 1.2b takes the check digit (officer-confirmed mismatch, approved by the lead); the uniqueness of pre-1981 short numbers moves to 1.4 (old vehicles enter by transfer-in and back-capture)",
       "movedTo": "1.2b"
     },
     {
@@ -3207,6 +3207,16 @@
       "foundIn": "1.2a",
       "item": "Plate reserve/release (in_stock ⇄ reserved for a case) exist in the state machine and the transition trigger, and take() honours a reservation for the same case, but no command reserves or releases a plate: add PlateStock.reserve/release for the DVC-01 case (reserve at intake, assign at approval, release on rejection or withdrawal)",
       "movedTo": "1.2b"
+    },
+    {
+      "foundIn": "1.2b",
+      "item": "A reserved plate found damaged cannot be written off directly (the trigger allows void only from in_stock/allocated): the registration's replacementPlate releases it to stock for the keeper to write off; a direct reserved→void with a reason",
+      "movedTo": "1.5"
+    },
+    {
+      "foundIn": "1.2b",
+      "item": "Chassis uniqueness for pre-1981 'other' numbers (vehicles_vin_uq on the folded key alone): scope it or add the make",
+      "movedTo": "1.4"
     }
   ]
 }
