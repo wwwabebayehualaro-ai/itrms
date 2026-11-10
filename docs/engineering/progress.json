@@ -1434,8 +1434,28 @@
           "notes": "Split from 1.1 on 2026-11-08."
         },
         {
-          "id": "1.2",
-          "title": "Registration and plates",
+          "id": "1.2a",
+          "title": "Registration and plates, part 1: plate stock",
+          "status": "in progress",
+          "branch": "task/1.2a-plate-stock",
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Split from 1.2 on 2026-11-10 (one session each): 1.2a plate stock and assignment, 1.2b new registration (DVC-01), 1.2c plate exchange."
+        },
+        {
+          "id": "1.2b",
+          "title": "Registration and plates, part 2: new registration (DVC-01)",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.2c",
+          "title": "Registration and plates, part 3: plate exchange",
           "status": "planned",
           "branch": null,
           "commits": [],
@@ -3130,12 +3150,12 @@
     {
       "foundIn": "1.1a",
       "item": "Vehicle search applies status/owner filters after the ranked top 50 (search_vehicles), so an active match ranked past 50 is dropped silently; ownerId + deregistered/transferred_out finds nothing; byOwner stops at 100 unpaged: pass the filters into search_vehicles and page byOwner (the 1.1b screens use neither filter; the 1.2 form lookups do)",
-      "movedTo": "1.2"
+      "movedTo": "1.2b"
     },
     {
       "foundIn": "1.1a",
       "item": "Chassis numbers: a 1-5/L VIN with a wrong stamped check digit can be registered neither as ISO nor as 'other' (some low-cost imports), and vehicles_vin_uq on the folded key alone blocks two pre-1981 vehicles with the same short number: product decision (audited override with vin_check=mismatch; scope uniqueness to iso3779 or add make)",
-      "movedTo": "1.2"
+      "movedTo": "1.2b"
     },
     {
       "foundIn": "1.1a",
