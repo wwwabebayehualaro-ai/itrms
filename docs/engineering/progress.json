@@ -1441,7 +1441,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split from 1.2 on 2026-11-10 (one session each): 1.2a plate stock and assignment, 1.2b new registration (DVC-01), 1.2c plate exchange."
+          "notes": "Split from 1.2 on 2026-11-10 (one session each): 1.2a plate stock and assignment, 1.2b new registration (DVC-01), 1.2c plate exchange. Design (architect, 2026-11-10): plates (class R, holder_org_path), plate_batches and plate_movements (class T, insert-only ledger); allocation and recall only between a unit and its direct child; capability holds_plate_stock (ADR-0026); state machine in contracts + a transition trigger + a deferred plate/assignment match trigger; bulk audited writes (insertManyAudited/updateManyAudited, one audit row per row). Assumed defaults, to confirm with a bureau: a new plate_keeper role at bureau, zone and ፈርጅ-1 towns; write-off by one keeper with a reason (maker-checker a follow-up); any plate-stock unit may receive from MoTL; allocations are accepted by the receiving unit (chain of custody); serials 0000-9999. Back-captured national plates stay outside the stock (no fabricated batches); demo stock in series the demo vehicles never use (Q..)."
         },
         {
           "id": "1.2b",

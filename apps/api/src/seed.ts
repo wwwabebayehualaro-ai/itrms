@@ -34,7 +34,7 @@ import {
 } from '@itrms/competency/seed';
 import { FieldCrypto } from '@itrms/kernel/crypto';
 import { OrganisationsService, PersonsService } from '@itrms/parties/api';
-import { VehicleRegistry } from '@itrms/vehicles/api';
+import { PlateStock, VehicleRegistry } from '@itrms/vehicles/api';
 import { DEFAULT_LEGACY_PLATE_REGIONS } from '@itrms/vehicles/contracts';
 import { importVehicleCategories, importVehicleDemo } from '@itrms/vehicles/seed';
 import { importDocumentTemplates } from '@itrms/documents/seed';
@@ -240,10 +240,15 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
         );
         const organisations = new OrganisationsService(persons);
         // the demo regions keep the shipped old plate codes
-        const registry = new VehicleRegistry(persons, organisations, {
-            legacyRegions: () =>
-                Promise.resolve(DEFAULT_LEGACY_PLATE_REGIONS.map((r) => ({ ...r, aliases: [...r.aliases] })))
-        });
+        const registry = new VehicleRegistry(
+            persons,
+            organisations,
+            {
+                legacyRegions: () =>
+                    Promise.resolve(DEFAULT_LEGACY_PLATE_REGIONS.map((r) => ({ ...r, aliases: [...r.aliases] })))
+            },
+            new PlateStock()
+        );
         const made = await importVehicleDemo(db, code, { registry, persons, organisations });
         logger.info({ region: code, ...made }, made ? 'demo vehicles applied' : 'the demo vehicles were already there');
     } else if (file) {

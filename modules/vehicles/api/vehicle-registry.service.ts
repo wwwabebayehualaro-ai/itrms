@@ -24,7 +24,8 @@ import {
     ownershipTransferSchema,
     plateRecordSchema,
     statusChangeSchema,
-    vehicleRegisterSchema
+    vehicleRegisterSchema,
+    type PlateRecord
 } from '../contracts';
 import { checked, fieldError, guardUnique, notFuture, required, unitRefs, withinScope } from './support';
 import {
@@ -35,6 +36,7 @@ import {
     vehicleOwnerships,
     vehicles
 } from './vehicles.table';
+import { PlateStock } from './plate-stock.service';
 import { VehiclesService } from './vehicles.service';
 
 export type VehicleRow = typeof vehicles.$inferSelect;
@@ -53,7 +55,8 @@ export class VehicleRegistry {
         @Inject(PersonsService) private readonly persons: PersonsService,
         @Inject(OrganisationsService) private readonly organisations: OrganisationsService,
         // only the region's old plate codes: a seed gives them without the settings service
-        @Inject(VehiclesService) private readonly reads: Pick<VehiclesService, 'legacyRegions'>
+        @Inject(VehiclesService) private readonly reads: Pick<VehiclesService, 'legacyRegions'>,
+        @Inject(PlateStock) private readonly stock: PlateStock
     ) {}
 
     /** Registers a vehicle, handled by the acting unit, with its first ownership period and holders. */
@@ -164,21 +167,68 @@ export class VehicleRegistry {
     ): Promise<void> {
         const input = checked(plateRecordSchema, given);
         const vehicle = await this.lock(tx, ctx, vehicleId, version);
+        const parsed = parsePlate(input.text, await this.reads.legacyRegions(tx));
+        if (!parsed) throw fieldError('text', 'invalid_plate', 'is not a plate');
+        // a plate of the stock is issued from it (assignStockPlate), never typed in
+        if (parsed.format === 'national' && (await this.stock.inStock(tx, vehicle.regionId, parsed.key)))
+            throw new ConflictError('duplicate_reference', { detailKey: 'vehicles.errors.plate_in_stock' });
+        await this.openPlate(tx, ctx, vehicle, parsed, input, null);
+    }
+
+    /**
+     * A plate of the acting office's stock put on the vehicle (task 1.2a): the one named, or the office's next free one; the
+     * plate the vehicle carried ends the same day, for `endedReason`. What a registration (1.2b) and an exchange (1.2c) call.
+     */
+    async assignStockPlate(
+        tx: Tx,
+        ctx: DbContext,
+        vehicleId: string,
+        wanted: { key?: string; caseId?: string; since: string; endedReason?: PlateRecord['endedReason'] },
+        version?: number
+    ): Promise<{ plateId: string; key: string }> {
+        const vehicle = await this.lock(tx, ctx, vehicleId, version);
+        notFuture('since', wanted.since);
+        const plate = await this.stock.take(tx, ctx, {
+            key: wanted.key,
+            vehicleId,
+            caseId: wanted.caseId,
+            on: wanted.since
+        });
+        const parsed = parsePlate(plate.plateKey, []);
+        if (!parsed) throw new NotFoundError();
+        await this.openPlate(
+            tx,
+            ctx,
+            vehicle,
+            parsed,
+            { source: 'federal', since: wanted.since, endedReason: wanted.endedReason ?? 'exchanged' },
+            plate.id
+        );
+        return { plateId: plate.id, key: plate.plateKey };
+    }
+
+    /** The vehicle carries `parsed` from `input.since`; the plate it carried ends then (and leaves the stock for good). */
+    private async openPlate(
+        tx: Tx,
+        ctx: DbContext,
+        vehicle: VehicleRow,
+        parsed: NonNullable<ReturnType<typeof parsePlate>>,
+        input: { source: PlateRecord['source']; since: string; endedReason: PlateRecord['endedReason'] },
+        plateId: string | null
+    ): Promise<void> {
         if (vehicle.status !== 'active' && vehicle.status !== 'stolen')
             throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.not_on_register' });
         notFuture('since', input.since);
         if (input.since < vehicle.firstRegisteredOn)
             throw fieldError('since', 'before_registration', 'is before the first registration');
-        const parsed = parsePlate(input.text, await this.reads.legacyRegions(tx));
-        if (!parsed) throw fieldError('text', 'invalid_plate', 'is not a plate');
         const [current] = await tx
             .select()
             .from(plateAssignments)
-            .where(and(eq(plateAssignments.vehicleId, vehicleId), isNull(plateAssignments.until)));
+            .where(and(eq(plateAssignments.vehicleId, vehicle.id), isNull(plateAssignments.until)));
         const [ended] = await tx
             .select({ until: sql<string | null>`max(${plateAssignments.until})` })
             .from(plateAssignments)
-            .where(eq(plateAssignments.vehicleId, vehicleId));
+            .where(eq(plateAssignments.vehicleId, vehicle.id));
         if (ended?.until && input.since < ended.until)
             throw fieldError('since', 'before_period', 'is before the previous plate ended');
         if (current) {
@@ -189,25 +239,32 @@ export class VehicleRegistry {
                 until: input.since,
                 endedReason: input.endedReason
             });
+            if (current.plateId)
+                await this.stock.closeAssigned(tx, ctx, current.plateId, {
+                    status: input.endedReason === 'lost' ? 'lost' : 'retired',
+                    endReason: input.endedReason,
+                    on: input.since
+                });
         }
         await guardUnique(
             () =>
                 insertAudited(tx, plateAssignments, {
                     regionId: vehicle.regionId,
                     handlingUnitId: vehicle.handlingUnitId,
-                    vehicleId,
+                    vehicleId: vehicle.id,
                     plateText: parsed.text,
                     plateKey: parsed.key,
                     format: parsed.format,
                     legacyUseCode: parsed.useCode,
                     legacyRegionCode: parsed.regionCode,
                     source: input.source,
-                    since: input.since
+                    since: input.since,
+                    plateId
                 }),
             DUPLICATES
         );
         // a new version of the vehicle: a caller holding the one before this plate cannot act on it unseen
-        await updateAudited(tx, vehicles, vehicleId, vehicle.rowVersion, {});
+        await updateAudited(tx, vehicles, vehicle.id, vehicle.rowVersion, {});
     }
 
     /** Records the libre issued for the vehicle's current owners; the one in force is replaced. */
@@ -279,11 +336,17 @@ export class VehicleRegistry {
                 .select()
                 .from(plateAssignments)
                 .where(and(eq(plateAssignments.vehicleId, vehicleId), isNull(plateAssignments.until)));
-            if (plate)
-                await updateAudited(tx, plateAssignments, plate.id, plate.rowVersion, {
-                    until: input.on < plate.since ? plate.since : input.on,
-                    endedReason: input.status === 'transferred_out' ? 'transferred' : 'retired'
-                });
+            if (plate) {
+                const endedReason = input.status === 'transferred_out' ? 'transferred' : 'retired';
+                const until = input.on < plate.since ? plate.since : input.on;
+                await updateAudited(tx, plateAssignments, plate.id, plate.rowVersion, { until, endedReason });
+                if (plate.plateId)
+                    await this.stock.closeAssigned(tx, ctx, plate.plateId, {
+                        status: 'retired',
+                        endReason: endedReason,
+                        on: until
+                    });
+            }
             const [libre] = await tx
                 .select()
                 .from(libres)

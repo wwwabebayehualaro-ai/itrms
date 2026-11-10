@@ -8,6 +8,7 @@ export const ROLE_KEYS: readonly string[] = [
     'competency.lead',
     'competency.officer',
     'finance_officer',
+    'plate_keeper',
     'records_officer',
     'unit_admin',
     'unit_head',

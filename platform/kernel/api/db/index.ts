@@ -19,9 +19,12 @@ export {
     contextOfTx,
     deleteAudited,
     insertAudited,
+    insertManyAudited,
+    MAX_BULK_ROWS,
     plain,
     recordEvent,
-    updateAudited
+    updateAudited,
+    updateManyAudited
 } from './audit';
 export { AUDIT_ACTIONS, auditLog, kernelSchema, type AuditAction } from './audit-log.table';
 export { declaredRlsTables, RLS_CLASSES, rlsOf, rlsPolicies, withRls, type RlsClass, type RlsDeclaration } from './rls';

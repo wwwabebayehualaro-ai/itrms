@@ -111,5 +111,15 @@
   "vehicles.record.libreNumber": "Libre number",
   "vehicles.record.issuedOn": "Issued on",
   "vehicles.record.issuedBy": "Issued by",
-  "vehicles.search.failed": "The search did not work. Try again."
+  "vehicles.search.failed": "The search did not work. Try again.",
+  "vehicles.nav.plateStock": "Plate stock",
+  "vehicles.errors.plate_not_available": "{count} plate(s) are not in this office's stock as needed: {plates}",
+  "vehicles.errors.no_free_plate": "This office has no plate in stock to issue.",
+  "vehicles.errors.duplicate_plate_in_stock": "A plate of this delivery is already in the stock.",
+  "vehicles.errors.duplicate_batch_reference": "A delivery with this reference was already received.",
+  "vehicles.errors.plate_on_register": "These plates are already on vehicles of the register: {plates}",
+  "vehicles.errors.plate_in_stock": "This plate is in the plate stock: issue it from the stock.",
+  "vehicles.errors.no_plate_stock": "This office does not keep plate stock.",
+  "vehicles.errors.not_sent_here": "These plates were not sent to this office.",
+  "vehicles.errors.nothing_to_accept": "No plate of this allocation is waiting to be accepted."
 }

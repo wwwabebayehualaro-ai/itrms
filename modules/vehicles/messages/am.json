@@ -111,5 +111,15 @@
   "vehicles.record.libreNumber": "የሊብሬ ቁጥር",
   "vehicles.record.issuedOn": "የተሰጠበት ቀን",
   "vehicles.record.issuedBy": "የሰጠው ጽ/ቤት",
-  "vehicles.search.failed": "ፍለጋው አልተሳካም። እንደገና ይሞክሩ።"
+  "vehicles.search.failed": "ፍለጋው አልተሳካም። እንደገና ይሞክሩ።",
+  "vehicles.nav.plateStock": "የሰሌዳ ክምችት",
+  "vehicles.errors.plate_not_available": "{count} ሰሌዳ(ዎች) በዚህ ጽ/ቤት ክምችት ውስጥ በሚፈለገው ሁኔታ የሉም፦ {plates}",
+  "vehicles.errors.no_free_plate": "ይህ ጽ/ቤት የሚሰጥ ሰሌዳ በክምችት የለውም።",
+  "vehicles.errors.duplicate_plate_in_stock": "የዚህ ርክክብ ሰሌዳ በክምችቱ ውስጥ አስቀድሞ አለ።",
+  "vehicles.errors.duplicate_batch_reference": "ይህ ማጣቀሻ ያለው ርክክብ ቀድሞ ተቀብሏል።",
+  "vehicles.errors.plate_on_register": "እነዚህ ሰሌዳዎች በመዝገቡ ተሽከርካሪዎች ላይ አሉ፦ {plates}",
+  "vehicles.errors.plate_in_stock": "ይህ ሰሌዳ በሰሌዳ ክምችት ውስጥ ነው፤ ከክምችቱ ይሰጥ።",
+  "vehicles.errors.no_plate_stock": "ይህ ጽ/ቤት የሰሌዳ ክምችት አይይዝም።",
+  "vehicles.errors.not_sent_here": "እነዚህ ሰሌዳዎች ወደዚህ ጽ/ቤት አልተላኩም።",
+  "vehicles.errors.nothing_to_accept": "ከዚህ ድልድል የሚረከብ ሰሌዳ የለም።"
 }

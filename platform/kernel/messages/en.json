@@ -94,5 +94,6 @@
   "kernel.detail.setting_not_for_unitType": "\"{key}\" cannot be set for a unit type.",
   "kernel.detail.not_personal": "\"{key}\" is not a personal choice.",
   "kernel.detail.setting_version_changed": "Version {expected} was changed; read the setting again.",
-  "kernel.detail.rate_limited": "Too many requests in a short time. Try again in {seconds} seconds."
+  "kernel.detail.rate_limited": "Too many requests in a short time. Try again in {seconds} seconds.",
+  "kernel.role.plate_keeper": "Plate keeper"
 }

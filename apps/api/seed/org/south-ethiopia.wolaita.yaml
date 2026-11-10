@@ -55,18 +55,19 @@ unitTypes:
     nonDelegableRoles: [bureau_admin, unit_admin]
     level: region
     name: { am: የክልል ትራንስፖርትና መንገድ ልማት ቢሮ, en: Regional transport and road development bureau }
-    capabilities: [prints_documents]
-    roles: [bureau_admin, unit_admin, unit_head, auditor, viewer]
+    capabilities: [prints_documents, holds_plate_stock]
+    roles: [bureau_admin, unit_admin, unit_head, auditor, viewer, plate_keeper]
 
   - key: zone_department
     nonDelegableRoles: [unit_admin]
     level: zone
     name: { am: የዞን ትራንስፖርትና መንገድ ልማት መምሪያ, en: Zone transport and road development department }
-    capabilities: [collects_cash, prints_documents, has_examiners]
+    capabilities: [collects_cash, prints_documents, has_examiners, holds_plate_stock]
     services:
       [PT-01..06, RS-01..07, DVC-01..11, FR-01..03, RQ-01..02, DC-01..07, CP-01..05, LG-01..03, HR-01..06, PB-01..04]
     roles:
       [
+        plate_keeper,
         unit_admin,
         unit_head,
         records_officer,
@@ -119,10 +120,11 @@ unitTypes:
     level: town
     name: { am: የፈርጅ 1 ከተማ ትራንስፖርትና ሎጂስቲክስ አገልግሎት ዩኒት, en: Grade 1 town transport and logistics service unit }
     categories: [f1]
-    capabilities: [collects_cash, runs_terminal, prints_documents, has_examiners]
+    capabilities: [collects_cash, runs_terminal, prints_documents, has_examiners, holds_plate_stock]
     services: [RS-01..07, DVC-01..11, FR-01..03, PT-01..06]
     roles:
       [
+        plate_keeper,
         unit_admin,
         unit_head,
         records_officer,
