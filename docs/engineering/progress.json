@@ -1416,17 +1416,19 @@
         {
           "id": "1.1b",
           "title": "Vehicle registry, part 2: screens and demo data",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.1b-vehicle-registry-screens",
           "commits": [
-            "7f5fbf2"
+            "7f5fbf2",
+            "22ca599"
           ],
           "evidence": [
             "Done when 1 (an officer of one office finds another's vehicle by plate and reads its owners): e2e tests/e2e/vehicles.spec.ts (demo.damot.records finds Boditi's ETH BOD 1001 typed ኢትBOD1001 and by its old plate ደቡ 3-04512 [matched old_plate]; record shows 2 ownership periods, the open one the association's, and the exchanged plate); demo.int.spec.ts 'lets a Damot Gale officer find a Boditi vehicle…' via the API (handling unit WOL-BODITI)",
             "Done when 2 (demo vehicles with exchanged legacy plates and transfers, both regions): importVehicleDemo in pnpm demo:reset (SER 36 vehicles: exchanged >5, legacy-only >0, sold >3; SCA 18 national-plate vehicles, 8 generated owners); seeded once per region (rerun null, 54 vehicles, ≥54 audit rows on vehicles.vehicles); a city vehicle is not found from the first region",
             "Screens: /registry/vehicles search and /registry/vehicles/[id] record (owners timeline via formatDay in the reader's calendar, plate history, libres); menu vehicles.vehicles (registries, vehicle:read); i18n:check am/en complete (19 folders); no new tables, no API/OpenAPI/migration change",
             "Reviewer (Fable 5.2): no critical; 2 high fixed (seeded-once marker not region-scoped → the city got no vehicles; menu exact-list assertions in iam.int and shell e2e), 3 low fixed (minor owners, search error/maxLength, determinism note). Task verifier: all items met in code, CI was the open item",
-            "CI: PR #57 run 42836908683 green (checks, Semgrep, Trivy, gitleaks, dev stack + integration, e2e journeys, perf, production profile with the demo, stories)"
+            "CI: PR #57 run 42836908683 green (checks, Semgrep, Trivy, gitleaks, dev stack + integration, e2e journeys, perf, production profile with the demo, stories)",
+            "Approved under the product owner's standing instruction (2026-11-10: 'go ahead one by one without asking'); squash-merged as 22ca599"
           ],
           "blockers": [],
           "notes": "Split from 1.1 on 2026-11-08."
