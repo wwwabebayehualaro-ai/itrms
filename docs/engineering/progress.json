@@ -1436,17 +1436,19 @@
         {
           "id": "1.2a",
           "title": "Registration and plates, part 1: plate stock",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.2a-plate-stock",
           "commits": [
-            "4df7708"
+            "4df7708",
+            "85802e0"
           ],
           "evidence": [
             "Done when 1 (a plate cannot be assigned twice): unique plates_key_uq / plates_serial_uq / plate_assignments_plate_uq and the open-plate index; transition trigger + deferred plate_match (0066); locks in series/serial order; plate-stock.int.spec 'no plate is assigned or allocated twice, even at the same moment' (overlapping allocations at once → one 409; two next-free takes → two plates; a named plate twice → one 409; an office cannot assign a plate it does not hold) and 'the database is the last word' (illegal step, sideways holder, assigned without a carrier, a second assignment, an open assignment of a plate not assigned: refused)",
             "Done when 2 (stock counts reconcile per unit): PlateStock.summary compares each unit's ledger (receipts + allocations to it − recalls from it; handed down − taken back; deliveries received further down on both sides) with what it holds in every status and what is below it; asserted after every step of the flow (receive → allocate → partial accept → allocate → accept → assign → recall → write-off), with a direct receipt at a child, under concurrency, and in the demo seed (800 plates, holders per unit)",
             "State machine: modules/vehicles/test/plate-stock.spec.ts 75/75 (every status × event pair, final statuses, selections); RLS: isolation matrix on plates (R) and plate_batches / plate_movements (T): visible, writable, no update of the ledger, no delete, nothing without a context; audit: one row per plate moved + one per movement, none after a rollback; HTTP: plate keeper reads and receives, a Damot records officer gets 403",
             "Reviewer (Fable 5.2): 1 critical (check_plate_match named NEW.plate_id on plates: every plate update failed at commit) and 1 high (reconciliation broke when a child received directly) fixed, 3 medium fixed (test regexes, transition trigger on org-unit moves, waiting list on its own query; stock plate from the vehicle's handling office), lows fixed or recorded (follow-ups → 1.2b, 1.2c, 1.4, 1.20). Task verifier: all items met; reserve/release commands recorded as a 1.2b follow-up",
-            "CI: PR #58 run 42890513826 green on 4df7708 (checks, Semgrep, Trivy, gitleaks, dev stack + integration 658, e2e incl. plate-stock journey, perf, production profile with the demo, stories); OpenAPI regenerated; i18n:check am/en complete"
+            "CI: PR #58 run 42890513826 green on 4df7708 (checks, Semgrep, Trivy, gitleaks, dev stack + integration 658, e2e incl. plate-stock journey, perf, production profile with the demo, stories); OpenAPI regenerated; i18n:check am/en complete",
+            "Approved under the product owner's standing instruction (2026-11-10: 'go ahead one by one without asking'); squash-merged as 85802e0"
           ],
           "blockers": [],
           "notes": "Split from 1.2 on 2026-11-10 (one session each): 1.2a plate stock and assignment, 1.2b new registration (DVC-01), 1.2c plate exchange. Design (architect, 2026-11-10): plates (class R, holder_org_path), plate_batches and plate_movements (class T, insert-only ledger); allocation and recall only between a unit and its direct child; capability holds_plate_stock (ADR-0026); state machine in contracts + a transition trigger + a deferred plate/assignment match trigger; bulk audited writes (insertManyAudited/updateManyAudited, one audit row per row). Assumed defaults, to confirm with a bureau: a new plate_keeper role at bureau, zone and ፈርጅ-1 towns; write-off by one keeper with a reason (maker-checker a follow-up); any plate-stock unit may receive from MoTL; allocations are accepted by the receiving unit (chain of custody); serials 0000-9999. Back-captured national plates stay outside the stock (no fabricated batches); demo stock in series the demo vehicles never use (Q..)."
@@ -1454,7 +1456,7 @@
         {
           "id": "1.2b",
           "title": "Registration and plates, part 2: new registration (DVC-01)",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
