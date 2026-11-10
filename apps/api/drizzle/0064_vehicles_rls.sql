@@ -141,10 +141,11 @@ BEGIN
 END;
 $$;
 --> statement-breakpoint
-CREATE CONSTRAINT TRIGGER "ownership_chain" AFTER INSERT OR UPDATE ON "vehicles"."vehicle_ownerships"
+-- only on the columns the chain is made of: an org-unit move rewrites every row's handling path, and needs no chain check
+CREATE CONSTRAINT TRIGGER "ownership_chain" AFTER INSERT OR UPDATE OF "vehicle_id", "since", "until" ON "vehicles"."vehicle_ownerships"
     DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION "vehicles"."check_ownership_chain"();
 --> statement-breakpoint
-CREATE CONSTRAINT TRIGGER "ownership_chain" AFTER INSERT OR UPDATE ON "vehicles"."vehicle_owners"
+CREATE CONSTRAINT TRIGGER "ownership_chain" AFTER INSERT OR UPDATE OF "ownership_id", "person_id", "organisation_id" ON "vehicles"."vehicle_owners"
     DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION "vehicles"."check_ownership_chain"();
 --> statement-breakpoint
 -- a vehicle registered without owners, or taken off the register with a period still open, is as wrong as a gap

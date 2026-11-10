@@ -441,6 +441,21 @@ describe('the registry rules', () => {
         });
     });
 
+    it('checks the input of a command: an owner listed twice and a registration in the future are 422, not 500', async () => {
+        await expect(
+            newVehicle(units.damot, {
+                chassisNumber: 'TWICE-0001',
+                owners: [
+                    { kind: 'person', id: people.ayana },
+                    { kind: 'person', id: people.ayana }
+                ]
+            })
+        ).rejects.toMatchObject({ status: 422, errors: [{ path: 'owners' }] });
+        await expect(
+            newVehicle(units.damot, { chassisNumber: 'LATER-0001', firstRegisteredOn: '2999-01-01' })
+        ).rejects.toMatchObject({ status: 422, errors: [{ path: 'firstRegisteredOn', code: 'in_future' }] });
+    });
+
     it('answers 409 duplicate_reference when the plate is open on another vehicle', async () => {
         const other = await newVehicle(units.damot, { chassisNumber: 'PLATE-DUP-1' });
         const ctx = ctxOf(units.damot);
@@ -480,8 +495,21 @@ describe('the registry rules', () => {
             ['LB-0002', 'issued'],
             ['LB-0001', 'replaced']
         ]);
+        // each libre made a new version of the vehicle: a change on the version read before them is refused
+        await expect(
+            app.scoped(ctx, (tx) =>
+                registry.setStatus(tx, ctx, v.id, v.rowVersion, { status: 'deregistered', on: '2023-01-01' })
+            )
+        ).rejects.toMatchObject({ status: 409 });
+        const now = await app.scoped(ctx, (tx) => reads.get(tx, v.id));
+        expect(now.version).toBe(v.rowVersion + 2);
+        // a libre in the future, or before the current owners took the vehicle, is refused
+        for (const issuedOn of ['2999-01-01', '2000-01-01'])
+            await expect(
+                app.scoped(ctx, (tx) => registry.recordLibre(tx, ctx, v.id, { number: 'LB-0003', issuedOn }))
+            ).rejects.toMatchObject({ status: 422, errors: [{ path: 'issuedOn' }] });
         const gone = await app.scoped(ctx, (tx) =>
-            registry.setStatus(tx, ctx, v.id, v.rowVersion, { status: 'deregistered', on: '2023-01-01' })
+            registry.setStatus(tx, ctx, v.id, now.version, { status: 'deregistered', on: '2023-01-01' })
         );
         expect(gone.status).toBe('deregistered');
         const after = await app.scoped(ctx, (tx) => reads.get(tx, v.id));
@@ -768,7 +796,7 @@ describe('the audit trail', () => {
     });
 });
 
-describe('class R: the isolation matrix on vehicles and their ownership periods', () => {
+describe('the isolation matrix on every table of the register (class R, and class C for the categories)', () => {
     const CASE_UNITS: Record<IsolationCase, () => OrgUnit> = {
         own: () => units.zone,
         child: () => units.boditi,
@@ -778,6 +806,8 @@ describe('class R: the isolation matrix on vehicles and their ownership periods'
         otherRegion: () => units.trx
     };
     const matrix = {} as Record<IsolationCase, string>;
+    /** each matrix vehicle's ownership period, by its id */
+    const periodOf = new Map<string, string>();
     const holderFor = (c: IsolationCase) => (c === 'otherRegion' ? people.trxOwner : people.ayana);
 
     beforeAll(async () => {
@@ -799,7 +829,28 @@ describe('class R: the isolation matrix on vehicles and their ownership periods'
                 })
             );
             matrix[c] = v.id;
+            // the vehicle's child rows: a plate and a libre, as the commands record them
+            const i = ISOLATION_CASES.indexOf(c);
+            await app.scoped(ctx, async (tx) => {
+                await registry.recordPlate(tx, ctx, v.id, {
+                    text: `ETH MV${'ABCDEFGH'[i] ?? 'Z'} 100${i}`,
+                    source: 'federal',
+                    since: '2020-03-01'
+                });
+                await registry.recordLibre(tx, ctx, v.id, { number: `LB-MATRIX-${i}`, issuedOn: '2020-03-05' });
+            });
+            // a category of the case's own unit (class C: a unit's configuration, read down and up its line)
+            await asUnit(app, unit, (tx) =>
+                tx.execute(sql`insert into vehicles.vehicle_categories (id, region_id, owner_unit_id, key, name, family)
+                    values (gen_random_uuid(), ${unit.regionId}, ${unit.id}, ${`matrix_${c.toLowerCase()}`},
+                    '{"am":"ናሙና","en":"Matrix"}'::jsonb, 'special')`)
+            );
         }
+        const { rows } = await api.owner.query<{ id: string; vehicle_id: string }>(
+            'select id, vehicle_id from vehicles.vehicle_ownerships where vehicle_id = any($1::uuid[])',
+            [Object.values(matrix)]
+        );
+        for (const r of rows) periodOf.set(r.id, r.vehicle_id);
     }, 120_000);
 
     const caseOf = (id: string) => ISOLATION_CASES.find((c) => matrix[c] === id);
@@ -813,59 +864,104 @@ describe('class R: the isolation matrix on vehicles and their ownership periods'
         expect([...seen].sort()).toEqual([...VISIBLE.registry].sort());
     });
 
-    it('shows the same for the ownership periods', async () => {
+    // each child table on its own policy: filtered by the matrix's ids, never joined to the vehicles (whose policy would hide
+    // what the child table's own policy lets through). Each query answers the vehicle (or, for the holders, the period) ids.
+    const CHILD_ROWS: Record<string, (ids: string[]) => ReturnType<typeof sql>> = {
+        'vehicles.vehicle_ownerships': (ids) =>
+            sql`select distinct vehicle_id as id from vehicles.vehicle_ownerships where vehicle_id = any(${ids}::uuid[])`,
+        'vehicles.vehicle_owners': () =>
+            sql`select distinct ownership_id as id from vehicles.vehicle_owners
+                where ownership_id = any(${[...periodOf.keys()]}::uuid[])`,
+        'vehicles.plate_assignments': (ids) =>
+            sql`select distinct vehicle_id as id from vehicles.plate_assignments where vehicle_id = any(${ids}::uuid[])`,
+        'vehicles.libres': (ids) =>
+            sql`select distinct vehicle_id as id from vehicles.libres where vehicle_id = any(${ids}::uuid[])`
+    };
+    const CHILD_UPDATES: Record<string, (vehicleId: string) => ReturnType<typeof sql>> = {
+        'vehicles.vehicle_ownerships': (v) =>
+            sql`update vehicles.vehicle_ownerships set updated_at = now() where vehicle_id = ${v}`,
+        'vehicles.vehicle_owners': (v) =>
+            sql`update vehicles.vehicle_owners set updated_at = now()
+                where ownership_id = any(${[...periodOf].filter(([, of]) => of === v).map(([id]) => id)}::uuid[])`,
+        'vehicles.plate_assignments': (v) =>
+            sql`update vehicles.plate_assignments set updated_at = now() where vehicle_id = ${v}`,
+        'vehicles.libres': (v) => sql`update vehicles.libres set updated_at = now() where vehicle_id = ${v}`
+    };
+    const vehicleOf = (id: string) => periodOf.get(id) ?? id;
+
+    it.each(Object.keys(CHILD_ROWS))('shows the acting unit exactly the rows of %s class R allows', async (table) => {
+        const query = CHILD_ROWS[table];
+        if (!query) throw new Error(table);
         const seen = await asUnit(app, units.zone, async (tx) =>
-            (
-                await tx.execute<{ vehicle_id: string }>(
-                    sql`select o.vehicle_id from vehicles.vehicle_ownerships o join vehicles.vehicles v on v.id = o.vehicle_id where v.make = 'Matrix'`
-                )
-            ).rows.map((r) => caseOf(r.vehicle_id))
+            (await tx.execute<{ id: string }>(query(Object.values(matrix)))).rows.map((r) => caseOf(vehicleOf(r.id)))
         );
         expect([...seen].sort()).toEqual([...VISIBLE.registry].sort());
     });
 
+    it('shows the acting unit exactly the categories class C allows', async () => {
+        const seen = await asUnit(app, units.zone, async (tx) =>
+            (
+                await tx.execute<{ key: string }>(
+                    sql`select key from vehicles.vehicle_categories where key like 'matrix_%'`
+                )
+            ).rows.map((r) => ISOLATION_CASES.find((c) => `matrix_${c.toLowerCase()}` === r.key))
+        );
+        expect([...seen].sort()).toEqual([...VISIBLE.config].sort());
+    });
+
     it.each(ISOLATION_CASES)(
-        'lets the acting unit change the %s vehicle and its periods only where the class allows it',
+        'lets the acting unit change the %s vehicle and its child rows only where the class allows it',
         async (c) => {
-            const allowed = WRITABLE.registry.includes(c) ? 1 : 0;
+            const allowed = WRITABLE.registry.includes(c);
             const vehicle = await asUnit(app, units.zone, (tx) =>
                 tx.execute(sql`update vehicles.vehicles set colour = 'white' where id = ${matrix[c]}`)
             );
-            expect(vehicle.rowCount).toBe(allowed);
-            const period = await asUnit(app, units.zone, (tx) =>
+            expect(vehicle.rowCount).toBe(allowed ? 1 : 0);
+            for (const [table, update] of Object.entries(CHILD_UPDATES)) {
+                const changed = await asUnit(app, units.zone, (tx) => tx.execute(update(matrix[c])));
+                expect((changed.rowCount ?? 0) > 0, table).toBe(allowed);
+            }
+            const category = await asUnit(app, units.zone, (tx) =>
                 tx.execute(
-                    sql`update vehicles.vehicle_ownerships set updated_at = now() where vehicle_id = ${matrix[c]}`
+                    sql`update vehicles.vehicle_categories set updated_at = now() where key = ${`matrix_${c.toLowerCase()}`}`
                 )
             );
-            expect(period.rowCount).toBe(allowed);
+            expect(category.rowCount, 'vehicles.vehicle_categories').toBe(WRITABLE.config.includes(c) ? 1 : 0);
         }
     );
 
     it.each(ISOLATION_CASES)('refuses a child row for the %s vehicle unless the unit handles it', async (c) => {
         const n = String(ISOLATION_CASES.indexOf(c)).padStart(4, '0');
+        // an ended plate of before the current one: the vehicle carries one open plate already
         const insert = asUnit(app, units.zone, (tx) =>
-            tx.execute(sql`insert into vehicles.plate_assignments (id, vehicle_id, plate_text, plate_key, format, source, since)
-                values (gen_random_uuid(), ${matrix[c]}, ${`ETH MTX ${n}`}, ${`ETHMTX${n}`}, 'national', 'federal', '2025-01-01')`)
+            tx.execute(sql`insert into vehicles.plate_assignments
+                (id, vehicle_id, plate_text, plate_key, format, source, since, until, ended_reason)
+                values (gen_random_uuid(), ${matrix[c]}, ${`ETH MTX ${n}`}, ${`ETHMTX${n}`}, 'national', 'federal',
+                '2019-01-01', '2019-06-01', 'exchanged')`)
         );
         if (WRITABLE.registry.includes(c)) await expect(insert).resolves.toBeDefined();
         else expect(await refusal(insert)).toMatch(/row-level security|vehicle is not found|unit not/);
     });
 
-    it.each(['vehicles.vehicles', 'vehicles.vehicle_ownerships'])(
-        'shows nothing of %s without a context, on a connection that has just served one',
-        async (table) => {
-            const one = createDatabase(pg.url('app'), { max: 1, contextKey: TEST_CONTEXT_KEY });
-            try {
-                await asUnit(one, units.zone, (tx) => tx.execute(sql.raw(`select count(*) from ${table}`)));
-                const seen = await one.scoped({}, (tx) =>
-                    tx.execute<{ n: string }>(sql.raw(`select count(*) as n from ${table}`))
-                );
-                expect(seen.rows[0]?.n).toBe('0');
-            } finally {
-                await one.close();
-            }
+    it.each([
+        'vehicles.vehicles',
+        'vehicles.vehicle_ownerships',
+        'vehicles.vehicle_owners',
+        'vehicles.plate_assignments',
+        'vehicles.libres',
+        'vehicles.vehicle_categories'
+    ])('shows nothing of %s without a context, on a connection that has just served one', async (table) => {
+        const one = createDatabase(pg.url('app'), { max: 1, contextKey: TEST_CONTEXT_KEY });
+        try {
+            await asUnit(one, units.zone, (tx) => tx.execute(sql.raw(`select count(*) from ${table}`)));
+            const seen = await one.scoped({}, (tx) =>
+                tx.execute<{ n: string }>(sql.raw(`select count(*) as n from ${table}`))
+            );
+            expect(seen.rows[0]?.n).toBe('0');
+        } finally {
+            await one.close();
         }
-    );
+    });
 
     it('has no delete for anyone', async () => {
         const refused = await refusal(
@@ -1018,8 +1114,21 @@ describe('the rules of the commands (review of 1.1a)', () => {
                 registry.setStatus(tx, ctx, v.id, v.rowVersion, { status: 'deregistered', on: '2999-01-01' })
             )
         ).rejects.toMatchObject({ errors: [{ code: 'in_future' }] });
+        // each libre made a new version of the vehicle: a change on the version read before them is refused
+        await expect(
+            app.scoped(ctx, (tx) =>
+                registry.setStatus(tx, ctx, v.id, v.rowVersion, { status: 'deregistered', on: '2023-01-01' })
+            )
+        ).rejects.toMatchObject({ status: 409 });
+        const now = await app.scoped(ctx, (tx) => reads.get(tx, v.id));
+        expect(now.version).toBe(v.rowVersion + 2);
+        // a libre in the future, or before the current owners took the vehicle, is refused
+        for (const issuedOn of ['2999-01-01', '2000-01-01'])
+            await expect(
+                app.scoped(ctx, (tx) => registry.recordLibre(tx, ctx, v.id, { number: 'LB-0003', issuedOn }))
+            ).rejects.toMatchObject({ status: 422, errors: [{ path: 'issuedOn' }] });
         const gone = await app.scoped(ctx, (tx) =>
-            registry.setStatus(tx, ctx, v.id, v.rowVersion, { status: 'deregistered', on: '2023-01-01' })
+            registry.setStatus(tx, ctx, v.id, now.version, { status: 'deregistered', on: '2023-01-01' })
         );
         expect(gone.status).toBe('deregistered');
         await expect(

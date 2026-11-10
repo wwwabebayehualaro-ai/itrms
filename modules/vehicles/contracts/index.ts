@@ -10,7 +10,7 @@
 import { z } from 'zod';
 
 import { CHASSIS_KINDS, VIN_CHECKS } from './vin';
-import { DEFAULT_LEGACY_PLATE_REGIONS, PLATE_FORMATS } from './plate';
+import { DEFAULT_LEGACY_PLATE_REGIONS, foldPlate, PLATE_FORMATS } from './plate';
 
 export * from './plate';
 export * from './vin';
@@ -56,8 +56,18 @@ export const VEHICLES_SETTINGS = {
     [LEGACY_PLATE_REGIONS_SETTING]: z
         .array(
             z.strictObject({
-                code: z.string().regex(/^[A-Z]{1,4}$/, 'upper-case Latin letters'),
-                aliases: z.array(z.string().trim().min(1).max(20)).max(10)
+                // two letters, as every old regional code is: a key `L` + use + code + series + digits then reads one way only
+                code: z.string().regex(/^[A-Z]{2}$/, 'two upper-case Latin letters'),
+                aliases: z
+                    .array(
+                        z
+                            .string()
+                            .trim()
+                            .min(1)
+                            .max(20)
+                            .refine((a) => foldPlate(a) !== '', 'letters, not only separators')
+                    )
+                    .max(10)
             })
         )
         .max(60)

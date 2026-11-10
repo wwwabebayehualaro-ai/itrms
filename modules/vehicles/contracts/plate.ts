@@ -86,23 +86,62 @@ export function parsePlate(
         return { format: 'special', key, text: `${prefix} ${special[2] ?? ''}`, useCode: null, regionCode: null };
     }
 
-    // every spelling of every region, the longest first so `AA` is read before a series letter `A`
-    const spellings = regions
-        .flatMap((r) => [r.code, ...r.aliases].map((a) => ({ spelling: foldPlate(a), code: r.code.toUpperCase() })))
-        .sort((a, b) => b.spelling.length - a.spelling.length);
-    for (const { spelling, code } of spellings) {
-        for (let at = folded.indexOf(spelling); at >= 0; at = folded.indexOf(spelling, at + 1)) {
-            const rest = LEGACY_REST.exec(folded.slice(0, at) + folded.slice(at + spelling.length));
-            if (!rest) continue;
-            const [, use = '', series = '', digits = ''] = rest;
-            return {
-                format: 'legacy',
-                key: `L${use}${code}${series}${digits}`,
-                text: `${code} ${use}-${series}${digits}`,
-                useCode: Number(use),
-                regionCode: code
-            };
-        }
+    // every reading of the plate: each spelling of each region, wherever it stands. A spelling that folds to nothing (an alias of
+    // only separators) is no spelling: `indexOf('')` would match everywhere, for ever.
+    const readings = new Map<string, ParsedPlate & { whole: boolean }>();
+    const bounds = tokenBounds(raw, folded);
+    for (const r of regions) {
+        const code = r.code.toUpperCase();
+        for (const spelling of new Set([r.code, ...r.aliases].map(foldPlate)))
+            for (let at = spelling ? folded.indexOf(spelling) : -1; at >= 0; at = folded.indexOf(spelling, at + 1)) {
+                const rest = LEGACY_REST.exec(folded.slice(0, at) + folded.slice(at + spelling.length));
+                if (!rest) continue;
+                const [, use = '', series = '', digits = ''] = rest;
+                const key = `L${use}${code}${series}${digits}`;
+                const whole = bounds.has(at) && bounds.has(at + spelling.length);
+                const seen = readings.get(key);
+                if (!seen || (whole && !seen.whole))
+                    readings.set(key, {
+                        format: 'legacy',
+                        key,
+                        text: `${code} ${use}-${series}${digits}`,
+                        useCode: Number(use),
+                        regionCode: code,
+                        whole
+                    });
+            }
     }
-    return null;
+    // one reading is the plate. Several (`3SOR1234`: Somali series R, or Oromia series S) are told apart only by the region
+    // standing apart as written (`3-SO-R1234`); a plate still ambiguous is refused, never guessed.
+    const all = [...readings.values()];
+    const apart = all.filter((r) => r.whole);
+    const chosen = all.length === 1 ? all[0] : apart.length === 1 ? apart[0] : undefined;
+    if (!chosen) return null;
+    return {
+        format: chosen.format,
+        key: chosen.key,
+        text: chosen.text,
+        useCode: chosen.useCode,
+        regionCode: chosen.regionCode
+    };
 }
+
+/**
+ * Where the plate's parts begin and end in its folded text: at its start and end, where a separator stood, and where digits
+ * meet letters. Used to tell which region code stands apart.
+ */
+function tokenBounds(raw: string, folded: string): Set<number> {
+    const bounds = new Set([0, folded.length]);
+    let text = '';
+    for (const char of raw.normalize('NFKC').toUpperCase()) {
+        if (char.trim() === '' || SEPARATOR_CHARS.has(char)) bounds.add(text.length);
+        else text += char;
+    }
+    // the folding also reads `ኢት` as `ETH`: then the positions of the raw text are not the folded one's
+    if (text !== folded) for (const b of [...bounds]) if (b !== 0 && b !== folded.length) bounds.delete(b);
+    for (let i = 1; i < folded.length; i += 1) if (isDigit(folded[i - 1]) !== isDigit(folded[i])) bounds.add(i);
+    return bounds;
+}
+
+const SEPARATOR_CHARS = new Set(['-', '.', '/', '_']);
+const isDigit = (char: string | undefined) => char !== undefined && char >= '0' && char <= '9';

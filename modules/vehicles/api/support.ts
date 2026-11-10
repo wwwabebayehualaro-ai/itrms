@@ -1,5 +1,6 @@
 /** Shared by the register's services. */
 import { ConflictError, ForbiddenError, ValidationError } from '@itrms/kernel/errors';
+import type { z } from 'zod';
 
 export { unitRefs, withinScope, type UnitRef } from '@itrms/kernel/org';
 
@@ -28,6 +29,18 @@ export async function guardUnique<T>(write: () => Promise<T>, constraints: Recor
                 throw new ConflictError('duplicate_reference', { detailKey, cause: error });
         throw error;
     }
+}
+
+/**
+ * A command's input checked against its schema: the commands are called by effects, seeds and tests with values that no
+ * HTTP DTO has parsed, so each parses its own (defaults and trims applied); a refusal is a 422 with the fields, never a 500.
+ */
+export function checked<S extends z.ZodType>(schema: S, input: z.input<S>): z.output<S> {
+    const result = schema.safeParse(input);
+    if (result.success) return result.data;
+    throw new ValidationError('validation_failed', {
+        errors: result.error.issues.map((i) => ({ path: i.path.join('.'), code: i.code, message: i.message }))
+    });
 }
 
 /** A value the rules refuse, as a field error. */

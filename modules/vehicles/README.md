@@ -1,6 +1,8 @@
 # @itrms/vehicles
 
-People and organisations: the regional register of persons (with their sensitive fields encrypted) and organisations, search, duplicates and merges.
+The regional vehicle register: vehicles (federal id, chassis, engine, category, use), their ownership periods and holders, plate
+history and libres; search by plate (current or old), chassis, engine or federal id from any office of the region; the
+registry commands the case effects call; the `vehicle` lookup provider.
 
 Layer: registry. Shape, public entries and rules: [code-structure.md](../../docs/platform/code-structure.md) §4.
 

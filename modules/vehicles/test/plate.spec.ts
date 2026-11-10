@@ -56,6 +56,24 @@ describe('parsePlate', () => {
         });
     });
 
+    it('tells two regions apart by the code standing apart, and refuses a plate it cannot tell', () => {
+        // `3SOR1234` reads as Somali series R or as Oromia series S: written apart, each is one plate with one key
+        for (const typed of ['3-SO-R1234', 'SO 3-R1234', 'ሶማ 3-R1234'])
+            expect(parsePlate(typed), typed).toMatchObject({ key: 'L3SOR1234', regionCode: 'SO' });
+        for (const typed of ['3-OR-S1234', 'OR 3-S1234'])
+            expect(parsePlate(typed), typed).toMatchObject({ key: 'L3ORS1234', regionCode: 'OR' });
+        expect(parsePlate('3 SD D1234')).toMatchObject({ key: 'L3SDD1234', regionCode: 'SD' });
+        expect(parsePlate('3 DD S1234')).toMatchObject({ key: 'L3DDS1234', regionCode: 'DD' });
+        // run together, it is either: refused, never guessed
+        expect(parsePlate('3SOR1234')).toBeNull();
+    });
+
+    it('ignores an alias that folds to nothing (it would match everywhere)', () => {
+        const regions = [{ code: 'ZZ', aliases: ['-', '.', ' / '] }];
+        expect(parsePlate('1HGCM82633A004352', regions)).toBeNull();
+        expect(parsePlate('ZZ 1-1234', regions)).toMatchObject({ key: 'L1ZZ1234' });
+    });
+
     it('reads the diplomatic, international-organisation and police plates as special', () => {
         expect(parsePlate('CD 123')).toMatchObject({ format: 'special', key: 'CD123' });
         expect(parsePlate('un-45')).toMatchObject({ format: 'special', key: 'UN45' });

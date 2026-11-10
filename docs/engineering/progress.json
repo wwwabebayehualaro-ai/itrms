@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-11-08",
+  "updated": "2026-11-10",
   "statuses": [
     "planned",
     "ready",
@@ -3106,6 +3106,36 @@
       "foundIn": "0.26",
       "item": "Service and workflow publish checks still answer some field messages in English (services.service.ts publish: defaults that do not fit, effective date, unknown workflow or effect)",
       "movedTo": "Phase 1 i18n"
+    },
+    {
+      "foundIn": "1.1a",
+      "item": "transferOwnership leaves the former owners' libre 'issued' (libres_issued_uq still points at the closed period): the 1.2/1.4 transfer effect must issue or cancel the libre in the same transaction, with a test",
+      "movedTo": "1.4"
+    },
+    {
+      "foundIn": "1.1a",
+      "item": "Vehicle search applies status/owner filters after the ranked top 50 (search_vehicles), so an active match ranked past 50 is dropped silently; ownerId + deregistered/transferred_out finds nothing; byOwner stops at 100 unpaged: pass the filters into search_vehicles and page byOwner",
+      "movedTo": "1.1b"
+    },
+    {
+      "foundIn": "1.1a",
+      "item": "Chassis numbers: a 1-5/L VIN with a wrong stamped check digit can be registered neither as ISO nor as 'other' (some low-cost imports), and vehicles_vin_uq on the folded key alone blocks two pre-1981 vehicles with the same short number: product decision (audited override with vin_check=mismatch; scope uniqueness to iso3779 or add make)",
+      "movedTo": "1.2"
+    },
+    {
+      "foundIn": "1.1a",
+      "item": "person.merged.v1 is not consumed by vehicles: holders still point at the merged duplicate, so search by the survivor misses those vehicles; a worker handler repointing open-period holders, audited",
+      "movedTo": "1.13"
+    },
+    {
+      "foundIn": "1.1a",
+      "item": "Vehicles migrations housekeeping: vehicles_region_vin_idx duplicates vehicles_vin_uq, vehicles_engine_trgm is used by no query; chain triggers do not cover DELETE (itrms_app has no DELETE grant); child rows copy handling_unit_id only on INSERT, a handling-unit change needs a cascade",
+      "movedTo": "1.4"
+    },
+    {
+      "foundIn": "1.1a",
+      "item": "Isolation matrix covers vehicles and vehicle_ownerships only: add rows for vehicle_owners, plate_assignments, libres (class R) and vehicle_categories (class C)",
+      "movedTo": "1.1b"
     }
   ]
 }

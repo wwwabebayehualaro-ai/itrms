@@ -4,7 +4,7 @@
 > Update it with the CLI or the `/task-*` skills. Rules: [workflow.md](workflow.md). Statuses: planned, ready, in progress,
 > in review, done, blocked. Only the product owner moves a task to **done**.
 
-Last updated: 2026-11-08. Planning: done (docs/reviews/2026-10-18-design-review.md (30 findings resolved); business questionnaire sent via the Wolaita channel).
+Last updated: 2026-11-10. Planning: done (docs/reviews/2026-10-18-design-review.md (30 findings resolved); business questionnaire sent via the Wolaita channel).
 
 ## Phase 0: Core and demo — 66/67 done (99%)
 
@@ -366,3 +366,9 @@ Last updated: 2026-11-08. Planning: done (docs/reviews/2026-10-18-design-review.
 | 206 | --help |  |  | open |
 | 207 | 0.26 | getApiErrorMessage, the HTTP client and the QueryProvider toast keep English default texts (about 92 callers pass translated fallbacks where they were converted); give the non-hook code a translator from the active language | Phase 1 i18n | open |
 | 208 | 0.26 | Service and workflow publish checks still answer some field messages in English (services.service.ts publish: defaults that do not fit, effective date, unknown workflow or effect) | Phase 1 i18n | open |
+| 209 | 1.1a | transferOwnership leaves the former owners' libre 'issued' (libres_issued_uq still points at the closed period): the 1.2/1.4 transfer effect must issue or cancel the libre in the same transaction, with a test | 1.4 | open |
+| 210 | 1.1a | Vehicle search applies status/owner filters after the ranked top 50 (search_vehicles), so an active match ranked past 50 is dropped silently; ownerId + deregistered/transferred_out finds nothing; byOwner stops at 100 unpaged: pass the filters into search_vehicles and page byOwner | 1.1b | open |
+| 211 | 1.1a | Chassis numbers: a 1-5/L VIN with a wrong stamped check digit can be registered neither as ISO nor as 'other' (some low-cost imports), and vehicles_vin_uq on the folded key alone blocks two pre-1981 vehicles with the same short number: product decision (audited override with vin_check=mismatch; scope uniqueness to iso3779 or add make) | 1.2 | open |
+| 212 | 1.1a | person.merged.v1 is not consumed by vehicles: holders still point at the merged duplicate, so search by the survivor misses those vehicles; a worker handler repointing open-period holders, audited | 1.13 | open |
+| 213 | 1.1a | Vehicles migrations housekeeping: vehicles_region_vin_idx duplicates vehicles_vin_uq, vehicles_engine_trgm is used by no query; chain triggers do not cover DELETE (itrms_app has no DELETE grant); child rows copy handling_unit_id only on INSERT, a handling-unit change needs a cascade | 1.4 | open |
+| 214 | 1.1a | Isolation matrix covers vehicles and vehicle_ownerships only: add rows for vehicle_owners, plate_assignments, libres (class R) and vehicle_categories (class C) | 1.1b | open |

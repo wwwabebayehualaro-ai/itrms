@@ -20,13 +20,13 @@ import {
     parsePlate,
     parseVin,
     vehicleSearchKey,
-    type libreRecordSchema,
-    type ownershipTransferSchema,
-    type plateRecordSchema,
-    type statusChangeSchema,
-    type vehicleRegisterSchema
+    libreRecordSchema,
+    ownershipTransferSchema,
+    plateRecordSchema,
+    statusChangeSchema,
+    vehicleRegisterSchema
 } from '../contracts';
-import { fieldError, guardUnique, notFuture, required, unitRefs, withinScope } from './support';
+import { checked, fieldError, guardUnique, notFuture, required, unitRefs, withinScope } from './support';
 import {
     libres,
     plateAssignments,
@@ -56,7 +56,8 @@ export class VehicleRegistry {
     ) {}
 
     /** Registers a vehicle, handled by the acting unit, with its first ownership period and holders. */
-    async register(tx: Tx, ctx: DbContext, input: z.infer<typeof vehicleRegisterSchema>): Promise<VehicleRow> {
+    async register(tx: Tx, ctx: DbContext, given: z.input<typeof vehicleRegisterSchema>): Promise<VehicleRow> {
+        const input = checked(vehicleRegisterSchema, given);
         const regionId = required(ctx.regionId);
         const unitId = required(ctx.unitId);
         const [category] = await tx
@@ -77,7 +78,9 @@ export class VehicleRegistry {
 
         const vin = parseVin(input.chassisNumber, { chassisKind: input.chassisKind, modelYear: input.modelYear });
         if (!vin.ok) throw fieldError('chassisNumber', vin.code, vin.problem);
+        notFuture('firstRegisteredOn', input.firstRegisteredOn);
         const since = input.since ?? input.firstRegisteredOn;
+        notFuture('since', since);
         if (since < input.firstRegisteredOn)
             throw fieldError('since', 'before_registration', 'is before the first registration');
         await this.checkOwners(tx, input.owners, 'owners');
@@ -129,8 +132,9 @@ export class VehicleRegistry {
         ctx: DbContext,
         vehicleId: string,
         version: number,
-        input: z.infer<typeof ownershipTransferSchema>
+        given: z.input<typeof ownershipTransferSchema>
     ): Promise<VehicleRow> {
+        const input = checked(ownershipTransferSchema, given);
         const vehicle = await this.lock(tx, ctx, vehicleId, version);
         if (vehicle.status !== 'active')
             throw new ConflictError('invalid_transition', {
@@ -154,9 +158,10 @@ export class VehicleRegistry {
         tx: Tx,
         ctx: DbContext,
         vehicleId: string,
-        input: z.infer<typeof plateRecordSchema>,
+        given: z.input<typeof plateRecordSchema>,
         version?: number
     ): Promise<void> {
+        const input = checked(plateRecordSchema, given);
         const vehicle = await this.lock(tx, ctx, vehicleId, version);
         if (vehicle.status !== 'active' && vehicle.status !== 'stolen')
             throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.not_on_register' });
@@ -200,6 +205,8 @@ export class VehicleRegistry {
                 }),
             DUPLICATES
         );
+        // a new version of the vehicle: a caller holding the one before this plate cannot act on it unseen
+        await updateAudited(tx, vehicles, vehicleId, vehicle.rowVersion, {});
     }
 
     /** Records the libre issued for the vehicle's current owners; the one in force is replaced. */
@@ -207,13 +214,17 @@ export class VehicleRegistry {
         tx: Tx,
         ctx: DbContext,
         vehicleId: string,
-        input: z.infer<typeof libreRecordSchema>,
+        given: z.input<typeof libreRecordSchema>,
         version?: number
     ): Promise<void> {
+        const input = checked(libreRecordSchema, given);
         const vehicle = await this.lock(tx, ctx, vehicleId, version);
         if (vehicle.status !== 'active')
             throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.not_on_register' });
+        notFuture('issuedOn', input.issuedOn);
         const open = await this.openPeriod(tx, vehicleId);
+        if (input.issuedOn < open.since)
+            throw fieldError('issuedOn', 'before_period', 'is before the current owners took it');
         const issuingUnitId = input.issuingUnitId ?? required(ctx.unitId);
         if (!(await unitRefs(tx, [issuingUnitId])).has(issuingUnitId))
             throw fieldError('issuingUnitId', 'unknown_unit', 'is not a unit of this region');
@@ -238,6 +249,7 @@ export class VehicleRegistry {
                 }),
             DUPLICATES
         );
+        await updateAudited(tx, vehicles, vehicleId, vehicle.rowVersion, {});
     }
 
     /**
@@ -250,8 +262,9 @@ export class VehicleRegistry {
         ctx: DbContext,
         vehicleId: string,
         version: number,
-        input: z.infer<typeof statusChangeSchema>
+        given: z.input<typeof statusChangeSchema>
     ): Promise<VehicleRow> {
+        const input = checked(statusChangeSchema, given);
         const vehicle = await this.lock(tx, ctx, vehicleId, version);
         if (vehicle.status !== 'active')
             throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.not_on_register' });
