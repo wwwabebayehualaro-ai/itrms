@@ -24,6 +24,9 @@ import partiesWal from '@itrms/parties/messages/wal-Latn';
 import servicesAm from '@itrms/services/messages/am';
 import servicesEn from '@itrms/services/messages/en';
 import servicesWal from '@itrms/services/messages/wal-Latn';
+import vehiclesAm from '@itrms/vehicles/messages/am';
+import vehiclesEn from '@itrms/vehicles/messages/en';
+import vehiclesWal from '@itrms/vehicles/messages/wal-Latn';
 import workflowAm from '@itrms/workflow/messages/am';
 import workflowEn from '@itrms/workflow/messages/en';
 import workflowWal from '@itrms/workflow/messages/wal-Latn';
@@ -42,8 +45,8 @@ type Flat = Readonly<Record<string, string>>;
 type Nested = { [key: string]: string | Nested };
 
 const CATALOGUES: Readonly<Record<UiLanguage, readonly Flat[]>> = {
-    am: [shellAm, kernelAm, formsAm, workflowAm, servicesAm, feesAm, documentsAm, partiesAm, competencyAm],
-    en: [shellEn, kernelEn, formsEn, workflowEn, servicesEn, feesEn, documentsEn, partiesEn, competencyEn],
+    am: [shellAm, kernelAm, formsAm, workflowAm, servicesAm, feesAm, documentsAm, partiesAm, vehiclesAm, competencyAm],
+    en: [shellEn, kernelEn, formsEn, workflowEn, servicesEn, feesEn, documentsEn, partiesEn, vehiclesEn, competencyEn],
     'wal-Latn': [
         shellWal,
         kernelWal,
@@ -53,6 +56,7 @@ const CATALOGUES: Readonly<Record<UiLanguage, readonly Flat[]>> = {
         feesWal,
         documentsWal,
         partiesWal,
+        vehiclesWal,
         competencyWal
     ]
 };

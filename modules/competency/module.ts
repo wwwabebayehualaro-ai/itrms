@@ -5,7 +5,7 @@ import { defineModule } from '@itrms/module-sdk';
 const LICENSING = ['DVC-03', 'DVC-04', 'DVC-08', 'DVC-10', 'DVC-11'];
 // the register (roles-and-permissions.md §2): officers register and correct applicants and check their identity
 // form:read: a case's request names its applicant and school through registry lookups, which need it to show their names
-const REGISTER_READ = ['person:read', 'organisation:read', 'file:upload', 'file:read', 'form:read'];
+const REGISTER_READ = ['person:read', 'organisation:read', 'vehicle:read', 'file:upload', 'file:read', 'form:read'];
 const REGISTER_INTAKE = [
     ...REGISTER_READ,
     'person:lookup',

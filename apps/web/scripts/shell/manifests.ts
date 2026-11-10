@@ -2,10 +2,11 @@
 // menu items needn't be here). The icon map is generated from it (menu-icons.ts).
 import competency from '@itrms/competency/manifest';
 import parties from '@itrms/parties/manifest';
+import vehicles from '@itrms/vehicles/manifest';
 import fees from '@itrms/fees/manifest';
 import forms from '@itrms/forms/manifest';
 import kernel from '@itrms/kernel/manifest';
 import services from '@itrms/services/manifest';
 import workflow from '@itrms/workflow/manifest';
 
-export const MENU_MANIFESTS = [kernel, forms, workflow, services, fees, parties, competency];
+export const MENU_MANIFESTS = [kernel, forms, workflow, services, fees, parties, vehicles, competency];

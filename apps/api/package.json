@@ -57,6 +57,7 @@
     "@itrms/kernel": "workspace:*",
     "@itrms/module-sdk": "workspace:*",
     "@itrms/parties": "workspace:*",
+    "@itrms/vehicles": "workspace:*",
     "@itrms/reports": "workspace:*",
     "@itrms/services": "workspace:*",
     "@itrms/workflow": "workspace:*",

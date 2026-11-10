@@ -281,7 +281,13 @@ describe('the registries a form can point to', () => {
         const { items } = res.json<{
             items: { key: string; title: string; facts: { key: string; label: string }[] }[];
         }>();
-        expect(items.map((i) => i.key).sort()).toEqual(['driver-licence', 'organisation', 'person', 'training-school']);
+        expect(items.map((i) => i.key).sort()).toEqual([
+            'driver-licence',
+            'organisation',
+            'person',
+            'training-school',
+            'vehicle'
+        ]);
         expect(items.find((i) => i.key === 'person')?.title).toBe('ሰው (ከመዝገብ)');
         expect(items.find((i) => i.key === 'organisation')?.title).toBe('ድርጅት (ከመዝገብ)');
         expect(items.find((i) => i.key === 'person')?.facts.map((f) => f.key)).toEqual([
@@ -294,7 +300,7 @@ describe('the registries a form can point to', () => {
     });
 
     it('answer 404 for a registry that is not installed, and 403 to a user with no role in the unit', async () => {
-        expect((await search(as.damot(), 'vehicle', 'ab')).statusCode).toBe(404);
+        expect((await search(as.damot(), 'machinery', 'ab')).statusCode).toBe(404);
         expect((await search(as.damotWithoutRole(), 'person', 'ሐና')).statusCode).toBe(403);
     });
 });
@@ -512,7 +518,7 @@ describe('a form that names a registry', () => {
         const res = await api.call('POST', '/api/v1/forms', as.bureau(), {
             key: 'bad-lookup',
             name: { am: 'የተበላሸ', en: 'Bad' },
-            document: { fields: [field('v', 'RegistryLookup', { props: { provider: 'vehicle' } })] }
+            document: { fields: [field('v', 'RegistryLookup', { props: { provider: 'machinery' } })] }
         });
         expect(res.statusCode, res.body).toBe(422);
         // the problem is a validation failure; each entry says what is wrong where (as the document check does)

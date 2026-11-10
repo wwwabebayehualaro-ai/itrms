@@ -41,6 +41,12 @@ import parties from '@itrms/parties/manifest';
 import partiesAm from '@itrms/parties/messages/am';
 import partiesEn from '@itrms/parties/messages/en';
 import partiesWal from '@itrms/parties/messages/wal-Latn';
+import { VehiclesModule } from '@itrms/vehicles/api';
+import { VEHICLES_SETTINGS } from '@itrms/vehicles/contracts';
+import vehicles from '@itrms/vehicles/manifest';
+import vehiclesAm from '@itrms/vehicles/messages/am';
+import vehiclesEn from '@itrms/vehicles/messages/en';
+import vehiclesWal from '@itrms/vehicles/messages/wal-Latn';
 import type { InstalledSlice } from '@itrms/module-sdk';
 import reports from '@itrms/reports/manifest';
 import { ServicesModule } from '@itrms/services/api';
@@ -106,6 +112,12 @@ export const SLICES: ApiSlice[] = [
         module: PartiesModule,
         events: PARTIES_EVENTS,
         messages: { am: partiesAm, en: partiesEn, 'wal-Latn': partiesWal }
+    },
+    {
+        manifest: vehicles,
+        module: VehiclesModule,
+        settings: VEHICLES_SETTINGS,
+        messages: { am: vehiclesAm, en: vehiclesEn, 'wal-Latn': vehiclesWal }
     },
     {
         manifest: competency,

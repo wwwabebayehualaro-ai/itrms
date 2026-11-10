@@ -259,6 +259,9 @@ importers:
       '@itrms/services':
         specifier: workspace:*
         version: link:../../platform/services
+      '@itrms/vehicles':
+        specifier: workspace:*
+        version: link:../../modules/vehicles
       '@itrms/workflow':
         specifier: workspace:*
         version: link:../../platform/workflow
@@ -486,6 +489,9 @@ importers:
       '@itrms/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@itrms/vehicles':
+        specifier: workspace:*
+        version: link:../../modules/vehicles
       '@itrms/workflow':
         specifier: workspace:*
         version: link:../../platform/workflow
@@ -671,6 +677,43 @@ importers:
       '@itrms/module-sdk':
         specifier: workspace:*
         version: link:../../packages/module-sdk
+      '@itrms/schemas':
+        specifier: workspace:*
+        version: link:../../packages/schemas
+      '@nestjs/common':
+        specifier: 11.2.7
+        version: 11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@10.2.2)
+      drizzle-orm:
+        specifier: 0.45.3
+        version: 0.45.3(@opentelemetry/api@1.9.1)(@types/pg@8.23.1)(pg@8.23.1)
+      nestjs-zod:
+        specifier: 5.5.0
+        version: 5.5.0(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@10.2.2))(@nestjs/swagger@11.4.7(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@10.2.2))(@nestjs/core@11.2.7(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@10.2.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2))(rxjs@7.8.2)(zod@4.6.6)
+      zod:
+        specifier: 4.6.6
+        version: 4.6.6
+    devDependencies:
+      '@itrms/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@types/node':
+        specifier: 24.19.1
+        version: 24.19.1
+
+  modules/vehicles:
+    dependencies:
+      '@itrms/forms':
+        specifier: workspace:*
+        version: link:../../platform/forms
+      '@itrms/kernel':
+        specifier: workspace:*
+        version: link:../../platform/kernel
+      '@itrms/module-sdk':
+        specifier: workspace:*
+        version: link:../../packages/module-sdk
+      '@itrms/parties':
+        specifier: workspace:*
+        version: link:../parties
       '@itrms/schemas':
         specifier: workspace:*
         version: link:../../packages/schemas

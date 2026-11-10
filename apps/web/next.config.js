@@ -12,7 +12,7 @@ const nextConfig = {
     // the image (infra/docker/Dockerfile) runs the standalone server; development and the e2e journeys don't need it
     ...(process.env.NEXT_OUTPUT === 'standalone' ? { output: 'standalone' } : {}),
     // Workspace packages are TypeScript source (code-structure.md §5.5): Next compiles them.
-    transpilePackages: ['@itrms/ui', '@itrms/form-engine', '@itrms/schemas', '@itrms/parties'],
+    transpilePackages: ['@itrms/ui', '@itrms/form-engine', '@itrms/schemas', '@itrms/parties', '@itrms/vehicles'],
     outputFileTracingRoot: monorepoRoot,
     async redirects() {
         // the builder used to live at a path derived from its folder structure

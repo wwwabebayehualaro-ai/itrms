@@ -324,7 +324,8 @@ describe('a person in two units', () => {
             'receipt-reversal:request',
             'receipt:read',
             'service-config:read',
-            'submission:read'
+            'submission:read',
+            'vehicle:read'
         ]);
     });
 
