@@ -75,6 +75,7 @@ export function parsePlate(
     const folded = foldPlate(raw);
     if (folded === '' || folded.length > 40) return null;
 
+    // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- anchored, fixed-length classes, input capped at 40 (linear time)
     if (/^ETH[A-Z]{3}[0-9]{4}$/.test(folded))
         return { format: 'national', key: folded, text: nationalPlateText(folded), useCode: null, regionCode: null };
 
