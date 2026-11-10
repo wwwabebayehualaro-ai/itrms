@@ -52,7 +52,8 @@ export class VehicleRegistry {
     constructor(
         @Inject(PersonsService) private readonly persons: PersonsService,
         @Inject(OrganisationsService) private readonly organisations: OrganisationsService,
-        @Inject(VehiclesService) private readonly reads: VehiclesService
+        // only the region's old plate codes: a seed gives them without the settings service
+        @Inject(VehiclesService) private readonly reads: Pick<VehiclesService, 'legacyRegions'>
     ) {}
 
     /** Registers a vehicle, handled by the acting unit, with its first ownership period and holders. */

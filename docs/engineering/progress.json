@@ -3119,8 +3119,8 @@
     },
     {
       "foundIn": "1.1a",
-      "item": "Vehicle search applies status/owner filters after the ranked top 50 (search_vehicles), so an active match ranked past 50 is dropped silently; ownerId + deregistered/transferred_out finds nothing; byOwner stops at 100 unpaged: pass the filters into search_vehicles and page byOwner",
-      "movedTo": "1.1b"
+      "item": "Vehicle search applies status/owner filters after the ranked top 50 (search_vehicles), so an active match ranked past 50 is dropped silently; ownerId + deregistered/transferred_out finds nothing; byOwner stops at 100 unpaged: pass the filters into search_vehicles and page byOwner (the 1.1b screens use neither filter; the 1.2 form lookups do)",
+      "movedTo": "1.2"
     },
     {
       "foundIn": "1.1a",
@@ -3140,7 +3140,8 @@
     {
       "foundIn": "1.1a",
       "item": "Isolation matrix covers vehicles and vehicle_ownerships only: add rows for vehicle_owners, plate_assignments, libres (class R) and vehicle_categories (class C)",
-      "movedTo": "1.1b"
+      "movedTo": "1.1b",
+      "closedIn": "1.1a: the isolation matrix covers vehicle_owners, plate_assignments, libres (class R) and vehicle_categories (class C) (d19a1a2, f77069b)"
     }
   ]
 }

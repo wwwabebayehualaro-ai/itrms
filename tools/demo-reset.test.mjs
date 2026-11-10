@@ -10,7 +10,7 @@ test('demo:reset runs seed steps in a row with the same settings in one process,
     const steps = batchedSteps(plan(), (settings, script, args) => calls.push({ settings, script, args }));
     for (const [, run] of steps) run();
 
-    // migrate · the first region · its people and licences (other settings) · the rest
+    // migrate · both regions · the generated people, licences and vehicles (other settings) · the accounts
     assert.deepEqual(
         calls.map((c) => [c.settings, c.script]),
         [

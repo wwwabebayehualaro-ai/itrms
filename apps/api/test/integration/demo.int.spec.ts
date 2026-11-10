@@ -17,6 +17,8 @@ import { addisDay, addMonths, addYears } from '@itrms/competency/contracts';
 import { ethiopianHolidays } from '@itrms/ethiopian-calendar';
 import { OrganisationsService, PersonsService } from '@itrms/parties/api';
 import { importFeeRules, parseFeeRules } from '@itrms/fees/seed';
+import { VehicleRegistry } from '@itrms/vehicles/api';
+import { importVehicleCategories, importVehicleDemo, STORY_PLATE } from '@itrms/vehicles/seed';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { SLICES } from '../../src/slices';
@@ -390,5 +392,91 @@ describe('the second demo region', () => {
               where a.table_name = 'kernel.settings_values' order by u.code`
         );
         expect(audited.map((r) => r.code)).toEqual(['SCA', 'SER']);
+    });
+});
+
+describe('the demo’s vehicles (task 1.1b)', () => {
+    const DAMOT_RECORDS = { sub: '0199f0a0-d000-7000-8000-000000000202' };
+    const vehicleDeps = () => ({ ...deps(), registry: api.http.get(VehicleRegistry) });
+    let made: Record<string, Awaited<ReturnType<typeof importVehicleDemo>>> = {};
+
+    beforeAll(async () => {
+        // the second region's org tree comes from the describe before this one
+        for (const code of ['SER', 'SCA']) {
+            const root = await api.unit(code, code);
+            await api.installer.scoped({}, (tx) =>
+                importVehicleCategories(tx, { id: root.id, regionId: root.regionId })
+            );
+        }
+        made = {
+            SER: await importVehicleDemo(api.installer, 'SER', vehicleDeps(), TODAY),
+            SCA: await importVehicleDemo(api.installer, 'SCA', vehicleDeps(), TODAY)
+        };
+    }, 240_000);
+
+    it('has vehicles in both regions, old plates exchanged and not, and owners who sold', () => {
+        expect(made.SER).toMatchObject({ vehicles: 36, persons: 0, organisations: 2 });
+        expect(made.SER?.exchanged).toBeGreaterThan(5);
+        expect(made.SER?.legacyOnly).toBeGreaterThan(0);
+        expect(made.SER?.transferred).toBeGreaterThan(3);
+        // the city's vehicles were registered since the national plates began; it had no demo people, so it has its own
+        expect(made.SCA).toMatchObject({ vehicles: 18, exchanged: 0, legacyOnly: 0, persons: 8, organisations: 2 });
+    });
+
+    it('lets a Damot Gale officer find a Boditi vehicle by its plate, its old plate too, and read its owners', async () => {
+        const damot = await api.unit('SER', 'WOL-DAMOT-GALE');
+        const who = { ...DAMOT_RECORDS, unit: damot };
+        for (const q of [STORY_PLATE, 'ደቡ 3-04512']) {
+            const found = await api.call('GET', `/api/v1/vehicles?q=${encodeURIComponent(q)}`, who);
+            expect(found.statusCode, q).toBe(200);
+            const items = found.json<{ items: { id: string; handlingUnit: { code: string } }[] }>().items;
+            expect(
+                items.map((i) => i.handlingUnit.code),
+                q
+            ).toEqual(['WOL-BODITI']);
+        }
+        const [hit] = (await api.call('GET', `/api/v1/vehicles?q=${encodeURIComponent(STORY_PLATE)}`, who)).json<{
+            items: { id: string }[];
+        }>().items;
+        const record = await api.call('GET', `/api/v1/vehicles/${hit?.id ?? ''}`, who);
+        const v = record.json<{
+            ownerships: { until: string | null; holders: { kind: string }[] }[];
+            plates: { format: string; until: string | null; endedReason: string | null }[];
+            libres: { status: string }[];
+        }>();
+        // sold by its first owner to the association: two periods, the open one the association's
+        expect(v.ownerships).toHaveLength(2);
+        expect(v.ownerships.find((o) => o.until === null)?.holders).toEqual([
+            expect.objectContaining({ kind: 'organisation' })
+        ]);
+        expect(v.plates.map((p) => [p.format, p.endedReason]).sort()).toEqual([
+            ['legacy', 'exchanged'],
+            ['national', null]
+        ]);
+        expect(v.libres.map((l) => l.status)).toEqual(['issued']);
+    });
+
+    it('keeps the regions apart: a city vehicle is not found from the first region', async () => {
+        const { rows } = await api.owner.query<{ plate_text: string }>(
+            `select p.plate_text from vehicles.plate_assignments p join kernel.org_units u on u.id = p.region_id
+             where u.code = 'SCA' and p.until is null limit 1`
+        );
+        const plate = rows[0]?.plate_text ?? '';
+        expect(plate).toMatch(/^ETH [A-Z]{3} \d{4}$/);
+        const damot = await api.unit('SER', 'WOL-DAMOT-GALE');
+        const found = await api.call('GET', `/api/v1/vehicles?q=${encodeURIComponent(plate)}`, {
+            ...DAMOT_RECORDS,
+            unit: damot
+        });
+        expect(found.json<{ items: unknown[] }>().items).toEqual([]);
+    });
+
+    it('is on record, and seeded once', async () => {
+        expect(
+            await count(`select count(*)::int as n from kernel.audit_log where table_name = 'vehicles.vehicles'`)
+        ).toBeGreaterThanOrEqual(54);
+        expect(await importVehicleDemo(api.installer, 'SER', vehicleDeps(), TODAY)).toBeNull();
+        expect(await importVehicleDemo(api.installer, 'SCA', vehicleDeps(), TODAY)).toBeNull();
+        expect(await count(`select count(*)::int as n from vehicles.vehicles`)).toBe(54);
     });
 });

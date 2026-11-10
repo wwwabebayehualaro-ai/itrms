@@ -1,6 +1,6 @@
 /**
  * Seed entry of @itrms/vehicles (task 1.1a): the catalogue of vehicle categories at a region's root. Run again, it changes
- * only what the table here changed. The demo's vehicles are task 1.1b.
+ * only what the table here changed. The demo's vehicles (task 1.1b) are `importVehicleDemo`.
  */
 import { and, eq } from 'drizzle-orm';
 import type { Tx } from '@itrms/kernel/db';
@@ -10,6 +10,13 @@ import { vehicleCategories } from '../api/vehicles.table';
 import { VEHICLE_CATEGORIES, type CategorySeed } from './categories';
 
 export { VEHICLE_CATEGORIES, type CategorySeed } from './categories';
+export {
+    DEMO_VEHICLE_REGIONS,
+    importVehicleDemo,
+    STORY_PLATE,
+    type VehicleDemoCounts,
+    type VehicleDemoDeps
+} from './demo';
 
 /** The catalogue at the region's root; an installation step, audited. */
 export async function importVehicleCategories(
