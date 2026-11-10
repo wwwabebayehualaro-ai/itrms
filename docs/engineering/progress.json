@@ -1416,8 +1416,8 @@
         {
           "id": "1.1b",
           "title": "Vehicle registry, part 2: screens and demo data",
-          "status": "ready",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/1.1b-vehicle-registry-screens",
           "commits": [],
           "evidence": [],
           "blockers": [],
@@ -3141,7 +3141,7 @@
       "foundIn": "1.1a",
       "item": "Isolation matrix covers vehicles and vehicle_ownerships only: add rows for vehicle_owners, plate_assignments, libres (class R) and vehicle_categories (class C)",
       "movedTo": "1.1b",
-      "closedIn": "1.1a: the isolation matrix covers vehicle_owners, plate_assignments, libres (class R) and vehicle_categories (class C) (d19a1a2, f77069b)"
+      "closedIn": "1.1a: the isolation matrix covers vehicle_owners, plate_assignments, libres (class R) and vehicle_categories (class C) (squashed into 40967db)"
     }
   ]
 }
