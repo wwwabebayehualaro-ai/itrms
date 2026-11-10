@@ -1456,8 +1456,8 @@
         {
           "id": "1.2b",
           "title": "Registration and plates, part 2: new registration (DVC-01)",
-          "status": "ready",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/1.2b-new-registration",
           "commits": [],
           "evidence": [],
           "blockers": [],
