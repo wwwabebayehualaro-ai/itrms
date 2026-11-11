@@ -30,7 +30,12 @@ const rule = (key: string) => {
 
 describe('the demo fee rules', () => {
     it('parse, read only their own inputs, and are marked as placeholders', () => {
-        expect(rules.map((r) => r.key)).toEqual(['dvc-03-new-licence', 'dvc-04-renewal', 'dvc-06-replacement']);
+        expect(rules.map((r) => r.key)).toEqual([
+            'dvc-03-new-licence',
+            'dvc-04-renewal',
+            'dvc-06-replacement',
+            'dvc-01-registration'
+        ]);
         for (const r of rules) {
             expect(checkFeeRule(r.document), r.key).toEqual([]);
             expect(r.document.demo, r.key).toBe(true);
@@ -74,5 +79,18 @@ describe('the demo fee rules', () => {
         expect(
             evaluateFee(rule('dvc-06-replacement'), { answers: { item: 'plate' }, asOf: '2026-01-01' })
         ).toMatchObject({ status: 'complete', total: 35000n });
+    });
+
+    it('charge a new registration by the vehicle category, with the plate and the libre', () => {
+        expect(
+            evaluateFee(rule('dvc-01-registration'), { answers: { categoryKey: 'automobile' }, asOf: '2026-01-01' })
+        ).toMatchObject({
+            status: 'complete',
+            total: 100000n + 50000n + 20000n,
+            lines: [{ key: 'base', amount: 100000n }, { key: 'plate' }, { key: 'libre' }]
+        });
+        expect(
+            evaluateFee(rule('dvc-01-registration'), { answers: { categoryKey: 'unlisted' }, asOf: '2026-01-01' })
+        ).toMatchObject({ status: 'complete', total: 150000n + 50000n + 20000n });
     });
 });

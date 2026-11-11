@@ -421,7 +421,7 @@ describe('the demo fee rules', () => {
         const root = as.bureau.unit;
         const seed = () =>
             api.installer.scoped({}, (tx) => importFeeRules(tx, { id: root.id, regionId: root.regionId }, rules));
-        expect(await seed()).toBe(3);
+        expect(await seed()).toBe(4);
         expect(await seed()).toBe(0);
         // a real schedule waits for a person's decision
         const real = rules.map((r) =>
@@ -443,6 +443,7 @@ describe('the demo fee rules', () => {
               where r.key like 'dvc-%' order by r.key`
         );
         expect(rows).toEqual([
+            { key: 'dvc-01-registration', decision: 'approved', decided_by: null },
             { key: 'dvc-03-new-licence', decision: 'approved', decided_by: null },
             { key: 'dvc-04-renewal', decision: 'approved', decided_by: null },
             { key: 'dvc-06-replacement', decision: 'approved', decided_by: null }

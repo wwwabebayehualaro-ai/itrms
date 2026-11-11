@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-11-10",
+  "updated": "2026-11-11",
   "statuses": [
     "planned",
     "ready",
@@ -1461,7 +1461,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Design (architect, 2026-11-11): DVC-01 is a competency service (request form vehicle-registration, step form vehicle-national-entry, workflow draft→review→payment→approval→registration→registered, fee rule dvc-01-registration demo amounts); effects in competency call VehicleRegistry and PlateStock. Defaults: plate reserved at the lead's approval from the case's handling unit stock, assigned at registration, released on reject; the libre is an ITRMS document with a QR numbered from counter vehicles.libre ({unit}/LB/{seq:06}) until the national system numbers it (ADR-0049); federal vehicle id keyed in at registration (source manual); a binding check-digit failure accepted only when the officer confirms it and the lead approves (vin_check mismatch); roles reused (records_officer, competency.officer, cashier, competency.lead). No migration. ADR-0049 written (the libre is an ITRMS document with a QR, numbered by the office's counter {unit}/LB/{seq:06} until the national system issues it). The vehicles part (reserve/release, libre counter and issueLibre, checkRegistration, acceptVinMismatch, holdsPlateStock in the summary, allocate screen filter) is being implemented; the competency part (DVC-01 forms, workflow, fee rule, effects, libre template, screens, seeds, tests) follows. Vehicles part committed (fc99afc): PlateStock.reserve/release, VehicleRegistry.checkRegistration/issueLibre, libre counters, acceptVinMismatch, holdsPlateStock in the summary and the allocate screen (follow-ups 218, 219). The competency part (DVC-01 forms, workflow, fee rule, effects, vehicle-libre template, screens, seeds, integration and e2e tests) is being implemented."
+          "notes": "Design (architect, 2026-11-11): DVC-01 is a competency service (request form vehicle-registration, step form vehicle-national-entry, workflow draft→review→payment→approval→registration→registered, fee rule dvc-01-registration demo amounts); effects in competency call VehicleRegistry and PlateStock. Defaults: plate reserved at the lead's approval from the case's handling unit stock, assigned at registration, released on reject; the libre is an ITRMS document with a QR numbered from counter vehicles.libre ({unit}/LB/{seq:06}) until the national system numbers it (ADR-0049); federal vehicle id keyed in at registration (source manual); a binding check-digit failure accepted only when the officer confirms it and the lead approves (vin_check mismatch); roles reused (records_officer, competency.officer, cashier, competency.lead). No migration. ADR-0049 written (the libre is an ITRMS document with a QR, numbered by the office's counter {unit}/LB/{seq:06} until the national system issues it). The vehicles part (reserve/release, libre counter and issueLibre, checkRegistration, acceptVinMismatch, holdsPlateStock in the summary, allocate screen filter) is being implemented; the competency part (DVC-01 forms, workflow, fee rule, effects, libre template, screens, seeds, tests) follows. Vehicles part committed (fc99afc): PlateStock.reserve/release, VehicleRegistry.checkRegistration/issueLibre, libre counters, acceptVinMismatch, holdsPlateStock in the summary and the allocate screen (follow-ups 218, 219). The competency part (DVC-01 forms, workflow, fee rule, effects, vehicle-libre template, screens, seeds, integration and e2e tests) is being implemented. Competency part committed (2d6994c). Review started 2026-11-11: turbo lint/typecheck/test 66/66 after fixing the fees seed spec for dvc-01-registration; boundaries 0 violations (1339 modules); check:slices 11 ok; i18n:check am/en complete. Task verifier gaps being fixed: audit assertions added to vehicle-registration.int.spec (approval holds the plate with its audit row; registration audits vehicle, ownership, plate, assignment, libre, document in one transaction; an undone step leaves none); competency and vehicles READMEs updated. Local S3 'refuses an expired URL' fails only because the Windows clock is 2 s behind NTP (w32tm needs admin); API integration and e2e runs in progress."
         },
         {
           "id": "1.2c",
@@ -3217,6 +3217,41 @@
       "foundIn": "1.2b",
       "item": "Chassis uniqueness for pre-1981 'other' numbers (vehicles_vin_uq on the folded key alone): scope it or add the make",
       "movedTo": "1.4"
+    },
+    {
+      "foundIn": "1.2b",
+      "item": "Reviewer M1 (medium): DVC-01's registration step has separation of duties; where the handling office has no eligible officer, routeStep sends the step up the tree but register refuses act_from_handling_office, so a paid case with a held plate cannot finish. Fix: a workflow assignee option that keeps a step in its unit (and refuse the lead's approval when no registrar exists there), or act for the handling office when the actor's scope covers it; test with a one-officer office",
+      "movedTo": "1.2c"
+    },
+    {
+      "foundIn": "1.2b",
+      "item": "Reviewer M2 (medium): the 'chassis already in another open request' check reads cases through RLS (the filer's subtree), so sibling offices can both take a fee and hold a plate for one chassis; the register's unique index stops the second registration at the last step. Fix: a reviewed SECURITY DEFINER lookup by (region_id, vin_key) or a regional chassis-claims table written at submit; test with sibling offices (needs a migration)",
+      "movedTo": "1.2c"
+    },
+    {
+      "foundIn": "1.2b",
+      "item": "Reviewer L1: the libre counter is created only for units whose type offered DVC-01 at seeding; an office enabled later fails not_configured at the last step. Check the counter at approval, or create counters when a service is enabled for a unit",
+      "movedTo": "1.4"
+    },
+    {
+      "foundIn": "1.2b",
+      "item": "Reviewer L2: indexes for the open-case chassis lookup (cases.facts registration.vinKey) and for plates reserved for a case (partial (region_id, case_id) where status = 'reserved')",
+      "movedTo": "1.2c"
+    },
+    {
+      "foundIn": "1.2b",
+      "item": "Reviewer L3: the plate-stock summary reads each child's capabilities one by one; batch it",
+      "movedTo": "1.16"
+    },
+    {
+      "foundIn": "1.2b",
+      "item": "Reviewer L5: show the officer-confirmed check-digit mismatch (facts.registration.vinCheck = mismatch) as a visible flag at the lead's approval, or move the confirmation to the officer's review step",
+      "movedTo": "1.2c"
+    },
+    {
+      "foundIn": "1.2b",
+      "item": "Local only: Windows clock 2 s behind NTP (w32tm /resync needs admin) fails the S3 'refuses an expired URL', forms-exports 'rights when it runs' and requests-change 'recent' integration specs on this PC; CI unaffected. Owner: run w32tm /resync as administrator",
+      "movedTo": "owner"
     }
   ]
 }

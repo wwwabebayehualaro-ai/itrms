@@ -75,23 +75,34 @@ test.describe('the new vehicle registration service', () => {
         });
         const chassis = generatedVin();
 
-        // the counter
+        // the counter files it; the plates held for cases are the officers' to see, not the counter's
         await records.goto('/competency/vehicle-registrations');
-        await expect(records.locator('[data-reserved-plates]')).toBeVisible();
+        await expect(records.locator('[data-vehicle-registrations]')).toBeVisible();
+        await expect(records.locator('[data-reserved-plates]')).toHaveCount(0);
+        await officer.goto('/competency/vehicle-registrations');
+        await expect(officer.locator('[data-reserved-plates]')).toBeVisible();
         await records.goto('/competency/vehicle-registrations/new');
         const form = records.locator('[data-request-form="DVC-01"]');
+        // the form opens with its one required owner row; wait for it before deciding to add one
+        await expect(form).toBeVisible();
         const row = form.locator('[data-row="0"]');
         if ((await row.count()) === 0) await form.getByRole('button', { name: WORD.addOwner }).click();
+        await expect(form.locator('[data-row]')).toHaveCount(1);
+        // a required field's name ends in its asterisk
+        const named = (label: string) => new RegExp(`^${label}( [*])?$`);
+        const input = (label: string) => form.getByRole('textbox', { name: named(label) });
+        const choose = async (label: string, option: string) => {
+            await form.getByRole('combobox', { name: named(label) }).click();
+            await records.getByRole('option', { name: option, exact: true }).click();
+        };
         await pick(records, row, WORD.owner, owner, new RegExp(owner));
-        await form.getByLabel(WORD.chassis, { exact: true }).fill(chassis);
-        await form.getByLabel(WORD.make, { exact: true }).fill('Toyota');
-        await form.getByLabel(WORD.model, { exact: true }).fill('Vitz');
-        await form.getByLabel(WORD.year, { exact: true }).fill('2018');
-        await form.getByRole('combobox', { name: WORD.category }).click();
-        await records.getByRole('option', { name: WORD.automobile, exact: true }).click();
-        await form.getByRole('combobox', { name: WORD.use, exact: true }).click();
-        await records.getByRole('option', { name: WORD.private, exact: true }).click();
-        await form.getByLabel(WORD.seats, { exact: true }).fill('5');
+        await input(WORD.chassis).fill(chassis);
+        await input(WORD.make).fill('Toyota');
+        await input(WORD.model).fill('Vitz');
+        await input(WORD.year).fill('2018');
+        await choose(WORD.category, WORD.automobile);
+        await choose(WORD.use, WORD.private);
+        await input(WORD.seats).fill('5');
         await filing(records, form);
         const caseId = records.url().split('/').pop() ?? '';
         await act(records, caseId, 'submit', 'submit');
@@ -113,7 +124,7 @@ test.describe('the new vehicle registration service', () => {
         // the officer registers it with the federal id the national system gave
         const federalId = `FV-${randomInt(100000, 999999)}`;
         await act(officer, caseId, 'register', WORD.register, async (dialog) => {
-            await dialog.getByLabel(WORD.federalId, { exact: true }).fill(federalId);
+            await dialog.getByRole('textbox', { name: new RegExp(`^${WORD.federalId}( [*])?$`) }).fill(federalId);
         });
         await inState(officer, caseId, 'registered');
 

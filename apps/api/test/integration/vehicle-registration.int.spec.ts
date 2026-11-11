@@ -187,6 +187,20 @@ const place = (caseId: string) => {
 };
 const inTx = <T>(p: ReturnType<typeof place>, work: (tx: Tx) => Promise<T>) => app.scoped(p.ctx, work);
 
+/** The audit rows one request wrote, by table and action. */
+async function auditOf(requestId: string): Promise<Record<string, number>> {
+    const { rows } = await api.owner.query<{ line: string; n: number }>(
+        `SELECT table_name || ':' || action AS line, count(*)::int AS n FROM kernel.audit_log
+          WHERE request_id = $1 GROUP BY 1`,
+        [requestId]
+    );
+    return Object.fromEntries(rows.map((r) => [r.line, r.n]));
+}
+const requestIdOf = (res: { headers: Record<string, unknown> }): string => {
+    const id = res.headers['x-request-id'];
+    return typeof id === 'string' ? id : '';
+};
+
 async function count(sql: string, params: unknown[] = []): Promise<number> {
     return (await api.owner.query<{ n: number }>(sql, params)).rows[0]?.n ?? 0;
 }
@@ -300,8 +314,12 @@ describe('a new vehicle registration', () => {
         // the people who filed and checked it may not approve it
         expect((await step(c, as.officer, { action: 'approve' })).statusCode).toBe(403);
         const before = await freeAtBoditi();
-        c = await moved(c, as.lead, 'approve');
+        const approval = await step(c, as.lead, { action: 'approve' });
+        expect(approval.statusCode, approval.body).toBe(200);
+        c = approval.json<CaseOut>();
         expect(c.state).toBe('registration');
+        // the plate is held in the approval's own transaction, with its audit row
+        expect(await auditOf(requestIdOf(approval))).toMatchObject({ 'vehicles.plates:update': 1 });
 
         // a plate is held for the case from now on, and no vehicle exists yet
         const held = await platesOf(c.id);
@@ -315,8 +333,19 @@ describe('a new vehicle registration', () => {
         ).toBe(403);
 
         const id = federalId();
-        c = await moved(c, as.officer, 'register', { answers: { federalVehicleId: id } });
+        const registering = await step(c, as.officer, { action: 'register', answers: { federalVehicleId: id } });
+        expect(registering.statusCode, registering.body).toBe(200);
+        c = registering.json<CaseOut>();
         expect(c.state).toBe('registered');
+        // every record the step made is audited in the step's own transaction
+        expect(await auditOf(requestIdOf(registering))).toMatchObject({
+            'vehicles.vehicles:insert': 1,
+            'vehicles.vehicle_ownerships:insert': 1,
+            'vehicles.plate_assignments:insert': 1,
+            'vehicles.plates:update': 1,
+            'vehicles.libres:insert': 1,
+            'documents.issued_documents:insert': 1
+        });
 
         const [vehicle] = await vehiclesOf(String(answers.chassisNumber));
         expect(vehicle).toMatchObject({ status: 'active', federal_vehicle_id: id, federal_id_source: 'manual' });
@@ -439,6 +468,10 @@ describe('a new vehicle registration', () => {
         const refused = await step(second, as.officer, { action: 'register', answers: { federalVehicleId: id } });
         expect(refused.statusCode, refused.body).toBe(409);
         expect(refused.json<{ code: string }>().code).toBe('duplicate_reference');
+        // the undone step leaves no audit row of the register behind
+        expect(Object.keys(await auditOf(requestIdOf(refused))).filter((line) => line.startsWith('vehicles.'))).toEqual(
+            []
+        );
         const now = await caseOf(second.id);
         expect(now.state).toBe('registration');
         expect(await platesOf(second.id)).toEqual([expect.objectContaining({ status: 'reserved', vehicle_id: null })]);

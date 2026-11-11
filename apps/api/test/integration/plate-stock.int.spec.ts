@@ -514,7 +514,7 @@ describe('a plate reserved for a case (task 1.2b)', () => {
             units.ser,
             (ctx) => (tx) =>
                 stock.receive(tx, ctx, {
-                    reference: 'MOTL-DN-0200',
+                    reference: 'MOTL-DN-0300',
                     receivedOn: '2026-10-08',
                     plates: range('RSV', 1, 4)
                 })
@@ -554,22 +554,27 @@ describe('a plate reserved for a case (task 1.2b)', () => {
             (ctx) => (tx) => stock.list(tx, ctx, { holderUnitId: units.boditi.id, status: 'in_stock', limit: 100 })
         );
         const cases = free.items.map(() => randomUUID());
-        for (const c of cases) await reserve(c);
-        expect(await refusal(reserve(randomUUID()))).toMatch(/invalid_transition.*no_free_plate/);
-        // Damot Gale is outside Boditi's subtree; Boditi is not within Damot Gale's, and the zone's own stock is not Boditi's to reserve
+        try {
+            for (const c of cases) await reserve(c);
+            expect(await refusal(reserve(randomUUID()))).toMatch(/invalid_transition.*no_free_plate/);
+        } finally {
+            for (const c of cases) await release(c);
+        }
+        // Boditi is outside Damot Gale's subtree, so Damot Gale does not even see it; the zone above is not within Boditi's
+        // scope, so its stock is not Boditi's to reserve
         await expect(
             run(
                 units.damot,
                 (ctx) => (tx) => stock.reserve(tx, ctx, { holderUnitId: units.boditi.id, caseId: randomUUID(), on })
             )
-        ).rejects.toMatchObject({ status: 403 });
+        ).rejects.toMatchObject({ status: 404 });
         await expect(
             run(
                 units.boditi,
                 (ctx) => (tx) => stock.reserve(tx, ctx, { holderUnitId: units.zone.id, caseId: randomUUID(), on })
             )
         ).rejects.toMatchObject({ status: 403 });
-        for (const c of cases) await release(c);
+        await expectReconciled(units.zone, units.boditi);
     });
 
     it('releases the plate of a case to the free stock, and answers 0 when it has none', async () => {

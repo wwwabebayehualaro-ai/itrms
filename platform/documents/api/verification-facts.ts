@@ -29,13 +29,22 @@ export function factsOf(schema: DocumentDataSchema, data: Record<string, unknown
     }
 }
 
-/** "Abebe Kebede" is "A**** K*****": enough to tell a wrong document, not enough to learn a name. */
+/**
+ * "Abebe Kebede" is "A**** K*****": enough to tell a wrong document, not enough to learn a name. Several holders (a libre's
+ * owners, joined with commas) are masked one by one and stay apart.
+ */
 export const maskedName = (name: string): string =>
     name
-        .trim()
-        .split(/\s+/)
-        .map((word) => {
-            const letters = [...word];
-            return `${letters[0] ?? ''}${'*'.repeat(Math.max(letters.length - 1, 1))}`;
-        })
-        .join(' ');
+        .split(',')
+        .map((one) => one.trim())
+        .filter((one) => one !== '')
+        .map((one) =>
+            one
+                .split(/\s+/)
+                .map((word) => {
+                    const letters = [...word];
+                    return `${letters[0] ?? ''}${'*'.repeat(Math.max(letters.length - 1, 1))}`;
+                })
+                .join(' ')
+        )
+        .join(', ');
