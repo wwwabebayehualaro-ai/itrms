@@ -1,6 +1,7 @@
 # ADR-0049: The libre is an ITRMS document, numbered by the office, until the national system issues it
 
-* Status: accepted (2026-11-11), a stated assumption to confirm with a bureau. Task 1.2b.
+* Status: **superseded by [ADR-0050](0050-libre-federal-booklet.md)** (2026-11-11): the reference zone says the federal
+  ministry prints the libre booklets. Was: accepted (2026-11-11), a stated assumption to confirm with a bureau. Task 1.2b.
 
 ## Context
 

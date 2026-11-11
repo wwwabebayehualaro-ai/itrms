@@ -103,7 +103,7 @@ set of forms. Each row says what it is, where it lives, and when it comes. Phase
 | Upgrades per installation | a signed bundle (images + migrations + notes), a pre-upgrade backup and checks, one command to upgrade, rollback guidance | 1 |
 | Fleet overview | opt-in heartbeat from each installation (version, health, backup age, no personal data) to the vendor's support dashboard | 2 |
 | Observability | OpenTelemetry, Grafana stack, GlitchTip (ADR-0023); a system status page for admins | 0–1 |
-| Backup and DR | nightly off-site in Ethiopia, monthly restore drill (ADR-0012); documented RPO 24 h / RTO 8 h (to agree per contract) | 0–1 |
+| Backup and DR | point-in-time recovery to a second site in Ethiopia, monthly restore drill (ADR-0012); RPO ≤ 15 min / RTO ≤ 8 h with a cold spare, or ≤ 1 h with the optional warm standby ([continuity.md](../operations/continuity.md)); to agree per contract | 0–1 |
 | Licensing | a signed licence file per installation: products, validity (ADR-0027) | 1 |
 | Performance budgets | p95 < 300 ms for reads and < 800 ms for commands at regional load; ≤ 250 KB JS per screen; checked in CI and nightly k6 | 0 |
 

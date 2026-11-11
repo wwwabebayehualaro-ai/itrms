@@ -21,7 +21,8 @@ interface is known. ITRMS runs the zone's work around a licence and must never h
 3. **Only what the platform needs goes out:** name, birth year, sex, office and grades. No Fayda number and no full birth date until
    an agreement with the ministry says otherwise.
 4. **A licence's number** is the platform's when it issues one, and otherwise comes from the office's gapless counter when the licence
-   activates, so a refusal leaves no gap.
+   activates, so a refusal leaves no gap. *Amended by [ADR-0051](0051-regional-licence-numbers.md) (2026-11-11): the counter is regional by
+   default, with the region code as prefix ("06-00001"); per-office numbering stays available as a region setting.*
 5. **The grades are configuration**: `licence_grade_types`, seeded from Art. 12. The rules are pure functions in `contracts`, so a
    screen can warn with the same rule the server decides by. `licence_grades` is what a licence carries.
 6. **The full birth date is read for a rule, not shown.** `PersonsService.birthDateForRule` decrypts it for an age rule and records

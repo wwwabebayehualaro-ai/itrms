@@ -70,13 +70,13 @@ Module `competency`.
 
 | Code | Service: source text [D] | English | Level | Delivery | Phase | National dependency [N] |
 |---|---|---|---|---|---|---|
-| DVC-01 | የተሸከርካሪ ምዝገባ ማከናወንና ሰሌዳ መስጠት | Register vehicles and issue plates | zone | C+E | 1 | National vehicle registry (Directive 1050/2025) |
-| DVC-02 | የተሸከርካሪ ቴክኒክ ምርመራ ማድረግና ቦ/ሎ መስጠት | Technical inspection of vehicles and issue of the bolo | zone | C+E | 1 | Insurance proof; garages |
+| DVC-01 | የተሸከርካሪ ምዝገባ ማከናወንና ሰሌዳ መስጠት | Register vehicles and issue plates | zone | C+E | 1 | National vehicle registry (Directive 1050/2025); plates and libre booklets from MoTL stock (ADR-0050) |
+| DVC-02 | የተሸከርካሪ ቴክኒክ ምርመራ ማድረግና ቦ/ሎ መስጠት | Technical inspection of vehicles and issue of the bolo | zone | C+E | 1 | Insurance proof, Road Fund receipt (codes 1 and 3), licence, inspection receipt; garages; sticker serials from stationery |
 | DVC-03 | አዲስ የአሽከርካሪ ብቃት ማረጋገጫ ፈቃድ ማዘጋጀትና ማሰራጨት | Prepare and distribute new driver qualification licences | zone, or a town unit with a competency team (e.g. Boditi) [D: Form 15]; not woredas | C+E | **0 (demo)** | National driver platform; Proc. 1074/2018 |
 | DVC-04 | ነባር የአሽከርካሪ ብቃት ማረጋገጫ ፈቃድ ማድስ | Renew existing driver licences | zone, or a town unit with a competency team [D] | C+E | **0 (demo)** | as above |
-| DVC-05 | ዞኑን ለቀዉ ለሚሄዱ ተሸከርካሪዎች የማዛወር አገ/ት መስጠት | Transfer service for vehicles leaving the zone | zone | C+E | 1 | National vehicle registry |
+| DVC-05 | ዞኑን ለቀዉ ለሚሄዱ ተሸከርካሪዎች የማዛወር አገ/ት መስጠት | Transfer service for vehicles leaving the zone | zone | C+E | 1 | National vehicle registry; encumbrances block it |
 | DVC-06 | ለጠፋ ሊበሬ ቦሎና ሰሌዳ ምትክ መስጠት | Replacement for a lost libre, bolo or plate | zone | C+E | 1 | National vehicle registry |
-| DVC-07 | ማስልጠኛ ተቋማት በየጊዘዉ ስልጠና አሰጣጥና ክትትል ማድረግ | Periodic follow-up of how training institutes deliver training | zone | C+E | 1 | — |
+| DVC-07 | ማስልጠኛ ተቋማት በየጊዘዉ ስልጠና አሰጣጥና ክትትል ማድረግ | Periodic follow-up of how training institutes deliver training | zone | C+E | 1 | Institutions licensed by the regional bureau; visits twice a year |
 | DVC-08 | ወደ ውጭ ሀገር ለሚወጡ አሽ/ች መንጃ ፈቃዳቸውን ኢንተር ናሽናል ማደርግ | Make the licence international for drivers going abroad | zone intake; issued by the federal Authority (Art. 5(11) [N]) | C+E | 1 | National driver platform |
 | DVC-09 | ከአገ/ት ተቀባዮች የገልግሎት ክፍያ መሰብሰብ | Collect service fees from service recipients | zone (who holds the till: open question) | platform `fees` | 0 | MoF Directive 1069/2025; revenue offices |
 | DVC-10 | የዕጩ አሽከርካሪዎች ስልጠና አጠናቀው በማሰልጠኛ ተቋም በኩል ተረጋግጦ ሲቀር የንድፈ ሀሳብ (የኮምፒውተር) እና የሜዳ ፈተና ማከናወን | Hold the theory (**computer**) and field exams for candidates **once the training institute has confirmed they completed training** | zone | M | 0 (step of DVC-03) / 1 | National driver platform |

@@ -423,7 +423,7 @@ Definition (Zod schema `workflowDefinitionSchema` in `packages/schemas`; stored 
 - Corrections are reversals with a reason and a second person's approval (a role the region names, never the requester
   nor the cashier who took the money), never edits: the receipt keeps its number.
 - **Daily cashier closing:** expected vs. counted cash, unmatched external references, and **controlled stationery**
-  (receipt pads, licence blanks, bolo stickers) reconciled by serial range. Remittance report to the revenue office
+  (libre booklets from MoTL (ADR-0050), receipt pads, licence blanks, bolo stickers) reconciled by serial range. Remittance report to the revenue office
   (Phase 1).
 - Online payments (any NBE-licensed provider, MoF Directive 1069/2025; Phase 3) go through one `PaymentProvider` adapter
   interface with webhooks, signature checks, idempotent settlement and a daily reconciliation job.

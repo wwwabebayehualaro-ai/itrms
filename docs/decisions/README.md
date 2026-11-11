@@ -51,8 +51,13 @@ one, write a new ADR that supersedes it. Format: context, decision, consequences
 | [0044](0044-documents.md) | Issuing documents: frozen when issued, a reprint is the stored PDF, rendering in its own process and queue, three walls around a page |
 | [0045](0045-document-verification.md) | Verifying a document: one QR with a token for status and an Ed25519 signature for offline, keys per region rotated yearly, a checker's minimum on a rate-limited public path |
 | [0046](0046-verifier-pwa.md) | The verifier PWA: offline proof with keys published by the API, Ed25519 and QR reading in pure JavaScript |
-| [0047](0047-driver-licences.md) | Driver licences: the register, the national platform as the record, and what the rules assume |
+| [0047](0047-driver-licences.md) | Driver licences: the register, the national platform as the record, and what the rules assume (§4 amended by 0051) |
 | [0048](0048-signed-request-context.md) | The request context is signed by the API and verified by the database; RLS and the definer functions read only verified values (supersedes the plain `app.*` settings of 0011, 0018, 0031) | accepted (2026-11-08) |
-| [0049](0049-libre-as-itrms-document.md) | The libre is an ITRMS document with a QR, numbered by the office's counter (`{unit}/LB/{seq:06}`) until the national system issues it | accepted (2026-11-11) |
+| [0049](0049-libre-as-itrms-document.md) | The libre is an ITRMS document with a QR, numbered by the office's counter (`{unit}/LB/{seq:06}`) until the national system issues it | superseded by 0050 (2026-11-11) |
+| [0050](0050-libre-federal-booklet.md) | The libre is the federal booklet: ITRMS issues it from controlled stationery, records its serial, and issues its own QR registration certificate (supersedes 0049) | accepted (2026-11-11) |
+| [0051](0051-regional-licence-numbers.md) | Licence numbers are regional ("06-00001"): a region-code prefix, one regional sequence in a reserved range; per office by setting (amends 0047 §4) | accepted (2026-11-11) |
+| [0052](0052-health-facts-on-the-licence.md) | Blood group and health facts on the licence: optional, sensitive (encrypted, audited reveal), printed only by region setting | accepted (2026-11-11) |
+| [0053](0053-partner-access-before-integration.md) | Stakeholders get scheduled exports and limited partner accounts first; system adapters when a counterpart exists; every exchange under an agreement | accepted (2026-11-11) |
+| [0054](0054-paper-migration-capture-on-touch.md) | Paper records migrate by capture on touch (second-person verified), campaigns and a backlog factory with sampling QA | accepted (2026-11-11) |
 
 All tool choices and the answers to the technical open questions: [`../tech-stack.md`](../tech-stack.md).

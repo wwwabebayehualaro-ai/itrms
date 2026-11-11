@@ -1477,8 +1477,48 @@
           "notes": "Design (architect, 2026-11-11): DVC-01 is a competency service (request form vehicle-registration, step form vehicle-national-entry, workflow draft→review→payment→approval→registration→registered, fee rule dvc-01-registration demo amounts); effects in competency call VehicleRegistry and PlateStock. Defaults: plate reserved at the lead's approval from the case's handling unit stock, assigned at registration, released on reject; the libre is an ITRMS document with a QR numbered from counter vehicles.libre ({unit}/LB/{seq:06}) until the national system numbers it (ADR-0049); federal vehicle id keyed in at registration (source manual); a binding check-digit failure accepted only when the officer confirms it and the lead approves (vin_check mismatch); roles reused (records_officer, competency.officer, cashier, competency.lead). No migration. ADR-0049 written (the libre is an ITRMS document with a QR, numbered by the office's counter {unit}/LB/{seq:06} until the national system issues it). The vehicles part (reserve/release, libre counter and issueLibre, checkRegistration, acceptVinMismatch, holdsPlateStock in the summary, allocate screen filter) is being implemented; the competency part (DVC-01 forms, workflow, fee rule, effects, libre template, screens, seeds, tests) follows. Vehicles part committed (fc99afc): PlateStock.reserve/release, VehicleRegistry.checkRegistration/issueLibre, libre counters, acceptVinMismatch, holdsPlateStock in the summary and the allocate screen (follow-ups 218, 219). The competency part (DVC-01 forms, workflow, fee rule, effects, vehicle-libre template, screens, seeds, integration and e2e tests) is being implemented. Competency part committed (2d6994c). Review started 2026-11-11: turbo lint/typecheck/test 66/66 after fixing the fees seed spec for dvc-01-registration; boundaries 0 violations (1339 modules); check:slices 11 ok; i18n:check am/en complete. Task verifier gaps being fixed: audit assertions added to vehicle-registration.int.spec (approval holds the plate with its audit row; registration audits vehicle, ownership, plate, assignment, libre, document in one transaction; an undone step leaves none); competency and vehicles READMEs updated. Local S3 'refuses an expired URL' fails only because the Windows clock is 2 s behind NTP (w32tm needs admin); API integration and e2e runs in progress. Review fixes committed (e9ff0ba) and pushed to PR #59; CI run 43037424336 in progress. Locally: API integration specs changed (plate-stock, iam, fees, vehicle-registration, documents) 88/88; e2e vehicle-registration journey 1 passed (2.2m), plate-stock and vehicles journeys 2 passed. Reviewer: no critical or high; M1, M2, L1-L3, L5 recorded as follow-ups; L4 (owners masked one by one) fixed."
         },
         {
+          "id": "1.12a",
+          "title": "Controlled stationery",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.2d",
+          "title": "Registration and plates, part 4: the federal libre booklet (ADR-0050)",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Added 2026-11-11 after the zone's written answers (the ministry prints the libre). Depends on 1.12a (controlled stationery). Also: the DVC-01 form adds the import documents and, for a business owner, the trade licence and TIN."
+        },
+        {
+          "id": "1.13",
+          "title": "Paper-record migration tooling",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
           "id": "1.2c",
           "title": "Registration and plates, part 3: plate exchange",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.13a",
+          "title": "Form platform, part 3",
           "status": "planned",
           "branch": null,
           "commits": [],
@@ -1509,6 +1549,16 @@
         {
           "id": "1.5",
           "title": "Replacements",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.12",
+          "title": "Cashier operations",
           "status": "planned",
           "branch": null,
           "commits": [],
@@ -1577,26 +1627,6 @@
           "notes": ""
         },
         {
-          "id": "1.12",
-          "title": "Cashier operations",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
-          "blockers": [],
-          "notes": ""
-        },
-        {
-          "id": "1.12a",
-          "title": "Controlled stationery",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
-          "blockers": [],
-          "notes": ""
-        },
-        {
           "id": "1.12b",
           "title": "Appeals and correspondence",
           "status": "planned",
@@ -1609,26 +1639,6 @@
         {
           "id": "1.12c",
           "title": "Training installation",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
-          "blockers": [],
-          "notes": ""
-        },
-        {
-          "id": "1.13",
-          "title": "Paper-record migration tooling",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
-          "blockers": [],
-          "notes": ""
-        },
-        {
-          "id": "1.13a",
-          "title": "Form platform, part 3",
           "status": "planned",
           "branch": null,
           "commits": [],
@@ -3269,22 +3279,26 @@
     {
       "foundIn": "1.2b",
       "item": "Discovery 2026-11-11 D1: the zone says the federal ministry prints the libre; ADR-0049's default is an ITRMS-numbered libre. Decide: record the federal booklet serial (the ADR's fallback; new ADR) or keep the ITRMS libre until a bureau confirms",
-      "movedTo": "owner"
+      "movedTo": "owner",
+      "closedIn": "ADR-0050: record the federal booklet; task 1.2d"
     },
     {
       "foundIn": "1.2b",
       "item": "Discovery 2026-11-11 D2: licence numbers read '06-00001' (region code + one sequence); ADR-0047's counter is per office. Decide the pattern",
-      "movedTo": "owner"
+      "movedTo": "owner",
+      "closedIn": "ADR-0051: regional numbers, reserved range; task 1.6"
     },
     {
       "foundIn": "1.2b",
       "item": "Discovery 2026-11-11 D3: blood group appears on the licence card; keep as sensitive health data (encrypted, audited reveal) or leave out",
-      "movedTo": "owner"
+      "movedTo": "owner",
+      "closedIn": "ADR-0052: optional, sensitive, printed by setting; tasks 1.6, 1.17"
     },
     {
       "foundIn": "1.2b",
       "item": "Discovery 2026-11-11: DVC-01 request form to add the import documents (Bill of Lading, commercial invoice, packing list) and, for businesses, trade licence and TIN",
-      "movedTo": "1.2c"
+      "movedTo": "1.2c",
+      "closedIn": "moved into task 1.2d (phase-1.md)"
     },
     {
       "foundIn": "1.2b",

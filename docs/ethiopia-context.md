@@ -37,6 +37,17 @@ they are relied on.
   - The plate-exchange campaign (old regional plate → national plate) is a likely **early, high-volume service** for zones.
   - **Question for the bureau:** what may regions do in the national system themselves, and what does the ministry expect
     them to use?
+- **Confirmed by the reference zone** ([discovery 2026-11-11](discovery/2026-11-11-wolaita-written-answers.md)):
+  - **The ministry supplies plates and prints the libre booklets.** The zone issues them from stock, and ITRMS records the
+    booklet serial (ADR-0050).
+  - **The old regional plate codes** are: 1 public transport, 2 private, 3 commercial, 4 government, 5 international NGO,
+    35 local NGO, police, defence (35 and defence to confirm), and special (machinery).
+  - **Bolo prerequisites depend on the plate code:**
+    - codes 1 and 3: the Road Fund payment, third-party insurance, the driver's licence and the inspection receipt;
+    - other codes: insurance, licence and inspection.
+  - **Transfers** need a sale contract authenticated by DARA and a revenue clearance. Vehicles can carry encumbrances
+    (bank loan, court order, revenue or customs); ITRMS will let an open encumbrance block a transfer (task 1.4).
+  - **All vehicle files are on paper:** roughly 170,000–250,000 in the zone (ADR-0054).
 
 ## 3. Driver licensing and traffic penalties are being centralised ⚠️
 

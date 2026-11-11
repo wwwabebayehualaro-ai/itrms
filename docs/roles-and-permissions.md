@@ -52,9 +52,11 @@ The service list names bodies outside the office that *submit* work into a proce
 |---|---|---|---|
 | `org.training_school` | a training institute's account | its own organisation only: submit readiness lists, see its trainees' exam results | 1 (optional; in Phase 0 zone staff enter the lists) |
 | `org.association_rep` | an association's scheduling-committee representative | its own association only: submit monthly schedules and renewals, see their status | 1 (optional) |
+| `org.inspection_centre` | an inspection centre's or garage's account | its own organisation only: record inspection results and repairs for vehicles sent to it | 1 (with 1.3) |
+| `org.insurer` | an insurer's account | its own policies only: confirm a policy, see accident records it is party to | 2 (with 2.11) |
 
 These are **organisation-scoped** (RLS class P), not unit-scoped, and use a separate Keycloak client. They never see other organisations' data or any case they are not party to.
-Whether to offer them is an open question (§5).
+Decided by ADR-0053 (2026-11-11): offered institution by institution, each under a data-sharing agreement.
 
 A person may hold several roles (e.g. a small woreda office where one person is both records officer and cashier).
 Separation of duties is enforced **per case step**, not by forbidding role combinations (§3).

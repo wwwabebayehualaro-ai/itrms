@@ -124,7 +124,7 @@
 
 - **All are on paper.**
 - Design impact:
-  - Roughly **170,000–250,000 paper vehicle files**, about two-thirds of them motorcycles and bajajs. That is the size of
+  - Roughly **170,000–250,000 paper vehicle files**, about seven in eight of them motorcycles and bajajs. That is the size of
     the back-capture work (task 1.13) and of the plate-exchange campaign (task 1.2c).
   - The NFR sizing and the perf test (10^6 rows) cover it.
 
@@ -347,7 +347,7 @@ accounts of their own.
 
 **Design impact for Q19:**
 - Confirms the plan: integrations are fakes first, and the first exchanges are reports and exports.
-- External partner accounts are a later phase.
+- External partner accounts follow the exports, institution by institution, as their services are built (ADR-0053).
 
 ## Unprompted · Community participation (L)
 

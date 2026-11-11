@@ -49,8 +49,10 @@ Amharic (default), English and Wolaytta (`wal-Latn`). See [`docs/tenant-wolaita.
 [`docs/i18n-and-languages.md`](docs/i18n-and-languages.md) and [`docs/demo-plan.md`](docs/demo-plan.md). **Source order:**
 `Documents/` first, then the national context, then a stated assumption that is asked about ([`docs/README.md`](docs/README.md)).
 
-**Current state (2026-11-08):** Phase 0 is 66/67 done (`node tools/progress/cli.mjs summary`); 0.26d waits for the demo
-server. The legacy Digital File Cabinet code (`Backend/` FastAPI, `contracts/`, `features/`) was removed on 2026-11-08; it
+**Current state (2026-11-11):** Phase 0 is 66/67 done (`node tools/progress/cli.mjs summary`); 0.26d waits for the demo
+server. Phase 1: 1.1a–1.2b done; the zone's first written answers ([discovery](docs/discovery/2026-11-11-wolaita-written-answers.md))
+re-ordered it **vehicles first** (1.12a stationery → 1.2d federal libre booklet → 1.13 migration → 1.2c …; ADR-0050–0054,
+[implementation strategy](docs/strategy/implementation-strategy.md)). The legacy Digital File Cabinet code (`Backend/` FastAPI, `contracts/`, `features/`) was removed on 2026-11-08; it
 is in history from the baseline import (0d8dbcd), and its old guidance is in `docs/legacy/CLAUDE.digital-file-cabinet.md`.
 
 ## Glossary (Amharic ↔ English)
