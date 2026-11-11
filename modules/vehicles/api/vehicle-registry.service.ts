@@ -13,10 +13,12 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { insertAudited, newId, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { ConflictError, ForbiddenError, NotFoundError } from '@itrms/kernel/errors';
+import { nextNumber } from '@itrms/kernel/numbering';
 import { OrganisationsService, PersonsService } from '@itrms/parties/api';
 import type { z } from 'zod';
 
 import {
+    LIBRE_COUNTER,
     parsePlate,
     parseVin,
     vehicleSearchKey,
@@ -25,7 +27,9 @@ import {
     plateRecordSchema,
     statusChangeSchema,
     vehicleRegisterSchema,
-    type PlateRecord
+    type ChassisKind,
+    type PlateRecord,
+    type VinCheck
 } from '../contracts';
 import { checked, fieldError, guardUnique, notFuture, required, unitRefs, withinScope } from './support';
 import {
@@ -59,11 +63,18 @@ export class VehicleRegistry {
         @Inject(PlateStock) private readonly stock: PlateStock
     ) {}
 
-    /** Registers a vehicle, handled by the acting unit, with its first ownership period and holders. */
-    async register(tx: Tx, ctx: DbContext, given: z.input<typeof vehicleRegisterSchema>): Promise<VehicleRow> {
+    /**
+     * What registering `given` would check, without writing: the category, the fit of seats, load and axles, the chassis number
+     * (and that it is not already on the register in the region), the dates and the owners. A case's form calls it before the
+     * officer submits; `register` calls it again.
+     */
+    async checkRegistration(
+        tx: Tx,
+        ctx: DbContext,
+        given: z.input<typeof vehicleRegisterSchema>
+    ): Promise<{ vinKey: string; chassisNumber: string; vinCheck: VinCheck; chassisKind: ChassisKind }> {
         const input = checked(vehicleRegisterSchema, given);
         const regionId = required(ctx.regionId);
-        const unitId = required(ctx.unitId);
         const [category] = await tx
             .select()
             .from(vehicleCategories)
@@ -80,7 +91,11 @@ export class VehicleRegistry {
         if (category.family === 'freight' && input.axles === undefined)
             throw fieldError('axles', 'required', 'a freight vehicle has axles');
 
-        const vin = parseVin(input.chassisNumber, { chassisKind: input.chassisKind, modelYear: input.modelYear });
+        const vin = parseVin(input.chassisNumber, {
+            chassisKind: input.chassisKind,
+            modelYear: input.modelYear,
+            acceptMismatch: input.acceptVinMismatch
+        });
         if (!vin.ok) throw fieldError('chassisNumber', vin.code, vin.problem);
         notFuture('firstRegisteredOn', input.firstRegisteredOn);
         const since = input.since ?? input.firstRegisteredOn;
@@ -88,6 +103,32 @@ export class VehicleRegistry {
         if (since < input.firstRegisteredOn)
             throw fieldError('since', 'before_registration', 'is before the first registration');
         await this.checkOwners(tx, input.owners, 'owners');
+        const [onRegister] = await tx
+            .select({ id: vehicles.id })
+            .from(vehicles)
+            .where(and(eq(vehicles.regionId, regionId), eq(vehicles.vinKey, vin.vinKey)));
+        if (onRegister)
+            throw new ConflictError('duplicate_reference', { detailKey: 'vehicles.errors.duplicate_chassis' });
+        return {
+            vinKey: vin.vinKey,
+            chassisNumber: vin.chassisNumber,
+            vinCheck: vin.vinCheck,
+            chassisKind: vin.chassisKind
+        };
+    }
+
+    /** Registers a vehicle, handled by the acting unit, with its first ownership period and holders. */
+    async register(tx: Tx, ctx: DbContext, given: z.input<typeof vehicleRegisterSchema>): Promise<VehicleRow> {
+        const input = checked(vehicleRegisterSchema, given);
+        const regionId = required(ctx.regionId);
+        const unitId = required(ctx.unitId);
+        const { vinKey, chassisNumber, vinCheck, chassisKind } = await this.checkRegistration(tx, ctx, given);
+        const [category] = await tx
+            .select()
+            .from(vehicleCategories)
+            .where(and(eq(vehicleCategories.regionId, regionId), eq(vehicleCategories.key, input.categoryKey)));
+        if (!category) throw new NotFoundError();
+        const since = input.since ?? input.firstRegisteredOn;
 
         const id = newId();
         await guardUnique(async () => {
@@ -97,10 +138,10 @@ export class VehicleRegistry {
                 handlingUnitId: unitId,
                 federalVehicleId: input.federalVehicleId ?? null,
                 federalIdSource: input.federalIdSource ?? null,
-                chassisNumber: vin.chassisNumber,
-                chassisKind: vin.chassisKind,
-                vinKey: vin.vinKey,
-                vinCheck: vin.vinCheck,
+                chassisNumber,
+                chassisKind,
+                vinKey,
+                vinCheck,
                 engineNumber: input.engineNumber ?? null,
                 engineKey: input.engineNumber ? vehicleSearchKey(input.engineNumber) : null,
                 make: input.make,
@@ -311,6 +352,32 @@ export class VehicleRegistry {
             DUPLICATES
         );
         await updateAudited(tx, vehicles, vehicleId, vehicle.rowVersion, {});
+    }
+
+    /**
+     * The libre of a case for the vehicle's current owners, numbered from the handling office's counter. Asked again for the
+     * same case it returns the libre it issued, so a retried effect issues one libre and takes one number.
+     */
+    async issueLibre(
+        tx: Tx,
+        ctx: DbContext,
+        vehicleId: string,
+        given: { issuedOn: string; caseId: string }
+    ): Promise<typeof libres.$inferSelect> {
+        const [issued] = await tx
+            .select()
+            .from(libres)
+            .where(and(eq(libres.vehicleId, vehicleId), eq(libres.caseId, given.caseId)));
+        if (issued) return issued;
+        const vehicle = await this.lock(tx, ctx, vehicleId);
+        const { number } = await nextNumber(tx, LIBRE_COUNTER, vehicle.handlingUnitId);
+        await this.recordLibre(tx, ctx, vehicleId, { issuedOn: given.issuedOn, number, caseId: given.caseId });
+        const [libre] = await tx
+            .select()
+            .from(libres)
+            .where(and(eq(libres.vehicleId, vehicleId), eq(libres.caseId, given.caseId)));
+        if (!libre) throw new NotFoundError();
+        return libre;
     }
 
     /**

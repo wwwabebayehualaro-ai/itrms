@@ -53,5 +53,6 @@ one, write a new ADR that supersedes it. Format: context, decision, consequences
 | [0046](0046-verifier-pwa.md) | The verifier PWA: offline proof with keys published by the API, Ed25519 and QR reading in pure JavaScript |
 | [0047](0047-driver-licences.md) | Driver licences: the register, the national platform as the record, and what the rules assume |
 | [0048](0048-signed-request-context.md) | The request context is signed by the API and verified by the database; RLS and the definer functions read only verified values (supersedes the plain `app.*` settings of 0011, 0018, 0031) | accepted (2026-11-08) |
+| [0049](0049-libre-as-itrms-document.md) | The libre is an ITRMS document with a QR, numbered by the office's counter (`{unit}/LB/{seq:06}`) until the national system issues it | accepted (2026-11-11) |
 
 All tool choices and the answers to the technical open questions: [`../tech-stack.md`](../tech-stack.md).

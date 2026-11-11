@@ -2,5 +2,7 @@
 // register's service.
 export { CompetencyModule } from './competency.module';
 export { LICENCE_EFFECTS } from './licence.effects';
+export { REGISTRATION_EFFECTS } from './registration.effects';
 export { LicencesService } from './licences.service';
+export { VehicleRegistrationService, type RegistrationInput } from './registration.service';
 export * from './competency.table';

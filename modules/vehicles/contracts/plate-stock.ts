@@ -178,6 +178,8 @@ export const plateListQuerySchema = z.strictObject({
     q: z.string().trim().min(3).max(40).optional(),
     status: z.enum(PLATE_STATUSES).optional(),
     holderUnitId: z.uuid().optional(),
+    /** the plates reserved for one case */
+    caseId: z.uuid().optional(),
     series: z.string().trim().length(3).optional(),
     after: z.string().max(20).optional(),
     limit: z.coerce.number().int().min(1).max(100).default(50)
@@ -256,6 +258,8 @@ const counts = {
 /** A unit's plate counts, and whether its ledger agrees with what it holds. */
 export const stockSummaryRowSchema = z.object({
     unit: unitRef,
+    /** the unit's type holds plate stock (the capability), so plates can be allocated to it */
+    holdsPlateStock: z.boolean(),
     ...counts,
     ledger: z.object({ received: z.number().int(), allocatedDown: z.number().int() }),
     reconciled: z.boolean()

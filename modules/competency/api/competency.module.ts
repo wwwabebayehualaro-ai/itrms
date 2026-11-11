@@ -2,18 +2,32 @@ import { Inject, Module, type OnModuleInit } from '@nestjs/common';
 import { DocumentsModule } from '@itrms/documents/api';
 import { FormsModule, RegistryLookups } from '@itrms/forms/api';
 import { PartiesModule } from '@itrms/parties/api';
+import { VehiclesModule } from '@itrms/vehicles/api';
 
 import { CompetencyController } from './competency.controller';
 import { LICENCE_EFFECTS } from './licence.effects';
 import { LicencesService } from './licences.service';
 import { LicenceLookup, TrainingSchoolLookup } from './lookups';
 import { RegisterService } from './register.service';
+import { REGISTRATION_EFFECTS } from './registration.effects';
+import { VehicleRegistrationService } from './registration.service';
 
-/** Driver licences (task 0.24a): the register, its rules and the effects a licence service's workflow names. */
+/**
+ * Driver licences (task 0.24a): the register, its rules and the effects a licence service's workflow names; and the new vehicle
+ * registration service's effects over the vehicle register (task 1.2b).
+ */
 @Module({
-    imports: [FormsModule, PartiesModule, DocumentsModule],
+    imports: [FormsModule, PartiesModule, DocumentsModule, VehiclesModule],
     controllers: [CompetencyController],
-    providers: [LicencesService, RegisterService, LicenceLookup, TrainingSchoolLookup, ...LICENCE_EFFECTS],
+    providers: [
+        LicencesService,
+        RegisterService,
+        VehicleRegistrationService,
+        LicenceLookup,
+        TrainingSchoolLookup,
+        ...LICENCE_EFFECTS,
+        ...REGISTRATION_EFFECTS
+    ],
     exports: [LicencesService]
 })
 export class CompetencyModule implements OnModuleInit {

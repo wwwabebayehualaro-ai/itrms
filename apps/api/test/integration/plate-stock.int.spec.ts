@@ -507,6 +507,119 @@ describe('no plate is assigned or allocated twice, even at the same moment', () 
     });
 });
 
+describe('a plate reserved for a case (task 1.2b)', () => {
+    const on = '2026-10-10';
+    beforeAll(async () => {
+        await run(
+            units.ser,
+            (ctx) => (tx) =>
+                stock.receive(tx, ctx, {
+                    reference: 'MOTL-DN-0300',
+                    receivedOn: '2026-10-08',
+                    plates: range('RSV', 1, 4)
+                })
+        );
+        const down = await run(
+            units.ser,
+            (ctx) => (tx) => stock.allocate(tx, ctx, { toUnitId: units.zone.id, plates: range('RSV', 1, 4) })
+        );
+        await run(units.zone, (ctx) => (tx) => stock.accept(tx, ctx, down.id, {}));
+        const toBoditi = await run(
+            units.zone,
+            (ctx) => (tx) => stock.allocate(tx, ctx, { toUnitId: units.boditi.id, plates: range('RSV', 1, 4) })
+        );
+        await run(units.boditi, (ctx) => (tx) => stock.accept(tx, ctx, toBoditi.id, {}));
+    });
+
+    const reserve = (caseId: string) =>
+        run(units.boditi, (ctx) => (tx) => stock.reserve(tx, ctx, { holderUnitId: units.boditi.id, caseId, on }));
+    const release = (caseId: string) => run(units.boditi, (ctx) => (tx) => stock.release(tx, ctx, { caseId, on }));
+
+    it('returns the same plate for the same case, and different plates for two cases at once', async () => {
+        const one = randomUUID();
+        const first = await reserve(one);
+        const again = await reserve(one);
+        expect(again.id).toBe(first.id);
+        expect(first).toMatchObject({ status: 'reserved', caseId: one, holderUnitId: units.boditi.id });
+        const others = [randomUUID(), randomUUID()];
+        const [a, b] = await Promise.all(others.map((c) => reserve(c)));
+        expect(new Set([first.id, a?.id, b?.id]).size).toBe(3);
+        for (const c of [one, ...others]) await release(c);
+        await expectReconciled(units.zone, units.boditi);
+    });
+
+    it('refuses with no_free_plate when none is free, and from a unit outside the scope or without stock', async () => {
+        const free = await run(
+            units.boditi,
+            (ctx) => (tx) => stock.list(tx, ctx, { holderUnitId: units.boditi.id, status: 'in_stock', limit: 100 })
+        );
+        const cases = free.items.map(() => randomUUID());
+        try {
+            for (const c of cases) await reserve(c);
+            expect(await refusal(reserve(randomUUID()))).toMatch(/invalid_transition.*no_free_plate/);
+        } finally {
+            for (const c of cases) await release(c);
+        }
+        // Boditi is outside Damot Gale's subtree, so Damot Gale does not even see it; the zone above is not within Boditi's
+        // scope, so its stock is not Boditi's to reserve
+        await expect(
+            run(
+                units.damot,
+                (ctx) => (tx) => stock.reserve(tx, ctx, { holderUnitId: units.boditi.id, caseId: randomUUID(), on })
+            )
+        ).rejects.toMatchObject({ status: 404 });
+        await expect(
+            run(
+                units.boditi,
+                (ctx) => (tx) => stock.reserve(tx, ctx, { holderUnitId: units.zone.id, caseId: randomUUID(), on })
+            )
+        ).rejects.toMatchObject({ status: 403 });
+        await expectReconciled(units.zone, units.boditi);
+    });
+
+    it('releases the plate of a case to the free stock, and answers 0 when it has none', async () => {
+        const caseId = randomUUID();
+        const plate = await reserve(caseId);
+        const reserved = await run(units.boditi, (ctx) => (tx) => stock.list(tx, ctx, { caseId }));
+        expect(reserved.items.map((p) => p.key)).toEqual([plate.plateKey]);
+        expect(await release(caseId)).toBe(1);
+        expect(await release(caseId)).toBe(0);
+        const after = await run(units.boditi, (ctx) => (tx) => stock.list(tx, ctx, { q: plate.plateKey }));
+        expect(after.items[0]).toMatchObject({ status: 'in_stock', caseId: null });
+    });
+
+    it('is taken by the same case only', async () => {
+        const caseId = randomUUID();
+        const plate = await reserve(caseId);
+        const vehicle = await newVehicle(units.boditi, 'RESERVED-01');
+        await expect(
+            run(
+                units.boditi,
+                (ctx) => (tx) =>
+                    registry.assignStockPlate(tx, ctx, vehicle.id, {
+                        key: plate.plateKey,
+                        caseId: randomUUID(),
+                        since: '2025-09-01'
+                    })
+            )
+        ).rejects.toMatchObject({ status: 409 });
+        const taken = await run(
+            units.boditi,
+            (ctx) => (tx) =>
+                registry.assignStockPlate(tx, ctx, vehicle.id, { key: plate.plateKey, caseId, since: '2025-09-01' })
+        );
+        expect(taken.key).toBe(plate.plateKey);
+    });
+
+    it('marks in the summary the units that keep plate stock', async () => {
+        const summary = await run(units.zone, (ctx) => (tx) => stock.summary(tx, ctx));
+        expect(summary.unit.holdsPlateStock).toBe(true);
+        const byCode = new Map(summary.children.map((c) => [c.unit.code, c.holdsPlateStock]));
+        expect(byCode.get('WOL-BODITI')).toBe(true);
+        if (byCode.has('WOL-DAMOT-GALE')) expect(byCode.get('WOL-DAMOT-GALE')).toBe(false);
+    });
+});
+
 describe('the database is the last word', () => {
     const plateOf = async (k: string) =>
         (await api.owner.query<{ id: string }>('select id from vehicles.plates where plate_key = $1', [k])).rows[0]

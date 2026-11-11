@@ -79,6 +79,25 @@ const SAMPLES: Record<DocumentDataSchema, Record<string, unknown>> = {
         validUntil: '2030-11-03',
         photo: null
     },
+    'vehicle-libre.v1': {
+        number: 'WOL-BODITI/LB/000012',
+        issuedOn: '2026-11-04',
+        firstRegisteredOn: '2026-11-04',
+        plate: 'ETH ABC 1234',
+        federalVehicleId: 'FV-000123',
+        chassisNumber: 'JTDKB20U093051234',
+        engineNumber: '2NZ1234567',
+        make: 'Toyota',
+        model: 'Vitz',
+        modelYear: 2018,
+        category: { am: 'አውቶሞቢል', en: 'Automobile' },
+        use: { am: 'የግል', en: 'Private' },
+        fuel: { am: 'ቤንዚን', en: 'Petrol' },
+        colour: 'White',
+        seats: 5,
+        loadCapacityKg: null,
+        owners: [{ name: 'ሰላም ታደሰ' }]
+    },
     'exam-result.v1': {
         sessionOn: '2026-11-04',
         serviceName: { am: 'አዲስ መንጃ ፈቃድ', en: 'New driver licence' },
@@ -90,6 +109,7 @@ const SCHEMA_OF: Record<string, DocumentDataSchema> = {
     receipt: 'receipt.v1',
     'application-copy': 'application-copy.v1',
     'licence-card': 'licence-card.v1',
+    'vehicle-libre': 'vehicle-libre.v1',
     'exam-result': 'exam-result.v1'
 };
 

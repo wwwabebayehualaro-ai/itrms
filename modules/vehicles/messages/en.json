@@ -140,6 +140,7 @@
   "vehicles.plateStock.noMovements": "No plate movements yet.",
   "vehicles.plateStock.ended": "Ended",
   "vehicles.plateStock.loadFailed": "The plate stock could not be loaded.",
+  "vehicles.plateStock.noStockBelow": "No office directly below keeps plate stock.",
   "vehicles.plateStock.required": "Required.",
   "vehicles.plateStock.seriesHint": "Three Latin letters, for example ABC.",
   "vehicles.plateStock.serialHint": "A number from 1 to 9999.",

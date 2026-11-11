@@ -69,6 +69,26 @@ export const DOCUMENT_DATA_SCHEMAS = {
         validUntil: dayText,
         photo: inlineImage.nullable()
     }),
+    /** The libre (ownership title booklet) as ITRMS issues it (ADR-0049): the vehicle's particulars and its owners at issue. */
+    'vehicle-libre.v1': z.object({
+        number: z.string().min(1),
+        issuedOn: dayText,
+        firstRegisteredOn: dayText,
+        plate: z.string().min(1),
+        federalVehicleId: z.string().min(1).nullable(),
+        chassisNumber: z.string().min(1),
+        engineNumber: z.string().min(1).nullable(),
+        make: z.string().min(1),
+        model: z.string().min(1),
+        modelYear: z.number().int(),
+        category: i18nTextSchema,
+        use: i18nTextSchema,
+        fuel: i18nTextSchema.nullable(),
+        colour: z.string().min(1).nullable(),
+        seats: z.number().int().nullable(),
+        loadCapacityKg: z.number().int().nullable(),
+        owners: z.array(z.object({ name: z.string().min(1) })).min(1)
+    }),
     'exam-result.v1': z.object({
         sessionOn: dayText,
         serviceName: i18nTextSchema,

@@ -20,7 +20,7 @@ import {
     WRITABLE,
     type IsolationCase
 } from '@itrms/kernel/testing';
-import { importVehicleCategories } from '@itrms/vehicles/seed';
+import { importVehicleCategories, setUpLibreCounters } from '@itrms/vehicles/seed';
 import { VehicleRegistry, VehiclesService } from '@itrms/vehicles/api';
 import type { VehicleRegister } from '@itrms/vehicles/contracts';
 import { isNull, sql } from 'drizzle-orm';
@@ -176,8 +176,10 @@ beforeAll(async () => {
 
     // the catalogue of categories in every region
     await api.installer.scoped({}, async (tx) => {
-        for (const root of await tx.select().from(orgUnits).where(isNull(orgUnits.parentId)))
+        for (const root of await tx.select().from(orgUnits).where(isNull(orgUnits.parentId))) {
             await importVehicleCategories(tx, { id: root.id, regionId: root.regionId });
+            await setUpLibreCounters(tx, root.regionId);
+        }
     });
 
     people.ayana = await registerPerson(as.damot(), 1, 'አያና', 'ተሰማ');
@@ -429,6 +431,66 @@ describe('the registry rules', () => {
         });
         expect(row.vinCheck).toBe('mismatch');
         expect(row.chassisKind).toBe('iso3779');
+    });
+
+    it('checks a registration without writing: a chassis already on the register is a 409, a wrong binding check digit can be accepted', async () => {
+        const ctx = ctxOf(units.damot);
+        const given = (chassisNumber: string, extra: Partial<VehicleRegister> = {}): VehicleRegister => ({
+            chassisNumber,
+            make: 'Bajaj',
+            model: 'RE',
+            modelYear: 2022,
+            categoryKey: 'three_wheeler',
+            use: 'public_transport',
+            seats: 3,
+            firstRegisteredOn: '2022-06-01',
+            owners: [{ kind: 'person', id: people.chaltu }],
+            acquiredBy: 'first_registration',
+            ...extra
+        });
+        // 1M8GDM9AXKP042788 is the chassis of vehicle 1
+        await expect(
+            app.scoped(ctx, (tx) => registry.checkRegistration(tx, ctx, given('1M8GDM9AXKP042788')))
+        ).rejects.toMatchObject({ status: 409, code: 'duplicate_reference' });
+        await expect(
+            app.scoped(ctx, (tx) => registry.checkRegistration(tx, ctx, given('1M8GDM9A0KP042901')))
+        ).rejects.toMatchObject({ status: 422, errors: [{ path: 'chassisNumber', code: 'invalid_vin' }] });
+        const checked = await app.scoped(ctx, (tx) =>
+            registry.checkRegistration(tx, ctx, given('1M8GDM9A0KP042901', { acceptVinMismatch: true }))
+        );
+        expect(checked).toMatchObject({ vinKey: '1M8GDM9A0KP042901', vinCheck: 'mismatch', chassisKind: 'iso3779' });
+        const row = await newVehicle(units.damot, {
+            chassisNumber: '1M8GDM9A0KP042901',
+            chassisKind: undefined,
+            categoryKey: 'three_wheeler',
+            seats: 3,
+            loadCapacityKg: undefined,
+            axles: undefined,
+            acceptVinMismatch: true
+        });
+        expect(row.vinCheck).toBe('mismatch');
+    });
+
+    it('issues a libre once for a case, numbered from the office counter', async () => {
+        const v = await newVehicle(units.zone, { chassisNumber: 'LIBRE-CASE-1' });
+        const ctx = ctxOf(units.zone);
+        const caseId = randomUUID();
+        const first = await app.scoped(ctx, (tx) =>
+            registry.issueLibre(tx, ctx, v.id, { issuedOn: '2020-03-05', caseId })
+        );
+        const again = await app.scoped(ctx, (tx) =>
+            registry.issueLibre(tx, ctx, v.id, { issuedOn: '2020-03-05', caseId })
+        );
+        expect(again.id).toBe(first.id);
+        expect(first.number).toMatch(/\/LB\/\d{6}$/);
+        expect(first.caseId).toBe(caseId);
+        const libres = (await app.scoped(ctx, (tx) => reads.get(tx, v.id))).libres;
+        expect(libres).toHaveLength(1);
+        // another case replaces it with the next number
+        const next = await app.scoped(ctx, (tx) =>
+            registry.issueLibre(tx, ctx, v.id, { issuedOn: '2021-03-05', caseId: randomUUID() })
+        );
+        expect(next.number).not.toBe(first.number);
     });
 
     it('refuses a seat count the category does not take, and a freight vehicle without axles', async () => {

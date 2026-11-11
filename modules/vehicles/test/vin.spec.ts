@@ -30,6 +30,24 @@ describe('parseVin', () => {
         expect(parseVin('LFV2A21J540000001')).toMatchObject({ ok: false, problem: 'check_digit' });
     });
 
+    it('records a wrong check digit that binds as a mismatch when the officer accepts it', () => {
+        expect(parseVin('1M8GDM9A1KP042788', { acceptMismatch: true })).toMatchObject({
+            ok: true,
+            chassisKind: 'iso3779',
+            vinCheck: 'mismatch'
+        });
+        expect(parseVin('LFV2A21J540000001', { acceptMismatch: true })).toMatchObject({
+            ok: true,
+            vinCheck: 'mismatch'
+        });
+        // a right digit stays ok, and other refusals stay refusals
+        expect(parseVin('1M8GDM9AXKP042788', { acceptMismatch: true })).toMatchObject({ ok: true, vinCheck: 'ok' });
+        expect(parseVin('1M8GDM9A1KP04278', { acceptMismatch: true })).toMatchObject({
+            ok: false,
+            problem: 'invalid_length'
+        });
+    });
+
     it('flags a wrong check digit as a warning where it does not bind (a Japanese WMI)', () => {
         const right = 'JHMCM56557C404453';
         const digit = vinCheckDigit(right);

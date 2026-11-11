@@ -229,12 +229,14 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
         ).json<Workspace>();
         expect(officer.menu.map((g) => g.key)).toEqual(['home', 'my-work', 'work-process:1', 'registries']);
         expect(officer.menu[2]?.label).toMatchObject({ en: 'Driver and vehicle competency' });
-        // applications, the register, the training lists and exams (Boditi has examiners); print batches need licence:print, which officers lack
+        // applications, vehicle registrations (Boditi keeps plate stock), the register, the training lists and exams (Boditi has
+        // examiners); print batches need licence:print, which officers lack
         expect(itemsOf(officer)).toEqual([
             'kernel.home',
             TASKS,
             REQUESTS,
             'competency.applications',
+            'competency.vehicleRegistrations',
             'competency.licences',
             'competency.training',
             'competency.exams',
@@ -258,8 +260,14 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
             for (const code of licensing) await setServiceOverride(tx, boditi.id, code, false, 'test: no licensing');
         });
         try {
-            // the same person and role: only the unit's services changed
-            expect(await officerMenu()).toEqual(['kernel.home', TASKS, REQUESTS, ...REGISTER_AND_STOCK]);
+            // the same person and role: only the unit's services changed (new registration, DVC-01, is still offered)
+            expect(await officerMenu()).toEqual([
+                'kernel.home',
+                TASKS,
+                REQUESTS,
+                'competency.vehicleRegistrations',
+                ...REGISTER_AND_STOCK
+            ]);
         } finally {
             await installer.scoped({}, async (tx) => {
                 for (const code of licensing) await clearServiceOverride(tx, boditi.id, code);
