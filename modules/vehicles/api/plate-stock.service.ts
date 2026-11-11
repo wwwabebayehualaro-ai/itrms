@@ -47,7 +47,7 @@ import {
     type StockSummary,
     type StockSummaryRow
 } from '../contracts';
-import { checked, fieldError, guardUnique, notFuture, required, today } from './support';
+import { checked, fieldError, guardUnique, notFuture, required, today, withinScope } from './support';
 import { plateAssignments, plateBatches, plateMovements, plates } from './vehicles.table';
 
 export const PLATE_STOCK_CAPABILITY = 'holds_plate_stock';
@@ -322,6 +322,70 @@ export class PlateStock {
         });
     }
 
+    /**
+     * A plate of a unit's stock held for a case while its registration is open: the case's own plate if it has one, else the
+     * holder's next free one. The holder keeps it (no ledger movement); `take` assigns it, `release` frees it.
+     */
+    async reserve(
+        tx: Tx,
+        ctx: DbContext,
+        wanted: { holderUnitId: string; caseId: string; on: string }
+    ): Promise<PlateRow> {
+        const regionId = required(ctx.regionId);
+        const [held] = await tx
+            .select()
+            .from(plates)
+            .where(and(eq(plates.regionId, regionId), eq(plates.status, 'reserved'), eq(plates.caseId, wanted.caseId)));
+        if (held) return held;
+        await this.holdsStock(tx, wanted.holderUnitId);
+        const holder = await getUnit(tx, wanted.holderUnitId);
+        if (holder.regionId !== regionId || !withinScope(holder.path, ctx.scopePath ?? ''))
+            throw new ForbiddenError({ detailKey: 'vehicles.errors.other_office' });
+        notFuture('on', wanted.on);
+        const [plate] = await tx
+            .select()
+            .from(plates)
+            .where(
+                and(
+                    eq(plates.regionId, regionId),
+                    eq(plates.holderUnitId, wanted.holderUnitId),
+                    eq(plates.status, 'in_stock')
+                )
+            )
+            .orderBy(asc(plates.series), asc(plates.serial))
+            .limit(1)
+            .for('update', { skipLocked: true });
+        if (!plate) throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.no_free_plate' });
+        return updateAudited(tx, plates, plate.id, plate.rowVersion, {
+            status: 'reserved',
+            statusOn: wanted.on,
+            caseId: wanted.caseId
+        });
+    }
+
+    /** The plates reserved for a case go back to their holder's free stock; how many (none if the case holds none). */
+    async release(tx: Tx, ctx: DbContext, given: { caseId: string; on: string }): Promise<number> {
+        const rows = await tx
+            .select()
+            .from(plates)
+            .where(
+                and(
+                    eq(plates.regionId, required(ctx.regionId)),
+                    eq(plates.status, 'reserved'),
+                    eq(plates.caseId, given.caseId)
+                )
+            )
+            .orderBy(asc(plates.series), asc(plates.serial))
+            .for('update');
+        for (const plate of rows)
+            await updateAudited(tx, plates, plate.id, plate.rowVersion, {
+                status: 'in_stock',
+                statusOn: given.on,
+                caseId: null
+            });
+        return rows.length;
+    }
+
     /** A vehicle's stock plate leaves it for good: retired (exchanged, retired, transferred out) or lost. */
     async closeAssigned(
         tx: Tx,
@@ -404,6 +468,12 @@ export class PlateStock {
 
         const children = subtree.filter((u) => u.parentId === unit.id).map((u) => u.id);
         const refs = await unitRefs(tx, [unit.id, ...children]);
+        const holds = new Map<string, boolean>();
+        for (const id of [unit.id, ...children])
+            holds.set(
+                id,
+                (await describeUnit(tx, await getUnit(tx, id))).capabilities.includes(PLATE_STOCK_CAPABILITY)
+            );
         const rowOf = (id: string): StockSummaryRow => {
             const path = pathOf.get(id) ?? '';
             const statuses = {
@@ -429,6 +499,7 @@ export class PlateStock {
             const holding = Object.values(statuses).reduce((a, b) => a + b, 0);
             return {
                 unit: refs.get(id) ?? emptyRef(id),
+                holdsPlateStock: holds.get(id) ?? false,
                 received,
                 ...statuses,
                 allocatedDown,
@@ -451,7 +522,9 @@ export class PlateStock {
         const conditions: (SQL | undefined)[] = [eq(plates.regionId, regionId)];
         if (query.q) {
             conditions.push(eq(plates.plateKey, parsePlate(query.q, [])?.key ?? foldPlate(query.q)));
-        } else conditions.push(eq(plates.holderUnitId, query.holderUnitId ?? required(ctx.unitId)));
+        } else if (query.holderUnitId || !query.caseId)
+            conditions.push(eq(plates.holderUnitId, query.holderUnitId ?? required(ctx.unitId)));
+        if (query.caseId) conditions.push(eq(plates.caseId, query.caseId));
         if (query.status) conditions.push(eq(plates.status, query.status));
         if (query.series) conditions.push(eq(plates.series, query.series.toUpperCase()));
         if (query.after) conditions.push(gt(plates.plateKey, query.after));

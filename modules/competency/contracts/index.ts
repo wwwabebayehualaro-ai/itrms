@@ -7,6 +7,7 @@ import { z } from 'zod';
 
 import { MEDICAL_MONTHS_SETTING, RENEWAL_WINDOW_SETTING } from './rules';
 
+export * from './registration';
 export * from './rules';
 
 export const LICENCE_STATUSES = ['pending_national', 'active', 'voided'] as const;

@@ -151,7 +151,12 @@ jobs:
         env:
           CHROME_NO_SANDBOX: '1'
       - name: Chromium for Playwright
-        run: pnpm --filter @itrms/web exec playwright install --with-deps chromium
+        # the runner image already carries Chrome's libraries; when the Ubuntu mirror is unreachable (as on 2026-11-11 for
+        # hours), the apt step fails although nothing is missing, so the browser alone is installed and the journeys decide
+        run: |
+          pnpm --filter @itrms/web exec playwright install --with-deps chromium \
+            || { echo "::warning::apt dependencies not installed (mirror unreachable); installing the browser only"; \
+                 pnpm --filter @itrms/web exec playwright install chromium; }
       - name: The verifier in flight mode (the built app, under its own CSP)
         run: |
           pnpm turbo run build --filter=@itrms/verify

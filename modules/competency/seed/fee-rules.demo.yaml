@@ -88,3 +88,40 @@ rules:
             - { value: libre, amount: '25000' }
             - { value: bolo, amount: '10000' }
             - { value: plate, amount: '35000' }
+  - key: dvc-01-registration
+    name: { am: አዲስ የተሽከርካሪ ምዝገባ, en: New vehicle registration }
+    document:
+      schemaVersion: 1
+      demo: true
+      basis: placeholder until the regional schedule (Regulation 572/2025 for MoTL services)
+      inputs:
+        categoryKey: { kind: choice }
+      lines:
+        - key: base
+          label: { am: የምዝገባ ክፍያ, en: Registration fee }
+          kind: table
+          input: categoryKey
+          rows:
+            - { value: motorcycle, amount: '30000' }
+            - { value: three_wheeler, amount: '50000' }
+            - { value: automobile, amount: '100000' }
+            - { value: pickup, amount: '120000' }
+            - { value: minibus, amount: '120000' }
+            - { value: midibus, amount: '150000' }
+            - { value: light_truck, amount: '150000' }
+            - { value: trailer, amount: '150000' }
+            - { value: semi_trailer, amount: '150000' }
+            - { value: bus, amount: '200000' }
+            - { value: heavy_truck, amount: '250000' }
+            - { value: tanker, amount: '250000' }
+            - { value: tractor, amount: '100000' }
+            - { value: special_machinery, amount: '200000' }
+          otherwise: '150000'
+        - key: plate
+          label: { am: የሰሌዳ ክፍያ, en: Plate }
+          kind: fixed
+          amount: '50000'
+        - key: libre
+          label: { am: የሊብሬ ክፍያ, en: Libre }
+          kind: fixed
+          amount: '20000'

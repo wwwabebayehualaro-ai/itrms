@@ -22,7 +22,7 @@ export default defineModule({
     key: 'competency',
     layer: 'work-process',
     version: '0.0.0',
-    dependsOn: ['kernel', 'integrations', 'forms', 'fees', 'documents', 'workflow', 'services', 'parties'],
+    dependsOn: ['kernel', 'integrations', 'forms', 'fees', 'documents', 'workflow', 'services', 'parties', 'vehicles'],
     lookups: ['driver-licence', 'training-school'],
     // what the proclamation sets no figure for (ADR-0047)
     settings: [
@@ -47,7 +47,14 @@ export default defineModule({
         'competency.requestRenewal',
         'competency.renewLicence',
         'competency.issueLicenceCard',
-        'competency.addToPrintBatch'
+        'competency.addToPrintBatch',
+        'competency.checkVehicleRegistration',
+        'competency.reserveRegistrationPlate',
+        'competency.recordFederalVehicleId',
+        'competency.registerVehicle',
+        'competency.assignRegistrationPlate',
+        'competency.issueLibre',
+        'competency.releaseRegistrationPlate'
     ],
     title: { am: 'የአሽከርካሪና ተሽከርካሪ ብቃት ማረጋገጫ', en: 'Driver and vehicle competency' },
     workProcess: 1,
@@ -99,6 +106,8 @@ export default defineModule({
         'DVC-10',
         'DVC-11'
     ],
+    // a registration takes its plate from the office's own stock (task 1.2b): an office without one doesn't offer it
+    capabilitiesRequired: { 'DVC-01': ['holds_plate_stock'] },
     menu: [
         {
             key: 'competency.applications',
@@ -114,6 +123,23 @@ export default defineModule({
                     label: 'competency.action.newApplication',
                     route: '/competency/applications/new',
                     requires: { permission: 'case:create', services: ['DVC-03'] }
+                }
+            ]
+        },
+        {
+            key: 'competency.vehicleRegistrations',
+            group: 'work-process',
+            order: 12,
+            label: 'competency.nav.vehicleRegistrations',
+            icon: 'car',
+            route: '/competency/vehicle-registrations',
+            requires: { permission: 'vehicle:read', services: ['DVC-01'] },
+            quickActions: [
+                {
+                    key: 'competency.newVehicleRegistration',
+                    label: 'competency.action.newVehicleRegistration',
+                    route: '/competency/vehicle-registrations/new',
+                    requires: { permission: 'case:create', services: ['DVC-01'] }
                 }
             ]
         },

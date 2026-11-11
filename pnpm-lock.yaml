@@ -646,6 +646,9 @@ importers:
       '@itrms/services':
         specifier: workspace:*
         version: link:../../platform/services
+      '@itrms/vehicles':
+        specifier: workspace:*
+        version: link:../vehicles
       '@itrms/workflow':
         specifier: workspace:*
         version: link:../../platform/workflow

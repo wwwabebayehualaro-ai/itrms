@@ -6,6 +6,12 @@ registry commands the case effects call; the `vehicle` lookup provider; the stoc
 allocation one level down the tree with acceptance, recalls, write-offs, assignment from an office's own stock through
 `VehicleRegistry.assignStockPlate`, counts reconciled with the ledger).
 
+For new registration (task 1.2b): `PlateStock.reserve` / `release` hold one plate of a unit's stock for a case and give it back
+(idempotent per case; a held plate counts as `reserved` in the summary); `VehicleRegistry.checkRegistration` (chassis on the
+register or in another open case, the check digit where it is binding; `acceptVinMismatch` takes a failure the officer
+confirmed, recorded as a mismatch) and `issueLibre`, numbered from
+the office's counter `vehicles.libre` as `{unit}/LB/{seq:06}` until the national system numbers libres (ADR-0049).
+
 Layer: registry. Shape, public entries and rules: [code-structure.md](../../docs/platform/code-structure.md) §4.
 
 | Entry | Holds |

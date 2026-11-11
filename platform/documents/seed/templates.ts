@@ -1,5 +1,5 @@
 /**
- * The Phase 0 templates: application copy, receipt, driver-licence card, exam result sheet. Their layouts stand in until a
+ * The Phase 0 templates: application copy, receipt, driver-licence card, exam result sheet, vehicle libre. Their layouts stand in until a
  * bureau's forms and permission to copy them are known (docs/demo-plan.md); every word is the template's own, in Amharic and
  * English. Nothing here names a real office: that comes from the unit's header.
  */
@@ -140,6 +140,58 @@ body{font-size:6.5pt;line-height:1.25}
 <div><span class="term">{{ t.valid }}:</span> {{ validUntil | ethdate }}</div>
 <div><span class="term">{{ t.grades }}:</span> {% for g in grades %}{{ g.grade }} ({{ g.name | text }}){% unless forloop.last %}, {% endunless %}{% endfor %}</div>
 </div>${QR}</div>`
+        }
+    },
+    {
+        key: 'vehicle-libre',
+        name: t('የተሽከርካሪ ሊብሬ', 'Vehicle libre'),
+        version: {
+            paper: 'A5',
+            dataSchema: 'vehicle-libre.v1',
+            strings: {
+                title: t('የተሽከርካሪ ባለቤትነት ማረጋገጫ (ሊብሬ)', 'Vehicle ownership title (libre)'),
+                number: t('የሊብሬ ቁጥር', 'Libre number'),
+                issuedOn: t('የተሰጠበት ቀን', 'Issued on'),
+                firstRegisteredOn: t('የመጀመሪያ ምዝገባ', 'First registered'),
+                plate: t('ሰሌዳ', 'Plate'),
+                federalVehicleId: t('የፌዴራል ተሽከርካሪ መለያ', 'Federal vehicle id'),
+                chassis: t('የሻሲ ቁጥር', 'Chassis number'),
+                engine: t('የሞተር ቁጥር', 'Engine number'),
+                make: t('ሰሪ', 'Make'),
+                model: t('ሞዴል', 'Model'),
+                year: t('የተመረተበት ዓመት', 'Model year'),
+                category: t('ምድብ', 'Category'),
+                use: t('አገልግሎት', 'Use'),
+                fuel: t('ነዳጅ', 'Fuel'),
+                colour: t('ቀለም', 'Colour'),
+                seats: t('መቀመጫ', 'Seats'),
+                load: t('የመጫን አቅም (ኪ.ግ)', 'Load capacity (kg)'),
+                owners: t('ባለቤት', 'Owner'),
+                name: t('ስም', 'Name')
+            },
+            body: `${STYLE}${HEAD}<p class="title">{{ t.title }}</p>
+<div class="facts">
+<div><span class="term">{{ t.number }}:</span> <span data-number>{{ number }}</span></div>
+<div><span class="term">{{ t.issuedOn }}:</span> {{ issuedOn | ethdate }}</div>
+<div><span class="term">{{ t.plate }}:</span> {{ plate }}</div>
+<div><span class="term">{{ t.firstRegisteredOn }}:</span> {{ firstRegisteredOn | ethdate }}</div>
+{% if federalVehicleId %}<div><span class="term">{{ t.federalVehicleId }}:</span> {{ federalVehicleId }}</div>{% endif %}
+<div><span class="term">{{ t.chassis }}:</span> {{ chassisNumber }}</div>
+{% if engineNumber %}<div><span class="term">{{ t.engine }}:</span> {{ engineNumber }}</div>{% endif %}
+<div><span class="term">{{ t.make }}:</span> {{ make }}</div>
+<div><span class="term">{{ t.model }}:</span> {{ model }}</div>
+<div><span class="term">{{ t.year }}:</span> {{ modelYear }}</div>
+<div><span class="term">{{ t.category }}:</span> {{ category | text }}</div>
+<div><span class="term">{{ t.use }}:</span> {{ use | text }}</div>
+{% if fuel %}<div><span class="term">{{ t.fuel }}:</span> {{ fuel | text }}</div>{% endif %}
+{% if colour %}<div><span class="term">{{ t.colour }}:</span> {{ colour }}</div>{% endif %}
+{% if seats %}<div><span class="term">{{ t.seats }}:</span> {{ seats }}</div>{% endif %}
+{% if loadCapacityKg %}<div><span class="term">{{ t.load }}:</span> {{ loadCapacityKg }}</div>{% endif %}
+</div>
+<table><thead><tr><th>{{ t.owners }}</th></tr></thead><tbody>
+{% for o in owners %}<tr><td data-holder>{{ o.name }}</td></tr>{% endfor %}
+</tbody></table>
+{% if header.stamp %}<img class="stamp" src="{{ header.stamp }}" alt="">{% endif %}${QR}`
         }
     },
     {

@@ -195,18 +195,26 @@ const ownersSchema = z
     .max(5)
     .refine((owners) => new Set(owners.map((o) => o.id)).size === owners.length, 'an owner is listed twice');
 
+/** The federal vehicle id: letters, digits and hyphens, upper-cased. */
+export const federalVehicleIdSchema = z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z0-9-]{4,40}$/, 'letters, digits and hyphens');
+
+/** The regional counter a libre number comes from, and its pattern: `{unit code}/LB/000123`. */
+export const LIBRE_COUNTER = 'vehicles.libre';
+export const LIBRE_PATTERN = '{unit}/LB/{seq:06}';
+
 /** The command that registers a vehicle with its first owners (the register's own service, not an HTTP endpoint). */
 export const vehicleRegisterSchema = z
     .strictObject({
-        federalVehicleId: z
-            .string()
-            .trim()
-            .toUpperCase()
-            .regex(/^[A-Z0-9-]{4,40}$/, 'letters, digits and hyphens')
-            .optional(),
+        federalVehicleId: federalVehicleIdSchema.optional(),
         federalIdSource: z.enum(FEDERAL_ID_SOURCES).optional(),
         chassisNumber: z.string().trim().min(4).max(40),
         chassisKind: z.enum(CHASSIS_KINDS).optional(),
+        /** the officer checked the chassis plate: a binding check digit that does not match is recorded as a mismatch */
+        acceptVinMismatch: z.boolean().optional(),
         engineNumber: z.string().trim().min(1).max(30).optional(),
         make: z.string().trim().min(1).max(60),
         model: z.string().trim().min(1).max(60),

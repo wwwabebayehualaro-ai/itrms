@@ -60,10 +60,12 @@ export function PlateAllocate() {
     });
 
     if (summary.isPending) return <Skeleton className="h-48 w-full" />;
-    const options = (summary.data?.children ?? []).map((row) => ({
-        value: row.unit.id,
-        label: text({ am: '', en: '', ...row.unit.name })
-    }));
+    const options = (summary.data?.children ?? [])
+        .filter((row) => row.holdsPlateStock)
+        .map((row) => ({
+            value: row.unit.id,
+            label: text({ am: '', en: '', ...row.unit.name })
+        }));
 
     return (
         <div className="flex max-w-3xl flex-col gap-6" data-screen="plate-allocate">
@@ -71,6 +73,11 @@ export function PlateAllocate() {
                 title={t('vehicles.plateStock.allocate')}
                 description={t('vehicles.plateStock.allocateIntro')}
             />
+            {summary.data && options.length === 0 && (
+                <Alert>
+                    <AlertDescription>{t('vehicles.plateStock.noStockBelow')}</AlertDescription>
+                </Alert>
+            )}
             {summary.error && (
                 <Alert variant="destructive">
                     <AlertDescription>
