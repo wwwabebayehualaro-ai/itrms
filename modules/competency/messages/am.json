@@ -107,5 +107,18 @@
   "competency.errors.licence_not_active": "ፈቃዱ ገና ንቁ አይደለም።",
   "competency.errors.not_training_school": "ይህ ድርጅት የስልጠና ትምህርት ቤት አይደለም።",
   "competency.errors.no_such_grade": "የፈቃድ ደረጃ {grade} የለም።",
-  "competency.errors.batch_not_sendable": "መላክ የሚቻለው ፈቃዶች ያሉት ክፍት ጥቅል ብቻ ነው።"
+  "competency.errors.batch_not_sendable": "መላክ የሚቻለው ፈቃዶች ያሉት ክፍት ጥቅል ብቻ ነው።",
+  "competency.nav.vehicleRegistrations": "የተሽከርካሪ ምዝገባዎች",
+  "competency.action.newVehicleRegistration": "አዲስ የተሽከርካሪ ምዝገባ",
+  "competency.vehicleRegistrations.title": "የተሽከርካሪ ምዝገባዎች",
+  "competency.vehicleRegistrations.intro": "የዚህ ጽ/ቤትና ከሥሩ ያሉ ጽ/ቤቶች አዲስ የተሽከርካሪ ምዝገባዎች። ጥያቄው ሲመዘገብ ተሽከርካሪው ከሰሌዳውና ከሊብሬው ጋር ወደ መዝገቡ ይገባል።",
+  "competency.vehicleRegistrations.fileNew": "አዲስ የተሽከርካሪ ምዝገባ",
+  "competency.vehicleRegistrations.reservedPlates": "ለክፍት ምዝገባዎች የተያዙ ሰሌዳዎች",
+  "competency.vehicleRegistrations.reservedEmpty": "አሁን ለምዝገባ የተያዘ ሰሌዳ የለም።",
+  "competency.vehicleRegistrations.reservedError": "የተያዙትን ሰሌዳዎች መጫን አልተቻለም።",
+  "competency.rule.chassisInOpenCase": "ሌላ ክፍት የምዝገባ ጥያቄ ለዚህ የሻሲ ቁጥር ቀርቧል።",
+  "competency.rule.ownerOneOf": "ባለቤቱን ሰው ወይም ድርጅት ብቻ ይምረጡ፤ ሁለቱንም ወይም ምንም አይሁን።",
+  "competency.rule.notAPlate": "ይህ ብሔራዊ ሰሌዳ አይደለም።",
+  "competency.errors.act_from_handling_office": "ምዝገባውን የሚያጠናቅቀው ጉዳዩን የሚይዘው ጽ/ቤት ነው።",
+  "competency.errors.registration_missing_fact": "ጉዳዩ የሚቀጥልበት {key} የለውም።"
 }

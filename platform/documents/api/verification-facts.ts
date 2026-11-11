@@ -16,6 +16,13 @@ export function factsOf(schema: DocumentDataSchema, data: Record<string, unknown
             return { holder: text(data.receivedFrom), validUntil: null };
         case 'licence-card.v1':
             return { holder: text(data.holderName), validUntil: text(data.validUntil) };
+        case 'vehicle-libre.v1': {
+            const owners = Array.isArray(data.owners) ? data.owners : [];
+            const names = owners
+                .map((o) => text((o as { name?: unknown } | null)?.name))
+                .filter((n): n is string => n !== null);
+            return { holder: names.length ? names.join(', ') : null, validUntil: null };
+        }
         case 'application-copy.v1':
         case 'exam-result.v1':
             return { holder: null, validUntil: null };

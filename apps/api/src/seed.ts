@@ -30,6 +30,7 @@ import {
     importDemoData,
     importLicenceGrades,
     importLicenceServices,
+    importVehicleServices,
     setUpLicenceCounters
 } from '@itrms/competency/seed';
 import { FieldCrypto } from '@itrms/kernel/crypto';
@@ -181,10 +182,14 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
                 grades: await importLicenceGrades(tx, where),
                 counters: await setUpLicenceCounters(tx, root.regionId),
                 // after the catalogue and the fee rules (task 0.24b)
-                services: await importLicenceServices(tx, where)
+                services: await importLicenceServices(tx, where),
+                vehicleServices: await importVehicleServices(tx, where)
             };
         });
-        logger.info({ region: code, ...result }, 'licence grades, counters and services applied');
+        logger.info(
+            { region: code, ...result },
+            'licence grades, counters and services, and the vehicle registration service, applied'
+        );
     } else if (kind === 'vehicles') {
         // the catalogue of vehicle categories (task 1.1a)
         const code = file === '--region' ? rest[0] : region;

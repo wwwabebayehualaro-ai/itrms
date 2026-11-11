@@ -12,6 +12,7 @@ import type {
     PlateBatch,
     PlateBatchReceive,
     PlateMovement,
+    StockPlate,
     StockSummary,
     StockSummaryRow
 } from '@itrms/vehicles/contracts';
@@ -19,7 +20,15 @@ import type {
 import client from './api/client';
 import { createKeys } from './query/keys';
 
-export type { PlateAllocation, PlateBatch, PlateBatchReceive, PlateMovement, StockSummary, StockSummaryRow };
+export type {
+    PlateAllocation,
+    PlateBatch,
+    PlateBatchReceive,
+    PlateMovement,
+    StockPlate,
+    StockSummary,
+    StockSummaryRow
+};
 
 export const stockKeys = createKeys('plate-stock');
 
@@ -45,6 +54,21 @@ export function useStockMovements(query: MovementQuery = {}) {
             (
                 await client.get<{ items: PlateMovement[]; nextCursor: string | null }>('v1/plate-stock/movements', {
                     params: query,
+                    signal
+                })
+            ).data.items
+    });
+}
+
+/** The plates a unit holds for open registrations, each with the case that holds it (task 1.2b). */
+export function useReservedPlates(holderUnitId: string | undefined) {
+    return useQuery({
+        queryKey: stockKeys.list({ reserved: holderUnitId }),
+        enabled: Boolean(holderUnitId),
+        queryFn: async ({ signal }) =>
+            (
+                await client.get<{ items: StockPlate[]; nextCursor: string | null }>('v1/plate-stock/plates', {
+                    params: { status: 'reserved', holderUnitId },
                     signal
                 })
             ).data.items

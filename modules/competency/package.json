@@ -35,6 +35,7 @@
     "@itrms/parties": "workspace:*",
     "@itrms/schemas": "workspace:*",
     "@itrms/services": "workspace:*",
+    "@itrms/vehicles": "workspace:*",
     "@itrms/workflow": "workspace:*",
     "@nestjs/common": "11.2.7",
     "drizzle-orm": "0.45.3",
