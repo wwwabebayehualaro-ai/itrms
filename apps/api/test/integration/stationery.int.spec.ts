@@ -509,6 +509,28 @@ describe("the office's closing", () => {
         expect(closing.unexpectedCount).toBe(2);
         expect(closing.balanced).toBe(false);
         expect(await auditOf(ctx.requestId ?? '')).toEqual({ 'fees.stationery_closings:insert': 1 });
+        // a count is of today, and of at most 10 000 serials
+        expect(
+            await refusal(
+                run(
+                    units.boditi,
+                    (c) => (tx) => stock.close(tx, c, { kind: 'receipt_leaf', closedOn: '2025-01-01', counted: [] })
+                )
+            )
+        ).toMatch(/validation_failed/);
+        expect(
+            await refusal(
+                run(
+                    units.boditi,
+                    (c) => (tx) =>
+                        stock.close(tx, c, {
+                            kind: 'receipt_leaf',
+                            closedOn: today(),
+                            counted: [range('ZZ', 1, 10_000), range('ZY', 1, 2)]
+                        })
+                )
+            )
+        ).toMatch(/validation_failed/);
         // one count a day per kind
         expect(
             await refusal(
@@ -645,6 +667,15 @@ describe("the demo's stationery", () => {
 });
 
 describe('the HTTP side', () => {
+    it("shows a unit's whole stock only within the acting unit's scope; a serial anywhere in the region", async () => {
+        const sibling = { sub: SUB.damotKeeper, unit: units.damot };
+        const whole = await api.call('GET', `/api/v1/stationery/items?holderUnitId=${units.boditi.id}`, sibling);
+        expect(whole.statusCode).toBe(404);
+        const one = await api.call('GET', '/api/v1/stationery/items?q=LB0001001', sibling);
+        expect(one.statusCode, one.body).toBe(200);
+        expect(one.json<{ items: { key: string }[] }>().items.map((i) => i.key)).toEqual(['LB0001001']);
+    });
+
     it('lets a keeper read and receive, and refuses an office head the keeper commands', async () => {
         const keeper = { sub: SUB.keeper, unit: units.boditi };
         const read = await api.call('GET', '/api/v1/stationery/summary?kind=licence_blank', keeper);

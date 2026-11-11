@@ -463,7 +463,8 @@ export function StationeryReceive() {
                 range: asRange(v),
                 variant: v.variant.trim() || undefined,
                 validEfy: v.validEfy.trim() ? Number(v.validEfy.trim()) : undefined,
-                unitCostSantim: cost ? String(Number(birr) * 100 + Number(cents.padEnd(2, '0'))) : undefined,
+                // Birr to santim as text: the digits of the Birr, then exactly two of the cents
+                unitCostSantim: cost ? `${birr}${cents.padEnd(2, '0')}`.replace(/^0+(?=\d)/, '') : undefined,
                 note: v.note.trim() || undefined
             });
             if (!parsed.success) {

@@ -6,7 +6,8 @@
  * closing it records what it counted; what it should hold and did not count is flagged missing.
  *
  * Every command locks the items it moves in series and serial order (two commands over the same items wait for each other;
- * none deadlocks), checks every one of them, and either moves them all or none. Each item's change is audited and the
+ * none deadlocks; a caller that uses several locks them first with `lockKeys`), checks every one of them, and either moves
+ * them all or none. Each item's change is audited and the
  * command writes one row of the ledger, so a unit's counts reconcile with what it took in (`summary`). The database checks
  * the same machine (the transition trigger), whatever the writer.
  */
@@ -368,6 +369,32 @@ export class StationeryStock {
         );
     }
 
+    /**
+     * Locks the named items of a kind in series and serial order, the order every command locks in, so a caller that then
+     * uses or spoils several of them in another order cannot deadlock with a keeper's command over the same run. Items
+     * not in the region's stock are left to the command that names them.
+     */
+    async lockKeys(tx: Tx, ctx: DbContext, kind: StationeryKind, keys: readonly string[]): Promise<void> {
+        const serials = keys.map((k) => parseStationeryKey(k)).flatMap((p) => (p ? [p] : []));
+        if (serials.length === 0) return;
+        await tx
+            .select({ id: stationeryItems.id })
+            .from(stationeryItems)
+            .where(
+                and(
+                    eq(stationeryItems.regionId, required(ctx.regionId)),
+                    eq(stationeryItems.kind, kind),
+                    or(
+                        ...serials.map((s) =>
+                            and(eq(stationeryItems.series, s.series), eq(stationeryItems.serial, s.serial))
+                        )
+                    )
+                )
+            )
+            .orderBy(asc(stationeryItems.series), asc(stationeryItems.serial))
+            .for('update');
+    }
+
     /** An item of the acting office's stock spoiled (a misprint, a torn booklet): kept on record, never used again. */
     async spoil(
         tx: Tx,
@@ -409,7 +436,8 @@ export class StationeryStock {
         const regionId = required(ctx.regionId);
         const unitId = required(ctx.unitId);
         await this.holdsStock(tx, unitId);
-        notFuture('closedOn', input.closedOn);
+        if (input.closedOn !== addisToday())
+            throw fieldError('closedOn', 'not_today', 'a count is of today: what the office holds now');
         const held = await tx
             .select({ series: stationeryItems.series, serial: stationeryItems.serial, key: stationeryItems.itemKey })
             .from(stationeryItems)
@@ -631,7 +659,15 @@ export class StationeryStock {
                     ? and(eq(stationeryItems.series, parsed.series), eq(stationeryItems.serial, parsed.serial))
                     : sql`false`
             );
-        } else conditions.push(eq(stationeryItems.holderUnitId, query.holderUnitId ?? required(ctx.unitId)));
+        } else {
+            const holderUnitId = query.holderUnitId ?? required(ctx.unitId);
+            if (query.holderUnitId) {
+                const holder = await getUnit(tx, holderUnitId).catch(() => undefined);
+                if (!holder || holder.regionId !== regionId || !withinScope(holder.path, ctx.scopePath ?? ''))
+                    throw new NotFoundError();
+            }
+            conditions.push(eq(stationeryItems.holderUnitId, holderUnitId));
+        }
         if (query.kind) conditions.push(eq(stationeryItems.kind, query.kind));
         if (query.variant) conditions.push(eq(stationeryItems.variant, query.variant));
         if (query.status) conditions.push(eq(stationeryItems.status, query.status));
@@ -831,6 +867,7 @@ export class StationeryStock {
             unitId: string;
             kind: StationeryKind;
             movement: MovementRow['movement'];
+            /** in series and serial order (the order the items were locked in) */
             keys: readonly string[];
             occurredOn: string;
             fromUnitId?: string;
@@ -842,7 +879,7 @@ export class StationeryStock {
             note?: string;
         }
     ): Promise<MovementRow> {
-        const sorted = [...m.keys].sort();
+        const sorted = m.keys;
         return insertAudited(tx, stationeryMovements, {
             regionId: m.regionId,
             unitId: m.unitId,

@@ -231,9 +231,15 @@ export type StationeryWriteOff = z.infer<typeof stationeryWriteOffSchema>;
  */
 export const stationeryClosingSchema = z.strictObject({
     kind,
+    /** the day of the count: today (what is held is today's; a past day's stock is not recounted) */
     closedOn: isoDate,
-    /** the runs physically on hand (an empty list: nothing on hand) */
-    counted: z.array(stationeryRangeSchema).max(200),
+    /** the runs physically on hand (an empty list: nothing on hand), at most MAX_ITEMS serials in all */
+    counted: z
+        .array(stationeryRangeSchema)
+        .max(200)
+        .refine((runs) => runs.reduce((n, r) => n + (r.to - r.from + 1), 0) <= MAX_ITEMS, {
+            message: `at most ${MAX_ITEMS} serials in one count`
+        }),
     note
 });
 export type StationeryClosingInput = z.infer<typeof stationeryClosingSchema>;

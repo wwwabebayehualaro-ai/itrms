@@ -3,7 +3,7 @@
  * training is entered by the office that handles them, from the school's list; a batch goes to the printer once, through the worker.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, sql, type SQL } from 'drizzle-orm';
 import { StationeryStock } from '@itrms/fees/api';
 import { parseStationeryKey } from '@itrms/fees/contracts';
 import { insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
@@ -192,7 +192,8 @@ export class RegisterService {
             .select()
             .from(licencePrintBatchItems)
             .where(eq(licencePrintBatchItems.batchId, id))
-            .orderBy(licencePrintBatchItems.createdAt);
+            // the order the batch went to the printer in (handlers/national.ts): its cards follow it
+            .orderBy(asc(licencePrintBatchItems.createdAt), asc(licencePrintBatchItems.id));
         const byLicence = new Map(items.map((i) => [i.licenceId, i]));
         const cards = input.cards ?? this.cardsFrom(input.firstCardKey ?? '', items, input.spoiled ?? []);
         const named = new Set(cards.map((c) => c.licenceId));
@@ -238,6 +239,7 @@ export class RegisterService {
                 });
             seen.add(idOf);
         });
+        await this.stationery.lockKeys(tx, ctx, 'licence_blank', serials);
         for (const card of cards) {
             const item = byLicence.get(card.licenceId);
             if (!item) continue;

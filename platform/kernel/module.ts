@@ -153,9 +153,8 @@ export default defineModule({
             'payment:record',
             'receipt-reversal:request',
             'external-payment:enter',
-            // the office's daily count of its stationery (task 1.12a; 1.12 folds it into the cashier's closing)
-            'stationery:read',
-            'stationery:close'
+            // the office's stationery, read (task 1.12a); the keeper counts it, and 1.12 brings the cashier's closing
+            'stationery:read'
         ],
         finance_officer: [
             ...READ_ORG,
