@@ -48,6 +48,16 @@ they are relied on.
   - **Transfers** need a sale contract authenticated by DARA and a revenue clearance. Vehicles can carry encumbrances
     (bank loan, court order, revenue or customs); ITRMS will let an open encumbrance block a transfer (task 1.4).
   - **All vehicle files are on paper:** roughly 170,000–250,000 in the zone (ADR-0054).
+  - From the zone's documents ([2026-11-11](discovery/2026-11-11-wolaita-documents.md)):
+    - **The regional bureau sells the zone its plates, libre booklets and bolo stickers** at a unit price. Bolo stickers
+      are printed per category and fiscal year. For ETH plates the ministry prints national stickers (with a barcode).
+    - **The zone bridges gaps with its own documents:** a temporary libre while the booklet is pending, and a temporary
+      bolo letter with a validity window while stickers are out.
+    - **Third-party insurance:** a certificate in the format of MoTL's Road Safety & Insurance Fund Service, under
+      **Proclamation 799/2013** (Vehicle Insurance Against Third Party Risks), is required before the bolo.
+    - **Ownership transfer** involves a technical valuation of the vehicle, stamp duty paid to the revenue office on that
+      value, authentication of the sale contract by the justice office, and business-tax registration for commercial
+      (code 3) vehicles.
 
 ## 3. Driver licensing and traffic penalties are being centralised ⚠️
 

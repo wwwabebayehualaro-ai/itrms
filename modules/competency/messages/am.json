@@ -120,5 +120,9 @@
   "competency.rule.ownerOneOf": "ባለቤቱን ሰው ወይም ድርጅት ብቻ ይምረጡ፤ ሁለቱንም ወይም ምንም አይሁን።",
   "competency.rule.notAPlate": "ይህ ብሔራዊ ሰሌዳ አይደለም።",
   "competency.errors.act_from_handling_office": "ምዝገባውን የሚያጠናቅቀው ጉዳዩን የሚይዘው ጽ/ቤት ነው።",
-  "competency.errors.registration_missing_fact": "ጉዳዩ የሚቀጥልበት {key} የለውም።"
+  "competency.errors.registration_missing_fact": "ጉዳዩ የሚቀጥልበት {key} የለውም።",
+  "competency.batches.firstCard": "የመጀመሪያው ካርድ ቁጥር",
+  "competency.batches.printed": "መታተሙን መዝግብ",
+  "competency.batches.printedFailed": "መታተሙን መመዝገብ አልተቻለም።",
+  "competency.errors.batch_not_printable": "መታተሙ የሚመዘገበው ለማተሚያ ለተላከ ጥቅል ብቻ ነው።"
 }

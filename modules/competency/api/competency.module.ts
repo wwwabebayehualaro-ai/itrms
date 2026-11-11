@@ -1,5 +1,6 @@
 import { Inject, Module, type OnModuleInit } from '@nestjs/common';
 import { DocumentsModule } from '@itrms/documents/api';
+import { FeesModule } from '@itrms/fees/api';
 import { FormsModule, RegistryLookups } from '@itrms/forms/api';
 import { PartiesModule } from '@itrms/parties/api';
 import { VehiclesModule } from '@itrms/vehicles/api';
@@ -17,7 +18,7 @@ import { VehicleRegistrationService } from './registration.service';
  * registration service's effects over the vehicle register (task 1.2b).
  */
 @Module({
-    imports: [FormsModule, PartiesModule, DocumentsModule, VehiclesModule],
+    imports: [FormsModule, PartiesModule, DocumentsModule, VehiclesModule, FeesModule],
     controllers: [CompetencyController],
     providers: [
         LicencesService,

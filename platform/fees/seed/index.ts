@@ -105,3 +105,5 @@ export async function setUpReceiptCounters(tx: Tx, regionId: string, pattern = R
         await setUpCounter(tx, { key: RECEIPT_COUNTER, unitId: office.id, regionId, pattern });
     return offices.rows.length;
 }
+
+export { DEMO_STATIONERY, importStationeryDemo, type StationeryDemoCounts } from './stationery';

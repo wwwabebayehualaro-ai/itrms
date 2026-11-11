@@ -145,6 +145,36 @@ export const printBatchSchema = z.object({
     version: z.number().int()
 });
 export type PrintBatch = z.infer<typeof printBatchSchema>;
+
+/**
+ * `POST /competency/print-batches/:id/printing` (task 1.12a): a sent batch came back printed. Each licence names the card
+ * blank it was printed on (or the first card is named, and the batch's licences follow it in order, the spoiled blanks
+ * skipped: how a printer is loaded), and each blank spoiled in the printing is recorded with why; every one is taken from
+ * the printing office's controlled stationery, once.
+ */
+const cardKey = z.string().trim().min(1).max(20);
+export const printBatchPrintedSchema = z
+    .strictObject({
+        cards: z
+            .array(z.strictObject({ licenceId: z.uuid(), cardKey }))
+            .min(1)
+            .max(500)
+            .refine(
+                (cards) => new Set(cards.map((c) => c.licenceId)).size === cards.length,
+                'a licence is listed twice'
+            )
+            .optional(),
+        firstCardKey: cardKey.optional(),
+        spoiled: z
+            .array(z.strictObject({ cardKey, reason: z.string().trim().min(3).max(200) }))
+            .max(100)
+            .optional()
+    })
+    .refine((v) => (v.cards === undefined) !== (v.firstCardKey === undefined), {
+        path: ['firstCardKey'],
+        message: 'name the cards, or the first card'
+    });
+export type PrintBatchPrinted = z.infer<typeof printBatchPrintedSchema>;
 export const printBatchListSchema = z.object({ items: z.array(printBatchSchema) });
 
 /** A step's answers when an examiner records a result. */

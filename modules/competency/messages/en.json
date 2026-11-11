@@ -120,5 +120,9 @@
   "competency.rule.ownerOneOf": "Choose either a person or an organisation as the owner, not both and not neither.",
   "competency.rule.notAPlate": "This is not a national plate.",
   "competency.errors.act_from_handling_office": "A registration is completed by the office that handles the case.",
-  "competency.errors.registration_missing_fact": "The case has no {key} to continue with."
+  "competency.errors.registration_missing_fact": "The case has no {key} to continue with.",
+  "competency.batches.firstCard": "First card serial",
+  "competency.batches.printed": "Record printed",
+  "competency.batches.printedFailed": "The printing could not be recorded.",
+  "competency.errors.batch_not_printable": "Only a batch sent to the printer can be recorded as printed."
 }

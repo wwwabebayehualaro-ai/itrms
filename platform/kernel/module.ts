@@ -111,6 +111,7 @@ export default defineModule({
             ...READ_ORG,
             ...REGISTER,
             'plate-stock:read',
+            'stationery:read',
             'role-assignment:read',
             'audit-log:read',
             'pii:reveal',
@@ -151,7 +152,10 @@ export default defineModule({
             ...PAYMENTS_READ,
             'payment:record',
             'receipt-reversal:request',
-            'external-payment:enter'
+            'external-payment:enter',
+            // the office's daily count of its stationery (task 1.12a; 1.12 folds it into the cashier's closing)
+            'stationery:read',
+            'stationery:close'
         ],
         finance_officer: [
             ...READ_ORG,
@@ -165,12 +169,14 @@ export default defineModule({
             'receipt-reversal:decide',
             'external-payment:verify',
             'external-statement:read',
-            'external-statement:import'
+            'external-statement:import',
+            'stationery:read'
         ],
         auditor: [
             ...READ_ORG,
             ...REGISTER,
             'plate-stock:read',
+            'stationery:read',
             'role-assignment:read',
             'audit-log:read',
             'workflow-definition:read',
@@ -183,14 +189,21 @@ export default defineModule({
         ],
         // names and addresses only: never a sensitive field (no pii:reveal)
         viewer: [...READ_ORG, ...REGISTER],
-        // the keeper of an office's plate stock (task 1.2a): receives plates, hands them down, accepts, writes off
+        // the keeper of an office's store (task 1.2a): its plate stock, and (task 1.12a) its controlled stationery: receives,
+        // hands down, accepts, writes off and closes the count. One store keeper holds both in an office (assumption, to
+        // confirm with a bureau)
         plate_keeper: [
             ...READ_ORG,
             ...REGISTER,
             'plate-stock:read',
+            'stationery:read',
             'plate-stock:receive',
             'plate-stock:allocate',
-            'plate-stock:write-off'
+            'plate-stock:write-off',
+            'stationery:receive',
+            'stationery:allocate',
+            'stationery:write-off',
+            'stationery:close'
         ]
     },
     // the settings registry (ADR-0026; value schemas: KERNEL_SETTINGS in the contracts). The languages

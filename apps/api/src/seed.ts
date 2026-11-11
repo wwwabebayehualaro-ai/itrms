@@ -36,6 +36,7 @@ import {
 import { FieldCrypto } from '@itrms/kernel/crypto';
 import { OrganisationsService, PersonsService } from '@itrms/parties/api';
 import { PlateStock, VehicleRegistry } from '@itrms/vehicles/api';
+import { StationeryStock } from '@itrms/fees/api';
 import { DEFAULT_LEGACY_PLATE_REGIONS } from '@itrms/vehicles/contracts';
 import {
     importPlateStockDemo,
@@ -44,7 +45,7 @@ import {
     setUpLibreCounters
 } from '@itrms/vehicles/seed';
 import { importDocumentTemplates } from '@itrms/documents/seed';
-import { importFeeRules, parseFeeRules, setUpReceiptCounters } from '@itrms/fees/seed';
+import { importFeeRules, importStationeryDemo, parseFeeRules, setUpReceiptCounters } from '@itrms/fees/seed';
 import { importCatalogue } from '@itrms/services/api';
 import { parseCatalogue } from '@itrms/services/seed';
 import { and, eq, isNull } from 'drizzle-orm';
@@ -270,6 +271,12 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
         logger.info(
             { region: code, ...stocked },
             stocked ? 'demo plate stock applied' : 'the demo plate stock was already there'
+        );
+        // and the controlled stationery its offices issue on (task 1.12a)
+        const stationery = await importStationeryDemo(db, code, new StationeryStock());
+        logger.info(
+            { region: code, ...stationery },
+            stationery ? 'demo stationery applied' : 'the demo stationery was already there'
         );
     } else if (file) {
         const doc = userImportSchema.parse(parseYaml(await readFile(file, 'utf8')));

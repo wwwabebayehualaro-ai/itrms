@@ -111,6 +111,22 @@ export function usePrintBatches() {
     });
 }
 
+/** A sent batch came back printed: its licences on consecutive card blanks from the first one (task 1.12a). */
+export function useRecordPrinted() {
+    const queries = useQueryClient();
+    return useMutation({
+        mutationFn: async (input: { id: string; version: number; firstCardKey: string }) =>
+            (
+                await client.post<PrintBatch>(
+                    `v1/competency/print-batches/${input.id}/printing`,
+                    { firstCardKey: input.firstCardKey },
+                    { headers: { 'If-Match': `"${input.version}"` } }
+                )
+            ).data,
+        onSuccess: () => queries.invalidateQueries({ queryKey: keys.batches })
+    });
+}
+
 export function useSendPrintBatch() {
     const queries = useQueryClient();
     return useMutation({

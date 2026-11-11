@@ -20,7 +20,10 @@ export default defineModule({
         // money paid elsewhere (task 0.22c, ADR-0043): the counter enters a reference, another person verifies it, or a
         // statement's line does
         'external-payment': ['read', 'enter', 'verify'],
-        'external-statement': ['read', 'import']
+        'external-statement': ['read', 'import'],
+        // controlled stationery (task 1.12a, ADR-0050): a keeper receives, hands down, accepts and writes off; an office
+        // closes its count; using an item has no permission of its own (the printing or issuing command's)
+        stationery: ['read', 'receive', 'allocate', 'write-off', 'close']
     },
     // a corrected request's fee worked out again (named on the workflow's amending transitions); a case's fee as a
     // payment order (named on the transition into its payment step)
@@ -143,6 +146,15 @@ export default defineModule({
             icon: 'file-spreadsheet',
             route: '/finance/statements',
             requires: { permission: 'external-statement:import' }
+        },
+        {
+            key: 'fees.stationery',
+            group: 'registries',
+            order: 17,
+            label: 'fees.nav.stationery',
+            icon: 'scroll-text',
+            route: '/registry/stationery',
+            requires: { permission: 'stationery:read', capabilities: ['holds_stationery'] }
         }
     ]
 });

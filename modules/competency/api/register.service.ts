@@ -2,14 +2,23 @@
  * The training schools' lists and the print batches (task 0.24a): what a licence relies on and where it goes after. A person's
  * training is entered by the office that handles them, from the school's list; a batch goes to the printer once, through the worker.
  */
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { and, desc, eq, sql, type SQL } from 'drizzle-orm';
+import { StationeryStock } from '@itrms/fees/api';
+import { parseStationeryKey } from '@itrms/fees/contracts';
 import { insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
-import { ConflictError, NotFoundError } from '@itrms/kernel/errors';
+import { ConflictError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
 import { emit } from '@itrms/kernel/outbox';
 import { organisations, persons } from '@itrms/parties/api';
 
-import { enrolmentSchema, printBatchSchema, type ENROLMENT_STATUSES, type Enrolment } from '../contracts';
+import {
+    enrolmentSchema,
+    printBatchPrintedSchema,
+    printBatchSchema,
+    type ENROLMENT_STATUSES,
+    type Enrolment,
+    type PrintBatchPrinted
+} from '../contracts';
 import { licenceGradeTypes, licencePrintBatches, licencePrintBatchItems, trainingEnrolments } from './competency.table';
 import type { EnrolmentCreate } from './licences.service';
 
@@ -21,6 +30,8 @@ function required(value: string | undefined): string {
 
 @Injectable()
 export class RegisterService {
+    constructor(@Inject(StationeryStock) private readonly stationery: StationeryStock) {}
+
     /** Enrolments with who and what they are about, as the register has them now. */
     private async enrolmentViews(tx: Tx, where: SQL | undefined, limit: number): Promise<Enrolment[]> {
         const rows = await tx
@@ -158,5 +169,120 @@ export class RegisterService {
         const updated = await updateAudited(tx, licencePrintBatches, id, version, { status: 'requested' });
         await emit(tx, 'licence-batch.print-requested.v1', { batchId: id });
         return this.batchView(updated, items.length);
+    }
+
+    /**
+     * A sent batch came back printed (task 1.12a): each of its licences on the card blank named, and each blank spoiled in
+     * the printing recorded with why. Every blank comes from the acting office's controlled stationery (it printed them)
+     * and is used once; the batch is then returned. All or nothing: a blank not in the office's stock, a licence missing or
+     * not of the batch refuses the whole record.
+     */
+    async recordPrinted(tx: Tx, ctx: DbContext, id: string, version: number, given: PrintBatchPrinted) {
+        const parsed = printBatchPrintedSchema.safeParse(given);
+        if (!parsed.success)
+            throw new ValidationError('validation_failed', {
+                errors: parsed.error.issues.map((i) => ({ path: i.path.join('.'), code: i.code, message: i.message }))
+            });
+        const input = parsed.data;
+        const [row] = await tx.select().from(licencePrintBatches).where(eq(licencePrintBatches.id, id)).for('update');
+        if (!row) throw new NotFoundError();
+        if (row.status !== 'sent')
+            throw new ConflictError('invalid_transition', { detailKey: 'competency.errors.batch_not_printable' });
+        const items = await tx
+            .select()
+            .from(licencePrintBatchItems)
+            .where(eq(licencePrintBatchItems.batchId, id))
+            .orderBy(licencePrintBatchItems.createdAt);
+        const byLicence = new Map(items.map((i) => [i.licenceId, i]));
+        const cards = input.cards ?? this.cardsFrom(input.firstCardKey ?? '', items, input.spoiled ?? []);
+        const named = new Set(cards.map((c) => c.licenceId));
+        const strangers = cards.filter((c) => !byLicence.has(c.licenceId));
+        const forgotten = items.filter((i) => !named.has(i.licenceId));
+        if (strangers.length > 0 || forgotten.length > 0)
+            throw new ValidationError('validation_failed', {
+                errors: [
+                    ...strangers.map((c) => ({
+                        path: `cards.${cards.indexOf(c)}.licenceId`,
+                        code: 'not_in_batch',
+                        message: 'is not a licence of this batch'
+                    })),
+                    ...(forgotten.length
+                        ? [
+                              {
+                                  path: 'cards',
+                                  code: 'licence_missing',
+                                  message: `${forgotten.length} licence(s) of the batch have no card`
+                              }
+                          ]
+                        : [])
+                ]
+            });
+        const serials = [...cards.map((c) => c.cardKey), ...(input.spoiled ?? []).map((s) => s.cardKey)];
+        const seen = new Set<string>();
+        serials.forEach((key, i) => {
+            const p = parseStationeryKey(key);
+            if (!p)
+                throw new ValidationError('validation_failed', {
+                    errors: [
+                        {
+                            path: i < cards.length ? `cards.${i}.cardKey` : 'spoiled',
+                            code: 'invalid_serial',
+                            message: 'is not a serial'
+                        }
+                    ]
+                });
+            const idOf = `${p.series}/${p.serial}`;
+            if (seen.has(idOf))
+                throw new ValidationError('validation_failed', {
+                    errors: [{ path: 'cards', code: 'card_twice', message: `card ${p.key} is named twice` }]
+                });
+            seen.add(idOf);
+        });
+        for (const card of cards) {
+            const item = byLicence.get(card.licenceId);
+            if (!item) continue;
+            const blank = await this.stationery.use(tx, ctx, {
+                kind: 'licence_blank',
+                key: card.cardKey,
+                usedFor: { table: 'competency.licence_print_batch_items', id: item.id }
+            });
+            await updateAudited(tx, licencePrintBatchItems, item.id, item.rowVersion, {
+                cardKey: blank.itemKey,
+                stationeryItemId: blank.id
+            });
+        }
+        for (const spoiled of input.spoiled ?? [])
+            await this.stationery.spoil(tx, ctx, {
+                kind: 'licence_blank',
+                key: spoiled.cardKey,
+                reason: spoiled.reason
+            });
+        const updated = await updateAudited(tx, licencePrintBatches, id, version, { status: 'returned' });
+        return this.batchView(updated, items.length);
+    }
+
+    /** The batch's licences, in the order they joined it, on consecutive blanks from the first one, the spoiled skipped. */
+    private cardsFrom(
+        first: string,
+        items: readonly { licenceId: string }[],
+        spoiled: readonly { cardKey: string }[]
+    ): { licenceId: string; cardKey: string }[] {
+        const start = parseStationeryKey(first);
+        if (!start)
+            throw new ValidationError('validation_failed', {
+                errors: [{ path: 'firstCardKey', code: 'invalid_serial', message: 'is not a serial' }]
+            });
+        const width = start.key.length - start.series.length;
+        const skip = new Set(
+            spoiled.map((s) => parseStationeryKey(s.cardKey)).flatMap((p) => (p ? [`${p.series}/${p.serial}`] : []))
+        );
+        const out: { licenceId: string; cardKey: string }[] = [];
+        let serial = start.serial;
+        for (const item of items) {
+            while (skip.has(`${start.series}/${serial}`)) serial += 1;
+            out.push({ licenceId: item.licenceId, cardKey: `${start.series}${String(serial).padStart(width, '0')}` });
+            serial += 1;
+        }
+        return out;
     }
 }
