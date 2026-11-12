@@ -124,5 +124,8 @@
   "competency.batches.firstCard": "የመጀመሪያው ካርድ ቁጥር",
   "competency.batches.printed": "መታተሙን መዝግብ",
   "competency.batches.printedFailed": "መታተሙን መመዝገብ አልተቻለም።",
-  "competency.errors.batch_not_printable": "መታተሙ የሚመዘገበው ለማተሚያ ለተላከ ጥቅል ብቻ ነው።"
+  "competency.errors.batch_not_printable": "መታተሙ የሚመዘገበው ለማተሚያ ለተላከ ጥቅል ብቻ ነው።",
+  "competency.rule.bookletSpoiled": "ይህ ደብተር እንደተበላሸ ተዘርዝሯል፤ ሊብሬው የተጻፈበትን ደብተር ይጥቀሱ።",
+  "competency.libre.kebele": "ቀበሌ",
+  "competency.libre.house": "የቤት ቁ."
 }

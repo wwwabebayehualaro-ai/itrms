@@ -11,11 +11,15 @@ export const REGISTRATION_EFFECTS = {
     registerVehicle: 'competency.registerVehicle',
     assignRegistrationPlate: 'competency.assignRegistrationPlate',
     issueLibre: 'competency.issueLibre',
+    issueLibreBooklet: 'competency.issueLibreBooklet',
     releaseRegistrationPlate: 'competency.releaseRegistrationPlate'
 } as const;
 
-/** The document a registration prints as: the libre (ADR-0049). */
-export const VEHICLE_LIBRE_TEMPLATE = 'vehicle-libre';
+/**
+ * The document a registration issues: the registration certificate, the zone's temporary libre (ADR-0050). The libre itself
+ * is the federal booklet, from the office's stationery.
+ */
+export const REGISTRATION_CERTIFICATE_TEMPLATE = 'vehicle-registration-certificate';
 
 /** The service's code in the catalogue. */
 export const NEW_REGISTRATION_SERVICE = 'DVC-01';
@@ -30,4 +34,22 @@ export const ownerRowSchema = z.looseObject({
 export const nationalEntrySchema = z.object({
     federalVehicleId: z.string().optional(),
     replacementPlate: z.string().trim().optional()
+});
+
+/**
+ * What the booklet step says (ADR-0050): the booklet written in, when it is not the office's next one; the national reference
+ * when the national system gave one; and the booklets spoiled on the way, each with its reason (kept on record, never reissued).
+ */
+export const bookletEntrySchema = z.object({
+    bookletSerial: z.string().trim().max(40).optional(),
+    libreNationalReference: z.string().trim().max(60).optional(),
+    spoiledBooklets: z
+        .array(
+            z.looseObject({
+                spoiledSerial: z.string().trim().min(1).max(40),
+                spoiledReason: z.string().trim().min(3).max(500)
+            })
+        )
+        .max(20)
+        .optional()
 });

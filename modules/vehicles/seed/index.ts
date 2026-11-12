@@ -7,7 +7,7 @@ import type { Tx } from '@itrms/kernel/db';
 import { insertAudited, updateAudited } from '@itrms/kernel/db';
 import { setUpCounter } from '@itrms/kernel/numbering';
 
-import { LIBRE_COUNTER, LIBRE_PATTERN } from '../contracts';
+import { REGISTRATION_CERTIFICATE_COUNTER, REGISTRATION_CERTIFICATE_PATTERN } from '../contracts';
 import { vehicleCategories } from '../api/vehicles.table';
 import { VEHICLE_CATEGORIES, type CategorySeed } from './categories';
 
@@ -52,13 +52,20 @@ export async function importVehicleCategories(
     return changed;
 }
 
-/** A libre counter for each office whose type offers new vehicle registration (DVC-01). It never lowers one. */
-export async function setUpLibreCounters(tx: Tx, regionId: string, pattern = LIBRE_PATTERN): Promise<number> {
+/**
+ * A registration-certificate counter (the temporary libre, ADR-0050) for each office whose type offers new vehicle
+ * registration (DVC-01). It never lowers one.
+ */
+export async function setUpRegistrationCertificateCounters(
+    tx: Tx,
+    regionId: string,
+    pattern = REGISTRATION_CERTIFICATE_PATTERN
+): Promise<number> {
     const offices = await tx.execute<{ id: string }>(sql`
         select u.id from kernel.org_units u
           join kernel.unit_type_services s on s.unit_type_id = u.unit_type_id
          where u.region_id = ${regionId} and u.active and s.service_code = 'DVC-01'`);
     for (const office of offices.rows)
-        await setUpCounter(tx, { key: LIBRE_COUNTER, unitId: office.id, regionId, pattern });
+        await setUpCounter(tx, { key: REGISTRATION_CERTIFICATE_COUNTER, unitId: office.id, regionId, pattern });
     return offices.rows.length;
 }

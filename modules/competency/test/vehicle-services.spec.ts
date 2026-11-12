@@ -14,7 +14,7 @@ interface Step {
     effects?: readonly string[];
 }
 
-const flow = vehicleRegistrationFlow('vehicle-national-entry@1');
+const flow = vehicleRegistrationFlow('vehicle-national-entry@1', 'vehicle-libre-booklet@1');
 const steps = flow.transitions as readonly Step[];
 const PAID = { fact: 'payment.settled', op: 'eq', value: true };
 
@@ -24,20 +24,28 @@ describe('the vehicle registration workflow', () => {
     });
 
     it('gives the service only while the fee stands paid (ADR-0042)', () => {
-        const giving = [E.registerVehicle, E.assignRegistrationPlate, E.issueLibre];
+        const giving = [E.registerVehicle, E.assignRegistrationPlate, E.issueLibre, E.issueLibreBooklet];
         const registering = steps.filter((t) => t.effects?.some((e) => giving.some((g) => e.startsWith(g))));
-        expect(registering).toHaveLength(1);
-        expect(registering[0]?.guard).toEqual(PAID);
-        expect(registering[0]?.to).toBe('registered');
+        expect(registering.map((t) => t.to)).toEqual(['booklet', 'registered']);
+        for (const t of registering) expect(t.guard).toEqual(PAID);
     });
 
-    it('runs the register steps in their order, issuing the libre last', () => {
+    it('runs the register steps in their order, issuing the libre and its temporary certificate last', () => {
         const register = steps.find((t) => t.action === 'register');
         expect(register?.effects).toEqual([
             E.recordFederalVehicleId,
             E.registerVehicle,
             E.assignRegistrationPlate,
-            `${E.issueLibre}:vehicle-libre`
+            `${E.issueLibre}:vehicle-registration-certificate`
+        ]);
+    });
+
+    it('ends with the federal booklet from stock, on its own step a case can wait in, and never rejected there (ADR-0050)', () => {
+        const booklet = flow.states.find((s) => s.key === 'booklet') as { stepForm?: string } | undefined;
+        expect(booklet?.stepForm).toBe('vehicle-libre-booklet@1');
+        const issue = steps.filter((t) => t.from === 'booklet');
+        expect(issue.map((t) => [t.action, t.to, t.effects])).toEqual([
+            ['issue_booklet', 'registered', [E.issueLibreBooklet]]
         ]);
     });
 

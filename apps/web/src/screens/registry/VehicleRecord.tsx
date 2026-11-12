@@ -72,6 +72,23 @@ export function VehicleRecord({ id }: { id: string }) {
                             { term: t('vehicles.field.seats'), value: v.seats },
                             { term: t('vehicles.field.loadCapacity'), value: kg(v.loadCapacityKg) },
                             { term: t('vehicles.field.axles'), value: v.axles },
+                            { term: t('vehicles.field.grossWeight'), value: kg(v.grossWeightKg) },
+                            { term: t('vehicles.field.netWeight'), value: kg(v.netWeightKg) },
+                            { term: t('vehicles.field.engineCc'), value: v.engineCc },
+                            { term: t('vehicles.field.engineHp'), value: v.engineHp },
+                            { term: t('vehicles.field.cylinders'), value: v.cylinders },
+                            {
+                                term: t('vehicles.field.dimensions'),
+                                value:
+                                    v.lengthMm && v.widthMm && v.heightMm
+                                        ? `${v.lengthMm} × ${v.widthMm} × ${v.heightMm}`
+                                        : null
+                            },
+                            {
+                                term: t('vehicles.field.tyres'),
+                                value: [v.tyres, v.tyreSize].filter((x) => x !== null).join(' × ') || null
+                            },
+                            { term: t('vehicles.field.madeIn'), value: v.madeIn },
                             { term: t('vehicles.field.colour'), value: v.colour },
                             { term: t('vehicles.field.fuel'), value: v.fuel && t(`vehicles.fuel.${v.fuel}`) },
                             { term: t('vehicles.field.firstRegisteredOn'), value: day(v.firstRegisteredOn) },
@@ -197,7 +214,13 @@ function Libres({
             <TableBody>
                 {libres.map((l) => (
                     <TableRow key={l.id} data-libre={l.id}>
-                        <TableCell className="font-medium">{l.number ?? l.nationalReference ?? '—'}</TableCell>
+                        <TableCell className="font-medium" data-booklet={l.number ?? ''}>
+                            {l.number ?? (
+                                <span className="text-muted-foreground font-normal">
+                                    {t('vehicles.record.bookletPending')}
+                                </span>
+                            )}
+                        </TableCell>
                         <TableCell>{day(l.issuedOn)}</TableCell>
                         <TableCell>{unit(l.issuingUnit.name)}</TableCell>
                         <TableCell>

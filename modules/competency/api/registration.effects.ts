@@ -36,7 +36,17 @@ const REQUEST = {
     engineCc: { kind: 'number', required: false },
     axles: { kind: 'number', required: false },
     colour: { kind: 'text', required: false },
-    fuel: { kind: 'choice', required: false }
+    fuel: { kind: 'choice', required: false },
+    // the temporary libre's other facts (task 1.2d); the size in metres, as the papers give it
+    madeIn: { kind: 'text', required: false },
+    engineHp: { kind: 'number', required: false },
+    cylinders: { kind: 'number', required: false },
+    lengthM: { kind: 'number', required: false },
+    widthM: { kind: 'number', required: false },
+    heightM: { kind: 'number', required: false },
+    tyreSize: { kind: 'text', required: false },
+    tyres: { kind: 'number', required: false },
+    netWeightKg: { kind: 'number', required: false }
 } as const;
 
 @Injectable()
@@ -91,7 +101,10 @@ export class AssignRegistrationPlateEffect implements WorkflowEffect {
     }
 }
 
-/** `competency.issueLibre:<template>`: the document template, `vehicle-libre` when none is named. */
+/**
+ * `competency.issueLibre:<template>`: the libre, with no number until its booklet, and its registration certificate (the
+ * temporary libre, ADR-0050); the template `vehicle-registration-certificate` when none is named.
+ */
 @Injectable()
 @Effect(R.issueLibre, { givesService: true })
 export class IssueLibreEffect implements WorkflowEffect {
@@ -99,6 +112,17 @@ export class IssueLibreEffect implements WorkflowEffect {
 
     async run(run: EffectRun) {
         return { facts: await this.registration.issueLibre(run.tx, placeOf(run), run.facts, run.argument) };
+    }
+}
+
+/** The officer's step: the federal booklet from the office's stationery, the booklets spoiled on the way, the national reference. */
+@Injectable()
+@Effect(R.issueLibreBooklet, { givesService: true })
+export class IssueLibreBookletEffect implements WorkflowEffect {
+    constructor(@Inject(VehicleRegistrationService) private readonly registration: VehicleRegistrationService) {}
+
+    async run(run: EffectRun) {
+        return { facts: await this.registration.issueBooklet(run.tx, placeOf(run), run.facts, run.input) };
     }
 }
 
@@ -120,5 +144,6 @@ export const REGISTRATION_EFFECTS = [
     RegisterVehicleEffect,
     AssignRegistrationPlateEffect,
     IssueLibreEffect,
+    IssueLibreBookletEffect,
     ReleaseRegistrationPlateEffect
 ] as const;

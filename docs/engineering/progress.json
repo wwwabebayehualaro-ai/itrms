@@ -1500,12 +1500,12 @@
         {
           "id": "1.2d",
           "title": "Registration and plates, part 4: the federal libre booklet (ADR-0050)",
-          "status": "ready",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/1.2d-libre-booklet",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Added 2026-11-11 after the zone's written answers (the ministry prints the libre). Depends on 1.12a (controlled stationery). Also: the DVC-01 form adds the import documents and, for a business owner, the trade licence and TIN."
+          "notes": "Added 2026-11-11 after the zone's written answers (the ministry prints the libre). Depends on 1.12a (controlled stationery). Also: the DVC-01 form adds the import documents and, for a business owner, the trade licence and TIN. Design: DVC-01 gets a last step 'booklet' after 'registration'. The register action registers the vehicle, assigns the plate and issues the libre with no number plus the temporary libre (template vehicle-registration-certificate, numbered from the renamed counter vehicles.registration-certificate). The booklet step (competency.issueLibreBooklet, step form vehicle-libre-booklet: serial optional = the office's next free, national reference, spoiled booklets with reasons) takes one libre_booklet from the office's stationery (StationeryStock.use, used for vehicles.libres/<id>), writes its key as libres.number, and reissues the certificate with the serial (the old QR says superseded). With no booklet in stock the case waits in that step, so a booklet arriving later is issued on the same case and vehicle; a vehicle still changes only through a case. The temporary libre's missing facts (made in, engine HP, cylinders, length/width/height, tyre size and count, net weight) are added to the vehicles register; the owner's phone is left off (sensitive). Request form: Bill of Lading, commercial invoice, packing list, trade licence attachments and a business TIN; an organisation's TIN stays on its party record. The temporary libre on paper carries the owner's phone; the certificate leaves it off (sensitive, read only through reveal, and the QR page is public). Vehicle sizes are asked in metres (as the papers give them) and kept in whole millimetres."
         },
         {
           "id": "1.13",
@@ -3371,6 +3371,16 @@
       "foundIn": "1.12a",
       "item": "The payment's pad-series field (fees contracts, payment pad receipts) accepts Latin capitals only; the finance bureau's receipt vouchers carry an Ethiopic series letter",
       "movedTo": "1.12"
+    },
+    {
+      "foundIn": "1.2d",
+      "item": "The registration certificate's bolo number is empty until the vehicle has a bolo; the certificate should be reissued with it",
+      "movedTo": "1.3"
+    },
+    {
+      "foundIn": "1.2d",
+      "item": "A lost-libre replacement issues a new booklet on a new libre (the old one 'lost'), reusing competency.issueLibreBooklet",
+      "movedTo": "1.5"
     }
   ]
 }

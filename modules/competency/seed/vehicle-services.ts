@@ -12,7 +12,7 @@ import { VEHICLE_CATEGORIES } from '@itrms/vehicles/seed';
 import vehiclesAm from '@itrms/vehicles/messages/am';
 import vehiclesEn from '@itrms/vehicles/messages/en';
 
-import { NEW_REGISTRATION_SERVICE, REGISTRATION_EFFECTS as E, VEHICLE_LIBRE_TEMPLATE } from '../contracts';
+import { NEW_REGISTRATION_SERVICE, REGISTRATION_CERTIFICATE_TEMPLATE, REGISTRATION_EFFECTS as E } from '../contracts';
 import {
     ACTIONS,
     approvedFeeRule,
@@ -144,9 +144,43 @@ export const VEHICLE_REGISTRATION_FORM = {
             FUELS.map((f) => ({ label: words(`vehicles.fuel.${f}`), value: f })),
             false
         ),
+        // the temporary libre's other facts (ADR-0050; the zone's form): optional, the register keeps what is given
+        fact('madeIn', 'InputText', text('የተሠራበት አገር', 'Made in'), { required: false, maxLength: 60 }),
+        fact('engineHp', 'InputNumber', text('የሞተር ኃይል (HP)', 'Engine power (HP)'), { required: false }),
+        fact('cylinders', 'InputNumber', text('የሲሊንደር ብዛት', 'Cylinders'), { required: false }),
+        fact('lengthM', 'InputNumber', text('ርዝመት (ሜትር)', 'Length (m)'), { required: false }),
+        fact('widthM', 'InputNumber', text('ስፋት (ሜትር)', 'Width (m)'), { required: false }),
+        fact('heightM', 'InputNumber', text('ቁመት (ሜትር)', 'Height (m)'), { required: false }),
+        fact('tyreSize', 'InputText', text('የጎማ መጠን', 'Tyre size'), { required: false, maxLength: 20 }),
+        fact('tyres', 'InputNumber', text('የጎማ ብዛት', 'Tyres'), { required: false }),
+        fact('netWeightKg', 'InputNumber', text('የተጣራ ክብደት (ኪ.ግ)', 'Net weight (kg)'), { required: false }),
         attachment('customsDeclaration', text('የጉምሩክ መግለጫ', 'Customs declaration'), 'internal'),
+        // an imported vehicle's papers (the zone's answers, 2026-11-11)
+        attachment('billOfLading', text('የጭነት ማስረከቢያ ሰነድ (Bill of Lading)', 'Bill of Lading'), 'internal'),
+        attachment('commercialInvoice', text('የንግድ ደረሰኝ (Commercial invoice)', 'Commercial invoice'), 'internal'),
+        attachment('packingList', text('የዕቃ ዝርዝር (Packing list)', 'Packing list'), 'internal'),
         attachment('proofOfPurchase', text('የግዢ ማስረጃ', 'Proof of purchase'), 'internal'),
         attachment('ownerIdentity', text('የባለቤቱ መታወቂያ', 'Owner identity document')),
+        // a business owner: its trade licence and TIN (an organisation's TIN is on its own record already)
+        attachment('tradeLicence', text('የንግድ ፈቃድ (ለንግድ ባለቤት)', 'Trade licence (a business owner)'), 'internal'),
+        field(
+            'businessTin',
+            'InputText',
+            text('የግብር ከፋይ መለያ ቁጥር (TIN, ለንግድ ባለቤት)', 'TIN (a business owner)'),
+            { required: false, maxLength: 10 },
+            {
+                classification: 'internal',
+                behavior: {
+                    validation: {
+                        supported: true,
+                        rules: {
+                            pattern: '^[0-9]{10}$',
+                            patternMessage: text('10 አሃዝ ያለው ቁጥር', 'A number of 10 digits')
+                        }
+                    }
+                }
+            }
+        ),
         attachment('insuranceCertificate', text('የመድን ሰርተፍኬት', 'Insurance certificate'), 'internal'),
         FEE
     ]
@@ -167,10 +201,59 @@ export const NATIONAL_ENTRY_FORM = {
 };
 
 /**
- * DVC-01: documents, payment, approval, then the officer registers the vehicle with its federal id. The plate is held from the
- * approval, so that a registration approved can always be completed; a rejection gives it back.
+ * The booklet step's answers (ADR-0050): the booklet the libre is written in when it is not the office's next one, the national
+ * reference when given, and the booklets spoiled on the way, each with its reason.
  */
-export const vehicleRegistrationFlow = (entryForm: string) => ({
+export const LIBRE_BOOKLET_FORM = {
+    schemaVersion: 2,
+    fields: [
+        fact(
+            'bookletSerial',
+            'InputText',
+            text('የሊብሬ ደብተር ቁጥር (የሚቀጥለው ካልሆነ)', 'Libre booklet serial (if not the next one)'),
+            { required: false, maxLength: 40 }
+        ),
+        fact('libreNationalReference', 'InputText', text('ብሔራዊ መለያ', 'National reference'), {
+            required: false,
+            maxLength: 60
+        }),
+        field(
+            'spoiledBooklets',
+            'FormArray',
+            text('የተበላሹ ደብተሮች', 'Spoiled booklets'),
+            {
+                required: false,
+                minItems: 0,
+                maxItems: 20,
+                itemLabel: text('ደብተር', 'Booklet'),
+                addButtonLabel: text('የተበላሸ ደብተር ጨምር', 'Add a spoiled booklet')
+            },
+            { category: 'Layout', classification: 'internal', layout: { options: { isContainer: true } } }
+        ),
+        field(
+            'spoiledSerial',
+            'InputText',
+            text('የደብተሩ ቁጥር', 'Booklet serial'),
+            { maxLength: 40 },
+            { classification: 'internal', parentId: 'spoiledBooklets' }
+        ),
+        field(
+            'spoiledReason',
+            'InputText',
+            text('ምክንያት', 'Reason'),
+            { maxLength: 500 },
+            { classification: 'internal', parentId: 'spoiledBooklets' }
+        )
+    ]
+};
+
+/**
+ * DVC-01: documents, payment, approval, then the officer registers the vehicle with its federal id. The plate is held from the
+ * approval, so that a registration approved can always be completed; a rejection gives it back. Registering issues the libre and
+ * its temporary certificate; the last step writes the libre in a federal booklet from the office's stationery (ADR-0050). With no
+ * booklet in stock the case waits there, the vehicle registered meanwhile, and the booklet is issued on it when they come.
+ */
+export const vehicleRegistrationFlow = (entryForm: string, bookletForm: string) => ({
     schemaVersion: 1,
     states: [
         DRAFT,
@@ -188,6 +271,9 @@ export const vehicleRegistrationFlow = (entryForm: string) => ({
         task('registration', text('ምዝገባና ሰሌዳ መስጠት', 'Registration and plate'), 'competency.officer', 2, {
             stepForm: entryForm,
             separationOfDuties: ['approval']
+        }),
+        task('booklet', text('የሊብሬ ደብተር መስጠት', 'Libre booklet'), 'competency.officer', 30, {
+            stepForm: bookletForm
         }),
         { key: 'registered', kind: 'end', label: text('ተመዝግቧል', 'Registered') },
         { key: 'rejected', kind: 'end', label: text('ውድቅ ሆኗል', 'Rejected') }
@@ -222,7 +308,7 @@ export const vehicleRegistrationFlow = (entryForm: string) => ({
         },
         {
             from: 'registration',
-            to: 'registered',
+            to: 'booklet',
             action: 'register',
             label: text('መዝግብ', 'Register the vehicle'),
             guard: PAID,
@@ -230,8 +316,16 @@ export const vehicleRegistrationFlow = (entryForm: string) => ({
                 E.recordFederalVehicleId,
                 E.registerVehicle,
                 E.assignRegistrationPlate,
-                `${E.issueLibre}:${VEHICLE_LIBRE_TEMPLATE}`
+                `${E.issueLibre}:${REGISTRATION_CERTIFICATE_TEMPLATE}`
             ]
+        },
+        {
+            from: 'booklet',
+            to: 'registered',
+            action: 'issue_booklet',
+            label: text('ደብተሩን ስጥ', 'Issue the booklet'),
+            guard: PAID,
+            effects: [E.issueLibreBooklet]
         },
         WITHDRAW,
         {
@@ -265,6 +359,13 @@ export async function importVehicleServices(tx: Tx, root: { id: string; regionId
         text('የብሔራዊ ምዝገባ መረጃ', 'National registration entry'),
         NATIONAL_ENTRY_FORM
     );
+    const booklet = await publishedForm(
+        tx,
+        root,
+        'vehicle-libre-booklet',
+        text('የሊብሬ ደብተር', 'Libre booklet'),
+        LIBRE_BOOKLET_FORM
+    );
     const form = await publishedForm(tx, root, 'vehicle-registration', name, VEHICLE_REGISTRATION_FORM);
     await firstServiceVersion(tx, root, service, {
         formVersionId: form.versionId,
@@ -273,7 +374,7 @@ export async function importVehicleServices(tx: Tx, root: { id: string; regionId
             root,
             'vehicle-registration',
             name,
-            vehicleRegistrationFlow(`vehicle-national-entry@${entry.number}`)
+            vehicleRegistrationFlow(`vehicle-national-entry@${entry.number}`, `vehicle-libre-booklet@${booklet.number}`)
         ),
         feeRuleVersionId: await approvedFeeRule(tx, root.regionId, 'dvc-01-registration')
     });

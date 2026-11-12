@@ -9,7 +9,7 @@
  *                        active (a deferred constraint trigger in the migration checks that at commit).
  *   vehicle_owners       the holders of a period: a person or an organisation, one or more.
  *   plate_assignments    the plates the vehicle carried, the current one has no `until`; old ones stay searchable.
- *   libres               the title booklets issued for an ownership period.
+ *   libres               the libre of an ownership period: the federal booklet it is written in, by its serial (ADR-0050).
  *   plate_batches        the deliveries of national plates from the federal source (class T of the receiving unit).
  *   plates               the stock: one row per national plate, held by a unit, in a status (class R of the holder,
  *                        task 1.2a); a transition trigger and a deferred match with plate_assignments are in the migration.
@@ -140,6 +140,16 @@ export const vehicles = withRls(
                 axles: integer('axles'),
                 colour: text('colour'),
                 fuel: text('fuel', { enum: FUELS }),
+                /** the temporary libre's and the booklet's other facts (task 1.2d) */
+                madeIn: text('made_in'),
+                engineHp: integer('engine_hp'),
+                cylinders: integer('cylinders'),
+                lengthMm: integer('length_mm'),
+                widthMm: integer('width_mm'),
+                heightMm: integer('height_mm'),
+                tyreSize: text('tyre_size'),
+                tyres: integer('tyres'),
+                netWeightKg: integer('net_weight_kg'),
                 firstRegisteredOn: date('first_registered_on').notNull(),
                 status: text('status', { enum: VEHICLE_STATUSES }).notNull().default('active')
             },
@@ -173,6 +183,13 @@ export const vehicles = withRls(
                     'vehicles_figures_check',
                     sql`coalesce(${t.seats}, 1) > 0 and coalesce(${t.loadCapacityKg}, 1) > 0 and coalesce(${t.grossWeightKg}, 1) > 0
                         and coalesce(${t.engineCc}, 1) > 0 and coalesce(${t.axles}, 1) > 0`
+                ),
+                check(
+                    'vehicles_details_check',
+                    sql`coalesce(${t.engineHp}, 1) > 0 and coalesce(${t.cylinders}, 1) > 0 and coalesce(${t.lengthMm}, 1) > 0
+                        and coalesce(${t.widthMm}, 1) > 0 and coalesce(${t.heightMm}, 1) > 0 and coalesce(${t.tyres}, 1) > 0
+                        and coalesce(${t.netWeightKg}, 1) > 0 and coalesce(length(${t.madeIn}), 1) between 1 and 60
+                        and coalesce(length(${t.tyreSize}), 1) between 1 and 20`
                 ),
                 check(
                     'vehicles_text_check',
@@ -334,7 +351,7 @@ export const libres = withRls(
                 ownershipId: uuid('ownership_id')
                     .notNull()
                     .references(() => vehicleOwnerships.id),
-                /** null until the number is entered (a booklet printed elsewhere) */
+                /** the federal booklet's serial (ADR-0050): null until the booklet is issued (the temporary libre stands meanwhile) */
                 number: text('number'),
                 issuedOn: date('issued_on').notNull(),
                 issuingUnitId: uuid('issuing_unit_id')

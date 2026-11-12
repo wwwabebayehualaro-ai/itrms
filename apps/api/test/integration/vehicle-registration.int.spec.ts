@@ -1,7 +1,8 @@
 /**
  * The new vehicle registration service as it is seeded (task 1.2b, DVC-01), run end to end through the API on a real PostgreSQL 16
  * with the Wolaita seeds: filed at Boditi's counter, checked, paid at the till, approved, and registered with a federal id, which
- * makes the vehicle, its first ownership, its plate from the office's stock and its libre with a numbered document. The refusals
+ * makes the vehicle, its first ownership, its plate from the office's stock, its libre and the temporary libre (a numbered
+ * certificate); the last step writes the libre in a federal booklet from the office's stationery (task 1.2d, ADR-0050). The refusals
  * at filing, the plate's life (held from approval, given back on rejection, replaced by another), a step that fails undoing
  * everything it did, and each effect run twice making one record. Chassis numbers, plates and names are generated.
  */
@@ -13,13 +14,18 @@ import { fileURLToPath } from 'node:url';
 import { VehicleRegistrationService, type RegistrationInput } from '@itrms/competency/api';
 import { importVehicleServices, vehicleRegistrationFlow } from '@itrms/competency/seed';
 import { importDocumentTemplates } from '@itrms/documents/seed';
-import { importFeeRules, parseFeeRules } from '@itrms/fees/seed';
+import { StationeryStock } from '@itrms/fees/api';
+import { importFeeRules, importStationeryDemo, parseFeeRules } from '@itrms/fees/seed';
 import { createDatabase, type Database, type DbContext, type Tx } from '@itrms/kernel/db';
 import { contextFor, TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import type { OrgUnit } from '@itrms/kernel/org';
 import { PlateStock } from '@itrms/vehicles/api';
 import { nationalPlateText, vinCheckDigit } from '@itrms/vehicles/contracts';
-import { importPlateStockDemo, importVehicleCategories, setUpLibreCounters } from '@itrms/vehicles/seed';
+import {
+    importPlateStockDemo,
+    importVehicleCategories,
+    setUpRegistrationCertificateCounters
+} from '@itrms/vehicles/seed';
 import type { CaseOut } from '@itrms/workflow/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -41,6 +47,7 @@ let pg: TestPostgres;
 let api: TestApi;
 let app: Database;
 let stock: PlateStock;
+let stationery: StationeryStock;
 let registration: VehicleRegistrationService;
 let boditi: OrgUnit;
 let owner: string;
@@ -211,6 +218,51 @@ async function freeAtBoditi(): Promise<number> {
     ]);
 }
 
+/** Boditi's libre booklets still in stock, in serial order. */
+async function bookletsAtBoditi(): Promise<string[]> {
+    const { rows } = await api.owner.query<{ item_key: string }>(
+        `select item_key from fees.stationery_items
+          where holder_unit_id = $1 and kind = 'libre_booklet' and status = 'in_stock' order by series, serial`,
+        [boditi.id]
+    );
+    return rows.map((r) => r.item_key);
+}
+
+const bookletOf = async (key: string) =>
+    (
+        await api.owner.query<{
+            status: string;
+            used_for_table: string | null;
+            used_for_id: string | null;
+            case_id: string | null;
+        }>('select status, used_for_table, used_for_id, case_id from fees.stationery_items where item_key = $1', [key])
+    ).rows[0];
+
+/** The registration certificates of a case: the one in force last. */
+const certificatesOf = async (caseId: string) =>
+    (
+        await api.owner.query<{
+            id: string;
+            number: string;
+            subject_id: string;
+            superseded_by: string | null;
+            data: { plate: string; bookletSerial: string | null; owners: { name: string; address: string | null }[] };
+        }>(
+            `select d.id, d.number, d.subject_id, d.superseded_by, d.data from documents.issued_documents d
+               join documents.document_templates t on t.id = d.template_id
+              where t.key = 'vehicle-registration-certificate' and d.case_id = $1
+              order by d.superseded_by is null, d.created_at`,
+            [caseId]
+        )
+    ).rows;
+
+/** A case approved and registered: the vehicle is on the register and the case waits for its booklet. */
+async function registeredAwaitingBooklet(over: Partial<RegistrationInput> = {}): Promise<CaseOut> {
+    const c = await moved(await approved(over), as.officer, 'register', { answers: { federalVehicleId: federalId() } });
+    expect(c.state).toBe('booklet');
+    return c;
+}
+
 beforeAll(async () => {
     pg = await startPostgres();
     api = await startApi(pg, [
@@ -234,6 +286,7 @@ beforeAll(async () => {
     ]);
     app = createDatabase(pg.url('app'), { auditKey: randomBytes(32).toString('hex'), contextKey: TEST_CONTEXT_KEY });
     stock = api.http.get(PlateStock);
+    stationery = api.http.get(StationeryStock);
     registration = api.http.get(VehicleRegistrationService);
     const region = await api.unit('SER', 'SER');
     boditi = await api.unit('SER', 'WOL-BODITI');
@@ -246,11 +299,13 @@ beforeAll(async () => {
     await api.installer.scoped({}, async (tx) => {
         await importFeeRules(tx, root, parseFeeRules(readFileSync(FEE_RULES, 'utf8')));
         await importVehicleCategories(tx, root);
-        await setUpLibreCounters(tx, root.regionId);
+        await setUpRegistrationCertificateCounters(tx, root.regionId);
         await importDocumentTemplates(tx, root);
         expect(await importVehicleServices(tx, root)).toBe(1);
     });
     expect(await importPlateStockDemo(api.installer, 'SER', stock, today())).not.toBeNull();
+    // Boditi holds libre booklets handed down from the zone (the demo's stationery)
+    expect(await importStationeryDemo(api.installer, 'SER', stationery, today())).not.toBeNull();
     owner = await registered();
 }, 240_000);
 
@@ -288,15 +343,22 @@ describe('what is seeded', () => {
         const flow = await api.call('POST', '/api/v1/workflow-definitions', as.bureau, {
             key: 'checked-vehicle-registration',
             name: { am: 'ማረጋገጫ', en: 'Checked' },
-            definition: vehicleRegistrationFlow('vehicle-national-entry@1')
+            definition: vehicleRegistrationFlow('vehicle-national-entry@1', 'vehicle-libre-booklet@1')
         });
         expect(flow.statusCode, flow.body).toBe(201);
     });
 });
 
 describe('a new vehicle registration', () => {
-    it('runs from the counter to a vehicle with its owner, its plate from the stock and its libre', async () => {
-        const answers = request();
+    it('runs from the counter to a vehicle with its owner, its plate from the stock, its libre and its booklet', async () => {
+        const answers = request({
+            madeIn: 'Japan',
+            engineHp: 86,
+            lengthM: 3.945,
+            widthM: 1.695,
+            heightM: 1.5,
+            tyres: 4
+        });
         // the demo's placeholder amounts: automobile 1000 Birr + plate 500 + libre 200
         const shown = await preview(answers, as.officer);
         expect(shown.totalSantim).toBe('170000');
@@ -336,7 +398,8 @@ describe('a new vehicle registration', () => {
         const registering = await step(c, as.officer, { action: 'register', answers: { federalVehicleId: id } });
         expect(registering.statusCode, registering.body).toBe(200);
         c = registering.json<CaseOut>();
-        expect(c.state).toBe('registered');
+        // registered, and waiting for its booklet (ADR-0050)
+        expect(c.state).toBe('booklet');
         // every record the step made is audited in the step's own transaction
         expect(await auditOf(requestIdOf(registering))).toMatchObject({
             'vehicles.vehicles:insert': 1,
@@ -363,35 +426,63 @@ describe('a new vehicle registration', () => {
         );
         expect(carried.rows).toEqual([{ plate_key: held[0]?.plate_key }]);
 
-        // the libre, numbered from the office's counter, and its document
-        const libres = await api.owner.query<{ id: string; number: string }>(
+        // the vehicle's other facts, the size in millimetres
+        const details = await api.owner.query<{
+            made_in: string;
+            engine_hp: number;
+            length_mm: number;
+            width_mm: number;
+        }>('select made_in, engine_hp, length_mm, width_mm from vehicles.vehicles where id = $1', [vehicle?.id]);
+        expect(details.rows[0]).toEqual({ made_in: 'Japan', engine_hp: 86, length_mm: 3945, width_mm: 1695 });
+
+        // the libre, with no number of ours (ADR-0050), and the temporary libre: numbered from the office's counter
+        const libres = await api.owner.query<{ id: string; number: string | null }>(
             'select id, number from vehicles.libres where case_id = $1',
             [c.id]
         );
         expect(libres.rows).toHaveLength(1);
-        expect(libres.rows[0]?.number).toMatch(/\/LB\/\d{6}$/);
-        const docs = await api.owner.query<{
-            number: string;
-            subject_table: string;
-            subject_id: string;
-            data: { plate: string };
-        }>(
-            `select d.number, d.subject_table, d.subject_id, d.data from documents.issued_documents d
-               join documents.document_templates t on t.id = d.template_id
-              where t.key = 'vehicle-libre' and d.case_id = $1`,
-            [c.id]
-        );
-        expect(docs.rows).toHaveLength(1);
-        expect(docs.rows[0]).toMatchObject({
-            number: libres.rows[0]?.number,
-            subject_table: 'vehicles.libres',
-            subject_id: libres.rows[0]?.id
-        });
-        expect(docs.rows[0]?.data.plate).toBe(nationalPlateText(held[0]?.plate_key ?? ''));
+        const libreId = libres.rows[0]?.id ?? '';
+        expect(libres.rows[0]?.number).toBeNull();
+        const [temporary, ...others] = await certificatesOf(c.id);
+        expect(others).toHaveLength(0);
+        expect(temporary?.number).toMatch(/\/RC\/\d{6}$/);
+        expect(temporary?.subject_id).toBe(libreId);
+        expect(temporary?.data.plate).toBe(nationalPlateText(held[0]?.plate_key ?? ''));
+        expect(temporary?.data.bookletSerial).toBeNull();
+        expect(temporary?.data.owners).toHaveLength(1);
         const listed = await api.call('GET', `/api/v1/issued-documents?caseId=${c.id}`, as.officer);
         expect(listed.json<{ items: { templateKey: string }[] }>().items.map((d) => d.templateKey)).toContain(
-            'vehicle-libre'
+            'vehicle-registration-certificate'
         );
+
+        // the booklet: the office's next one, taken from its stock once, in the step's own transaction
+        const [next] = await bookletsAtBoditi();
+        expect(next).toMatch(/^LB\d{7}$/);
+        const issuing = await step(c, as.officer, { action: 'issue_booklet', answers: {} });
+        expect(issuing.statusCode, issuing.body).toBe(200);
+        c = issuing.json<CaseOut>();
+        expect(c.state).toBe('registered');
+        expect(await auditOf(requestIdOf(issuing))).toMatchObject({
+            'fees.stationery_items:update': 1,
+            'fees.stationery_movements:insert': 1,
+            'vehicles.libres:update': 1,
+            'documents.issued_documents:insert': 1
+        });
+        expect(await bookletOf(next ?? '')).toEqual({
+            status: 'used',
+            used_for_table: 'vehicles.libres',
+            used_for_id: libreId,
+            case_id: c.id
+        });
+        expect(
+            (await api.owner.query<{ number: string }>('select number from vehicles.libres where id = $1', [libreId]))
+                .rows[0]?.number
+        ).toBe(next);
+        // the certificate names the booklet now; the temporary one says superseded, the number kept
+        const [old, current] = await certificatesOf(c.id);
+        expect(old?.superseded_by).toBe(current?.id);
+        expect(current).toMatchObject({ number: temporary?.number, superseded_by: null });
+        expect(current?.data.bookletSerial).toBe(next);
 
         // each step run again for the same case makes nothing new
         const facts = await factsOf(c.id);
@@ -400,10 +491,16 @@ describe('a new vehicle registration', () => {
             expect(await registration.register(tx, p, facts, answers)).toEqual({ vehicle: { id: vehicle?.id } });
             expect((await registration.assignPlate(tx, p, facts, {})).plate.key).toBe(held[0]?.plate_key);
             expect((await registration.issueLibre(tx, p, facts, undefined)).libre).toEqual({
-                id: libres.rows[0]?.id,
-                number: libres.rows[0]?.number
+                id: libreId,
+                number: next,
+                template: 'vehicle-registration-certificate'
             });
+            expect((await registration.issueBooklet(tx, p, facts, {})).libre.booklet).toBe(next);
         });
+        expect(await certificatesOf(c.id)).toHaveLength(2);
+        expect(
+            await count('select count(*)::int as n from fees.stationery_items where used_for_id = $1', [libreId])
+        ).toBe(1);
         expect(
             await count('select count(*)::int as n from vehicles.vehicle_ownerships where case_id = $1', [c.id])
         ).toBe(1);
@@ -450,7 +547,7 @@ describe('a new vehicle registration', () => {
         const done = await moved(c, as.officer, 'register', {
             answers: { federalVehicleId: federalId(), replacementPlate: nationalPlateText(other) }
         });
-        expect(done.state).toBe('registered');
+        expect(done.state).toBe('booklet');
         expect(await platesOf(c.id)).toEqual([expect.objectContaining({ plate_key: other, status: 'assigned' })]);
         const back = await api.owner.query<{ status: string; case_id: string | null }>(
             'select status, case_id from vehicles.plates where plate_key = $1',
@@ -481,7 +578,7 @@ describe('a new vehicle registration', () => {
         expect(await count('select count(*)::int as n from vehicles.libres where case_id = $1', [second.id])).toBe(0);
         // with its own id it goes through
         expect((await moved(now, as.officer, 'register', { answers: { federalVehicleId: federalId() } })).state).toBe(
-            'registered'
+            'booklet'
         );
     }, 240_000);
 
@@ -515,6 +612,91 @@ describe('a new vehicle registration', () => {
         }
         expect(await freeAtBoditi()).toBe(free);
         expect((await moved(await caseOf(c.id), as.lead, 'approve')).state).toBe('registration');
+    }, 240_000);
+});
+
+describe('the libre booklet (ADR-0050)', () => {
+    it('records the booklets spoiled on the way and takes the next one; a spoiled booklet is never issued', async () => {
+        const c = await registeredAwaitingBooklet();
+        const [spoiled, next] = await bookletsAtBoditi();
+        // the booklet written in cannot be one listed as spoiled
+        const both = await step(c, as.officer, {
+            action: 'issue_booklet',
+            answers: { bookletSerial: spoiled, spoiledBooklets: [{ spoiledSerial: spoiled, spoiledReason: 'torn' }] }
+        });
+        expect(both.statusCode, both.body).toBe(422);
+        const done = await moved(c, as.officer, 'issue_booklet', {
+            answers: { spoiledBooklets: [{ spoiledSerial: spoiled, spoiledReason: 'misprinted at the counter' }] }
+        });
+        expect(done.state).toBe('registered');
+        expect(await bookletOf(spoiled ?? '')).toMatchObject({ status: 'spoiled', used_for_id: null, case_id: c.id });
+        expect((await bookletOf(next ?? ''))?.status).toBe('used');
+        const reason = await api.owner.query<{ end_reason: string; note: string }>(
+            'select end_reason, note from fees.stationery_items where item_key = $1',
+            [spoiled]
+        );
+        expect(reason.rows[0]).toEqual({ end_reason: 'misprinted', note: 'misprinted at the counter' });
+
+        // another registration naming the spoiled booklet is refused, and nothing is written
+        const other = await registeredAwaitingBooklet();
+        const refused = await step(other, as.officer, { action: 'issue_booklet', answers: { bookletSerial: spoiled } });
+        expect(refused.statusCode, refused.body).toBe(409);
+        expect((await caseOf(other.id)).state).toBe('booklet');
+        expect(
+            await count('select count(*)::int as n from vehicles.libres where case_id = $1 and number is not null', [
+                other.id
+            ])
+        ).toBe(0);
+        // the booklet the officer names, written as the stock prints it
+        const [named] = await bookletsAtBoditi();
+        const written = await moved(other, as.officer, 'issue_booklet', {
+            answers: { bookletSerial: (named ?? '').replace(/^LB/, 'lb '), libreNationalReference: 'NAT-0001' }
+        });
+        expect(written.state).toBe('registered');
+        const libre = await api.owner.query<{ number: string; national_reference: string }>(
+            'select number, national_reference from vehicles.libres where case_id = $1',
+            [other.id]
+        );
+        expect(libre.rows[0]).toEqual({ number: named, national_reference: 'NAT-0001' });
+    }, 240_000);
+
+    it('waits for the booklets when the office has none, and issues one on the same case when they come', async () => {
+        const c = await registeredAwaitingBooklet();
+        const p = place(c.id);
+        // the office's booklets run out: the rest are spoiled (a damaged box)
+        await inTx(p, async (tx) => {
+            for (const key of await bookletsAtBoditi())
+                await stationery.spoil(tx, p.ctx, { kind: 'libre_booklet', key, reason: 'water-damaged box' });
+        });
+        expect(await bookletsAtBoditi()).toEqual([]);
+        const none = await step(c, as.officer, { action: 'issue_booklet', answers: {} });
+        expect(none.statusCode, none.body).toBe(409);
+        expect((await caseOf(c.id)).state).toBe('booklet');
+        // the vehicle is registered meanwhile, and its temporary libre stands
+        const [temporary] = await certificatesOf(c.id);
+        expect(temporary?.data.bookletSerial).toBeNull();
+
+        // the ministry's booklets arrive
+        await inTx(p, (tx) =>
+            stationery.receive(tx, p.ctx, {
+                kind: 'libre_booklet',
+                source: 'ministry',
+                reference: `LATE-${randomInt(1000, 9999)}`,
+                receivedOn: today(),
+                range: { series: 'LB', from: 9001, to: 9002 },
+                width: 7
+            })
+        );
+        const done = await moved(await caseOf(c.id), as.officer, 'issue_booklet', { answers: {} });
+        expect(done.state).toBe('registered');
+        const libre = await api.owner.query<{ number: string }>(
+            'select number from vehicles.libres where case_id = $1',
+            [c.id]
+        );
+        expect(libre.rows[0]?.number).toBe('LB0009001');
+        const [old, current] = await certificatesOf(c.id);
+        expect(old?.superseded_by).toBe(current?.id);
+        expect(current?.data.bookletSerial).toBe('LB0009001');
     }, 240_000);
 });
 

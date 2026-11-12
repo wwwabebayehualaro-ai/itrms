@@ -20,7 +20,7 @@ import {
     WRITABLE,
     type IsolationCase
 } from '@itrms/kernel/testing';
-import { importVehicleCategories, setUpLibreCounters } from '@itrms/vehicles/seed';
+import { importVehicleCategories, setUpRegistrationCertificateCounters } from '@itrms/vehicles/seed';
 import { VehicleRegistry, VehiclesService } from '@itrms/vehicles/api';
 import type { VehicleRegister } from '@itrms/vehicles/contracts';
 import { isNull, sql } from 'drizzle-orm';
@@ -178,7 +178,7 @@ beforeAll(async () => {
     await api.installer.scoped({}, async (tx) => {
         for (const root of await tx.select().from(orgUnits).where(isNull(orgUnits.parentId))) {
             await importVehicleCategories(tx, { id: root.id, regionId: root.regionId });
-            await setUpLibreCounters(tx, root.regionId);
+            await setUpRegistrationCertificateCounters(tx, root.regionId);
         }
     });
 
@@ -471,7 +471,7 @@ describe('the registry rules', () => {
         expect(row.vinCheck).toBe('mismatch');
     });
 
-    it('issues a libre once for a case, numbered from the office counter', async () => {
+    it('issues a libre once for a case, with no number until its booklet is recorded once', async () => {
         const v = await newVehicle(units.zone, { chassisNumber: 'LIBRE-CASE-1' });
         const ctx = ctxOf(units.zone);
         const caseId = randomUUID();
@@ -482,15 +482,33 @@ describe('the registry rules', () => {
             registry.issueLibre(tx, ctx, v.id, { issuedOn: '2020-03-05', caseId })
         );
         expect(again.id).toBe(first.id);
-        expect(first.number).toMatch(/\/LB\/\d{6}$/);
+        // ADR-0050: the libre is the federal booklet, so ITRMS never numbers it
+        expect(first.number).toBeNull();
         expect(first.caseId).toBe(caseId);
-        const libres = (await app.scoped(ctx, (tx) => reads.get(tx, v.id))).libres;
-        expect(libres).toHaveLength(1);
-        // another case replaces it with the next number
-        const next = await app.scoped(ctx, (tx) =>
-            registry.issueLibre(tx, ctx, v.id, { issuedOn: '2021-03-05', caseId: randomUUID() })
+        expect((await app.scoped(ctx, (tx) => reads.get(tx, v.id))).libres).toHaveLength(1);
+        // its booklet, recorded once: the same serial again is nothing to do, another one is refused
+        const booklet = await app.scoped(ctx, (tx) =>
+            registry.recordBooklet(tx, ctx, first.id, { number: 'LB0099001', nationalReference: 'NAT-1' })
         );
-        expect(next.number).not.toBe(first.number);
+        expect([booklet.number, booklet.nationalReference]).toEqual(['LB0099001', 'NAT-1']);
+        await app.scoped(ctx, (tx) => registry.recordBooklet(tx, ctx, first.id, { number: 'LB0099001' }));
+        await expect(
+            app.scoped(ctx, (tx) => registry.recordBooklet(tx, ctx, first.id, { number: 'LB0099002' }))
+        ).rejects.toMatchObject({ status: 409 });
+        // a serial is one booklet: another vehicle's libre cannot carry it
+        const w = await newVehicle(units.zone, { chassisNumber: 'LIBRE-CASE-2' });
+        const other = await app.scoped(ctx, (tx) =>
+            registry.issueLibre(tx, ctx, w.id, { issuedOn: '2020-03-05', caseId: randomUUID() })
+        );
+        await expect(
+            app.scoped(ctx, (tx) => registry.recordBooklet(tx, ctx, other.id, { number: 'LB0099001' }))
+        ).rejects.toMatchObject({ status: 409, code: 'duplicate_reference' });
+        // another office cannot write it
+        await expect(
+            app.scoped(ctxOf(units.damot), (tx) =>
+                registry.recordBooklet(tx, ctxOf(units.damot), other.id, { number: 'LB0099003' })
+            )
+        ).rejects.toMatchObject({ status: 403 });
     });
 
     it('refuses a seat count the category does not take, and a freight vehicle without axles', async () => {

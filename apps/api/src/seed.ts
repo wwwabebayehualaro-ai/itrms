@@ -42,7 +42,7 @@ import {
     importPlateStockDemo,
     importVehicleCategories,
     importVehicleDemo,
-    setUpLibreCounters
+    setUpRegistrationCertificateCounters
 } from '@itrms/vehicles/seed';
 import { importDocumentTemplates } from '@itrms/documents/seed';
 import { importFeeRules, importStationeryDemo, parseFeeRules, setUpReceiptCounters } from '@itrms/fees/seed';
@@ -203,10 +203,13 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
             if (!root) throw new Error(`no region ${code}`);
             return {
                 categories: await importVehicleCategories(tx, { id: root.id, regionId: root.regionId }),
-                libreCounters: await setUpLibreCounters(tx, root.regionId)
+                certificateCounters: await setUpRegistrationCertificateCounters(tx, root.regionId)
             };
         });
-        logger.info({ region: code, ...categories }, 'vehicle categories and libre counters applied');
+        logger.info(
+            { region: code, ...categories },
+            'vehicle categories and registration-certificate counters applied'
+        );
     } else if (kind === 'settings' && file) {
         // a region's settings from a data file, checked against the slices' schemas (task 0.25b)
         const doc = regionSettingsSchema.parse(parseYaml(await readFile(file, 'utf8')));

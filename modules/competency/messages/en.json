@@ -124,5 +124,8 @@
   "competency.batches.firstCard": "First card serial",
   "competency.batches.printed": "Record printed",
   "competency.batches.printedFailed": "The printing could not be recorded.",
-  "competency.errors.batch_not_printable": "Only a batch sent to the printer can be recorded as printed."
+  "competency.errors.batch_not_printable": "Only a batch sent to the printer can be recorded as printed.",
+  "competency.rule.bookletSpoiled": "This booklet is listed as spoiled: name the booklet the libre was written in.",
+  "competency.libre.kebele": "Kebele",
+  "competency.libre.house": "House no."
 }
