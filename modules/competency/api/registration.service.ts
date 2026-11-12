@@ -120,8 +120,11 @@ export class VehicleRegistrationService {
         @Inject(StationeryStock) private readonly stationery: StationeryStock
     ) {}
 
-    /** What the register's command takes, from the request's answers: one owner of either kind in each row. */
-    private registerInput(input: RegistrationInput, extra: { firstRegisteredOn: string }): RegisterInput {
+    /**
+     * What the register's command takes, from the request's answers: one owner of either kind in each row. The back-capture of a
+     * paper file (back-capture.service.ts) reads the same answers.
+     */
+    registerInput(input: RegistrationInput, extra: { firstRegisteredOn: string }): RegisterInput {
         const outside = (Object.keys(SIZE_METRES) as (keyof typeof SIZE_METRES)[]).filter((k) => {
             const value = input[k];
             const [min, max] = SIZE_METRES[k];

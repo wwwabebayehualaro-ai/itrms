@@ -3,8 +3,10 @@
 /**
  * A vehicle of the register (task 1.1b): its facts, its owners period by period (newest first, in the reader's calendar), the
  * plates it has carried (an old regional plate exchanged for a national one shows both), and its libres. Any office of the
- * region reads it; only the office that handles the vehicle changes it, through a case (later tasks).
+ * region reads it; only the office that handles the vehicle changes it, through a case (later tasks). A vehicle migrated from its
+ * paper file says so (ADR-0054): the paper file's reference, who verified the capture and the case that holds the scan.
  */
+import Link from 'next/link';
 import {
     Alert,
     AlertDescription,
@@ -92,7 +94,35 @@ export function VehicleRecord({ id }: { id: string }) {
                             { term: t('vehicles.field.colour'), value: v.colour },
                             { term: t('vehicles.field.fuel'), value: v.fuel && t(`vehicles.fuel.${v.fuel}`) },
                             { term: t('vehicles.field.firstRegisteredOn'), value: day(v.firstRegisteredOn) },
-                            { term: t('vehicles.field.handlingUnit'), value: unit(v.handlingUnit.name) }
+                            { term: t('vehicles.field.handlingUnit'), value: unit(v.handlingUnit.name) },
+                            ...(v.migration
+                                ? [
+                                      {
+                                          term: t('vehicles.migration.title'),
+                                          value: (
+                                              <span data-migration={v.migration.source}>
+                                                  {t(`vehicles.migration.source.${v.migration.source}`)}
+                                                  {v.migration.verifiedBy &&
+                                                      ` · ${t('vehicles.migration.verifiedBy')} ${v.migration.verifiedBy.name}`}
+                                              </span>
+                                          )
+                                      },
+                                      {
+                                          term: t('vehicles.migration.paperReference'),
+                                          value: v.migration.caseId ? (
+                                              <Link
+                                                  href={`/cases/${v.migration.caseId}`}
+                                                  className="hover:underline"
+                                                  data-paper-reference
+                                              >
+                                                  {v.migration.paperReference}
+                                              </Link>
+                                          ) : (
+                                              <span data-paper-reference>{v.migration.paperReference}</span>
+                                          )
+                                      }
+                                  ]
+                                : [])
                         ]}
                     />
                 }

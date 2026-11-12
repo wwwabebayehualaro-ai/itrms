@@ -1,5 +1,6 @@
 # The service catalogue (task 0.21b): the 54 services of the reference design, by work process, with the source's
-# Amharic text verbatim and our English (docs/service-catalogue.md, from Documents/; generated from it). A region's
+# Amharic text verbatim and our English (docs/service-catalogue.md, from Documents/; generated from it); and the
+# migration's own service, the back-capture of paper vehicle files (MIG-01, ADR-0054, task 1.13). A region's
 # catalogue is seeded from this file (idempotent by code); a service is "not configured" until a service version is
 # published for it. Codes are stable: forms, menus, unit types and cases name them.
 services:
@@ -147,6 +148,13 @@ services:
     name:
       am: ሥልጠና አጠናቀውና የንድፈ ሀሳብ(የኮምፒውተር) እና የሜዳ ፈተና የጠናቀቁ ሠልጣኞች መንጃ ፍቃድ እንዲታተምላቸው ለክልል ማስተላለፍና ታትሞ የመጣውን ማሰራጨት
       en: Send the trainees who completed training and both exams to the region for licence printing, and distribute the printed licences
+  # not one of the bureau's 54: the migration of its paper vehicle files (ADR-0054, task 1.13)
+  - code: MIG-01
+    process: 1
+    module: competency
+    name:
+      am: የወረቀት ተሽከርካሪ ፋይል ምዝገባ
+      en: Back-capture of a paper vehicle file
   - code: FR-01
     process: 3
     module: freight

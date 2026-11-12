@@ -129,5 +129,19 @@
   "competency.libre.kebele": "Kebele",
   "competency.libre.house": "House no.",
   "competency.rule.sizeMetres": "Give the size in metres (length 0.5–30, width 0.5–5, height 0.5–6).",
-  "competency.rule.notABooklet": "This is not a booklet serial."
+  "competency.rule.notABooklet": "This is not a booklet serial.",
+  "competency.nav.backCaptures": "Paper vehicle files",
+  "competency.action.newBackCapture": "Back-capture a paper file",
+  "competency.backCaptures.title": "Paper vehicle files",
+  "competency.backCaptures.intro": "Vehicles captured from their paper files. A second person checks each capture against the paper; only then does the vehicle join the register, marked as migrated.",
+  "competency.backCaptures.fileNew": "Back-capture a paper file",
+  "competency.rule.notInFuture": "This date is in the future.",
+  "competency.rule.beforeFirstRegistration": "This date is before the vehicle was first registered.",
+  "competency.rule.libreBeforeOwners": "The libre was issued before these owners held the vehicle: give the libre the current owners hold.",
+  "competency.rule.libreIssuedOn": "Give the day the libre was issued.",
+  "competency.rule.notAnyPlate": "This is not a plate: neither a national nor an old regional one.",
+  "competency.rule.plateOnRegister": "A vehicle on the register already carries this plate.",
+  "competency.rule.plateInStock": "This national plate is still in stock: it was never handed over, so it cannot be on a paper file.",
+  "competency.rule.federalIdOnRegister": "A vehicle on the register already has this federal id.",
+  "competency.rule.captureInOpenCase": "Another open request is for this chassis number or this plate."
 }

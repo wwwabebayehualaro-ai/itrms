@@ -27,6 +27,7 @@ import { importRegionSettings, importUsers, regionSettingsSchema, userImportSche
 import { loadSlices } from '@itrms/kernel/api';
 import { importOrg, orgUnits, parseOrgCsv, parseOrgWorkbook, parseOrgYaml, type OrgImport } from '@itrms/kernel/org';
 import {
+    importBackCaptureService,
     importDemoData,
     importLicenceGrades,
     importLicenceServices,
@@ -184,12 +185,14 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
                 counters: await setUpLicenceCounters(tx, root.regionId),
                 // after the catalogue and the fee rules (task 0.24b)
                 services: await importLicenceServices(tx, where),
-                vehicleServices: await importVehicleServices(tx, where)
+                vehicleServices: await importVehicleServices(tx, where),
+                // the back-capture of paper vehicle files (task 1.13)
+                backCapture: await importBackCaptureService(tx, where)
             };
         });
         logger.info(
             { region: code, ...result },
-            'licence grades, counters and services, and the vehicle registration service, applied'
+            'licence grades, counters and services, the vehicle registration service and the back-capture, applied'
         );
     } else if (kind === 'vehicles') {
         // the catalogue of vehicle categories (task 1.1a)

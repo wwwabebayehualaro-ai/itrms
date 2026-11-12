@@ -7,7 +7,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { LookupFact, LookupItem, RegistryLookupProvider } from '@itrms/forms/api';
 import type { Tx } from '@itrms/kernel/db';
 
-import type { VehicleSummary } from '../contracts';
+import type { MigrationSource, VehicleSummary } from '../contracts';
 import am from '../messages/am.json';
 import en from '../messages/en.json';
 import { VehiclesService } from './vehicles.service';
@@ -24,6 +24,20 @@ const fact = (key: string, label: Key, value: string | null, language: string): 
     label: text(label, language),
     value
 });
+
+const SOURCE: Record<MigrationSource, Key> = {
+    back_capture: 'vehicles.migration.source.back_capture',
+    import: 'vehicles.migration.source.import'
+};
+
+/** "From paper: <reference>, verified by <name>", or null for a vehicle registered in ITRMS. */
+function migrated(v: VehicleSummary, language: string): string | null {
+    if (!v.migration) return null;
+    const from = `${text(SOURCE[v.migration.source], language)}: ${v.migration.paperReference}`;
+    return v.migration.verifiedBy
+        ? `${from}, ${text('vehicles.migration.verifiedBy', language)} ${v.migration.verifiedBy.name}`
+        : from;
+}
 
 @Injectable()
 export class VehicleLookup implements RegistryLookupProvider {
@@ -44,7 +58,8 @@ export class VehicleLookup implements RegistryLookupProvider {
             { key: 'category', label: text('vehicles.field.category', language) },
             { key: 'owner', label: text('vehicles.field.owner', language) },
             { key: 'federalId', label: text('vehicles.field.federalId', language) },
-            { key: 'handlingUnit', label: text('vehicles.field.handlingUnit', language) }
+            { key: 'handlingUnit', label: text('vehicles.field.handlingUnit', language) },
+            { key: 'migrated', label: text('vehicles.field.migrated', language) }
         ];
     }
 
@@ -85,7 +100,9 @@ export class VehicleLookup implements RegistryLookupProvider {
                     'vehicles.field.handlingUnit',
                     localized(v.handlingUnit.name, language, v.handlingUnit.code),
                     language
-                )
+                ),
+                // migrated from its paper file (ADR-0054): the file's reference and who verified the capture
+                fact('migrated', 'vehicles.field.migrated', migrated(v, language), language)
             ]
         };
     }

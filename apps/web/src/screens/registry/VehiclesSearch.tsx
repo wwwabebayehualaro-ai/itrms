@@ -3,7 +3,8 @@
 /**
  * The vehicle register (task 1.1b): one search box for a plate (current or old, in Latin or Ethiopic letters), a chassis
  * number (all of it or its last characters), an engine number or a federal vehicle id. A vehicle of any office of the region
- * is found; the search is in the address, so a view can be shared.
+ * is found; the search is in the address, so a view can be shared. A vehicle not found that has a paper file is back-captured
+ * first (ADR-0054, task 1.13): where the office offers that, the empty result says so and opens the back-capture.
  */
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -27,6 +28,8 @@ import {
 } from '@itrms/ui';
 
 import { getApiErrorMessage } from '@/lib/api/errors';
+import { useCan } from '@/lib/auth/authHooks';
+import { useAuthStore } from '@/lib/auth/authStore';
 import { useText } from '@/lib/preferences';
 import { useVehicleSearch, type VehicleSummary } from '@/lib/vehicles';
 
@@ -39,6 +42,8 @@ export function VehiclesSearch() {
     const q = params.get('q') ?? '';
     const [typed, setTyped] = useState(q);
     const found = useVehicleSearch(q);
+    const mayFile = useCan('case:create');
+    const offersBackCapture = useAuthStore((s) => s.workspace?.activeUnit.services.includes('MIG-01') ?? false);
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -75,7 +80,21 @@ export function VehiclesSearch() {
                 </Alert>
             )}
             {!found.isFetching && searched && rows?.length === 0 && (
-                <EmptyState title={t('vehicles.search.none')} description={t('vehicles.search.noneHint')} />
+                <EmptyState
+                    title={t('vehicles.search.none')}
+                    description={
+                        mayFile && offersBackCapture
+                            ? t('vehicles.search.notOnRegister')
+                            : t('vehicles.search.noneHint')
+                    }
+                    action={
+                        mayFile && offersBackCapture ? (
+                            <Button asChild variant="outline" data-back-capture>
+                                <Link href="/competency/back-captures/new">{t('vehicles.search.backCapture')}</Link>
+                            </Button>
+                        ) : undefined
+                    }
+                />
             )}
             {!found.isFetching && rows && rows.length > 0 && (
                 <Table data-results>
@@ -96,6 +115,15 @@ export function VehiclesSearch() {
                                     <Link href={`/registry/vehicles/${v.id}`} className="font-medium hover:underline">
                                         {v.currentPlate?.text ?? t('vehicles.record.noPlate')}
                                     </Link>
+                                    {v.migration && (
+                                        <span className="ms-2" data-migrated={v.migration.source}>
+                                            <StatusBadge
+                                                value={v.migration.source}
+                                                tone="info"
+                                                label={t('vehicles.field.migrated')}
+                                            />
+                                        </span>
+                                    )}
                                     {v.matched && v.matched !== 'plate' && (
                                         <span className="text-muted-foreground ms-2 text-xs" data-matched={v.matched}>
                                             {t(`vehicles.match.${v.matched}`)}

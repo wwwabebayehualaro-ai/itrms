@@ -65,7 +65,9 @@ export class VehicleRegistry {
     /**
      * What registering `given` would check, without writing: the category, the fit of seats, load and axles, the chassis number
      * (and that it is not already on the register in the region), the dates and the owners. A case's form calls it before the
-     * officer submits; `register` calls it again.
+     * officer submits; `register` calls it again. A vehicle migrated from paper (`migration`, ADR-0054) is checked in
+     * back-capture mode: what the paper file does not give (seats, load, axles) may stay missing, and a binding check digit that
+     * does not match is kept as a mismatch, since the file is what it is; what it gives must still fit.
      */
     async checkRegistration(
         tx: Tx,
@@ -79,21 +81,22 @@ export class VehicleRegistry {
             .from(vehicleCategories)
             .where(and(eq(vehicleCategories.regionId, regionId), eq(vehicleCategories.key, input.categoryKey)));
         if (!category?.active) throw fieldError('categoryKey', 'unknown_category', 'is not a vehicle category here');
-        if (category.needsSeats !== (input.seats !== undefined))
-            throw fieldError('seats', category.needsSeats ? 'required' : 'not_allowed', 'does not fit the category');
-        if (category.needsLoad !== (input.loadCapacityKg !== undefined))
-            throw fieldError(
-                'loadCapacityKg',
-                category.needsLoad ? 'required' : 'not_allowed',
-                'does not fit the category'
-            );
-        if (category.family === 'freight' && input.axles === undefined)
+        const fromPaper = input.migration !== undefined;
+        if (!category.needsSeats && input.seats !== undefined)
+            throw fieldError('seats', 'not_allowed', 'does not fit the category');
+        if (category.needsSeats && input.seats === undefined && !fromPaper)
+            throw fieldError('seats', 'required', 'does not fit the category');
+        if (!category.needsLoad && input.loadCapacityKg !== undefined)
+            throw fieldError('loadCapacityKg', 'not_allowed', 'does not fit the category');
+        if (category.needsLoad && input.loadCapacityKg === undefined && !fromPaper)
+            throw fieldError('loadCapacityKg', 'required', 'does not fit the category');
+        if (category.family === 'freight' && input.axles === undefined && !fromPaper)
             throw fieldError('axles', 'required', 'a freight vehicle has axles');
 
         const vin = parseVin(input.chassisNumber, {
             chassisKind: input.chassisKind,
             modelYear: input.modelYear,
-            acceptMismatch: input.acceptVinMismatch
+            acceptMismatch: input.acceptVinMismatch === true || fromPaper
         });
         if (!vin.ok) throw fieldError('chassisNumber', vin.code, vin.problem);
         notFuture('firstRegisteredOn', input.firstRegisteredOn);
@@ -164,7 +167,12 @@ export class VehicleRegistry {
                 tyreSize: input.tyreSize ?? null,
                 tyres: input.tyres ?? null,
                 netWeightKg: input.netWeightKg ?? null,
-                firstRegisteredOn: input.firstRegisteredOn
+                firstRegisteredOn: input.firstRegisteredOn,
+                migrationSource: input.migration?.source ?? null,
+                paperReference: input.migration?.paperReference ?? null,
+                migrationCaseId: input.migration?.caseId ?? null,
+                migrationVerifiedBy: input.migration?.verifiedBy ?? null,
+                migrationVerifiedAt: input.migration?.verifiedBy ? new Date() : null
             });
         }, DUPLICATES);
         await this.openOwnership(tx, id, {

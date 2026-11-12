@@ -17,6 +17,13 @@ national reference when given. The office counter `vehicles.registration-certifi
 `vehicles.libre` in migration 0070) numbers the registration certificate. The register also keeps the temporary libre's other
 facts: made in, engine HP, cylinders, length, width and height (mm), tyre size and count, net weight.
 
+**Migrated from paper (task 1.13, ADR-0054).** `register` takes a `migration` (source `back_capture` or `import`, the paper
+file's reference, the capturing case, the verifier) and checks it in back-capture mode: seats, load and axles the file does not
+give may stay missing, and a check digit that does not match is kept as a mismatch. The migration's columns (migration 0071) are
+written once at insert: the application has no UPDATE grant on them, and a check makes a back-capture name its case and verifier.
+Every view marks a migrated vehicle: the summary's `migration` (search, record, lookups), the lookup's `migrated` fact, the
+record's paper reference linking to the capture case that holds the scan.
+
 Layer: registry. Shape, public entries and rules: [code-structure.md](../../docs/platform/code-structure.md) §4.
 
 | Entry | Holds |

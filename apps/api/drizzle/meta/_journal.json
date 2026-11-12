@@ -498,6 +498,13 @@
       "when": 1794487826756,
       "tag": "0070_libre_booklet",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1794506770065,
+      "tag": "0071_back_capture",
+      "breakpoints": true
     }
   ]
 }
