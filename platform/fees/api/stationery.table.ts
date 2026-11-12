@@ -128,7 +128,7 @@ export const stationeryItems = withRls(
                 check('stationery_items_status_check', sql`${t.status} in ${oneOf(STATIONERY_STATUSES)}`),
                 check(
                     'stationery_items_key_check',
-                    sql`${t.series} ~ '^[A-Z]{0,6}$' and ${t.serial} between 1 and 99999999 and ${t.width} between 1 and 8 and ${t.itemKey} = ${t.series} || lpad(${t.serial}::text, ${t.width}, '0')`
+                    sql`${t.series} ~ '^[A-Z\\u1200-\\u135A]{0,6}$' and ${t.serial} between 1 and 99999999 and ${t.width} between 1 and 8 and ${t.itemKey} = ${t.series} || lpad(${t.serial}::text, ${t.width}, '0')`
                 ),
                 check(
                     'stationery_items_used_check',

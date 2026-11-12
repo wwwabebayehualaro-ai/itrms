@@ -11,10 +11,12 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import {
+    STATIONERY_SOURCES,
     stationeryAllocationSchema,
     stationeryClosingSchema,
     stationeryReceiveSchema,
-    type StationeryRange
+    type StationeryRange,
+    type StationerySource
 } from '@itrms/fees/contracts';
 import {
     Alert,
@@ -381,7 +383,8 @@ const serialText = /^\d{1,8}$/;
 
 function rangeFields(t: (key: string) => string) {
     return {
-        series: z.string().refine((v) => /^[A-Za-z\s-]{0,8}$/.test(v), t('fees.stationery.seriesHint')),
+        // Latin or Ethiopic letters: the finance bureau's receipt vouchers come in series such as ለ
+        series: z.string().refine((v) => /^[A-Za-zሀ-ፚ\s-]{0,8}$/u.test(v), t('fees.stationery.seriesHint')),
         from: z.string().refine((v) => serialText.test(v.trim()), t('fees.stationery.serialHint')),
         to: z.string().refine((v) => serialText.test(v.trim()), t('fees.stationery.serialHint'))
     };
@@ -426,6 +429,7 @@ export function StationeryReceive() {
     const schema = useMemo(
         () =>
             z.object({
+                source: z.enum(STATIONERY_SOURCES),
                 reference: z.string().refine((v) => v.trim() !== '', t('fees.stationery.required')),
                 receivedOn: z.string().refine((v) => v !== '', t('fees.stationery.required')),
                 ...rangeFields(t),
@@ -441,6 +445,8 @@ export function StationeryReceive() {
     const form = useZodForm({
         schema,
         defaultValues: {
+            // receipt vouchers are the finance bureau's; the other forms are bought from the regional bureau
+            source: (kind === 'receipt_leaf' ? 'finance_bureau' : 'regional_bureau') as StationerySource,
             reference: '',
             receivedOn: '',
             series: '',
@@ -457,7 +463,7 @@ export function StationeryReceive() {
             const [birr = '0', cents = ''] = cost.split('.');
             const parsed = stationeryReceiveSchema.safeParse({
                 kind,
-                source: 'regional_bureau',
+                source: v.source,
                 reference: v.reference.trim(),
                 receivedOn: v.receivedOn,
                 range: asRange(v),
@@ -487,7 +493,18 @@ export function StationeryReceive() {
             problem={problem}
         >
             <ZodForm form={form} className="flex flex-col gap-6">
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-3">
+                    <form.AppField name="source">
+                        {(f) => (
+                            <f.SelectField
+                                label={t('fees.stationery.field.source')}
+                                options={STATIONERY_SOURCES.map((s) => ({
+                                    value: s,
+                                    label: t(`fees.stationery.source.${s}`)
+                                }))}
+                            />
+                        )}
+                    </form.AppField>
                     <form.AppField name="reference">
                         {(f) => <f.TextField label={t('fees.stationery.field.reference')} autoComplete="off" />}
                     </form.AppField>

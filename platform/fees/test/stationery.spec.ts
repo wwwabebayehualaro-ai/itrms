@@ -58,8 +58,17 @@ describe('a serial as typed', () => {
         expect(parseStationeryKey('G251')?.series).toBe('G');
     });
 
+    it("takes an Ethiopic series, as on the finance bureau's receipt vouchers", () => {
+        expect(parseStationeryKey('ለ 780521')).toEqual({ series: 'ለ', serial: 780521, key: 'ለ780521' });
+        expect(parseStationeryKey('ሐ-695667')?.series).toBe('ሐ');
+        expect(stationerySelectionSchema.parse({ series: ' ለ ', from: 780501, to: 780600 })).toMatchObject({
+            series: 'ለ'
+        });
+    });
+
     it('refuses what is not a serial', () => {
-        for (const text of ['', 'ABC', '0', 'TOOLONGSERIES1', '12-34-x', 'A1B2'])
+        // Ethiopic numerals (፩) are not letters of a series
+        for (const text of ['', 'ABC', '0', 'TOOLONGSERIES1', '12-34-x', 'A1B2', '፩123', 'ሀለሐመሠረሰ1'])
             expect(parseStationeryKey(text)).toBeNull();
     });
 
@@ -108,6 +117,19 @@ describe('the commands', () => {
             validEfy: 2018,
             unitCostSantim: '120076'
         });
+    });
+
+    it('takes receipt vouchers from the finance bureau', () => {
+        expect(
+            stationeryReceiveSchema.parse({
+                ...delivery,
+                kind: 'receipt_leaf',
+                source: 'finance_bureau',
+                range: { series: 'ለ', from: 780501, to: 780600 },
+                variant: undefined,
+                validEfy: undefined
+            })
+        ).toMatchObject({ source: 'finance_bureau', range: { series: 'ለ' } });
     });
 
     it('refuses a width narrower than the last serial, a variant that is not a code, and a price in Birr', () => {

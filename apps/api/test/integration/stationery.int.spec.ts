@@ -263,6 +263,20 @@ describe('the stock from the bureau to the office that uses an item', () => {
         ).toMatch(/stationery_not_available/);
     });
 
+    it("keeps the finance bureau's receipt vouchers in their Ethiopic series", async () => {
+        await atBoditi('receipt_leaf', 'ለ', 780501, 780510, { source: 'finance_bureau' });
+        const leaf = await run(
+            units.boditi,
+            (ctx) => (tx) =>
+                stock.use(tx, ctx, {
+                    kind: 'receipt_leaf',
+                    key: 'ለ 780502',
+                    usedFor: { table: 'test.receipts', id: randomUUID() }
+                })
+        );
+        expect(leaf).toMatchObject({ itemKey: 'ለ780502', series: 'ለ', serial: 780502 });
+    });
+
     it('refuses a command on items the acting unit does not hold, to a unit not directly below, or by an office without stock', async () => {
         await run(
             units.ser,

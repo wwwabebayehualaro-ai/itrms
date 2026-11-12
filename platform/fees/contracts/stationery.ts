@@ -17,8 +17,11 @@ export const STATIONERY_STATUSES = ['in_stock', 'allocated', 'used', 'spoiled', 
 export type StationeryStatus = (typeof STATIONERY_STATUSES)[number];
 export const FINAL_STATIONERY_STATUSES: readonly StationeryStatus[] = ['used', 'spoiled', 'void', 'missing'];
 
-/** Where a delivery comes from: the zone buys its printed forms from the regional bureau (the zone's letters, 2016 E.C.). */
-export const STATIONERY_SOURCES = ['regional_bureau', 'ministry', 'printer', 'other'] as const;
+/**
+ * Where a delivery comes from: the zone buys its printed forms from the regional bureau (the zone's letters, 2016 E.C.),
+ * and its receipt vouchers (form መ/ሂ/7) are the regional finance bureau's.
+ */
+export const STATIONERY_SOURCES = ['regional_bureau', 'finance_bureau', 'ministry', 'printer', 'other'] as const;
 export type StationerySource = (typeof STATIONERY_SOURCES)[number];
 
 /** A variant: the plate code or category a form is printed for (bolo stickers per code: `1`, `2` … `police`, `government`). */
@@ -80,11 +83,19 @@ export const MAX_ITEMS = 10_000;
 export const MAX_ITEM_KEYS = 1_000;
 export const MAX_SERIAL = 99_999_999;
 
+/**
+ * A series is letters: Latin capitals, or Ethiopic syllables (U+1200–U+135A, never the Ethiopic numerals), since the
+ * finance bureau's receipt vouchers are printed in series such as `ለ` and `ሐ`.
+ */
+export const SERIES_LETTERS = 'A-Z\\u1200-\\u135A';
+const SERIES_PATTERN = new RegExp(`^[${SERIES_LETTERS}]{0,6}$`, 'u');
+const KEY_PATTERN = new RegExp(`^([${SERIES_LETTERS}]*)(\\d{1,8})$`, 'u');
+
 const series = z
     .string()
     .trim()
     .transform((s) => s.toUpperCase().replace(/[\s-]/g, ''))
-    .pipe(z.string().regex(/^[A-Z]{0,6}$/, 'up to six letters'));
+    .pipe(z.string().regex(SERIES_PATTERN, 'up to six letters'));
 const serial = z.number().int().min(1).max(MAX_SERIAL);
 
 /** An item's key: its series and its serial, zero-padded to the width it is printed with (`AB0001234`). */
@@ -98,12 +109,12 @@ export function stationeryKey(seriesText: string, serialNo: number, width: numbe
  */
 export function parseStationeryKey(text: string): { series: string; serial: number; key: string } | null {
     const folded = text.trim().toUpperCase().replace(/[\s-]/g, '');
-    const match = /^([A-Z]*)(\d{1,8})$/.exec(folded);
+    const match = KEY_PATTERN.exec(folded);
     if (!match) return null;
     const head = match[1] ?? '';
     const digits = match[2] ?? '';
     const serialNo = Number(digits);
-    if (head.length > 6 || serialNo < 1) return null;
+    if ([...head].length > 6 || serialNo < 1) return null;
     return { series: head, serial: serialNo, key: folded };
 }
 

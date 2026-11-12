@@ -1,0 +1,4 @@
+ALTER TABLE "fees"."stationery_batches" DROP CONSTRAINT "stationery_batches_source_check";--> statement-breakpoint
+ALTER TABLE "fees"."stationery_items" DROP CONSTRAINT "stationery_items_key_check";--> statement-breakpoint
+ALTER TABLE "fees"."stationery_batches" ADD CONSTRAINT "stationery_batches_source_check" CHECK ("fees"."stationery_batches"."source" in ('regional_bureau', 'finance_bureau', 'ministry', 'printer', 'other'));--> statement-breakpoint
+ALTER TABLE "fees"."stationery_items" ADD CONSTRAINT "stationery_items_key_check" CHECK ("fees"."stationery_items"."series" ~ '^[A-Z\u1200-\u135A]{0,6}$' and "fees"."stationery_items"."serial" between 1 and 99999999 and "fees"."stationery_items"."width" between 1 and 8 and "fees"."stationery_items"."item_key" = "fees"."stationery_items"."series" || lpad("fees"."stationery_items"."serial"::text, "fees"."stationery_items"."width", '0'));

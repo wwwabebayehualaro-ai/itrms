@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-11-11",
+  "updated": "2026-11-12",
   "statuses": [
     "planned",
     "ready",
@@ -1484,7 +1484,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Ready check 2026-11-11: the phase row says 'reconciled at cashier closing', but cashier closing (1.12) now comes after 1.12a (vehicles-first order). 1.12a therefore brings its own stationery closing per office (expected vs counted serials, missing ones flagged) that 1.12 folds into the cashier's daily closing. Consumers: licence card blanks in this task (Done when 1); libre booklets in 1.2d, bolo stickers in 1.3, paper receipt pads with the pad-receipt follow-up (0.22b) in 1.12."
+          "notes": "Ready check 2026-11-11: the phase row says 'reconciled at cashier closing', but cashier closing (1.12) now comes after 1.12a (vehicles-first order). 1.12a therefore brings its own stationery closing per office (expected vs counted serials, missing ones flagged) that 1.12 folds into the cashier's daily closing. Consumers: licence card blanks in this task (Done when 1); libre booklets in 1.2d, bolo stickers in 1.3, paper receipt pads with the pad-receipt follow-up (0.22b) in 1.12. 2026-11-12: the zone's licensing documents (49 scans, discovery/2026-11-11-wolaita-licence-documents.md) show receipt vouchers are the regional finance bureau's, in Ethiopic-lettered series (ሴሪ ለ, ሐ) with six-digit serials. The stock now takes Ethiopic series letters (contract, form, database check in migration 0069) and a finance_bureau source, picked on the receive form (the default for receipt leaves). Licence cards are printed by the region, so their blanks are held there."
         },
         {
           "id": "1.2d",
@@ -3355,6 +3355,11 @@
       "foundIn": "1.12a",
       "item": "Reviewer L8: licence_print_batch_items.card_key and stationery_item_id stay writable after the batch is returned (the authoritative link stationery_items.used_for is final); freeze them once set (trigger or revoke) and show the licence-to-card list for confirmation before recording a printing",
       "movedTo": "1.8"
+    },
+    {
+      "foundIn": "1.12a",
+      "item": "The payment's pad-series field (fees contracts, payment pad receipts) accepts Latin capitals only; the finance bureau's receipt vouchers carry an Ethiopic series letter",
+      "movedTo": "1.12"
     }
   ]
 }
