@@ -6,7 +6,7 @@
 | **Answers** | The same questionnaire as the [written answers](2026-11-11-wolaita-written-answers.md), with the [vehicle documents](2026-11-11-wolaita-documents.md). These are the documents behind Q13 and the licensing side's notes (pages A–E). |
 | **Received** | 2026-11-11, late evening: 49 phone scans (CamScanner, 22.23–22.47). Marked by hand "ጥያቄ 13.1"–"13.4" and "ዓባሪ 1"–"ዓባሪ 18" (annexes), some twice (re-takes). |
 | **Form** | Letters on the zone department's letterhead; the regional transport bureau's, health bureau's and finance bureau's printed forms; a driving school's letters and lists; the old regional libre booklet. |
-| **Personal data** | Many documents carry real names, photos, licence numbers, plates, signatures and stamps. **This record keeps their structure only:** fields, steps, number formats, prices and rules. No name, number or account is copied, and the scans stay out of the repository (`docs/business-questions/response/new/`, excluded in `.git/info/exclude`). |
+| **Personal data** | Many documents carry real names, photos, licence numbers, plates, signatures and stamps. **This record keeps their structure only:** fields, steps, number formats, prices and rules. No name, number or account is copied, and the scans stay out of the repository (`docs/business-questions/response/3-licence-documents/`, excluded in `.git/info/exclude`). |
 | **Confidence** | Printed text is read with high confidence (**H**) unless marked. Handwritten or inferred readings are medium (**M**) or low (**L**). |
 
 ## What the documents settle
@@ -117,6 +117,9 @@
 - **R12.** Who signs the temporary driving permit, and its longest validity.
 
 ## Files (local only)
+
+The scans are in `docs/business-questions/response/3-licence-documents/`, named `NN-<content>__<time>.pdf`, where `<time>` is the
+scan time below without its dot (`21.41 (1)` → `__2141-1`).
 
 | Scans | Mark | Content |
 |---|---|---|

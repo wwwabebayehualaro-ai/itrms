@@ -169,6 +169,9 @@ Stack decisions with licence flags (details in the ADRs):
 - **Missing:** the paper forms of the services themselves (licence application, medical certificate, exam result sheet,
   bolo inspection checklist, libre, plate register, association renewal file, traffic ticket, accident report, payment
   certificate, receipt pad). These are needed for the Phase 0 demo. See the open questions in the phase-0 plan.
+  **Update 2026-11-12:** the Wolaita Zone sent most of them on 2026-11-11; their structures are in
+  [discovery/sample-forms.md](discovery/sample-forms.md). Still missing: the plate register, the association renewal file,
+  the traffic ticket, the accident report and the payment certificate.
 
 ## 10. KEEP / PORT / DROP
 

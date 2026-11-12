@@ -6,7 +6,7 @@
 | **Answers** | The same questionnaire as the [written answers](2026-11-11-wolaita-written-answers.md). These are the documents those answers refer to. |
 | **Received** | 2026-11-11, in the evening: 40 phone scans (CamScanner). Each is marked by hand with the printed question it answers ("ጥያቄ 11.2", "12.4 …"). |
 | **Form** | Official documents: letters and forms on the zone department's letterhead, the regional bureau's and the ministry's printed forms (bolo stickers, the inspection checklist, the insurance certificate), and two handwritten notes. |
-| **Personal data** | Several documents carry real names, plates, chassis numbers and signatures. **This record keeps their structure only:** fields, steps, numbering, prices and rules. Nothing personal is copied, and the scans stay out of the repository (`docs/business-questions/response/new/`, excluded in `.git/info/exclude`). |
+| **Personal data** | Several documents carry real names, plates, chassis numbers and signatures. **This record keeps their structure only:** fields, steps, numbering, prices and rules. Nothing personal is copied, and the scans stay out of the repository (`docs/business-questions/response/2-vehicle-documents/`, excluded in `.git/info/exclude`). |
 | **Confidence** | Printed text is read with high confidence (**H**) unless marked. Handwritten notes are medium (**M**) or low (**L**). |
 
 ## What the documents settle
@@ -99,6 +99,9 @@
    - codes 4 and 5: 1,500 Birr.
 
 ## Files (local only)
+
+The scans are in `docs/business-questions/response/2-vehicle-documents/`, named `NN-<content>__<time>.pdf`, where `<time>` is the
+scan time below without its dot (`21.41 (1)` → `__2141-1`).
 
 | Scans | Question | Content |
 |---|---|---|

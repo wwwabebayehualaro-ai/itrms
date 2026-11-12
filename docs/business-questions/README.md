@@ -35,6 +35,8 @@ letter is kept out of the repository (it carries a signature and a stamp).
 | 2026-11-11, evening | The documents behind the answers: 40 scans of letters, forms, price lists, stickers and certificates, each marked with the question it answers (11.2–12.5). | [discovery/2026-11-11-wolaita-documents.md](../discovery/2026-11-11-wolaita-documents.md) |
 | 2026-11-11, late evening | The licensing documents: 49 scans marked 13.1–13.4 and annexes 1–18 (driving schools, exams, licence print requests, medical report, temporary permits, verification letters, the finance bureau's receipt vouchers, the old libre booklet). | [discovery/2026-11-11-wolaita-licence-documents.md](../discovery/2026-11-11-wolaita-licence-documents.md) |
 
-The scans themselves stay local in `response/` (excluded from git in `.git/info/exclude`, like `Zone Letter/`), with a
-local `INDEX.md` from scan to question. Respondents numbered the questions **as printed** (1–23), which differ from the
+The scans themselves stay local in `response/` (excluded from git in `.git/info/exclude`, like `Zone Letter/`), one folder
+per batch (`1-written-answers/`, `2-vehicle-documents/`, `3-licence-documents/`), each scan named by its order, question
+and content (`05-q11.2-purchase-price-list__2142-1.pdf`, the scan time last), with a local `INDEX.md` and
+`rename-map.tsv` (the original CamScanner names). Respondents numbered the questions **as printed** (1–23), which differ from the
 generator's internal numbers from question 6 on; the discovery record has the mapping.

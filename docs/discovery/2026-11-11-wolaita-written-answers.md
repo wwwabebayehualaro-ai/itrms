@@ -406,5 +406,6 @@ accounts of their own.
 
 ## Files
 
-The scans are kept locally in `docs/business-questions/response/`, which `.git/info/exclude` keeps out of git. Their
-index (scan → hand → page) is in that folder's `INDEX.md`, which is also local.
+The scans are kept locally in `docs/business-questions/response/1-written-answers/`, which `.git/info/exclude` keeps out
+of git, named in reading order (`NN-<content>__<time>.pdf`). Their index (scan → hand → page) is in `response/INDEX.md`,
+which is also local.

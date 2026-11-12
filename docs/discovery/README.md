@@ -1,5 +1,6 @@
 # Discovery conversations
 
 One file per conversation with bureau, zone or woreda officials (date, organisation, roles, what was learned, documents
-received). Personal data: only names and roles, only with consent. Use the Amharic guide in
+received). Personal data: only names and roles, only with consent. The sample forms received so far, with their
+structure and the task each one feeds: [sample-forms.md](sample-forms.md). Use the Amharic guide in
 `../business-questions/`. Target: at least 5 conversations before task 0.24 ([go-to-market.md](../go-to-market.md) §4).
