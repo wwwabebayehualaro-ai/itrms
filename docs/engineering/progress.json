@@ -1500,13 +1500,14 @@
         {
           "id": "1.2d",
           "title": "Registration and plates, part 4: the federal libre booklet (ADR-0050)",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.2d-libre-booklet",
           "commits": [
             "e1e144b",
             "71da393",
             "6ed5252",
-            "e2946f0"
+            "e2946f0",
+            "4cbfef7"
           ],
           "evidence": [
             "GitHub Actions run 43233290468 on e2946f0 (PR #61): all 10 jobs success",
