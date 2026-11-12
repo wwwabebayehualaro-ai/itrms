@@ -1524,13 +1524,24 @@
         },
         {
           "id": "1.13",
-          "title": "Paper-record migration tooling",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "title": "Paper-record migration, part 1: back-capture and capture on touch",
+          "status": "in review",
+          "branch": "task/1.13-back-capture",
+          "commits": [
+            "950cf2e",
+            "8be196b"
+          ],
+          "evidence": [
+            "GitHub Actions run 43292546751 on 8be196b (PR #62): all 10 jobs success (first push 950cf2e: run 43282072048, all success)",
+            "integration (real PostgreSQL 16): 723/723, 39 files; back-capture.int.spec.ts 16/16: joins the register only on the second person's verification (clerk's verify 403), as migrated with the file's dates, legacy plate and libre, vinCheck mismatch kept, seats missing; send-back and correct; one vehicle when run twice; migration columns not updatable by the app (42501); refusals at fields (dates, plate, plate in stock, ended plate, chassis on register, second open capture, no scan, libre in stock, libre held); the capturer refused whatever the workflow; a zone officer verifies a routed step and the vehicle stays Boditi's; a sibling office refused",
+            "e2e: 52 passed + 4; apps/web/tests/e2e/competency/back-capture.spec.ts: empty search offers back-capture, records officer captures with scan and Ethiopian date, competency officer verifies, search and record show the migrated mark and paper reference",
+            "unit: competency back-capture-service.spec.ts 7/7 (separation of duties ['draft'], scan required, no fee); api catalogue.spec 2/2 (55 entries, MIG-01); per-package CI totals incl. 358, 98, 97, 81+2 skipped; stories/axe 237 + 474 visual",
+            "pnpm i18n:check: catalogues complete in am and en; boundaries 0 violations; check:slices 11; lint and typecheck clean; gitleaks, Trivy, Semgrep success",
+            "migration 0071_back_capture.sql reviewed: five nullable migration columns (insert-only: no UPDATE grant), source and reference null together, a back-capture names its case, verifier and time; unique index one vehicle per capture case",
+            "task-verifier: every Done-when and DoD item met (e2e and CI then pending, now green); reviewer: no critical/high; 3 medium (routed verification, verifier checked in code, libre number vs stock) and lows (plate lock, ended plate, DVC-01 sees open captures, index, i18n composition, case link) fixed in 8be196b; not fixed: open-case checks read cases through RLS (sibling offices; the register's unique indexes stop the second at the last step, as follow-up 223), no uniqueness of paper references (1.13b)"
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "Split on 2026-11-12 (one session each, as 1.1a/1.1b): part 1 is the back-capture service MIG-01 with a second person verifying, capture on touch from the vehicle search and lookup, the migrated mark in every view; part 2 (1.13b, after 1.3) is the bulk import, sampling QA, campaign counters and the reconciliation report. Vehicles only: the licence and association registries do not exist yet (1.6, 1.11 take the same path). Service code MIG-01 (a 55th catalogue entry, not one of the bureau's 54), process 1, module competency, offered with DVC-01. Back-capture mode lives in VehicleRegistry.checkRegistration when a migration is given; only BackCaptureService passes one. Verification may come from an office above when separation of duties routes the step up (the vehicle stays the capturing office's). 2026-11-12: Git Bash/lefthook sh crashed (msys add_item errno 1) under low memory; a later retry committed with hooks."
         },
         {
           "id": "1.2c",
@@ -1561,6 +1572,16 @@
           "evidence": [],
           "blockers": [],
           "notes": ""
+        },
+        {
+          "id": "1.13b",
+          "title": "Paper-record migration, part 2: bulk import and the backlog",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Split from 1.13 on 2026-11-12. Placed after 1.3 so the campaign counters have the plate exchange and the bolo season to count."
         },
         {
           "id": "1.4",
@@ -3220,7 +3241,7 @@
     {
       "foundIn": "1.1a",
       "item": "person.merged.v1 is not consumed by vehicles: holders still point at the merged duplicate, so search by the survivor misses those vehicles; a worker handler repointing open-period holders, audited",
-      "movedTo": "1.13"
+      "movedTo": "1.13b"
     },
     {
       "foundIn": "1.1a",
@@ -3400,7 +3421,12 @@
     {
       "foundIn": "1.2d",
       "item": "Seeded services only ever get a first version: a database seeded before 1.2d keeps the 1.2b DVC-01 flow (no booklet step) until demo:reset. Before the pilot, a seed or migration must publish a new service version when the shipped configuration changes (review finding, 1.2d)",
-      "movedTo": "1.13"
+      "movedTo": "1.18 (upgrade procedure: shipped configuration changes publish a new service version)"
+    },
+    {
+      "foundIn": "1.13",
+      "item": "Paper file references are not unique per region or office: one reference could be captured for two vehicles; decide with the zone how files are numbered, then a unique index or a reconciliation flag (review finding L6)",
+      "movedTo": "1.13b"
     }
   ]
 }

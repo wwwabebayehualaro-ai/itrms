@@ -55,7 +55,9 @@ export default defineModule({
         'competency.assignRegistrationPlate',
         'competency.issueLibre',
         'competency.issueLibreBooklet',
-        'competency.releaseRegistrationPlate'
+        'competency.releaseRegistrationPlate',
+        'competency.checkBackCapture',
+        'competency.backCaptureVehicle'
     ],
     title: { am: 'የአሽከርካሪና ተሽከርካሪ ብቃት ማረጋገጫ', en: 'Driver and vehicle competency' },
     workProcess: 1,
@@ -105,7 +107,9 @@ export default defineModule({
         'DVC-08',
         'DVC-09',
         'DVC-10',
-        'DVC-11'
+        'DVC-11',
+        // the back-capture of paper vehicle files (ADR-0054): the migration's own service, beside the bureau's
+        'MIG-01'
     ],
     // a registration takes its plate from the office's own stock (task 1.2b): an office without one doesn't offer it
     capabilitiesRequired: { 'DVC-01': ['holds_plate_stock'] },
@@ -141,6 +145,23 @@ export default defineModule({
                     label: 'competency.action.newVehicleRegistration',
                     route: '/competency/vehicle-registrations/new',
                     requires: { permission: 'case:create', services: ['DVC-01'] }
+                }
+            ]
+        },
+        {
+            key: 'competency.backCaptures',
+            group: 'work-process',
+            order: 13,
+            label: 'competency.nav.backCaptures',
+            icon: 'archive',
+            route: '/competency/back-captures',
+            requires: { permission: 'vehicle:read', services: ['MIG-01'] },
+            quickActions: [
+                {
+                    key: 'competency.newBackCapture',
+                    label: 'competency.action.newBackCapture',
+                    route: '/competency/back-captures/new',
+                    requires: { permission: 'case:create', services: ['MIG-01'] }
                 }
             ]
         },

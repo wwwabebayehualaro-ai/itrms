@@ -237,6 +237,8 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
             REQUESTS,
             'competency.applications',
             'competency.vehicleRegistrations',
+            // the back-capture of paper vehicle files (task 1.13), offered with new registration
+            'competency.backCaptures',
             'competency.licences',
             'competency.training',
             'competency.exams',
@@ -266,6 +268,8 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
                 TASKS,
                 REQUESTS,
                 'competency.vehicleRegistrations',
+                // the back-capture of paper vehicle files (task 1.13), offered with new registration
+                'competency.backCaptures',
                 ...REGISTER_AND_STOCK
             ]);
         } finally {

@@ -17,6 +17,17 @@ the way recorded with their reasons) and issues the certificate again with its s
 booklet in stock the case waits in that step. Each effect is idempotent per case. The service needs the `holds_plate_stock`
 and `holds_stationery` capabilities of the handling unit.
 
+**The back-capture of a paper vehicle file (MIG-01, task 1.13, ADR-0054).** Not one of the bureau's 54 services: the migration's
+own, offered where vehicles are registered. Seeded as configuration (`seed/back-capture-service.ts`): the form
+`vehicle-back-capture` (the paper file's reference and its scan, both required; the registration's owner and vehicle fields; the
+file's dates in the Ethiopian calendar; the plate it carries and the libre it holds), the workflow draft → verification → captured,
+no fee. `competency.checkBackCapture` checks the capture in back-capture mode when it is filed or corrected (the dates in order, a
+plate no vehicle carries and not in the stock, no other open request for the chassis or plate). The verification step keeps
+whoever captured the file off it (separation of duties); `competency.backCaptureVehicle` then registers the vehicle as migrated,
+verified by the actor, with its plate and libre. Until then the vehicle is not on the register, so no service can act on it.
+The vehicle search offers the back-capture when it finds nothing (capture on touch). The bulk import, sampling QA, campaign
+counters and the reconciliation report are task 1.13b.
+
 Layer: work-process. Shape, public entries and rules: [code-structure.md](../../docs/platform/code-structure.md) §4.
 
 | Entry | Holds |

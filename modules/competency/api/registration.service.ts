@@ -4,7 +4,7 @@
  * steps call its commands inside the transition's transaction, so a step that fails leaves nothing. The effects are thin over this.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import { currentContext } from '@itrms/kernel/context';
 import type { Tx } from '@itrms/kernel/db';
 import { ConflictError, ForbiddenError, ValidationError } from '@itrms/kernel/errors';
@@ -120,8 +120,11 @@ export class VehicleRegistrationService {
         @Inject(StationeryStock) private readonly stationery: StationeryStock
     ) {}
 
-    /** What the register's command takes, from the request's answers: one owner of either kind in each row. */
-    private registerInput(input: RegistrationInput, extra: { firstRegisteredOn: string }): RegisterInput {
+    /**
+     * What the register's command takes, from the request's answers: one owner of either kind in each row. The back-capture of a
+     * paper file (back-capture.service.ts) reads the same answers.
+     */
+    registerInput(input: RegistrationInput, extra: { firstRegisteredOn: string }): RegisterInput {
         const outside = (Object.keys(SIZE_METRES) as (keyof typeof SIZE_METRES)[]).filter((k) => {
             const value = input[k];
             const [min, max] = SIZE_METRES[k];
@@ -209,7 +212,11 @@ export class VehicleRegistrationService {
                 and(
                     isNull(cases.closedAt),
                     ne(cases.id, place.caseId),
-                    sql`${cases.facts}#>>'{registration,vinKey}' = ${checked.vinKey}`
+                    // an open registration, or an open back-capture of a paper file (task 1.13), of the same chassis
+                    or(
+                        sql`${cases.facts}#>>'{registration,vinKey}' = ${checked.vinKey}`,
+                        sql`${cases.facts}#>>'{backCapture,vinKey}' = ${checked.vinKey}`
+                    )
                 )
             )
             .limit(1);

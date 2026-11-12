@@ -23,7 +23,7 @@ unitTypes:
     level: sub_city
     name: { am: የክፍለ ከተማ ትራንስፖርት ጽ/ቤት, en: Sub-city transport office }
     capabilities: [collects_cash, prints_documents, has_examiners, holds_plate_stock, holds_stationery]
-    services: [RS-01..07, DVC-01..11]
+    services: [RS-01..07, DVC-01..11, MIG-01]
     roles:
       [
         plate_keeper,

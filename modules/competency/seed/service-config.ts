@@ -169,7 +169,8 @@ export async function firstServiceVersion(
     tx: Tx,
     root: { id: string; regionId: string },
     service: typeof serviceDefinitions.$inferSelect,
-    parts: { formVersionId: string; workflowVersionId: string; feeRuleVersionId: string }
+    // no fee rule for a service that charges none (the back-capture of a paper file, MIG-01)
+    parts: { formVersionId: string; workflowVersionId: string; feeRuleVersionId: string | null }
 ): Promise<void> {
     const content = {
         ...parts,

@@ -10,6 +10,7 @@ import { contextOfTx, type Tx } from '@itrms/kernel/db';
 import { NotFoundError } from '@itrms/kernel/errors';
 import { OrganisationsService, PersonsService } from '@itrms/parties/api';
 import { SettingsService } from '@itrms/kernel/settings';
+import { users } from '@itrms/kernel/tables';
 import type { z } from 'zod';
 
 import {
@@ -176,6 +177,18 @@ export class VehiclesService {
             rows.map((r) => r.handlingUnitId)
         );
         const ownersOf = new Map(open.map((o) => [o.vehicleId, holders.get(o.id) ?? []]));
+        // the second person who verified a back-capture, by the name staff know them by (users are a regional record)
+        const verifierIds = [...new Set(rows.flatMap((r) => (r.migrationVerifiedBy ? [r.migrationVerifiedBy] : [])))];
+        const verifiers = new Map(
+            verifierIds.length === 0
+                ? []
+                : (
+                      await tx
+                          .select({ id: users.id, name: users.displayName })
+                          .from(users)
+                          .where(inArray(users.id, verifierIds))
+                  ).map((u) => [u.id, u.name])
+        );
         const byId = new Map(
             rows.map((r) => {
                 const category = categories.get(r.categoryId);
@@ -186,7 +199,8 @@ export class VehiclesService {
                         ...summaryOf(r, units),
                         category: { key: category?.key ?? '', name: category?.name ?? {} },
                         currentPlate: plate ? { text: plate.plateText, format: plate.format } : null,
-                        owners: ownersOf.get(r.id) ?? []
+                        owners: ownersOf.get(r.id) ?? [],
+                        migration: migrationOf(r, verifiers)
                     }
                 ];
             })
@@ -340,6 +354,20 @@ function summaryOf(row: Row, units: ReadonlyMap<string, UnitRef>): VehicleSummar
         currentPlate: null,
         owners: [],
         handlingUnit: units.get(row.handlingUnitId) ?? { id: row.handlingUnitId, code: '', name: {} },
+        migration: null,
         matched: null
+    };
+}
+
+/** Where a vehicle migrated from paper came from and who verified it (ADR-0054); null for one registered in ITRMS. */
+function migrationOf(row: Row, verifiers: ReadonlyMap<string, string>): VehicleSummary['migration'] {
+    if (!row.migrationSource || !row.paperReference) return null;
+    const verifier = row.migrationVerifiedBy;
+    return {
+        source: row.migrationSource,
+        paperReference: row.paperReference,
+        caseId: row.migrationCaseId,
+        verifiedBy: verifier ? { id: verifier, name: verifiers.get(verifier) ?? '' } : null,
+        verifiedAt: row.migrationVerifiedAt?.toISOString() ?? null
     };
 }

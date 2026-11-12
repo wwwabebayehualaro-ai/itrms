@@ -15,6 +15,7 @@ import { LICENCE_GRADES, type GradeSeed } from './grades';
 export { LICENCE_GRADES, type GradeSeed } from './grades';
 export * from './licence-services';
 export * from './vehicle-services';
+export * from './back-capture-service';
 export { importDemoData, type DemoCounts, type DemoDeps } from './demo';
 
 /** The catalogue at the region's root; an installation step, audited. */

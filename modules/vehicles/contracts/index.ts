@@ -43,6 +43,8 @@ export const ACQUIRED_BY = [
 export const PLATE_SOURCES = ['federal', 'legacy', 'manual'] as const;
 export const PLATE_ENDED_REASONS = ['exchanged', 'lost', 'retired', 'transferred'] as const;
 export const LIBRE_STATUSES = ['issued', 'replaced', 'lost', 'cancelled'] as const;
+/** How a vehicle on paper came onto the register (ADR-0054): back-captured through a case, or imported in a batch (1.13b). */
+export const MIGRATION_SOURCES = ['back_capture', 'import'] as const;
 /** What a search matched: the best of the ways a vehicle was found. */
 export const VEHICLE_MATCHES = ['federal_id', 'vin', 'plate', 'old_plate', 'engine', 'vin_part', 'plate_part'] as const;
 export const OWNER_KINDS = ['person', 'organisation'] as const;
@@ -50,6 +52,7 @@ export const OWNER_KINDS = ['person', 'organisation'] as const;
 export type VehicleUse = (typeof VEHICLE_USES)[number];
 export type VehicleStatus = (typeof VEHICLE_STATUSES)[number];
 export type VehicleMatch = (typeof VEHICLE_MATCHES)[number];
+export type MigrationSource = (typeof MIGRATION_SOURCES)[number];
 
 /** The codes of the old regional plates (a list of region codes with their Ethiopic writings), per installation or region. */
 export const LEGACY_PLATE_REGIONS_SETTING = 'vehicles.legacy_plate_regions';
@@ -130,6 +133,19 @@ export const libreSchema = z.object({
     caseId: z.uuid().nullable()
 });
 
+/**
+ * A vehicle migrated from its paper file (ADR-0054): where it came from, the paper file's reference, the case that captured it
+ * and the second person who verified it. null for a vehicle registered in ITRMS.
+ */
+export const migrationSchema = z.object({
+    source: z.enum(MIGRATION_SOURCES),
+    paperReference: z.string(),
+    caseId: z.uuid().nullable(),
+    verifiedBy: z.object({ id: z.uuid(), name: z.string() }).nullable(),
+    verifiedAt: z.string().nullable()
+});
+export type Migration = z.infer<typeof migrationSchema>;
+
 export const vehicleSummarySchema = z.object({
     id: z.uuid(),
     version: z.number().int(),
@@ -144,6 +160,7 @@ export const vehicleSummarySchema = z.object({
     currentPlate: z.object({ text: z.string(), format: z.enum(PLATE_FORMATS) }).nullable(),
     owners: z.array(holderSchema),
     handlingUnit: unitRefSchema,
+    migration: migrationSchema.nullable(),
     /** how the search found it (a search only) */
     matched: z.enum(VEHICLE_MATCHES).nullable()
 });
@@ -267,7 +284,20 @@ export const vehicleRegisterSchema = z
         since: isoDate.optional(),
         acquiredBy: z.enum(ACQUIRED_BY).default('first_registration'),
         caseId: z.uuid().optional(),
-        note: z.string().trim().min(1).max(500).optional()
+        note: z.string().trim().min(1).max(500).optional(),
+        /**
+         * A vehicle on paper, back-captured (ADR-0054): the register takes it in back-capture mode, where what the paper file
+         * does not give (seats, load, axles) stays missing and a check digit that does not match is kept as a mismatch.
+         */
+        migration: z
+            .strictObject({
+                source: z.enum(MIGRATION_SOURCES),
+                paperReference: z.string().trim().min(1).max(60),
+                caseId: z.uuid().optional(),
+                /** the second person, who checked the capture against the paper file (a back-capture names it and its case) */
+                verifiedBy: z.uuid().optional()
+            })
+            .optional()
     })
     .refine((v) => (v.federalVehicleId === undefined) === (v.federalIdSource === undefined), {
         path: ['federalIdSource'],

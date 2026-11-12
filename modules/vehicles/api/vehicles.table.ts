@@ -4,7 +4,8 @@
  *
  *   vehicle_categories   the catalogue of kinds of vehicle (class C at the region's root).
  *   vehicles             one row per vehicle: the national (federal) id when there is one, the chassis number and its
- *                        search key (vin_key), engine, make, model, category, use, status.
+ *                        search key (vin_key), engine, make, model, category, use, status; for a vehicle migrated from
+ *                        paper, its source, paper reference, capturing case and verifier (ADR-0054).
  *   vehicle_ownerships   the history of who held the vehicle: periods with no gap and no overlap, one open while it is
  *                        active (a deferred constraint trigger in the migration checks that at commit).
  *   vehicle_owners       the holders of a period: a person or an organisation, one or more.
@@ -32,6 +33,7 @@ import {
     pgSchema,
     smallint,
     text,
+    timestamp,
     uniqueIndex,
     uuid
 } from 'drizzle-orm/pg-core';
@@ -46,6 +48,7 @@ import {
     FEDERAL_ID_SOURCES,
     FUELS,
     LIBRE_STATUSES,
+    MIGRATION_SOURCES,
     MOVEMENT_KINDS,
     PLATE_END_REASONS,
     PLATE_ENDED_REASONS,
@@ -151,13 +154,26 @@ export const vehicles = withRls(
                 tyres: integer('tyres'),
                 netWeightKg: integer('net_weight_kg'),
                 firstRegisteredOn: date('first_registered_on').notNull(),
-                status: text('status', { enum: VEHICLE_STATUSES }).notNull().default('active')
+                status: text('status', { enum: VEHICLE_STATUSES }).notNull().default('active'),
+                /**
+                 * A vehicle migrated from its paper file (ADR-0054, task 1.13): how it came, the paper file's reference, the
+                 * case that captured it and the second person who verified it. All null for a vehicle registered in ITRMS.
+                 */
+                migrationSource: text('migration_source', { enum: MIGRATION_SOURCES }),
+                paperReference: text('paper_reference'),
+                migrationCaseId: uuid('migration_case_id'),
+                migrationVerifiedBy: uuid('migration_verified_by'),
+                migrationVerifiedAt: timestamp('migration_verified_at', { withTimezone: true })
             },
             (t) => [
                 uniqueIndex('vehicles_federal_id_uq')
                     .on(t.regionId, t.federalVehicleId)
                     .where(sql`${t.federalVehicleId} is not null`),
                 uniqueIndex('vehicles_vin_uq').on(t.regionId, t.vinKey),
+                // one vehicle per capture case: what a verification run again finds (task 1.13)
+                uniqueIndex('vehicles_migration_case_uq')
+                    .on(t.migrationCaseId)
+                    .where(sql`${t.migrationCaseId} is not null`),
                 index('vehicles_region_vin_idx').on(t.regionId, t.vinKey),
                 index('vehicles_region_engine_idx').on(t.regionId, t.engineKey),
                 index('vehicles_vin_trgm').using('gin', sql`${t.vinKey} gin_trgm_ops`),
@@ -190,6 +206,16 @@ export const vehicles = withRls(
                         and coalesce(${t.widthMm}, 1) > 0 and coalesce(${t.heightMm}, 1) > 0 and coalesce(${t.tyres}, 1) > 0
                         and coalesce(${t.netWeightKg}, 1) > 0 and coalesce(length(${t.madeIn}), 1) between 1 and 60
                         and coalesce(length(${t.tyreSize}), 1) between 1 and 20`
+                ),
+                check('vehicles_migration_source_check', sql`${t.migrationSource} in ${oneOf(MIGRATION_SOURCES)}`),
+                check(
+                    'vehicles_migration_check',
+                    sql`(${t.migrationSource} is null) = (${t.paperReference} is null)
+                        and coalesce(length(${t.paperReference}), 1) between 1 and 60
+                        and (${t.migrationSource} is distinct from 'back_capture'
+                             or (${t.migrationCaseId} is not null and ${t.migrationVerifiedBy} is not null
+                                 and ${t.migrationVerifiedAt} is not null))
+                        and (${t.migrationVerifiedBy} is null) = (${t.migrationVerifiedAt} is null)`
                 ),
                 check(
                     'vehicles_text_check',

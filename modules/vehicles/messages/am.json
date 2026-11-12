@@ -8,6 +8,13 @@
   "vehicles.field.owner": "ባለቤት",
   "vehicles.field.federalId": "የፌዴራል ተሽከርካሪ መለያ",
   "vehicles.field.handlingUnit": "የሚያስተናግደው ጽ/ቤት",
+  "vehicles.field.migrated": "ከወረቀት",
+  "vehicles.migration.title": "ከወረቀት የተዛወረ",
+  "vehicles.migration.source.back_capture": "ከወረቀት ፋይሉ የተመዘገበ",
+  "vehicles.migration.source.import": "ከወረቀት መዝገቡ የገባ",
+  "vehicles.migration.paperReference": "የወረቀት ፋይል ቁጥር",
+  "vehicles.search.notOnRegister": "በመዝገቡ የለም? የወረቀት ፋይል ያለው ተሽከርካሪ መጀመሪያ ከወረቀቱ ይመዘገባል፤ ሌላ ሰው ያረጋግጠዋል።",
+  "vehicles.search.backCapture": "የወረቀት ፋይሉን መዝግብ",
   "vehicles.field.chassisNumber": "የሻሲ ቁጥር",
   "vehicles.field.engineNumber": "የሞተር ቁጥር",
   "vehicles.field.make": "አምራች",
@@ -191,5 +198,8 @@
   "vehicles.field.netWeight": "የተጣራ ክብደት (ኪ.ግ)",
   "vehicles.record.bookletPending": "ደብተሩ ገና አልተሰጠም",
   "vehicles.errors.libre_has_booklet": "ይህ ሊብሬ ደብተሩ ተሰጥቶታል፤ አዲስ ደብተር የሊብሬ ምትክ ነው።",
-  "vehicles.errors.libre_not_in_force": "ይህ ሊብሬ በሥራ ላይ አይደለም፤ ተሽከርካሪው አዲስ ሊብሬ አለው ወይም ከመዝገብ ወጥቷል።"
+  "vehicles.errors.libre_not_in_force": "ይህ ሊብሬ በሥራ ላይ አይደለም፤ ተሽከርካሪው አዲስ ሊብሬ አለው ወይም ከመዝገብ ወጥቷል።",
+  "vehicles.migration.summary": "{source}፦ {reference}",
+  "vehicles.migration.summaryVerified": "{source}፦ {reference}፤ ያረጋገጠው {name}",
+  "vehicles.migration.sourceVerified": "{source}፤ ያረጋገጠው {name}"
 }

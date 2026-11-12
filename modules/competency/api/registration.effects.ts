@@ -17,7 +17,7 @@ const placeOf = (run: EffectRun<unknown>): CasePlace => ({
 });
 
 /** What the registration effects read from the request form (a service version may map these to other form keys). */
-const REQUEST = {
+export const REGISTRATION_REQUEST = {
     // each row holds one owner: a person or an organisation (the effect refuses any other row)
     owners: { kind: 'rows' },
     chassisNumber: { kind: 'text' },
@@ -50,7 +50,7 @@ const REQUEST = {
 } as const;
 
 @Injectable()
-@Effect(R.checkVehicleRegistration, { input: REQUEST })
+@Effect(R.checkVehicleRegistration, { input: REGISTRATION_REQUEST })
 export class CheckVehicleRegistrationEffect implements WorkflowEffect<RegistrationInput> {
     constructor(@Inject(VehicleRegistrationService) private readonly registration: VehicleRegistrationService) {}
 
@@ -81,7 +81,7 @@ export class RecordFederalVehicleIdEffect implements WorkflowEffect {
 }
 
 @Injectable()
-@Effect(R.registerVehicle, { givesService: true, input: REQUEST })
+@Effect(R.registerVehicle, { givesService: true, input: REGISTRATION_REQUEST })
 export class RegisterVehicleEffect implements WorkflowEffect<RegistrationInput> {
     constructor(@Inject(VehicleRegistrationService) private readonly registration: VehicleRegistrationService) {}
 

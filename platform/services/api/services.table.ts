@@ -1,7 +1,7 @@
 /**
  * The service catalogue (architecture.md §6.2, §7; task 0.21b). Schema `services`.
  *
- *   service_definitions  a region's catalogue: one row per service code (54 seeded), owned by the region's root (class C:
+ *   service_definitions  a region's catalogue: one row per service code (54 seeded, and MIG-01), owned by the region's root (class C:
  *                        every unit reads it, the region's seat writes it). "Not configured" until a version is published.
  *   service_versions     a bureau's configuration of a service: the form and workflow versions, the defaults and the
  *                        override policy, from a date. Immutable and content-hashed (drizzle/0046); a case freezes the one
