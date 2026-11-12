@@ -1479,10 +1479,11 @@
         {
           "id": "1.12a",
           "title": "Controlled stationery",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.12a-controlled-stationery",
           "commits": [
-            "c2f9573"
+            "c2f9573",
+            "2128a24"
           ],
           "evidence": [
             "CI run 43146467547 (PR #60, c2f9573): all 10 jobs success",
@@ -1499,7 +1500,7 @@
         {
           "id": "1.2d",
           "title": "Registration and plates, part 4: the federal libre booklet (ADR-0050)",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
