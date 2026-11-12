@@ -49,8 +49,10 @@ import {
     useGrades,
     useLicences,
     usePrintBatches,
+    useRecordPrinted,
     useSendPrintBatch,
-    type Licence
+    type Licence,
+    type PrintBatch
 } from '@/lib/competency';
 import { formatDay } from '@/lib/format';
 import { usePreferences, useText } from '@/lib/preferences';
@@ -525,6 +527,39 @@ const BATCH_TONE: Record<(typeof BATCH_STATUSES)[number], Tone> = {
     distributed: 'success'
 };
 
+/** A sent batch back from the printer: the first card blank it was printed on (the rest follow in order). */
+function RecordPrinted({ batch }: { batch: PrintBatch }) {
+    const { t } = useText();
+    const printed = useRecordPrinted();
+    const [first, setFirst] = useState('');
+    return (
+        <div className="flex flex-col items-end gap-1" data-record-printed={batch.id}>
+            <div className="flex items-center gap-2">
+                <Input
+                    aria-label={t('competency.batches.firstCard')}
+                    placeholder={t('competency.batches.firstCard')}
+                    className="h-8 w-36"
+                    value={first}
+                    onChange={(e) => setFirst(e.target.value)}
+                />
+                <Button
+                    size="sm"
+                    data-action="printed"
+                    disabled={printed.isPending || first.trim() === ''}
+                    onClick={() => printed.mutate({ id: batch.id, version: batch.version, firstCardKey: first.trim() })}
+                >
+                    {t('competency.batches.printed')}
+                </Button>
+            </div>
+            {printed.error && (
+                <span className="text-destructive text-xs" data-problem>
+                    {getApiErrorMessage(printed.error, t('competency.batches.printedFailed'))}
+                </span>
+            )}
+        </div>
+    );
+}
+
 /** What the office has for the region's printer: a batch goes once, and the national platform names it. */
 export function PrintBatches() {
     const { t, language } = useText();
@@ -580,6 +615,7 @@ export function PrintBatches() {
                                             {t('competency.batches.send')}
                                         </Button>
                                     )}
+                                    {b.status === 'sent' && <RecordPrinted batch={b} />}
                                 </TableCell>
                             </TableRow>
                         ))}

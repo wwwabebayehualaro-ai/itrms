@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-11-11",
+  "updated": "2026-11-12",
   "statuses": [
     "planned",
     "ready",
@@ -1479,12 +1479,22 @@
         {
           "id": "1.12a",
           "title": "Controlled stationery",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/1.12a-controlled-stationery",
+          "commits": [
+            "c2f9573"
+          ],
+          "evidence": [
+            "CI run 43146467547 (PR #60, c2f9573): all 10 jobs success",
+            "integration (real PostgreSQL 16) → 38 files, 705/705 passed, incl. stationery.int.spec.ts: reconciliation per step, one card blank per printed licence, closing flags missing/unexpected serials, Ethiopic receipt series, isolation matrix, audit rows per command",
+            "e2e Playwright → 51/51 passed (incl. stationery.spec.ts: the keeper's count flags the missing serial) + 4/4",
+            "unit: platform/fees stationery.spec.ts 53/53 locally; lint, typecheck, boundaries, build in CI",
+            "pnpm i18n:check → catalogues complete in am and en; migrations 0067–0069 applied from zero in CI",
+            "task-verifier: ready (caveat: CI then pending, now green); review agent findings fixed in 81bf803, L8 carried to 1.8",
+            "local integration/e2e not run (2.6 GB free); CI is the record (ADR-0038)"
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "Ready check 2026-11-11: the phase row says 'reconciled at cashier closing', but cashier closing (1.12) now comes after 1.12a (vehicles-first order). 1.12a therefore brings its own stationery closing per office (expected vs counted serials, missing ones flagged) that 1.12 folds into the cashier's daily closing. Consumers: licence card blanks in this task (Done when 1); libre booklets in 1.2d, bolo stickers in 1.3, paper receipt pads with the pad-receipt follow-up (0.22b) in 1.12. 2026-11-12: the zone's licensing documents (49 scans, discovery/2026-11-11-wolaita-licence-documents.md) show receipt vouchers are the regional finance bureau's, in Ethiopic-lettered series (ሴሪ ለ, ሐ) with six-digit serials. The stock now takes Ethiopic series letters (contract, form, database check in migration 0069) and a finance_bureau source, picked on the receive form (the default for receipt leaves). Licence cards are printed by the region, so their blanks are held there. 2026-11-12: the zone's scans renamed by batch, question and content (local, response/1-written-answers, 2-vehicle-documents, 3-licence-documents; rename-map.tsv), and docs/discovery/sample-forms.md lists every sample form with its structure and the task it feeds. CI 43145525938 on 8eff360: 1 failure (the new Ethiopic-series test left receipt leaves at Boditi; 704/705 passed), fixed in c2f9573; run 43146467547 pending."
         },
         {
           "id": "1.2d",
@@ -3060,7 +3070,8 @@
     {
       "foundIn": "0.22b",
       "item": "Pad receipts: a serial is checked against the pad ranges issued to the office (controlled stationery)",
-      "movedTo": "1.12a"
+      "movedTo": "1.12a",
+      "closedIn": "1.12a: receipt leaves are controlled stationery (kind receipt_leaf, StationeryStock.use); taking a pad receipt's leaf from the office's stock at payment moves to 1.12 (cashier closing), where pad series with digits/hyphens are mapped"
     },
     {
       "foundIn": "0.22b",
@@ -3319,6 +3330,46 @@
       "foundIn": "1.2b",
       "item": "Discovery 2026-11-11: requests back to the zone R1-R4 (missing questions 1-10, 14, 15, 18, 20-23; typed fee schedule and legal basis; copies of the documents marked 'have'; readings to confirm) - docs/discovery/2026-11-11-wolaita-written-answers.md",
       "movedTo": "owner"
+    },
+    {
+      "foundIn": "1.12a",
+      "item": "Pad receipts: at payment, take the pad leaf from the office's receipt_leaf stock (StationeryStock.use; map pad series with digits/hyphens to stationery series), and fold the stationery daily count into the cashier's closing",
+      "movedTo": "1.12"
+    },
+    {
+      "foundIn": "1.12a",
+      "item": "Bolo: the sticker of the vehicle's category and fiscal year from stationery (StationeryStock.use with variant); a temporary bolo certificate (QR, validity window) when none is in stock, the sticker issued later on the same case; the national (ETH) sticker's barcode recorded; the insurance certificate (Proclamation 799/2013) number, insurer and policy period; the bureau's serial-numbered light-vehicle checklist",
+      "movedTo": "1.3"
+    },
+    {
+      "foundIn": "1.12a",
+      "item": "Ownership transfer: valuation by the zone's technical expert (santim), letters to the justice office (authentication, no encumbrance), revenue office (stamp duty on the value) and tax office (code-3 business taxpayer); zone-transfer document with plate history and encumbrances, valid 15 days",
+      "movedTo": "1.4"
+    },
+    {
+      "foundIn": "1.12a",
+      "item": "Plates come in pairs for cars and singly for motorcycles (the zone's plate demand): one plate key = one pair; the stock counts keys, and a replacement of one plate of a pair is a 1.5 case",
+      "movedTo": "1.2c"
+    },
+    {
+      "foundIn": "1.12a",
+      "item": "Stationery reports: the stock's value per kind and office (unit price × in stock), the yearly demand letter to the bureau (the zone's requisition), sticker use per category",
+      "movedTo": "1.16"
+    },
+    {
+      "foundIn": "1.12a",
+      "item": "Discovery 2026-11-11 documents: requests R5 (25-service list vs DVC-01..11), R6 (heavy-vehicle checklist), R7 (stickers per pad), R8 (who signs the temporary libre and bolo) - docs/discovery/2026-11-11-wolaita-documents.md",
+      "movedTo": "owner"
+    },
+    {
+      "foundIn": "1.12a",
+      "item": "Reviewer L8: licence_print_batch_items.card_key and stationery_item_id stay writable after the batch is returned (the authoritative link stationery_items.used_for is final); freeze them once set (trigger or revoke) and show the licence-to-card list for confirmation before recording a printing",
+      "movedTo": "1.8"
+    },
+    {
+      "foundIn": "1.12a",
+      "item": "The payment's pad-series field (fees contracts, payment pad receipts) accepts Latin capitals only; the finance bureau's receipt vouchers carry an Ethiopic series letter",
+      "movedTo": "1.12"
     }
   ]
 }

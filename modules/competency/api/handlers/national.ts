@@ -3,7 +3,7 @@
  * an event on the case, from a system actor. Delivered twice, the platform answers the same and the case is already past that step. An
  * answer still pending moves nothing: the case's wait times out as its workflow says. An error is thrown, so the outbox retries.
  */
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { actFor, updateAudited, type Tx } from '@itrms/kernel/db';
 import type { SystemDatabase } from '@itrms/kernel/db/system';
 import type { OutboxHandler } from '@itrms/kernel/api/worker';
@@ -84,7 +84,9 @@ export async function sendPrintBatch(
             })
             .from(licencePrintBatchItems)
             .innerJoin(driverLicences, eq(driverLicences.id, licencePrintBatchItems.licenceId))
-            .where(eq(licencePrintBatchItems.batchId, batchId));
+            .where(eq(licencePrintBatchItems.batchId, batchId))
+            // the printer prints in this order, and the returned batch's cards are matched to it (task 1.12a)
+            .orderBy(asc(licencePrintBatchItems.createdAt), asc(licencePrintBatchItems.id));
         return { row, licences };
     });
     if (!batch) return false;

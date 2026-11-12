@@ -470,6 +470,27 @@
       "when": 1794337401461,
       "tag": "0066_plate_stock_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1794424753466,
+      "tag": "0067_stationery",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1794424783749,
+      "tag": "0068_stationery_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1794452239944,
+      "tag": "0069_stationery_sources_series",
+      "breakpoints": true
     }
   ]
 }

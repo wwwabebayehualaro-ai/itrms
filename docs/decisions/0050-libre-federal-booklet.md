@@ -1,7 +1,9 @@
 # ADR-0050: The libre is the federal booklet; ITRMS records its serial and issues a registration certificate
 
 * Status: accepted (2026-11-11, product owner). Supersedes ADR-0049. Source: the Wolaita Zone's written answers
-  ([discovery 2026-11-11](../discovery/2026-11-11-wolaita-written-answers.md), Q11.2–11.3).
+  ([discovery 2026-11-11](../discovery/2026-11-11-wolaita-written-answers.md), Q11.2–11.3) and its documents
+  ([the same day](../discovery/2026-11-11-wolaita-documents.md): the bureau sells the zone its booklets; the zone issues a
+  temporary libre meanwhile).
 
 ## Context
 
@@ -28,13 +30,17 @@ one by one, like bolo stickers and receipt pads.
    - voided or spoiled with a reason;
    - reconciled at closing.
    - A serial is used once. A spoiled booklet is recorded and is never reissued.
-3. **ITRMS issues a registration certificate** as the case's verifiable output:
+3. **ITRMS issues the temporary libre** (ጊዜያዊ የባለቤትነት ሊብሬ, the zone's own document and name; [the zone's
+   documents](../discovery/2026-11-11-wolaita-documents.md) §2) as the case's verifiable output:
    - an ITRMS document with a QR (ADR-0006, ADR-0045), numbered by the office's counter;
    - it names the vehicle, its owners, its plate and the booklet serial;
-   - it does not replace the booklet; it lets anyone verify that the registration happened and which booklet it was
-     written in.
+   - like the zone's paper one, it says on its face that it is not the booklet; it lets anyone verify that the
+     registration happened, and once the booklet is issued, which booklet it was written in;
+   - its fields follow the zone's temporary libre: plate, owner and address, the vehicle's facts, dimensions, weights,
+     capacity, service, the bolo number and the date.
 4. **The `vehicles.libre` counter** of ADR-0049 is renamed for the registration certificate. The `vehicle-libre` template
-   becomes `vehicle-registration-certificate`. The change lands in task 1.2d.
+   becomes `vehicle-registration-certificate`. The change lands in task 1.2d. The booklet may be issued at registration or later
+   (when the bureau's booklets arrive), against the same vehicle.
 
 ## Consequences
 

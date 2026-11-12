@@ -175,6 +175,63 @@
         ],
         "type": "object"
       },
+      "ClosingDto": {
+        "additionalProperties": false,
+        "properties": {
+          "closedOn": {
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+            "type": "string"
+          },
+          "counted": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "from": {
+                  "maximum": 99999999,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "series": {
+                  "type": "string"
+                },
+                "to": {
+                  "maximum": 99999999,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "from",
+                "to"
+              ],
+              "type": "object"
+            },
+            "maxItems": 200,
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "libre_booklet",
+              "licence_blank",
+              "bolo_sticker",
+              "receipt_leaf"
+            ],
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "closedOn",
+          "counted"
+        ],
+        "type": "object"
+      },
       "CommentDto": {
         "additionalProperties": false,
         "properties": {
@@ -3290,6 +3347,66 @@
         },
         "type": "object"
       },
+      "PrintedDto": {
+        "additionalProperties": false,
+        "properties": {
+          "cards": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "cardKey": {
+                  "maxLength": 20,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "licenceId": {
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "licenceId",
+                "cardKey"
+              ],
+              "type": "object"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "type": "array"
+          },
+          "firstCardKey": {
+            "maxLength": 20,
+            "minLength": 1,
+            "type": "string"
+          },
+          "spoiled": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "cardKey": {
+                  "maxLength": 20,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "reason": {
+                  "maxLength": 200,
+                  "minLength": 3,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "cardKey",
+                "reason"
+              ],
+              "type": "object"
+            },
+            "maxItems": 100,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "Problem": {
         "additionalProperties": false,
         "properties": {
@@ -6270,6 +6387,39 @@
         "parameters": [],
         "responses": {
           "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Competency"
+        ]
+      }
+    },
+    "/api/v1/competency/print-batches/{id}/printing": {
+      "post": {
+        "operationId": "CompetencyController_printed",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrintedDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
             "description": ""
           }
         },
@@ -10220,6 +10370,446 @@
         },
         "tags": [
           "Services"
+        ]
+      }
+    },
+    "/api/v1/stationery/allocations": {
+      "post": {
+        "operationId": "StationeryController_allocate",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllocateDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Stationery"
+        ]
+      }
+    },
+    "/api/v1/stationery/batches": {
+      "get": {
+        "operationId": "StationeryController_batches",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "enum": [
+                "libre_booklet",
+                "licence_blank",
+                "bolo_sticker",
+                "receipt_leaf"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Stationery"
+        ]
+      },
+      "post": {
+        "operationId": "StationeryController_receive",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceiveDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Stationery"
+        ]
+      }
+    },
+    "/api/v1/stationery/closings": {
+      "get": {
+        "operationId": "StationeryController_closings",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "enum": [
+                "libre_booklet",
+                "licence_blank",
+                "bolo_sticker",
+                "receipt_leaf"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Stationery"
+        ]
+      },
+      "post": {
+        "operationId": "StationeryController_close",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClosingDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Stationery"
+        ]
+      }
+    },
+    "/api/v1/stationery/items": {
+      "get": {
+        "operationId": "StationeryController_items",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "enum": [
+                "libre_booklet",
+                "licence_blank",
+                "bolo_sticker",
+                "receipt_leaf"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "variant",
+            "required": false,
+            "schema": {
+              "pattern": "^[a-z0-9_]{1,20}$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "maxLength": 20,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "enum": [
+                "in_stock",
+                "allocated",
+                "used",
+                "spoiled",
+                "void",
+                "missing"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "holderUnitId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "maxLength": 20,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Stationery"
+        ]
+      }
+    },
+    "/api/v1/stationery/movements": {
+      "get": {
+        "operationId": "StationeryController_movements",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "enum": [
+                "libre_booklet",
+                "licence_blank",
+                "bolo_sticker",
+                "receipt_leaf"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "unitId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "movement",
+            "required": false,
+            "schema": {
+              "enum": [
+                "receive",
+                "allocate",
+                "accept",
+                "recall",
+                "use",
+                "spoil",
+                "write_off"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Stationery"
+        ]
+      }
+    },
+    "/api/v1/stationery/movements/{id}": {
+      "get": {
+        "operationId": "StationeryController_movement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Stationery"
+        ]
+      }
+    },
+    "/api/v1/stationery/movements/{id}/acceptance": {
+      "post": {
+        "operationId": "StationeryController_accept",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Stationery"
+        ]
+      }
+    },
+    "/api/v1/stationery/recalls": {
+      "post": {
+        "operationId": "StationeryController_recall",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecallDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Stationery"
+        ]
+      }
+    },
+    "/api/v1/stationery/summary": {
+      "get": {
+        "operationId": "StationeryController_summary",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "enum": [
+                "libre_booklet",
+                "licence_blank",
+                "bolo_sticker",
+                "receipt_leaf"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "unitId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Stationery"
+        ]
+      }
+    },
+    "/api/v1/stationery/write-offs": {
+      "post": {
+        "operationId": "StationeryController_writeOff",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteOffDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Stationery"
         ]
       }
     },

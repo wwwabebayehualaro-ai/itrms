@@ -16,13 +16,13 @@ unitTypes:
     nonDelegableRoles: [bureau_admin, unit_admin]
     level: region
     name: { am: የከተማ ትራንስፖርት ባለሥልጣን, en: City transport authority }
-    capabilities: [prints_documents, holds_plate_stock]
+    capabilities: [prints_documents, holds_plate_stock, holds_stationery]
     roles: [bureau_admin, unit_admin, unit_head, auditor, viewer, plate_keeper]
   - key: sub_city_office
     nonDelegableRoles: [unit_admin]
     level: sub_city
     name: { am: የክፍለ ከተማ ትራንስፖርት ጽ/ቤት, en: Sub-city transport office }
-    capabilities: [collects_cash, prints_documents, has_examiners, holds_plate_stock]
+    capabilities: [collects_cash, prints_documents, has_examiners, holds_plate_stock, holds_stationery]
     services: [RS-01..07, DVC-01..11]
     roles:
       [

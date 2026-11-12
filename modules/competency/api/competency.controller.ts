@@ -9,7 +9,13 @@ import type { Database } from '@itrms/kernel/db';
 import { versionFrom } from '@itrms/kernel/errors';
 import { Require, requestDbContext } from '@itrms/kernel/iam';
 
-import { enrolmentCompleteSchema, enrolmentCreateSchema, enrolmentQuerySchema, licenceQuerySchema } from '../contracts';
+import {
+    enrolmentCompleteSchema,
+    enrolmentCreateSchema,
+    enrolmentQuerySchema,
+    licenceQuerySchema,
+    printBatchPrintedSchema
+} from '../contracts';
 import { LicencesService } from './licences.service';
 import { RegisterService } from './register.service';
 
@@ -17,6 +23,7 @@ class LicenceQueryDto extends createZodDto(licenceQuerySchema) {}
 class EnrolmentCreateDto extends createZodDto(enrolmentCreateSchema) {}
 class EnrolmentCompleteDto extends createZodDto(enrolmentCompleteSchema) {}
 class EnrolmentQueryDto extends createZodDto(enrolmentQuerySchema) {}
+class PrintedDto extends createZodDto(printBatchPrintedSchema) {}
 
 @Controller('api/v1/competency')
 export class CompetencyController {
@@ -79,5 +86,17 @@ export class CompetencyController {
     @Require('licence:print')
     send(@Param('id', ParseUUIDPipe) id: string, @Headers('if-match') ifMatch: string | undefined) {
         return this.db.scoped(requestDbContext(), (tx) => this.register.send(tx, id, versionFrom(ifMatch)));
+    }
+
+    /** The batch came back printed: each licence's card blank, and the blanks spoiled (task 1.12a). */
+    @Post('print-batches/:id/printing')
+    @Require('licence:print')
+    printed(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Headers('if-match') ifMatch: string | undefined,
+        @Body() body: PrintedDto
+    ) {
+        const ctx = requestDbContext();
+        return this.db.scoped(ctx, (tx) => this.register.recordPrinted(tx, ctx, id, versionFrom(ifMatch), body));
     }
 }

@@ -277,7 +277,10 @@ export const licencePrintBatchItems = withRls(
                     .references(() => licencePrintBatches.id),
                 licenceId: uuid('licence_id')
                     .notNull()
-                    .references(() => driverLicences.id)
+                    .references(() => driverLicences.id),
+                /** the card blank it was printed on (task 1.12a): its serial and the stationery item it used */
+                cardKey: text('card_key'),
+                stationeryItemId: uuid('stationery_item_id')
             },
             (t) => [
                 uniqueIndex('licence_print_batch_items_uq').on(t.batchId, t.licenceId),

@@ -477,3 +477,4 @@ export const FEES_EVENTS = {
     'receipt.issued.v1': z.object({ receiptId: z.uuid(), caseId: z.uuid() }),
     'receipt.reversed.v1': z.object({ receiptId: z.uuid(), caseId: z.uuid(), reversalId: z.uuid() })
 } as const;
+export * from './stationery';
