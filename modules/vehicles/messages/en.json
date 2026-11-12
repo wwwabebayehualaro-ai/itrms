@@ -190,5 +190,6 @@
   "vehicles.field.tyres": "Tyres",
   "vehicles.field.netWeight": "Net weight (kg)",
   "vehicles.record.bookletPending": "Booklet not yet issued",
-  "vehicles.errors.libre_has_booklet": "This libre already has its booklet: a new booklet is a libre replacement."
+  "vehicles.errors.libre_has_booklet": "This libre already has its booklet: a new booklet is a libre replacement.",
+  "vehicles.errors.libre_not_in_force": "This libre is no longer in force: the vehicle has a newer libre or left the register."
 }

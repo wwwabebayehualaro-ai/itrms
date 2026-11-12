@@ -10,6 +10,7 @@ import type { Tx } from '@itrms/kernel/db';
 import { ConflictError, ForbiddenError, ValidationError } from '@itrms/kernel/errors';
 import { DocumentsService, documentTemplates, issuedDocuments } from '@itrms/documents/api';
 import { StationeryStock } from '@itrms/fees/api';
+import { parseStationeryKey } from '@itrms/fees/contracts';
 import { nextNumber } from '@itrms/kernel/numbering';
 import { unitRefs } from '@itrms/kernel/org';
 import { organisations, persons } from '@itrms/parties/api';
@@ -88,6 +89,9 @@ export type RegistrationInput = {
 const millimetres = (metres: number | undefined): number | undefined =>
     metres === undefined ? undefined : Math.round(metres * 1000);
 
+/** The register's bounds of a vehicle's size, in metres: a size outside them is refused at the box it was typed in. */
+const SIZE_METRES = { lengthM: [0.5, 30], widthM: [0.5, 5], heightM: [0.5, 6] } as const;
+
 type Facts = Readonly<Record<string, unknown>>;
 
 const factObject = (facts: Facts, key: string): Record<string, unknown> | undefined => {
@@ -118,6 +122,19 @@ export class VehicleRegistrationService {
 
     /** What the register's command takes, from the request's answers: one owner of either kind in each row. */
     private registerInput(input: RegistrationInput, extra: { firstRegisteredOn: string }): RegisterInput {
+        const outside = (Object.keys(SIZE_METRES) as (keyof typeof SIZE_METRES)[]).filter((k) => {
+            const value = input[k];
+            const [min, max] = SIZE_METRES[k];
+            return value !== undefined && (value < min || value > max);
+        });
+        if (outside.length > 0)
+            throw new ValidationError('validation_failed', {
+                errors: outside.map((path) => ({
+                    path,
+                    code: 'out_of_range',
+                    message: say('competency.rule.sizeMetres')
+                }))
+            });
         const owners = input.owners.map((row, i) => {
             const parsed = ownerRowSchema.safeParse(row);
             const person = parsed.success ? parsed.data.ownerPerson : undefined;
@@ -358,19 +375,38 @@ export class VehicleRegistrationService {
             throw new ForbiddenError({ detailKey: 'competency.errors.act_from_handling_office' });
         const libreId = factId(facts, 'libre');
         const templateKey = this.factText(facts, 'libre', 'template') ?? REGISTRATION_CERTIFICATE_TEMPLATE;
-        const given = bookletEntrySchema.parse(answers);
+        const parsed = bookletEntrySchema.safeParse(answers);
+        if (!parsed.success)
+            throw new ValidationError('validation_failed', {
+                errors: parsed.error.issues.map((i) => ({
+                    path: i.path.join('.'),
+                    code: 'invalid',
+                    message: i.message
+                }))
+            });
+        const given = parsed.data;
         const serial = given.bookletSerial || undefined;
         const spoiled = given.spoiledBooklets ?? [];
         const [current] = await tx.select().from(libres).where(eq(libres.id, libreId));
         if (!current) throw missingFact('libre');
         if (current.number === null) {
-            const fold = (key: string) => key.replace(/[\s-]/g, '').toUpperCase();
-            if (serial && spoiled.some((b) => fold(b.spoiledSerial) === fold(serial)))
-                throw new ValidationError('validation_failed', {
-                    errors: [
-                        { path: 'bookletSerial', code: 'spoiled_twice', message: say('competency.rule.bookletSpoiled') }
-                    ]
-                });
+            const named = [
+                ...spoiled.map((b, i) => ({ path: `spoiledBooklets.${i}.spoiledSerial`, text: b.spoiledSerial })),
+                ...(serial ? [{ path: 'bookletSerial', text: serial }] : [])
+            ];
+            const seen = new Set<string>();
+            const errors: { path: string; code: string; message: string }[] = [];
+            for (const n of named) {
+                const p = parseStationeryKey(n.text);
+                // the serial, not the text: "LB 3" and "LB0000003" are one booklet
+                const key = p ? `${p.series}/${p.serial}` : undefined;
+                if (!key)
+                    errors.push({ path: n.path, code: 'invalid_serial', message: say('competency.rule.notABooklet') });
+                else if (seen.has(key))
+                    errors.push({ path: n.path, code: 'named_twice', message: say('competency.rule.bookletSpoiled') });
+                else seen.add(key);
+            }
+            if (errors.length > 0) throw new ValidationError('validation_failed', { errors });
             // every booklet named, locked in the stock's own order: no deadlock with a keeper's command over the same run
             await this.stationery.lockKeys(tx, place.ctx, 'libre_booklet', [
                 ...spoiled.map((b) => b.spoiledSerial),
@@ -413,7 +449,7 @@ export class VehicleRegistrationService {
      */
     private async certificate(tx: Tx, place: CasePlace, libre: typeof libres.$inferSelect, templateKey: string) {
         const [standing] = await tx
-            .select({ number: issuedDocuments.number })
+            .select({ number: issuedDocuments.number, language: issuedDocuments.language })
             .from(issuedDocuments)
             .innerJoin(documentTemplates, eq(documentTemplates.id, issuedDocuments.templateId))
             .where(
@@ -426,7 +462,8 @@ export class VehicleRegistrationService {
         const number =
             standing?.number ?? (await nextNumber(tx, REGISTRATION_CERTIFICATE_COUNTER, place.handlingUnitId)).number;
         const vehicle = await this.vehicles.get(tx, libre.vehicleId);
-        const language = currentContext()?.language === 'en' ? 'en' : 'am';
+        // issued again, it keeps its first language: an officer reading in another language changes nothing on it
+        const language = (standing?.language ?? currentContext()?.language) === 'en' ? 'en' : 'am';
         const holders = vehicle.ownerships.find((o) => o.id === libre.ownershipId)?.holders ?? [];
         const addresses = await this.addresses(tx, holders, language);
         const owners = holders.map((h) => ({

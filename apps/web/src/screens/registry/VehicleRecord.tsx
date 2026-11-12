@@ -215,7 +215,7 @@ function Libres({
                 {libres.map((l) => (
                     <TableRow key={l.id} data-libre={l.id}>
                         <TableCell className="font-medium" data-booklet={l.number ?? ''}>
-                            {l.number ?? (
+                            {l.number ?? l.nationalReference ?? (
                                 <span className="text-muted-foreground font-normal">
                                     {t('vehicles.record.bookletPending')}
                                 </span>

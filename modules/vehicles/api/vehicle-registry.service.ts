@@ -403,7 +403,9 @@ export class VehicleRegistry {
         const [libre] = await tx.select().from(libres).where(eq(libres.id, libreId)).for('update');
         if (!libre) throw new NotFoundError();
         if (libre.number === input.number) return libre;
-        if (libre.status !== 'issued' || libre.number !== null)
+        if (libre.status !== 'issued')
+            throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.libre_not_in_force' });
+        if (libre.number !== null)
             throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.libre_has_booklet' });
         const written = await guardUnique(
             () =>

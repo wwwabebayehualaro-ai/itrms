@@ -190,5 +190,6 @@
   "vehicles.field.tyres": "ጎማዎች",
   "vehicles.field.netWeight": "የተጣራ ክብደት (ኪ.ግ)",
   "vehicles.record.bookletPending": "ደብተሩ ገና አልተሰጠም",
-  "vehicles.errors.libre_has_booklet": "ይህ ሊብሬ ደብተሩ ተሰጥቶታል፤ አዲስ ደብተር የሊብሬ ምትክ ነው።"
+  "vehicles.errors.libre_has_booklet": "ይህ ሊብሬ ደብተሩ ተሰጥቶታል፤ አዲስ ደብተር የሊብሬ ምትክ ነው።",
+  "vehicles.errors.libre_not_in_force": "ይህ ሊብሬ በሥራ ላይ አይደለም፤ ተሽከርካሪው አዲስ ሊብሬ አለው ወይም ከመዝገብ ወጥቷል።"
 }

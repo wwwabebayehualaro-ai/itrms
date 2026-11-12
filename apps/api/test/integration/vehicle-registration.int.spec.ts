@@ -625,6 +625,26 @@ describe('the libre booklet (ADR-0050)', () => {
             answers: { bookletSerial: spoiled, spoiledBooklets: [{ spoiledSerial: spoiled, spoiledReason: 'torn' }] }
         });
         expect(both.statusCode, both.body).toBe(422);
+        // the same booklet however it is typed, a serial that is not one, and a reason too short: each at its field
+        const typed = await step(c, as.officer, {
+            action: 'issue_booklet',
+            answers: {
+                bookletSerial: `${spoiled?.slice(0, 2)} ${Number(spoiled?.slice(2))}`,
+                spoiledBooklets: [{ spoiledSerial: spoiled, spoiledReason: 'torn' }]
+            }
+        });
+        expect(typed.statusCode, typed.body).toBe(422);
+        expect(typed.json<{ errors: { path: string }[] }>().errors.map((e) => e.path)).toEqual(['bookletSerial']);
+        const unreadable = await step(c, as.officer, {
+            action: 'issue_booklet',
+            answers: { bookletSerial: '12-34-x' }
+        });
+        expect(unreadable.json<{ errors: { path: string }[] }>().errors.map((e) => e.path)).toEqual(['bookletSerial']);
+        const short = await step(c, as.officer, {
+            action: 'issue_booklet',
+            answers: { spoiledBooklets: [{ spoiledSerial: spoiled, spoiledReason: 'ok' }] }
+        });
+        expect(short.statusCode, short.body).toBe(422);
         const done = await moved(c, as.officer, 'issue_booklet', {
             answers: { spoiledBooklets: [{ spoiledSerial: spoiled, spoiledReason: 'misprinted at the counter' }] }
         });

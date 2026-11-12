@@ -327,6 +327,14 @@ export const vehicleRegistrationFlow = (entryForm: string, bookletForm: string) 
             guard: PAID,
             effects: [E.issueLibreBooklet]
         },
+        // the vehicle left the register or took another libre while the case waited: closed with the reason, no booklet
+        {
+            from: 'booklet',
+            to: 'registered',
+            action: 'close_without_booklet',
+            label: text('ያለ ደብተር ዝጋ', 'Close without a booklet'),
+            commentRequired: true
+        },
         WITHDRAW,
         {
             from: ['review', 'approval', 'registration'],

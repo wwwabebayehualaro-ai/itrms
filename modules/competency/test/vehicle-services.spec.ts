@@ -45,7 +45,9 @@ describe('the vehicle registration workflow', () => {
         expect(booklet?.stepForm).toBe('vehicle-libre-booklet@1');
         const issue = steps.filter((t) => t.from === 'booklet');
         expect(issue.map((t) => [t.action, t.to, t.effects])).toEqual([
-            ['issue_booklet', 'registered', [E.issueLibreBooklet]]
+            ['issue_booklet', 'registered', [E.issueLibreBooklet]],
+            // a vehicle that left the register meanwhile: closed with the reason, taking nothing
+            ['close_without_booklet', 'registered', undefined]
         ]);
     });
 

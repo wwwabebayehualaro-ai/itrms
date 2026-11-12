@@ -125,7 +125,9 @@
   "competency.batches.printed": "Record printed",
   "competency.batches.printedFailed": "The printing could not be recorded.",
   "competency.errors.batch_not_printable": "Only a batch sent to the printer can be recorded as printed.",
-  "competency.rule.bookletSpoiled": "This booklet is listed as spoiled: name the booklet the libre was written in.",
+  "competency.rule.bookletSpoiled": "This booklet is named twice: a booklet is either spoiled or the one the libre was written in.",
   "competency.libre.kebele": "Kebele",
-  "competency.libre.house": "House no."
+  "competency.libre.house": "House no.",
+  "competency.rule.sizeMetres": "Give the size in metres (length 0.5–30, width 0.5–5, height 0.5–6).",
+  "competency.rule.notABooklet": "This is not a booklet serial."
 }
