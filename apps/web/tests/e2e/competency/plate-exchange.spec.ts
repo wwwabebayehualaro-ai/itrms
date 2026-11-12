@@ -12,16 +12,24 @@ import { randomInt } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 
 import { api } from '../forms/support';
-import vehiclesAm from '@itrms/vehicles/messages/am';
-
 import { act, BODITI, filing, inState, payAtTheTill, person, pick } from './support';
+
+/** The uses' Amharic names (the vehicles slice's catalogue), as the dropdown shows them. */
+const USE: Record<string, string> = {
+    private: 'የግል',
+    public_transport: 'የሕዝብ ማመላለሻ',
+    commercial: 'የንግድ',
+    government: 'የመንግሥት',
+    ngo: 'መንግሥታዊ ያልሆነ ድርጅት',
+    international_org: 'ዓለም አቀፍ ድርጅት'
+};
 
 /** A text as a regular expression that matches it literally. */
 const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const WORD = {
     vehicle: 'ተሽከርካሪ',
-    use: 'አገልግሎት (የሰሌዳ ኮድ)',
+    use: 'አገልግሎት',
     approve: 'አጽድቅ',
     exchange: 'ሰሌዳውን ስጥ',
     federalId: 'የፌዴራል ተሽከርካሪ መለያ',
@@ -75,12 +83,7 @@ test.describe('the plate exchange', () => {
         await expect(form).toBeVisible();
         await pick(records, form, WORD.vehicle, oldPlate, new RegExp(escaped(oldPlate)));
         await form.getByRole('combobox', { name: new RegExp(`^${escaped(WORD.use)}( [*])?$`) }).click();
-        await records
-            .getByRole('option', {
-                name: (vehiclesAm as Record<string, string>)[`vehicles.use.${vehicle?.use ?? ''}`],
-                exact: true
-            })
-            .click();
+        await records.getByRole('option', { name: USE[vehicle?.use ?? ''] ?? '', exact: true }).click();
         await filing(records, form);
         const caseId = records.url().split('/').pop() ?? '';
         await act(records, caseId, 'submit', 'submit');

@@ -9,7 +9,7 @@ import { and, eq, isNull, ne, sql } from 'drizzle-orm';
 import { currentContext } from '@itrms/kernel/context';
 import type { Tx } from '@itrms/kernel/db';
 import { ConflictError, ForbiddenError, ValidationError } from '@itrms/kernel/errors';
-import { plateAssignments, vehicles, VehicleRegistry } from '@itrms/vehicles/api';
+import { plateAssignments, plates, vehicles, VehicleRegistry } from '@itrms/vehicles/api';
 import { cases } from '@itrms/workflow/api';
 
 import { exchangeEntrySchema } from '../contracts';
@@ -59,7 +59,8 @@ export class PlateExchangeService {
             .select()
             .from(plateAssignments)
             .where(and(eq(plateAssignments.vehicleId, vehicle.id), isNull(plateAssignments.until)));
-        if (!current || current.format === 'national')
+        // an old regional plate: the special ones (diplomatic, police, defence, machinery) are not the zone's to exchange
+        if (!current || current.format !== 'legacy')
             return refuse('vehicle', 'no_old_plate', 'competency.rule.exchangeNoOldPlate');
         if (input.use !== vehicle.use) return refuse('use', 'mismatch', 'competency.rule.exchangeUse');
         // two requests for one vehicle filed at the same moment: the second waits for the first's transaction, then sees its facts
@@ -113,6 +114,17 @@ export class PlateExchangeService {
                 detailKey: 'competency.errors.registration_missing_fact',
                 params: { key: 'vehicle' }
             });
+        // the vehicle still carries the old plate the request was checked with, or already the plate this case gave it (a step
+        // run again): a vehicle whose plate changed since is not exchanged blind
+        const oldPlateKey = (facts.exchange as { oldPlateKey?: unknown } | undefined)?.oldPlateKey;
+        const [current] = await tx
+            .select({ key: plateAssignments.plateKey, caseId: plates.caseId, status: vehicles.status })
+            .from(plateAssignments)
+            .innerJoin(vehicles, eq(vehicles.id, plateAssignments.vehicleId))
+            .leftJoin(plates, eq(plates.id, plateAssignments.plateId))
+            .where(and(eq(plateAssignments.vehicleId, vehicle.id), isNull(plateAssignments.until)));
+        if (!current || current.status !== 'active' || (current.key !== oldPlateKey && current.caseId !== place.caseId))
+            throw new ConflictError('invalid_transition', { detailKey: 'competency.rule.exchangeNoOldPlate' });
         if (parsed.data.federalVehicleId)
             await this.registry.recordFederalId(tx, place.ctx, vehicle.id, parsed.data.federalVehicleId);
         return this.registration.assignPlate(tx, place, facts, { replacementPlate: parsed.data.replacementPlate });

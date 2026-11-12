@@ -366,7 +366,7 @@ export const plateAssignments = withRls(
                 check('plate_assignments_ended_check', sql`(${t.until} is null) = (${t.endedReason} is null)`),
                 check(
                     'plate_assignments_legacy_check',
-                    sql`(${t.format} = 'legacy') = (${t.legacyUseCode} is not null) and (${t.legacyUseCode} is null or ${t.legacyUseCode} between 1 and 5)`
+                    sql`(${t.format} = 'legacy') = (${t.legacyUseCode} is not null) and (${t.legacyUseCode} is null or ${t.legacyUseCode} in (1, 2, 3, 4, 5, 35))`
                 )
             ]
         )

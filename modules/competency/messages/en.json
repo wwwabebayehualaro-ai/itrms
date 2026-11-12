@@ -155,7 +155,7 @@
   "competency.plateExchanges.fileNew": "New plate exchange",
   "competency.rule.exchangeNotActive": "Only a vehicle on the register can exchange its plate.",
   "competency.rule.exchangeOtherOffice": "Another office handles this vehicle: the exchange is done there, or here after a transfer.",
-  "competency.rule.exchangeNoOldPlate": "This vehicle already carries a national plate, or no plate at all.",
+  "competency.rule.exchangeNoOldPlate": "This vehicle carries no old regional plate to exchange (a national plate, a special one, or none).",
   "competency.rule.exchangeUse": "The use does not match the vehicle on the register.",
   "competency.rule.exchangeInOpenCase": "Another open request is exchanging this vehicle’s plate."
 }

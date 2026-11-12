@@ -155,7 +155,7 @@
   "competency.plateExchanges.fileNew": "አዲስ የሰሌዳ ቅያሪ",
   "competency.rule.exchangeNotActive": "ሰሌዳውን መቀየር የሚችለው በመዝገቡ ያለ ተሽከርካሪ ብቻ ነው።",
   "competency.rule.exchangeOtherOffice": "ይህን ተሽከርካሪ የሚያስተናግደው ሌላ ጽ/ቤት ነው፤ ቅያሪው እዚያ ወይም ከዝውውር በኋላ እዚህ ይደረጋል።",
-  "competency.rule.exchangeNoOldPlate": "ይህ ተሽከርካሪ ብሔራዊ ሰሌዳ ይዟል፤ ወይም ምንም ሰሌዳ የለውም።",
+  "competency.rule.exchangeNoOldPlate": "ይህ ተሽከርካሪ የሚቀየር የቀድሞ ክልላዊ ሰሌዳ የለውም (ብሔራዊ፣ ልዩ ወይም ምንም ሰሌዳ)።",
   "competency.rule.exchangeUse": "አገልግሎቱ በመዝገቡ ካለው ተሽከርካሪ ጋር አይመሳሰልም።",
   "competency.rule.exchangeInOpenCase": "የዚህን ተሽከርካሪ ሰሌዳ የሚቀይር ሌላ ያልተዘጋ ጥያቄ አለ።"
 }

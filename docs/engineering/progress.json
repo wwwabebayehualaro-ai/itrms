@@ -1552,7 +1552,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split on 2026-11-12 (one session each): 1.2c is the exchange service DVC-12 (a 56th catalogue entry: not in the source list, the plates part of DVC-01 under Directive 1050/2025), its effects, demo fee rule, demo and e2e, and the plate codes 35, defence and special; 1.2e takes the 1.2b review's hardening (follow-ups 222, 223, 225, 227) and the search filters (210)."
+          "notes": "Split on 2026-11-12 (one session each): 1.2c is the exchange service DVC-12 (a 56th catalogue entry: not in the source list, the plates part of DVC-01 under Directive 1050/2025), its effects, demo fee rule, demo and e2e, and the plate codes 35, defence and special; 1.2e takes the 1.2b review's hardening (follow-ups 222, 223, 225, 227) and the search filters (210). Built on 2026-11-12: DVC-12 service (check, exchange via the registration's reserve/assign/release effects, recordFederalId), plate_assignments.replaced_by_id (migration 0072, deferred same-vehicle key, backfill), plate codes 35/defence/special, demo fee rule by use, screens and e2e; PR #63. Local: unit tests pass (competency 6 new, vehicles 99), lint/typecheck clean; Docker stopped locally, so integration and e2e results come from CI. Uncommitted: the exchange refuses a vehicle whose plate changed since the check (test added), held for the review's batch."
         },
         {
           "id": "1.2e",
@@ -3449,6 +3449,16 @@
       "foundIn": "1.2c",
       "item": "After an exchange the registration certificate (temporary libre) still shows the old plate: reissue it with the national plate (superseding the old QR) when the zone confirms an exchange issues a new document",
       "movedTo": "1.5"
+    },
+    {
+      "foundIn": "1.2c",
+      "item": "The exchange's open-request check (facts.exchange.vehicleId) reads cases through RLS like DVC-01's chassis check: once vehicles move between offices, two offices could both take a fee and hold a plate; cover it with 223's regional claim, and index the lookup (225)",
+      "movedTo": "1.2e"
+    },
+    {
+      "foundIn": "1.2c",
+      "item": "Plate texts typed run together with code 35 or 3 and a number starting 5 (SN 351234) are refused, and SN 35 1234 now reads as code 35; no production data yet: confirm with the zone how code-35 plates are written before the pilot import (1.13b)",
+      "movedTo": "1.13b"
     }
   ]
 }

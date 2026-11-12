@@ -76,7 +76,12 @@ async function onTheRoad(unit: OrgUnit, plate = `SN 2-${String(randomInt(10000, 
             firstRegisteredOn: '2011-03-01',
             owners: [{ kind: 'person', id: owner }]
         });
-        await registry.recordPlate(tx, ctx, vehicle.id, { text: plate, source: 'legacy', since: '2011-03-01' });
+        const special = /^(መከላከያ|ልዩ|ፖሊስ|CD|UN|AU)/u.test(plate);
+        await registry.recordPlate(tx, ctx, vehicle.id, {
+            text: plate,
+            source: special ? 'manual' : 'legacy',
+            since: '2011-03-01'
+        });
         return { id: vehicle.id, plate };
     });
 }
@@ -295,7 +300,7 @@ describe('an old plate exchanged for a national one (Directive 1050/2025)', () =
 
     it('hands over the same plate when its step runs twice', async () => {
         const vehicle = await onTheRoad(boditi);
-        const c = await moved(await approved(vehicle.id), as.officer, 'exchange');
+        const c = await moved(await approved(vehicle.id), as.officer, 'exchange', { answers: {} });
         const ctx: DbContext = { ...contextFor(boditi), requestId: `plx-${randomUUID()}` };
         const facts = (
             await api.owner.query<{ facts: Record<string, unknown> }>(
@@ -322,16 +327,60 @@ describe('an old plate exchanged for a national one (Directive 1050/2025)', () =
         expect(rows[0]?.n).toBe(2);
     });
 
+    it('does not exchange a plate that changed since the request was checked', async () => {
+        const vehicle = await onTheRoad(boditi);
+        const c = await approved(vehicle.id);
+        // meanwhile the register records another old plate on the vehicle
+        const ctx: DbContext = { ...contextFor(boditi), requestId: `plx-${randomUUID()}` };
+        await app.scoped(ctx, (tx) =>
+            registry.recordPlate(tx, ctx, vehicle.id, {
+                text: `SN 2-${String(randomInt(10000, 99999))}`,
+                source: 'legacy',
+                since: today()
+            })
+        );
+        const refused = await step(c, as.officer, { action: 'exchange', answers: {} });
+        expect(refused.statusCode, refused.body).toBe(409);
+        expect((await heldFor(c.id))[0]?.status).toBe('reserved');
+    });
+
     it('gives the held plate back to the stock when it is rejected', async () => {
         const vehicle = await onTheRoad(boditi);
         const c = await approved(vehicle.id);
         const [held] = await heldFor(c.id);
-        await moved(c, as.lead, 'reject', { comment: 'The owner did not bring the old plates.' });
+        // the officer at the exchange step (the lead approved, so separation of duties keeps them off it)
+        await moved(c, as.officer, 'reject', { comment: 'The owner did not bring the old plates.' });
         const { rows } = await api.owner.query<{ status: string; case_id: string | null }>(
             'select status, case_id from vehicles.plates where plate_key = $1',
             [held?.plate_key]
         );
         expect(rows[0]).toEqual({ status: 'in_stock', case_id: null });
+    });
+});
+
+describe('the old plates the register keeps (task 1.2c)', () => {
+    it('keeps a local-NGO plate of code 35 and a defence plate, and exchanges only the old regional one', async () => {
+        const ngo = await onTheRoad(boditi, `SN 35-${String(randomInt(1000, 9999))}`);
+        const record = (await api.call('GET', `/api/v1/vehicles/${ngo.id}`, as.officer)).json<Vehicle>();
+        expect(record.plates[0]).toMatchObject({ format: 'legacy', legacyUseCode: 35, legacyRegionCode: 'SN' });
+
+        const defence = await onTheRoad(boditi, `መከላከያ ${String(randomInt(1000, 9999))}`);
+        const kept = (await api.call('GET', `/api/v1/vehicles/${defence.id}`, as.officer)).json<Vehicle>();
+        expect(kept.plates[0]?.format).toBe('special');
+        expect(kept.plates[0]?.key).toMatch(/^DEFENCE\d{4}$/);
+        const refused = await refusedAt({ vehicle: defence.id, use: 'private' });
+        expect(refused.body.errors).toEqual([expect.objectContaining({ path: 'vehicle', code: 'no_old_plate' })]);
+    });
+
+    it('refuses a federal id another vehicle has, keeping the plate held for the case', async () => {
+        const first = await onTheRoad(boditi);
+        const federalVehicleId = `FV-${randomInt(100000, 999999)}`;
+        await moved(await approved(first.id), as.officer, 'exchange', { answers: { federalVehicleId } });
+        const second = await onTheRoad(boditi);
+        const c = await approved(second.id);
+        const taken = await step(c, as.officer, { action: 'exchange', answers: { federalVehicleId } });
+        expect(taken.statusCode, taken.body).toBe(409);
+        expect((await heldFor(c.id))[0]?.status).toBe('reserved');
     });
 });
 

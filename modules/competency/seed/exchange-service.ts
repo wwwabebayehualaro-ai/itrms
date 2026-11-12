@@ -52,7 +52,7 @@ export const PLATE_EXCHANGE_FORM = {
         field(
             'use',
             'Dropdown',
-            text('አገልግሎት (የሰሌዳ ኮድ)', 'Use (the plate code)'),
+            text('አገልግሎት', 'Use'),
             {},
             {
                 classification: 'internal',

@@ -1,5 +1,5 @@
 {
-  "id": "87613676-4194-46bd-a6fc-5784af65f290",
+  "id": "27a2739e-3ea5-4ec0-ac97-4a145fa1dbb2",
   "prevId": "a862b85b-6a2a-4c49-b1d0-d1315ce7ec44",
   "version": "7",
   "dialect": "postgresql",
@@ -15097,7 +15097,7 @@
         },
         "plate_assignments_legacy_check": {
           "name": "plate_assignments_legacy_check",
-          "value": "(\"vehicles\".\"plate_assignments\".\"format\" = 'legacy') = (\"vehicles\".\"plate_assignments\".\"legacy_use_code\" is not null) and (\"vehicles\".\"plate_assignments\".\"legacy_use_code\" is null or \"vehicles\".\"plate_assignments\".\"legacy_use_code\" between 1 and 5)"
+          "value": "(\"vehicles\".\"plate_assignments\".\"format\" = 'legacy') = (\"vehicles\".\"plate_assignments\".\"legacy_use_code\" is not null) and (\"vehicles\".\"plate_assignments\".\"legacy_use_code\" is null or \"vehicles\".\"plate_assignments\".\"legacy_use_code\" in (1, 2, 3, 4, 5, 35))"
         }
       },
       "isRLSEnabled": false
