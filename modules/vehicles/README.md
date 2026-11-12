@@ -9,8 +9,13 @@ allocation one level down the tree with acceptance, recalls, write-offs, assignm
 For new registration (task 1.2b): `PlateStock.reserve` / `release` hold one plate of a unit's stock for a case and give it back
 (idempotent per case; a held plate counts as `reserved` in the summary); `VehicleRegistry.checkRegistration` (chassis on the
 register or in another open case, the check digit where it is binding; `acceptVinMismatch` takes a failure the officer
-confirmed, recorded as a mismatch) and `issueLibre`, numbered from
-the office's counter `vehicles.libre` as `{unit}/LB/{seq:06}` until the national system numbers libres (ADR-0049).
+confirmed, recorded as a mismatch) and `issueLibre` (the libre of a case, with no number of ours).
+
+**The federal booklet (task 1.2d, ADR-0050).** The libre is the ministry's booklet: `recordBooklet` writes its serial as
+the libre's number once (the same serial again is nothing to do; another is refused, a new booklet being a replacement), and the
+national reference when given. The office counter `vehicles.registration-certificate` (`{unit}/RC/{seq:06}`, renamed from
+`vehicles.libre` in migration 0070) numbers the registration certificate. The register also keeps the temporary libre's other
+facts: made in, engine HP, cylinders, length, width and height (mm), tyre size and count, net weight.
 
 Layer: registry. Shape, public entries and rules: [code-structure.md](../../docs/platform/code-structure.md) §4.
 

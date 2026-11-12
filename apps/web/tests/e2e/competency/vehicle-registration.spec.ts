@@ -4,8 +4,9 @@
  *
  * Boditi's people act on the demo's plate stock (`pnpm demo:reset`: Boditi holds its own plates): the records officer files the
  * request at the counter, the competency officer checks it, the revenue collector takes the fee, the team leader approves (a plate
- * is held for the case from then on) and the officer registers the vehicle with the federal id. The libre is made by the PDF worker,
- * and the register finds the vehicle by its new plate.
+ * is held for the case from then on) and the officer registers the vehicle with the federal id, then writes its libre in the next
+ * federal booklet of Boditi's stationery (task 1.2d, ADR-0050). The registration certificate (the temporary libre, then naming the
+ * booklet) is made by the PDF worker, and the register finds the vehicle by its new plate, with its booklet's serial.
  */
 import { randomInt } from 'node:crypto';
 
@@ -34,6 +35,7 @@ const WORD = {
     private: 'የግል',
     approve: 'አጽድቅ',
     register: 'መዝግብ',
+    issueBooklet: 'ደብተሩን ስጥ',
     federalId: 'የፌዴራል ተሽከርካሪ መለያ',
     addOwner: 'ባለቤት ጨምር'
 } as const;
@@ -60,7 +62,7 @@ test.describe('the new vehicle registration service', () => {
         };
     });
 
-    test('a vehicle is registered at the counter, with its plate from the stock and its libre', async () => {
+    test('a vehicle is registered at the counter, with its plate from the stock and its libre booklet', async () => {
         test.setTimeout(420_000);
         const { records, cashier, lead, officer } = people;
 
@@ -126,15 +128,18 @@ test.describe('the new vehicle registration service', () => {
         await act(officer, caseId, 'register', WORD.register, async (dialog) => {
             await dialog.getByRole('textbox', { name: new RegExp(`^${WORD.federalId}( [*])?$`) }).fill(federalId);
         });
+        // registered: the case waits for the booklet, and the temporary libre is issued
+        await inState(officer, caseId, 'booklet');
+
+        // the officer writes the libre in the office's next booklet
+        await act(officer, caseId, 'issue_booklet', WORD.issueBooklet);
         await inState(officer, caseId, 'registered');
 
-        // the libre, made by the PDF worker
+        // the certificate naming the booklet, made by the PDF worker
         await records.goto(`/cases/${caseId}`);
-        await expect(records.locator('[data-case-documents] [data-document="vehicle-libre"]')).toHaveAttribute(
-            'data-state',
-            'rendered',
-            { timeout: 120_000 }
-        );
+        await expect(
+            records.locator('[data-case-documents] [data-document="vehicle-registration-certificate"]').first()
+        ).toHaveAttribute('data-state', 'rendered', { timeout: 120_000 });
 
         // the register finds the vehicle by the plate it was given
         const found = await api(officer).get<{
@@ -146,6 +151,14 @@ test.describe('the new vehicle registration service', () => {
         expect(plate).toMatch(/^ETH [A-Z]{3} \d{4}$/);
         await officer.goto(`/registry/vehicles?q=${encodeURIComponent(plate)}`);
         await expect(officer.locator('[data-results]').getByRole('link', { name: plate })).toBeVisible();
+
+        // its record shows the libre written in a booklet of the stock
+        await officer.goto(`/registry/vehicles/${vehicle?.id}`);
+        await officer.getByRole('tab', { name: 'ሊብሬዎች' }).click();
+        await expect(officer.locator('[data-libres] [data-booklet]').first()).toHaveAttribute(
+            'data-booklet',
+            /^LB\d{7}$/
+        );
 
         // its plate is no longer held for a case
         await officer.goto('/competency/vehicle-registrations');

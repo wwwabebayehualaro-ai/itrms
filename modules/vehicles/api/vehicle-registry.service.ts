@@ -13,12 +13,11 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { insertAudited, newId, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { ConflictError, ForbiddenError, NotFoundError } from '@itrms/kernel/errors';
-import { nextNumber } from '@itrms/kernel/numbering';
 import { OrganisationsService, PersonsService } from '@itrms/parties/api';
 import type { z } from 'zod';
 
 import {
-    LIBRE_COUNTER,
+    libreBookletSchema,
     parsePlate,
     parseVin,
     vehicleSearchKey,
@@ -156,6 +155,15 @@ export class VehicleRegistry {
                 axles: input.axles ?? null,
                 colour: input.colour ?? null,
                 fuel: input.fuel ?? null,
+                madeIn: input.madeIn ?? null,
+                engineHp: input.engineHp ?? null,
+                cylinders: input.cylinders ?? null,
+                lengthMm: input.lengthMm ?? null,
+                widthMm: input.widthMm ?? null,
+                heightMm: input.heightMm ?? null,
+                tyreSize: input.tyreSize ?? null,
+                tyres: input.tyres ?? null,
+                netWeightKg: input.netWeightKg ?? null,
                 firstRegisteredOn: input.firstRegisteredOn
             });
         }, DUPLICATES);
@@ -355,8 +363,8 @@ export class VehicleRegistry {
     }
 
     /**
-     * The libre of a case for the vehicle's current owners, numbered from the handling office's counter. Asked again for the
-     * same case it returns the libre it issued, so a retried effect issues one libre and takes one number.
+     * The libre of a case for the vehicle's current owners, with no number until its federal booklet is issued (ADR-0050:
+     * `recordBooklet`). Asked again for the same case it returns the libre it issued, so a retried effect issues one.
      */
     async issueLibre(
         tx: Tx,
@@ -369,15 +377,46 @@ export class VehicleRegistry {
             .from(libres)
             .where(and(eq(libres.vehicleId, vehicleId), eq(libres.caseId, given.caseId)));
         if (issued) return issued;
-        const vehicle = await this.lock(tx, ctx, vehicleId);
-        const { number } = await nextNumber(tx, LIBRE_COUNTER, vehicle.handlingUnitId);
-        await this.recordLibre(tx, ctx, vehicleId, { issuedOn: given.issuedOn, number, caseId: given.caseId });
+        await this.recordLibre(tx, ctx, vehicleId, { issuedOn: given.issuedOn, caseId: given.caseId });
         const [libre] = await tx
             .select()
             .from(libres)
             .where(and(eq(libres.vehicleId, vehicleId), eq(libres.caseId, given.caseId)));
         if (!libre) throw new NotFoundError();
         return libre;
+    }
+
+    /**
+     * The federal booklet the libre in force was written in: its serial becomes the libre's number. A libre takes one
+     * booklet: the same serial again is nothing to do, another one is refused (a spoiled booklet is the stock's to record).
+     */
+    async recordBooklet(
+        tx: Tx,
+        ctx: DbContext,
+        libreId: string,
+        given: z.input<typeof libreBookletSchema>
+    ): Promise<typeof libres.$inferSelect> {
+        const input = checked(libreBookletSchema, given);
+        const [found] = await tx.select().from(libres).where(eq(libres.id, libreId));
+        if (!found) throw new NotFoundError();
+        const vehicle = await this.lock(tx, ctx, found.vehicleId);
+        const [libre] = await tx.select().from(libres).where(eq(libres.id, libreId)).for('update');
+        if (!libre) throw new NotFoundError();
+        if (libre.number === input.number) return libre;
+        if (libre.status !== 'issued')
+            throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.libre_not_in_force' });
+        if (libre.number !== null)
+            throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.libre_has_booklet' });
+        const written = await guardUnique(
+            () =>
+                updateAudited(tx, libres, libre.id, libre.rowVersion, {
+                    number: input.number,
+                    nationalReference: input.nationalReference ?? libre.nationalReference
+                }),
+            DUPLICATES
+        );
+        await updateAudited(tx, vehicles, vehicle.id, vehicle.rowVersion, {});
+        return written;
     }
 
     /**

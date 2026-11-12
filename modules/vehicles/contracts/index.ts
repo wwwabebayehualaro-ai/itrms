@@ -149,6 +149,34 @@ export const vehicleSummarySchema = z.object({
 });
 export type VehicleSummary = z.infer<typeof vehicleSummarySchema>;
 
+/**
+ * The facts the temporary libre and the booklet's data page carry besides the register's first ones (task 1.2d): where the
+ * vehicle was made, its engine's power and cylinders, its size, its tyres and its weight empty. All optional.
+ */
+export const vehicleDetailsSchema = z.object({
+    madeIn: z.string().trim().min(1).max(60).optional(),
+    engineHp: z.number().int().min(1).max(5000).optional(),
+    cylinders: z.number().int().min(1).max(24).optional(),
+    lengthMm: z.number().int().min(500).max(30_000).optional(),
+    widthMm: z.number().int().min(500).max(5000).optional(),
+    heightMm: z.number().int().min(500).max(6000).optional(),
+    tyreSize: z.string().trim().min(1).max(20).optional(),
+    tyres: z.number().int().min(2).max(40).optional(),
+    netWeightKg: z.number().int().min(1).max(200_000).optional()
+});
+export type VehicleDetails = z.infer<typeof vehicleDetailsSchema>;
+const VEHICLE_DETAILS_OUT = {
+    madeIn: z.string().nullable(),
+    engineHp: z.number().int().nullable(),
+    cylinders: z.number().int().nullable(),
+    lengthMm: z.number().int().nullable(),
+    widthMm: z.number().int().nullable(),
+    heightMm: z.number().int().nullable(),
+    tyreSize: z.string().nullable(),
+    tyres: z.number().int().nullable(),
+    netWeightKg: z.number().int().nullable()
+};
+
 export const vehicleSchema = vehicleSummarySchema.omit({ matched: true }).extend({
     federalIdSource: z.enum(FEDERAL_ID_SOURCES).nullable(),
     chassisKind: z.enum(CHASSIS_KINDS),
@@ -161,6 +189,7 @@ export const vehicleSchema = vehicleSummarySchema.omit({ matched: true }).extend
     axles: z.number().int().nullable(),
     colour: z.string().nullable(),
     fuel: z.enum(FUELS).nullable(),
+    ...VEHICLE_DETAILS_OUT,
     firstRegisteredOn: isoDate,
     plates: z.array(platePeriodSchema),
     ownerships: z.array(ownershipSchema),
@@ -202,9 +231,12 @@ export const federalVehicleIdSchema = z
     .toUpperCase()
     .regex(/^[A-Z0-9-]{4,40}$/, 'letters, digits and hyphens');
 
-/** The regional counter a libre number comes from, and its pattern: `{unit code}/LB/000123`. */
-export const LIBRE_COUNTER = 'vehicles.libre';
-export const LIBRE_PATTERN = '{unit}/LB/{seq:06}';
+/**
+ * The office counter the registration certificate (the temporary libre, ADR-0050) is numbered from, and its pattern:
+ * `{unit code}/RC/000123`. The libre itself carries the federal booklet's serial, never a number of ours.
+ */
+export const REGISTRATION_CERTIFICATE_COUNTER = 'vehicles.registration-certificate';
+export const REGISTRATION_CERTIFICATE_PATTERN = '{unit}/RC/{seq:06}';
 
 /** The command that registers a vehicle with its first owners (the register's own service, not an HTTP endpoint). */
 export const vehicleRegisterSchema = z
@@ -228,6 +260,7 @@ export const vehicleRegisterSchema = z
         axles: z.number().int().min(1).max(12).optional(),
         colour: z.string().trim().min(1).max(30).optional(),
         fuel: z.enum(FUELS).optional(),
+        ...vehicleDetailsSchema.shape,
         firstRegisteredOn: isoDate,
         owners: ownersSchema,
         /** the first period's start (default: the first registration date) */
@@ -268,6 +301,13 @@ export const libreRecordSchema = z.strictObject({
     caseId: z.uuid().optional()
 });
 export type LibreRecord = z.infer<typeof libreRecordSchema>;
+
+/** The federal booklet a libre was written in (ADR-0050): its serial as printed, and the national reference when given. */
+export const libreBookletSchema = z.strictObject({
+    number: z.string().trim().min(1).max(40),
+    nationalReference: z.string().trim().min(1).max(60).optional()
+});
+export type LibreBooklet = z.infer<typeof libreBookletSchema>;
 
 export const statusChangeSchema = z.strictObject({
     status: z.enum(VEHICLE_STATUSES).exclude(['active']),

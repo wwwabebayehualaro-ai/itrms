@@ -98,6 +98,39 @@ const SAMPLES: Record<DocumentDataSchema, Record<string, unknown>> = {
         loadCapacityKg: null,
         owners: [{ name: 'ሰላም ታደሰ' }]
     },
+    'vehicle-registration-certificate.v1': {
+        number: 'WOL-BODITI/RC/000012',
+        issuedOn: '2026-11-04',
+        firstRegisteredOn: '2026-11-04',
+        plate: 'ETH ABC 1234',
+        federalVehicleId: 'FV-000123',
+        owners: [{ name: 'ሰላም ታደሰ', address: 'ቦዲቲ ከተማ አስተዳደር, ቀበሌ 02' }],
+        category: { am: 'አውቶሞቢል', en: 'Automobile' },
+        make: 'Toyota',
+        model: 'Vitz',
+        modelYear: 2018,
+        madeIn: 'Japan',
+        chassisNumber: 'JTDKB20U093051234',
+        engineNumber: '2NZ1234567',
+        engineCc: 1300,
+        engineHp: 86,
+        cylinders: 4,
+        fuel: { am: 'ቤንዚን', en: 'Petrol' },
+        colour: 'White',
+        lengthMm: 3945,
+        widthMm: 1695,
+        heightMm: 1500,
+        tyreSize: '175/65R14',
+        tyres: 4,
+        grossWeightKg: 1450,
+        netWeightKg: 980,
+        seats: 5,
+        loadCapacityKg: null,
+        use: { am: 'የግል', en: 'Private' },
+        boloNumber: null,
+        bookletSerial: null,
+        nationalReference: null
+    },
     'exam-result.v1': {
         sessionOn: '2026-11-04',
         serviceName: { am: 'አዲስ መንጃ ፈቃድ', en: 'New driver licence' },
@@ -109,7 +142,7 @@ const SCHEMA_OF: Record<string, DocumentDataSchema> = {
     receipt: 'receipt.v1',
     'application-copy': 'application-copy.v1',
     'licence-card': 'licence-card.v1',
-    'vehicle-libre': 'vehicle-libre.v1',
+    'vehicle-registration-certificate': 'vehicle-registration-certificate.v1',
     'exam-result': 'exam-result.v1'
 };
 
@@ -303,6 +336,26 @@ describe.skipIf(!chrome)('a PDF from Chrome', () => {
         expect(text).toContain('SER-000456');
         expect(text).toContain('አውቶሞቢል');
     }, 180_000);
+
+    it('registration certificate: the temporary libre until the booklet, then the booklet\x27s serial', async () => {
+        const temporary = await pdfOf(
+            'vehicle-registration-certificate',
+            SAMPLES['vehicle-registration-certificate.v1']
+        );
+        expect(temporary.pages).toBe(1);
+        expect(temporary.text).toContain('ጊዜያዊ የባለቤትነት ሊብሬ');
+        expect(temporary.text).toContain('WOL-BODITI/RC/000012');
+        expect(temporary.text).toContain('JTDKB20U093051234');
+        expect(temporary.text).toContain('የሊብሬ ደብተር አይደለም');
+        const issued = await pdfOf(
+            'vehicle-registration-certificate',
+            { ...SAMPLES['vehicle-registration-certificate.v1'], bookletSerial: 'LB0000123' },
+            'en'
+        );
+        expect(issued.text).toContain('Vehicle registration certificate');
+        expect(issued.text).toContain('LB0000123');
+        expect(issued.text).not.toContain('not the libre booklet');
+    });
 
     it('exam result sheet', async () => {
         const { text } = await pdfOf('exam-result', SAMPLES['exam-result.v1']);

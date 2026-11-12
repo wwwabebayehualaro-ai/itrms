@@ -1,5 +1,5 @@
 /**
- * The Phase 0 templates: application copy, receipt, driver-licence card, exam result sheet, vehicle libre. Their layouts stand in until a
+ * The Phase 0 templates: application copy, receipt, driver-licence card, exam result sheet, and the vehicle registration certificate (the temporary libre, ADR-0050). Their layouts stand in until a
  * bureau's forms and permission to copy them are known (docs/demo-plan.md); every word is the template's own, in Amharic and
  * English. Nothing here names a real office: that comes from the unit's header.
  */
@@ -143,54 +143,80 @@ body{font-size:6.5pt;line-height:1.25}
         }
     },
     {
-        key: 'vehicle-libre',
-        name: t('የተሽከርካሪ ሊብሬ', 'Vehicle libre'),
+        key: 'vehicle-registration-certificate',
+        name: t('ጊዜያዊ የባለቤትነት ሊብሬ', 'Temporary ownership libre'),
         version: {
-            paper: 'A5',
-            dataSchema: 'vehicle-libre.v1',
+            paper: 'A4',
+            dataSchema: 'vehicle-registration-certificate.v1',
             strings: {
-                title: t('የተሽከርካሪ ባለቤትነት ማረጋገጫ (ሊብሬ)', 'Vehicle ownership title (libre)'),
-                number: t('የሊብሬ ቁጥር', 'Libre number'),
+                title: t('ጊዜያዊ የባለቤትነት ሊብሬ', 'Temporary ownership libre'),
+                titleIssued: t('የተሽከርካሪ ምዝገባ ማረጋገጫ', 'Vehicle registration certificate'),
+                notBooklet: t(
+                    'ይህ የሊብሬ ደብተር አይደለም፤ ደብተሩ እስኪሰጥ ድረስ የሚያገለግል ነው።',
+                    'This is not the libre booklet: it stands until the booklet is issued.'
+                ),
+                inBooklet: t('ተሽከርካሪው የተመዘገበበት የሊብሬ ደብተር ቁጥር', 'The libre booklet the vehicle is registered in'),
+                number: t('ቁጥር', 'No.'),
                 issuedOn: t('የተሰጠበት ቀን', 'Issued on'),
-                firstRegisteredOn: t('የመጀመሪያ ምዝገባ', 'First registered'),
-                plate: t('ሰሌዳ', 'Plate'),
-                federalVehicleId: t('የፌዴራል ተሽከርካሪ መለያ', 'Federal vehicle id'),
-                chassis: t('የሻሲ ቁጥር', 'Chassis number'),
+                plate: t('የሰሌዳ ቁጥር', 'Plate'),
+                owner: t('የባለንብረቱ ስም', 'Owner'),
+                address: t('አድራሻ', 'Address'),
+                category: t('የተሽከርካሪው ዓይነት', 'Vehicle type'),
+                makeModel: t('ሰሪና ሞዴል', 'Make and model'),
+                year: t('የተሠራበት ዓመት', 'Year made'),
+                madeIn: t('የተሠራበት አገር', 'Made in'),
                 engine: t('የሞተር ቁጥር', 'Engine number'),
-                make: t('ሰሪ', 'Make'),
-                model: t('ሞዴል', 'Model'),
-                year: t('የተመረተበት ዓመት', 'Model year'),
-                category: t('ምድብ', 'Category'),
-                use: t('አገልግሎት', 'Use'),
-                fuel: t('ነዳጅ', 'Fuel'),
+                chassis: t('የሻሲ ቁጥር', 'Chassis number'),
+                cc: t('የሞተር መጠን (ሲሲ)', 'Engine size (cc)'),
+                hp: t('የሞተር ኃይል (HP)', 'Engine power (HP)'),
+                cylinders: t('ሲሊንደር', 'Cylinders'),
+                fuel: t('የነዳጅ ዓይነት', 'Fuel'),
                 colour: t('ቀለም', 'Colour'),
-                seats: t('መቀመጫ', 'Seats'),
-                load: t('የመጫን አቅም (ኪ.ግ)', 'Load capacity (kg)'),
-                owners: t('ባለቤት', 'Owner'),
-                name: t('ስም', 'Name')
+                size: t('ርዝመት × ስፋት × ቁመት (ሚ.ሜ)', 'Length × width × height (mm)'),
+                tyres: t('የጎማ መጠንና ብዛት', 'Tyre size and count'),
+                gross: t('ጠቅላላ ክብደት (ኪ.ግ)', 'Gross weight (kg)'),
+                net: t('የተጣራ ክብደት (ኪ.ግ)', 'Net weight (kg)'),
+                capacity: t('የመጫን አቅም', 'Capacity'),
+                persons: t('ሰው', 'persons'),
+                kg: t('ኪ.ግ', 'kg'),
+                use: t('አገልግሎት', 'Service'),
+                bolo: t('የቦሎ ቁጥር', 'Bolo number'),
+                federalVehicleId: t('የፌዴራል ተሽከርካሪ መለያ', 'Federal vehicle id'),
+                firstRegisteredOn: t('የመጀመሪያ ምዝገባ', 'First registered'),
+                nationalReference: t('ብሔራዊ መለያ', 'National reference')
             },
-            body: `${STYLE}${HEAD}<p class="title">{{ t.title }}</p>
+            body: `${STYLE}${HEAD}<p class="title">{% if bookletSerial %}{{ t.titleIssued }}{% else %}{{ t.title }}{% endif %}</p>
 <div class="facts">
 <div><span class="term">{{ t.number }}:</span> <span data-number>{{ number }}</span></div>
 <div><span class="term">{{ t.issuedOn }}:</span> {{ issuedOn | ethdate }}</div>
 <div><span class="term">{{ t.plate }}:</span> {{ plate }}</div>
 <div><span class="term">{{ t.firstRegisteredOn }}:</span> {{ firstRegisteredOn | ethdate }}</div>
-{% if federalVehicleId %}<div><span class="term">{{ t.federalVehicleId }}:</span> {{ federalVehicleId }}</div>{% endif %}
+</div>
+<table><thead><tr><th>{{ t.owner }}</th><th>{{ t.address }}</th></tr></thead><tbody>
+{% for o in owners %}<tr><td data-holder>{{ o.name }}</td><td>{{ o.address }}</td></tr>{% endfor %}
+</tbody></table>
+<div class="facts">
+<div><span class="term">{{ t.category }}:</span> {{ category | text }}</div>
+<div><span class="term">{{ t.makeModel }}:</span> {{ make }} {{ model }}</div>
+<div><span class="term">{{ t.year }}:</span> {{ modelYear }}</div>
+{% if madeIn %}<div><span class="term">{{ t.madeIn }}:</span> {{ madeIn }}</div>{% endif %}
 <div><span class="term">{{ t.chassis }}:</span> {{ chassisNumber }}</div>
 {% if engineNumber %}<div><span class="term">{{ t.engine }}:</span> {{ engineNumber }}</div>{% endif %}
-<div><span class="term">{{ t.make }}:</span> {{ make }}</div>
-<div><span class="term">{{ t.model }}:</span> {{ model }}</div>
-<div><span class="term">{{ t.year }}:</span> {{ modelYear }}</div>
-<div><span class="term">{{ t.category }}:</span> {{ category | text }}</div>
-<div><span class="term">{{ t.use }}:</span> {{ use | text }}</div>
+{% if engineCc %}<div><span class="term">{{ t.cc }}:</span> {{ engineCc }}</div>{% endif %}
+{% if engineHp %}<div><span class="term">{{ t.hp }}:</span> {{ engineHp }}</div>{% endif %}
+{% if cylinders %}<div><span class="term">{{ t.cylinders }}:</span> {{ cylinders }}</div>{% endif %}
 {% if fuel %}<div><span class="term">{{ t.fuel }}:</span> {{ fuel | text }}</div>{% endif %}
 {% if colour %}<div><span class="term">{{ t.colour }}:</span> {{ colour }}</div>{% endif %}
-{% if seats %}<div><span class="term">{{ t.seats }}:</span> {{ seats }}</div>{% endif %}
-{% if loadCapacityKg %}<div><span class="term">{{ t.load }}:</span> {{ loadCapacityKg }}</div>{% endif %}
+{% if lengthMm %}<div><span class="term">{{ t.size }}:</span> {{ lengthMm }} × {{ widthMm }} × {{ heightMm }}</div>{% endif %}
+{% if tyres or tyreSize %}<div><span class="term">{{ t.tyres }}:</span> {{ tyreSize }}{% if tyres %} × {{ tyres }}{% endif %}</div>{% endif %}
+{% if grossWeightKg %}<div><span class="term">{{ t.gross }}:</span> {{ grossWeightKg }}</div>{% endif %}
+{% if netWeightKg %}<div><span class="term">{{ t.net }}:</span> {{ netWeightKg }}</div>{% endif %}
+{% if seats %}<div><span class="term">{{ t.capacity }}:</span> {{ seats }} {{ t.persons }}</div>{% elsif loadCapacityKg %}<div><span class="term">{{ t.capacity }}:</span> {{ loadCapacityKg }} {{ t.kg }}</div>{% endif %}
+<div><span class="term">{{ t.use }}:</span> {{ use | text }}</div>
+{% if boloNumber %}<div><span class="term">{{ t.bolo }}:</span> {{ boloNumber }}</div>{% endif %}
+{% if federalVehicleId %}<div><span class="term">{{ t.federalVehicleId }}:</span> {{ federalVehicleId }}</div>{% endif %}
 </div>
-<table><thead><tr><th>{{ t.owners }}</th></tr></thead><tbody>
-{% for o in owners %}<tr><td data-holder>{{ o.name }}</td></tr>{% endfor %}
-</tbody></table>
+{% if bookletSerial %}<p><span class="term">{{ t.inBooklet }}:</span> <span data-booklet>{{ bookletSerial }}</span>{% if nationalReference %} · {{ t.nationalReference }}: {{ nationalReference }}{% endif %}</p>{% else %}<p class="demo" data-not-booklet>{{ t.notBooklet }}</p>{% endif %}
 {% if header.stamp %}<img class="stamp" src="{{ header.stamp }}" alt="">{% endif %}${QR}`
         }
     },

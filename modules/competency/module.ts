@@ -54,6 +54,7 @@ export default defineModule({
         'competency.registerVehicle',
         'competency.assignRegistrationPlate',
         'competency.issueLibre',
+        'competency.issueLibreBooklet',
         'competency.releaseRegistrationPlate'
     ],
     title: { am: 'የአሽከርካሪና ተሽከርካሪ ብቃት ማረጋገጫ', en: 'Driver and vehicle competency' },

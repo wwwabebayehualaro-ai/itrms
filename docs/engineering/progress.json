@@ -1500,12 +1500,26 @@
         {
           "id": "1.2d",
           "title": "Registration and plates, part 4: the federal libre booklet (ADR-0050)",
-          "status": "ready",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/1.2d-libre-booklet",
+          "commits": [
+            "e1e144b",
+            "71da393",
+            "6ed5252",
+            "e2946f0"
+          ],
+          "evidence": [
+            "GitHub Actions run 43233290468 on e2946f0 (PR #61): all 10 jobs success",
+            "integration (real PostgreSQL 16): 707/707 + 20/20, 38 files; incl. 'runs from the counter to a vehicle with its owner, its plate from the stock, its libre and its booklet', 'records the booklets spoiled on the way and takes the next one; a spoiled booklet is never issued', 'waits for the booklets when the office has none, and issues one on the same case when they come'",
+            "stationery reconciliation: stationery.int.spec.ts 29/29; the 1.2d test asserts summary.unit.reconciled after used and spoiled booklets",
+            "e2e: 51 + 4 passed; apps/web/tests/e2e/competency/vehicle-registration.spec.ts register -> booklet -> issue_booklet -> certificate -> record [data-booklet] ^LB\\d{7}$",
+            "unit: per-package totals incl. 358, 98, 97, 77, 81 (+2 skipped); stories/axe 237 + 474 visual; performance 14/14",
+            "pnpm i18n:check: catalogues complete in am and en (19 folders); gitleaks, Trivy, Semgrep success",
+            "migration 0070_libre_booklet.sql reviewed: vehicle columns, counter rename with its sequence, column grant on libres, libre_booklet_once trigger (pinned search_path)",
+            "task-verifier: every Done when and DoD item met; reviewer: no high findings, six lower findings fixed (71da393)"
+          ],
           "blockers": [],
-          "notes": "Added 2026-11-11 after the zone's written answers (the ministry prints the libre). Depends on 1.12a (controlled stationery). Also: the DVC-01 form adds the import documents and, for a business owner, the trade licence and TIN."
+          "notes": "Added 2026-11-11 after the zone's written answers (the ministry prints the libre). Depends on 1.12a (controlled stationery). Also: the DVC-01 form adds the import documents and, for a business owner, the trade licence and TIN. Design: DVC-01 gets a last step 'booklet' after 'registration'. The register action registers the vehicle, assigns the plate and issues the libre with no number plus the temporary libre (template vehicle-registration-certificate, numbered from the renamed counter vehicles.registration-certificate). The booklet step (competency.issueLibreBooklet, step form vehicle-libre-booklet: serial optional = the office's next free, national reference, spoiled booklets with reasons) takes one libre_booklet from the office's stationery (StationeryStock.use, used for vehicles.libres/<id>), writes its key as libres.number, and reissues the certificate with the serial (the old QR says superseded). With no booklet in stock the case waits in that step, so a booklet arriving later is issued on the same case and vehicle; a vehicle still changes only through a case. The temporary libre's missing facts (made in, engine HP, cylinders, length/width/height, tyre size and count, net weight) are added to the vehicles register; the owner's phone is left off (sensitive). Request form: Bill of Lading, commercial invoice, packing list, trade licence attachments and a business TIN; an organisation's TIN stays on its party record. The temporary libre on paper carries the owner's phone; the certificate leaves it off (sensitive, read only through reveal, and the QR page is public). Vehicle sizes are asked in metres (as the papers give them) and kept in whole millimetres. Review (no high findings) fixed: the booklet step's answers refused at their fields (not a 500), serials compared as serials, the certificate keeps its first language when reissued, sizes refused at the metre fields, a libre no longer in force says so, the record shows a national reference, and a case waiting for a booklet can be closed with a reason when the vehicle left the register meanwhile (close_without_booklet)."
         },
         {
           "id": "1.13",
@@ -3371,6 +3385,21 @@
       "foundIn": "1.12a",
       "item": "The payment's pad-series field (fees contracts, payment pad receipts) accepts Latin capitals only; the finance bureau's receipt vouchers carry an Ethiopic series letter",
       "movedTo": "1.12"
+    },
+    {
+      "foundIn": "1.2d",
+      "item": "The registration certificate's bolo number is empty until the vehicle has a bolo; the certificate should be reissued with it",
+      "movedTo": "1.3"
+    },
+    {
+      "foundIn": "1.2d",
+      "item": "A lost-libre replacement issues a new booklet on a new libre (the old one 'lost'), reusing competency.issueLibreBooklet",
+      "movedTo": "1.5"
+    },
+    {
+      "foundIn": "1.2d",
+      "item": "Seeded services only ever get a first version: a database seeded before 1.2d keeps the 1.2b DVC-01 flow (no booklet step) until demo:reset. Before the pilot, a seed or migration must publish a new service version when the shipped configuration changes (review finding, 1.2d)",
+      "movedTo": "1.13"
     }
   ]
 }

@@ -108,7 +108,7 @@
   "vehicles.record.plateFormat": "Format",
   "vehicles.record.carried": "Carried",
   "vehicles.record.endedReason": "Ended because",
-  "vehicles.record.libreNumber": "Libre number",
+  "vehicles.record.libreNumber": "Booklet serial",
   "vehicles.record.issuedOn": "Issued on",
   "vehicles.record.issuedBy": "Issued by",
   "vehicles.search.failed": "The search did not work. Try again.",
@@ -182,5 +182,14 @@
   "vehicles.plateStock.kind.assign": "Issued to a vehicle",
   "vehicles.plateStock.kind.retire": "Retired",
   "vehicles.plateStock.kind.lose": "Lost",
-  "vehicles.plateStock.kind.write_off": "Written off"
+  "vehicles.plateStock.kind.write_off": "Written off",
+  "vehicles.field.madeIn": "Made in",
+  "vehicles.field.engineHp": "Engine power (HP)",
+  "vehicles.field.cylinders": "Cylinders",
+  "vehicles.field.dimensions": "Length × width × height (mm)",
+  "vehicles.field.tyres": "Tyres",
+  "vehicles.field.netWeight": "Net weight (kg)",
+  "vehicles.record.bookletPending": "Booklet not yet issued",
+  "vehicles.errors.libre_has_booklet": "This libre already has its booklet: a new booklet is a libre replacement.",
+  "vehicles.errors.libre_not_in_force": "This libre is no longer in force: the vehicle has a newer libre or left the register."
 }

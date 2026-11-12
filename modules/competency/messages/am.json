@@ -124,5 +124,10 @@
   "competency.batches.firstCard": "የመጀመሪያው ካርድ ቁጥር",
   "competency.batches.printed": "መታተሙን መዝግብ",
   "competency.batches.printedFailed": "መታተሙን መመዝገብ አልተቻለም።",
-  "competency.errors.batch_not_printable": "መታተሙ የሚመዘገበው ለማተሚያ ለተላከ ጥቅል ብቻ ነው።"
+  "competency.errors.batch_not_printable": "መታተሙ የሚመዘገበው ለማተሚያ ለተላከ ጥቅል ብቻ ነው።",
+  "competency.rule.bookletSpoiled": "ይህ ደብተር ሁለት ጊዜ ተጠቅሷል፤ ደብተር ወይ የተበላሸ ነው ወይ ሊብሬው የተጻፈበት ነው።",
+  "competency.libre.kebele": "ቀበሌ",
+  "competency.libre.house": "የቤት ቁ.",
+  "competency.rule.sizeMetres": "መጠኑን በሜትር ይስጡ (ርዝመት 0.5–30፣ ስፋት 0.5–5፣ ቁመት 0.5–6)።",
+  "competency.rule.notABooklet": "ይህ የደብተር ቁጥር አይደለም።"
 }

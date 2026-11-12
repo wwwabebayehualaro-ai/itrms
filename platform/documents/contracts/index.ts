@@ -69,7 +69,7 @@ export const DOCUMENT_DATA_SCHEMAS = {
         validUntil: dayText,
         photo: inlineImage.nullable()
     }),
-    /** The libre (ownership title booklet) as ITRMS issues it (ADR-0049): the vehicle's particulars and its owners at issue. */
+    /** The libre as ITRMS issued it under ADR-0049 (superseded by ADR-0050): kept so the documents issued then still verify. */
     'vehicle-libre.v1': z.object({
         number: z.string().min(1),
         issuedOn: dayText,
@@ -88,6 +88,45 @@ export const DOCUMENT_DATA_SCHEMAS = {
         seats: z.number().int().nullable(),
         loadCapacityKg: z.number().int().nullable(),
         owners: z.array(z.object({ name: z.string().min(1) })).min(1)
+    }),
+    /**
+     * The registration certificate: the zone's temporary libre (ጊዜያዊ የባለቤትነት ሊብሬ, ADR-0050), its fields as the zone prints
+     * them. Not the libre: the federal booklet is. Once the booklet is issued, the certificate names its serial.
+     */
+    'vehicle-registration-certificate.v1': z.object({
+        number: z.string().min(1),
+        issuedOn: dayText,
+        firstRegisteredOn: dayText,
+        plate: z.string().min(1),
+        federalVehicleId: z.string().min(1).nullable(),
+        owners: z.array(z.object({ name: z.string().min(1), address: z.string().min(1).nullable() })).min(1),
+        category: i18nTextSchema,
+        make: z.string().min(1),
+        model: z.string().min(1),
+        modelYear: z.number().int(),
+        madeIn: z.string().min(1).nullable(),
+        chassisNumber: z.string().min(1),
+        engineNumber: z.string().min(1).nullable(),
+        engineCc: z.number().int().nullable(),
+        engineHp: z.number().int().nullable(),
+        cylinders: z.number().int().nullable(),
+        fuel: i18nTextSchema.nullable(),
+        colour: z.string().min(1).nullable(),
+        lengthMm: z.number().int().nullable(),
+        widthMm: z.number().int().nullable(),
+        heightMm: z.number().int().nullable(),
+        tyreSize: z.string().min(1).nullable(),
+        tyres: z.number().int().nullable(),
+        grossWeightKg: z.number().int().nullable(),
+        netWeightKg: z.number().int().nullable(),
+        seats: z.number().int().nullable(),
+        loadCapacityKg: z.number().int().nullable(),
+        use: i18nTextSchema,
+        /** the bolo of the vehicle when it has one (task 1.3) */
+        boloNumber: z.string().min(1).nullable(),
+        /** the federal booklet's serial, once issued, and the national reference when given */
+        bookletSerial: z.string().min(1).nullable(),
+        nationalReference: z.string().min(1).nullable()
     }),
     'exam-result.v1': z.object({
         sessionOn: dayText,

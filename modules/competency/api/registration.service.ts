@@ -4,12 +4,18 @@
  * steps call its commands inside the transition's transaction, so a step that fails leaves nothing. The effects are thin over this.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, isNull, ne, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { currentContext } from '@itrms/kernel/context';
 import type { Tx } from '@itrms/kernel/db';
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
-import { DocumentsService } from '@itrms/documents/api';
+import { ConflictError, ForbiddenError, ValidationError } from '@itrms/kernel/errors';
+import { DocumentsService, documentTemplates, issuedDocuments } from '@itrms/documents/api';
+import { StationeryStock } from '@itrms/fees/api';
+import { parseStationeryKey } from '@itrms/fees/contracts';
+import { nextNumber } from '@itrms/kernel/numbering';
+import { unitRefs } from '@itrms/kernel/org';
+import { organisations, persons } from '@itrms/parties/api';
 import {
+    libres,
     PlateStock,
     plateAssignments,
     plates,
@@ -23,6 +29,7 @@ import {
     nationalPlateText,
     parsePlate,
     parseVin,
+    REGISTRATION_CERTIFICATE_COUNTER,
     type vehicleRegisterSchema
 } from '@itrms/vehicles/contracts';
 import vehiclesAm from '@itrms/vehicles/messages/am';
@@ -30,7 +37,13 @@ import vehiclesEn from '@itrms/vehicles/messages/en';
 import { cases } from '@itrms/workflow/api';
 import type { z } from 'zod';
 
-import { addisDay, nationalEntrySchema, ownerRowSchema, VEHICLE_LIBRE_TEMPLATE } from '../contracts';
+import {
+    addisDay,
+    bookletEntrySchema,
+    nationalEntrySchema,
+    ownerRowSchema,
+    REGISTRATION_CERTIFICATE_TEMPLATE
+} from '../contracts';
 import am from '../messages/am.json';
 import en from '../messages/en.json';
 import type { CasePlace } from './licences.service';
@@ -60,7 +73,24 @@ export type RegistrationInput = {
     axles?: number;
     colour?: string;
     fuel?: string;
+    madeIn?: string;
+    engineHp?: number;
+    cylinders?: number;
+    /** the size as the papers give it, in metres */
+    lengthM?: number;
+    widthM?: number;
+    heightM?: number;
+    tyreSize?: string;
+    tyres?: number;
+    netWeightKg?: number;
 };
+
+/** A size in metres, as the papers give it, in whole millimetres as the register keeps it. */
+const millimetres = (metres: number | undefined): number | undefined =>
+    metres === undefined ? undefined : Math.round(metres * 1000);
+
+/** The register's bounds of a vehicle's size, in metres: a size outside them is refused at the box it was typed in. */
+const SIZE_METRES = { lengthM: [0.5, 30], widthM: [0.5, 5], heightM: [0.5, 6] } as const;
 
 type Facts = Readonly<Record<string, unknown>>;
 
@@ -86,11 +116,25 @@ export class VehicleRegistrationService {
         @Inject(VehicleRegistry) private readonly registry: VehicleRegistry,
         @Inject(PlateStock) private readonly stock: PlateStock,
         @Inject(VehiclesService) private readonly vehicles: VehiclesService,
-        @Inject(DocumentsService) private readonly documents: DocumentsService
+        @Inject(DocumentsService) private readonly documents: DocumentsService,
+        @Inject(StationeryStock) private readonly stationery: StationeryStock
     ) {}
 
     /** What the register's command takes, from the request's answers: one owner of either kind in each row. */
     private registerInput(input: RegistrationInput, extra: { firstRegisteredOn: string }): RegisterInput {
+        const outside = (Object.keys(SIZE_METRES) as (keyof typeof SIZE_METRES)[]).filter((k) => {
+            const value = input[k];
+            const [min, max] = SIZE_METRES[k];
+            return value !== undefined && (value < min || value > max);
+        });
+        if (outside.length > 0)
+            throw new ValidationError('validation_failed', {
+                errors: outside.map((path) => ({
+                    path,
+                    code: 'out_of_range',
+                    message: say('competency.rule.sizeMetres')
+                }))
+            });
         const owners = input.owners.map((row, i) => {
             const parsed = ownerRowSchema.safeParse(row);
             const person = parsed.success ? parsed.data.ownerPerson : undefined;
@@ -121,6 +165,15 @@ export class VehicleRegistrationService {
             axles: input.axles,
             colour: input.colour,
             fuel: input.fuel,
+            madeIn: input.madeIn,
+            engineHp: input.engineHp,
+            cylinders: input.cylinders,
+            lengthMm: millimetres(input.lengthM),
+            widthMm: millimetres(input.widthM),
+            heightMm: millimetres(input.heightM),
+            tyreSize: input.tyreSize,
+            tyres: input.tyres,
+            netWeightKg: input.netWeightKg,
             firstRegisteredOn: extra.firstRegisteredOn
         };
         // a box left empty is no value: the register's command takes an absent key, not an undefined one
@@ -290,55 +343,233 @@ export class VehicleRegistrationService {
         return { plate: { id: assigned.plateId, key: assigned.key, text: nationalPlateText(assigned.key) } };
     }
 
-    // ---- the libre ----
+    // ---- the libre (ADR-0050) ----
 
-    /** The libre for the vehicle's owners, with its number, and its document, signed like any other. */
+    /**
+     * The libre of the vehicle's owners, with no number yet, and its registration certificate (the temporary libre), numbered
+     * from the office's counter. The booklet is the next step's (`issueBooklet`). Run again it returns what it issued.
+     */
     async issueLibre(tx: Tx, place: CasePlace, facts: Facts, template: string | undefined) {
         const vehicleId = factId(facts, 'vehicle');
         const libre = await this.registry.issueLibre(tx, place.ctx, vehicleId, {
             issuedOn: addisDay(),
             caseId: place.caseId
         });
-        if (!libre.number) throw new NotFoundError();
-        const vehicle = await this.vehicles.get(tx, vehicleId);
-        const language = currentContext()?.language === 'en' ? 'en' : 'am';
-        const owners = (vehicle.ownerships.find((o) => o.id === libre.ownershipId)?.holders ?? []).map((h) => ({
-            name: h.name[language] || h.name.am
+        const templateKey = template || REGISTRATION_CERTIFICATE_TEMPLATE;
+        const issued = await this.certificate(tx, place, libre, templateKey);
+        const known = factObject(facts, 'documents') ?? {};
+        return {
+            libre: { id: libre.id, number: libre.number, template: templateKey },
+            documents: { ...known, [templateKey]: issued.id }
+        };
+    }
+
+    /**
+     * The federal booklet the libre is written in, from the office's stationery: the one the officer names, or the office's next
+     * one. The booklets spoiled on the way are recorded with their reasons and never issued again. The certificate is issued
+     * again with the booklet's serial, and the one before it says superseded. With no booklet in stock the step is refused and
+     * the case waits in it until booklets come. Run again it returns the booklet it took.
+     */
+    async issueBooklet(tx: Tx, place: CasePlace, facts: Facts, answers: unknown) {
+        if (place.ctx.unitId !== place.handlingUnitId)
+            throw new ForbiddenError({ detailKey: 'competency.errors.act_from_handling_office' });
+        const libreId = factId(facts, 'libre');
+        const templateKey = this.factText(facts, 'libre', 'template') ?? REGISTRATION_CERTIFICATE_TEMPLATE;
+        const parsed = bookletEntrySchema.safeParse(answers);
+        if (!parsed.success)
+            throw new ValidationError('validation_failed', {
+                errors: parsed.error.issues.map((i) => ({
+                    path: i.path.join('.'),
+                    code: 'invalid',
+                    message: i.message
+                }))
+            });
+        const given = parsed.data;
+        const serial = given.bookletSerial || undefined;
+        const spoiled = given.spoiledBooklets ?? [];
+        const [current] = await tx.select().from(libres).where(eq(libres.id, libreId));
+        if (!current) throw missingFact('libre');
+        if (current.number === null) {
+            const named = [
+                ...spoiled.map((b, i) => ({ path: `spoiledBooklets.${i}.spoiledSerial`, text: b.spoiledSerial })),
+                ...(serial ? [{ path: 'bookletSerial', text: serial }] : [])
+            ];
+            const seen = new Set<string>();
+            const errors: { path: string; code: string; message: string }[] = [];
+            for (const n of named) {
+                const p = parseStationeryKey(n.text);
+                // the serial, not the text: "LB 3" and "LB0000003" are one booklet
+                const key = p ? `${p.series}/${p.serial}` : undefined;
+                if (!key)
+                    errors.push({ path: n.path, code: 'invalid_serial', message: say('competency.rule.notABooklet') });
+                else if (seen.has(key))
+                    errors.push({ path: n.path, code: 'named_twice', message: say('competency.rule.bookletSpoiled') });
+                else seen.add(key);
+            }
+            if (errors.length > 0) throw new ValidationError('validation_failed', { errors });
+            // every booklet named, locked in the stock's own order: no deadlock with a keeper's command over the same run
+            await this.stationery.lockKeys(tx, place.ctx, 'libre_booklet', [
+                ...spoiled.map((b) => b.spoiledSerial),
+                ...(serial ? [serial] : [])
+            ]);
+            for (const booklet of spoiled)
+                await this.stationery.spoil(tx, place.ctx, {
+                    kind: 'libre_booklet',
+                    key: booklet.spoiledSerial,
+                    reason: booklet.spoiledReason,
+                    caseId: place.caseId
+                });
+        }
+        const item = await this.stationery.use(tx, place.ctx, {
+            kind: 'libre_booklet',
+            ...(serial ? { key: serial } : {}),
+            usedFor: { table: 'vehicles.libres', id: libreId },
+            caseId: place.caseId
+        });
+        const libre = await this.registry.recordBooklet(tx, place.ctx, libreId, {
+            number: item.itemKey,
+            ...(given.libreNationalReference ? { nationalReference: given.libreNationalReference } : {})
+        });
+        const issued = await this.certificate(tx, place, libre, templateKey);
+        const known = factObject(facts, 'documents') ?? {};
+        return {
+            libre: { id: libre.id, number: libre.number, template: templateKey, booklet: item.itemKey },
+            documents: { ...known, [templateKey]: issued.id }
+        };
+    }
+
+    private factText(facts: Facts, key: string, field: string): string | undefined {
+        const value = factObject(facts, key)?.[field];
+        return typeof value === 'string' && value !== '' ? value : undefined;
+    }
+
+    /**
+     * The libre's registration certificate as the vehicle and the libre now stand: issued once, numbered from the office's
+     * counter; issued again (the same number) when what it says has changed, the one before saying superseded.
+     */
+    private async certificate(tx: Tx, place: CasePlace, libre: typeof libres.$inferSelect, templateKey: string) {
+        const [standing] = await tx
+            .select({ number: issuedDocuments.number, language: issuedDocuments.language })
+            .from(issuedDocuments)
+            .innerJoin(documentTemplates, eq(documentTemplates.id, issuedDocuments.templateId))
+            .where(
+                and(
+                    eq(documentTemplates.key, templateKey),
+                    eq(issuedDocuments.subjectId, libre.id),
+                    isNull(issuedDocuments.supersededBy)
+                )
+            );
+        const number =
+            standing?.number ?? (await nextNumber(tx, REGISTRATION_CERTIFICATE_COUNTER, place.handlingUnitId)).number;
+        const vehicle = await this.vehicles.get(tx, libre.vehicleId);
+        // issued again, it keeps its first language: an officer reading in another language changes nothing on it
+        const language = (standing?.language ?? currentContext()?.language) === 'en' ? 'en' : 'am';
+        const holders = vehicle.ownerships.find((o) => o.id === libre.ownershipId)?.holders ?? [];
+        const addresses = await this.addresses(tx, holders, language);
+        const owners = holders.map((h) => ({
+            name: h.name[language] || h.name.am,
+            address: addresses.get(h.id) ?? null
         }));
         const words = (key: string): { am: string; en: string } => ({
             am: (vehiclesAm as Record<string, string>)[key] ?? key,
             en: (vehiclesEn as Record<string, string>)[key] ?? key
         });
-        const templateKey = template || VEHICLE_LIBRE_TEMPLATE;
-        const issued = await this.documents.issue(tx, {
+        return this.documents.reissue(tx, {
             regionId: place.regionId,
             handlingUnitId: place.handlingUnitId,
             templateKey,
             language,
-            number: libre.number,
+            number,
             caseId: place.caseId,
             subject: { table: 'vehicles.libres', id: libre.id },
             data: {
-                number: libre.number,
+                number,
                 issuedOn: libre.issuedOn,
                 firstRegisteredOn: vehicle.firstRegisteredOn,
                 plate: vehicle.currentPlate?.text ?? '',
                 federalVehicleId: vehicle.federalVehicleId,
-                chassisNumber: vehicle.chassisNumber,
-                engineNumber: vehicle.engineNumber,
+                owners,
+                category: { am: vehicle.category.name.am ?? '', en: vehicle.category.name.en ?? '' },
                 make: vehicle.make,
                 model: vehicle.model,
                 modelYear: vehicle.modelYear,
-                category: { am: vehicle.category.name.am ?? '', en: vehicle.category.name.en ?? '' },
-                use: words(`vehicles.use.${vehicle.use}`),
+                madeIn: vehicle.madeIn,
+                chassisNumber: vehicle.chassisNumber,
+                engineNumber: vehicle.engineNumber,
+                engineCc: vehicle.engineCc,
+                engineHp: vehicle.engineHp,
+                cylinders: vehicle.cylinders,
                 fuel: vehicle.fuel ? words(`vehicles.fuel.${vehicle.fuel}`) : null,
                 colour: vehicle.colour,
+                lengthMm: vehicle.lengthMm,
+                widthMm: vehicle.widthMm,
+                heightMm: vehicle.heightMm,
+                tyreSize: vehicle.tyreSize,
+                tyres: vehicle.tyres,
+                grossWeightKg: vehicle.grossWeightKg,
+                netWeightKg: vehicle.netWeightKg,
                 seats: vehicle.seats,
                 loadCapacityKg: vehicle.loadCapacityKg,
-                owners
+                use: words(`vehicles.use.${vehicle.use}`),
+                // the bolo comes with task 1.3
+                boloNumber: null,
+                bookletSerial: libre.number,
+                nationalReference: libre.nationalReference
             }
         });
-        const known = factObject(facts, 'documents') ?? {};
-        return { libre: { id: libre.id, number: libre.number }, documents: { ...known, [templateKey]: issued.id } };
+    }
+
+    /**
+     * Where the owners live, as the certificate prints it: the unit, the kebele and the house number on their record. Never their
+     * phone: it is sensitive (read only through an audited reveal) and the certificate is shown at every checkpoint.
+     */
+    private async addresses(
+        tx: Tx,
+        holders: readonly { kind: 'person' | 'organisation'; id: string }[],
+        language: 'am' | 'en'
+    ): Promise<Map<string, string>> {
+        const ids = (kind: string) => holders.filter((h) => h.kind === kind).map((h) => h.id);
+        const people = ids('person');
+        const bodies = ids('organisation');
+        const rows = [
+            ...(people.length
+                ? await tx
+                      .select({
+                          id: persons.id,
+                          unitId: persons.addressUnitId,
+                          kebele: persons.kebele,
+                          house: persons.houseNumber
+                      })
+                      .from(persons)
+                      .where(inArray(persons.id, people))
+                : []),
+            ...(bodies.length
+                ? await tx
+                      .select({
+                          id: organisations.id,
+                          unitId: organisations.addressUnitId,
+                          kebele: organisations.kebele,
+                          house: organisations.houseNumber
+                      })
+                      .from(organisations)
+                      .where(inArray(organisations.id, bodies))
+                : [])
+        ];
+        const units = await unitRefs(
+            tx,
+            rows.map((r) => r.unitId)
+        );
+        const label = (key: 'competency.libre.kebele' | 'competency.libre.house') => (language === 'en' ? en : am)[key];
+        const out = new Map<string, string>();
+        for (const r of rows) {
+            const unit = r.unitId ? units.get(r.unitId) : undefined;
+            const parts = [
+                unit ? unit.name[language] || unit.name.am : undefined,
+                r.kebele ? `${label('competency.libre.kebele')} ${r.kebele}` : undefined,
+                r.house ? `${label('competency.libre.house')} ${r.house}` : undefined
+            ].filter((x): x is string => Boolean(x));
+            if (parts.length) out.set(r.id, parts.join(', '));
+        }
+        return out;
     }
 }

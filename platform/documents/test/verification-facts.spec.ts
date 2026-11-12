@@ -18,5 +18,9 @@ describe('the masked holder', () => {
         });
         expect(facts).toEqual({ holder: 'Abebe Kebede, Sara Tadesse', validUntil: null });
         expect(maskedName(facts.holder ?? '')).toBe('A**** K*****, S*** T******');
+        // the registration certificate (ADR-0050) names its owners the same way
+        expect(
+            factsOf('vehicle-registration-certificate.v1', { owners: [{ name: 'Abebe Kebede', address: null }] })
+        ).toEqual({ holder: 'Abebe Kebede', validUntil: null });
     });
 });
