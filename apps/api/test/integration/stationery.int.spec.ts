@@ -264,7 +264,8 @@ describe('the stock from the bureau to the office that uses an item', () => {
     });
 
     it("keeps the finance bureau's receipt vouchers in their Ethiopic series", async () => {
-        await atBoditi('receipt_leaf', 'ለ', 780501, 780510, { source: 'finance_bureau' });
+        // one leaf, used here: Boditi's receipt leaves are counted exactly by the closing tests below
+        await atBoditi('receipt_leaf', 'ለ', 780502, 780502, { source: 'finance_bureau' });
         const leaf = await run(
             units.boditi,
             (ctx) => (tx) =>
