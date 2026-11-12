@@ -717,6 +717,19 @@ describe('the libre booklet (ADR-0050)', () => {
         const [old, current] = await certificatesOf(c.id);
         expect(old?.superseded_by).toBe(current?.id);
         expect(current?.data.bookletSerial).toBe('LB0009001');
+
+        // the office's stock still reconciles with its ledger, and each registration with a booklet used exactly one
+        const summary = await inTx(p, (tx) => stationery.summary(tx, p.ctx, 'libre_booklet'));
+        expect(summary.unit.reconciled, JSON.stringify(summary.unit)).toBe(true);
+        const { inStock, used } = summary.unit;
+        expect(used).toBe(
+            await count(
+                `select count(*)::int as n from vehicles.libres l join workflow.cases c on c.id = l.case_id
+                  where l.number is not null and l.handling_unit_id = $1`,
+                [boditi.id]
+            )
+        );
+        expect(inStock).toBe(1);
     }, 240_000);
 });
 
