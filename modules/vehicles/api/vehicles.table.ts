@@ -170,6 +170,10 @@ export const vehicles = withRls(
                     .on(t.regionId, t.federalVehicleId)
                     .where(sql`${t.federalVehicleId} is not null`),
                 uniqueIndex('vehicles_vin_uq').on(t.regionId, t.vinKey),
+                // one vehicle per capture case: what a verification run again finds (task 1.13)
+                uniqueIndex('vehicles_migration_case_uq')
+                    .on(t.migrationCaseId)
+                    .where(sql`${t.migrationCaseId} is not null`),
                 index('vehicles_region_vin_idx').on(t.regionId, t.vinKey),
                 index('vehicles_region_engine_idx').on(t.regionId, t.engineKey),
                 index('vehicles_vin_trgm').using('gin', sql`${t.vinKey} gin_trgm_ops`),

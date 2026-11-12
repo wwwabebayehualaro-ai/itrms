@@ -15,9 +15,11 @@ import { backCaptureFlow, importBackCaptureService } from '@itrms/competency/see
 import { createDatabase, type Database, type DbContext } from '@itrms/kernel/db';
 import { contextFor, TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import type { OrgUnit } from '@itrms/kernel/org';
-import { PlateStock } from '@itrms/vehicles/api';
+import { PlateStock, VehicleRegistry } from '@itrms/vehicles/api';
 import { nationalPlateText, vinCheckDigit, type Vehicle, type VehicleSummary } from '@itrms/vehicles/contracts';
 import { importPlateStockDemo, importVehicleCategories } from '@itrms/vehicles/seed';
+import { StationeryStock } from '@itrms/fees/api';
+import { importStationeryDemo } from '@itrms/fees/seed';
 import type { CaseOut } from '@itrms/workflow/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -27,7 +29,8 @@ import { startPostgres, type TestPostgres } from './support/postgres';
 const SUB = {
     bureau: '0199f0a0-d000-7000-8000-000000000001',
     clerk: '0199f0a0-d000-7000-8000-00000000b301',
-    verifier: '0199f0a0-d000-7000-8000-00000000b302'
+    verifier: '0199f0a0-d000-7000-8000-00000000b302',
+    zone: '0199f0a0-d000-7000-8000-00000000b303'
 };
 const SERVICE = 'MIG-01';
 
@@ -36,7 +39,7 @@ let api: TestApi;
 let app: Database;
 let boditi: OrgUnit;
 let owner: string;
-const as = {} as Record<keyof typeof SUB, As>;
+const as = {} as Record<'bureau' | 'clerk' | 'verifier', As>;
 const ifMatch = (version: number) => ({ 'if-match': `"${version}"` });
 
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Addis_Ababa' }).format(new Date());
@@ -184,6 +187,13 @@ beforeAll(async () => {
             region: 'SER',
             home: 'WOL-BODITI',
             roles: [['WOL-BODITI', 'competency.officer']]
+        },
+        {
+            username: 'test.mig.zone',
+            sub: SUB.zone,
+            region: 'SER',
+            home: 'WOL',
+            roles: [['WOL', 'competency.officer']]
         }
     ]);
     app = createDatabase(pg.url('app'), { auditKey: randomBytes(32).toString('hex'), contextKey: TEST_CONTEXT_KEY });
@@ -199,6 +209,8 @@ beforeAll(async () => {
         expect(await importBackCaptureService(tx, root)).toBe(1);
     });
     expect(await importPlateStockDemo(api.installer, 'SER', api.http.get(PlateStock), today())).not.toBeNull();
+    // Boditi holds libre booklets handed down from the zone (the demo's stationery)
+    expect(await importStationeryDemo(api.installer, 'SER', api.http.get(StationeryStock), today())).not.toBeNull();
     owner = await registered();
 }, 240_000);
 
@@ -290,7 +302,12 @@ describe('a paper file, captured and verified (ADR-0054)', () => {
             expect.objectContaining({ format: 'legacy', source: 'legacy', since: '2009-05-12', until: null })
         ]);
         expect(record.libres).toEqual([
-            expect.objectContaining({ number: answers.libreNumber, issuedOn: '2015-03-10', status: 'issued' })
+            expect.objectContaining({
+                // kept folded, as the register keeps a booklet serial
+                number: String(answers.libreNumber).replace('-', ''),
+                issuedOn: '2015-03-10',
+                status: 'issued'
+            })
         ]);
 
         // found now by its old plate, marked in the search and in the lookup a later service picks it with
@@ -423,13 +440,94 @@ describe('the refusals at filing', () => {
             expect.arrayContaining([expect.objectContaining({ path: 'paperFileScan' })])
         );
     });
+});
 
-    it('leaves nothing on the register when the capture is refused', async () => {
-        const before = (await api.owner.query<{ n: number }>('select count(*)::int as n from vehicles.vehicles'))
-            .rows[0]?.n;
-        await refusedAt(await capture({ plate: 'HELLO' }));
-        const after = (await api.owner.query<{ n: number }>('select count(*)::int as n from vehicles.vehicles')).rows[0]
-            ?.n;
-        expect(after).toBe(before);
+/** The verification step's effect, run directly as `who` acting for `unit`: what a bureau's own workflow could make it do. */
+async function verifyAs(caseId: string, answers: Record<string, unknown>, unit: OrgUnit, who: string) {
+    const ctx: DbContext = { ...contextFor(unit, await api.userId(who)), requestId: `mig-${randomUUID()}` };
+    return app.scoped(ctx, (tx) =>
+        api.http
+            .get(BackCaptureService)
+            .capture(
+                tx,
+                { caseId, regionId: boditi.regionId, handlingUnitId: boditi.id, ctx },
+                answers as BackCaptureInput
+            )
+    );
+}
+
+const vehiclesCount = async () =>
+    (await api.owner.query<{ n: number }>('select count(*)::int as n from vehicles.vehicles')).rows[0]?.n ?? 0;
+
+describe('who may verify, whatever the workflow (SEC-AC-6)', () => {
+    it('never the person who captured the file, and nothing is written when refused', async () => {
+        const answers = await capture();
+        const c = await submitted(answers);
+        const before = await vehiclesCount();
+        await expect(verifyAs(c.id, answers, boditi, SUB.clerk)).rejects.toMatchObject({
+            detailKey: 'competency.errors.verify_own_capture'
+        });
+        expect(await vehiclesCount()).toBe(before);
+    });
+
+    it('an officer of the office above, when the step was sent up: the vehicle stays the capturing office’s', async () => {
+        const zone = await api.unit('SER', 'WOL');
+        const answers = await capture();
+        const c = await submitted(answers);
+        const made = await verifyAs(c.id, answers, zone, SUB.zone);
+        const record = (await api.call('GET', `/api/v1/vehicles/${made.vehicle.id}`, as.clerk)).json<Vehicle>();
+        expect(record.handlingUnit.id).toBe(boditi.id);
+        expect(record.migration?.verifiedBy?.id).toBe(await api.userId(SUB.zone));
+    });
+
+    it('not an office beside it', async () => {
+        const damot = await api.unit('SER', 'WOL-DAMOT-GALE');
+        const answers = await capture();
+        const c = await submitted(answers);
+        await expect(verifyAs(c.id, answers, damot, SUB.verifier)).rejects.toMatchObject({
+            detailKey: 'competency.errors.act_from_handling_office'
+        });
+    });
+});
+
+describe('the libre and the plate a paper file records', () => {
+    it('refuses a booklet of the stationery stock, however it is typed, and a libre number another vehicle holds', async () => {
+        const { rows } = await api.owner.query<{ series: string; serial: number }>(
+            `select series, serial from fees.stationery_items where kind = 'libre_booklet' and region_id = $1 limit 1`,
+            [boditi.regionId]
+        );
+        const booklet = rows[0];
+        expect(booklet).toBeDefined();
+        const stocked = await refusedAt(
+            await capture({ libreNumber: `${booklet?.series ?? ''} ${booklet?.serial ?? 0}` })
+        );
+        expect(stocked.status).toBe(422);
+        expect(stocked.body.errors).toEqual([expect.objectContaining({ path: 'libreNumber', code: 'in_stock' })]);
+
+        const first = await capture();
+        await moved(await submitted(first), as.verifier, 'verify');
+        const held = await refusedAt(await capture({ libreNumber: String(first.libreNumber) }));
+        expect(held.status).toBe(422);
+        expect(held.body.errors).toEqual([expect.objectContaining({ path: 'libreNumber', code: 'duplicate' })]);
+    });
+
+    it('refuses an old plate another vehicle of the register gave up', async () => {
+        const first = await capture();
+        const c = await submitted(first);
+        await moved(c, as.verifier, 'verify');
+        const vehicleId = await vehicleIdOf(c.id);
+        // the vehicle exchanged its old plate for a national one
+        const ctx: DbContext = { ...contextFor(boditi), requestId: `mig-${randomUUID()}` };
+        await app.scoped(ctx, (tx) =>
+            api.http.get(VehicleRegistry).recordPlate(tx, ctx, vehicleId, {
+                text: `ETH ZQX ${String(randomInt(1000, 9999))}`,
+                source: 'manual',
+                since: today(),
+                endedReason: 'exchanged'
+            })
+        );
+        const again = await refusedAt(await capture({ plate: String(first.plate) }));
+        expect(again.status).toBe(422);
+        expect(again.body.errors).toEqual([expect.objectContaining({ path: 'plate', code: 'plate_ended' })]);
     });
 });

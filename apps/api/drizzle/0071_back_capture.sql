@@ -3,6 +3,7 @@ ALTER TABLE "vehicles"."vehicles" ADD COLUMN "paper_reference" text;--> statemen
 ALTER TABLE "vehicles"."vehicles" ADD COLUMN "migration_case_id" uuid;--> statement-breakpoint
 ALTER TABLE "vehicles"."vehicles" ADD COLUMN "migration_verified_by" uuid;--> statement-breakpoint
 ALTER TABLE "vehicles"."vehicles" ADD COLUMN "migration_verified_at" timestamp with time zone;--> statement-breakpoint
+CREATE UNIQUE INDEX "vehicles_migration_case_uq" ON "vehicles"."vehicles" USING btree ("migration_case_id") WHERE "vehicles"."vehicles"."migration_case_id" is not null;--> statement-breakpoint
 ALTER TABLE "vehicles"."vehicles" ADD CONSTRAINT "vehicles_migration_source_check" CHECK ("vehicles"."vehicles"."migration_source" in ('back_capture', 'import'));--> statement-breakpoint
 ALTER TABLE "vehicles"."vehicles" ADD CONSTRAINT "vehicles_migration_check" CHECK (("vehicles"."vehicles"."migration_source" is null) = ("vehicles"."vehicles"."paper_reference" is null)
                         and coalesce(length("vehicles"."vehicles"."paper_reference"), 1) between 1 and 60

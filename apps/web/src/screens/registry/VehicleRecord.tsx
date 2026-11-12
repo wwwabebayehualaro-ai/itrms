@@ -25,6 +25,7 @@ import {
 } from '@itrms/ui';
 
 import { getApiErrorMessage } from '@/lib/api/errors';
+import { useAuthStore } from '@/lib/auth/authStore';
 import { formatDay } from '@/lib/format';
 import { usePreferences, useText } from '@/lib/preferences';
 import { useVehicle, type Vehicle } from '@/lib/vehicles';
@@ -35,6 +36,7 @@ export function VehicleRecord({ id }: { id: string }) {
     const { t, text, language } = useText();
     const calendar = usePreferences((s) => s.calendar);
     const vehicle = useVehicle(id);
+    const activeUnitId = useAuthStore((s) => s.workspace?.activeUnit.id);
 
     if (vehicle.isPending) return <Skeleton className="h-48 w-full" />;
     if (vehicle.error || !vehicle.data)
@@ -101,25 +103,32 @@ export function VehicleRecord({ id }: { id: string }) {
                                           term: t('vehicles.migration.title'),
                                           value: (
                                               <span data-migration={v.migration.source}>
-                                                  {t(`vehicles.migration.source.${v.migration.source}`)}
-                                                  {v.migration.verifiedBy &&
-                                                      ` · ${t('vehicles.migration.verifiedBy')} ${v.migration.verifiedBy.name}`}
+                                                  {v.migration.verifiedBy
+                                                      ? t('vehicles.migration.sourceVerified', {
+                                                            source: t(
+                                                                `vehicles.migration.source.${v.migration.source}`
+                                                            ),
+                                                            name: v.migration.verifiedBy.name
+                                                        })
+                                                      : t(`vehicles.migration.source.${v.migration.source}`)}
                                               </span>
                                           )
                                       },
                                       {
                                           term: t('vehicles.migration.paperReference'),
-                                          value: v.migration.caseId ? (
-                                              <Link
-                                                  href={`/cases/${v.migration.caseId}`}
-                                                  className="hover:underline"
-                                                  data-paper-reference
-                                              >
-                                                  {v.migration.paperReference}
-                                              </Link>
-                                          ) : (
-                                              <span data-paper-reference>{v.migration.paperReference}</span>
-                                          )
+                                          // the capture case (with the scan) is the handling office's to open
+                                          value:
+                                              v.migration.caseId && v.handlingUnit.id === activeUnitId ? (
+                                                  <Link
+                                                      href={`/cases/${v.migration.caseId}`}
+                                                      className="hover:underline"
+                                                      data-paper-reference
+                                                  >
+                                                      {v.migration.paperReference}
+                                                  </Link>
+                                              ) : (
+                                                  <span data-paper-reference>{v.migration.paperReference}</span>
+                                              )
                                       }
                                   ]
                                 : [])

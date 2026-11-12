@@ -143,5 +143,9 @@
   "competency.rule.plateOnRegister": "በመዝገቡ ያለ ተሽከርካሪ ይህን ሰሌዳ ይዟል።",
   "competency.rule.plateInStock": "ይህ ብሔራዊ ሰሌዳ አሁንም በክምችት ውስጥ ነው፤ ተሰጥቶ ስለማያውቅ በወረቀት ፋይል ላይ ሊሆን አይችልም።",
   "competency.rule.federalIdOnRegister": "በመዝገቡ ያለ ተሽከርካሪ ይህ የፌዴራል መለያ አለው።",
-  "competency.rule.captureInOpenCase": "ለዚህ የሻሲ ቁጥር ወይም ሰሌዳ ሌላ ያልተዘጋ ጥያቄ አለ።"
+  "competency.rule.captureInOpenCase": "ለዚህ የሻሲ ቁጥር ወይም ሰሌዳ ሌላ ያልተዘጋ ጥያቄ አለ።",
+  "competency.rule.plateEnded": "ይህን ሰሌዳ በመዝገቡ ያለ ሌላ ተሽከርካሪ ይዞት ነበር፤ የቀድሞ ሰሌዳ ደግሞ አይሰጥም።",
+  "competency.rule.libreInStock": "ይህ ደብተር በክምችት ውስጥ ያለ ነው፤ ከክምችቱ ይሰጣል እንጂ ከወረቀት ፋይል አይመዘገብም።",
+  "competency.rule.libreOnRegister": "በመዝገቡ ያለ ተሽከርካሪ ይህ ቁጥር ያለው ሊብሬ አለው።",
+  "competency.errors.verify_own_capture": "የወረቀት ፋይሉን የመዘገበው ሰው ሊያረጋግጠው አይችልም፤ ሌላ ሰው ከወረቀቱ ጋር ያረጋግጠዋል።"
 }

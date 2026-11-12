@@ -1,5 +1,5 @@
 {
-  "id": "f87d8ed0-d182-4417-bdfd-6fc87208f608",
+  "id": "a862b85b-6a2a-4c49-b1d0-d1315ce7ec44",
   "prevId": "3fe9bcf0-c752-4237-a95d-08a2b95ce903",
   "version": "7",
   "dialect": "postgresql",
@@ -16893,6 +16893,22 @@
             }
           ],
           "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "vehicles_migration_case_uq": {
+          "name": "vehicles_migration_case_uq",
+          "columns": [
+            {
+              "expression": "migration_case_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"vehicles\".\"vehicles\".\"migration_case_id\" is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}

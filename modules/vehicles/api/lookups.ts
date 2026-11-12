@@ -14,7 +14,8 @@ import { VehiclesService } from './vehicles.service';
 
 type Key = keyof typeof am;
 
-const text = (key: Key, language: string): string => (language === 'en' ? en : am)[key];
+const text = (key: Key, language: string, params: Record<string, string> = {}): string =>
+    (language === 'en' ? en : am)[key].replace(/\{(\w+)\}/g, (whole, name: string) => params[name] ?? whole);
 
 const localized = (name: Record<string, string>, language: string, fallback = ''): string =>
     name[language] ?? name.am ?? name.en ?? fallback;
@@ -33,10 +34,10 @@ const SOURCE: Record<MigrationSource, Key> = {
 /** "From paper: <reference>, verified by <name>", or null for a vehicle registered in ITRMS. */
 function migrated(v: VehicleSummary, language: string): string | null {
     if (!v.migration) return null;
-    const from = `${text(SOURCE[v.migration.source], language)}: ${v.migration.paperReference}`;
+    const params = { source: text(SOURCE[v.migration.source], language), reference: v.migration.paperReference };
     return v.migration.verifiedBy
-        ? `${from}, ${text('vehicles.migration.verifiedBy', language)} ${v.migration.verifiedBy.name}`
-        : from;
+        ? text('vehicles.migration.summaryVerified', language, { ...params, name: v.migration.verifiedBy.name })
+        : text('vehicles.migration.summary', language, params);
 }
 
 @Injectable()
