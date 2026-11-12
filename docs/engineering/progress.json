@@ -1525,11 +1525,12 @@
         {
           "id": "1.13",
           "title": "Paper-record migration, part 1: back-capture and capture on touch",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.13-back-capture",
           "commits": [
             "950cf2e",
-            "8be196b"
+            "8be196b",
+            "565e059"
           ],
           "evidence": [
             "GitHub Actions run 43292546751 on 8be196b (PR #62): all 10 jobs success (first push 950cf2e: run 43282072048, all success)",
