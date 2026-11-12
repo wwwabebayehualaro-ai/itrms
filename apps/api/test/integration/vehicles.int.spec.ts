@@ -495,6 +495,10 @@ describe('the registry rules', () => {
         await expect(
             app.scoped(ctx, (tx) => registry.recordBooklet(tx, ctx, first.id, { number: 'LB0099002' }))
         ).rejects.toMatchObject({ status: 409 });
+        // whatever the writer: the database keeps a libre's booklet serial once it is set
+        await expect(
+            api.owner.query(`update vehicles.libres set number = 'LB0099009' where id = $1`, [first.id])
+        ).rejects.toThrow(/set once/);
         // a serial is one booklet: another vehicle's libre cannot carry it
         const w = await newVehicle(units.zone, { chassisNumber: 'LIBRE-CASE-2' });
         const other = await app.scoped(ctx, (tx) =>
