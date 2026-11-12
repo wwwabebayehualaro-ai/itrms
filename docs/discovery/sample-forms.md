@@ -1,6 +1,6 @@
 # Sample forms received (the structures to build from)
 
-The paper forms, letters and documents the Wolaita Zone sent on 2026-11-11, with the structure of each: who issues it,
+The paper forms, letters and documents the Wolaita Zone sent on 2026-11-11 and 2026-11-12, with the structure of each: who issues it,
 its sections and fields, and the task or service that builds from it. **Structure only:** the scans carry real names,
 numbers and signatures and stay local (`docs/business-questions/response/`, excluded from git). Seed and demo data are
 generated, never copied from them. The scan file is named relative to that folder.
@@ -64,6 +64,15 @@ Confidence as in the records: printed forms **H**; handwritten or inferred **M**
 | **Exam appointment card** (serial-numbered) | regional bureau | `3-licence-documents/12-…__2231` | Photo; name; exam centre; zone, town; school; learner permit no.; grade; training hours (theory, practical); theory-test code; computer no.; table: exam type, attempt, date, time, score %, examiner, remark | 1.7 booking and results |
 | **Practical exam checklist** (100 points) | regional bureau | `3-licence-documents/22…25-…` | Header: zone/town, candidate, age, sex, grade, sub-category, vehicle model, plate, date, start and end time, examiner. Items with max points: 1 pre-drive (1.1–1.4), 2 starting (2.1–2.4), 3 moving off (3.1–3.6), 4 a 5 km drive (4.1–4.22), 5 simulator (5.1–5.4); total 100; result; examiner signs | 1.7 `Checklist` form with weights |
 | **Practical exam register / result sheet** | regional bureau's form; zone | `3-licence-documents/21-…`, `42-…` | Date, school; per trainee: name, sex, grade, round, simulator score, practical score, total, passed/failed; technician and **three observers** sign | 1.7 session result sheet |
+
+## Public transport
+
+| Form | Issuer | Scan | Structure | Builds |
+|---|---|---|---|---|
+| **Operator competence certificate** (የህዝብ ማመላለሻ ተሽከርካሪዎች የኦፐሬተርነት ብቃት ማረጋገጫ ፈቃድ) | regional bureau, printed, numbered `ት/መ/ል/ስም-NNN/2018/19` | `4-public-transport/04-…__1532` | Owner name; association; plate (code 3) and chassis; under Proclamation 468/97 E.C. art. 12/2 the vehicle, graded **level …**, may give public transport service; date prepared; **valid to Sene 30 of the fiscal year only**; issuer name and title. Conditions: deployed on public routes per the contract; obey the road transport law and directives; void unless renewed each year; shown to the authorities on demand | 1.11 document template (QR, fiscal-year counter, validity) |
+| **Grading checklist, small public transport vehicles** (100 points, Megabit 2005 E.C.) | regional bureau | `4-public-transport/05…07-…` | Header: owner, capacity, service years, chassis, plate. Items with max points and points given: 1 service age 0–20 years **30**; 2 safety **30**: insurance 15, maintenance 5, seat belts 7 (all seats 7; driver + front + rear rows 3.5; …2.5; driver only 1.5), first-aid kit 3; 3 comfort **38**: space 16 (seat 400×400 mm 6; legroom 750/740/730 mm 5/3/1.5; aisle 370/360/350 mm 5/3/1.5), seat cover 4 (4/2.5/1/0.5), seat comfort 4 (4/2.5), air conditioning 4 (4/2), 2 kg extinguisher 2, cleanliness 4 (4/2), windows 4 (4/2.5/1.5); 4 other **2** (DVD or tape); total; level | 1.11 grading (1.13a `Checklist` with weights) |
+| **Grading checklist, medium public transport vehicles** (100 points, Megabit 2005 E.C.) | regional bureau | `4-public-transport/08…10-…` | The same header, plus a "condition" column. 1 service age **30**; 2 safety **34**: insurance 15, maintenance 5, seat belts 6 (6/2.5/1.5/0.5), emergency exits 6 (6/3/1.5), first-aid kit 1, a partition behind the driver 1; 3 comfort **34**: space 14 (5; 5/3/2; 4/2.5/1.5), seat cover 4 (4/3/2/1), seat comfort 4 (4/2), ventilation 3 (3/1.5), 3 kg extinguisher 1, cleanliness 3 (3/2), windows 2 (2/1.5/1), luggage rack 40×48 mm 3; 4 other **2** (DVD, tape and a 15-inch TV); total; level | 1.11 grading (second checklist version) |
+| **Temporary work-permit letter** (ጊዜያዊ የሥራ ፈቃድ ስለመስጠት) | zone, numbered letter | `4-public-transport/03-…__1531-2` | To whom it may concern: owner, plate, chassis, engine; the vehicle asked on (date E.C.) for a temporary deployment on (route); allowed **only from … to …**; copies to the department head and the public transport work process | 1.11 temporary deployment permit (QR, validity window) |
 
 ## Money
 
