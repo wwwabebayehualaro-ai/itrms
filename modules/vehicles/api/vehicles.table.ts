@@ -323,7 +323,13 @@ export const plateAssignments = withRls(
                 until: date('until'),
                 endedReason: text('ended_reason', { enum: PLATE_ENDED_REASONS }),
                 /** the stock plate, for a national plate issued from stock (task 1.2a); null for one back-captured */
-                plateId: uuid('plate_id').references(() => plates.id)
+                plateId: uuid('plate_id').references(() => plates.id),
+                /**
+                 * The plate period that followed this one on the vehicle, when it ended for another plate (an old regional plate
+                 * exchanged for a national one, task 1.2c). The deferred foreign key is in the migration: it is written when the
+                 * plate ends, before the next period's row exists.
+                 */
+                replacedById: uuid('replaced_by_id')
             },
             (t) => [
                 index('plate_assignments_vehicle_idx').on(t.vehicleId),
@@ -331,6 +337,10 @@ export const plateAssignments = withRls(
                 uniqueIndex('plate_assignments_plate_uq')
                     .on(t.plateId)
                     .where(sql`${t.plateId} is not null`),
+                check(
+                    'plate_assignments_replaced_check',
+                    sql`${t.replacedById} is null or (${t.until} is not null and ${t.replacedById} <> ${t.id})`
+                ),
                 check(
                     'plate_assignments_stock_check',
                     sql`${t.plateId} is null or (${t.format} = 'national' and ${t.source} = 'federal')`

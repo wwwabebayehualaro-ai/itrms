@@ -17,6 +17,16 @@ the way recorded with their reasons) and issues the certificate again with its s
 booklet in stock the case waits in that step. Each effect is idempotent per case. The service needs the `holds_plate_stock`
 and `holds_stationery` capabilities of the handling unit.
 
+**The plate exchange (DVC-12, task 1.2c, Directive 1050/2025).** Not in the source list: the plates part of DVC-01 as its own
+service, offered where vehicles are registered (`holds_plate_stock`). Seeded as configuration (`seed/exchange-service.ts`): the
+form `vehicle-plate-exchange` (the vehicle picked from the register, its use, the owner's identity and the libre as attachments,
+the fee), the step form `vehicle-plate-handover` (the federal vehicle id the national system gave, the plate handed over if not
+the held one), the workflow draft → review → payment → approval → exchange → exchanged, and the demo fee rule
+`dvc-12-plate-exchange` (the zone's plate fees by use). `competency.checkPlateExchange` refuses a vehicle not active, handled by
+another office, already on a national plate, a use that is not the register's, and a second open request; the plate is held
+and released by the registration's effects; `competency.exchangePlate` records the federal id and puts the plate on the vehicle,
+the old plate retired and linked to it. A vehicle not on the register is back-captured first (MIG-01).
+
 **The back-capture of a paper vehicle file (MIG-01, task 1.13, ADR-0054).** Not one of the bureau's 54 services: the migration's
 own, offered where vehicles are registered. Seeded as configuration (`seed/back-capture-service.ts`): the form
 `vehicle-back-capture` (the paper file's reference and its scan, both required; the registration's owner and vehicle fields; the

@@ -198,6 +198,7 @@ function Owners({ vehicle, day }: { vehicle: Vehicle; day: Day }) {
 function Plates({ vehicle, day }: { vehicle: Vehicle; day: Day }) {
     const { t } = useText();
     const plates = [...vehicle.plates].sort((a, b) => b.since.localeCompare(a.since));
+    const byId = new Map(vehicle.plates.map((p) => [p.id, p]));
     if (plates.length === 0) return <EmptyState title={t('vehicles.record.noPlates')} />;
     return (
         <Table data-plates>
@@ -219,7 +220,15 @@ function Plates({ vehicle, day }: { vehicle: Vehicle; day: Day }) {
                                 ? t('vehicles.record.since', { from: day(p.since) })
                                 : t('vehicles.record.fromTo', { from: day(p.since), to: day(p.until) })}
                         </TableCell>
-                        <TableCell>{p.endedReason ? t(`vehicles.endedReason.${p.endedReason}`) : '—'}</TableCell>
+                        <TableCell>
+                            {p.endedReason ? t(`vehicles.endedReason.${p.endedReason}`) : '—'}
+                            {/* the plate that replaced it (an exchange, task 1.2c) */}
+                            {p.replacedById && byId.get(p.replacedById) && (
+                                <span className="text-muted-foreground ms-2 text-xs" data-replaced-by={p.replacedById}>
+                                    {t('vehicles.record.replacedBy', { plate: byId.get(p.replacedById)?.text ?? '' })}
+                                </span>
+                            )}
+                        </TableCell>
                     </TableRow>
                 ))}
             </TableBody>

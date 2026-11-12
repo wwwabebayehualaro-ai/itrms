@@ -17,6 +17,7 @@ import { OrganisationsService, PersonsService } from '@itrms/parties/api';
 import type { z } from 'zod';
 
 import {
+    federalVehicleIdSchema,
     libreBookletSchema,
     parsePlate,
     parseVin,
@@ -291,13 +292,16 @@ export class VehicleRegistry {
             .where(eq(plateAssignments.vehicleId, vehicle.id));
         if (ended?.until && input.since < ended.until)
             throw fieldError('since', 'before_period', 'is before the previous plate ended');
+        // the new period's id first: the plate that ends points at the one that replaced it (task 1.2c)
+        const next = newId();
         if (current) {
             if (current.plateKey === parsed.key)
                 throw new ConflictError('duplicate_reference', { detailKey: 'vehicles.errors.plate_already_carried' });
             if (input.since < current.since) throw fieldError('since', 'before_period', 'is before the current plate');
             await updateAudited(tx, plateAssignments, current.id, current.rowVersion, {
                 until: input.since,
-                endedReason: input.endedReason
+                endedReason: input.endedReason,
+                replacedById: next
             });
             if (current.plateId)
                 await this.stock.closeAssigned(tx, ctx, current.plateId, {
@@ -309,6 +313,7 @@ export class VehicleRegistry {
         await guardUnique(
             () =>
                 insertAudited(tx, plateAssignments, {
+                    id: next,
                     regionId: vehicle.regionId,
                     handlingUnitId: vehicle.handlingUnitId,
                     vehicleId: vehicle.id,
@@ -479,6 +484,28 @@ export class VehicleRegistry {
         if (vehicle.status !== 'stolen')
             throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.not_stolen' });
         return updateAudited(tx, vehicles, vehicleId, version, { status: 'active' });
+    }
+
+    /**
+     * The federal vehicle id the national system gave a vehicle already on the register (a plate exchange, task 1.2c), entered by
+     * staff. Set once: the same id again is nothing to do; another is refused (the national system is the record of it).
+     */
+    async recordFederalId(tx: Tx, ctx: DbContext, vehicleId: string, federalVehicleId: string): Promise<VehicleRow> {
+        const given = federalVehicleIdSchema.safeParse(federalVehicleId);
+        if (!given.success) throw fieldError('federalVehicleId', 'invalid', 'letters, digits and hyphens');
+        const vehicle = await this.lock(tx, ctx, vehicleId);
+        if (vehicle.federalVehicleId === given.data) return vehicle;
+        if (vehicle.federalVehicleId !== null)
+            throw new ConflictError('duplicate_reference', { detailKey: 'vehicles.errors.federal_id_set' });
+        let row: VehicleRow | undefined;
+        await guardUnique(async () => {
+            row = await updateAudited(tx, vehicles, vehicle.id, vehicle.rowVersion, {
+                federalVehicleId: given.data,
+                federalIdSource: 'manual'
+            });
+        }, DUPLICATES);
+        if (!row) throw new NotFoundError();
+        return row;
     }
 
     /** The vehicle, locked for this transaction, if the caller's unit handles it and `version` is still current. */

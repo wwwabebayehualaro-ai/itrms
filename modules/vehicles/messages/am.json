@@ -201,5 +201,7 @@
   "vehicles.errors.libre_not_in_force": "ይህ ሊብሬ በሥራ ላይ አይደለም፤ ተሽከርካሪው አዲስ ሊብሬ አለው ወይም ከመዝገብ ወጥቷል።",
   "vehicles.migration.summary": "{source}፦ {reference}",
   "vehicles.migration.summaryVerified": "{source}፦ {reference}፤ ያረጋገጠው {name}",
-  "vehicles.migration.sourceVerified": "{source}፤ ያረጋገጠው {name}"
+  "vehicles.migration.sourceVerified": "{source}፤ ያረጋገጠው {name}",
+  "vehicles.errors.federal_id_set": "ይህ ተሽከርካሪ ሌላ የፌዴራል ተሽከርካሪ መለያ አለው።",
+  "vehicles.record.replacedBy": "በ{plate} ተቀይሯል"
 }

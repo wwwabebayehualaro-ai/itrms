@@ -1547,12 +1547,22 @@
         {
           "id": "1.2c",
           "title": "Registration and plates, part 3: plate exchange",
+          "status": "in progress",
+          "branch": "task/1.2c-plate-exchange",
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Split on 2026-11-12 (one session each): 1.2c is the exchange service DVC-12 (a 56th catalogue entry: not in the source list, the plates part of DVC-01 under Directive 1050/2025), its effects, demo fee rule, demo and e2e, and the plate codes 35, defence and special; 1.2e takes the 1.2b review's hardening (follow-ups 222, 223, 225, 227) and the search filters (210)."
+        },
+        {
+          "id": "1.2e",
+          "title": "Registration and plates, part 5: hardening from the 1.2b review",
           "status": "planned",
           "branch": null,
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Split from 1.2c on 2026-11-12."
         },
         {
           "id": "1.13a",
@@ -3232,7 +3242,7 @@
     {
       "foundIn": "1.1a",
       "item": "Vehicle search applies status/owner filters after the ranked top 50 (search_vehicles), so an active match ranked past 50 is dropped silently; ownerId + deregistered/transferred_out finds nothing; byOwner stops at 100 unpaged: pass the filters into search_vehicles and page byOwner (the 1.1b screens use neither filter; the 1.2 form lookups do) (DVC-01 looks up no existing vehicle; the plate exchange is the first form that does)",
-      "movedTo": "1.2c"
+      "movedTo": "1.2e"
     },
     {
       "foundIn": "1.1a",
@@ -3258,7 +3268,7 @@
     {
       "foundIn": "1.2a",
       "item": "An exchange (assignStockPlate on a vehicle carrying a stock plate) locks the new plate then the old one, against a bulk command over a run containing both in ascending order: a rare 40P01 deadlock, unmapped (500). Lock the old plate first in an exchange, or map 40P01 to a retryable 409",
-      "movedTo": "1.2c"
+      "movedTo": "1.5 (a national plate replaced by another stock plate is a replacement)"
     },
     {
       "foundIn": "1.2a",
@@ -3293,12 +3303,12 @@
     {
       "foundIn": "1.2b",
       "item": "Reviewer M1 (medium): DVC-01's registration step has separation of duties; where the handling office has no eligible officer, routeStep sends the step up the tree but register refuses act_from_handling_office, so a paid case with a held plate cannot finish. Fix: a workflow assignee option that keeps a step in its unit (and refuse the lead's approval when no registrar exists there), or act for the handling office when the actor's scope covers it; test with a one-officer office",
-      "movedTo": "1.2c"
+      "movedTo": "1.2e"
     },
     {
       "foundIn": "1.2b",
       "item": "Reviewer M2 (medium): the 'chassis already in another open request' check reads cases through RLS (the filer's subtree), so sibling offices can both take a fee and hold a plate for one chassis; the register's unique index stops the second registration at the last step. Fix: a reviewed SECURITY DEFINER lookup by (region_id, vin_key) or a regional chassis-claims table written at submit; test with sibling offices (needs a migration)",
-      "movedTo": "1.2c"
+      "movedTo": "1.2e"
     },
     {
       "foundIn": "1.2b",
@@ -3308,7 +3318,7 @@
     {
       "foundIn": "1.2b",
       "item": "Reviewer L2: indexes for the open-case chassis lookup (cases.facts registration.vinKey) and for plates reserved for a case (partial (region_id, case_id) where status = 'reserved')",
-      "movedTo": "1.2c"
+      "movedTo": "1.2e"
     },
     {
       "foundIn": "1.2b",
@@ -3318,7 +3328,7 @@
     {
       "foundIn": "1.2b",
       "item": "Reviewer L5: show the officer-confirmed check-digit mismatch (facts.registration.vinCheck = mismatch) as a visible flag at the lead's approval, or move the confirmation to the officer's review step",
-      "movedTo": "1.2c"
+      "movedTo": "1.2e"
     },
     {
       "foundIn": "1.2b",
@@ -3347,7 +3357,7 @@
       "foundIn": "1.2b",
       "item": "Discovery 2026-11-11: DVC-01 request form to add the import documents (Bill of Lading, commercial invoice, packing list) and, for businesses, trade licence and TIN",
       "movedTo": "1.2c",
-      "closedIn": "moved into task 1.2d (phase-1.md)"
+      "closedIn": "1.2d: the DVC-01 form has the Bill of Lading, commercial invoice, packing list, trade licence and business TIN"
     },
     {
       "foundIn": "1.2b",
@@ -3387,7 +3397,8 @@
     {
       "foundIn": "1.12a",
       "item": "Plates come in pairs for cars and singly for motorcycles (the zone's plate demand): one plate key = one pair; the stock counts keys, and a replacement of one plate of a pair is a 1.5 case",
-      "movedTo": "1.2c"
+      "movedTo": "1.2c",
+      "closedIn": "1.2c: one plate key is one pair (cars) or one plate (motorcycles); a replacement of one plate of a pair is a 1.5 case (documented in the vehicles README)"
     },
     {
       "foundIn": "1.12a",
@@ -3428,6 +3439,16 @@
       "foundIn": "1.13",
       "item": "Paper file references are not unique per region or office: one reference could be captured for two vehicles; decide with the zone how files are numbered, then a unique index or a reconciliation flag (review finding L6)",
       "movedTo": "1.13b"
+    },
+    {
+      "foundIn": "1.2c",
+      "item": "Ask the zone how defence and special (machinery) plates are written (prefix, script, digits) and whether a trailer pays the 15,030 plate fee by its category; the parser and the demo fee rule assume 'መከላከያ'/'ልዩ' prefixes and a fee by use",
+      "movedTo": "discovery (zone questions, with R2)"
+    },
+    {
+      "foundIn": "1.2c",
+      "item": "After an exchange the registration certificate (temporary libre) still shows the old plate: reissue it with the national plate (superseding the old QR) when the zone confirms an exchange issues a new document",
+      "movedTo": "1.5"
     }
   ]
 }

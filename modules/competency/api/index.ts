@@ -4,6 +4,8 @@ export { CompetencyModule } from './competency.module';
 export { LICENCE_EFFECTS } from './licence.effects';
 export { BACK_CAPTURE_EFFECTS } from './back-capture.effects';
 export { BackCaptureService, type BackCaptureInput } from './back-capture.service';
+export { EXCHANGE_EFFECTS } from './exchange.effects';
+export { PlateExchangeService, type ExchangeInput } from './exchange.service';
 export { REGISTRATION_EFFECTS } from './registration.effects';
 export { LicencesService } from './licences.service';
 export { VehicleRegistrationService, type RegistrationInput } from './registration.service';

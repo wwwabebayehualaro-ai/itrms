@@ -147,5 +147,15 @@
   "competency.rule.plateEnded": "ይህን ሰሌዳ በመዝገቡ ያለ ሌላ ተሽከርካሪ ይዞት ነበር፤ የቀድሞ ሰሌዳ ደግሞ አይሰጥም።",
   "competency.rule.libreInStock": "ይህ ደብተር በክምችት ውስጥ ያለ ነው፤ ከክምችቱ ይሰጣል እንጂ ከወረቀት ፋይል አይመዘገብም።",
   "competency.rule.libreOnRegister": "በመዝገቡ ያለ ተሽከርካሪ ይህ ቁጥር ያለው ሊብሬ አለው።",
-  "competency.errors.verify_own_capture": "የወረቀት ፋይሉን የመዘገበው ሰው ሊያረጋግጠው አይችልም፤ ሌላ ሰው ከወረቀቱ ጋር ያረጋግጠዋል።"
+  "competency.errors.verify_own_capture": "የወረቀት ፋይሉን የመዘገበው ሰው ሊያረጋግጠው አይችልም፤ ሌላ ሰው ከወረቀቱ ጋር ያረጋግጠዋል።",
+  "competency.nav.plateExchanges": "የሰሌዳ ቅያሪዎች",
+  "competency.action.newPlateExchange": "አዲስ የሰሌዳ ቅያሪ",
+  "competency.plateExchanges.title": "የሰሌዳ ቅያሪዎች",
+  "competency.plateExchanges.intro": "የቀድሞ ክልላዊ ሰሌዳዎች በብሔራዊ ሰሌዳ የሚቀየሩበት (መመሪያ 1050/2025)። ብሔራዊ ሰሌዳው ከዚህ ጽ/ቤት ክምችት ይሰጣል፤ የቀድሞው ሰሌዳ ከአገልግሎት ወጥቶ ከተካው ሰሌዳ ጋር ይያያዛል። በመዝገቡ የሌለ ተሽከርካሪ መጀመሪያ ከወረቀት ፋይሉ ይመዘገባል።",
+  "competency.plateExchanges.fileNew": "አዲስ የሰሌዳ ቅያሪ",
+  "competency.rule.exchangeNotActive": "ሰሌዳውን መቀየር የሚችለው በመዝገቡ ያለ ተሽከርካሪ ብቻ ነው።",
+  "competency.rule.exchangeOtherOffice": "ይህን ተሽከርካሪ የሚያስተናግደው ሌላ ጽ/ቤት ነው፤ ቅያሪው እዚያ ወይም ከዝውውር በኋላ እዚህ ይደረጋል።",
+  "competency.rule.exchangeNoOldPlate": "ይህ ተሽከርካሪ ብሔራዊ ሰሌዳ ይዟል፤ ወይም ምንም ሰሌዳ የለውም።",
+  "competency.rule.exchangeUse": "አገልግሎቱ በመዝገቡ ካለው ተሽከርካሪ ጋር አይመሳሰልም።",
+  "competency.rule.exchangeInOpenCase": "የዚህን ተሽከርካሪ ሰሌዳ የሚቀይር ሌላ ያልተዘጋ ጥያቄ አለ።"
 }

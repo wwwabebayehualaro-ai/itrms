@@ -271,7 +271,8 @@ export class VehiclesService {
                 source: p.source,
                 since: p.since,
                 until: p.until,
-                endedReason: p.endedReason
+                endedReason: p.endedReason,
+                replacedById: p.replacedById
             })),
             ownerships: ownerships.map((o) => ({
                 id: o.id,

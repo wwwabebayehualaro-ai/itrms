@@ -88,6 +88,23 @@ rules:
             - { value: libre, amount: '25000' }
             - { value: bolo, amount: '10000' }
             - { value: plate, amount: '35000' }
+  - key: dvc-12-plate-exchange
+    name: { am: የሰሌዳ ቅያሪ, en: Plate exchange }
+    document:
+      schemaVersion: 1
+      demo: true
+      basis: the zone's fee sheet of 17/2/2019 (plate fees by plate code; a trailer 15,030); to confirm with the legal basis (R2)
+      inputs:
+        use: { kind: choice }
+      lines:
+        - key: plate
+          label: { am: የሰሌዳ ክፍያ, en: Plate }
+          kind: table
+          input: use
+          rows:
+            - { value: private, amount: '516100' }
+            - { value: commercial, amount: '607000' }
+          otherwise: '516100'
   - key: dvc-01-registration
     name: { am: አዲስ የተሽከርካሪ ምዝገባ, en: New vehicle registration }
     document:

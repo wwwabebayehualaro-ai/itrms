@@ -28,6 +28,7 @@ import { loadSlices } from '@itrms/kernel/api';
 import { importOrg, orgUnits, parseOrgCsv, parseOrgWorkbook, parseOrgYaml, type OrgImport } from '@itrms/kernel/org';
 import {
     importBackCaptureService,
+    importPlateExchangeService,
     importDemoData,
     importLicenceGrades,
     importLicenceServices,
@@ -187,7 +188,9 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
                 services: await importLicenceServices(tx, where),
                 vehicleServices: await importVehicleServices(tx, where),
                 // the back-capture of paper vehicle files (task 1.13)
-                backCapture: await importBackCaptureService(tx, where)
+                backCapture: await importBackCaptureService(tx, where),
+                // the plate exchange (task 1.2c), after the fee rules
+                plateExchange: await importPlateExchangeService(tx, where)
             };
         });
         logger.info(

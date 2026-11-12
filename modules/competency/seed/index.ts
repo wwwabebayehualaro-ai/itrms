@@ -16,6 +16,7 @@ export { LICENCE_GRADES, type GradeSeed } from './grades';
 export * from './licence-services';
 export * from './vehicle-services';
 export * from './back-capture-service';
+export * from './exchange-service';
 export { importDemoData, type DemoCounts, type DemoDeps } from './demo';
 
 /** The catalogue at the region's root; an installation step, audited. */

@@ -1,7 +1,7 @@
 /**
  * The service catalogue (task 0.21b) and the codes that name its services elsewhere: every service a module serves, and
  * every service a unit type of the seeds offers, is one of the catalogue's; the catalogue has the reference design's 54, and
- * the migration's own back-capture of paper vehicle files (MIG-01, task 1.13).
+ * the migration's own back-capture of paper vehicle files (MIG-01, task 1.13) and the plate exchange (DVC-12, task 1.2c).
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -18,9 +18,9 @@ const catalogue = parseCatalogue(readFileSync(join(ROOT, 'platform', 'services',
 const codes = new Set(catalogue.map((s) => s.code));
 
 describe('the service catalogue', () => {
-    it('has the 54 services of the reference design and the back-capture, each code once, names in Amharic and English', () => {
-        expect(catalogue).toHaveLength(55);
-        expect(codes.size).toBe(55);
+    it('has the 54 services of the reference design, the plate exchange and the back-capture, each code once, in Amharic and English', () => {
+        expect(catalogue).toHaveLength(56);
+        expect(codes.size).toBe(56);
         expect(catalogue.filter((s) => s.code.startsWith('MIG-')).map((s) => s.code)).toEqual(['MIG-01']);
         for (const s of catalogue) expect(s.name.am && s.name.en).toBeTruthy();
     });
