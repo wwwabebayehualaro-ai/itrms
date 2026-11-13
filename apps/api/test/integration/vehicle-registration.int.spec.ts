@@ -897,7 +897,7 @@ describe('the hardening from the 1.2b review (task 1.2e)', () => {
             c = await moved(c, as.solo, 'approve');
             await paid(c);
             // separation of duties leaves nobody at Boditi for the approval: it goes up to the zone
-            expect(await openTask(c.id, as.solo)).toMatchObject({
+            expect(await openTask(c.id, as.zoneLead)).toMatchObject({
                 state: 'approval',
                 unit: zone.id,
                 routedFrom: boditi.id
@@ -923,7 +923,7 @@ describe('the hardening from the 1.2b review (task 1.2e)', () => {
         // the office's lead who approves is its only officer left: the registration goes up to the zone's officers
         c = await othersAway(['competency.officer'], async () => {
             const approvedHere = await moved(await caseOf(c.id, as.solo), as.solo, 'approve');
-            expect(await openTask(approvedHere.id, as.solo)).toMatchObject({
+            expect(await openTask(approvedHere.id, as.zoneOfficer)).toMatchObject({
                 state: 'registration',
                 unit: zone.id,
                 routedFrom: boditi.id

@@ -1574,7 +1574,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split from 1.2c on 2026-11-12."
+          "notes": "Split from 1.2c on 2026-11-12. Pushed 562f206 as PR; CI runs the integration (Docker stopped locally). Design: act for the handling office from an office above it (option b of reviewer M1) rather than a keep-in-unit assignee; a sibling test uses Areka via the service directly, since no sibling of Boditi offers DVC-01 in the seed."
         },
         {
           "id": "1.13a",
