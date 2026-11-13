@@ -829,6 +829,21 @@ describe('a request that does not meet the register', () => {
 });
 
 describe('the hardening from the 1.2b review (task 1.2e)', () => {
+    // the tests above leave Boditi one booklet; these registrations each take one
+    beforeAll(async () => {
+        const p = place(randomUUID());
+        await inTx(p, (tx) =>
+            stationery.receive(tx, p.ctx, {
+                kind: 'libre_booklet',
+                source: 'ministry',
+                reference: `HARDENING-${randomInt(1000, 9999)}`,
+                receivedOn: today(),
+                range: { series: 'LB', from: 9101, to: 9110 },
+                width: 7
+            })
+        );
+    });
+
     /** Every other officer and lead of Boditi is away while `work` runs: their roles end, and come back after. */
     async function othersAway<T>(roles: readonly string[], work: () => Promise<T>): Promise<T> {
         const { rows } = await api.owner.query<{ id: string }>(
