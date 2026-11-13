@@ -321,7 +321,7 @@ describe('a bolo inspection', () => {
             { variant: 'private', valid_efy: fiscalYear, status: 'used', holder: boditi.id }
         ]);
         expect(await documentsOf(c.id)).toEqual([
-            { key: 'vehicle-bolo', number: bolo?.sticker_key, superseded_by: null }
+            { key: 'vehicle-bolo', number: bolo?.sticker_key, superseded_by: null, revoke_reason: null }
         ]);
         // the bolo was written and audited in the same transactions
         const audit = await api.owner.query<{ action: string }>(
@@ -462,7 +462,11 @@ describe('a vehicle that fails its inspection', () => {
         expect(c.state).toBe('repair');
         const view = await caseOf(c.id);
         expect(view.actionDetails.find((a) => a.action === 'reinspect')).toMatchObject({ needsForm: true });
-        expect(view.actionDetails.find((a) => a.action === 'close_failed')).toMatchObject({ commentRequired: true });
+        expect(view.actionDetails.find((a) => a.action === 'reject')).toMatchObject({
+            label: { en: 'Not back from the garage: close' },
+            commentRequired: true,
+            needsForm: false
+        });
 
         // the garage step: a garage of the register, back no earlier than the failure and not in the future
         const notAGarage = await api.call('POST', '/api/v1/organisations', as.officer, {
@@ -476,7 +480,8 @@ describe('a vehicle that fails its inspection', () => {
         });
         expect(wrongKind.statusCode, wrongKind.body).toBe(422);
         expect(wrongKind.json<{ errors?: { path: string; code: string }[] }>().errors).toEqual([
-            expect.objectContaining({ path: 'garage', code: 'not_a_garage' })
+            // the garage lookup takes only organisations of that kind (the step's effect checks it again)
+            expect.objectContaining({ path: 'garage', code: 'invalid_reference' })
         ]);
         const early = await step(c, as.officer, {
             action: 'reinspect',
@@ -558,9 +563,9 @@ describe('a vehicle that fails its inspection', () => {
             { attempt: 1, garage_id: null },
             { attempt: 2, garage_id: garage }
         ]);
-        const closed = await step(c, as.officer, { action: 'close_failed' });
+        const closed = await step(c, as.officer, { action: 'reject' });
         expect(closed.statusCode, closed.body).toBe(422);
-        c = await moved(await caseOf(c.id), as.officer, 'close_failed', {
+        c = await moved(await caseOf(c.id), as.officer, 'reject', {
             comment: 'The owner did not bring the vehicle back'
         });
         expect(c.state).toBe('failed');
@@ -582,7 +587,7 @@ describe('a vehicle back from the garage after the fiscal year ended', () => {
         expect(back.json<{ errors?: { path: string; code: string }[] }>().errors).toEqual([
             expect.objectContaining({ path: 'repairedOn', code: 'past_year' })
         ]);
-        c = await moved(await caseOf(c.id), as.officer, 'close_failed', { comment: 'A new year: file again' });
+        c = await moved(await caseOf(c.id), as.officer, 'reject', { comment: 'A new year: file again' });
         expect(c.state).toBe('failed');
     }, 240_000);
 });
@@ -785,6 +790,10 @@ describe("a bolo's record", () => {
         const changed = app.scoped({ ...contextFor(boditi), requestId: `write-${randomUUID()}` }, (tx) =>
             tx.execute(sql`update competency.bolo_inspections set passed = true where handling_unit_id = ${boditi.id}`)
         );
-        await expect(changed).rejects.toThrow(/permission denied/);
+        const error = await changed.then(
+            () => undefined,
+            (e: unknown) => e
+        );
+        expect(String((error as { cause?: unknown } | undefined)?.cause ?? error)).toMatch(/permission denied/);
     });
 });

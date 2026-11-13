@@ -334,10 +334,12 @@ export const boloFlow = (inspectionForm: string, stickerForm: string, repairForm
             effects: [B.recordBoloRepair]
         },
         {
+            // a reject (it needs no step form: the vehicle never came back), ending the request as failed
             from: 'repair',
             to: 'failed',
-            action: 'close_failed',
+            action: 'reject',
             label: text('አልተመለሰም፣ ዝጋ', 'Not back from the garage: close'),
+            rejectRoles: REJECT_ROLES,
             commentRequired: true
         },
         {

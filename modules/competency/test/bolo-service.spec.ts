@@ -70,8 +70,7 @@ describe('the bolo workflow', () => {
             guard: PAID,
             effects: [B.recordBoloRepair]
         });
-        expect(steps.find((t) => t.action === 'close_failed')).toMatchObject({
-            from: 'repair',
+        expect(steps.find((t) => t.action === 'reject' && t.from === 'repair')).toMatchObject({
             to: 'failed',
             commentRequired: true
         });
