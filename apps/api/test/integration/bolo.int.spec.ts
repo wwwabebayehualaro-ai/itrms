@@ -379,6 +379,7 @@ describe('a bolo request that is refused', () => {
         const truck = await onTheRoad('commercial', {
             seats: undefined,
             loadCapacityKg: 8000,
+            axles: 2,
             categoryKey: 'light_truck'
         });
         const roadFund = await refusedAt(request(truck, { use: 'commercial', loadTonnes: 8 }));
@@ -395,6 +396,7 @@ describe('a bolo request that is refused', () => {
         const truck = await onTheRoad('commercial', {
             seats: undefined,
             loadCapacityKg: 50000,
+            axles: 3,
             categoryKey: 'heavy_truck'
         });
         const load = await refusedAt(request(truck, { use: 'commercial', loadTonnes: 10 }));

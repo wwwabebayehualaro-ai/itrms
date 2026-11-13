@@ -444,6 +444,7 @@ describe('the demo fee rules', () => {
         );
         expect(rows).toEqual([
             { key: 'dvc-01-registration', decision: 'approved', decided_by: null },
+            { key: 'dvc-02-bolo', decision: 'approved', decided_by: null },
             { key: 'dvc-03-new-licence', decision: 'approved', decided_by: null },
             { key: 'dvc-04-renewal', decision: 'approved', decided_by: null },
             { key: 'dvc-06-replacement', decision: 'approved', decided_by: null },
