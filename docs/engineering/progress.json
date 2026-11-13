@@ -1610,10 +1610,11 @@
         {
           "id": "1.3a",
           "title": "Bolo technical inspection, part 1: the service (DVC-02)",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.3a-bolo-service",
           "commits": [
-            "8a5aa69"
+            "8a5aa69",
+            "54ef217"
           ],
           "evidence": [
             "CI run 43500940271 on PR #66 (head 8a5aa69): all 10 jobs green: lint, typecheck, unit, build and boundaries; integration on the dev stack 41 files incl. bolo.int.spec.ts 9/9, plus the S3 contract suite 20/20; e2e journeys 54 passed (incl. competency/bolo.spec.ts) and the verifier suite 4; stories, axe and visual baselines; performance; production profile; Semgrep, Trivy and gitleaks clean",
