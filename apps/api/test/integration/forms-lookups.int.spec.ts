@@ -285,6 +285,8 @@ describe('the registries a form can point to', () => {
         }>();
         expect(items.map((i) => i.key).sort()).toEqual([
             'driver-licence',
+            // the garage a failed vehicle is repaired at (task 1.3b)
+            'garage',
             'organisation',
             'person',
             'training-school',

@@ -218,14 +218,47 @@ export const BOLO_STICKER_FORM = {
     ]
 };
 
+/**
+ * The garage step (task 1.3b): the garage that repaired the failed vehicle (an organisation of that kind in the register), the day
+ * it came back (today if left empty) and what was done.
+ */
+export const BOLO_REPAIR_FORM = {
+    schemaVersion: 2,
+    fields: [
+        field(
+            'garage',
+            'RegistryLookup',
+            text('ጋራዥ', 'Garage'),
+            { provider: 'garage' },
+            { classification: 'internal' }
+        ),
+        field(
+            'repairedOn',
+            'EthDate',
+            text('ከጥገና የተመለሰበት ቀን (ባዶ ከሆነ ዛሬ)', 'Back from the repair on (today if left empty)'),
+            { required: false },
+            { classification: 'internal' }
+        ),
+        field(
+            'repairNote',
+            'InputTextarea',
+            text('የተሠራው ጥገና', 'Repair done'),
+            { required: false, maxLength: 1000 },
+            { classification: 'internal' }
+        )
+    ]
+};
+
 const STICKER_STEP = { stepFormKey: 'vehicle-bolo-sticker' } as const;
+const REPAIR_STEP = { stepFormKey: 'vehicle-bolo-repair' } as const;
 
 /**
  * DVC-02: documents and prerequisites, payment, the inspection (pass makes the bolo, and is refused unless the checklist passed;
- * fail closes the case with the failed items: a re-inspection after the garage comes in task 1.3b), then the sticker, or a
- * temporary bolo first while the office has no sticker of the vehicle's kind and year.
+ * fail sends the vehicle to a garage), then the sticker, or a temporary bolo first while the office has no sticker of the vehicle's
+ * kind and year. A failed vehicle comes back from the garage to be inspected again on the same case and its paid fee, within the
+ * repair step's time (task 1.3b); one that does not come back is closed as failed.
  */
-export const boloFlow = (inspectionForm: string, stickerForm: string) => ({
+export const boloFlow = (inspectionForm: string, stickerForm: string, repairForm: string) => ({
     schemaVersion: 1,
     states: [
         DRAFT,
@@ -234,12 +267,20 @@ export const boloFlow = (inspectionForm: string, stickerForm: string) => ({
         task('inspection', text('የቴክኒክ ምርመራ', 'Technical inspection'), 'competency.officer', 2, {
             stepForm: inspectionForm
         }),
+        task(
+            'repair',
+            text('ለጥገና ጋራዥ ገብቷል፣ ድጋሚ ምርመራ በመጠበቅ ላይ', 'At a garage, waiting for the re-inspection'),
+            'competency.officer',
+            30,
+            { stepForm: repairForm }
+        ),
         task('sticker', text('የቦሎ ምልክት', 'Bolo sticker'), 'competency.officer', 1, { stepForm: stickerForm }),
         task(
             'temporary',
             text('ጊዜያዊ ቦሎ ተሰጥቷል፣ ምልክቱን በመጠበቅ ላይ', 'Temporary bolo given, waiting for the sticker'),
             'competency.officer',
-            30,
+            // business days, falling due before a temporary bolo of the default 30 calendar days runs out
+            20,
             {
                 stepForm: stickerForm
             }
@@ -278,10 +319,28 @@ export const boloFlow = (inspectionForm: string, stickerForm: string) => ({
         },
         {
             from: 'inspection',
-            to: 'failed',
+            to: 'repair',
             action: 'fail',
-            label: text('አላለፈም', 'Failed'),
+            label: text('አላለፈም፣ ወደ ጋራዥ', 'Failed, to a garage'),
             effects: [`${B.recordBoloInspection}:fail`]
+        },
+        {
+            // back from the garage: inspected again on the same case and its paid fee
+            from: 'repair',
+            to: 'inspection',
+            action: 'reinspect',
+            label: text('ከጥገና ተመልሷል፣ እንደገና መርምር', 'Back from the repair: inspect again'),
+            guard: PAID,
+            effects: [B.recordBoloRepair]
+        },
+        {
+            // a reject (it needs no step form: the vehicle never came back), ending the request as failed
+            from: 'repair',
+            to: 'failed',
+            action: 'reject',
+            label: text('አልተመለሰም፣ ዝጋ', 'Not back from the garage: close'),
+            rejectRoles: REJECT_ROLES,
+            commentRequired: true
         },
         {
             from: ['sticker', 'temporary'],
@@ -348,6 +407,13 @@ export async function importBoloService(tx: Tx, root: { id: string; regionId: st
         text('የቦሎ ምልክት', 'Bolo sticker'),
         BOLO_STICKER_FORM
     );
+    const repair = await publishedForm(
+        tx,
+        root,
+        REPAIR_STEP.stepFormKey,
+        text('ጥገናና ድጋሚ ምርመራ', 'Repair and re-inspection'),
+        BOLO_REPAIR_FORM
+    );
     const form = await publishedForm(tx, root, 'vehicle-bolo', name, BOLO_REQUEST_FORM);
     await firstServiceVersion(tx, root, service, {
         formVersionId: form.versionId,
@@ -356,7 +422,11 @@ export async function importBoloService(tx: Tx, root: { id: string; regionId: st
             root,
             'vehicle-bolo',
             name,
-            boloFlow(`vehicle-bolo-inspection@${inspection.number}`, `${STICKER_STEP.stepFormKey}@${sticker.number}`)
+            boloFlow(
+                `vehicle-bolo-inspection@${inspection.number}`,
+                `${STICKER_STEP.stepFormKey}@${sticker.number}`,
+                `${REPAIR_STEP.stepFormKey}@${repair.number}`
+            )
         ),
         feeRuleVersionId: await approvedFeeRule(tx, root.regionId, 'dvc-02-bolo')
     });

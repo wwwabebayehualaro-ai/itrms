@@ -6,7 +6,7 @@
 import 'reflect-metadata';
 
 import { LicencesService } from '@itrms/competency/api';
-import { competencyHandlers } from '@itrms/competency/api/worker';
+import { boloHandlers, competencyHandlers } from '@itrms/competency/api/worker';
 import { documentsHandlers } from '@itrms/documents/api/worker';
 import { DOCUMENTS_ROUTES } from '@itrms/documents/contracts';
 import { PaymentsService } from '@itrms/fees/api';
@@ -20,6 +20,7 @@ import { permissionsOf, rolePermissions } from '@itrms/kernel/iam';
 import { identitySyncHandlers, purgeExpiredUploads, startJobs, type OutboxHandler } from '@itrms/kernel/api/worker';
 import { contextKeyOf, createDatabase } from '@itrms/kernel/db';
 import { SettingsService } from '@itrms/kernel/settings';
+import { FIELD_CRYPTO, type FieldCrypto } from '@itrms/kernel/crypto';
 import { NO_OBJECT_STORE } from '@itrms/kernel/files';
 import { FakeSms } from '@itrms/kernel/notifications';
 import { createSystemDatabase } from '@itrms/kernel/db/system';
@@ -64,9 +65,10 @@ async function main() {
             // what roles give, for the background exports' check of the requester's rights when they run
             const catalogue = rolePermissions(loadSlices(SLICES, { disabled: config.MODULES_DISABLED }).manifests);
             // the SLA timers: an overdue step, a wait's timeout (task 0.20a); SMS through the fake gateway until Phase 1
+            const sms = new FakeSms();
             const sla: SlaDeps = {
                 cases: app.get(CasesService),
-                sms: new FakeSms(),
+                sms,
                 onError: (err, what) =>
                     logger.warn({ err, what }, 'an SLA item could not be handled; the next sweep tries again')
             };
@@ -85,6 +87,8 @@ async function main() {
                     licences: app.get(LicencesService),
                     cases: app.get(CasesService)
                 }),
+                // a bolo's renewal reminder to its owners, when it comes due (task 1.3b); SMS through the fake gateway for now
+                ...boloHandlers(system, { sms, crypto: app.get<FieldCrypto>(FIELD_CRYPTO) }),
                 ...formsHandlers(system, {
                     database,
                     store: objectStore ?? NO_OBJECT_STORE,

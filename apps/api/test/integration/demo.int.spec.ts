@@ -72,7 +72,7 @@ afterAll(async () => {
 
 describe('the demo’s data', () => {
     it('has the people, schools and licences of the plan', () => {
-        expect(seeded).toEqual({ persons: 200, organisations: 5, licences: 60, enrolments: 20, examSessions: 8 });
+        expect(seeded).toEqual({ persons: 200, organisations: 7, licences: 60, enrolments: 20, examSessions: 8 });
     });
 
     it('holds nobody’s identity: no Fayda number, no phone, and a birth date only in its encrypted column', async () => {

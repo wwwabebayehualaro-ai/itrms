@@ -23,7 +23,7 @@ export default defineModule({
     layer: 'work-process',
     version: '0.0.0',
     dependsOn: ['kernel', 'integrations', 'forms', 'fees', 'documents', 'workflow', 'services', 'parties', 'vehicles'],
-    lookups: ['driver-licence', 'training-school'],
+    lookups: ['driver-licence', 'training-school', 'garage'],
     // what the proclamation sets no figure for (ADR-0047)
     settings: [
         {
@@ -34,6 +34,17 @@ export default defineModule({
         {
             key: 'competency.renewal_window_months',
             default: 6,
+            overridableAt: ['installation', 'region', 'unitType', 'unit']
+        },
+        // a temporary bolo's days, and how long before a bolo's last day its owners are reminded (task 1.3b)
+        {
+            key: 'competency.bolo_temporary_days',
+            default: 30,
+            overridableAt: ['installation', 'region', 'unitType', 'unit']
+        },
+        {
+            key: 'competency.bolo_reminder_days',
+            default: 30,
             overridableAt: ['installation', 'region', 'unitType', 'unit']
         }
     ],
@@ -64,7 +75,8 @@ export default defineModule({
         'competency.recordBoloInspection',
         'competency.issueBoloSticker',
         'competency.issueTemporaryBolo',
-        'competency.voidBolo'
+        'competency.voidBolo',
+        'competency.recordBoloRepair'
     ],
     title: { am: 'የአሽከርካሪና ተሽከርካሪ ብቃት ማረጋገጫ', en: 'Driver and vehicle competency' },
     workProcess: 1,

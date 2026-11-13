@@ -237,6 +237,12 @@ export async function importDemoData(
             { am: 'ናሙና ጤና ጣቢያ ሁለት', en: 'Sample Health Centre Two' }
         ])
             await deps.organisations.create(tx, zoneCtx, { kind: 'health_facility', name });
+        // the garages a vehicle that failed its bolo inspection is repaired at (task 1.3b)
+        for (const name of [
+            { am: 'ናሙና ጋራዥ አንድ', en: 'Sample Garage One' },
+            { am: 'ናሙና ጋራዥ ሁለት', en: 'Sample Garage Two' }
+        ])
+            await deps.organisations.create(tx, zoneCtx, { kind: 'garage', name });
 
         // the people: each a different name, past the register's own duplicate check
         type Person = { id: string; birthDate: string; age: number; unit: keyof typeof offices };
@@ -402,7 +408,7 @@ export async function importDemoData(
         }
         return {
             persons: people.length,
-            organisations: schools.length + 2,
+            organisations: schools.length + 4,
             licences,
             enrolments,
             examSessions: sessions

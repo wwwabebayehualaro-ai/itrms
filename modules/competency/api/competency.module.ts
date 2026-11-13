@@ -14,14 +14,14 @@ import { EXCHANGE_EFFECTS } from './exchange.effects';
 import { PlateExchangeService } from './exchange.service';
 import { LICENCE_EFFECTS } from './licence.effects';
 import { LicencesService } from './licences.service';
-import { LicenceLookup, TrainingSchoolLookup } from './lookups';
+import { GarageLookup, LicenceLookup, TrainingSchoolLookup } from './lookups';
 import { RegisterService } from './register.service';
 import { REGISTRATION_EFFECTS } from './registration.effects';
 import { VehicleRegistrationService } from './registration.service';
 
 /**
  * Driver licences (task 0.24a): the register, its rules and the effects a licence service's workflow names; and the new vehicle
- * registration service's effects over the vehicle register (task 1.2b); the back-capture of paper vehicle files (task 1.13); the plate exchange (task 1.2c); and the bolo inspection (task 1.3a).
+ * registration service's effects over the vehicle register (task 1.2b); the back-capture of paper vehicle files (task 1.13); the plate exchange (task 1.2c); and the bolo inspection (tasks 1.3a, 1.3b).
  */
 @Module({
     imports: [FormsModule, PartiesModule, DocumentsModule, VehiclesModule, FeesModule],
@@ -35,6 +35,7 @@ import { VehicleRegistrationService } from './registration.service';
         BoloService,
         LicenceLookup,
         TrainingSchoolLookup,
+        GarageLookup,
         ...LICENCE_EFFECTS,
         ...REGISTRATION_EFFECTS,
         ...BACK_CAPTURE_EFFECTS,
@@ -47,11 +48,13 @@ export class CompetencyModule implements OnModuleInit {
     constructor(
         @Inject(RegistryLookups) private readonly lookups: RegistryLookups,
         @Inject(LicenceLookup) private readonly licence: LicenceLookup,
-        @Inject(TrainingSchoolLookup) private readonly school: TrainingSchoolLookup
+        @Inject(TrainingSchoolLookup) private readonly school: TrainingSchoolLookup,
+        @Inject(GarageLookup) private readonly garage: GarageLookup
     ) {}
 
     onModuleInit(): void {
         this.lookups.register(this.licence);
         this.lookups.register(this.school);
+        this.lookups.register(this.garage);
     }
 }

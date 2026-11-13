@@ -9,13 +9,27 @@
  *   exam_sessions, exam_results   what an examiner recorded, class T.
  *   licence_print_batches  what goes to the region's printer, class T, with its licences.
  *   bolos                  a vehicle's bolo from its passed inspection (task 1.3a), class R like a licence.
+ *   bolo_inspections       the inspection register (task 1.3b): every inspection of a case, passed or failed, and the garage
+ *                          that repaired the vehicle before it, class T.
  *
  * A licence's number is null until the national platform accepts it: `pending_national` is not yet anyone's licence.
  * The foreign keys to the register of people are in the migration: this file is read by drizzle-kit, which can't load another slice's
  * NestJS entry.
  */
 import { sql } from 'drizzle-orm';
-import { boolean, check, date, index, integer, jsonb, pgSchema, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+    boolean,
+    check,
+    date,
+    index,
+    integer,
+    jsonb,
+    pgSchema,
+    text,
+    timestamp,
+    uniqueIndex,
+    uuid
+} from 'drizzle-orm/pg-core';
 import { audited, baseColumns, ltree, withRls } from '@itrms/kernel/db';
 import { orgUnits } from '@itrms/kernel/tables';
 import type { I18nText } from '@itrms/schemas';
@@ -331,7 +345,9 @@ export const bolos = withRls(
                 stickerKey: text('sticker_key'),
                 /** the last day a temporary bolo stands */
                 temporaryUntil: date('temporary_until'),
-                voidReason: text('void_reason')
+                voidReason: text('void_reason'),
+                /** when its owners were reminded of its last day (task 1.3b): once */
+                remindedAt: timestamp('reminded_at', { withTimezone: true })
             },
             (t) => [
                 uniqueIndex('bolos_case_uq')
@@ -351,4 +367,46 @@ export const bolos = withRls(
         )
     ),
     'registry'
+);
+
+/** A failed item of an inspection: its key, as the checklist names it, and the inspector's remark. */
+export type FailedItem = { key: string; remark?: string };
+
+/**
+ * The inspection register (task 1.3b): one row per inspection of a case, the first and each one after a garage repair. Written
+ * once by the inspection's step; the bolo a pass makes is in `bolos`. The garage and the vehicle's foreign keys are in the
+ * migration (another slice's tables).
+ */
+export const boloInspections = withRls(
+    audited(
+        competencySchema.table(
+            'bolo_inspections',
+            {
+                ...baseColumns(),
+                ...handled(),
+                caseId: uuid('case_id').notNull(),
+                vehicleId: uuid('vehicle_id').notNull(),
+                /** 1 for the first inspection, then one more for each after a repair */
+                attempt: integer('attempt').notNull(),
+                checklistSerial: text('checklist_serial').notNull(),
+                inspectedOn: date('inspected_on').notNull(),
+                passed: boolean('passed').notNull(),
+                failedItems: jsonb('failed_items').$type<FailedItem[]>().notNull().default([]),
+                /** the garage that repaired the vehicle before this inspection (none for the first) */
+                garageId: uuid('garage_id'),
+                repairedOn: date('repaired_on'),
+                repairNote: text('repair_note')
+            },
+            (t) => [
+                uniqueIndex('bolo_inspections_attempt_uq').on(t.caseId, t.attempt),
+                index('bolo_inspections_vehicle_idx').on(t.vehicleId, t.inspectedOn),
+                index('bolo_inspections_garage_idx')
+                    .on(t.garageId)
+                    .where(sql`garage_id IS NOT NULL`),
+                index('bolo_inspections_org_path_gist').using('gist', t.orgPath),
+                check('bolo_inspections_attempt_check', sql`attempt >= 1 AND (attempt = 1) = (garage_id IS NULL)`)
+            ]
+        )
+    ),
+    'transaction'
 );

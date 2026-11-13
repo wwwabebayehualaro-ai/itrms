@@ -1,6 +1,7 @@
 /**
  * The bolo (task 1.3a, DVC-02): its workflow, its forms and checklist as the engine reads them, its fee rule on the zone's table,
- * and the validity rule. A failed item blocks the pass (the server's checklist outcome, task 1.13a).
+ * and the validity rule. A failed item blocks the pass (the server's checklist outcome, task 1.13a). A failed vehicle goes to a garage
+ * and comes back to re-inspection on the same case; the owners' reminder falls due before the last day (task 1.3b).
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -11,9 +12,15 @@ import { parseFeeRules } from '@itrms/fees/seed';
 import { workflowDefinitionSchema } from '@itrms/schemas';
 import { describe, expect, it } from 'vitest';
 
-import { boloValidity, daysAfter } from '../api/bolo-validity';
+import { boloValidity, daysAfter, reminderDue, reminderText } from '../api/bolo-validity';
 import { BOLO_EFFECTS as B } from '../contracts';
-import { BOLO_INSPECTION_FORM, BOLO_REQUEST_FORM, BOLO_STICKER_FORM, boloFlow } from '../seed/bolo-service';
+import {
+    BOLO_INSPECTION_FORM,
+    BOLO_REPAIR_FORM,
+    BOLO_REQUEST_FORM,
+    BOLO_STICKER_FORM,
+    boloFlow
+} from '../seed/bolo-service';
 
 interface Step {
     from: string | readonly string[];
@@ -22,9 +29,10 @@ interface Step {
     on?: string;
     guard?: unknown;
     effects?: readonly string[];
+    commentRequired?: boolean;
 }
 
-const flow = boloFlow('vehicle-bolo-inspection@1', 'vehicle-bolo-sticker@1');
+const flow = boloFlow('vehicle-bolo-inspection@1', 'vehicle-bolo-sticker@1', 'vehicle-bolo-repair@1');
 const steps = flow.transitions as readonly Step[];
 const PAID = { fact: 'payment.settled', op: 'eq', value: true };
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -40,7 +48,7 @@ describe('the bolo workflow', () => {
         for (const t of filing) expect(t.effects).toContain(B.checkBolo);
     });
 
-    it('inspects only after payment: a pass makes the bolo, a fail closes the case', () => {
+    it('inspects only after payment: a pass makes the bolo, a fail sends the vehicle to a garage', () => {
         expect(steps.find((t) => t.from === 'payment' && t.on === 'event:payment.settled')?.to).toBe('inspection');
         expect(steps.find((t) => t.action === 'pass')).toMatchObject({
             from: 'inspection',
@@ -50,9 +58,26 @@ describe('the bolo workflow', () => {
         });
         expect(steps.find((t) => t.action === 'fail')).toMatchObject({
             from: 'inspection',
-            to: 'failed',
+            to: 'repair',
             effects: [`${B.recordBoloInspection}:fail`]
         });
+    });
+
+    it('brings a repaired vehicle back to inspection on the same case and fee, or closes it as failed', () => {
+        expect(steps.find((t) => t.action === 'reinspect')).toMatchObject({
+            from: 'repair',
+            to: 'inspection',
+            guard: PAID,
+            effects: [B.recordBoloRepair]
+        });
+        expect(steps.find((t) => t.action === 'reject' && t.from === 'repair')).toMatchObject({
+            to: 'failed',
+            commentRequired: true
+        });
+        // no second payment: the only way into payment is the first approval
+        expect(steps.filter((t) => t.to === 'payment').map((t) => t.from)).toEqual(['review']);
+        const repair = flow.states.find((s) => s.key === 'repair') as { stepForm?: string; sla?: unknown } | undefined;
+        expect(repair).toMatchObject({ stepForm: 'vehicle-bolo-repair@1', sla: { businessDays: 30 } });
     });
 
     it('gives the sticker, or a temporary bolo first and the sticker later, on the same case', () => {
@@ -74,7 +99,7 @@ describe('the bolo workflow', () => {
 
 describe('the bolo forms', () => {
     it('are forms the engine takes, the inspection on the Checklist type with critical items', () => {
-        for (const form of [BOLO_REQUEST_FORM, BOLO_INSPECTION_FORM, BOLO_STICKER_FORM])
+        for (const form of [BOLO_REQUEST_FORM, BOLO_INSPECTION_FORM, BOLO_STICKER_FORM, BOLO_REPAIR_FORM])
             expect(checkDocument(form)).toEqual([]);
         const inspection = readDocument(BOLO_INSPECTION_FORM, { language: 'en' }).fields.find(
             (f) => f.id === 'inspection'
@@ -142,5 +167,19 @@ describe('a bolo\x27s validity', () => {
     it('counts a temporary bolo\x27s days from a day', () => {
         expect(daysAfter('2026-11-13', 30)).toBe('2026-12-13');
         expect(daysAfter('2026-12-20', 30)).toBe('2027-01-19');
+    });
+});
+
+describe('the renewal reminder', () => {
+    it('falls due a number of days before the last day, at 08:00 in Addis Ababa', () => {
+        expect(reminderDue('2027-07-07', 30).toISOString()).toBe('2027-06-07T05:00:00.000Z');
+        expect(reminderDue('2027-03-01', 1).toISOString()).toBe('2027-02-28T05:00:00.000Z');
+    });
+
+    it('names the plate and the last day in the Ethiopian calendar', () => {
+        const text = reminderText('ETH ABC 1234', '2027-07-07');
+        expect(text).toContain('ETH ABC 1234');
+        expect(text).toContain('ሰኔ 30');
+        expect(text).toContain('2019');
     });
 });

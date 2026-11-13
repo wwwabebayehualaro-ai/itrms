@@ -72,7 +72,7 @@ export class IssueTemporaryBoloEffect implements WorkflowEffect {
     constructor(@Inject(BoloService) private readonly bolo: BoloService) {}
 
     async run(run: EffectRun) {
-        return { facts: await this.bolo.issueTemporary(run.tx, placeOf(run), run.facts, run.config) };
+        return { facts: await this.bolo.issueTemporary(run.tx, placeOf(run), run.facts) };
     }
 }
 
@@ -87,11 +87,26 @@ export class VoidBoloEffect implements WorkflowEffect {
     }
 }
 
+/**
+ * The garage step after a failed inspection (task 1.3b): the garage and the day the vehicle came back, for the re-inspection to
+ * carry into the register. Like the inspection it reads the step's own answers.
+ */
+@Injectable()
+@Effect(B.recordBoloRepair)
+export class RecordBoloRepairEffect implements WorkflowEffect {
+    constructor(@Inject(BoloService) private readonly bolo: BoloService) {}
+
+    async run(run: EffectRun) {
+        return { facts: await this.bolo.repair(run.tx, placeOf(run), run.input) };
+    }
+}
+
 /** Every effect of the service, for the module and for the slice's `effects` list. */
 export const BOLO_EFFECTS = [
     CheckBoloEffect,
     RecordBoloInspectionEffect,
     IssueBoloStickerEffect,
     IssueTemporaryBoloEffect,
-    VoidBoloEffect
+    VoidBoloEffect,
+    RecordBoloRepairEffect
 ] as const;

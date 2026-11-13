@@ -5,6 +5,7 @@
 import { i18nTextSchema } from '@itrms/schemas';
 import { z } from 'zod';
 
+import { BOLO_EVENTS, BOLO_REMINDER_DAYS_SETTING, TEMPORARY_BOLO_DAYS_SETTING } from './bolo';
 import { MEDICAL_MONTHS_SETTING, RENEWAL_WINDOW_SETTING } from './rules';
 
 export * from './back-capture';
@@ -27,7 +28,9 @@ export const LICENCE_PATTERN = '{unit}/DL/{seq:06}';
 const monthsSetting = z.number().int().min(1).max(60);
 export const COMPETENCY_SETTINGS = {
     [MEDICAL_MONTHS_SETTING]: monthsSetting,
-    [RENEWAL_WINDOW_SETTING]: monthsSetting
+    [RENEWAL_WINDOW_SETTING]: monthsSetting,
+    [TEMPORARY_BOLO_DAYS_SETTING]: z.number().int().min(1).max(90),
+    [BOLO_REMINDER_DAYS_SETTING]: z.number().int().min(1).max(120)
 } as const;
 
 /** The document a licence prints as. */
@@ -60,7 +63,8 @@ export const COMPETENCY_EVENTS = {
         /** a new decision after a refusal, which the platform must take afresh; a retry keeps its number and gets the same answer */
         attempt: z.number().int().min(0).default(0)
     }),
-    'licence-batch.print-requested.v1': z.object({ batchId: z.uuid() })
+    'licence-batch.print-requested.v1': z.object({ batchId: z.uuid() }),
+    ...BOLO_EVENTS
 } as const;
 
 /** What an answer of the national platform gives a licence, as an event's input to the case's effects. */

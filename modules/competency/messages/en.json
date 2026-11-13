@@ -176,5 +176,16 @@
   "competency.bolos.fileNew": "New bolo inspection",
   "competency.rule.boloInspectedEarlier": "The inspection day must be in this fiscal year.",
   "competency.rule.boloLoad": "Enter the load capacity in tonnes as the register gives it: the fee is worked out from it.",
-  "competency.rule.boloSeats": "Enter the seats as the register gives them: the fee is worked out from them."
+  "competency.rule.boloSeats": "Enter the seats as the register gives them: the fee is worked out from them.",
+  "competency.setting.bolo_temporary_days": "Days a temporary bolo stands",
+  "competency.setting.bolo_reminder_days": "Days before a bolo's last day its owners are reminded",
+  "competency.lookup.garage.title": "Garage",
+  "competency.rule.boloInspectedBeforeRepair": "The re-inspection cannot be dated before the vehicle came back from the garage.",
+  "competency.rule.boloNothingToRepair": "There is no failed inspection on this request to repair after.",
+  "competency.rule.boloNotAGarage": "Pick a garage from the register.",
+  "competency.rule.boloRepairLater": "The day the vehicle came back cannot be in the future.",
+  "competency.rule.boloRepairBeforeFailure": "The day the vehicle came back cannot be before the inspection it failed.",
+  "competency.rule.boloStickersInStock": "The office has a sticker of this kind and year in stock: give the sticker, not a temporary bolo.",
+  "competency.notify.boloExpiring": "The bolo of vehicle {plate} ends on {date}. Bring the vehicle for its annual inspection before then.",
+  "competency.rule.boloRepairPastYear": "The fiscal year has ended since the failed inspection: close this request as failed and file a new one for this year."
 }
