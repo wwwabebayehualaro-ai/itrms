@@ -47,8 +47,10 @@ const refuse = (path: string, code: string, key: Words): never => {
 /** The request's answers an effect reads, by contract path (see bolo.effects.ts). */
 export type BoloInput = {
     vehicle: string;
-    /** its use, as the fee was worked out from it: the register's must be the same */
+    /** its use, seats and load, as the fee was worked out from them: the register's must be the same */
     use: string;
+    seats?: number;
+    loadTonnes?: number;
     insuranceCertificate: string;
     insurer: string;
     insuredFrom: string;
@@ -62,6 +64,25 @@ const factOf = (facts: Facts, key: string): Record<string, unknown> | undefined 
     const v = facts[key];
     return isRecord(v) ? v : undefined;
 };
+
+const alreadyHeld = () =>
+    new ValidationError('not_eligible', {
+        detail: say('competency.rule.boloAlreadyHeld'),
+        detailKey: 'competency.rule.boloAlreadyHeld'
+    });
+
+/** Two cases giving one vehicle a bolo of the same year at the same moment: the database's index refuses the second. */
+async function heldOnce<T>(write: () => Promise<T>): Promise<T> {
+    try {
+        return await write();
+    } catch (error) {
+        for (let e: unknown = error; e; e = (e as { cause?: unknown }).cause) {
+            const { code, constraint } = e as { code?: string; constraint?: string };
+            if (code === '23505' && constraint === 'bolos_vehicle_year_uq') throw alreadyHeld();
+        }
+        throw error;
+    }
+}
 
 const missingFact = (key: string) =>
     new ConflictError('contract_unmet', { detailKey: 'competency.errors.registration_missing_fact', params: { key } });
@@ -86,11 +107,21 @@ export class BoloService {
      * insurance policy covers today (Proclamation 799/2013: an expired policy is refused); a vehicle of a use that pays the Road
      * Fund (plate codes 1 and 3) brings its receipt; and it has no bolo of this fiscal year already. Nothing is written.
      */
-    async check(tx: Tx, _place: CasePlace, input: BoloInput) {
+    async check(tx: Tx, place: CasePlace, input: BoloInput) {
         const [vehicle] = await tx.select().from(vehicles).where(eq(vehicles.id, input.vehicle));
         if (!vehicle || vehicle.status !== 'active')
             return refuse('vehicle', 'not_active', 'competency.rule.boloNotActive');
         if (input.use !== vehicle.use) return refuse('use', 'mismatch', 'competency.rule.exchangeUse');
+        // the fee is worked out from the seats (a bus) and the load (a truck): they are the register's, never fewer
+        if (vehicle.use === 'public_transport' && (vehicle.seats === null || input.seats !== vehicle.seats))
+            return refuse('seats', 'mismatch', 'competency.rule.boloSeats');
+        if (
+            vehicle.use === 'commercial' &&
+            (vehicle.loadCapacityKg === null ||
+                typeof input.loadTonnes !== 'number' ||
+                Math.abs(input.loadTonnes * 1000 - vehicle.loadCapacityKg) >= 500)
+        )
+            return refuse('loadTonnes', 'mismatch', 'competency.rule.boloLoad');
         const insurance = insuranceSchema.safeParse({
             certificate: input.insuranceCertificate,
             insurer: input.insurer,
@@ -108,16 +139,7 @@ export class BoloService {
             !(Array.isArray(input.roadFundReceipt) && input.roadFundReceipt.length)
         )
             return refuse('roadFundReceipt', 'required', 'competency.rule.boloRoadFund');
-        const { fiscalYear } = boloValidity(today);
-        const [held] = await tx
-            .select({ id: bolos.id })
-            .from(bolos)
-            .where(and(eq(bolos.vehicleId, vehicle.id), eq(bolos.fiscalYear, fiscalYear), ne(bolos.status, 'void')));
-        if (held)
-            throw new ValidationError('not_eligible', {
-                detail: say('competency.rule.boloAlreadyHeld'),
-                detailKey: 'competency.rule.boloAlreadyHeld'
-            });
+        await this.notHeld(tx, vehicle.id, boloValidity(today).fiscalYear, place.caseId);
         return {
             vehicle: { id: vehicle.id },
             bolo: { vehicleId: vehicle.id, use: vehicle.use, insurance: insurance.data }
@@ -138,8 +160,12 @@ export class BoloService {
             throw new ValidationError('validation_failed', {
                 errors: entry.error.issues.map((i) => ({ path: i.path.join('.'), code: 'invalid', message: i.message }))
             });
-        const inspectedOn = entry.data.inspectedOn ?? addisDay();
-        if (inspectedOn > addisDay()) return refuse('inspectedOn', 'future', 'competency.rule.boloInspectedLater');
+        const today = addisDay();
+        const inspectedOn = entry.data.inspectedOn ?? today;
+        if (inspectedOn > today) return refuse('inspectedOn', 'future', 'competency.rule.boloInspectedLater');
+        // inspected in this fiscal year: an older day would make a bolo of a past year, already over
+        if (boloValidity(inspectedOn).fiscalYear !== boloValidity(today).fiscalYear)
+            return refuse('inspectedOn', 'past_year', 'competency.rule.boloInspectedEarlier');
         // the checklist as the step's answers were filed: its outcome is the one the server worked out (task 1.13a)
         const checklist = isRecord(input) && isRecord(input.inspection) ? input.inspection : undefined;
         const outcome = checklist && isRecord(checklist.outcome) ? checklist.outcome : undefined;
@@ -161,28 +187,42 @@ export class BoloService {
         const insurance = insuranceSchema.safeParse(asked?.insurance);
         if (typeof asked?.vehicleId !== 'string' || typeof asked.use !== 'string' || !insurance.success)
             throw missingFact('bolo');
+        const vehicleId = asked.vehicleId;
+        const use = asked.use;
         const [made] = await tx
             .select()
             .from(bolos)
             .where(and(eq(bolos.caseId, place.caseId), ne(bolos.status, 'void')));
         const validity = boloValidity(inspectedOn);
+        if (!made) {
+            const [vehicle] = await tx
+                .select({ status: vehicles.status })
+                .from(vehicles)
+                .where(eq(vehicles.id, vehicleId));
+            if (vehicle?.status !== 'active')
+                throw new ConflictError('invalid_transition', { detailKey: 'competency.rule.boloNotActive' });
+            // another case may have given it this year's bolo since this one was filed (the index is the last word)
+            await this.notHeld(tx, vehicleId, validity.fiscalYear, place.caseId);
+        }
         const bolo =
             made ??
-            (await insertAudited(tx, bolos, {
-                regionId: place.regionId,
-                handlingUnitId: place.handlingUnitId,
-                vehicleId: asked.vehicleId,
-                caseId: place.caseId,
-                use: asked.use,
-                checklistSerial: entry.data.checklistSerial,
-                inspectedOn,
-                fiscalYear: validity.fiscalYear,
-                validUntil: validity.validUntil,
-                insuranceCertificate: insurance.data.certificate,
-                insurer: insurance.data.insurer,
-                insuredFrom: insurance.data.from,
-                insuredUntil: insurance.data.until
-            }));
+            (await heldOnce(() =>
+                insertAudited(tx, bolos, {
+                    regionId: place.regionId,
+                    handlingUnitId: place.handlingUnitId,
+                    vehicleId,
+                    caseId: place.caseId,
+                    use,
+                    checklistSerial: entry.data.checklistSerial,
+                    inspectedOn,
+                    fiscalYear: validity.fiscalYear,
+                    validUntil: validity.validUntil,
+                    insuranceCertificate: insurance.data.certificate,
+                    insurer: insurance.data.insurer,
+                    insuredFrom: insurance.data.from,
+                    insuredUntil: insurance.data.until
+                })
+            ));
         return {
             inspection,
             bolo: { ...asked, id: bolo.id, fiscalYear: bolo.fiscalYear, validUntil: bolo.validUntil }
@@ -258,6 +298,40 @@ export class BoloService {
             temporaryBolo: { number, until: now.temporaryUntil },
             documents: { ...known, [TEMPORARY_BOLO_TEMPLATE]: issued.id }
         };
+    }
+
+    /**
+     * A case rejected after its pass (waiting for a sticker no office can give, or on its temporary bolo): its bolo is void, so it
+     * no longer counts as this year's and the vehicle can be filed again. A bolo carried on its sticker is never voided here.
+     */
+    async void(tx: Tx, at: CasePlace) {
+        const place = await actForHandlingOffice(tx, at);
+        const [bolo] = await tx
+            .select()
+            .from(bolos)
+            .where(and(eq(bolos.caseId, place.caseId), ne(bolos.status, 'void')));
+        if (!bolo || bolo.status === 'valid') return {};
+        const voided = await updateAudited(tx, bolos, bolo.id, bolo.rowVersion, {
+            status: 'void',
+            voidReason: 'the case was rejected before the sticker'
+        });
+        return { bolo: { id: voided.id, status: voided.status } };
+    }
+
+    /** Refused when the vehicle has a bolo of the fiscal year from another case (one not voided). */
+    private async notHeld(tx: Tx, vehicleId: string, fiscalYear: number, caseId: string) {
+        const [held] = await tx
+            .select({ id: bolos.id })
+            .from(bolos)
+            .where(
+                and(
+                    eq(bolos.vehicleId, vehicleId),
+                    eq(bolos.fiscalYear, fiscalYear),
+                    ne(bolos.status, 'void'),
+                    ne(bolos.caseId, caseId)
+                )
+            );
+        if (held) throw alreadyHeld();
     }
 
     private async boloOf(tx: Tx, facts: Facts): Promise<Bolo> {

@@ -385,6 +385,46 @@ describe('a bolo request that is refused', () => {
         expect(roadFund.body.errors).toEqual([expect.objectContaining({ path: 'roadFundReceipt', code: 'required' })]);
     }, 240_000);
 
+    it('on fewer seats than the register gives a bus, or another load for a truck: the fee is worked out from them', async () => {
+        const bus = await onTheRoad('public_transport', { seats: 60, categoryKey: 'bus' });
+        const seats = await refusedAt(request(bus, { use: 'public_transport', seats: 10 }));
+        expect(seats.status).toBe(422);
+        expect(seats.body.errors).toEqual([expect.objectContaining({ path: 'seats', code: 'mismatch' })]);
+        const blank = await refusedAt(request(bus, { use: 'public_transport' }));
+        expect(blank.body.errors).toEqual([expect.objectContaining({ path: 'seats', code: 'mismatch' })]);
+        const truck = await onTheRoad('commercial', {
+            seats: undefined,
+            loadCapacityKg: 50000,
+            categoryKey: 'heavy_truck'
+        });
+        const load = await refusedAt(request(truck, { use: 'commercial', loadTonnes: 10 }));
+        expect(load.body.errors).toEqual([expect.objectContaining({ path: 'loadTonnes', code: 'mismatch' })]);
+    }, 240_000);
+
+    it('on an inspection day of a past fiscal year', async () => {
+        const c = await atInspection(await onTheRoad());
+        const old = await step(c, as.officer, {
+            action: 'pass',
+            answers: { ...sheet(), inspectedOn: dayFrom(-400) }
+        });
+        expect(old.statusCode, old.body).toBe(422);
+        expect(old.json<{ errors?: { path: string; code: string }[] }>().errors).toEqual([
+            expect.objectContaining({ path: 'inspectedOn', code: 'past_year' })
+        ]);
+    }, 240_000);
+
+    it('after the pass, when no sticker can be given: the bolo is void and the vehicle can be filed again', async () => {
+        const vehicle = await onTheRoad('ngo');
+        let c = await atInspection(vehicle, { use: 'ngo' });
+        c = await moved(c, as.officer, 'pass', { answers: sheet() });
+        expect(c.state).toBe('sticker');
+        c = await moved(c, as.officer, 'reject', { comment: 'No NGO stickers this year' });
+        expect(c.state).toBe('rejected');
+        expect(await bolosOf(c.id)).toEqual([expect.objectContaining({ status: 'void' })]);
+        const again = await filed(request(vehicle, { use: 'ngo' }));
+        expect((await moved(again, as.officer, 'submit')).state).toBe('review');
+    }, 240_000);
+
     it("for a vehicle that has this fiscal year's bolo already", async () => {
         const vehicle = await onTheRoad();
         let c = await atInspection(vehicle);

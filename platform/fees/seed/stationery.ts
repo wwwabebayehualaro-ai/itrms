@@ -9,6 +9,7 @@
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { Database, DbContext } from '@itrms/kernel/db';
 import { orgUnits } from '@itrms/kernel/tables';
+import { fiscalYearOf, toEthiopian } from '@itrms/ethiopian-calendar';
 
 import type { StationeryKind, StationeryReceive } from '../contracts';
 import type { StationeryStock } from '../api/stationery.service';
@@ -21,7 +22,8 @@ interface Delivery {
     to: number;
     width: number;
     variant?: string;
-    validEfy?: number;
+    /** the fiscal year printed on it; current: the fiscal year of the day the demo is seeded */
+    validEfy?: number | 'current';
     /** santim, from the bureau's price list as the zone sent it (demo) */
     unitCostSantim?: string;
 }
@@ -33,12 +35,26 @@ interface Delivery {
 const DELIVERIES: readonly Delivery[] = [
     { kind: 'libre_booklet', series: 'LB', from: 1, to: 200, width: 7, unitCostSantim: '13000' },
     { kind: 'licence_blank', series: 'LC', from: 1, to: 200, width: 7 },
-    { kind: 'bolo_sticker', series: '', from: 3501, to: 3700, width: 7, variant: 'public_transport', validEfy: 2019 },
-    { kind: 'bolo_sticker', series: 'G', from: 251, to: 350, width: 7, variant: 'government', validEfy: 2019 },
-    { kind: 'bolo_sticker', series: 'P', from: 1301, to: 1400, width: 7, variant: 'private', validEfy: 2019 },
-    { kind: 'bolo_sticker', series: 'C', from: 1, to: 100, width: 7, variant: 'commercial', validEfy: 2019 },
+    {
+        kind: 'bolo_sticker',
+        series: '',
+        from: 3501,
+        to: 3700,
+        width: 7,
+        variant: 'public_transport',
+        validEfy: 'current'
+    },
+    { kind: 'bolo_sticker', series: 'G', from: 251, to: 350, width: 7, variant: 'government', validEfy: 'current' },
+    { kind: 'bolo_sticker', series: 'P', from: 1301, to: 1400, width: 7, variant: 'private', validEfy: 'current' },
+    { kind: 'bolo_sticker', series: 'C', from: 1, to: 100, width: 7, variant: 'commercial', validEfy: 'current' },
     { kind: 'receipt_leaf', series: 'R', from: 1, to: 500, width: 6 }
 ];
+
+/** The Ethiopian fiscal year of a Gregorian day (YYYY-MM-DD). */
+const fiscalYearOfDay = (day: string): number => {
+    const [year = 0, month = 0, date = 0] = day.split('-').map(Number);
+    return fiscalYearOf(toEthiopian({ year, month, day: date }));
+};
 
 export const DEMO_STATIONERY: Record<string, { chain: readonly [string, number][] }> = {
     // of every delivery: the zone takes 60 %, Boditi 30 % of it (counted from the first serial)
@@ -136,7 +152,7 @@ export async function importStationeryDemo(
             range: { series: d.series, from: d.from, to: d.to },
             width: d.width,
             ...(d.variant ? { variant: d.variant } : {}),
-            ...(d.validEfy ? { validEfy: d.validEfy } : {}),
+            ...(d.validEfy ? { validEfy: d.validEfy === 'current' ? fiscalYearOfDay(today) : d.validEfy } : {}),
             ...(d.unitCostSantim ? { unitCostSantim: d.unitCostSantim } : {}),
             note: 'Demo delivery (generated)'
         };

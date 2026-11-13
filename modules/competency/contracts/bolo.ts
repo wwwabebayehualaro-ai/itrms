@@ -10,7 +10,8 @@ export const BOLO_EFFECTS = {
     checkBolo: 'competency.checkBolo',
     recordBoloInspection: 'competency.recordBoloInspection',
     issueBoloSticker: 'competency.issueBoloSticker',
-    issueTemporaryBolo: 'competency.issueTemporaryBolo'
+    issueTemporaryBolo: 'competency.issueTemporaryBolo',
+    voidBolo: 'competency.voidBolo'
 } as const;
 
 /** The service's code in the catalogue. */

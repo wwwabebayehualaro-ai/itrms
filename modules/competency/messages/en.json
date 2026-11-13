@@ -173,5 +173,8 @@
   "competency.action.newBolo": "New bolo inspection",
   "competency.bolos.title": "Bolo inspections",
   "competency.bolos.intro": "The annual technical inspection (DVC-02): the vehicle on the register, its third-party insurance and the papers its use needs, payment, the inspection on the checklist (a failed item blocks the pass), then the bolo sticker of its use and fiscal year, or a temporary bolo while the office has none.",
-  "competency.bolos.fileNew": "New bolo inspection"
+  "competency.bolos.fileNew": "New bolo inspection",
+  "competency.rule.boloInspectedEarlier": "The inspection day must be in this fiscal year.",
+  "competency.rule.boloLoad": "Enter the load capacity in tonnes as the register gives it: the fee is worked out from it.",
+  "competency.rule.boloSeats": "Enter the seats as the register gives them: the fee is worked out from them."
 }

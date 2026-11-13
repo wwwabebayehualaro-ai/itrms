@@ -20,6 +20,8 @@ const placeOf = (run: EffectRun<unknown>): CasePlace => ({
 const REQUEST = {
     vehicle: { kind: 'ref' },
     use: { kind: 'choice' },
+    seats: { kind: 'number', required: false },
+    loadTonnes: { kind: 'number', required: false },
     insuranceCertificate: { kind: 'text' },
     insurer: { kind: 'text' },
     insuredFrom: { kind: 'ethdate' },
@@ -74,10 +76,22 @@ export class IssueTemporaryBoloEffect implements WorkflowEffect {
     }
 }
 
+/** A rejection after the pass voids the bolo the case made (none made: nothing to do). */
+@Injectable()
+@Effect(B.voidBolo)
+export class VoidBoloEffect implements WorkflowEffect {
+    constructor(@Inject(BoloService) private readonly bolo: BoloService) {}
+
+    async run(run: EffectRun) {
+        return { facts: await this.bolo.void(run.tx, placeOf(run)) };
+    }
+}
+
 /** Every effect of the service, for the module and for the slice's `effects` list. */
 export const BOLO_EFFECTS = [
     CheckBoloEffect,
     RecordBoloInspectionEffect,
     IssueBoloStickerEffect,
-    IssueTemporaryBoloEffect
+    IssueTemporaryBoloEffect,
+    VoidBoloEffect
 ] as const;

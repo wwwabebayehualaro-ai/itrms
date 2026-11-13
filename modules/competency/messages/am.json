@@ -173,5 +173,8 @@
   "competency.action.newBolo": "አዲስ የቦሎ ምርመራ",
   "competency.bolos.title": "የቦሎ ምርመራዎች",
   "competency.bolos.intro": "ዓመታዊ የቴክኒክ ምርመራ (DVC-02)፦ በመዝገብ ላይ ያለው ተሽከርካሪ፣ የሦስተኛ ወገን መድኑና አገልግሎቱ የሚጠይቃቸው ሰነዶች፣ ክፍያ፣ በማረጋገጫ ዝርዝሩ ላይ ምርመራ (ያልተሳካ ንጥል ማለፍን ያግዳል)፣ ከዚያም የአገልግሎቱና የበጀት ዓመቱ የቦሎ ምልክት፣ ወይም ጽ/ቤቱ ምልክት እስኪኖረው ጊዜያዊ ቦሎ።",
-  "competency.bolos.fileNew": "አዲስ የቦሎ ምርመራ"
+  "competency.bolos.fileNew": "አዲስ የቦሎ ምርመራ",
+  "competency.rule.boloInspectedEarlier": "የምርመራው ቀን በዚህ የበጀት ዓመት ውስጥ መሆን አለበት።",
+  "competency.rule.boloLoad": "የመጫን አቅሙን መዝገቡ እንደሚገልጸው በቶን ያስገቡ፤ ክፍያው የሚሰላው ከእሱ ነው።",
+  "competency.rule.boloSeats": "የወንበሩን ብዛት መዝገቡ እንደሚገልጸው ያስገቡ፤ ክፍያው የሚሰላው ከእሱ ነው።"
 }

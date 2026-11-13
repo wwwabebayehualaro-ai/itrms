@@ -48,4 +48,7 @@ GRANT SELECT, INSERT ON "competency"."bolos" TO itrms_app;
 GRANT UPDATE ("status", "sticker_key", "temporary_until", "void_reason", "updated_at", "updated_by", "row_version")
     ON "competency"."bolos" TO itrms_app;
 --> statement-breakpoint
+-- one bolo per vehicle and fiscal year, whichever office gives it: two cases at the same moment, the second is refused
+CREATE UNIQUE INDEX "bolos_vehicle_year_uq" ON "competency"."bolos" ("vehicle_id", "fiscal_year") WHERE "status" <> 'void';
+--> statement-breakpoint
 SELECT kernel.apply_rls('competency.bolos', 'registry', 'handling_org_path');

@@ -63,7 +63,8 @@ export default defineModule({
         'competency.checkBolo',
         'competency.recordBoloInspection',
         'competency.issueBoloSticker',
-        'competency.issueTemporaryBolo'
+        'competency.issueTemporaryBolo',
+        'competency.voidBolo'
     ],
     title: { am: 'የአሽከርካሪና ተሽከርካሪ ብቃት ማረጋገጫ', en: 'Driver and vehicle competency' },
     workProcess: 1,

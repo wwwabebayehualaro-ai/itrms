@@ -301,12 +301,14 @@ export const boloFlow = (inspectionForm: string, stickerForm: string) => ({
         },
         WITHDRAW,
         {
-            from: ['review', 'inspection'],
+            // after the pass too: a vehicle whose sticker no office can give is not stuck, and its bolo is void
+            from: ['review', 'inspection', 'sticker', 'temporary'],
             to: 'rejected',
             action: 'reject',
             label: text('ውድቅ አድርግ', 'Reject'),
             rejectRoles: REJECT_ROLES,
-            commentRequired: true
+            commentRequired: true,
+            effects: [B.voidBolo]
         }
     ]
 });
