@@ -299,7 +299,8 @@ beforeAll(async () => {
             home: 'WOL-BODITI',
             roles: [
                 ['WOL-BODITI', 'competency.officer'],
-                ['WOL-BODITI', 'competency.lead']
+                ['WOL-BODITI', 'competency.lead'],
+                ['WOL-BODITI', 'records_officer']
             ]
         }
     ]);
@@ -886,7 +887,9 @@ describe('the hardening from the 1.2b review (task 1.2e)', () => {
         // a chassis no open request claims passes the same check there
         const free = await inTx(areaPlace, (tx) => registration.check(tx, areaPlace, request()));
         expect(free.registration.notices).toEqual([]);
-        await moved(c, as.officer, 'withdraw', { comment: 'Test over' });
+        // a request in review is returned to its filer, who withdraws it: the chassis is free again
+        const returned = await moved(c, as.officer, 'return', { comment: 'Test over' });
+        await moved(returned, as.officer, 'withdraw', { comment: 'Test over' });
         expect((await moved(await filed(claimed), as.officer, 'submit')).state).toBe('review');
     }, 120_000);
 
