@@ -376,3 +376,90 @@ describe('a place', () => {
         expect(contractInput({ at: { kind: 'geopoint' } }, { at: { lat: 'x', lng: 37.7 } }).invalid).toEqual(['at']);
     });
 });
+
+describe('the review of 1.13a: what a checklist value can never smuggle in', () => {
+    const optional = { ...BOLO, props: { ...BOLO.props, required: false } };
+
+    it('keeps no outcome a browser sent with nothing answered, and refuses anything beside the answers', () => {
+        const fields = doc(optional);
+        const forged = { items: {}, outcome: { total: 4, max: 4, failed: [], criticalFailed: [], passed: true } };
+        expect(submittedValues(fields, { inspection: forged })).toEqual({ inspection: { items: {} } });
+        expect(validateForm(fields, { inspection: { ...forged, verdict: 'passed' } }).inspection).toBe(
+            "Check the checklist's answers"
+        );
+        // a remark-only answer to an item the sheet does not have is refused, not kept
+        expect(validateForm(fields, { inspection: { items: { wipers: { remark: 'x' } } } }).inspection).toBe(
+            "Check the checklist's answers"
+        );
+        expect(validateForm(fields, { inspection: { items: { fog: { remark: 'x'.repeat(501) } } } }).inspection).toBe(
+            "Check the checklist's answers"
+        );
+    });
+
+    it('refuses an item the sheet does not have after the server settles it, rather than dropping it', () => {
+        const fields = bolo();
+        const settled = submittedValues(fields, {
+            inspection: { items: { ...all('pass'), wipers: { result: 'pass' } } }
+        });
+        expect(validateForm(fields, settled).inspection).toBe("Check the checklist's answers");
+    });
+
+    it('never lets a critical item, or a whole sheet, pass by not applying', () => {
+        const critical = {
+            ...BOLO,
+            props: {
+                ...BOLO.props,
+                sections: [
+                    {
+                        key: 'brakes',
+                        items: [
+                            { key: 'service', text: 'Service brake', critical: true },
+                            { key: 'parking', text: 'Parking brake' }
+                        ]
+                    }
+                ]
+            }
+        };
+        const fields = doc(critical);
+        expect(
+            validateForm(fields, { inspection: { items: { service: { result: 'na' }, parking: { result: 'pass' } } } })
+                .inspection
+        ).toBe('A critical item always applies: answer 1.1');
+        const def = checklistOf(first(bolo()));
+        if (!def) throw new Error('no checklist');
+        expect(checklistOutcome(def, all('na'))).toMatchObject({ total: 0, max: 0, passed: false });
+    });
+
+    it('reads only answers the value holds itself, whatever an item is called', () => {
+        const odd = {
+            ...BOLO,
+            props: {
+                ...BOLO.props,
+                sections: [
+                    {
+                        key: 's',
+                        items: [
+                            { key: 'constructor', text: 'Odd' },
+                            { key: 'toString', text: 'Odder' }
+                        ]
+                    }
+                ]
+            }
+        };
+        const fields = doc(odd);
+        expect(validateForm(fields, { inspection: { items: { constructor: { result: 'pass' } } } }).inspection).toBe(
+            'Answer every item: 1.2 not answered'
+        );
+        const def = checklistOf(first(fields));
+        if (!def) throw new Error('no checklist');
+        expect(checklistOutcome(def, {})).toMatchObject({ total: 0, max: 2, passed: null });
+    });
+
+    it('refuses a place field whose accuracy no fix could meet', () => {
+        const at = (maxAccuracy: unknown) =>
+            checkDocument({ fields: [{ id: 'at', type: 'GeoPoint', props: { maxAccuracy } }] }).map((p) => p.path);
+        expect(at(20)).toEqual([]);
+        expect(at(0)).toEqual(['fields[0].props.maxAccuracy']);
+        expect(at(-5)).toEqual(['fields[0].props.maxAccuracy']);
+    });
+});

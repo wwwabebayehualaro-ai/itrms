@@ -40,6 +40,15 @@ export function isBlankChecklist(v: unknown): boolean {
     return Object.values(v.items).every((a) => !isRecord(a) || (a.result === undefined && a.points === undefined));
 }
 
+/**
+ * An item's answer: only an answer the value holds itself, so an item key that is also the name of something every object
+ * has (`constructor`, `toString`) never reads that.
+ */
+const answerOf = (items: Readonly<Record<string, unknown>>, key: string): ChecklistAnswer | undefined => {
+    const a = Object.hasOwn(items, key) ? items[key] : undefined;
+    return isRecord(a) ? a : undefined;
+};
+
 const answered = (a: ChecklistAnswer | undefined, scoring: ChecklistDefinition['scoring']) =>
     !!a && (a.result === 'na' || (scoring === 'points' ? a.points !== undefined : a.result !== undefined));
 
@@ -50,21 +59,21 @@ const failedItem = (a: ChecklistAnswer | undefined, scoring: ChecklistDefinition
 /**
  * The outcome of a checklist's answers. Pass/fail: the items passed out of those that apply; it passes when no item failed.
  * Points: the points given out of the points of the items that apply; it passes when no critical item failed and the total
- * reaches the pass mark. While an item is unanswered nothing is decided (`passed: null`), but what failed already shows.
+ * reaches the pass mark. While an item is unanswered nothing is decided (`passed: null`), but what failed already shows. A
+ * sheet where nothing applied never passes: nothing was checked.
  */
-export function checklistOutcome(
-    def: ChecklistDefinition,
-    items: Readonly<Record<string, ChecklistAnswer>>
-): ChecklistOutcome {
+export function checklistOutcome(def: ChecklistDefinition, items: Readonly<Record<string, unknown>>): ChecklistOutcome {
     let total = 0;
     let max = 0;
     let open = false;
+    let applied = 0;
     const failed: string[] = [];
     const criticalFailed: string[] = [];
     for (const item of checklistItems(def)) {
-        const a = items[item.key];
+        const a = answerOf(items, item.key);
         if (!answered(a, def.scoring)) open = true;
         if (a?.result === 'na') continue;
+        applied += 1;
         if (def.scoring === 'points') {
             max += item.points ?? 0;
             total += a?.points ?? 0;
@@ -79,21 +88,20 @@ export function checklistOutcome(
     }
     const passed = open
         ? null
-        : def.scoring === 'points'
-          ? criticalFailed.length === 0 && (def.passMark === undefined || total >= def.passMark)
-          : failed.length === 0;
+        : applied === 0
+          ? false
+          : def.scoring === 'points'
+            ? criticalFailed.length === 0 && (def.passMark === undefined || total >= def.passMark)
+            : failed.length === 0;
     return { total, max, failed, criticalFailed, passed };
 }
 
-/** The answers of a value, as far as they are answers (anything else left out: the check reports it). */
-const answersOf = (v: unknown): Record<string, ChecklistAnswer> =>
-    isRecord(v) && isRecord(v.items) ? (v.items as Record<string, ChecklistAnswer>) : {};
-
 /**
  * The message when a checklist value is not right for its field, or undefined. `required`: every item must be answered.
- * Checks, in order: the shape (only the field's items, each answer a known result or whole points within the item's), an
- * unanswered item when required, "does not apply" when the checklist does not allow it, and a remark on a failed item when
- * the checklist asks for one.
+ * Checks, in order, on any value, blank-looking or not: the shape (`items`, and only the server's `outcome` beside them; only
+ * the field's items; each answer a known result or whole points within the item's, a remark of at most 500 characters),
+ * "does not apply" where the checklist does not allow it or on a critical item, then (unless nothing is answered) every item
+ * answered when required and a remark on a failed item when the checklist asks for one.
  */
 export function checklistError(
     field: EngineField,
@@ -103,10 +111,11 @@ export function checklistError(
 ): string | undefined {
     const def = checklistOf(field);
     const invalid = field.messages.type || t('form-engine.core.validation.checklistInvalid');
+    const requiredMessage = () => field.messages.required || t('form-engine.core.validation.required');
     if (!def) return invalid;
-    if (isBlankChecklist(value))
-        return required ? field.messages.required || t('form-engine.core.validation.required') : undefined;
+    if (value === undefined || value === null || value === '') return required ? requiredMessage() : undefined;
     if (!isRecord(value) || !isRecord(value.items)) return invalid;
+    if (Object.keys(value).some((k) => k !== 'items' && k !== 'outcome')) return invalid;
     const items = checklistItems(def);
     const byKey = new Map(items.map((i) => [i.key, i]));
     for (const [key, a] of Object.entries(value.items)) {
@@ -127,11 +136,18 @@ export function checklistError(
             if (typeof a.points === 'number' && a.points > (item.points ?? 0)) return invalid;
         } else if (a.points !== undefined) return invalid;
     }
-    const answers = answersOf(value);
-    if (!def.allowNotApplicable && Object.values(answers).some((a) => a.result === 'na'))
-        return t('form-engine.core.validation.checklistNotApplicable');
+    const na = items.filter((i) => answerOf(value.items as Record<string, unknown>, i.key)?.result === 'na');
+    if (!def.allowNotApplicable && na.length) return t('form-engine.core.validation.checklistNotApplicable');
+    // a critical item always applies: "does not apply" would let a sheet pass without it
+    const criticalNa = na.filter((i) => i.critical);
+    if (criticalNa.length)
+        return t('form-engine.core.validation.checklistCriticalApplies', {
+            items: criticalNa.map((i) => i.ref).join(', ')
+        });
+    if (isBlankChecklist(value)) return required ? requiredMessage() : undefined;
+    const answer = (key: string) => answerOf(value.items as Record<string, unknown>, key);
     if (required) {
-        const open = items.filter((i) => !answered(answers[i.key], def.scoring));
+        const open = items.filter((i) => !answered(answer(i.key), def.scoring));
         if (open.length)
             return (
                 field.messages.required ||
@@ -139,7 +155,7 @@ export function checklistError(
             );
     }
     if (def.remarkOnFail) {
-        const bare = items.filter((i) => failedItem(answers[i.key], def.scoring) && !answers[i.key]?.remark?.trim());
+        const bare = items.filter((i) => failedItem(answer(i.key), def.scoring) && !answer(i.key)?.remark?.trim());
         if (bare.length)
             return t('form-engine.core.validation.checklistRemark', { items: bare.map((i) => i.ref).join(', ') });
     }
@@ -147,22 +163,22 @@ export function checklistError(
 }
 
 /**
- * A checklist value as it is stored: its answers (only the field's items, each answer's own parts) and the outcome worked
- * out of them, whatever outcome came with it. A blank value stays blank; a value that is not a checklist's is left as it is
- * (validation refuses it).
+ * A checklist value as it is stored: its answers as sent (remarks trimmed: validation still refuses anything else in them)
+ * and the outcome the server works out of them, in place of whatever outcome came with it. Nothing answered keeps no
+ * outcome at all. A value that is not a checklist's is left as it is (validation refuses it).
  */
 export function settledChecklist(field: EngineField, value: unknown): unknown {
     const def = checklistOf(field);
-    if (!def || isBlankChecklist(value) || !isRecord(value) || !isRecord(value.items)) return value;
-    const keys = new Set(checklistItems(def).map((i) => i.key));
-    const items: Record<string, ChecklistAnswer> = {};
+    if (!def || !isRecord(value) || !isRecord(value.items)) return value;
+    const items: Record<string, unknown> = {};
     for (const [key, a] of Object.entries(value.items)) {
-        if (!keys.has(key) || !isRecord(a)) continue;
-        const answer: ChecklistAnswer = {};
-        if (a.result !== undefined) answer.result = a.result as ChecklistAnswer['result'];
-        if (a.points !== undefined) answer.points = a.points as number;
-        if (typeof a.remark === 'string' && a.remark.trim()) answer.remark = a.remark.trim();
-        items[key] = answer;
+        if (!isRecord(a) || typeof a.remark !== 'string') {
+            items[key] = a;
+            continue;
+        }
+        const { remark, ...rest } = a;
+        items[key] = remark.trim() ? { ...rest, remark: remark.trim() } : rest;
     }
-    return { items, outcome: checklistOutcome(def, items) } satisfies ChecklistValue;
+    if (isBlankChecklist({ items })) return { items };
+    return { items, outcome: checklistOutcome(def, items) } satisfies { items: unknown; outcome: ChecklistOutcome };
 }

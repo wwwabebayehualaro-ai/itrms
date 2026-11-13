@@ -124,6 +124,16 @@ export function checkDocument(raw: unknown): DocumentProblem[] {
 function checklistProblems(fields: readonly { type: string; props?: unknown; data?: unknown }[]): DocumentProblem[] {
     const problems: DocumentProblem[] = [];
     fields.forEach((f, i) => {
+        // a place's accuracy limit is a number of metres above 0: 0 or less no fix could ever meet
+        if (f.type === 'GeoPoint') {
+            const max = (f.props as { maxAccuracy?: unknown } | null | undefined)?.maxAccuracy;
+            if (max !== undefined && max !== null && !(typeof max === 'number' && Number.isFinite(max) && max > 0))
+                problems.push({
+                    path: `fields[${i}].props.maxAccuracy`,
+                    message: 'The accuracy needed must be more than 0 m'
+                });
+            return;
+        }
         if (f.type !== 'Checklist') return;
         const own = (f.props ?? {}) as Record<string, unknown>;
         const defaults = ((f.data as { defaultProps?: unknown } | null | undefined)?.defaultProps ?? {}) as Record<

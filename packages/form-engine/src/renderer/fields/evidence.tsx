@@ -149,6 +149,9 @@ function SignatureField({
                     ctx?.stroke();
                     setDrawn(true);
                 }}
+                onPointerCancel={() => {
+                    drawing.current = false;
+                }}
                 onPointerUp={() => {
                     drawing.current = false;
                 }}
@@ -315,7 +318,8 @@ function GeoPointField({
     const point = isPoint(value) ? value : null;
     const [lat, setLat] = useState(point ? String(point.lat) : '');
     const [lng, setLng] = useState(point ? String(point.lng) : '');
-    const manual = field.props.allowManual !== false;
+    // a place typed in has no accuracy, so a field that asks for one takes only the device's
+    const manual = field.props.allowManual !== false && typeof field.props.maxAccuracy !== 'number';
 
     const typed = (nextLat: string, nextLng: string) => {
         setLat(nextLat);

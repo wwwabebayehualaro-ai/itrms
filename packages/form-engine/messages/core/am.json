@@ -89,5 +89,6 @@
   "form-engine.core.print.checklistOpen": "አልተጠናቀቀም፦ {total} ከ{max}",
   "form-engine.core.print.checklistFailedItems": "ያልተሳኩ ንጥሎች፦ {items}",
   "form-engine.core.print.location": "{lat}, {lng}",
-  "form-engine.core.print.locationAccuracy": "{lat}, {lng} (በ{accuracy} ሜትር ውስጥ)"
+  "form-engine.core.print.locationAccuracy": "{lat}, {lng} (በ{accuracy} ሜትር ውስጥ)",
+  "form-engine.core.validation.checklistCriticalApplies": "ወሳኝ ንጥል ሁልጊዜ ይመለከታል፤ {items}ን ይመልሱ"
 }

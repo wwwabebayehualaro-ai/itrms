@@ -95,7 +95,9 @@ function ChecklistField({
                     <ol className="flex flex-col divide-y rounded-md border">
                         {section.items.map((item, ii) => {
                             const ref = `${si + 1}.${ii + 1}`;
-                            const a = answers[item.key] ?? {};
+                            const a = (Object.hasOwn(answers, item.key) ? answers[item.key] : undefined) ?? {};
+                            // a critical item always applies (the server refuses "does not apply" on one)
+                            const mayNotApply = def.allowNotApplicable && !item.critical;
                             const label = `${ref} ${plain(item.text)}`;
                             const failed = a.result === 'fail' || (points && a.points === 0);
                             return (
@@ -149,7 +151,7 @@ function ChecklistField({
                                                         max: item.points ?? 0
                                                     })}
                                                 </span>
-                                                {def.allowNotApplicable && (
+                                                {mayNotApply && (
                                                     <label className="flex items-center gap-1 text-sm">
                                                         <Checkbox
                                                             checked={a.result === 'na'}
@@ -190,7 +192,7 @@ function ChecklistField({
                                                 <ToggleGroupItem value="fail">
                                                     {t('form-engine.renderer.checklist.fail')}
                                                 </ToggleGroupItem>
-                                                {def.allowNotApplicable && (
+                                                {mayNotApply && (
                                                     <ToggleGroupItem value="na">
                                                         {t('form-engine.renderer.checklist.na')}
                                                     </ToggleGroupItem>
