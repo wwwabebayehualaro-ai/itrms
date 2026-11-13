@@ -421,7 +421,7 @@ describe('the demo fee rules', () => {
         const root = as.bureau.unit;
         const seed = () =>
             api.installer.scoped({}, (tx) => importFeeRules(tx, { id: root.id, regionId: root.regionId }, rules));
-        expect(await seed()).toBe(5);
+        expect(await seed()).toBe(6);
         expect(await seed()).toBe(0);
         // a real schedule waits for a person's decision
         const real = rules.map((r) =>

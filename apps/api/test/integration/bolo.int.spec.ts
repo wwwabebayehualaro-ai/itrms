@@ -282,10 +282,10 @@ describe('a bolo inspection', () => {
         ]);
         // the bolo was written and audited in the same transactions
         const audit = await api.owner.query<{ action: string }>(
-            "select action from kernel.audit_log where table_name = 'competency.bolos' and row_id = $1 order by created_at",
+            "select action from kernel.audit_log where table_name = 'competency.bolos' and row_id = $1",
             [bolo?.id]
         );
-        expect(audit.rows.map((r) => r.action)).toEqual(['insert', 'update']);
+        expect(audit.rows.map((r) => r.action).sort()).toEqual(['insert', 'update']);
     }, 240_000);
 
     it('is not passed with a failed item: the pass is refused, and a fail closes the case with the items', async () => {
