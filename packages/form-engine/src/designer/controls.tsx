@@ -297,7 +297,7 @@ export function OptionsEditor({
 }
 
 // ---- conditions ---------------------------------------------------------------------------------------------------------
-const OPS: Array<{ value: string; label: EngineMessageKey }> = [
+export const OPS: Array<{ value: string; label: EngineMessageKey }> = [
     { value: 'eq', label: 'form-engine.settings.controls.op.eq' },
     { value: 'neq', label: 'form-engine.settings.controls.op.neq' },
     { value: 'gt', label: 'form-engine.settings.controls.op.gt' },
@@ -313,7 +313,7 @@ const OPS: Array<{ value: string; label: EngineMessageKey }> = [
     { value: 'notIn', label: 'form-engine.settings.controls.op.notIn' },
     { value: 'regex', label: 'form-engine.settings.controls.op.regex' }
 ];
-const NO_VALUE = new Set(['empty', 'notEmpty']);
+export const NO_VALUE = new Set(['empty', 'notEmpty']);
 const LIST_OPS = new Set(['in', 'notIn']);
 const REF = '__reference__';
 

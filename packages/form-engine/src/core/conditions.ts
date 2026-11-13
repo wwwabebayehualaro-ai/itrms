@@ -92,6 +92,66 @@ export function evaluateAll(
     }
 }
 
+/** One condition as it was decided: what it read, what it compared with, and whether it held (task 1.13c, the logic inspector). */
+export interface ConditionTrace {
+    field: string;
+    operator: string;
+    /** the value it looked at, and the one it compared with (bindings resolved) */
+    actual: unknown;
+    expected: unknown;
+    holds: boolean;
+    /** left out where this runs (`clientOnly` on the server, `serverOnly` in the browser) */
+    skipped?: boolean;
+    /** a group's own conditions */
+    logic?: 'and' | 'or' | 'xor';
+    conditions?: ConditionTrace[];
+}
+
+/** A list of conditions as it was decided: the same answer `evaluateAll` gives, with each condition's part in it. */
+export interface ListTrace {
+    holds: boolean;
+    logic: 'and' | 'or' | 'xor';
+    conditions: ConditionTrace[];
+}
+
+function traceOne(c: VisibilityCondition, values: Record<string, unknown>, scope: Scope): ConditionTrace {
+    if (c.conditions?.length) {
+        const nested = explainAll(c.conditions, values, scope);
+        return {
+            field: c.field,
+            operator: c.operator === 'not' ? 'not' : 'group',
+            actual: undefined,
+            expected: undefined,
+            holds: c.operator === 'not' ? !nested.holds : nested.holds,
+            logic: nested.logic,
+            conditions: nested.conditions
+        };
+    }
+    return {
+        field: c.field,
+        operator: c.operator,
+        actual: subject(c.field, values, scope),
+        expected: resolveBindings(c.value, { form: values, ...scope }),
+        holds: test(c, values, scope)
+    };
+}
+
+/** Explains `evaluateAll`: the list's answer and each condition's (a condition left out where this runs is marked, not decided). */
+export function explainAll(
+    conditions: VisibilityCondition[] | undefined,
+    values: Record<string, unknown>,
+    scope: Scope = {}
+): ListTrace {
+    const all = conditions ?? [];
+    const logic = all.find(applies)?.logic ?? 'and';
+    const traced = all.map((c) =>
+        applies(c)
+            ? traceOne(c, values, scope)
+            : { field: c.field, operator: c.operator, actual: undefined, expected: c.value, holds: true, skipped: true }
+    );
+    return { holds: evaluateAll(all, values, scope), logic, conditions: traced };
+}
+
 /** Every value a list of conditions reads (field ids and dotted paths), for subscriptions. */
 export function conditionReferences(
     conditions: VisibilityCondition[] | undefined,

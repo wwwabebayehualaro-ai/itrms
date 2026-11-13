@@ -52,8 +52,10 @@ export {
     type FormText
 } from '@itrms/schemas';
 export type { EngineDocument, EngineField, FieldOption, FieldRules } from './model';
-export { evaluateAll, conditionReferences } from './conditions';
-export type { Scope } from './conditions';
+export { evaluateAll, conditionReferences, explainAll } from './conditions';
+export type { ConditionTrace, ListTrace, Scope } from './conditions';
+export { explainField, type FieldExplanation, type RuleStep } from './explain';
+export { errorField, errorsOfStep, firstStepWithErrors, STEP_TYPE, stepOf, wizardSteps } from './wizard';
 export {
     initialValues,
     initialValueOf,

@@ -130,6 +130,18 @@ function SectionField({ field, children }: ContainerFieldProps) {
     );
 }
 
+/** A wizard's step (task 1.13c): its heading and description over its fields; the form shows one step at a time. */
+function StepField({ field, children }: ContainerFieldProps) {
+    const description = typeof field.props.description === 'string' ? field.props.description : undefined;
+    return (
+        <section aria-label={containerTitle(field)} data-field-container="FormStep" data-wizard-step={field.id}>
+            <h3 className="mb-1 text-lg font-semibold">{containerTitle(field)}</h3>
+            {description && <p className="mb-3 text-sm text-muted-foreground">{description}</p>}
+            {children}
+        </section>
+    );
+}
+
 function DividerField({ field }: ContainerFieldProps) {
     const text = typeof field.props.content === 'string' ? field.props.content : '';
     return text ? (
@@ -152,6 +164,7 @@ defineFieldType({
     Render: SectionField,
     supports: (f) => !f.props.collapsible
 });
+defineFieldType({ kind: 'container', type: 'FormStep', Render: StepField });
 defineFieldType({
     kind: 'container',
     type: 'Divider',

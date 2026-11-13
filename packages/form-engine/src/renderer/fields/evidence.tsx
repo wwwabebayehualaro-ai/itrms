@@ -205,7 +205,8 @@ export function photoFrame(
 }
 
 async function preparedPhoto(file: File, field: EngineField): Promise<Blob> {
-    const bitmap = await createImageBitmap(file);
+    // the photo upright as taken: the EXIF orientation applied where the browser keeps it apart (follow-up 257)
+    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
     const crop = field.props.crop === 'face' ? 'face' : 'none';
     const f = photoFrame(bitmap.width, bitmap.height, crop);
     const canvas = document.createElement('canvas');
@@ -214,6 +215,18 @@ async function preparedPhoto(file: File, field: EngineField): Promise<Blob> {
     canvas.getContext('2d')?.drawImage(bitmap, f.sx, f.sy, f.sw, f.sh, 0, 0, f.w, f.h);
     bitmap.close();
     return blobOf(canvas, 'image/jpeg', 0.85);
+}
+
+const isHeic = (file: File) => /image\/hei[cf]/i.test(file.type) || /\.hei[cf]$/i.test(file.name);
+
+/** Whether this browser can draw the image (Safari draws HEIC; the others do not). */
+async function drawable(file: File): Promise<boolean> {
+    try {
+        (await createImageBitmap(file)).close();
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 function PhotoField({ field, id, value, onChange, onBlur, disabled, invalid, describedBy }: ValueFieldProps<unknown>) {
@@ -227,6 +240,12 @@ function PhotoField({ field, id, value, onChange, onBlur, disabled, invalid, des
 
     const take = async (file: File | undefined) => {
         if (!file) return;
+        // HEIC (an iPhone's own format) is drawn only by Safari: elsewhere the person is asked for a JPEG (follow-up 257)
+        if (isHeic(file) && !(await drawable(file))) {
+            notify.error(t('form-engine.renderer.photo.heic'));
+            onBlur();
+            return;
+        }
         setBusy(true);
         try {
             onChange([await keep(await preparedPhoto(file, field), `${field.id}-photo.jpg`)]);
@@ -318,6 +337,19 @@ function GeoPointField({
     const point = isPoint(value) ? value : null;
     const [lat, setLat] = useState(point ? String(point.lat) : '');
     const [lng, setLng] = useState(point ? String(point.lng) : '');
+    // a value set from elsewhere (a draft restored, the form reset) shows in the typed boxes too (follow-up 256)
+    // (the state adjusted while rendering, as React advises for a value that follows a prop: no effect, no second paint)
+    const [shownFor, setShownFor] = useState<unknown>(value);
+    if (shownFor !== value) {
+        setShownFor(value);
+        if (isPoint(value)) {
+            if (!(Number(lat) === value.lat && lat.trim() !== '')) setLat(String(value.lat));
+            if (!(Number(lng) === value.lng && lng.trim() !== '')) setLng(String(value.lng));
+        } else if (value === undefined || value === null) {
+            setLat('');
+            setLng('');
+        }
+    }
     // a place typed in has no accuracy, so a field that asks for one takes only the device's
     const manual = field.props.allowManual !== false && typeof field.props.maxAccuracy !== 'number';
 

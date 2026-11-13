@@ -110,6 +110,28 @@ describe('the place field (task 1.13a)', () => {
         expect(submitted.mock.calls[0]?.[0]).toMatchObject({ submission_data: { at: { lat: 6.8476, lng: 37.7524 } } });
     });
 
+    it('shows the place it holds when the value changes from elsewhere, as a reset does (follow-up 256)', async () => {
+        const user = userEvent.setup();
+        const fields = [field('GeoPoint', 'at', 'Accident place')];
+        renderWithQuery(
+            <EngineForm
+                fields={fields}
+                template={{ id: 'tpl-1', name: 'Bolo', form_config: { fields } } as never}
+                initialValues={{ at: { lat: 6.5, lng: 37.5 } }}
+                onFormSubmit={vi.fn().mockResolvedValue(undefined)}
+            />
+        );
+        const latitude = screen.getByRole('textbox', { name: 'Accident place: latitude' });
+        expect(latitude).toHaveValue('6.5');
+        await user.clear(latitude);
+        await user.type(latitude, '7.25');
+        expect(latitude).toHaveValue('7.25');
+        await user.click(screen.getByRole('button', { name: /Clear|Reset/ }));
+        await waitFor(() =>
+            expect(screen.getByRole('textbox', { name: 'Accident place: latitude' })).toHaveValue('6.5')
+        );
+    });
+
     /** A device whose GPS answers with `answer`. */
     const device = (answer: (ok: PositionCallback, fail: PositionErrorCallback) => void) => {
         const before = Object.getOwnPropertyDescriptor(navigator, 'geolocation');

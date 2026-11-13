@@ -20,6 +20,7 @@ import {
     isRequiredIn,
     isVisibleIn,
     rowIdOf,
+    STEP_TYPE,
     type EngineDocument,
     type EngineField
 } from '../core';
@@ -41,6 +42,17 @@ interface TreeContext {
 }
 const TreeCtx = createContext<TreeContext | null>(null);
 export const TreeProvider = TreeCtx.Provider;
+
+/**
+ * A wizard's place (task 1.13c): the step shown, and whether it is the last one (the fields outside every step come there). Null
+ * when the form is not filled step by step: every top-level field is drawn.
+ */
+export interface WizardPlace {
+    stepId: string | undefined;
+    last: boolean;
+}
+const WizardCtx = createContext<WizardPlace | null>(null);
+export const WizardProvider = WizardCtx.Provider;
 const useTree = () => {
     const tree = useContext(TreeCtx);
     if (!tree) throw new Error('The field tree needs a TreeProvider');
@@ -97,7 +109,13 @@ export function widthOf(
 /** The children of `parentId`, in a wrapping row (a field's Width puts fields side by side). */
 export function FieldList({ parentId, scope = ROOT }: { parentId: string | null; scope?: Scope }) {
     const { doc } = useTree();
-    const children = useMemo(() => childrenOf(doc.fields, parentId), [doc.fields, parentId]);
+    const wizard = useContext(WizardCtx);
+    const children = useMemo(() => {
+        const all = childrenOf(doc.fields, parentId);
+        // in a wizard the top level is the step shown, and on the last step the fields outside every step
+        if (parentId !== null || !wizard) return all;
+        return all.filter((f) => (f.type === STEP_TYPE ? f.id === wizard.stepId : wizard.last));
+    }, [doc.fields, parentId, wizard]);
     if (!children.length) return null;
     return (
         <div className="fe-flow">

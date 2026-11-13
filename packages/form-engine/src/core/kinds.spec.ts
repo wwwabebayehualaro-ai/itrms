@@ -9,7 +9,7 @@ const field = (type: string, props: Record<string, unknown> = {}, extra: Record<
     return f;
 };
 
-const NOT_VALUE_TYPES = ['Card', 'DataTable', 'Divider', 'Fee', 'Fieldset', 'FormSection', 'Panel'];
+const NOT_VALUE_TYPES = ['Card', 'DataTable', 'Divider', 'Fee', 'Fieldset', 'FormSection', 'FormStep', 'Panel'];
 
 describe('valueKindOf', () => {
     it('gives every value type of the kit a kind, and containers and display fields none', () => {

@@ -73,5 +73,7 @@
   "form-engine.palette.ui.add": "Add {label}",
   "form-engine.palette.ui.fieldsToAdd": "Fields to add",
   "form-engine.palette.ui.find": "Find a field",
-  "form-engine.palette.ui.noMatch": "No field matches “{query}”."
+  "form-engine.palette.ui.noMatch": "No field matches “{query}”.",
+  "form-engine.palette.type.FormStep.label": "Step",
+  "form-engine.palette.type.FormStep.hint": "One page of a form filled step by step; put steps at the top of the form."
 }

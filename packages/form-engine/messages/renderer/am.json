@@ -138,5 +138,11 @@
   "form-engine.renderer.table.range": "{from}–{to} ከ{total}",
   "form-engine.renderer.table.search": "ሠንጠረዡን ፈልግ",
   "form-engine.renderer.table.searchPlaceholder": "ፈልግ…",
-  "form-engine.renderer.table.view": "እይ"
+  "form-engine.renderer.table.view": "እይ",
+  "form-engine.renderer.wizard.steps": "ደረጃዎች",
+  "form-engine.renderer.wizard.position": "ደረጃ {current} ከ {total}",
+  "form-engine.renderer.wizard.next": "ቀጣይ",
+  "form-engine.renderer.wizard.back": "ተመለስ",
+  "form-engine.renderer.wizard.fixStep": "ከመቀጠልዎ በፊት የዚህን ደረጃ መስኮች ያስተካክሉ።",
+  "form-engine.renderer.photo.heic": "ይህ አሳሽ HEIC ፎቶዎችን መክፈት አይችልም። ፎቶውን እንደገና ያንሱ ወይም JPEG ይምረጡ።"
 }

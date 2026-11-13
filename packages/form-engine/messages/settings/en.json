@@ -317,5 +317,8 @@
   "form-engine.settings.Photo.crop.title": "What is kept",
   "form-engine.settings.Photo.facing.environment": "The back camera",
   "form-engine.settings.Photo.facing.title": "Camera",
-  "form-engine.settings.Photo.facing.user": "The front camera"
+  "form-engine.settings.Photo.facing.user": "The front camera",
+  "form-engine.settings.FormStep.title.title": "Heading",
+  "form-engine.settings.FormStep.title.description": "Shown in the steps and over the step instead of the label when set.",
+  "form-engine.settings.FormStep.description.title": "Description"
 }

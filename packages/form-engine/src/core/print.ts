@@ -97,7 +97,7 @@ export interface PrintDocument {
 }
 
 const MASKED_TEXT = '••••••';
-const GROUPS = new Set(['Panel', 'Fieldset', 'Card', 'FormSection']);
+const GROUPS = new Set(['Panel', 'Fieldset', 'Card', 'FormSection', 'FormStep']);
 const MAX_TABLE_COLUMNS = 6;
 
 const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -282,7 +282,11 @@ export function printModel(form: unknown, values: Record<string, unknown>, opts:
                 type: f.type,
                 title: containerTitle(f),
                 subtitle: nonEmpty(
-                    f.type === 'Card' ? f.props.subTitle : f.type === 'FormSection' ? f.props.description : undefined
+                    f.type === 'Card'
+                        ? f.props.subTitle
+                        : f.type === 'FormSection' || f.type === 'FormStep'
+                          ? f.props.description
+                          : undefined
                 ),
                 footer: f.type === 'Card' ? nonEmpty(f.props.footer) : undefined,
                 breakBefore,

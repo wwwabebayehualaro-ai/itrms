@@ -21,7 +21,8 @@ import type { TemplateRuntimeConfig } from '@itrms/schemas';
 import { useTemplate } from './store/formStore';
 import { unsupportedFields } from './kit';
 import { RuntimeBridge, RuntimeStore, RuntimeStoreProvider, useRuntimeApi, useRuntimeSelector } from './runtimeScope';
-import { FieldList, TreeProvider } from './FieldTree';
+import { FieldList, TreeProvider, WizardProvider } from './FieldTree';
+import { useWizard, WizardNav, WizardSteps } from './Wizard';
 import './fields/registerAll';
 
 type Values = Record<string, unknown>;
@@ -114,6 +115,8 @@ function EngineFormBody({
     const authUser = useFormsUser();
     const builderTemplate = useTemplate();
     const [store] = useState(() => new RuntimeStore());
+    const top = useRef<HTMLFormElement>(null);
+    const invalid = useRef<(values: Values) => void>(() => undefined);
     const runtimeConfig =
         runtime ?? readDocument(template?.form_config).runtime ?? readDocument(builderTemplate?.form_config).runtime;
     const defaults = useMemo(() => initialValues(doc.fields, saved), [doc.fields, saved]);
@@ -216,7 +219,9 @@ function EngineFormBody({
             onSubmit: ({ value }) =>
                 toFormErrors(validateForm(doc.fields, value as Values, store.get().scope, { language: words.language }))
         },
-        onSubmit: ({ value, formApi }) => submit(value as Values, formApi as AnyFormApi)
+        onSubmit: ({ value, formApi }) => submit(value as Values, formApi as AnyFormApi),
+        // a wizard goes to the first step with an error (task 1.13c)
+        onSubmitInvalid: ({ value }) => invalid.current(value as Values)
     });
     // a remote check finished (or started): validate again, so its verdict shows on the field and decides whether one may submit
     const hasRemote = useMemo(() => doc.fields.some((f) => f.remote), [doc.fields]);
@@ -243,9 +248,30 @@ function EngineFormBody({
     const byId = useMemo(() => new Map(doc.fields.map((f) => [f.id, f])), [doc.fields]);
     const tree = useMemo(() => ({ form: form, doc, byId, readOnly: !!readOnly }), [form, doc, byId, readOnly]);
     const plain = view || readOnly || bare;
+    // a form whose top level is steps is filled one step at a time; read or viewed, every step is drawn in order
+    const wizard = useWizard(doc, form as AnyFormApi, store, byId, {
+        enabled: !view && !readOnly,
+        language: words.language,
+        top
+    });
+    useEffect(() => {
+        invalid.current = (values) =>
+            wizard.showErrors(validateForm(doc.fields, values, store.get().scope, { language: words.language }));
+    });
+    const footer = !view && !readOnly && (
+        <FormFooter
+            form={form}
+            submitLabel={
+                submitLabel ??
+                words.t(submissionId ? 'form-engine.renderer.submit.saveChanges' : 'form-engine.renderer.submit.label')
+            }
+            showRefresh={showRefresh}
+        />
+    );
 
     const body = (
         <form
+            ref={top}
             noValidate
             className={cn(
                 'flex flex-col gap-4',
@@ -254,24 +280,16 @@ function EngineFormBody({
             onSubmit={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                void form.handleSubmit();
+                // Enter in a step before the last is "Next", never the submit of a half-filled form
+                if (wizard.place && !wizard.place.last) void wizard.next();
+                else void form.handleSubmit();
             }}
         >
-            <FieldList parentId={null} />
-            {!view && !readOnly && (
-                <FormFooter
-                    form={form}
-                    submitLabel={
-                        submitLabel ??
-                        words.t(
-                            submissionId
-                                ? 'form-engine.renderer.submit.saveChanges'
-                                : 'form-engine.renderer.submit.label'
-                        )
-                    }
-                    showRefresh={showRefresh}
-                />
-            )}
+            {wizard.place && <WizardSteps wizard={wizard} />}
+            <WizardProvider value={wizard.place}>
+                <FieldList parentId={null} />
+            </WizardProvider>
+            {wizard.place ? <WizardNav wizard={wizard}>{footer}</WizardNav> : footer}
         </form>
     );
 

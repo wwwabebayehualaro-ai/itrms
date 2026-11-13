@@ -144,7 +144,7 @@ draft ─► automatic checks ─► test cases ─► review (maker ≠ checker
 | Choices | dropdown, multi-select, radio, checkbox group, switch, tags, autocomplete | have |
 | Dates | `EthDate` (Ethiopian entry/display, Gregorian storage, min/max) | have (0.17b) |
 | Dates (more) | `EthDateRange`, fiscal-year helpers in rules, time | **new** (later) |
-| Structure | panel, section, fieldset, card, divider, **step** (wizard), `FormArray` (repeating rows), data table | have; step **new** (Phase 1) |
+| Structure | panel, section, fieldset, card, divider, **step** (wizard), `FormArray` (repeating rows), data table | have (step: 1.13c) |
 | Money and quantities | `Money` (santim, Birr formatting), `Quantity` (decimal, with unit), `Fee` (server-computed preview) | **new** (0.18) |
 | Registries | `RegistryLookup` for person, organisation, vehicle, licence, association, road project; `OrgUnitPicker` | **new** (0.18) |
 | Ethiopian identity and contact | `FaydaNumber` (format check, optional verification later), `EthiopianPhone` (+251 9/7, normalised), `EthiopianAddress` (region → zone → woreda → kebele from reference data, plus free detail) | **new** (0.18) |
@@ -160,7 +160,7 @@ to the contract schema.
 * **Starter templates and reusable blocks:** "Applicant", "Vehicle", "Payment", "Attachments", "Officer remarks", "Approval
   sign-off". A block is a versioned unit, used in many forms; updating it shows the impact on every form that uses it.
 * **Live preview** in `am` / `en` / `wal-Latn`, desktop and phone, **with test data**, and a **logic inspector** ("why is
-  this field hidden?", with the values that drove the decision).
+  this field hidden?", with the values that drove the decision; 1.13c: under the builder's preview).
 * **A translation table** per form with "missing" markers; Ethiopic typing in the builder too.
 * **A print preview** with the official header (the same layout as the PDF).
 * **A diff between versions** (fields added, removed, changed), shown in the review step.
@@ -177,7 +177,7 @@ to the contract schema.
 | Access per form/unit | 3 | 0.9, 0.19 |
 | Drafts | 4 | 0.20c |
 | Conditional required, cross-field rules | 5 | 0.17 |
-| Wizard steps | 6 | Phase 1 (1.13c) |
+| Wizard steps | 6 | 1.13c (done) |
 | Workflow per form | 7 | 0.19–0.20 |
 | Notifications | 8 | 0.20a–0.20b |
 | Version history, diff, rollback, duplicate, import/export | 9 | 0.18a; config packages Phase 1 |

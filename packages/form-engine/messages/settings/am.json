@@ -317,5 +317,8 @@
   "form-engine.settings.Photo.crop.title": "የሚቀመጠው",
   "form-engine.settings.Photo.facing.environment": "የኋላ ካሜራ",
   "form-engine.settings.Photo.facing.title": "ካሜራ",
-  "form-engine.settings.Photo.facing.user": "የፊት ካሜራ"
+  "form-engine.settings.Photo.facing.user": "የፊት ካሜራ",
+  "form-engine.settings.FormStep.title.title": "ርዕስ",
+  "form-engine.settings.FormStep.title.description": "ከተሞላ በደረጃዎቹ ዝርዝርና በደረጃው ላይ ከመለያው ይልቅ ይታያል።",
+  "form-engine.settings.FormStep.description.title": "መግለጫ"
 }

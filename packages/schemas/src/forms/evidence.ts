@@ -6,7 +6,17 @@
  */
 import { z } from 'zod';
 
-import { formTextSchema } from './text';
+import { LANGUAGE_TAG } from '../i18n';
+import { MAX_TEXT_LANGUAGES } from './text';
+
+/** A checklist's text in each language: an item's statement or a section's title, kept to what a sheet prints (follow-up 257). */
+export const MAX_CHECKLIST_TEXT = 500;
+const checklistTextSchema = z.union([
+    z.string().max(MAX_CHECKLIST_TEXT),
+    z
+        .record(z.string().regex(LANGUAGE_TAG, 'is not a language tag'), z.string().max(MAX_CHECKLIST_TEXT))
+        .refine((t) => Object.keys(t).length <= MAX_TEXT_LANGUAGES, `at most ${MAX_TEXT_LANGUAGES} languages`)
+]);
 
 /** An item's or a section's key: letters, digits and underscores (a checklist answer is keyed by it). */
 export const CHECKLIST_KEY = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
@@ -28,7 +38,7 @@ export type ChecklistScoring = (typeof CHECKLIST_SCORING)[number];
 
 export const checklistItemSchema = z.strictObject({
     key: z.string().regex(CHECKLIST_KEY, 'is not an item key'),
-    text: formTextSchema,
+    text: checklistTextSchema,
     /** points: what the item gives at most (points scoring only, then required) */
     points: z.number().int().min(1).max(MAX_ITEM_POINTS).optional(),
     /** an item the checklist cannot pass without: failed, or given no points */
@@ -38,7 +48,7 @@ export type ChecklistItem = z.infer<typeof checklistItemSchema>;
 
 export const checklistSectionSchema = z.strictObject({
     key: z.string().regex(CHECKLIST_KEY, 'is not a section key'),
-    title: formTextSchema.optional(),
+    title: checklistTextSchema.optional(),
     items: z.array(checklistItemSchema).min(1).max(MAX_CHECKLIST_ITEMS)
 });
 export type ChecklistSection = z.infer<typeof checklistSectionSchema>;

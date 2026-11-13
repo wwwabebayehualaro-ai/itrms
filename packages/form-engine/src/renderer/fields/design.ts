@@ -12,6 +12,7 @@ import {
     Calendar,
     Camera,
     CaseSensitive,
+    Footprints,
     ClipboardCheck,
     MapPin,
     Signature,
@@ -494,6 +495,22 @@ describeFieldType('FormSection', {
             description: 'form-engine.settings.FormSection.title.description'
         }),
         description: text({ title: 'form-engine.settings.FormSection.description.title', multiline: true }),
+        ...printBreak
+    })
+});
+// a wizard's step (task 1.13c): at the top of the form only; its fields are filled before the next step's
+describeFieldType('FormStep', {
+    label: 'form-engine.palette.type.FormStep.label',
+    icon: Footprints,
+    group: 'layout',
+    hint: 'form-engine.palette.type.FormStep.hint',
+    keywords: ['step', 'wizard', 'page'],
+    settings: z.object({
+        title: text({
+            title: 'form-engine.settings.FormStep.title.title',
+            description: 'form-engine.settings.FormStep.title.description'
+        }),
+        description: text({ title: 'form-engine.settings.FormStep.description.title', multiline: true }),
         ...printBreak
     })
 });

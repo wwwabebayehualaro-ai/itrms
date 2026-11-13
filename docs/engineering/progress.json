@@ -1667,7 +1667,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split from 1.13a on 2026-11-13. Split again on 2026-11-14 (one session each): wizard steps, the logic inspector and follow-ups 256 and 257 here; reusable blocks with their impact, the print preview with the official header and form analytics in 1.13d."
+          "notes": "Split from 1.13a on 2026-11-13. Split again on 2026-11-14 (one session each): wizard steps, the logic inspector and follow-ups 256 and 257 here; reusable blocks with their impact, the print preview with the official header and form analytics in 1.13d. Built (2026-11-14): FormStep container (top level only, checkDocument refuses a nested one; printed as a group); the renderer's wizard (step indicator, Back/Next, Next checks only the step shown and marks its wrong fields touched, values kept, steps hidden by their rule skipped, fields outside every step on the last step, a stopped submit goes to the first step with an error, Enter is Next before the last step, read-only draws every step); core explainAll/explainField and the builder's logic inspector under the preview (each rule from the field outwards, each condition's value and verdict, the required formula). Follow-up 256: allowManual:false refuses a typed place on the server; the typed boxes follow a value set from elsewhere (state adjusted during render). Follow-up 257: photos drawn with imageOrientation from-image; HEIC a browser cannot draw refused with a message; checklist item text and section title at most 500 characters per language. Docker is stopped locally: integration and e2e on CI."
         },
         {
           "id": "1.13d",
