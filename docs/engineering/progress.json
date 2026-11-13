@@ -1569,8 +1569,8 @@
         {
           "id": "1.2e",
           "title": "Registration and plates, part 5: hardening from the 1.2b review",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/1.2e-registration-hardening",
           "commits": [],
           "evidence": [],
           "blockers": [],

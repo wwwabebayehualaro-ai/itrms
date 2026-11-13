@@ -4,10 +4,10 @@
  * steps call its commands inside the transition's transaction, so a step that fails leaves nothing. The effects are thin over this.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { currentContext } from '@itrms/kernel/context';
 import type { Tx } from '@itrms/kernel/db';
-import { ConflictError, ForbiddenError, ValidationError } from '@itrms/kernel/errors';
+import { ConflictError, ValidationError } from '@itrms/kernel/errors';
 import { DocumentsService, documentTemplates, issuedDocuments } from '@itrms/documents/api';
 import { StationeryStock } from '@itrms/fees/api';
 import { parseStationeryKey } from '@itrms/fees/contracts';
@@ -34,7 +34,6 @@ import {
 } from '@itrms/vehicles/contracts';
 import vehiclesAm from '@itrms/vehicles/messages/am';
 import vehiclesEn from '@itrms/vehicles/messages/en';
-import { cases } from '@itrms/workflow/api';
 import type { z } from 'zod';
 
 import {
@@ -46,6 +45,7 @@ import {
 } from '../contracts';
 import am from '../messages/am.json';
 import en from '../messages/en.json';
+import { actForHandlingOffice, claimedElsewhere } from './handling-office';
 import type { CasePlace } from './licences.service';
 
 type Words = keyof typeof am;
@@ -204,29 +204,21 @@ export class VehicleRegistrationService {
                 sql`select pg_advisory_xact_lock(hashtextextended(${`competency.vehicle-registration:${vin.vinKey}`}, 0))`
             );
         const checked = await this.registry.checkRegistration(tx, place.ctx, given);
-        // the vehicle itself is made only when the request is registered, so two could otherwise both get there
-        const [other] = await tx
-            .select({ id: cases.id })
-            .from(cases)
-            .where(
-                and(
-                    isNull(cases.closedAt),
-                    ne(cases.id, place.caseId),
-                    // an open registration, or an open back-capture of a paper file (task 1.13), of the same chassis
-                    or(
-                        sql`${cases.facts}#>>'{registration,vinKey}' = ${checked.vinKey}`,
-                        sql`${cases.facts}#>>'{backCapture,vinKey}' = ${checked.vinKey}`
-                    )
-                )
-            )
-            .limit(1);
-        if (other)
+        // the vehicle itself is made only when the request is registered, so two could otherwise both get there: an open
+        // registration, or an open back-capture of a paper file (task 1.13), of the same chassis anywhere in the region (task 1.2e)
+        if (await claimedElsewhere(tx, place.caseId, { vinKey: checked.vinKey }))
             throw new ValidationError('not_eligible', {
                 detail: say('competency.rule.chassisInOpenCase'),
                 detailKey: 'competency.rule.chassisInOpenCase'
             });
         return {
-            registration: { vinKey: checked.vinKey, chassisNumber: checked.chassisNumber, vinCheck: checked.vinCheck }
+            registration: {
+                vinKey: checked.vinKey,
+                chassisNumber: checked.chassisNumber,
+                vinCheck: checked.vinCheck,
+                // a check digit the officer confirmed does not match: shown on the case to the lead who approves it
+                notices: checked.vinCheck === 'mismatch' ? ['competency.notice.chassisMismatch'] : []
+            }
         };
     }
 
@@ -287,10 +279,9 @@ export class VehicleRegistrationService {
     }
 
     /** The vehicle, its owners and the first ownership period, handled by the office the case is in. */
-    async register(tx: Tx, place: CasePlace, facts: Facts, input: RegistrationInput) {
+    async register(tx: Tx, at: CasePlace, facts: Facts, input: RegistrationInput) {
         // the register records the acting unit as the vehicle's handling office, and the plate comes from that office's stock
-        if (place.ctx.unitId !== place.handlingUnitId)
-            throw new ForbiddenError({ detailKey: 'competency.errors.act_from_handling_office' });
+        const place = await actForHandlingOffice(tx, at);
         const made = await this.vehicleOf(tx, place.caseId);
         if (made) return { vehicle: { id: made } };
         const registration = factObject(facts, 'registration');
@@ -308,7 +299,8 @@ export class VehicleRegistrationService {
      * The reserved plate goes on the vehicle; or, when the counter had to hand over another plate of the office's stock (the
      * reserved one is not at hand), the plate the officer named. The plate not used is free again.
      */
-    async assignPlate(tx: Tx, place: CasePlace, facts: Facts, answers: unknown) {
+    async assignPlate(tx: Tx, at: CasePlace, facts: Facts, answers: unknown) {
+        const place = await actForHandlingOffice(tx, at);
         const vehicleId = factId(facts, 'vehicle');
         const today = addisDay();
         // run again, the vehicle already carries the plate this case gave it
@@ -356,7 +348,8 @@ export class VehicleRegistrationService {
      * The libre of the vehicle's owners, with no number yet, and its registration certificate (the temporary libre), numbered
      * from the office's counter. The booklet is the next step's (`issueBooklet`). Run again it returns what it issued.
      */
-    async issueLibre(tx: Tx, place: CasePlace, facts: Facts, template: string | undefined) {
+    async issueLibre(tx: Tx, at: CasePlace, facts: Facts, template: string | undefined) {
+        const place = await actForHandlingOffice(tx, at);
         const vehicleId = factId(facts, 'vehicle');
         const libre = await this.registry.issueLibre(tx, place.ctx, vehicleId, {
             issuedOn: addisDay(),
@@ -377,9 +370,8 @@ export class VehicleRegistrationService {
      * again with the booklet's serial, and the one before it says superseded. With no booklet in stock the step is refused and
      * the case waits in it until booklets come. Run again it returns the booklet it took.
      */
-    async issueBooklet(tx: Tx, place: CasePlace, facts: Facts, answers: unknown) {
-        if (place.ctx.unitId !== place.handlingUnitId)
-            throw new ForbiddenError({ detailKey: 'competency.errors.act_from_handling_office' });
+    async issueBooklet(tx: Tx, at: CasePlace, facts: Facts, answers: unknown) {
+        const place = await actForHandlingOffice(tx, at);
         const libreId = factId(facts, 'libre');
         const templateKey = this.factText(facts, 'libre', 'template') ?? REGISTRATION_CERTIFICATE_TEMPLATE;
         const parsed = bookletEntrySchema.safeParse(answers);

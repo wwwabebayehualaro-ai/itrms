@@ -5,7 +5,7 @@
  * give stays missing. The register's commands are the vehicles slice's; the effects are thin over this.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, isNull, ne, or, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { currentContext } from '@itrms/kernel/context';
 import type { Tx } from '@itrms/kernel/db';
 import { ForbiddenError, ValidationError } from '@itrms/kernel/errors';
@@ -19,6 +19,7 @@ import type { z } from 'zod';
 import { addisDay } from '../contracts';
 import am from '../messages/am.json';
 import en from '../messages/en.json';
+import { actForHandlingOffice, claimedElsewhere } from './handling-office';
 import type { CasePlace } from './licences.service';
 import { VehicleRegistrationService, type RegistrationInput } from './registration.service';
 
@@ -186,24 +187,9 @@ export class BackCaptureService {
                     { path: 'federalVehicleId', code: 'duplicate', message: say('competency.rule.federalIdOnRegister') }
                 ]);
         }
-        // the vehicle is made only when the capture is verified: an open registration or capture of the same chassis or plate
-        // would otherwise both get there
-        const [other] = await tx
-            .select({ id: cases.id })
-            .from(cases)
-            .where(
-                and(
-                    isNull(cases.closedAt),
-                    ne(cases.id, place.caseId),
-                    or(
-                        sql`${cases.facts}#>>'{registration,vinKey}' = ${checked.vinKey}`,
-                        sql`${cases.facts}#>>'{backCapture,vinKey}' = ${checked.vinKey}`,
-                        sql`${cases.facts}#>>'{backCapture,plateKey}' = ${plate.key}`
-                    )
-                )
-            )
-            .limit(1);
-        if (other)
+        // the vehicle is made only when the capture is verified: an open registration or capture of the same chassis or plate,
+        // anywhere in the region (task 1.2e), would otherwise both get there
+        if (await claimedElsewhere(tx, place.caseId, { vinKey: checked.vinKey, plateKey: plate.key }))
             throw new ValidationError('not_eligible', {
                 detail: say('competency.rule.captureInOpenCase'),
                 detailKey: 'competency.rule.captureInOpenCase'
@@ -266,14 +252,7 @@ export class BackCaptureService {
         if (!kase) throw new ForbiddenError({ detailKey: 'competency.errors.act_from_handling_office' });
         if (kase.startedBy === verifier)
             throw new ForbiddenError({ detailKey: 'competency.errors.verify_own_capture' });
-        const actingUnit = place.ctx.unitId;
-        if (actingUnit === place.handlingUnitId) return;
-        const { rows } = await tx.execute<{ above: boolean }>(sql`
-            select h.path <@ a.path as above
-              from kernel.org_units h, kernel.org_units a
-             where h.id = ${place.handlingUnitId} and a.id = ${actingUnit ?? null}`);
-        if (rows[0]?.above !== true)
-            throw new ForbiddenError({ detailKey: 'competency.errors.act_from_handling_office' });
+        await actForHandlingOffice(tx, place);
     }
 
     /**

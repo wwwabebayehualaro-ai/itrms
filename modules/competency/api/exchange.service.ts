@@ -5,16 +5,16 @@
  * registration's effects (VehicleRegistrationService.reservePlate, assignPlate, releasePlate); this adds the check and the federal id.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, isNull, ne, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { currentContext } from '@itrms/kernel/context';
 import type { Tx } from '@itrms/kernel/db';
-import { ConflictError, ForbiddenError, ValidationError } from '@itrms/kernel/errors';
+import { ConflictError, ValidationError } from '@itrms/kernel/errors';
 import { plateAssignments, plates, vehicles, VehicleRegistry } from '@itrms/vehicles/api';
-import { cases } from '@itrms/workflow/api';
 
 import { exchangeEntrySchema } from '../contracts';
 import am from '../messages/am.json';
 import en from '../messages/en.json';
+import { actForHandlingOffice, claimedElsewhere } from './handling-office';
 import type { CasePlace } from './licences.service';
 import { VehicleRegistrationService } from './registration.service';
 
@@ -67,18 +67,8 @@ export class PlateExchangeService {
         await tx.execute(
             sql`select pg_advisory_xact_lock(hashtextextended(${`competency.plate-exchange:${vehicle.id}`}, 0))`
         );
-        const [other] = await tx
-            .select({ id: cases.id })
-            .from(cases)
-            .where(
-                and(
-                    isNull(cases.closedAt),
-                    ne(cases.id, place.caseId),
-                    sql`${cases.facts}#>>'{exchange,vehicleId}' = ${vehicle.id}`
-                )
-            )
-            .limit(1);
-        if (other)
+        // any open exchange of the vehicle in the region, whichever office filed it (task 1.2e)
+        if (await claimedElsewhere(tx, place.caseId, { vehicleId: vehicle.id }))
             throw new ValidationError('not_eligible', {
                 detail: say('competency.rule.exchangeInOpenCase'),
                 detailKey: 'competency.rule.exchangeInOpenCase'
@@ -96,9 +86,9 @@ export class PlateExchangeService {
      * given, then the held plate (or the one named, of the office's stock) goes on it and the old plate is retired, linked to it.
      * Run again it returns the plate it gave.
      */
-    async exchange(tx: Tx, place: CasePlace, facts: Readonly<Record<string, unknown>>, answers: unknown) {
-        if (place.ctx.unitId !== place.handlingUnitId)
-            throw new ForbiddenError({ detailKey: 'competency.errors.act_from_handling_office' });
+    async exchange(tx: Tx, at: CasePlace, facts: Readonly<Record<string, unknown>>, answers: unknown) {
+        // from the office, or from the one above it the step was sent up to (task 1.2e)
+        const place = await actForHandlingOffice(tx, at);
         const parsed = exchangeEntrySchema.safeParse(answers ?? {});
         if (!parsed.success)
             throw new ValidationError('validation_failed', {

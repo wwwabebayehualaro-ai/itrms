@@ -87,37 +87,33 @@ export class VehiclesService {
 
     /**
      * A search by text (ranked: exact federal id, exact chassis number, current plate, old plate, engine number, then a part
-     * of a chassis number or plate), or a list by owner and status, newest first, in pages.
+     * of a chassis number or plate), or a list by owner and status, newest first, in pages. The owner is the holder of the
+     * vehicle's last ownership period: its owners now, or those it left the register with. Both filters are applied before the
+     * ranked limit (task 1.2e).
      */
     async search(tx: Tx, query: VehicleSearchQuery): Promise<VehicleList> {
-        const filtered = query.ownerId !== undefined || query.status !== undefined;
         if (query.q) {
             const keys = searchKeys(query.q);
             const parsed = parsePlate(query.q, await this.legacyRegions(tx));
             const plateKey = parsed?.key ?? foldPlate(query.q).replace(/[^A-Z0-9]/g, '');
             const found = await tx.execute<{ vehicle_id: string; matched: string }>(
-                sql`select vehicle_id, matched from vehicles.search_vehicles(${keys.key}, ${plateKey}, ${filtered ? 50 : Math.min(query.limit, 50)})`
+                sql`select vehicle_id, matched from vehicles.search_vehicles(${keys.key}, ${plateKey}, ${Math.min(query.limit, 50)},
+                                                                   ${query.status ?? null}, ${query.ownerId ?? null}::uuid)`
             );
             const how = new Map(found.rows.map((r) => [r.vehicle_id, r.matched]));
-            const items = (await this.summaries(tx, [...how.keys()]))
-                .filter(
-                    (v) =>
-                        (query.status === undefined || v.status === query.status) &&
-                        (query.ownerId === undefined || v.owners.some((o) => o.id === query.ownerId))
-                )
-                .slice(0, query.limit)
-                .map((v) => {
-                    const matched = how.get(v.id) ?? '';
-                    return { ...v, matched: isMatch(matched) ? matched : null };
-                });
+            const items = (await this.summaries(tx, [...how.keys()])).slice(0, query.limit).map((v) => {
+                const matched = how.get(v.id) ?? '';
+                return { ...v, matched: isMatch(matched) ? matched : null };
+            });
             return { items, nextCursor: null };
         }
         const conditions: (SQL | undefined)[] = [
             query.status ? eq(vehicles.status, query.status) : undefined,
             query.after ? lt(vehicles.id, query.after) : undefined,
             query.ownerId
-                ? sql`exists (select 1 from vehicles.vehicle_ownerships o join vehicles.vehicle_owners w on w.ownership_id = o.id
-                       where o.vehicle_id = ${vehicles.id} and o.until is null
+                ? sql`exists (select 1 from vehicles.vehicle_owners w
+                       where w.ownership_id = (select o.id from vehicles.vehicle_ownerships o where o.vehicle_id = ${vehicles.id}
+                                                order by o.since desc limit 1)
                          and (w.person_id = ${query.ownerId} or w.organisation_id = ${query.ownerId}))`
                 : undefined
         ];
@@ -131,11 +127,6 @@ export class VehiclesService {
         const more = ids.length > query.limit;
         const page = ids.slice(0, query.limit);
         return { items: await this.summaries(tx, page), nextCursor: more ? (page[page.length - 1] ?? null) : null };
-    }
-
-    /** The vehicles a person or an organisation holds now. */
-    async byOwner(tx: Tx, ownerId: string, limit = 100): Promise<VehicleSummary[]> {
-        return (await this.search(tx, { ownerId, limit })).items;
     }
 
     /** The vehicles among `ids` the caller's scope shows, in the order asked, with no `matched`. */

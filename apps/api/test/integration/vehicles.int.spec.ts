@@ -606,6 +606,31 @@ describe('the registry rules', () => {
             )
         ).rejects.toBeInstanceOf(ConflictError);
     });
+
+    it('applies the status and owner filters inside the ranked search, and finds a vehicle off the register by its last owner (task 1.2e)', async () => {
+        const last = await registerPerson(as.damot(), 6, 'ገነት', 'ሙላቱ');
+        const v = await newVehicle(units.damot, {
+            chassisNumber: 'FILTER-0001',
+            owners: [{ kind: 'person', id: last }]
+        });
+        const ctx = ctxOf(units.damot);
+        await app.scoped(ctx, (tx) =>
+            registry.setStatus(tx, ctx, v.id, v.rowVersion, { status: 'deregistered', on: '2023-01-01' })
+        );
+        const ids = (items: Summary[]) => items.map((x) => x.id);
+        expect(ids(await find(as.damot(), 'FILTER-0001', '&status=deregistered'))).toEqual([v.id]);
+        expect(await find(as.damot(), 'FILTER-0001', '&status=active')).toEqual([]);
+        expect(ids(await find(as.damot(), 'FILTER-0001', `&ownerId=${last}`))).toEqual([v.id]);
+        expect(await find(as.damot(), 'FILTER-0001', `&ownerId=${people.bekele}`)).toEqual([]);
+        // with no text: the owners it left the register with still find it, and only with the status asked
+        const listed = await get<{ items: Summary[] }>(
+            as.damot(),
+            `/api/v1/vehicles?ownerId=${last}&status=deregistered`
+        );
+        expect(ids(listed.body.items)).toEqual([v.id]);
+        const active = await get<{ items: Summary[] }>(as.damot(), `/api/v1/vehicles?ownerId=${last}&status=active`);
+        expect(active.body.items).toEqual([]);
+    });
 });
 
 describe('the ownership history', () => {

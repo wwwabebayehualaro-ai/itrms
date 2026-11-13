@@ -262,6 +262,11 @@ export const caseSchema = z.object({
     steps: z.array(caseStepSchema),
     /** the caller may comment on it (case:comment) */
     canComment: z.boolean(),
+    /**
+     * what the case's effects ask everyone acting on it to see (task 1.2e): message keys an effect put in its facts as
+     * `facts.<key>.notices`, e.g. a chassis check digit the officer confirmed does not match, shown to the lead approving it
+     */
+    notices: z.array(z.string()),
     createdAt: z.string(),
     closedAt: z.string().nullable()
 });
