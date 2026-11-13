@@ -24,6 +24,7 @@ import {
     type IsolationCase
 } from '@itrms/kernel/testing';
 import { sql } from 'drizzle-orm';
+import { fiscalYearOf, toEthiopian } from '@itrms/ethiopian-calendar';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { startApi, type TestApi } from './support/api';
@@ -675,9 +676,12 @@ describe("the demo's stationery", () => {
         const boditi = await run(
             units.boditi,
             (ctx) => (tx) =>
-                stock.list(tx, ctx, { kind: 'bolo_sticker', variant: 'taxi', status: 'in_stock', limit: 5 })
+                stock.list(tx, ctx, { kind: 'bolo_sticker', variant: 'public_transport', status: 'in_stock', limit: 5 })
         );
-        expect(boditi.items[0]).toMatchObject({ key: '0003501', variant: 'taxi', validEfy: 2018 });
+        // printed for the fiscal year of the day the demo was seeded
+        const [y = 0, m = 0, d = 0] = today().split('-').map(Number);
+        const efy = fiscalYearOf(toEthiopian({ year: y, month: m, day: d }));
+        expect(boditi.items[0]).toMatchObject({ key: '0003501', variant: 'public_transport', validEfy: efy });
     });
 });
 

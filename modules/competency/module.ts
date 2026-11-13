@@ -59,7 +59,12 @@ export default defineModule({
         'competency.checkBackCapture',
         'competency.backCaptureVehicle',
         'competency.checkPlateExchange',
-        'competency.exchangePlate'
+        'competency.exchangePlate',
+        'competency.checkBolo',
+        'competency.recordBoloInspection',
+        'competency.issueBoloSticker',
+        'competency.issueTemporaryBolo',
+        'competency.voidBolo'
     ],
     title: { am: 'የአሽከርካሪና ተሽከርካሪ ብቃት ማረጋገጫ', en: 'Driver and vehicle competency' },
     workProcess: 1,
@@ -183,6 +188,23 @@ export default defineModule({
                     label: 'competency.action.newPlateExchange',
                     route: '/competency/plate-exchanges/new',
                     requires: { permission: 'case:create', services: ['DVC-12'] }
+                }
+            ]
+        },
+        {
+            key: 'competency.bolos',
+            group: 'work-process',
+            order: 16,
+            label: 'competency.nav.bolos',
+            icon: 'clipboard-check',
+            route: '/competency/bolos',
+            requires: { permission: 'vehicle:read', services: ['DVC-02'] },
+            quickActions: [
+                {
+                    key: 'competency.newBolo',
+                    label: 'competency.action.newBolo',
+                    route: '/competency/bolos/new',
+                    requires: { permission: 'case:create', services: ['DVC-02'] }
                 }
             ]
         },

@@ -6,6 +6,7 @@
 import type { DynamicModule, Type } from '@nestjs/common';
 import {
     BACK_CAPTURE_EFFECTS,
+    BOLO_EFFECTS,
     CompetencyModule,
     EXCHANGE_EFFECTS,
     LICENCE_EFFECTS,
@@ -132,7 +133,8 @@ export const SLICES: ApiSlice[] = [
             ...LICENCE_EFFECTS,
             ...REGISTRATION_EFFECTS,
             ...BACK_CAPTURE_EFFECTS,
-            ...EXCHANGE_EFFECTS
+            ...EXCHANGE_EFFECTS,
+            ...BOLO_EFFECTS
         ]),
         events: COMPETENCY_EVENTS,
         settings: COMPETENCY_SETTINGS,

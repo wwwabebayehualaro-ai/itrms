@@ -131,6 +131,21 @@ const SAMPLES: Record<DocumentDataSchema, Record<string, unknown>> = {
         bookletSerial: null,
         nationalReference: null
     },
+    'vehicle-bolo.v1': {
+        number: 'P0001301',
+        plate: 'ETH ABC 1234',
+        chassisNumber: 'JTDKB20U093051234',
+        make: 'Toyota',
+        model: 'Vitz',
+        category: { am: 'አውቶሞቢል', en: 'Automobile' },
+        use: { am: 'የግል', en: 'Private' },
+        checklistSerial: 'LV-004512',
+        inspectedOn: '2026-11-04',
+        fiscalYear: 2019,
+        validUntil: '2027-07-07',
+        temporaryUntil: null,
+        insurance: { certificate: '1234567', insurer: 'Sample Insurance S.C.', until: '2027-10-31' }
+    },
     'exam-result.v1': {
         sessionOn: '2026-11-04',
         serviceName: { am: 'አዲስ መንጃ ፈቃድ', en: 'New driver licence' },
@@ -143,6 +158,8 @@ const SCHEMA_OF: Record<string, DocumentDataSchema> = {
     'application-copy': 'application-copy.v1',
     'licence-card': 'licence-card.v1',
     'vehicle-registration-certificate': 'vehicle-registration-certificate.v1',
+    'vehicle-bolo': 'vehicle-bolo.v1',
+    'vehicle-temporary-bolo': 'vehicle-bolo.v1',
     'exam-result': 'exam-result.v1'
 };
 
@@ -356,6 +373,25 @@ describe.skipIf(!chrome)('a PDF from Chrome', () => {
         expect(issued.text).toContain('LB0000123');
         expect(issued.text).not.toContain('not the libre booklet');
     });
+
+    it('bolo: the sticker number, the fiscal year and its last day; a temporary bolo says so, with its own last day', async () => {
+        const bolo = await pdfOf('vehicle-bolo', SAMPLES['vehicle-bolo.v1']);
+        expect(bolo.pages).toBe(1);
+        expect(bolo.text).toContain('ቦሎ');
+        expect(bolo.text).toContain('P0001301');
+        expect(bolo.text).toContain('LV-004512');
+        // 7 July 2027 is Sene 30, 2019 E.C.: the fiscal year's last day
+        expect(bolo.text).toContain('ሰኔ');
+        expect(bolo.text).not.toContain('ጊዜያዊ ቦሎ');
+        const temporary = await pdfOf(
+            'vehicle-temporary-bolo',
+            { ...SAMPLES['vehicle-bolo.v1'], number: 'WOL-BODITI/TB/00001', temporaryUntil: '2026-12-04' },
+            'en'
+        );
+        expect(temporary.text).toContain('Temporary bolo');
+        expect(temporary.text.replace(/\s/g, '')).toContain('WOL-BODITI/TB/00001');
+        expect(temporary.text).toContain('stands only to the day shown');
+    }, 180_000);
 
     it('exam result sheet', async () => {
         const { text } = await pdfOf('exam-result', SAMPLES['exam-result.v1']);

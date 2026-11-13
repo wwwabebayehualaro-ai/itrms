@@ -324,6 +324,8 @@ export class StationeryStock {
             kind: StationeryKind;
             key?: string;
             variant?: string;
+            /** the fiscal year the item is printed for (a bolo sticker), when it matters */
+            validEfy?: number;
             usedFor: { table: string; id: string };
             caseId?: string;
             on?: string;
@@ -346,7 +348,7 @@ export class StationeryStock {
                 throw new ConflictError('invalid_transition', { detailKey: 'fees.errors.stationery_already_used' });
             return already;
         }
-        const item = await this.lockOne(tx, regionId, unitId, wanted.kind, wanted.key, wanted.variant);
+        const item = await this.lockOne(tx, regionId, unitId, wanted.kind, wanted.key, wanted.variant, wanted.validEfy);
         const on = wanted.on ?? addisToday();
         const movement = await this.record(tx, {
             regionId,
@@ -766,7 +768,8 @@ export class StationeryStock {
         unitId: string,
         kind: StationeryKind,
         key?: string,
-        variant?: string
+        variant?: string,
+        validEfy?: number
     ): Promise<ItemRow> {
         let item: ItemRow | undefined;
         if (key) {
@@ -786,6 +789,7 @@ export class StationeryStock {
                 .for('update');
             if (!item || item.holderUnitId !== unitId || item.status !== 'in_stock') throw notAvailable([parsed.key]);
             if (variant && item.variant !== variant) throw notAvailable([parsed.key]);
+            if (validEfy !== undefined && item.validEfy !== validEfy) throw notAvailable([parsed.key]);
         } else {
             [item] = await tx
                 .select()
@@ -796,7 +800,8 @@ export class StationeryStock {
                         eq(stationeryItems.holderUnitId, unitId),
                         eq(stationeryItems.kind, kind),
                         eq(stationeryItems.status, 'in_stock'),
-                        variant ? eq(stationeryItems.variant, variant) : undefined
+                        variant ? eq(stationeryItems.variant, variant) : undefined,
+                        validEfy !== undefined ? eq(stationeryItems.validEfy, validEfy) : undefined
                     )
                 )
                 .orderBy(asc(stationeryItems.series), asc(stationeryItems.serial))

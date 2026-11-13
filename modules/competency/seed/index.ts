@@ -17,6 +17,7 @@ export * from './licence-services';
 export * from './vehicle-services';
 export * from './back-capture-service';
 export * from './exchange-service';
+export * from './bolo-service';
 export { importDemoData, type DemoCounts, type DemoDeps } from './demo';
 
 /** The catalogue at the region's root; an installation step, audited. */

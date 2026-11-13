@@ -7,6 +7,8 @@ import { VehiclesModule } from '@itrms/vehicles/api';
 
 import { BACK_CAPTURE_EFFECTS } from './back-capture.effects';
 import { BackCaptureService } from './back-capture.service';
+import { BOLO_EFFECTS } from './bolo.effects';
+import { BoloService } from './bolo.service';
 import { CompetencyController } from './competency.controller';
 import { EXCHANGE_EFFECTS } from './exchange.effects';
 import { PlateExchangeService } from './exchange.service';
@@ -19,7 +21,7 @@ import { VehicleRegistrationService } from './registration.service';
 
 /**
  * Driver licences (task 0.24a): the register, its rules and the effects a licence service's workflow names; and the new vehicle
- * registration service's effects over the vehicle register (task 1.2b); the back-capture of paper vehicle files (task 1.13); and the plate exchange (task 1.2c).
+ * registration service's effects over the vehicle register (task 1.2b); the back-capture of paper vehicle files (task 1.13); the plate exchange (task 1.2c); and the bolo inspection (task 1.3a).
  */
 @Module({
     imports: [FormsModule, PartiesModule, DocumentsModule, VehiclesModule, FeesModule],
@@ -30,12 +32,14 @@ import { VehicleRegistrationService } from './registration.service';
         VehicleRegistrationService,
         BackCaptureService,
         PlateExchangeService,
+        BoloService,
         LicenceLookup,
         TrainingSchoolLookup,
         ...LICENCE_EFFECTS,
         ...REGISTRATION_EFFECTS,
         ...BACK_CAPTURE_EFFECTS,
-        ...EXCHANGE_EFFECTS
+        ...EXCHANGE_EFFECTS,
+        ...BOLO_EFFECTS
     ],
     exports: [LicencesService]
 })

@@ -519,6 +519,13 @@
       "when": 1794540311361,
       "tag": "0073_registration_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1794586841776,
+      "tag": "0074_bolos",
+      "breakpoints": true
     }
   ]
 }

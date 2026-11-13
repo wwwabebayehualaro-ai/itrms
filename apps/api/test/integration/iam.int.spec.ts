@@ -242,6 +242,8 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
             // the plate exchange (task 1.2c), where the office keeps plate stock
             'competency.plateExchanges',
             'competency.licences',
+            // the bolo inspection (task 1.3a)
+            'competency.bolos',
             'competency.training',
             'competency.exams',
             ...REGISTER_AND_STOCK
@@ -274,6 +276,8 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
                 'competency.backCaptures',
                 // the plate exchange (task 1.2c), where the office keeps plate stock
                 'competency.plateExchanges',
+                // the bolo inspection (task 1.3a): not a licensing service
+                'competency.bolos',
                 ...REGISTER_AND_STOCK
             ]);
         } finally {

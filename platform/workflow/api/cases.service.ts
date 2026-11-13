@@ -38,6 +38,7 @@ import type { FeeCasePort, PaymentChange } from '@itrms/fees/api';
 import type { PaymentFacts } from '@itrms/fees/contracts';
 import {
     effectKeyOf,
+    fromStates,
     parseStepForm,
     workflowDefinitionSchema,
     workflowSlaSchema,
@@ -1210,7 +1211,7 @@ export class CasesService implements FeeCasePort {
         // request it changes
         const actionDetails = await Promise.all(
             actions.map(async (action) => {
-                const t = def.transitions.find((x) => x.from === row.state && x.action === action);
+                const t = def.transitions.find((x) => fromStates(x).includes(row.state) && x.action === action);
                 if (t?.amendsRequest)
                     return {
                         action,

@@ -28,11 +28,13 @@ import { loadSlices } from '@itrms/kernel/api';
 import { importOrg, orgUnits, parseOrgCsv, parseOrgWorkbook, parseOrgYaml, type OrgImport } from '@itrms/kernel/org';
 import {
     importBackCaptureService,
+    importBoloService,
     importPlateExchangeService,
     importDemoData,
     importLicenceGrades,
     importLicenceServices,
     importVehicleServices,
+    setUpBoloCounters,
     setUpLicenceCounters
 } from '@itrms/competency/seed';
 import { FieldCrypto } from '@itrms/kernel/crypto';
@@ -190,7 +192,10 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
                 // the back-capture of paper vehicle files (task 1.13)
                 backCapture: await importBackCaptureService(tx, where),
                 // the plate exchange (task 1.2c), after the fee rules
-                plateExchange: await importPlateExchangeService(tx, where)
+                plateExchange: await importPlateExchangeService(tx, where),
+                // the bolo inspection (task 1.3a), after the fee rules; its temporary bolos' counters
+                bolo: await importBoloService(tx, where),
+                boloCounters: await setUpBoloCounters(tx, root.regionId)
             };
         });
         logger.info(

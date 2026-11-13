@@ -1608,14 +1608,33 @@
           "notes": "Split on 2026-11-13: the field types (Checklist, Signature, Photo, GeoPoint) here, the authoring features (wizard steps, reusable blocks, logic inspector, print preview, analytics) in 1.13c after the bolo inspection (1.3), which needs only the checklist. Reviewer (2026-11-13): H1 (a blank-looking checklist kept a sent outcome and skipped the shape check), M1 (critical items and all-N/A sheets could pass by not applying), M2 (an unchanged checklist refused on a request change), L1, L2, L3, L5 fixed in 7695047. Open as follow-ups: L3 (a place is the client's statement; allowManual enforced only in the UI), L4 (GeoPoint inputs not refreshed on a later value change), L6 (HEIC outside Safari, old Safari EXIF), L7 (checklist texts bounded only by the document size). Decisions for the owner: the face crop is a fixed 3x4 frame; 'critical' means the sheet cannot pass with it failed or at 0 points, and it never 'does not apply'."
         },
         {
-          "id": "1.3",
-          "title": "Bolo technical inspection",
+          "id": "1.3a",
+          "title": "Bolo technical inspection, part 1: the service (DVC-02)",
+          "status": "in review",
+          "branch": "task/1.3a-bolo-service",
+          "commits": [
+            "8a5aa69"
+          ],
+          "evidence": [
+            "CI run 43500940271 on PR #66 (head 8a5aa69): all 10 jobs green: lint, typecheck, unit, build and boundaries; integration on the dev stack 41 files incl. bolo.int.spec.ts 9/9, plus the S3 contract suite 20/20; e2e journeys 54 passed (incl. competency/bolo.spec.ts) and the verifier suite 4; stories, axe and visual baselines; performance; production profile; Semgrep, Trivy and gitleaks clean",
+            "A failed item blocks the pass: bolo-service.spec.ts 'blocks the pass on any failed item: the stored outcome is the server's'; bolo.int.spec refused-pass cases; e2e bolo.spec.ts '…a failed item blocks the pass'",
+            "A bolo PDF verifies: platform/documents render.spec.ts renders vehicle-bolo and vehicle-temporary-bolo (sticker number, fiscal year, last day); bolo.int.spec 'passes on the checklist and gives the bolo: the sticker of its use and year, and the document'",
+            "Expiry from the category rules: modules/competency/api/bolo-validity.ts boloValidity; bolo-service.spec.ts 'runs to Sene 30 of the fiscal year the vehicle was inspected in'; bolo.int.spec compares stored valid_until with boloValidity(today())",
+            "Isolation and audit: migration 0074_bolos.sql applies registry RLS on competency.bolos (handling_org_path), in the iam.int.spec isolation matrix; bolo.int.spec asserts audit rows insert/update for competency.bolos; temporary bolo numbers from nextNumber counter; one bolo per vehicle and year unique index",
+            "Reviews: task-verifier found every Done-when item and test met; security reviewer H1, M1-M3, L1, L6 fixed (94ed000); L2-L5 recorded as follow-up 258 (to 1.3b); i18n am/en +20 keys each (CI lint incl. i18n:check)"
+          ],
+          "blockers": [],
+          "notes": "Split on 2026-11-13: the service, checklist, prerequisites, insurance, fee, result and validity, sticker or temporary bolo, document here; partners, re-inspection after a garage, reminders and reports in 1.3b. Design (2026-11-13): DVC-02 on the 1.13a Checklist. One table competency.bolos (registry class, handling_org_path like driver_licences): a passed inspection makes one bolo row (vehicle, case unique, use, checklist serial, inspected_on, valid_until = end of the Ethiopian fiscal year of the inspection (Sene 30) unless the category rule says otherwise, insurance certificate number/insurer/policy from-until, status awaiting_sticker | temporary | valid | void, sticker_key, temporary_until). A failed inspection stays in the case facts (the inspection register with re-inspection is 1.3b). Workflow: draft -> review (officer: prerequisites) -> payment -> inspection (officer, step form: checklist serial + Checklist + inspected on; actions pass (outcome.passed must be true) / fail (must be false, ends 'failed')) -> sticker (issue_sticker takes a bolo_sticker of the vehicle's use and fiscal year from stationery, 409 when none; issue_temporary issues the temporary bolo with a validity window and stays) -> issued. Effects: checkBolo (vehicle on the register and active; prerequisites by use: road fund receipt for public_transport and commercial; insurance certificate with an unexpired policy), recordBoloInspection, issueBoloSticker (givesService), issueTemporaryBolo. Stationery.use gains validEfy; sticker variant = the vehicle use (demo stationery seed renamed taxi -> public_transport). Documents: vehicle-bolo.v1 and vehicle-temporary-bolo.v1 templates with QR; the registration certificate's boloNumber stays null until a bolo exists. Reviewer (2026-11-13): H1 (fee under-declared: seats/load unchecked), M1 (one bolo per vehicle/year only at filing), M2 (inspection day unbounded), M3 (no exit after the pass), L1, L6 fixed. Open: L2 (bolo_temporary_days not a declared config key; the temporary state's SLA is business days), L3 (issue_temporary allowed with stickers in stock), L4 (a temporary bolo's document stays verifiable after the sticker or a rejection), L5 (e2e: the refused pass asserted only by the dialog staying open). CI (2026-11-13): the case view matched an action's transition by from === state, so actions on a transition with several from states (issue_sticker, reject) showed their raw key and lost the step form; fixed in platform/workflow with fromStates (8a5aa69), asserted in bolo.int.spec."
+        },
+        {
+          "id": "1.3b",
+          "title": "Bolo technical inspection, part 2: partners and the cycle",
           "status": "planned",
           "branch": null,
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Split from 1.3 on 2026-11-13."
         },
         {
           "id": "1.13c",
@@ -3527,6 +3546,11 @@
       "foundIn": "1.13a",
       "item": "Photo: HEIC photos fail outside Safari and older Safari may not apply EXIF orientation; checklist item texts are bounded only by the document size (review L6, L7)",
       "movedTo": "1.13c"
+    },
+    {
+      "foundIn": "1.3a",
+      "item": "Temporary bolo: declare bolo_temporary_days as a service configuration key; refuse issue_temporary while stickers of the kind are in stock; supersede or revoke the temporary bolo's document when the sticker is given or the case is rejected (review L2-L4)",
+      "movedTo": "1.3b"
     }
   ]
 }
