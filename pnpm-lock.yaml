@@ -668,6 +668,9 @@ importers:
       '@itrms/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@itrms/form-engine':
+        specifier: workspace:*
+        version: link:../../packages/form-engine
 
   modules/parties:
     dependencies:

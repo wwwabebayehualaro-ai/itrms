@@ -12,3 +12,4 @@ export { REGISTRATION_EFFECTS } from './registration.effects';
 export { LicencesService } from './licences.service';
 export { VehicleRegistrationService, type RegistrationInput } from './registration.service';
 export * from './competency.table';
+export { boloValidity, daysAfter } from './bolo-validity';

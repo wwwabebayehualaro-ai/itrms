@@ -24,6 +24,9 @@ export function factsOf(schema: DocumentDataSchema, data: Record<string, unknown
                 .filter((n): n is string => n !== null);
             return { holder: names.length ? names.join(', ') : null, validUntil: null };
         }
+        // a bolo stands to its temporary last day while it is temporary, else to the fiscal year's: a vehicle's, no person's
+        case 'vehicle-bolo.v1':
+            return { holder: null, validUntil: text(data.temporaryUntil) ?? text(data.validUntil) };
         case 'application-copy.v1':
         case 'exam-result.v1':
             return { holder: null, validUntil: null };

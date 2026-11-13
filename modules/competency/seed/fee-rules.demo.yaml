@@ -142,3 +142,57 @@ rules:
           label: { am: የሊብሬ ክፍያ, en: Libre }
           kind: fixed
           amount: '20000'
+  - key: dvc-02-bolo
+    name: { am: የተሽከርካሪ ቴክኒክ ምርመራና ቦሎ, en: Technical inspection and bolo }
+    document:
+      schemaVersion: 1
+      demo: true
+      basis: the zone's written answers Q12.5 (fees by plate code, tonnage and seats); to confirm with the regional schedule
+      inputs:
+        use: { kind: choice }
+        seats: { kind: number, required: false }
+        loadTonnes: { kind: number, required: false }
+      lines:
+        # codes 1 and 2: cars and motorcycles; buses by their seats
+        - key: private
+          label: { am: የቦሎ ክፍያ, en: Bolo }
+          kind: fixed
+          amount: '100000'
+          when: input.use == 'private'
+        - key: car
+          label: { am: የቦሎ ክፍያ, en: Bolo }
+          kind: fixed
+          amount: '100000'
+          when: input.use == 'public_transport' && (input.seats || 0) <= 12
+        - key: busSmall
+          label: { am: የቦሎ ክፍያ (አውቶቡስ እስከ 35 ወንበር), en: 'Bolo (bus, up to 35 seats)' }
+          kind: fixed
+          amount: '150000'
+          when: input.use == 'public_transport' && (input.seats || 0) > 12 && (input.seats || 0) <= 35
+        - key: busLarge
+          label: { am: የቦሎ ክፍያ (አውቶቡስ ከ35 በላይ ወንበር), en: 'Bolo (bus, over 35 seats)' }
+          kind: fixed
+          amount: '200000'
+          when: input.use == 'public_transport' && (input.seats || 0) > 35
+        # code 3: freight by its load
+        - key: truckLight
+          label: { am: የቦሎ ክፍያ (እስከ 12 ቶን), en: 'Bolo (up to 12 t)' }
+          kind: fixed
+          amount: '100000'
+          when: input.use == 'commercial' && (input.loadTonnes || 0) <= 12
+        - key: truckMedium
+          label: { am: የቦሎ ክፍያ (13–44 ቶን), en: 'Bolo (13–44 t)' }
+          kind: fixed
+          amount: '150000'
+          when: input.use == 'commercial' && (input.loadTonnes || 0) > 12 && (input.loadTonnes || 0) <= 44
+        - key: truckHeavy
+          label: { am: የቦሎ ክፍያ (ከ44 ቶን በላይ), en: 'Bolo (over 44 t)' }
+          kind: fixed
+          amount: '200000'
+          when: input.use == 'commercial' && (input.loadTonnes || 0) > 44
+        # codes 4 and 5, police, defence, NGO and the rest
+        - key: other
+          label: { am: የቦሎ ክፍያ, en: Bolo }
+          kind: fixed
+          amount: '150000'
+          when: input.use != 'private' && input.use != 'public_transport' && input.use != 'commercial'

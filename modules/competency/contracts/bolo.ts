@@ -4,7 +4,6 @@
  * year it was inspected in. The sticker of the vehicle's use and that year comes from the office's stationery; when none is in
  * stock the office gives a temporary bolo for a few days and the sticker later, on the same case.
  */
-import { fiscalYearOf, fiscalYearRange, toEthiopian, toGregorian } from '@itrms/ethiopian-calendar';
 import { z } from 'zod';
 
 export const BOLO_EFFECTS = {
@@ -41,27 +40,6 @@ export const TEMPORARY_BOLO_PATTERN = '{unit}/TB/{seq:05}';
 /** How many days a temporary bolo stands when the case's configuration does not say (`bolo_temporary_days`). */
 export const DEFAULT_TEMPORARY_BOLO_DAYS = 30;
 
-const iso = (d: { year: number; month: number; day: number }) =>
-    `${String(d.year).padStart(4, '0')}-${String(d.month).padStart(2, '0')}-${String(d.day).padStart(2, '0')}`;
-
-/**
- * The fiscal year a bolo stands for and its last day: the Ethiopian fiscal year the vehicle was inspected in, to Sene 30 (the
- * stickers are printed per fiscal year). A stated rule until the zone says a category differs (asked: docs/discovery Q12).
- */
-export function boloValidity(inspectedOn: string): { fiscalYear: number; validUntil: string } {
-    const [year, month, day] = inspectedOn.split('-').map(Number);
-    if (!year || !month || !day) throw new Error(`not a day: ${inspectedOn}`);
-    const fiscalYear = fiscalYearOf(toEthiopian({ year, month, day }));
-    return { fiscalYear, validUntil: iso(toGregorian(fiscalYearRange(fiscalYear).end)) };
-}
-
-/** The day a number of days after a Gregorian day (a temporary bolo's last day). */
-export function daysAfter(day: string, days: number): string {
-    const d = new Date(`${day}T00:00:00Z`);
-    d.setUTCDate(d.getUTCDate() + days);
-    return d.toISOString().slice(0, 10);
-}
-
 /**
  * The third-party insurance certificate (Proclamation 799/2013), as the request records it: its number, the insurer and the
  * policy period. A policy that has ended is refused.
@@ -74,8 +52,8 @@ export const insuranceSchema = z.object({
 });
 export type Insurance = z.infer<typeof insuranceSchema>;
 
-/** What the inspection step says: the checklist sheet's own serial and the day the vehicle was inspected. */
+/** What the inspection step says: the checklist sheet's own serial and the day the vehicle was inspected (today when not given). */
 export const inspectionEntrySchema = z.object({
     checklistSerial: z.string().trim().min(1).max(40),
-    inspectedOn: z.iso.date()
+    inspectedOn: z.iso.date().optional()
 });

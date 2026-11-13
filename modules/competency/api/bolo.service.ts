@@ -19,8 +19,6 @@ import vehiclesEn from '@itrms/vehicles/messages/en';
 import {
     addisDay,
     BOLO_TEMPLATE,
-    boloValidity,
-    daysAfter,
     DEFAULT_TEMPORARY_BOLO_DAYS,
     inspectionEntrySchema,
     insuranceSchema,
@@ -30,6 +28,7 @@ import {
 } from '../contracts';
 import am from '../messages/am.json';
 import en from '../messages/en.json';
+import { boloValidity, daysAfter } from './bolo-validity';
 import { bolos } from './competency.table';
 import { actForHandlingOffice } from './handling-office';
 import type { CasePlace } from './licences.service';
@@ -48,6 +47,8 @@ const refuse = (path: string, code: string, key: Words): never => {
 /** The request's answers an effect reads, by contract path (see bolo.effects.ts). */
 export type BoloInput = {
     vehicle: string;
+    /** its use, as the fee was worked out from it: the register's must be the same */
+    use: string;
     insuranceCertificate: string;
     insurer: string;
     insuredFrom: string;
@@ -89,6 +90,7 @@ export class BoloService {
         const [vehicle] = await tx.select().from(vehicles).where(eq(vehicles.id, input.vehicle));
         if (!vehicle || vehicle.status !== 'active')
             return refuse('vehicle', 'not_active', 'competency.rule.boloNotActive');
+        if (input.use !== vehicle.use) return refuse('use', 'mismatch', 'competency.rule.exchangeUse');
         const insurance = insuranceSchema.safeParse({
             certificate: input.insuranceCertificate,
             insurer: input.insurer,
@@ -136,8 +138,8 @@ export class BoloService {
             throw new ValidationError('validation_failed', {
                 errors: entry.error.issues.map((i) => ({ path: i.path.join('.'), code: 'invalid', message: i.message }))
             });
-        if (entry.data.inspectedOn > addisDay())
-            return refuse('inspectedOn', 'future', 'competency.rule.boloInspectedLater');
+        const inspectedOn = entry.data.inspectedOn ?? addisDay();
+        if (inspectedOn > addisDay()) return refuse('inspectedOn', 'future', 'competency.rule.boloInspectedLater');
         // the checklist as the step's answers were filed: its outcome is the one the server worked out (task 1.13a)
         const checklist = isRecord(input) && isRecord(input.inspection) ? input.inspection : undefined;
         const outcome = checklist && isRecord(checklist.outcome) ? checklist.outcome : undefined;
@@ -148,7 +150,7 @@ export class BoloService {
             throw new ConflictError('invalid_transition', { detailKey: 'competency.rule.boloNotFailed' });
         const inspection = {
             checklistSerial: entry.data.checklistSerial,
-            inspectedOn: entry.data.inspectedOn,
+            inspectedOn,
             passed,
             failed: Array.isArray(outcome?.failed) ? outcome.failed : [],
             total: outcome?.total,
@@ -163,7 +165,7 @@ export class BoloService {
             .select()
             .from(bolos)
             .where(and(eq(bolos.caseId, place.caseId), ne(bolos.status, 'void')));
-        const validity = boloValidity(entry.data.inspectedOn);
+        const validity = boloValidity(inspectedOn);
         const bolo =
             made ??
             (await insertAudited(tx, bolos, {
@@ -173,7 +175,7 @@ export class BoloService {
                 caseId: place.caseId,
                 use: asked.use,
                 checklistSerial: entry.data.checklistSerial,
-                inspectedOn: entry.data.inspectedOn,
+                inspectedOn,
                 fiscalYear: validity.fiscalYear,
                 validUntil: validity.validUntil,
                 insuranceCertificate: insurance.data.certificate,

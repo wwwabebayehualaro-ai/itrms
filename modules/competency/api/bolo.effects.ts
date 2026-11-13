@@ -19,6 +19,7 @@ const placeOf = (run: EffectRun<unknown>): CasePlace => ({
 /** What the check reads from the request form: the vehicle, the insurance certificate, and the Road Fund receipt if any. */
 const REQUEST = {
     vehicle: { kind: 'ref' },
+    use: { kind: 'choice' },
     insuranceCertificate: { kind: 'text' },
     insurer: { kind: 'text' },
     insuredFrom: { kind: 'ethdate' },

@@ -43,6 +43,7 @@
     "zod": "4.6.6"
   },
   "devDependencies": {
-    "@itrms/config": "workspace:*"
+    "@itrms/config": "workspace:*",
+    "@itrms/form-engine": "workspace:*"
   }
 }

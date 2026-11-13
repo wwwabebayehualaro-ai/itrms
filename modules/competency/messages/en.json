@@ -168,5 +168,10 @@
   "competency.rule.boloNotFailed": "The checklist passed: record it as passed.",
   "competency.rule.boloNotPassed": "The checklist did not pass: a failed item blocks the bolo.",
   "competency.rule.boloRoadFund": "A vehicle of this use brings its Road Fund payment receipt before the bolo.",
-  "competency.rule.boloStickerGiven": "The bolo's sticker has been given: no temporary bolo is needed."
+  "competency.rule.boloStickerGiven": "The bolo's sticker has been given: no temporary bolo is needed.",
+  "competency.nav.bolos": "Bolo inspections",
+  "competency.action.newBolo": "New bolo inspection",
+  "competency.bolos.title": "Bolo inspections",
+  "competency.bolos.intro": "The annual technical inspection (DVC-02): the vehicle on the register, its third-party insurance and the papers its use needs, payment, the inspection on the checklist (a failed item blocks the pass), then the bolo sticker of its use and fiscal year, or a temporary bolo while the office has none.",
+  "competency.bolos.fileNew": "New bolo inspection"
 }

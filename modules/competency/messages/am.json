@@ -168,5 +168,10 @@
   "competency.rule.boloNotFailed": "የማረጋገጫ ዝርዝሩ አልፏል፤ እንዳለፈ ይመዝግቡ።",
   "competency.rule.boloNotPassed": "የማረጋገጫ ዝርዝሩ አላለፈም፤ ያልተሳካ ንጥል ቦሎውን ያግዳል።",
   "competency.rule.boloRoadFund": "የዚህ አገልግሎት ተሽከርካሪ ከቦሎ በፊት የመንገድ ፈንድ ክፍያ ደረሰኙን ያቀርባል።",
-  "competency.rule.boloStickerGiven": "የቦሎው ምልክት ተሰጥቷል፤ ጊዜያዊ ቦሎ አያስፈልግም።"
+  "competency.rule.boloStickerGiven": "የቦሎው ምልክት ተሰጥቷል፤ ጊዜያዊ ቦሎ አያስፈልግም።",
+  "competency.nav.bolos": "የቦሎ ምርመራዎች",
+  "competency.action.newBolo": "አዲስ የቦሎ ምርመራ",
+  "competency.bolos.title": "የቦሎ ምርመራዎች",
+  "competency.bolos.intro": "ዓመታዊ የቴክኒክ ምርመራ (DVC-02)፦ በመዝገብ ላይ ያለው ተሽከርካሪ፣ የሦስተኛ ወገን መድኑና አገልግሎቱ የሚጠይቃቸው ሰነዶች፣ ክፍያ፣ በማረጋገጫ ዝርዝሩ ላይ ምርመራ (ያልተሳካ ንጥል ማለፍን ያግዳል)፣ ከዚያም የአገልግሎቱና የበጀት ዓመቱ የቦሎ ምልክት፣ ወይም ጽ/ቤቱ ምልክት እስኪኖረው ጊዜያዊ ቦሎ።",
+  "competency.bolos.fileNew": "አዲስ የቦሎ ምርመራ"
 }

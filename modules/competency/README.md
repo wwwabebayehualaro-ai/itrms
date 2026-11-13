@@ -59,3 +59,16 @@ Layer: work-process. Shape, public entries and rules: [code-structure.md](../../
 | `./web/server`, `./web/client` | screens and route map; embeddable client components |
 | `./messages/*` | `am`, `en`, `wal-Latn` catalogues, keys `competency.<area>.<key>` |
 | `./seed` | service definitions, unit-type defaults, demo generators |
+
+## The bolo inspection (DVC-02, task 1.3a)
+
+A vehicle on the register is filed with its third-party insurance certificate (Proclamation 799/2013: number, insurer, policy
+period; a policy that does not cover today is refused) and the papers its use needs (a public transport or freight vehicle,
+plate codes 1 and 3, brings its Road Fund receipt). The fee is the zone's table by use, seats and load (demo). After payment the
+officer inspects it on the light-vehicle checklist (a `Checklist` field, task 1.13a: the outcome is the server's), with the
+sheet's own serial: `pass` is refused unless the checklist passed (a failed item blocks it), `fail` closes the case with the
+failed items (re-inspection after a garage is task 1.3b). A pass makes the vehicle's bolo, `competency.bolos` (class R: the
+region reads it, the handling office's subtree writes it), valid to Sene 30 of the fiscal year it was inspected in. The officer
+then hands over the sticker of the vehicle's use and that fiscal year from the office's stationery (the bolo document carries its
+serial), or, while the office has none, a temporary bolo numbered from the office's counter (`{unit}/TB/{seq:05}`) for
+`bolo_temporary_days` (30 by default), and the sticker later on the same case. A vehicle has one bolo per fiscal year.

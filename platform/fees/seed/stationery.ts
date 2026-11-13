@@ -26,14 +26,17 @@ interface Delivery {
     unitCostSantim?: string;
 }
 
-/** The deliveries every demo region receives, and the share each office hands to the one below it (root first). */
+/**
+ * The deliveries every demo region receives, and the share each office hands to the one below it (root first). A bolo sticker's
+ * variant is the vehicle use it is printed for, the use a bolo asks for (task 1.3a); its year, the fiscal year of the demo.
+ */
 const DELIVERIES: readonly Delivery[] = [
     { kind: 'libre_booklet', series: 'LB', from: 1, to: 200, width: 7, unitCostSantim: '13000' },
     { kind: 'licence_blank', series: 'LC', from: 1, to: 200, width: 7 },
-    { kind: 'bolo_sticker', series: '', from: 3501, to: 3700, width: 7, variant: 'taxi', validEfy: 2018 },
-    { kind: 'bolo_sticker', series: 'G', from: 251, to: 350, width: 7, variant: 'government', validEfy: 2018 },
-    { kind: 'bolo_sticker', series: 'P', from: 1301, to: 1400, width: 7, variant: 'private', validEfy: 2018 },
-    { kind: 'bolo_sticker', series: 'C', from: 1, to: 100, width: 7, variant: 'commercial', validEfy: 2018 },
+    { kind: 'bolo_sticker', series: '', from: 3501, to: 3700, width: 7, variant: 'public_transport', validEfy: 2019 },
+    { kind: 'bolo_sticker', series: 'G', from: 251, to: 350, width: 7, variant: 'government', validEfy: 2019 },
+    { kind: 'bolo_sticker', series: 'P', from: 1301, to: 1400, width: 7, variant: 'private', validEfy: 2019 },
+    { kind: 'bolo_sticker', series: 'C', from: 1, to: 100, width: 7, variant: 'commercial', validEfy: 2019 },
     { kind: 'receipt_leaf', series: 'R', from: 1, to: 500, width: 6 }
 ];
 

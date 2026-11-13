@@ -187,6 +187,23 @@ export default defineModule({
             ]
         },
         {
+            key: 'competency.bolos',
+            group: 'work-process',
+            order: 16,
+            label: 'competency.nav.bolos',
+            icon: 'clipboard-check',
+            route: '/competency/bolos',
+            requires: { permission: 'vehicle:read', services: ['DVC-02'] },
+            quickActions: [
+                {
+                    key: 'competency.newBolo',
+                    label: 'competency.action.newBolo',
+                    route: '/competency/bolos/new',
+                    requires: { permission: 'case:create', services: ['DVC-02'] }
+                }
+            ]
+        },
+        {
             key: 'competency.licences',
             group: 'work-process',
             order: 15,

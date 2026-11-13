@@ -675,9 +675,9 @@ describe("the demo's stationery", () => {
         const boditi = await run(
             units.boditi,
             (ctx) => (tx) =>
-                stock.list(tx, ctx, { kind: 'bolo_sticker', variant: 'taxi', status: 'in_stock', limit: 5 })
+                stock.list(tx, ctx, { kind: 'bolo_sticker', variant: 'public_transport', status: 'in_stock', limit: 5 })
         );
-        expect(boditi.items[0]).toMatchObject({ key: '0003501', variant: 'taxi', validEfy: 2018 });
+        expect(boditi.items[0]).toMatchObject({ key: '0003501', variant: 'public_transport', validEfy: 2019 });
     });
 });
 
