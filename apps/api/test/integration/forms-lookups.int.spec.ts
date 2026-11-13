@@ -3,7 +3,9 @@
  * field of type RegistryLookup stores only the id of a person or an organisation of the caller's region; the server
  * refuses an id of another region, an unknown one and a merged person, in a row too. A file answer names a file the
  * caller's office uploaded, of the document type the field asks for; the submission links it, and keeps the stored name
- * and size, never the browser's. Names and numbers are generated (never a real person's). Needs: pnpm dev:infra.
+ * and size, never the browser's. The inspection and evidence answers (task 1.13a): a checklist's outcome is the server's,
+ * a signature is a linked image, a place is checked. Names and numbers are generated (never a real person's). Needs:
+ * pnpm dev:infra.
  */
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
@@ -664,5 +666,141 @@ describe('a file answer', () => {
             documentType: 'secret_plans'
         });
         expect(res.statusCode, res.body).toBe(422);
+    });
+});
+
+describe('inspection and evidence answers (task 1.13a)', () => {
+    let sheet: { id: string; versionId: string };
+    const validated = { behavior: { validation: { supported: true } } };
+    const checklist = field('inspection', 'Checklist', {
+        props: {
+            required: true,
+            remarkOnFail: true,
+            sections: [
+                {
+                    key: 'brakes',
+                    title: { am: 'ፍሬን', en: 'Brakes' },
+                    items: [
+                        { key: 'service', text: { am: 'የእግር ፍሬን', en: 'Service brake' }, critical: true },
+                        { key: 'parking', text: { am: 'የእጅ ፍሬን', en: 'Parking brake' } }
+                    ]
+                }
+            ]
+        },
+        ...validated
+    });
+
+    /** A PNG-looking image (its signature, then random bytes), uploaded and confirmed as the browser does. */
+    async function image(who: As): Promise<string> {
+        const bytes = randomBytes(1024);
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(bytes);
+        const begun = await api.call('POST', '/api/v1/files', who, {
+            filename: 'inspection-signature.png',
+            contentType: 'image/png',
+            size: bytes.length,
+            sha256: createHash('sha256').update(bytes).digest('hex')
+        });
+        expect(begun.statusCode, begun.body).toBe(201);
+        const ticket = begun.json<{ file: { id: string }; upload: { url: string; fields: Record<string, string> } }>();
+        const form = new FormData();
+        for (const [k, v] of Object.entries(ticket.upload.fields)) form.append(k, v);
+        form.append('file', new Blob([new Uint8Array(bytes)], { type: 'image/png' }));
+        expect((await fetch(ticket.upload.url, { method: 'POST', body: form })).status).toBe(204);
+        const confirmed = await api.call('POST', `/api/v1/files/${ticket.file.id}/confirm`, who, {});
+        expect(confirmed.statusCode, confirmed.body).toBe(200);
+        return ticket.file.id;
+    }
+
+    beforeAll(async () => {
+        sheet = await createAndPublish('bolo-sheet', [
+            checklist,
+            field('inspector', 'Signature', { props: { required: true }, ...validated }),
+            field('at', 'GeoPoint', validated)
+        ]);
+    });
+
+    it('stores the outcome the server works out, never the one sent, with the signature linked and the place as given', async () => {
+        const signature = await image(as.damot());
+        const res = await submit(as.damot(), sheet, {
+            inspection: {
+                items: { service: { result: 'pass' }, parking: { result: 'fail', remark: 'Cable loose' } },
+                outcome: { total: 2, max: 2, failed: [], criticalFailed: [], passed: true }
+            },
+            inspector: [{ file_id: signature }],
+            at: { lat: 6.8476, lng: 37.7524, accuracy: 9 }
+        });
+        expect(res.statusCode, res.body).toBe(201);
+        const created = res.json<{ id: string }>();
+        const stored = await api.owner.query<{ answers: Record<string, unknown> }>(
+            'select answers from forms.submissions where id = $1',
+            [created.id]
+        );
+        expect(stored.rows[0]?.answers).toEqual({
+            inspection: {
+                items: { service: { result: 'pass' }, parking: { result: 'fail', remark: 'Cable loose' } },
+                outcome: { total: 1, max: 2, failed: ['parking'], criticalFailed: [], passed: false }
+            },
+            inspector: [{ file_id: signature, name: 'inspection-signature.png', size: 1024, type: 'image/png' }],
+            at: { lat: 6.8476, lng: 37.7524, accuracy: 9 }
+        });
+        const linked = await api.owner.query<{ linked_id: string | null }>(
+            'select linked_id from kernel.files where id = $1',
+            [signature]
+        );
+        expect(linked.rows[0]?.linked_id).toBe(created.id);
+    });
+
+    it('refuses an unanswered or unknown item, a failed item without a remark, a document as a signature and a place off the earth', async () => {
+        const items = (extra: Record<string, unknown>) => ({
+            inspection: { items: { service: { result: 'pass' }, ...extra } }
+        });
+        const document = await uploaded(as.damot(), undefined);
+        const cases: [string, Record<string, unknown>, string][] = [
+            ['an item unanswered', items({}), 'inspection'],
+            [
+                'an item the sheet does not have',
+                items({ parking: { result: 'pass' }, wipers: { result: 'pass' } }),
+                'inspection'
+            ],
+            ['a failed item without a remark', items({ parking: { result: 'fail' } }), 'inspection'],
+            ['a document as a signature', { inspector: [{ file_id: document }] }, 'inspector'],
+            ['a place off the earth', { at: { lat: 96, lng: 37.7 } }, 'at']
+        ];
+        for (const [name, over, path] of cases) {
+            const answers = {
+                ...items({ parking: { result: 'pass' } }),
+                inspector: [{ file_id: await image(as.damot()) }],
+                ...over
+            };
+            const res = await submit(as.damot(), sheet, answers, { 'accept-language': 'en' });
+            expect(res.statusCode, `${name}: ${res.body}`).toBe(422);
+            expect(
+                res.json<Problem>().errors.map((e) => e.path),
+                name
+            ).toEqual([path]);
+        }
+    });
+
+    it('refuses to save a form whose checklist uses an item key twice', async () => {
+        const broken = field('sheet', 'Checklist', {
+            props: {
+                sections: [
+                    {
+                        key: 'lights',
+                        items: [
+                            { key: 'head', text: 'Headlights' },
+                            { key: 'head', text: 'Fog lights' }
+                        ]
+                    }
+                ]
+            }
+        });
+        const res = await api.call('POST', '/api/v1/forms', as.bureau(), {
+            key: 'broken-sheet',
+            name: { am: 'የተበላሸ ቅጽ', en: 'Broken sheet' },
+            document: { fields: [broken] }
+        });
+        expect(res.statusCode, res.body).toBe(422);
+        expect(res.body).toContain('fields[0].props.sections[0].items[1].key');
     });
 });
