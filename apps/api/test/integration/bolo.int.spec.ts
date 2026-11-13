@@ -251,6 +251,16 @@ describe('a bolo inspection', () => {
         const inspection = sheet();
         c = await moved(c, as.officer, 'pass', { answers: inspection });
         expect(c.state).toBe('sticker');
+        // actions of a transition left from several states keep their labels and the step's form
+        const view = await caseOf(c.id);
+        expect(view.actionDetails.find((a) => a.action === 'issue_sticker')).toMatchObject({
+            label: { en: 'Issue the sticker' },
+            needsForm: true
+        });
+        expect(view.actionDetails.find((a) => a.action === 'reject')).toMatchObject({
+            label: { en: 'Reject' },
+            commentRequired: true
+        });
         const { fiscalYear, validUntil } = boloValidity(today());
         expect(await bolosOf(c.id)).toEqual([
             expect.objectContaining({
