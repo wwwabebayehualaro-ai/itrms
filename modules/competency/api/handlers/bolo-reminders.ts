@@ -82,6 +82,12 @@ export async function sendBoloReminder(
     const message = await system.systemContext(REASON, async (tx) => {
         const [bolo] = await tx.select().from(bolos).where(eq(bolos.id, event.boloId));
         if (!bolo) return null;
+        // the read is recorded as the bolo's office's (an event needs a unit)
+        const [unit] = await tx
+            .select({ path: orgUnits.path })
+            .from(orgUnits)
+            .where(eq(orgUnits.id, bolo.handlingUnitId));
+        actFor(tx, { regionId: bolo.regionId, unitId: bolo.handlingUnitId, scopePath: unit?.path ?? '' });
         const [plate] = await tx
             .select({ text: plateAssignments.plateText })
             .from(plateAssignments)

@@ -249,7 +249,7 @@ beforeAll(async () => {
         nameEn: { given: 'Sample', father: 'Bolo', grandfather: 'Person' },
         sex: 'female',
         birthYear: 1982,
-        phone: `09${mobile}`,
+        sensitive: { phone: `09${mobile}` },
         acknowledgedDuplicates: []
     });
     expect(person.statusCode, person.body).toBe(201);
@@ -299,7 +299,10 @@ describe('a bolo inspection', () => {
         // Boditi holds private stickers of this year: no temporary bolo while it does
         const stopgap = await step(c, as.officer, { action: 'issue_temporary', answers: {} });
         expect(stopgap.statusCode, stopgap.body).toBe(409);
-        expect(stopgap.json<{ detailKey?: string }>().detailKey).toBe('competency.rule.boloStickersInStock');
+        expect(stopgap.json<{ code?: string; detail?: string }>()).toMatchObject({
+            code: 'invalid_transition',
+            detail: expect.stringMatching(/የቦሎ ምልክት አለው|sticker of this kind and year in stock/) as unknown
+        });
         c = await caseOf(c.id);
         const issued = step(c, as.officer, { action: 'issue_sticker', answers: {} });
         const res = await issued;
