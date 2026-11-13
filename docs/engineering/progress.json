@@ -1650,11 +1650,13 @@
         {
           "id": "1.3c",
           "title": "Bolo technical inspection, part 3: partner accounts and the inspection report",
-          "status": "planned",
+          "status": "blocked",
           "branch": null,
           "commits": [],
           "evidence": [],
-          "blockers": [],
+          "blockers": [
+            "Owner decisions needed (2026-11-14): (1) how a bolo case reaches a partner inspection centre: the centre takes the office's inspection step for a case sent to it, or the owner picks a centre at filing; (2) whether garages record their repairs in their own accounts or the office keeps recording them (as 1.3b does); (3) partner sign-in: a separate Keycloak client in the region's realm or its own realm, and the partners' second factor (SEC-ID-9); also the monthly inspection report to the region overlaps 1.16's monthly report: keep it here or move it to 1.16"
+          ],
           "notes": "Split from 1.3b on 2026-11-14."
         },
         {
