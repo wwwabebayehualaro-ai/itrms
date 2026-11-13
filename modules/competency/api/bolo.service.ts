@@ -7,14 +7,14 @@
  * sticker is given, the owners' reminder is scheduled for a set number of days before the bolo's last day.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, ne } from 'drizzle-orm';
+import { and, desc, eq, isNull, ne } from 'drizzle-orm';
 import { currentContext } from '@itrms/kernel/context';
 import { insertAudited, type Tx, updateAudited } from '@itrms/kernel/db';
 import { ConflictError, ValidationError } from '@itrms/kernel/errors';
 import { nextNumber } from '@itrms/kernel/numbering';
 import { emit } from '@itrms/kernel/outbox';
 import { SettingsService } from '@itrms/kernel/settings';
-import { DocumentsService, issuedDocuments, revokeDocument } from '@itrms/documents/api';
+import { DocumentsService, documentTemplates, issuedDocuments, revokeDocument } from '@itrms/documents/api';
 import { StationeryStock } from '@itrms/fees/api';
 import { organisations } from '@itrms/parties/api';
 import { vehicles, VehiclesService } from '@itrms/vehicles/api';
@@ -192,8 +192,8 @@ export class BoloService {
     /**
      * The inspector's step: the sheet's serial, the day, and the checklist, whose outcome the server worked out. `pass` makes the
      * bolo and is refused unless the checklist passed (a failed item blocks it); `fail` records the failed items and is refused
-     * for a checklist that passed. Each inspection is a row of the register, the attempt after a repair with its garage. Run
-     * again after the pass it returns the bolo it made.
+     * for a checklist that passed. Each inspection is a row of the register, the attempt after a repair with its garage. A
+     * re-inspection stays in the fiscal year of the first: the case's fee and checks were for that year's bolo.
      */
     async inspect(tx: Tx, at: CasePlace, facts: Facts, input: unknown, result: 'pass' | 'fail') {
         const place = await actForHandlingOffice(tx, at);
@@ -212,6 +212,8 @@ export class BoloService {
         const previous = await this.lastInspection(tx, place.caseId);
         const repair = previous ? repairOf(facts) : undefined;
         if (previous && repair?.afterAttempt !== previous.attempt) throw missingFact('repair');
+        if (previous && boloValidity(previous.inspectedOn).fiscalYear !== boloValidity(inspectedOn).fiscalYear)
+            return refuse('inspectedOn', 'past_year', 'competency.rule.boloRepairPastYear');
         if (previous && inspectedOn < (repair?.repairedOn ?? previous.inspectedOn))
             return refuse('inspectedOn', 'before_repair', 'competency.rule.boloInspectedBeforeRepair');
         // the checklist as the step's answers were filed: its outcome is the one the server worked out (task 1.13a)
@@ -240,7 +242,7 @@ export class BoloService {
             .select()
             .from(bolos)
             .where(and(eq(bolos.caseId, place.caseId), ne(bolos.status, 'void')));
-        // the case's bolo is made once: a pass run again is what it made, never a second row in the register
+        // defensive: a case whose bolo exists never comes back to its inspection, and would not write the register twice
         if (!made)
             await insertAudited(tx, boloInspections, {
                 regionId: place.regionId,
@@ -324,6 +326,9 @@ export class BoloService {
         if (repairedOn > today) return refuse('repairedOn', 'future', 'competency.rule.boloRepairLater');
         if (repairedOn < last.inspectedOn)
             return refuse('repairedOn', 'before_failure', 'competency.rule.boloRepairBeforeFailure');
+        // the fiscal year ended since the failure: this case's bolo can no longer be given, the request is closed as failed
+        if (boloValidity(today).fiscalYear !== boloValidity(last.inspectedOn).fiscalYear)
+            return refuse('repairedOn', 'past_year', 'competency.rule.boloRepairPastYear');
         return {
             repair: {
                 garageId: entry.data.garage,
@@ -380,7 +385,7 @@ export class BoloService {
                 stickerKey: item.itemKey
             });
             // the sticker replaces the temporary bolo: its QR no longer says it stands
-            await this.endTemporary(tx, facts, 'bolo_sticker_given');
+            await this.endTemporary(tx, bolo.id, 'bolo_sticker_given');
             await this.scheduleReminder(tx, place, now);
         }
         const issued = await this.document(tx, place, now, BOLO_TEMPLATE, item.itemKey);
@@ -442,7 +447,7 @@ export class BoloService {
      * A case rejected after its pass (waiting for a sticker no office can give, or on its temporary bolo): its bolo is void, so it
      * no longer counts as this year's and the vehicle can be filed again. A bolo carried on its sticker is never voided here.
      */
-    async void(tx: Tx, at: CasePlace, facts: Facts) {
+    async void(tx: Tx, at: CasePlace) {
         const place = await actForHandlingOffice(tx, at);
         const [bolo] = await tx
             .select()
@@ -454,17 +459,25 @@ export class BoloService {
             voidReason: 'the case was rejected before the sticker'
         });
         // a temporary bolo given on the case stops standing with it
-        await this.endTemporary(tx, facts, 'bolo_case_rejected');
+        await this.endTemporary(tx, bolo.id, 'bolo_case_rejected');
         return { bolo: { id: voided.id, status: voided.status } };
     }
 
-    /** The temporary bolo's document the case issued, if any, revoked: its QR then says it no longer stands. */
-    private async endTemporary(tx: Tx, facts: Facts, reason: string) {
-        const id = factOf(facts, 'documents')?.[TEMPORARY_BOLO_TEMPLATE];
-        if (typeof id !== 'string') return;
-        // the standing one: a reissue may have superseded the first
-        const [row] = await tx.select().from(issuedDocuments).where(eq(issuedDocuments.id, id));
-        if (row && !row.supersededBy) await revokeDocument(tx, row, reason);
+    /** The bolo's temporary document that stands, if any (a correction supersedes the first), revoked: its QR says so. */
+    private async endTemporary(tx: Tx, boloId: string, reason: string) {
+        const standing = await tx
+            .select({ document: issuedDocuments })
+            .from(issuedDocuments)
+            .innerJoin(documentTemplates, eq(documentTemplates.id, issuedDocuments.templateId))
+            .where(
+                and(
+                    eq(documentTemplates.key, TEMPORARY_BOLO_TEMPLATE),
+                    eq(issuedDocuments.subjectId, boloId),
+                    isNull(issuedDocuments.supersededBy),
+                    isNull(issuedDocuments.revokedAt)
+                )
+            );
+        for (const { document } of standing) await revokeDocument(tx, document, reason);
     }
 
     /**

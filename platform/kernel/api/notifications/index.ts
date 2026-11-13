@@ -35,6 +35,9 @@ export interface SmsToNumber {
     sendToNumber(message: { phone: string; text: string }): Promise<void>;
 }
 
+/** How many messages to a number the fake keeps in memory. */
+const FAKE_KEEPS = 50;
+
 /** The development and demo gateway: logs what it would send, sends nothing. */
 export class FakeSms implements SmsSender, SmsToNumber {
     private readonly log = new Logger('FakeSms');
@@ -48,8 +51,10 @@ export class FakeSms implements SmsSender, SmsToNumber {
     }
 
     sendToNumber(message: { phone: string; text: string }): Promise<void> {
+        // for the tests to read; the worker's own instance keeps only the last few, the number never reaches the log
         this.sentToNumbers.push(message);
-        this.log.log(`SMS to a number ending ${message.phone.slice(-2)}: ${message.text}`);
+        if (this.sentToNumbers.length > FAKE_KEEPS) this.sentToNumbers.shift();
+        this.log.log(`SMS to a number on record (${message.text.length} characters)`);
         return Promise.resolve();
     }
 }

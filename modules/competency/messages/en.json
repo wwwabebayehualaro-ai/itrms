@@ -186,5 +186,6 @@
   "competency.rule.boloRepairLater": "The day the vehicle came back cannot be in the future.",
   "competency.rule.boloRepairBeforeFailure": "The day the vehicle came back cannot be before the inspection it failed.",
   "competency.rule.boloStickersInStock": "The office has a sticker of this kind and year in stock: give the sticker, not a temporary bolo.",
-  "competency.notify.boloExpiring": "The bolo of vehicle {plate} ends on {date}. Bring the vehicle for its annual inspection before then."
+  "competency.notify.boloExpiring": "The bolo of vehicle {plate} ends on {date}. Bring the vehicle for its annual inspection before then.",
+  "competency.rule.boloRepairPastYear": "The fiscal year has ended since the failed inspection: close this request as failed and file a new one for this year."
 }

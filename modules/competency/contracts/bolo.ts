@@ -54,10 +54,12 @@ export const GARAGE_KIND = 'garage';
 
 /**
  * Due a set number of days before a bolo's last day (the outbox holds it until then): the worker reminds the vehicle's owners,
- * once, if the bolo still stands.
+ * once, if the bolo still stands, one SMS event per owner.
  */
 export const BOLO_EVENTS = {
-    'bolo.expiring.v1': z.object({ boloId: z.uuid() })
+    'bolo.expiring.v1': z.object({ boloId: z.uuid() }),
+    /** one owner's reminder SMS, retried alone when the gateway fails */
+    'bolo-reminder.sms-due.v1': z.object({ boloId: z.uuid(), personId: z.uuid() })
 } as const;
 
 /** What the repair step says: the garage that repaired the vehicle, the day it came back, and what was done. */

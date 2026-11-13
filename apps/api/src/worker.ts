@@ -10,7 +10,6 @@ import { boloHandlers, competencyHandlers } from '@itrms/competency/api/worker';
 import { documentsHandlers } from '@itrms/documents/api/worker';
 import { DOCUMENTS_ROUTES } from '@itrms/documents/contracts';
 import { PaymentsService } from '@itrms/fees/api';
-import { PersonsService } from '@itrms/parties/api';
 import { feesHandlers } from '@itrms/fees/api/worker';
 import { formsHandlers } from '@itrms/forms/api/worker';
 import { CasesService } from '@itrms/workflow/api';
@@ -21,6 +20,7 @@ import { permissionsOf, rolePermissions } from '@itrms/kernel/iam';
 import { identitySyncHandlers, purgeExpiredUploads, startJobs, type OutboxHandler } from '@itrms/kernel/api/worker';
 import { contextKeyOf, createDatabase } from '@itrms/kernel/db';
 import { SettingsService } from '@itrms/kernel/settings';
+import { FIELD_CRYPTO, type FieldCrypto } from '@itrms/kernel/crypto';
 import { NO_OBJECT_STORE } from '@itrms/kernel/files';
 import { FakeSms } from '@itrms/kernel/notifications';
 import { createSystemDatabase } from '@itrms/kernel/db/system';
@@ -88,7 +88,7 @@ async function main() {
                     cases: app.get(CasesService)
                 }),
                 // a bolo's renewal reminder to its owners, when it comes due (task 1.3b); SMS through the fake gateway for now
-                ...boloHandlers(system, { sms, phones: app.get(PersonsService) }),
+                ...boloHandlers(system, { sms, crypto: app.get<FieldCrypto>(FIELD_CRYPTO) }),
                 ...formsHandlers(system, {
                     database,
                     store: objectStore ?? NO_OBJECT_STORE,

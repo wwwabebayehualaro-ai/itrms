@@ -384,22 +384,6 @@ export class PersonsService {
         return ciphertext ? this.crypto.decrypt(tx, regionId, place('birthDate', id), ciphertext) : null;
     }
 
-    /**
-     * A person's phone for a message the worker sends them (a bolo's renewal reminder, task 1.3b): nobody is shown it. The use is
-     * recorded with what it does, in the worker's system transaction, like a rule's read of the birth date.
-     */
-    async phoneForNotice(tx: Tx, regionId: string, id: string, reason: string): Promise<string | null> {
-        await recordEvent(tx, {
-            type: 'person.revealed',
-            table: personSensitive,
-            rowId: id,
-            data: { fields: ['phone'], reason }
-        });
-        const [row] = await tx.select().from(personSensitive).where(eq(personSensitive.personId, id));
-        const ciphertext = row?.[COLUMN.phone.ct];
-        return ciphertext ? this.crypto.decrypt(tx, regionId, place('phone', id), ciphertext) : null;
-    }
-
     // ---- helpers ----
 
     /** The record, if the caller's unit handles it (its subtree): a record of another office is read-only here. */

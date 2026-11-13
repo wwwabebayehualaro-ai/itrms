@@ -83,7 +83,7 @@ export class VoidBoloEffect implements WorkflowEffect {
     constructor(@Inject(BoloService) private readonly bolo: BoloService) {}
 
     async run(run: EffectRun) {
-        return { facts: await this.bolo.void(run.tx, placeOf(run), run.facts) };
+        return { facts: await this.bolo.void(run.tx, placeOf(run)) };
     }
 }
 

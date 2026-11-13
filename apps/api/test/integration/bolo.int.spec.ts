@@ -13,15 +13,15 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { boloValidity } from '@itrms/competency/api';
-import { remindBoloExpiring } from '@itrms/competency/api/worker';
+import { remindBoloExpiring, sendBoloReminder } from '@itrms/competency/api/worker';
 import { importBoloService, LIGHT_VEHICLE_CHECKLIST, setUpBoloCounters } from '@itrms/competency/seed';
 import { importDocumentTemplates } from '@itrms/documents/seed';
 import { StationeryStock } from '@itrms/fees/api';
 import { importFeeRules, importStationeryDemo, parseFeeRules } from '@itrms/fees/seed';
+import { FIELD_CRYPTO, type FieldCrypto } from '@itrms/kernel/crypto';
 import { createDatabase, type Database, type DbContext } from '@itrms/kernel/db';
 import { createSystemDatabase, type SystemDatabase } from '@itrms/kernel/db/system';
 import { FakeSms } from '@itrms/kernel/notifications';
-import { PersonsService } from '@itrms/parties/api';
 import { contextFor, TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import type { OrgUnit } from '@itrms/kernel/org';
 import { VehicleRegistry } from '@itrms/vehicles/api';
@@ -565,6 +565,25 @@ describe('a vehicle that fails its inspection', () => {
     }, 240_000);
 });
 
+describe('a vehicle back from the garage after the fiscal year ended', () => {
+    it("is not given the new year's bolo on the old year's request: the repair is refused, the request is closed as failed", async () => {
+        let c = await atInspection(await onTheRoad());
+        c = await moved(c, as.officer, 'fail', { answers: sheet(['horn']) });
+        // the failure was in the last fiscal year (the register's day moved back, as the calendar would have)
+        await api.owner.query('update competency.bolo_inspections set inspected_on = $2 where case_id = $1', [
+            c.id,
+            dayFrom(-400)
+        ]);
+        const back = await step(c, as.officer, { action: 'reinspect', answers: { garage } });
+        expect(back.statusCode, back.body).toBe(422);
+        expect(back.json<{ errors?: { path: string; code: string }[] }>().errors).toEqual([
+            expect.objectContaining({ path: 'repairedOn', code: 'past_year' })
+        ]);
+        c = await moved(await caseOf(c.id), as.officer, 'close_failed', { comment: 'A new year: file again' });
+        expect(c.state).toBe('failed');
+    }, 240_000);
+});
+
 describe("a bolo's renewal reminder", () => {
     it('tells the owners by SMS once, with the plate and the last day, reading the phone on record', async () => {
         const vehicle = await onTheRoad();
@@ -573,9 +592,23 @@ describe("a bolo's renewal reminder", () => {
         c = await moved(c, as.officer, 'issue_sticker', { answers: {} });
         const [bolo] = await bolosOf(c.id);
         if (!bolo) throw new Error('no bolo');
+        // due: the bolo is marked and one SMS is asked for per owner, each its own outbox event
+        expect(await remindBoloExpiring(system, bolo.id)).toBe(1);
+        const due = await api.owner.query<{ payload: { boloId: string; personId: string } }>(
+            "select payload from kernel.outbox_events where type = 'bolo-reminder.sms-due.v1' and payload ->> 'boloId' = $1",
+            [bolo.id]
+        );
+        expect(due.rows.map((r) => r.payload)).toEqual([{ boloId: bolo.id, personId: owner }]);
+        // the owner's SMS: a gateway that fails throws, so the outbox sends this owner's again
+        const down = {
+            sendToNumber: () => Promise.reject(new Error('gateway down'))
+        };
+        const crypto = api.http.get<FieldCrypto>(FIELD_CRYPTO);
+        await expect(
+            sendBoloReminder(system, { sms: down, crypto }, { boloId: bolo.id, personId: owner })
+        ).rejects.toThrow('gateway down');
         const sms = new FakeSms();
-        const deps = { sms, phones: api.http.get(PersonsService) };
-        expect(await remindBoloExpiring(system, deps, bolo.id)).toBe(true);
+        expect(await sendBoloReminder(system, { sms, crypto }, { boloId: bolo.id, personId: owner })).toBe(true);
         expect(sms.sentToNumbers.map((m) => m.phone)).toEqual([ownerPhone]);
         expect(sms.sentToNumbers[0]?.text).toContain('ሰኔ 30');
         const plate = await api.owner.query<{ plate_text: string }>(
@@ -583,21 +616,25 @@ describe("a bolo's renewal reminder", () => {
             [vehicle]
         );
         expect(sms.sentToNumbers[0]?.text).toContain(plate.rows[0]?.plate_text);
-        // once: the event delivered again sends nothing
-        expect(await remindBoloExpiring(system, deps, bolo.id)).toBe(false);
-        expect(sms.sentToNumbers).toHaveLength(1);
+        // once: the due event delivered again asks for nothing more
+        expect(await remindBoloExpiring(system, bolo.id)).toBe(false);
+        const again = await api.owner.query<{ n: number }>(
+            "select count(*)::int as n from kernel.outbox_events where type = 'bolo-reminder.sms-due.v1' and payload ->> 'boloId' = $1",
+            [bolo.id]
+        );
+        expect(again.rows[0]?.n).toBe(1);
         const marked = await api.owner.query<{ reminded: boolean }>(
             'select reminded_at is not null as reminded from competency.bolos where id = $1',
             [bolo.id]
         );
         expect(marked.rows[0]?.reminded).toBe(true);
-        // the read of the phone is on record, and the mark is audited
+        // each read of the phone is on record (the failed send's and the retry's)
         const reads = await api.owner.query<{ n: number }>(
             `select count(*)::int as n from kernel.audit_log
               where event_type = 'person.revealed' and row_id = $1 and diff ->> 'reason' = 'competency.bolo_reminder'`,
             [owner]
         );
-        expect(reads.rows[0]?.n).toBe(1);
+        expect(reads.rows[0]?.n).toBe(2);
     }, 240_000);
 
     it('is not sent for a bolo that no longer stands', async () => {
@@ -606,9 +643,7 @@ describe("a bolo's renewal reminder", () => {
         c = await moved(c, as.officer, 'reject', { comment: 'No NGO stickers this year' });
         const [bolo] = await bolosOf(c.id);
         if (!bolo) throw new Error('no bolo');
-        const sms = new FakeSms();
-        expect(await remindBoloExpiring(system, { sms, phones: api.http.get(PersonsService) }, bolo.id)).toBe(false);
-        expect(sms.sentToNumbers).toEqual([]);
+        expect(await remindBoloExpiring(system, bolo.id)).toBe(false);
     }, 240_000);
 });
 

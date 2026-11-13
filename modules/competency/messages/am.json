@@ -186,5 +186,6 @@
   "competency.rule.boloRepairLater": "ተሽከርካሪው የተመለሰበት ቀን ወደፊት ሊሆን አይችልም።",
   "competency.rule.boloRepairBeforeFailure": "ተሽከርካሪው የተመለሰበት ቀን ካልተሳካው ምርመራ በፊት ሊሆን አይችልም።",
   "competency.rule.boloStickersInStock": "ጽ/ቤቱ የዚህ ዓይነትና ዓመት የቦሎ ምልክት አለው፤ ጊዜያዊ ቦሎ ሳይሆን ምልክቱን ይስጡ።",
-  "competency.notify.boloExpiring": "የተሽከርካሪ {plate} ቦሎ {date} ያበቃል። ከዚያ በፊት ተሽከርካሪውን ለዓመታዊ ምርመራ ያቅርቡ።"
+  "competency.notify.boloExpiring": "የተሽከርካሪ {plate} ቦሎ {date} ያበቃል። ከዚያ በፊት ተሽከርካሪውን ለዓመታዊ ምርመራ ያቅርቡ።",
+  "competency.rule.boloRepairPastYear": "ካልተሳካው ምርመራ በኋላ የበጀት ዓመቱ ተቀይሯል፤ ይህን ጥያቄ እንዳልተሳካ ዘግተው ለዚህ ዓመት አዲስ ጥያቄ ያቅርቡ።"
 }

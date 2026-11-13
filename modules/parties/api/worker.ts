@@ -1,4 +1,4 @@
 // Worker entry of @itrms/parties: registers its jobs/ and handlers/ (code-structure.md §5.2). Only the worker
 // processes load it, so the HTTP process never reaches the system pool (dependency-cruiser:
-// http-entries-never-reach-system-pool).
-export {};
+// http-entries-never-reach-system-pool). The phone read for a worker's message is here for the same reason (task 1.3b).
+export { phoneForNotice } from './contacts';
