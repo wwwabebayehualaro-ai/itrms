@@ -34,6 +34,7 @@ describe('the demo fee rules', () => {
             'dvc-03-new-licence',
             'dvc-04-renewal',
             'dvc-06-replacement',
+            'dvc-12-plate-exchange',
             'dvc-01-registration'
         ]);
         for (const r of rules) {

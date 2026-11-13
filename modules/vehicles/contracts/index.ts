@@ -107,7 +107,9 @@ export const platePeriodSchema = z.object({
     source: z.enum(PLATE_SOURCES),
     since: isoDate,
     until: isoDate.nullable(),
-    endedReason: z.enum(PLATE_ENDED_REASONS).nullable()
+    endedReason: z.enum(PLATE_ENDED_REASONS).nullable(),
+    /** the period of the plate that replaced this one on the vehicle (an exchange, task 1.2c) */
+    replacedById: z.uuid().nullable()
 });
 
 export const ownershipSchema = z.object({

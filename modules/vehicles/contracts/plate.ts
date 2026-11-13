@@ -1,8 +1,9 @@
 /**
  * Number plates (ethiopia-context.md §2, Directive 1050/2025). The national plate is `ETH` (`ኢት`), three Latin letters and
- * four digits. The plates it replaces were regional: a use code (1 to 5), a region code in Latin or Ethiopic letters, an
- * optional series letter and four to six digits, written in whatever order the plate and its owner's habit gave. Diplomatic,
- * international-organisation and police plates carry their own prefix. Each plate has one key (upper case, no spaces, dots or
+ * four digits. The plates it replaces were regional: a use code (1 to 5, or 35 for a local NGO; the zone's answers, 2026-11-11),
+ * a region code in Latin or Ethiopic letters, an optional series letter and four to six digits, written in whatever order the
+ * plate and its owner's habit gave. Diplomatic, international-organisation, police, defence and special (machinery) plates
+ * carry their own prefix; the defence and special prefixes are a stated assumption to check with the zone. Each plate has one key (upper case, no spaces, dots or
  * hyphens), which is what is stored, made unique and searched.
  */
 
@@ -47,7 +48,32 @@ export interface ParsedPlate {
 }
 
 const SEPARATORS = /[\s\-./_]/g;
-const SPECIAL_PREFIXES: Record<string, string> = { CD: 'CD', AU: 'AU', UN: 'UN', POLICE: 'POLICE', ፖሊስ: 'POLICE' };
+const SPECIAL_PREFIXES: Record<string, string> = {
+    CD: 'CD',
+    AU: 'AU',
+    UN: 'UN',
+    POLICE: 'POLICE',
+    ፖሊስ: 'POLICE',
+    DEFENCE: 'DEFENCE',
+    መከላከያ: 'DEFENCE',
+    SPECIAL: 'SPECIAL',
+    ልዩ: 'SPECIAL'
+};
+const SPECIAL = new RegExp(`^(${Object.keys(SPECIAL_PREFIXES).join('|')})([0-9]{1,6})$`, 'u');
+
+/**
+ * The old regional plate's use codes and the use each stands for (the zone's answers, 2026-11-11): 1 public transport, 2 private,
+ * 3 commercial, 4 government, 5 an international organisation, 35 a local NGO.
+ */
+export const LEGACY_USE_CODES = {
+    1: 'public_transport',
+    2: 'private',
+    3: 'commercial',
+    4: 'government',
+    5: 'international_org',
+    35: 'ngo'
+} as const;
+const USE_CODES = Object.keys(LEGACY_USE_CODES).sort((a, b) => b.length - a.length);
 
 /** The plate text folded: Unicode-normalised, upper case, without spaces, dots, hyphens or slashes, `ኢት` read as `ETH`. */
 export function foldPlate(raw: string): string {
@@ -62,7 +88,7 @@ export function nationalPlateText(key: string, script: 'latin' | 'ethiopic' = 'l
 
 // Latin only: the key is letters and digits A-Z0-9 (an Ethiopic series letter is not a plate this register can hold)
 const SERIES = '[A-Z]';
-const LEGACY_REST = new RegExp(`^([1-5])(${SERIES})?([0-9]{4,6})$`);
+const LEGACY_TAIL = new RegExp(`^(${SERIES})?([0-9]{4,6})$`);
 
 /**
  * What a plate is, or null when it is none of the formats. The legacy region codes come from the setting (Latin code and
@@ -79,7 +105,7 @@ export function parsePlate(
     if (/^ETH[A-Z]{3}[0-9]{4}$/.test(folded))
         return { format: 'national', key: folded, text: nationalPlateText(folded), useCode: null, regionCode: null };
 
-    const special = /^(CD|AU|UN|POLICE|ፖሊስ)([0-9]{1,6})$/u.exec(folded);
+    const special = SPECIAL.exec(folded);
     if (special) {
         const prefix = SPECIAL_PREFIXES[special[1] ?? ''] ?? '';
         const key = `${prefix}${special[2] ?? ''}`;
@@ -88,34 +114,45 @@ export function parsePlate(
 
     // every reading of the plate: each spelling of each region, wherever it stands. A spelling that folds to nothing (an alias of
     // only separators) is no spelling: `indexOf('')` would match everywhere, for ever.
-    const readings = new Map<string, ParsedPlate & { whole: boolean }>();
+    const readings = new Map<string, ParsedPlate & { whole: boolean; useApart: boolean }>();
     const bounds = tokenBounds(raw, folded);
     for (const r of regions) {
         const code = r.code.toUpperCase();
         for (const spelling of new Set([r.code, ...r.aliases].map(foldPlate)))
             for (let at = spelling ? folded.indexOf(spelling) : -1; at >= 0; at = folded.indexOf(spelling, at + 1)) {
-                const rest = LEGACY_REST.exec(folded.slice(0, at) + folded.slice(at + spelling.length));
-                if (!rest) continue;
-                const [, use = '', series = '', digits = ''] = rest;
-                const key = `L${use}${code}${series}${digits}`;
-                const whole = bounds.has(at) && bounds.has(at + spelling.length);
-                const seen = readings.get(key);
-                if (!seen || (whole && !seen.whole))
-                    readings.set(key, {
-                        format: 'legacy',
-                        key,
-                        text: `${code} ${use}-${series}${digits}`,
-                        useCode: Number(use),
-                        regionCode: code,
-                        whole
-                    });
+                const rest = folded.slice(0, at) + folded.slice(at + spelling.length);
+                // where a position of `rest` stands in the folded text (the region's spelling taken out at `at`)
+                const inFolded = (i: number) => (i < at ? i : i + spelling.length);
+                for (const use of USE_CODES) {
+                    if (!rest.startsWith(use)) continue;
+                    const tail = LEGACY_TAIL.exec(rest.slice(use.length));
+                    if (!tail) continue;
+                    const [, series = '', digits = ''] = tail;
+                    const key = `L${use}${code}${series}${digits}`;
+                    const whole = bounds.has(at) && bounds.has(at + spelling.length);
+                    const useApart = bounds.has(inFolded(use.length));
+                    const seen = readings.get(key);
+                    if (!seen || (whole && !seen.whole))
+                        readings.set(key, {
+                            format: 'legacy',
+                            key,
+                            text: `${code} ${use}-${series}${digits}`,
+                            useCode: Number(use),
+                            regionCode: code,
+                            whole,
+                            useApart
+                        });
+                }
             }
     }
     // one reading is the plate. Several (`3SOR1234`: Somali series R, or Oromia series S) are told apart only by the region
-    // standing apart as written (`3-SO-R1234`); a plate still ambiguous is refused, never guessed.
-    const all = [...readings.values()];
-    const apart = all.filter((r) => r.whole);
-    const chosen = all.length === 1 ? all[0] : apart.length === 1 ? apart[0] : undefined;
+    // standing apart as written (`3-SO-R1234`); `351234` (code 3 or 35) only by the use code standing apart (`35-1234`,
+    // `3-51234`). A plate still ambiguous is refused, never guessed.
+    let pool = [...readings.values()];
+    if (pool.length > 1 && pool.some((r) => r.whole)) pool = pool.filter((r) => r.whole);
+    if (pool.length > 1 && new Set(pool.map((r) => r.regionCode)).size === 1 && pool.some((r) => r.useApart))
+        pool = pool.filter((r) => r.useApart);
+    const chosen = pool.length === 1 ? pool[0] : undefined;
     if (!chosen) return null;
     return {
         format: chosen.format,

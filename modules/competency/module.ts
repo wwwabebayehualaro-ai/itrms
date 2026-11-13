@@ -57,7 +57,9 @@ export default defineModule({
         'competency.issueLibreBooklet',
         'competency.releaseRegistrationPlate',
         'competency.checkBackCapture',
-        'competency.backCaptureVehicle'
+        'competency.backCaptureVehicle',
+        'competency.checkPlateExchange',
+        'competency.exchangePlate'
     ],
     title: { am: 'የአሽከርካሪና ተሽከርካሪ ብቃት ማረጋገጫ', en: 'Driver and vehicle competency' },
     workProcess: 1,
@@ -108,11 +110,13 @@ export default defineModule({
         'DVC-09',
         'DVC-10',
         'DVC-11',
+        // the plate exchange (Directive 1050/2025): the plates part of DVC-01, its own service
+        'DVC-12',
         // the back-capture of paper vehicle files (ADR-0054): the migration's own service, beside the bureau's
         'MIG-01'
     ],
     // a registration takes its plate from the office's own stock (task 1.2b): an office without one doesn't offer it
-    capabilitiesRequired: { 'DVC-01': ['holds_plate_stock'] },
+    capabilitiesRequired: { 'DVC-01': ['holds_plate_stock'], 'DVC-12': ['holds_plate_stock'] },
     menu: [
         {
             key: 'competency.applications',
@@ -162,6 +166,23 @@ export default defineModule({
                     label: 'competency.action.newBackCapture',
                     route: '/competency/back-captures/new',
                     requires: { permission: 'case:create', services: ['MIG-01'] }
+                }
+            ]
+        },
+        {
+            key: 'competency.plateExchanges',
+            group: 'work-process',
+            order: 14,
+            label: 'competency.nav.plateExchanges',
+            icon: 'replace',
+            route: '/competency/plate-exchanges',
+            requires: { permission: 'vehicle:read', services: ['DVC-12'] },
+            quickActions: [
+                {
+                    key: 'competency.newPlateExchange',
+                    label: 'competency.action.newPlateExchange',
+                    route: '/competency/plate-exchanges/new',
+                    requires: { permission: 'case:create', services: ['DVC-12'] }
                 }
             ]
         },

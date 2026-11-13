@@ -12,7 +12,7 @@ import { persons, type OrganisationsService, type PersonsService } from '@itrms/
 
 import type { VehicleRegistry } from '../api/vehicle-registry.service';
 import { libres, vehicles } from '../api/vehicles.table';
-import { vinCheckDigit, type VehicleRegister } from '../contracts';
+import { LEGACY_USE_CODES, vinCheckDigit, type VehicleRegister } from '../contracts';
 
 export interface VehicleDemoDeps {
     registry: Pick<VehicleRegistry, 'register' | 'transferOwnership' | 'recordPlate' | 'recordLibre'>;
@@ -189,14 +189,10 @@ function dayBetween(random: Random, from: string, to: string): string {
 
 const addYears = (day: string, years: number) => `${Number(day.slice(0, 4)) + years}${day.slice(4)}`;
 
-/** The old regional use code of a use (a stated assumption: the regions' own records give the real table). */
-const LEGACY_USE: Partial<Record<VehicleRegister['use'], number>> = {
-    private: 1,
-    commercial: 2,
-    public_transport: 3,
-    government: 4,
-    ngo: 5
-};
+/** The old regional use code of a use: the zone's table (LEGACY_USE_CODES, the zone's answers of 2026-11-11). */
+const LEGACY_USE = Object.fromEntries(
+    Object.entries(LEGACY_USE_CODES).map(([code, use]) => [use, Number(code)])
+) as Partial<Record<VehicleRegister['use'], number>>;
 
 const OWNER_NAMES: readonly (readonly [am: string, en: string, sex: 'female' | 'male'])[] = [
     ['ዳዊት', 'Dawit', 'male'],
@@ -282,6 +278,8 @@ export async function importVehicleDemo(
 
         for (let n = 0; n < plan.vehicles; n += 1) {
             const story = n === 0 && plan.legacy !== undefined;
+            // a vehicle of the first office still on its old plate, whatever the draw: what the plate exchange is shown on (1.2c)
+            const keptOld = plan.legacy !== undefined && n === offices.length;
             const unit = story ? first : (offices[n % offices.length] ?? first);
             const ctx = asUnit(unit);
             const kind = story ? (KINDS.find((k) => k.category === 'minibus') ?? KINDS[0]) : random.of(KINDS);
@@ -289,9 +287,11 @@ export async function importVehicleDemo(
             // the first region's vehicles go back years; the second region's were registered since the national plates began
             const firstRegisteredOn = story
                 ? '2016-03-14'
-                : plan.legacy
-                  ? dayBetween(random, '2012-01-01', today)
-                  : dayBetween(random, NATIONAL_PLATES_FROM, today);
+                : keptOld
+                  ? dayBetween(random, '2012-01-01', '2024-12-31')
+                  : plan.legacy
+                    ? dayBetween(random, '2012-01-01', today)
+                    : dayBetween(random, NATIONAL_PLATES_FROM, today);
             const modelYear = Math.max(2010, Number(firstRegisteredOn.slice(0, 4)) - random.int(3));
             const firstOwner = story
                 ? holders.persons[0]
@@ -326,7 +326,7 @@ export async function importVehicleDemo(
                     source: 'legacy',
                     since: firstRegisteredOn
                 });
-                if (story || random.chance(0.7)) {
+                if (story || (!keptOld && random.chance(0.7))) {
                     await deps.registry.recordPlate(tx, ctx, vehicle.id, {
                         text: story ? STORY_PLATE : nationalPlate(),
                         source: 'federal',

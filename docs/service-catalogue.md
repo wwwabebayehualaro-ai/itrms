@@ -53,6 +53,10 @@ Module `road-safety`.
 | RS-06 | የትራፍክ ደንብ በመተላለፍ የተከሰሱ አሽከርካሪዎች ላይ ገንዘብ መሰብሰብ | Collect money (fines) from drivers charged with traffic-rule violations | woreda / zone | C+E | 2 |
 | RS-07 | የሚከሰቱ የትራፊክ አደጋዎችንና አደጋው ያስከተለውን የሰውና የንብረት ጉዳት መረጃ ማደራጀትና ለሚመለከተው አካል ማስተላለፍ | Organise data on traffic accidents and the **human and property damage** they cause, and forward it to the concerned bodies | woreda → zone | C+E | 2 |
 
+**Not in the source: DVC-12, the exchange of an old regional plate for a national plate** (የቀድሞ ክልላዊ ሰሌዳን በብሔራዊ ሰሌዳ መቀየር;
+Directive 1050/2025, task 1.2c). The plates part of DVC-01, as its own service: every vehicle on an old regional plate exchanges
+it. Offered wherever DVC-01 is; not counted in the totals.
+
 **Not in the source: MIG-01, the back-capture of a paper vehicle file** (የወረቀት ተሽከርካሪ ፋይል ምዝገባ; ADR-0054, task 1.13). The
 migration's own service, in the catalogue beside the 54 and offered wherever DVC-01 is: a vehicle with no electronic record is
 captured from its paper file and verified by a second person before any service acts on it. It is not counted in the totals.

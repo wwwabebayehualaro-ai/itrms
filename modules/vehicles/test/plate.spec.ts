@@ -80,4 +80,22 @@ describe('parsePlate', () => {
         expect(parsePlate('AU 7')).toMatchObject({ format: 'special', key: 'AU7' });
         expect(parsePlate('ፖሊስ 1234')).toMatchObject({ format: 'special', key: 'POLICE1234' });
     });
+
+    it('reads the defence and special (machinery) plates as special, in either script (task 1.2c, a stated assumption)', () => {
+        expect(parsePlate('መከላከያ 4521')).toMatchObject({ format: 'special', key: 'DEFENCE4521', text: 'DEFENCE 4521' });
+        expect(parsePlate('defence-12')).toMatchObject({ format: 'special', key: 'DEFENCE12' });
+        expect(parsePlate('ልዩ 0331')).toMatchObject({ format: 'special', key: 'SPECIAL0331' });
+    });
+
+    it('reads the local-NGO code 35, told apart from code 3 only by how it is written (task 1.2c)', () => {
+        expect(parsePlate('SN 35-1234')).toMatchObject({ key: 'L35SN1234', useCode: 35, regionCode: 'SN' });
+        expect(parsePlate('ደቡ 35-A1234')).toMatchObject({ key: 'L35SNA1234', useCode: 35 });
+        // a series letter after 35 can only be code 35
+        expect(parsePlate('SN 35A1234')).toMatchObject({ key: 'L35SNA1234', useCode: 35 });
+        expect(parsePlate('SN 3-51234')).toMatchObject({ key: 'L3SN51234', useCode: 3 });
+        // run together it is code 3 with 51234, or code 35 with 1234: refused, never guessed
+        expect(parsePlate('SN 351234')).toBeNull();
+        // the other codes are as they were
+        expect(parsePlate('SN 3-12345')).toMatchObject({ key: 'L3SN12345', useCode: 3 });
+    });
 });

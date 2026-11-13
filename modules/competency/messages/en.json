@@ -147,5 +147,15 @@
   "competency.rule.plateEnded": "Another vehicle of the register carried this plate and gave it up: an old plate is never handed out again.",
   "competency.rule.libreInStock": "This booklet is in the stationery stock: it is issued from the stock, not captured from a paper file.",
   "competency.rule.libreOnRegister": "A vehicle on the register already holds a libre with this number.",
-  "competency.errors.verify_own_capture": "The person who captured a paper file cannot verify it: a second person checks it against the paper."
+  "competency.errors.verify_own_capture": "The person who captured a paper file cannot verify it: a second person checks it against the paper.",
+  "competency.nav.plateExchanges": "Plate exchanges",
+  "competency.action.newPlateExchange": "New plate exchange",
+  "competency.plateExchanges.title": "Plate exchanges",
+  "competency.plateExchanges.intro": "Old regional plates exchanged for national ones (Directive 1050/2025). The national plate comes from this office's stock; the old plate is retired and linked to the one that replaced it. A vehicle not on the register is back-captured from its paper file first.",
+  "competency.plateExchanges.fileNew": "New plate exchange",
+  "competency.rule.exchangeNotActive": "Only a vehicle on the register can exchange its plate.",
+  "competency.rule.exchangeOtherOffice": "Another office handles this vehicle: the exchange is done there, or here after a transfer.",
+  "competency.rule.exchangeNoOldPlate": "This vehicle carries no old regional plate to exchange (a national plate, a special one, or none).",
+  "competency.rule.exchangeUse": "The use does not match the vehicle on the register.",
+  "competency.rule.exchangeInOpenCase": "Another open request is exchanging this vehicle’s plate."
 }

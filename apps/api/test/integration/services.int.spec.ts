@@ -196,11 +196,11 @@ afterAll(async () => {
 });
 
 describe('the catalogue', () => {
-    it("lists the region's 54 services and the back-capture (MIG-01), what this office offers, and none configured yet", async () => {
+    it("lists the region's 54 services, the plate exchange (DVC-12) and the back-capture (MIG-01), what this office offers, and none configured yet", async () => {
         const res = await api.call('GET', '/api/v1/services', as.damotRecords);
         expect(res.statusCode).toBe(200);
         const list = res.json<{ code: string; enabled: boolean; configured: boolean }[]>();
-        expect(list).toHaveLength(55);
+        expect(list).toHaveLength(56);
         expect(list.find((s) => s.code === SERVICE)).toMatchObject({ enabled: true, configured: false });
         // licences are a zone's or a licensing town's, not a woreda's
         expect(list.find((s) => s.code === 'DVC-03')).toMatchObject({ enabled: false });

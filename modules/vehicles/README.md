@@ -17,6 +17,15 @@ national reference when given. The office counter `vehicles.registration-certifi
 `vehicles.libre` in migration 0070) numbers the registration certificate. The register also keeps the temporary libre's other
 facts: made in, engine HP, cylinders, length, width and height (mm), tyre size and count, net weight.
 
+**Plate exchange (task 1.2c).** A plate period that ends for another points at the period that replaced it
+(`plate_assignments.replaced_by_id`, a deferred key on the same vehicle in migration 0072, backfilled for the plates already
+exchanged), so an old regional plate is linked to the national plate that replaced it. `recordFederalId` sets the federal
+vehicle id of a vehicle already on the register, once. The old plates read: use codes 1–5 and 35 (a local NGO; `35-1234` and
+`3-51234` are told apart only by how they are written, run together they are refused), and the special prefixes CD, AU, UN,
+police, defence (`መከላከያ`) and special machinery (`ልዩ`); the last two are a stated assumption to confirm with the zone.
+`LEGACY_USE_CODES` maps a code to its use. One plate key is one pair (a car's two plates) or one plate (a motorcycle's); the
+replacement of one plate of a pair is a replacement case (task 1.5).
+
 **Migrated from paper (task 1.13, ADR-0054).** `register` takes a `migration` (source `back_capture` or `import`, the paper
 file's reference, the capturing case, the verifier) and checks it in back-capture mode: seats, load and axles the file does not
 give may stay missing, and a check digit that does not match is kept as a mismatch. The migration's columns (migration 0071) are

@@ -239,6 +239,8 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
             'competency.vehicleRegistrations',
             // the back-capture of paper vehicle files (task 1.13), offered with new registration
             'competency.backCaptures',
+            // the plate exchange (task 1.2c), where the office keeps plate stock
+            'competency.plateExchanges',
             'competency.licences',
             'competency.training',
             'competency.exams',
@@ -270,6 +272,8 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
                 'competency.vehicleRegistrations',
                 // the back-capture of paper vehicle files (task 1.13), offered with new registration
                 'competency.backCaptures',
+                // the plate exchange (task 1.2c), where the office keeps plate stock
+                'competency.plateExchanges',
                 ...REGISTER_AND_STOCK
             ]);
         } finally {
