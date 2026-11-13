@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-11-12",
+  "updated": "2026-11-13",
   "statuses": [
     "planned",
     "ready",
@@ -1547,10 +1547,22 @@
         {
           "id": "1.2c",
           "title": "Registration and plates, part 3: plate exchange",
-          "status": "in progress",
+          "status": "done",
           "branch": "task/1.2c-plate-exchange",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "d21d99f",
+            "d21d99f",
+            "29f8a5e"
+          ],
+          "evidence": [
+            "PR #63 CI run 43303930868 (d21d99f): all 10 jobs green",
+            "lint/typecheck/unit/build/boundaries: pass (turbo, every package's vitest green)",
+            "integration on PostgreSQL 16: 40 files, 733 tests passed (incl. plate-exchange.int.spec.ts: exchange end to end with replaced_by_id, plate changed -> 409, officer reject releases the plate, code-35 and defence plates stored, federal id held elsewhere -> 409, refusals)",
+            "e2e Playwright: 53 passed (incl. competency/plate-exchange.spec.ts: request, fee, approval, hand-over with federal id, old plate shows replaced-by)",
+            "stories/axe/visual baselines, Semgrep, Trivy, gitleaks, performance, production profile: pass",
+            "migration 0072_plate_exchange.sql applied from zero in CI; RLS unchanged (column grant only); audit via updateAudited on the ended period",
+            "reviewer agent run on main...HEAD; findings fixed in d21d99f"
+          ],
           "blockers": [],
           "notes": "Split on 2026-11-12 (one session each): 1.2c is the exchange service DVC-12 (a 56th catalogue entry: not in the source list, the plates part of DVC-01 under Directive 1050/2025), its effects, demo fee rule, demo and e2e, and the plate codes 35, defence and special; 1.2e takes the 1.2b review's hardening (follow-ups 222, 223, 225, 227) and the search filters (210). Built on 2026-11-12: DVC-12 service (check, exchange via the registration's reserve/assign/release effects, recordFederalId), plate_assignments.replaced_by_id (migration 0072, deferred same-vehicle key, backfill), plate codes 35/defence/special, demo fee rule by use, screens and e2e; PR #63. Local: unit tests pass (competency 6 new, vehicles 99), lint/typecheck clean; Docker stopped locally, so integration and e2e results come from CI. Uncommitted: the exchange refuses a vehicle whose plate changed since the check (test added), held for the review's batch."
         },
