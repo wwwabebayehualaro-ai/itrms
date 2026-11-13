@@ -23,7 +23,8 @@ CREATE INDEX "cases_open_exchange_vehicle_idx" ON "workflow"."cases" ("region_id
 CREATE INDEX "plates_reserved_case_idx" ON "vehicles"."plates" ("region_id", "case_id") WHERE "status" = 'reserved';
 --> statement-breakpoint
 -- p_vin_key: a chassis key as the API stores it; p_plate_key: an old plate's key; p_vehicle_id: a vehicle on the register;
--- p_except: the asking case. Any may be null. Static SQL, each arm on its partial index.
+-- p_except: the asking case. Any may be null. Static SQL, each arm on its partial index. Without a region it answers
+-- "claimed": a caller that cannot be placed in a region never skips the check.
 CREATE FUNCTION "competency"."vehicle_in_open_case"(p_vin_key text, p_plate_key text, p_vehicle_id uuid, p_except uuid)
     RETURNS boolean
     LANGUAGE sql
@@ -31,7 +32,7 @@ CREATE FUNCTION "competency"."vehicle_in_open_case"(p_vin_key text, p_plate_key 
     SECURITY DEFINER
     SET search_path = pg_catalog, pg_temp
 AS $$
-    SELECT kernel.ctx_region() IS NOT NULL AND (
+    SELECT kernel.ctx_region() IS NULL OR (
         EXISTS (SELECT 1 FROM workflow.cases c
                  WHERE c.region_id = kernel.ctx_region() AND c.closed_at IS NULL AND c.id IS DISTINCT FROM p_except
                    AND p_vin_key IS NOT NULL AND (c.facts #>> '{registration,vinKey}') = p_vin_key)
