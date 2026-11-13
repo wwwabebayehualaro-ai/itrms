@@ -176,5 +176,15 @@
   "competency.bolos.fileNew": "አዲስ የቦሎ ምርመራ",
   "competency.rule.boloInspectedEarlier": "የምርመራው ቀን በዚህ የበጀት ዓመት ውስጥ መሆን አለበት።",
   "competency.rule.boloLoad": "የመጫን አቅሙን መዝገቡ እንደሚገልጸው በቶን ያስገቡ፤ ክፍያው የሚሰላው ከእሱ ነው።",
-  "competency.rule.boloSeats": "የወንበሩን ብዛት መዝገቡ እንደሚገልጸው ያስገቡ፤ ክፍያው የሚሰላው ከእሱ ነው።"
+  "competency.rule.boloSeats": "የወንበሩን ብዛት መዝገቡ እንደሚገልጸው ያስገቡ፤ ክፍያው የሚሰላው ከእሱ ነው።",
+  "competency.setting.bolo_temporary_days": "ጊዜያዊ ቦሎ የሚያገለግልባቸው ቀናት",
+  "competency.setting.bolo_reminder_days": "ቦሎ ከማብቃቱ በፊት ባለቤቶቹ የሚታወሱበት የቀናት ብዛት",
+  "competency.lookup.garage.title": "ጋራዥ",
+  "competency.rule.boloInspectedBeforeRepair": "ድጋሚ ምርመራው ተሽከርካሪው ከጋራዥ ከተመለሰበት ቀን በፊት ሊሆን አይችልም።",
+  "competency.rule.boloNothingToRepair": "በዚህ ጥያቄ ላይ ጥገና የሚከተለው ያልተሳካ ምርመራ የለም።",
+  "competency.rule.boloNotAGarage": "ከመዝገቡ ጋራዥ ይምረጡ።",
+  "competency.rule.boloRepairLater": "ተሽከርካሪው የተመለሰበት ቀን ወደፊት ሊሆን አይችልም።",
+  "competency.rule.boloRepairBeforeFailure": "ተሽከርካሪው የተመለሰበት ቀን ካልተሳካው ምርመራ በፊት ሊሆን አይችልም።",
+  "competency.rule.boloStickersInStock": "ጽ/ቤቱ የዚህ ዓይነትና ዓመት የቦሎ ምልክት አለው፤ ጊዜያዊ ቦሎ ሳይሆን ምልክቱን ይስጡ።",
+  "competency.notify.boloExpiring": "የተሽከርካሪ {plate} ቦሎ {date} ያበቃል። ከዚያ በፊት ተሽከርካሪውን ለዓመታዊ ምርመራ ያቅርቡ።"
 }

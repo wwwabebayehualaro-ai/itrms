@@ -2,40 +2,51 @@
  * The annual technical inspection, DVC-02 (task 1.3a): what a request must meet, the inspection on the bureau's checklist, and the
  * bolo a passed inspection makes, carried on its sticker from the office's stationery or, while the office has none of its kind
  * and year, on a temporary bolo. The checklist's outcome is the server's (task 1.13a): a pass with a failed item is refused here
- * too. The bolo is a registry record of the vehicle (class R): any office of the region reads it.
+ * too. The bolo is a registry record of the vehicle (class R): any office of the region reads it. A vehicle that fails goes to a
+ * garage and is inspected again on the same case (task 1.3b); each inspection is a row of the inspection register. Once the
+ * sticker is given, the owners' reminder is scheduled for a set number of days before the bolo's last day.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, ne } from 'drizzle-orm';
+import { and, desc, eq, ne } from 'drizzle-orm';
 import { currentContext } from '@itrms/kernel/context';
 import { insertAudited, type Tx, updateAudited } from '@itrms/kernel/db';
 import { ConflictError, ValidationError } from '@itrms/kernel/errors';
 import { nextNumber } from '@itrms/kernel/numbering';
-import { DocumentsService } from '@itrms/documents/api';
+import { emit } from '@itrms/kernel/outbox';
+import { SettingsService } from '@itrms/kernel/settings';
+import { DocumentsService, issuedDocuments, revokeDocument } from '@itrms/documents/api';
 import { StationeryStock } from '@itrms/fees/api';
+import { organisations } from '@itrms/parties/api';
 import { vehicles, VehiclesService } from '@itrms/vehicles/api';
 import vehiclesAm from '@itrms/vehicles/messages/am';
 import vehiclesEn from '@itrms/vehicles/messages/en';
 
 import {
     addisDay,
+    BOLO_REMINDER_DAYS_SETTING,
     BOLO_TEMPLATE,
+    DEFAULT_BOLO_REMINDER_DAYS,
     DEFAULT_TEMPORARY_BOLO_DAYS,
+    GARAGE_KIND,
     inspectionEntrySchema,
     insuranceSchema,
+    repairEntrySchema,
     ROAD_FUND_USES,
     TEMPORARY_BOLO_COUNTER,
+    TEMPORARY_BOLO_DAYS_SETTING,
     TEMPORARY_BOLO_TEMPLATE
 } from '../contracts';
 import am from '../messages/am.json';
 import en from '../messages/en.json';
-import { boloValidity, daysAfter } from './bolo-validity';
-import { bolos } from './competency.table';
+import { boloValidity, daysAfter, reminderDue } from './bolo-validity';
+import { boloInspections, bolos, type FailedItem } from './competency.table';
 import { actForHandlingOffice } from './handling-office';
 import type { CasePlace } from './licences.service';
 
 type Words = keyof typeof am;
 type Facts = Readonly<Record<string, unknown>>;
 type Bolo = typeof bolos.$inferSelect;
+type BoloInspection = typeof boloInspections.$inferSelect;
 
 /** A refusal in the language of the person acting: this is what they read at the counter. */
 const say = (key: Words): string => (currentContext()?.language === 'en' ? en : am)[key];
@@ -87,6 +98,35 @@ async function heldOnce<T>(write: () => Promise<T>): Promise<T> {
 const missingFact = (key: string) =>
     new ConflictError('contract_unmet', { detailKey: 'competency.errors.registration_missing_fact', params: { key } });
 
+/** The repair the garage step recorded, and the inspection it followed. */
+const repairOf = (
+    facts: Facts
+): { garageId: string; repairedOn: string; note: string | null; afterAttempt: number } | undefined => {
+    const r = factOf(facts, 'repair');
+    if (typeof r?.garageId !== 'string' || typeof r.repairedOn !== 'string' || typeof r.afterAttempt !== 'number')
+        return undefined;
+    return {
+        garageId: r.garageId,
+        repairedOn: r.repairedOn,
+        note: typeof r.note === 'string' ? r.note : null,
+        afterAttempt: r.afterAttempt
+    };
+};
+
+/** The items the checklist's outcome failed, each with the inspector's remark, for the register. */
+function failedItemsOf(
+    checklist: Record<string, unknown> | undefined,
+    outcome: Record<string, unknown> | undefined
+): FailedItem[] {
+    const items = checklist && isRecord(checklist.items) ? checklist.items : {};
+    const keys = Array.isArray(outcome?.failed) ? outcome.failed.filter((k): k is string => typeof k === 'string') : [];
+    return keys.map((key) => {
+        const answer = items[key];
+        const remark = isRecord(answer) && typeof answer.remark === 'string' ? answer.remark : undefined;
+        return remark ? { key, remark } : { key };
+    });
+}
+
 const words = (key: string): { am: string; en: string } => ({
     am: (vehiclesAm as Record<string, string>)[key] ?? key,
     en: (vehiclesEn as Record<string, string>)[key] ?? key
@@ -97,7 +137,8 @@ export class BoloService {
     constructor(
         @Inject(VehiclesService) private readonly vehicles: VehiclesService,
         @Inject(DocumentsService) private readonly documents: DocumentsService,
-        @Inject(StationeryStock) private readonly stationery: StationeryStock
+        @Inject(StationeryStock) private readonly stationery: StationeryStock,
+        @Inject(SettingsService) private readonly settings: SettingsService
     ) {}
 
     // ---- filing ----
@@ -151,7 +192,8 @@ export class BoloService {
     /**
      * The inspector's step: the sheet's serial, the day, and the checklist, whose outcome the server worked out. `pass` makes the
      * bolo and is refused unless the checklist passed (a failed item blocks it); `fail` records the failed items and is refused
-     * for a checklist that passed. Run again it returns what it made.
+     * for a checklist that passed. Each inspection is a row of the register, the attempt after a repair with its garage. Run
+     * again after the pass it returns the bolo it made.
      */
     async inspect(tx: Tx, at: CasePlace, facts: Facts, input: unknown, result: 'pass' | 'fail') {
         const place = await actForHandlingOffice(tx, at);
@@ -166,6 +208,12 @@ export class BoloService {
         // inspected in this fiscal year: an older day would make a bolo of a past year, already over
         if (boloValidity(inspectedOn).fiscalYear !== boloValidity(today).fiscalYear)
             return refuse('inspectedOn', 'past_year', 'competency.rule.boloInspectedEarlier');
+        // after a failed inspection, this one follows the repair the garage step recorded for it, on or after its day
+        const previous = await this.lastInspection(tx, place.caseId);
+        const repair = previous ? repairOf(facts) : undefined;
+        if (previous && repair?.afterAttempt !== previous.attempt) throw missingFact('repair');
+        if (previous && inspectedOn < (repair?.repairedOn ?? previous.inspectedOn))
+            return refuse('inspectedOn', 'before_repair', 'competency.rule.boloInspectedBeforeRepair');
         // the checklist as the step's answers were filed: its outcome is the one the server worked out (task 1.13a)
         const checklist = isRecord(input) && isRecord(input.inspection) ? input.inspection : undefined;
         const outcome = checklist && isRecord(checklist.outcome) ? checklist.outcome : undefined;
@@ -174,25 +222,47 @@ export class BoloService {
             throw new ConflictError('invalid_transition', { detailKey: 'competency.rule.boloNotPassed' });
         if (result === 'fail' && passed !== false)
             throw new ConflictError('invalid_transition', { detailKey: 'competency.rule.boloNotFailed' });
+        const asked = factOf(facts, 'bolo');
+        if (typeof asked?.vehicleId !== 'string') throw missingFact('bolo');
+        const vehicleId = asked.vehicleId;
+        const failedItems = failedItemsOf(checklist, outcome);
+        const attempt = (previous?.attempt ?? 0) + 1;
         const inspection = {
+            attempt,
             checklistSerial: entry.data.checklistSerial,
             inspectedOn,
             passed,
-            failed: Array.isArray(outcome?.failed) ? outcome.failed : [],
+            failed: failedItems.map((i) => i.key),
             total: outcome?.total,
             max: outcome?.max
         };
-        if (result === 'fail') return { inspection };
-        const asked = factOf(facts, 'bolo');
-        const insurance = insuranceSchema.safeParse(asked?.insurance);
-        if (typeof asked?.vehicleId !== 'string' || typeof asked.use !== 'string' || !insurance.success)
-            throw missingFact('bolo');
-        const vehicleId = asked.vehicleId;
-        const use = asked.use;
         const [made] = await tx
             .select()
             .from(bolos)
             .where(and(eq(bolos.caseId, place.caseId), ne(bolos.status, 'void')));
+        // the case's bolo is made once: a pass run again is what it made, never a second row in the register
+        if (!made)
+            await insertAudited(tx, boloInspections, {
+                regionId: place.regionId,
+                handlingUnitId: place.handlingUnitId,
+                caseId: place.caseId,
+                vehicleId,
+                attempt,
+                checklistSerial: entry.data.checklistSerial,
+                inspectedOn,
+                passed: result === 'pass',
+                failedItems,
+                garageId: repair?.garageId ?? null,
+                repairedOn: repair?.repairedOn ?? null,
+                repairNote: repair?.note ?? null
+            });
+        if (result === 'fail') return { inspection };
+        const insurance = insuranceSchema.safeParse(asked.insurance);
+        if (typeof asked.use !== 'string' || !insurance.success) throw missingFact('bolo');
+        const use = asked.use;
+        // a re-inspection weeks after the filing: the policy must still cover the day the bolo is given on
+        if (!made && insurance.data.until < today)
+            throw new ConflictError('invalid_transition', { detailKey: 'competency.rule.boloInsuranceExpired' });
         const validity = boloValidity(inspectedOn);
         if (!made) {
             const [vehicle] = await tx
@@ -229,6 +299,60 @@ export class BoloService {
         };
     }
 
+    /**
+     * The garage step after a failed inspection: the garage that repaired the vehicle (an organisation of that kind in the
+     * register), the day it came back (today when not given, never before the failure) and what was done. Nothing is written
+     * here: the next inspection carries it into the register.
+     */
+    async repair(tx: Tx, at: CasePlace, input: unknown) {
+        const place = await actForHandlingOffice(tx, at);
+        const entry = repairEntrySchema.safeParse(input);
+        if (!entry.success)
+            throw new ValidationError('validation_failed', {
+                errors: entry.error.issues.map((i) => ({ path: i.path.join('.'), code: 'invalid', message: i.message }))
+            });
+        const last = await this.lastInspection(tx, place.caseId);
+        if (!last || last.passed)
+            throw new ConflictError('invalid_transition', { detailKey: 'competency.rule.boloNothingToRepair' });
+        const [garage] = await tx
+            .select({ kind: organisations.kind })
+            .from(organisations)
+            .where(eq(organisations.id, entry.data.garage));
+        if (garage?.kind !== GARAGE_KIND) return refuse('garage', 'not_a_garage', 'competency.rule.boloNotAGarage');
+        const today = addisDay();
+        const repairedOn = entry.data.repairedOn ?? today;
+        if (repairedOn > today) return refuse('repairedOn', 'future', 'competency.rule.boloRepairLater');
+        if (repairedOn < last.inspectedOn)
+            return refuse('repairedOn', 'before_failure', 'competency.rule.boloRepairBeforeFailure');
+        return {
+            repair: {
+                garageId: entry.data.garage,
+                repairedOn,
+                note: entry.data.repairNote || null,
+                afterAttempt: last.attempt
+            }
+        };
+    }
+
+    /** A case's inspections in the register, the latest first. */
+    async inspections(tx: Tx, caseId: string): Promise<BoloInspection[]> {
+        return tx
+            .select()
+            .from(boloInspections)
+            .where(eq(boloInspections.caseId, caseId))
+            .orderBy(desc(boloInspections.attempt));
+    }
+
+    private async lastInspection(tx: Tx, caseId: string): Promise<BoloInspection | undefined> {
+        const [last] = await tx
+            .select()
+            .from(boloInspections)
+            .where(eq(boloInspections.caseId, caseId))
+            .orderBy(desc(boloInspections.attempt))
+            .limit(1);
+        return last;
+    }
+
     // ---- the sticker, or a temporary bolo ----
 
     /**
@@ -249,13 +373,16 @@ export class BoloService {
             usedFor: { table: 'competency.bolos', id: bolo.id },
             caseId: place.caseId
         });
-        const now =
-            bolo.status === 'valid'
-                ? bolo
-                : await updateAudited(tx, bolos, bolo.id, bolo.rowVersion, {
-                      status: 'valid',
-                      stickerKey: item.itemKey
-                  });
+        let now = bolo;
+        if (bolo.status !== 'valid') {
+            now = await updateAudited(tx, bolos, bolo.id, bolo.rowVersion, {
+                status: 'valid',
+                stickerKey: item.itemKey
+            });
+            // the sticker replaces the temporary bolo: its QR no longer says it stands
+            await this.endTemporary(tx, facts, 'bolo_sticker_given');
+            await this.scheduleReminder(tx, place, now);
+        }
         const issued = await this.document(tx, place, now, BOLO_TEMPLATE, item.itemKey);
         const known = factOf(facts, 'documents') ?? {};
         return {
@@ -265,19 +392,30 @@ export class BoloService {
     }
 
     /**
-     * A temporary bolo while the office has no sticker of the vehicle's kind and year: numbered from the office's counter, it
-     * stands for the configured days (`bolo_temporary_days`, 30 by default), never past the bolo's own last day. Issued once:
-     * run again it returns the same one; once the sticker is given it is refused.
+     * A temporary bolo while the office has no sticker of the vehicle's kind and year (refused while it has one): numbered from
+     * the office's counter, it stands for the office's `competency.bolo_temporary_days` (30 by default), never past the bolo's own
+     * last day. Issued once: run again it returns the same one; once the sticker is given it is refused.
      */
-    async issueTemporary(tx: Tx, at: CasePlace, facts: Facts, config: Readonly<Record<string, unknown>>) {
+    async issueTemporary(tx: Tx, at: CasePlace, facts: Facts) {
         const place = await actForHandlingOffice(tx, at);
         const bolo = await this.boloOf(tx, facts);
         if (bolo.status === 'valid')
             throw new ConflictError('invalid_transition', { detailKey: 'competency.rule.boloStickerGiven' });
-        const days =
-            typeof config.bolo_temporary_days === 'number' && config.bolo_temporary_days > 0
-                ? Math.floor(config.bolo_temporary_days)
-                : DEFAULT_TEMPORARY_BOLO_DAYS;
+        if (
+            bolo.status !== 'temporary' &&
+            (await this.stationery.inStock(tx, place.ctx, {
+                kind: 'bolo_sticker',
+                variant: bolo.use,
+                validEfy: bolo.fiscalYear
+            }))
+        )
+            throw new ConflictError('invalid_transition', { detailKey: 'competency.rule.boloStickersInStock' });
+        const days = await this.days(
+            tx,
+            place.handlingUnitId,
+            TEMPORARY_BOLO_DAYS_SETTING,
+            DEFAULT_TEMPORARY_BOLO_DAYS
+        );
         const until = [daysAfter(addisDay(), days), bolo.validUntil].sort()[0] ?? bolo.validUntil;
         const now =
             bolo.status === 'temporary'
@@ -304,7 +442,7 @@ export class BoloService {
      * A case rejected after its pass (waiting for a sticker no office can give, or on its temporary bolo): its bolo is void, so it
      * no longer counts as this year's and the vehicle can be filed again. A bolo carried on its sticker is never voided here.
      */
-    async void(tx: Tx, at: CasePlace) {
+    async void(tx: Tx, at: CasePlace, facts: Facts) {
         const place = await actForHandlingOffice(tx, at);
         const [bolo] = await tx
             .select()
@@ -315,7 +453,41 @@ export class BoloService {
             status: 'void',
             voidReason: 'the case was rejected before the sticker'
         });
+        // a temporary bolo given on the case stops standing with it
+        await this.endTemporary(tx, facts, 'bolo_case_rejected');
         return { bolo: { id: voided.id, status: voided.status } };
+    }
+
+    /** The temporary bolo's document the case issued, if any, revoked: its QR then says it no longer stands. */
+    private async endTemporary(tx: Tx, facts: Facts, reason: string) {
+        const id = factOf(facts, 'documents')?.[TEMPORARY_BOLO_TEMPLATE];
+        if (typeof id !== 'string') return;
+        // the standing one: a reissue may have superseded the first
+        const [row] = await tx.select().from(issuedDocuments).where(eq(issuedDocuments.id, id));
+        if (row && !row.supersededBy) await revokeDocument(tx, row, reason);
+    }
+
+    /**
+     * The owners' reminder, due a set number of days (the office's `competency.bolo_reminder_days`) before the bolo's last day,
+     * at 08:00 in Addis Ababa: the outbox holds the event until then. A bolo given inside that window has none: the counter
+     * tells its owner the day.
+     */
+    private async scheduleReminder(tx: Tx, place: CasePlace, bolo: Bolo) {
+        const days = await this.days(tx, place.handlingUnitId, BOLO_REMINDER_DAYS_SETTING, DEFAULT_BOLO_REMINDER_DAYS);
+        const due = reminderDue(bolo.validUntil, days);
+        if (due.getTime() <= Date.now()) return;
+        await emit(
+            tx,
+            'bolo.expiring.v1',
+            { boloId: bolo.id },
+            { unitId: place.handlingUnitId, regionId: place.regionId, availableAt: due }
+        );
+    }
+
+    /** A number of days the office's settings give, or its default when the setting is not a positive whole number. */
+    private async days(tx: Tx, unitId: string, key: string, fallback: number): Promise<number> {
+        const value = await this.settings.value<unknown>(tx, unitId, key);
+        return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : fallback;
     }
 
     /** Refused when the vehicle has a bolo of the fiscal year from another case (one not voided). */

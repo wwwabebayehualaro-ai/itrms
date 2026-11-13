@@ -526,6 +526,13 @@
       "when": 1794586841776,
       "tag": "0074_bolos",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1794604108855,
+      "tag": "0075_bolo_cycle",
+      "breakpoints": true
     }
   ]
 }

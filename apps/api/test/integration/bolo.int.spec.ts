@@ -2,8 +2,10 @@
  * The bolo inspection as it is seeded (task 1.3a, DVC-02), run end to end through the API on a real PostgreSQL 16 with the Wolaita
  * seeds: a vehicle on the register is filed at Boditi's counter with its third-party insurance, paid at the till, inspected on the
  * light-vehicle checklist and given its bolo: the sticker of its use and fiscal year from the office's stationery, or a temporary
- * bolo first while the office has none. A failed item blocks the pass. The refusals at filing; a sibling office reads the bolo and
- * cannot change it. Chassis numbers, plates, insurance numbers and names are generated.
+ * bolo first while the office has none. A failed item blocks the pass. A failed vehicle goes to a garage and is inspected again on the
+ * same case, each inspection in the register; the owners' reminder is scheduled with the sticker and sent once (task 1.3b). The
+ * refusals at filing; a sibling office reads the bolo and cannot change it. Chassis numbers, plates, phones, insurance numbers and
+ * names are generated.
  */
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -11,11 +13,15 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { boloValidity } from '@itrms/competency/api';
+import { remindBoloExpiring } from '@itrms/competency/api/worker';
 import { importBoloService, LIGHT_VEHICLE_CHECKLIST, setUpBoloCounters } from '@itrms/competency/seed';
 import { importDocumentTemplates } from '@itrms/documents/seed';
 import { StationeryStock } from '@itrms/fees/api';
 import { importFeeRules, importStationeryDemo, parseFeeRules } from '@itrms/fees/seed';
 import { createDatabase, type Database, type DbContext } from '@itrms/kernel/db';
+import { createSystemDatabase, type SystemDatabase } from '@itrms/kernel/db/system';
+import { FakeSms } from '@itrms/kernel/notifications';
+import { PersonsService } from '@itrms/parties/api';
 import { contextFor, TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import type { OrgUnit } from '@itrms/kernel/org';
 import { VehicleRegistry } from '@itrms/vehicles/api';
@@ -46,6 +52,9 @@ let stationery: StationeryStock;
 let boditi: OrgUnit;
 let damot: OrgUnit;
 let owner: string;
+let ownerPhone: string;
+let garage: string;
+let system: SystemDatabase;
 const as = {} as Record<keyof typeof SUB, As>;
 const ifMatch = (version: number) => ({ 'if-match': `"${version}"` });
 
@@ -186,8 +195,13 @@ const bolosOf = async (caseId: string) =>
 
 const documentsOf = async (caseId: string) =>
     (
-        await api.owner.query<{ key: string; number: string; superseded_by: string | null }>(
-            `select t.key, d.number, d.superseded_by from documents.issued_documents d
+        await api.owner.query<{
+            key: string;
+            number: string;
+            superseded_by: string | null;
+            revoke_reason: string | null;
+        }>(
+            `select t.key, d.number, d.superseded_by, d.revoke_reason from documents.issued_documents d
                join documents.document_templates t on t.id = d.template_id
               where d.case_id = $1 and t.key like 'vehicle-%bolo' order by d.created_at`,
             [caseId]
@@ -209,6 +223,7 @@ beforeAll(async () => {
         }
     ]);
     app = createDatabase(pg.url('app'), { auditKey: randomBytes(32).toString('hex'), contextKey: TEST_CONTEXT_KEY });
+    system = createSystemDatabase(pg.url('system'), { onUse: () => undefined });
     registry = api.http.get(VehicleRegistry);
     stationery = api.http.get(StationeryStock);
     const region = await api.unit('SER', 'SER');
@@ -227,18 +242,28 @@ beforeAll(async () => {
         expect(await setUpBoloCounters(tx, root.regionId)).toBeGreaterThan(0);
     });
     expect(await importStationeryDemo(api.installer, 'SER', stationery, today())).not.toBeNull();
+    const mobile = String(randomInt(10_000_000, 99_999_999));
+    ownerPhone = `+2519${mobile}`;
     const person = await api.call('POST', '/api/v1/persons', as.officer, {
         nameAm: { given: 'ባለቤት', father: 'ቦሎ', grandfather: 'ታደሰ' },
         nameEn: { given: 'Sample', father: 'Bolo', grandfather: 'Person' },
         sex: 'female',
         birthYear: 1982,
+        phone: `09${mobile}`,
         acknowledgedDuplicates: []
     });
     expect(person.statusCode, person.body).toBe(201);
     owner = person.json<{ id: string }>().id;
+    const garageMade = await api.call('POST', '/api/v1/organisations', as.officer, {
+        kind: 'garage',
+        name: { am: 'ናሙና ጋራዥ', en: 'Sample Garage' }
+    });
+    expect(garageMade.statusCode, garageMade.body).toBe(201);
+    garage = garageMade.json<{ id: string }>().id;
 }, 240_000);
 
 afterAll(async () => {
+    await system?.close();
     await app?.close();
     await api?.close();
     await pg?.stop();
@@ -271,6 +296,11 @@ describe('a bolo inspection', () => {
                 checklist_serial: inspection.checklistSerial
             })
         ]);
+        // Boditi holds private stickers of this year: no temporary bolo while it does
+        const stopgap = await step(c, as.officer, { action: 'issue_temporary', answers: {} });
+        expect(stopgap.statusCode, stopgap.body).toBe(409);
+        expect(stopgap.json<{ detailKey?: string }>().detailKey).toBe('competency.rule.boloStickersInStock');
+        c = await caseOf(c.id);
         const issued = step(c, as.officer, { action: 'issue_sticker', answers: {} });
         const res = await issued;
         expect(res.statusCode, res.body).toBe(200);
@@ -296,9 +326,31 @@ describe('a bolo inspection', () => {
             [bolo?.id]
         );
         expect(audit.rows.map((r) => r.action).sort()).toEqual(['insert', 'update']);
+        // the inspection is in the register, written and audited with it
+        const register = await api.owner.query<{
+            id: string;
+            attempt: number;
+            passed: boolean;
+            garage_id: string | null;
+        }>('select id, attempt, passed, garage_id from competency.bolo_inspections where case_id = $1', [c.id]);
+        expect(register.rows).toEqual([expect.objectContaining({ attempt: 1, passed: true, garage_id: null })]);
+        const registered = await api.owner.query<{ action: string }>(
+            "select action from kernel.audit_log where table_name = 'competency.bolo_inspections' and row_id = $1",
+            [register.rows[0]?.id]
+        );
+        expect(registered.rows.map((r) => r.action)).toEqual(['insert']);
+        // the owners' reminder waits in the outbox until 30 days before the last day, 08:00 in Addis Ababa
+        const reminder = await api.owner.query<{ due: string }>(
+            `select to_char(available_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI') as due from kernel.outbox_events
+              where type = 'bolo.expiring.v1' and payload ->> 'boloId' = $1`,
+            [bolo?.id]
+        );
+        const due = new Date(`${validUntil}T05:00:00Z`);
+        due.setUTCDate(due.getUTCDate() - 30);
+        expect(reminder.rows).toEqual([{ due: due.toISOString().slice(0, 16) }]);
     }, 240_000);
 
-    it('is not passed with a failed item: the pass is refused, and a fail closes the case with the items', async () => {
+    it('is not passed with a failed item: the pass is refused, and a fail sends the vehicle to a garage with the items', async () => {
         const vehicle = await onTheRoad();
         const c = await atInspection(vehicle);
         const failing = sheet(['headlights', 'serviceBrake']);
@@ -315,7 +367,7 @@ describe('a bolo inspection', () => {
         expect(forged.statusCode, forged.body).toBe(409);
         expect(await bolosOf(c.id)).toEqual([]);
         const failed = await moved(await caseOf(c.id), as.officer, 'fail', { answers: failing });
-        expect(failed.state).toBe('failed');
+        expect(failed.state).toBe('repair');
         const facts = await api.owner.query<{ facts: { inspection?: { failed?: string[]; passed?: boolean } } }>(
             'select facts from workflow.cases where id = $1',
             [c.id]
@@ -363,7 +415,200 @@ describe('a bolo inspection', () => {
         c = await moved(await caseOf(c.id), as.officer, 'issue_sticker', { answers: {} });
         expect(c.state).toBe('issued');
         expect(await bolosOf(c.id)).toEqual([expect.objectContaining({ status: 'valid', sticker_key: 'D0000001' })]);
-        expect((await documentsOf(c.id)).map((d) => d.key)).toEqual(['vehicle-temporary-bolo', 'vehicle-bolo']);
+        // the temporary bolo no longer stands once the sticker is given: its QR says so
+        expect(await documentsOf(c.id)).toEqual([
+            expect.objectContaining({ key: 'vehicle-temporary-bolo', revoke_reason: 'bolo_sticker_given' }),
+            expect.objectContaining({ key: 'vehicle-bolo', revoke_reason: null })
+        ]);
+    }, 240_000);
+
+    it("stands a temporary bolo for the office's own number of days", async () => {
+        // Boditi's setting: 10 days (no NGO stickers in its stock)
+        await api.owner.query(
+            `insert into kernel.settings_values (id, region_id, unit_id, key, value)
+             values (gen_random_uuid(), $1, $2, 'competency.bolo_temporary_days', '10'::jsonb)`,
+            [boditi.regionId, boditi.id]
+        );
+        try {
+            let c = await atInspection(await onTheRoad('ngo'), { use: 'ngo' });
+            c = await moved(c, as.officer, 'pass', { answers: sheet() });
+            c = await moved(c, as.officer, 'issue_temporary', { answers: {} });
+            expect(await bolosOf(c.id)).toEqual([
+                expect.objectContaining({ status: 'temporary', temporary_until: dayFrom(10) })
+            ]);
+            // rejected on its temporary bolo: the bolo is void and the temporary document stops standing
+            c = await moved(c, as.officer, 'reject', { comment: 'The owner sold the vehicle' });
+            expect(await bolosOf(c.id)).toEqual([expect.objectContaining({ status: 'void' })]);
+            expect(await documentsOf(c.id)).toEqual([
+                expect.objectContaining({ key: 'vehicle-temporary-bolo', revoke_reason: 'bolo_case_rejected' })
+            ]);
+        } finally {
+            await api.owner.query(
+                "delete from kernel.settings_values where unit_id = $1 and key = 'competency.bolo_temporary_days'",
+                [boditi.id]
+            );
+        }
+    }, 240_000);
+});
+
+describe('a vehicle that fails its inspection', () => {
+    it('goes to a garage and is inspected again on the same case and fee, each inspection in the register', async () => {
+        let c = await atInspection(await onTheRoad());
+        const failing = sheet(['headlights', 'tyres']);
+        c = await moved(c, as.officer, 'fail', { answers: failing });
+        expect(c.state).toBe('repair');
+        const view = await caseOf(c.id);
+        expect(view.actionDetails.find((a) => a.action === 'reinspect')).toMatchObject({ needsForm: true });
+        expect(view.actionDetails.find((a) => a.action === 'close_failed')).toMatchObject({ commentRequired: true });
+
+        // the garage step: a garage of the register, back no earlier than the failure and not in the future
+        const notAGarage = await api.call('POST', '/api/v1/organisations', as.officer, {
+            kind: 'contractor',
+            name: { am: 'ናሙና ተቋራጭ', en: 'Sample Contractor' }
+        });
+        expect(notAGarage.statusCode, notAGarage.body).toBe(201);
+        const wrongKind = await step(c, as.officer, {
+            action: 'reinspect',
+            answers: { garage: notAGarage.json<{ id: string }>().id }
+        });
+        expect(wrongKind.statusCode, wrongKind.body).toBe(422);
+        expect(wrongKind.json<{ errors?: { path: string; code: string }[] }>().errors).toEqual([
+            expect.objectContaining({ path: 'garage', code: 'not_a_garage' })
+        ]);
+        const early = await step(c, as.officer, {
+            action: 'reinspect',
+            answers: { garage, repairedOn: dayFrom(-1) }
+        });
+        expect(early.statusCode, early.body).toBe(422);
+        expect(early.json<{ errors?: { path: string; code: string }[] }>().errors).toEqual([
+            expect.objectContaining({ path: 'repairedOn', code: 'before_failure' })
+        ]);
+        c = await moved(await caseOf(c.id), as.officer, 'reinspect', {
+            answers: { garage, repairedOn: today(), repairNote: 'Headlight bulb and two tyres replaced' }
+        });
+        expect(c.state).toBe('inspection');
+        // no second payment order: the fee paid for the first inspection covers this one
+        const orders = await api.owner.query<{ n: number }>(
+            'select count(*)::int as n from fees.payment_orders where case_id = $1',
+            [c.id]
+        );
+        expect(orders.rows[0]?.n).toBe(1);
+
+        const passing = sheet();
+        c = await moved(c, as.officer, 'pass', { answers: passing });
+        expect(c.state).toBe('sticker');
+        const register = await api.owner.query<{
+            attempt: number;
+            passed: boolean;
+            failed_items: { key: string; remark?: string }[];
+            garage_id: string | null;
+            repaired_on: string | null;
+            repair_note: string | null;
+            checklist_serial: string;
+        }>(
+            `select attempt, passed, failed_items, garage_id, repaired_on::text, repair_note, checklist_serial
+               from competency.bolo_inspections where case_id = $1 order by attempt`,
+            [c.id]
+        );
+        expect(register.rows).toEqual([
+            {
+                attempt: 1,
+                passed: false,
+                failed_items: [
+                    { key: 'headlights', remark: 'Not working' },
+                    { key: 'tyres', remark: 'Not working' }
+                ],
+                garage_id: null,
+                repaired_on: null,
+                repair_note: null,
+                checklist_serial: failing.checklistSerial
+            },
+            {
+                attempt: 2,
+                passed: true,
+                failed_items: [],
+                garage_id: garage,
+                repaired_on: today(),
+                repair_note: 'Headlight bulb and two tyres replaced',
+                checklist_serial: passing.checklistSerial
+            }
+        ]);
+        expect(await bolosOf(c.id)).toEqual([
+            expect.objectContaining({ status: 'awaiting_sticker', checklist_serial: passing.checklistSerial })
+        ]);
+        c = await moved(c, as.officer, 'issue_sticker', { answers: {} });
+        expect(c.state).toBe('issued');
+    }, 240_000);
+
+    it('fails again and goes back to a garage, or is closed as failed when it does not come back', async () => {
+        let c = await atInspection(await onTheRoad());
+        c = await moved(c, as.officer, 'fail', { answers: sheet(['horn']) });
+        c = await moved(c, as.officer, 'reinspect', { answers: { garage } });
+        c = await moved(c, as.officer, 'fail', { answers: sheet(['horn']) });
+        expect(c.state).toBe('repair');
+        // the second repair is the second inspection's: the first one's is not taken again
+        const attempts = await api.owner.query<{ attempt: number; garage_id: string | null }>(
+            'select attempt, garage_id from competency.bolo_inspections where case_id = $1 order by attempt',
+            [c.id]
+        );
+        expect(attempts.rows).toEqual([
+            { attempt: 1, garage_id: null },
+            { attempt: 2, garage_id: garage }
+        ]);
+        const closed = await step(c, as.officer, { action: 'close_failed' });
+        expect(closed.statusCode, closed.body).toBe(422);
+        c = await moved(await caseOf(c.id), as.officer, 'close_failed', {
+            comment: 'The owner did not bring the vehicle back'
+        });
+        expect(c.state).toBe('failed');
+        expect(await bolosOf(c.id)).toEqual([]);
+    }, 240_000);
+});
+
+describe("a bolo's renewal reminder", () => {
+    it('tells the owners by SMS once, with the plate and the last day, reading the phone on record', async () => {
+        const vehicle = await onTheRoad();
+        let c = await atInspection(vehicle);
+        c = await moved(c, as.officer, 'pass', { answers: sheet() });
+        c = await moved(c, as.officer, 'issue_sticker', { answers: {} });
+        const [bolo] = await bolosOf(c.id);
+        if (!bolo) throw new Error('no bolo');
+        const sms = new FakeSms();
+        const deps = { sms, phones: api.http.get(PersonsService) };
+        expect(await remindBoloExpiring(system, deps, bolo.id)).toBe(true);
+        expect(sms.sentToNumbers.map((m) => m.phone)).toEqual([ownerPhone]);
+        expect(sms.sentToNumbers[0]?.text).toContain('ሰኔ 30');
+        const plate = await api.owner.query<{ plate_text: string }>(
+            'select plate_text from vehicles.plate_assignments where vehicle_id = $1 and until is null',
+            [vehicle]
+        );
+        expect(sms.sentToNumbers[0]?.text).toContain(plate.rows[0]?.plate_text);
+        // once: the event delivered again sends nothing
+        expect(await remindBoloExpiring(system, deps, bolo.id)).toBe(false);
+        expect(sms.sentToNumbers).toHaveLength(1);
+        const marked = await api.owner.query<{ reminded: boolean }>(
+            'select reminded_at is not null as reminded from competency.bolos where id = $1',
+            [bolo.id]
+        );
+        expect(marked.rows[0]?.reminded).toBe(true);
+        // the read of the phone is on record, and the mark is audited
+        const reads = await api.owner.query<{ n: number }>(
+            `select count(*)::int as n from kernel.audit_log
+              where event_type = 'person.revealed' and row_id = $1 and diff ->> 'reason' = 'competency.bolo_reminder'`,
+            [owner]
+        );
+        expect(reads.rows[0]?.n).toBe(1);
+    }, 240_000);
+
+    it('is not sent for a bolo that no longer stands', async () => {
+        let c = await atInspection(await onTheRoad('ngo'), { use: 'ngo' });
+        c = await moved(c, as.officer, 'pass', { answers: sheet() });
+        c = await moved(c, as.officer, 'reject', { comment: 'No NGO stickers this year' });
+        const [bolo] = await bolosOf(c.id);
+        if (!bolo) throw new Error('no bolo');
+        const sms = new FakeSms();
+        expect(await remindBoloExpiring(system, { sms, phones: api.http.get(PersonsService) }, bolo.id)).toBe(false);
+        expect(sms.sentToNumbers).toEqual([]);
     }, 240_000);
 });
 
@@ -475,5 +720,33 @@ describe("a bolo's record", () => {
                 ).rowCount
         );
         expect(changed).toBe(0);
+    });
+
+    it("keeps an office's inspection register to it and the offices above: a sibling office sees none of it", async () => {
+        const count = (ctx: DbContext) =>
+            app.scoped(
+                ctx,
+                async (tx) =>
+                    (
+                        await tx.execute<{ n: number }>(
+                            sql`select count(*)::int as n from competency.bolo_inspections
+                                 where handling_unit_id = ${boditi.id}`
+                        )
+                    ).rows[0]?.n
+            );
+        const total = (
+            await api.owner.query<{ n: number }>(
+                'select count(*)::int as n from competency.bolo_inspections where handling_unit_id = $1',
+                [boditi.id]
+            )
+        ).rows[0]?.n;
+        expect(total).toBeGreaterThan(0);
+        expect(await count({ ...contextFor(boditi), requestId: `own-${randomUUID()}` })).toBe(total);
+        expect(await count({ ...contextFor(damot), requestId: `sibling-${randomUUID()}` })).toBe(0);
+        // written once: the app may not change a row of the register
+        const changed = app.scoped({ ...contextFor(boditi), requestId: `write-${randomUUID()}` }, (tx) =>
+            tx.execute(sql`update competency.bolo_inspections set passed = true where handling_unit_id = ${boditi.id}`)
+        );
+        await expect(changed).rejects.toThrow(/permission denied/);
     });
 });

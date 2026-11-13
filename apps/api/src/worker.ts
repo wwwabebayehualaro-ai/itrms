@@ -6,10 +6,11 @@
 import 'reflect-metadata';
 
 import { LicencesService } from '@itrms/competency/api';
-import { competencyHandlers } from '@itrms/competency/api/worker';
+import { boloHandlers, competencyHandlers } from '@itrms/competency/api/worker';
 import { documentsHandlers } from '@itrms/documents/api/worker';
 import { DOCUMENTS_ROUTES } from '@itrms/documents/contracts';
 import { PaymentsService } from '@itrms/fees/api';
+import { PersonsService } from '@itrms/parties/api';
 import { feesHandlers } from '@itrms/fees/api/worker';
 import { formsHandlers } from '@itrms/forms/api/worker';
 import { CasesService } from '@itrms/workflow/api';
@@ -64,9 +65,10 @@ async function main() {
             // what roles give, for the background exports' check of the requester's rights when they run
             const catalogue = rolePermissions(loadSlices(SLICES, { disabled: config.MODULES_DISABLED }).manifests);
             // the SLA timers: an overdue step, a wait's timeout (task 0.20a); SMS through the fake gateway until Phase 1
+            const sms = new FakeSms();
             const sla: SlaDeps = {
                 cases: app.get(CasesService),
-                sms: new FakeSms(),
+                sms,
                 onError: (err, what) =>
                     logger.warn({ err, what }, 'an SLA item could not be handled; the next sweep tries again')
             };
@@ -85,6 +87,8 @@ async function main() {
                     licences: app.get(LicencesService),
                     cases: app.get(CasesService)
                 }),
+                // a bolo's renewal reminder to its owners, when it comes due (task 1.3b); SMS through the fake gateway for now
+                ...boloHandlers(system, { sms, phones: app.get(PersonsService) }),
                 ...formsHandlers(system, {
                     database,
                     store: objectStore ?? NO_OBJECT_STORE,

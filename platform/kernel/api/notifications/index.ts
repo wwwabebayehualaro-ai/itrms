@@ -27,14 +27,29 @@ export interface SmsSender {
     send(message: { userId: string; text: string }): Promise<void>;
 }
 
+/**
+ * An SMS to someone who is not a user (a vehicle's owner reminded of its bolo, task 1.3b): the caller read the number, audited,
+ * from the register. The number is personal data: it is never logged.
+ */
+export interface SmsToNumber {
+    sendToNumber(message: { phone: string; text: string }): Promise<void>;
+}
+
 /** The development and demo gateway: logs what it would send, sends nothing. */
-export class FakeSms implements SmsSender {
+export class FakeSms implements SmsSender, SmsToNumber {
     private readonly log = new Logger('FakeSms');
     readonly sent: { userId: string; text: string }[] = [];
+    readonly sentToNumbers: { phone: string; text: string }[] = [];
 
     send(message: { userId: string; text: string }): Promise<void> {
         this.sent.push(message);
         this.log.log(`SMS to ${message.userId}: ${message.text}`);
+        return Promise.resolve();
+    }
+
+    sendToNumber(message: { phone: string; text: string }): Promise<void> {
+        this.sentToNumbers.push(message);
+        this.log.log(`SMS to a number ending ${message.phone.slice(-2)}: ${message.text}`);
         return Promise.resolve();
     }
 }

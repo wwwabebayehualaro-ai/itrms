@@ -60,15 +60,28 @@ Layer: work-process. Shape, public entries and rules: [code-structure.md](../../
 | `./messages/*` | `am`, `en`, `wal-Latn` catalogues, keys `competency.<area>.<key>` |
 | `./seed` | service definitions, unit-type defaults, demo generators |
 
-## The bolo inspection (DVC-02, task 1.3a)
+## The bolo inspection (DVC-02, tasks 1.3a and 1.3b)
 
 A vehicle on the register is filed with its third-party insurance certificate (Proclamation 799/2013: number, insurer, policy
 period; a policy that does not cover today is refused) and the papers its use needs (a public transport or freight vehicle,
 plate codes 1 and 3, brings its Road Fund receipt). The fee is the zone's table by use, seats and load (demo). After payment the
 officer inspects it on the light-vehicle checklist (a `Checklist` field, task 1.13a: the outcome is the server's), with the
-sheet's own serial: `pass` is refused unless the checklist passed (a failed item blocks it), `fail` closes the case with the
-failed items (re-inspection after a garage is task 1.3b). A pass makes the vehicle's bolo, `competency.bolos` (class R: the
-region reads it, the handling office's subtree writes it), valid to Sene 30 of the fiscal year it was inspected in. The officer
-then hands over the sticker of the vehicle's use and that fiscal year from the office's stationery (the bolo document carries its
-serial), or, while the office has none, a temporary bolo numbered from the office's counter (`{unit}/TB/{seq:05}`) for
-`bolo_temporary_days` (30 by default), and the sticker later on the same case. A vehicle has one bolo per fiscal year.
+sheet's own serial: `pass` is refused unless the checklist passed (a failed item blocks it), `fail` sends the vehicle to a
+garage. A pass makes the vehicle's bolo, `competency.bolos` (class R: the region reads it, the handling office's subtree writes
+it), valid to Sene 30 of the fiscal year it was inspected in. The officer then hands over the sticker of the vehicle's use and
+that fiscal year from the office's stationery (the bolo document carries its serial), or, only while the office has none, a
+temporary bolo numbered from the office's counter (`{unit}/TB/{seq:05}`) for the office's `competency.bolo_temporary_days` (30
+by default), and the sticker later on the same case; the temporary bolo's document is revoked when the sticker is given or the
+case is rejected. A vehicle has one bolo per fiscal year.
+
+**Re-inspection after a garage (task 1.3b).** A failed vehicle waits in the `repair` step (30 business days, then overdue). When
+it comes back, the officer records the garage (an organisation of kind `garage`, the `garage` lookup), the day and the repair,
+and the vehicle is inspected again on the same case and its paid fee; one that does not come back is closed as `failed` with a
+comment. Every inspection, passed or failed, is a row of the inspection register `competency.bolo_inspections` (class T, written
+once): attempt, sheet serial, day, result, failed items with their remarks, and the garage and repair before it.
+
+**Renewal reminder (task 1.3b).** When the sticker is given, a `bolo.expiring.v1` event is written to the outbox, due
+`competency.bolo_reminder_days` (30 by default) before the bolo's last day at 08:00 Addis Ababa time (none for a bolo given
+inside that window). The worker then sends the owners of the open ownership period an SMS in Amharic with the plate and the
+last day, once (`bolos.reminded_at`), reading each phone through the parties register's `phoneForNotice` (the read is recorded
+as `person.revealed`). Organisations as owners get none until the register keeps their contact.

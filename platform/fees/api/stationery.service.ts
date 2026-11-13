@@ -372,6 +372,32 @@ export class StationeryStock {
     }
 
     /**
+     * Whether the acting office holds a free item of a kind (and variant, and fiscal year): a slice that offers a stopgap while
+     * none is in stock (a temporary bolo, task 1.3b) asks first. Nothing is locked: the answer may change before the item is used.
+     */
+    async inStock(
+        tx: Tx,
+        ctx: DbContext,
+        wanted: { kind: StationeryKind; variant?: string; validEfy?: number }
+    ): Promise<boolean> {
+        const [item] = await tx
+            .select({ id: stationeryItems.id })
+            .from(stationeryItems)
+            .where(
+                and(
+                    eq(stationeryItems.regionId, required(ctx.regionId)),
+                    eq(stationeryItems.holderUnitId, required(ctx.unitId)),
+                    eq(stationeryItems.kind, wanted.kind),
+                    eq(stationeryItems.status, 'in_stock'),
+                    wanted.variant ? eq(stationeryItems.variant, wanted.variant) : undefined,
+                    wanted.validEfy !== undefined ? eq(stationeryItems.validEfy, wanted.validEfy) : undefined
+                )
+            )
+            .limit(1);
+        return item !== undefined;
+    }
+
+    /**
      * Locks the named items of a kind in series and serial order, the order every command locks in, so a caller that then
      * uses or spoils several of them in another order cannot deadlock with a keeper's command over the same run. Items
      * not in the region's stock are left to the command that names them.
