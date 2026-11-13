@@ -1661,13 +1661,23 @@
         },
         {
           "id": "1.13c",
-          "title": "Form platform, part 4: authoring",
+          "title": "Form platform, part 4: wizard steps and the logic inspector",
+          "status": "in progress",
+          "branch": "task/1.13c-wizard-logic",
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Split from 1.13a on 2026-11-13. Split again on 2026-11-14 (one session each): wizard steps, the logic inspector and follow-ups 256 and 257 here; reusable blocks with their impact, the print preview with the official header and form analytics in 1.13d."
+        },
+        {
+          "id": "1.13d",
+          "title": "Form platform, part 5: reusable blocks, print preview and analytics",
           "status": "planned",
           "branch": null,
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split from 1.13a on 2026-11-13."
+          "notes": "Split from 1.13c on 2026-11-14."
         },
         {
           "id": "1.13b",
