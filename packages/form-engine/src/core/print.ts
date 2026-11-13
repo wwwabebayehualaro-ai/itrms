@@ -4,8 +4,6 @@
  * do not see, display fields and values the form does not know are left out; every value is already worded in one
  * language, with dates Ethiopian. The renderers lay the nodes out; they decide nothing about what shows.
  */
-import type { ChecklistAnswer } from '@itrms/schemas';
-
 import { checklistItems, checklistOf, checklistOutcome, isBlankChecklist } from './checklist';
 import type { Scope } from './conditions';
 import { addisDayTime, ethiopianDateText } from './dates';
@@ -213,7 +211,7 @@ function checklistText(field: EngineField, value: unknown, language: string): st
     const t = engineTranslator(language);
     const def = checklistOf(field);
     if (!def || !isRecord(value) || !isRecord(value.items)) return '';
-    const outcome = checklistOutcome(def, value.items as Record<string, ChecklistAnswer>);
+    const outcome = checklistOutcome(def, value.items);
     const counts = { total: outcome.total, max: outcome.max };
     const head =
         outcome.passed === null
