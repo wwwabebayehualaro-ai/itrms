@@ -1630,10 +1630,11 @@
         {
           "id": "1.3b",
           "title": "Bolo technical inspection, part 2: re-inspection after a garage and renewal reminders",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.3b-bolo-cycle",
           "commits": [
-            "64ae24a"
+            "64ae24a",
+            "9dc4cef"
           ],
           "evidence": [
             "CI run 43520052878 on PR #67 (head 64ae24a): all 10 jobs green: lint, typecheck, unit, build, boundaries and i18n; integration on the dev stack 41 files and 757 tests (bolo.int.spec.ts 16, isolation.int.spec.ts 62) plus the S3 contract suite; e2e journeys 55 passed (incl. competency/bolo.spec.ts 'a vehicle that fails goes to a garage and is inspected again on the same case') and the verifier suite 4; stories, axe and visual baselines; performance; production profile; Semgrep, Trivy and gitleaks clean",
