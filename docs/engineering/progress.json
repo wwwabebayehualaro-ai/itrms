@@ -1569,10 +1569,11 @@
         {
           "id": "1.2e",
           "title": "Registration and plates, part 5: hardening from the 1.2b review",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.2e-registration-hardening",
           "commits": [
-            "11939c9"
+            "11939c9",
+            "b283979"
           ],
           "evidence": [
             "CI run 43437122974 on PR #64 (head 11939c9): all 10 jobs green: lint, typecheck, unit, build and boundaries; integration on the dev stack, 40 files and 738/738 tests, plus the S3 contract suite 20/20; e2e journeys (Playwright, BFF sign-in); stories, axe and visual baselines; performance (10^6 rows, EXPLAIN under RLS); production profile; Semgrep, Trivy and gitleaks clean",
