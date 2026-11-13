@@ -38,6 +38,16 @@ verified by the actor, with its plate and libre. Until then the vehicle is not o
 The vehicle search offers the back-capture when it finds nothing (capture on touch). The bulk import, sampling QA, campaign
 counters and the reconciliation report are task 1.13b.
 
+**Acting for the handling office, and one vehicle in one open request (task 1.2e).** The steps that write a vehicle's records
+(register, the plate, the libre and its booklet, the exchange, the back-capture's verification) run for the case's handling
+office: taken in it, or in an office above it when separation of duties left nobody in the office and the step was sent up the
+tree (`api/handling-office.ts`, `actForHandlingOffice`). The vehicle, its plate (from the office's stock) and its libre (from
+its stationery) stay the office's; any other office is refused (`competency.errors.act_from_handling_office`). Whether another
+open request claims the vehicle (a registration's or back-capture's chassis, a back-capture's old plate, an exchange's vehicle)
+is asked of the reviewed `competency.vehicle_in_open_case` over the whole region (migration 0073), not of the cases the filer's
+office sees, so two sibling offices cannot both take a fee for one vehicle. A chassis check digit the officer confirmed does not
+match is a notice on the case (`competency.notice.chassisMismatch`), shown to the lead who approves it.
+
 Layer: work-process. Shape, public entries and rules: [code-structure.md](../../docs/platform/code-structure.md) §4.
 
 | Entry | Holds |

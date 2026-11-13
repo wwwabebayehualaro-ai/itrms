@@ -222,7 +222,7 @@ export type Vehicle = z.infer<typeof vehicleSchema>;
 export const vehicleSearchQuerySchema = z.strictObject({
     /** a plate (current or old), a chassis number (all of it or its last characters), an engine number or a federal id */
     q: z.string().trim().min(1).max(40).optional(),
-    /** a person or an organisation: the vehicles it holds now */
+    /** a person or an organisation: the vehicles whose last ownership period is theirs (held now, or last held) */
     ownerId: z.uuid().optional(),
     status: z.enum(VEHICLE_STATUSES).optional(),
     /** the previous page's `nextCursor` (opaque); a search with `q` is ranked and has one page */

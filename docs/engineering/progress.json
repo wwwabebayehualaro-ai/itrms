@@ -1569,12 +1569,22 @@
         {
           "id": "1.2e",
           "title": "Registration and plates, part 5: hardening from the 1.2b review",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/1.2e-registration-hardening",
+          "commits": [
+            "11939c9"
+          ],
+          "evidence": [
+            "CI run 43437122974 on PR #64 (head 11939c9): all 10 jobs green: lint, typecheck, unit, build and boundaries; integration on the dev stack, 40 files and 738/738 tests, plus the S3 contract suite 20/20; e2e journeys (Playwright, BFF sign-in); stories, axe and visual baselines; performance (10^6 rows, EXPLAIN under RLS); production profile; Semgrep, Trivy and gitleaks clean",
+            "Two sibling offices: vehicle-registration.int.spec 'refuses a chassis another office's open request claims, though the filer cannot see that request'. Areka sees 0 rows of Boditi's case and is still refused not_eligible through competency.vehicle_in_open_case (migration 0073)",
+            "One-officer office: 'lets an office with one officer, who is also its lead, register a vehicle: the zone approves it'. The approval is routed to WOL with routedFrom Boditi; the vehicle, plate and libre are Boditi's",
+            "Routing: 'completes a registration step sent up to the zone for the office' (a zone officer registers for Boditi); 'refuses the registration step from an office that is not the handling office or above it' (Areka, 403)",
+            "Definer review: isolation.int.spec reviewed list adds competency.vehicle_in_open_case(text,text,uuid,uuid) and vehicles.search_vehicles(text,text,integer,text,uuid); vehicles.int.spec checks the status and owner filters inside the ranked search",
+            "Notices: notices.spec.ts (2 unit tests); the mismatch test asserts that the lead's case view carries competency.notice.chassisMismatch (am and en)",
+            "Reviews: task-verifier found every Done-when item and test met. Security reviewer: no High or Medium findings; L1 (lookup failing open without a region) and L3 fixed in 8144a2b; L2, L4 and L5 recorded as follow-ups"
+          ],
           "blockers": [],
-          "notes": "Split from 1.2c on 2026-11-12."
+          "notes": "Split from 1.2c on 2026-11-12. Pushed 562f206 as PR; CI runs the integration (Docker stopped locally). Design: act for the handling office from an office above it (option b of reviewer M1) rather than a keep-in-unit assignee; a sibling test uses Areka via the service directly, since no sibling of Boditi offers DVC-01 in the seed. Reviewer (security/tenancy, 2026-11-13): no High or Medium; L1 (the open-request lookup failed open without a region) and L3 (ownerId description) fixed in 8144a2b; L2, L4, L5 are follow-ups. Task verifier: every Done-when item met in code, integration on CI."
         },
         {
           "id": "1.13a",
@@ -3471,6 +3481,21 @@
       "foundIn": "1.2c",
       "item": "Plate texts typed run together with code 35 or 3 and a number starting 5 (SN 351234) are refused, and SN 35 1234 now reads as code 35; no production data yet: confirm with the zone how code-35 plates are written before the pilot import (1.13b)",
       "movedTo": "1.13b"
+    },
+    {
+      "foundIn": "1.2e",
+      "item": "A workflow that assigns a registry-writing step (register, plate, libre, booklet, exchange) to a unit above the office lets that unit act for the office every time, not only when separation of duties routed it up: decide whether to require the routed-up path (task routing hops > 0) (review L2)",
+      "movedTo": "1.13b"
+    },
+    {
+      "foundIn": "1.2e",
+      "item": "The vehicle search's part matches read the first 1000 trigram candidates before the status and owner filters: a filtered part-match search over a large region can miss matches (review L4)",
+      "movedTo": "1.13b"
+    },
+    {
+      "foundIn": "1.2e",
+      "item": "An office blocked by a sibling office's open request for the same vehicle cannot see who holds it: a zone view of the open requests that claim a chassis, plate or vehicle (review L5)",
+      "movedTo": "1.4"
     }
   ]
 }

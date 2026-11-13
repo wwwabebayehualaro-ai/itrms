@@ -7,10 +7,12 @@
  */
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { ArrowLeft, FileText, MessageSquare, Route, Send, ShieldCheck, Workflow } from 'lucide-react';
+import { ArrowLeft, FileText, MessageSquare, Route, Send, ShieldCheck, TriangleAlert, Workflow } from 'lucide-react';
 import { PrintForm } from '@itrms/form-engine/print';
 import { FormRenderer, useLookupLabels } from '@itrms/form-engine/renderer';
 import {
+    Alert,
+    AlertDescription,
     Button,
     DescriptionList,
     Dialog,
@@ -92,6 +94,18 @@ export function CasePage({ id }: { id: string }) {
                 }
             />
             <CaseFacts c={c} />
+            {c.notices.length > 0 && (
+                <Alert data-case-notices>
+                    <TriangleAlert />
+                    <AlertDescription>
+                        {c.notices.map((key) => (
+                            <p key={key} data-notice={key}>
+                                {t(key)}
+                            </p>
+                        ))}
+                    </AlertDescription>
+                </Alert>
+            )}
             <CasePaymentPanel caseId={c.id} />
             <CaseDocuments caseId={c.id} />
             <OpenStep c={c} stateName={stateName} />

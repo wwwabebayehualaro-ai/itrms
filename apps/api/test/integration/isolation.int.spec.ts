@@ -398,6 +398,8 @@ describe('every tenant table', () => {
               AND has_function_privilege('itrms_app', p.oid, 'EXECUTE')
             ORDER BY p.oid::regprocedure::text COLLATE "C"`);
         expect(rows.map((r) => r.name)).toEqual([
+            // whether another open case of the caller's region claims a chassis, an old plate or a vehicle: yes or no (task 1.2e)
+            'competency.vehicle_in_open_case(text,text,uuid,uuid)',
             // a document's status by its token's hash, for the public endpoint: a checker's minimum (ADR-0045)
             'documents.verification(text)',
             // the names of the kinds of document, and the public halves of the signing keys, for the verifier's offline check
@@ -429,8 +431,9 @@ describe('every tenant table', () => {
             // the registers' searches, limited to the caller's region; ids only (task 0.14)
             'parties.search_organisations(text,integer)',
             'parties.search_persons(text,bytea,bytea,integer)',
-            // the vehicle register's ranked search by federal id, chassis number, plate and engine number; ids only (task 1.1a)
-            'vehicles.search_vehicles(text,text,integer)',
+            // the vehicle register's ranked search by federal id, chassis number, plate and engine number, with the status and
+            // owner filters; ids only (tasks 1.1a, 1.2e)
+            'vehicles.search_vehicles(text,text,integer,text,uuid)',
             // who works on a case the caller sees (whom a comment may mention): ids and display names only (task 0.20b)
             'workflow.case_people(uuid,text,uuid[],text[])',
             // the step a transition leads to, in a unit above the caller's scope, for a case they see (task 0.19b)

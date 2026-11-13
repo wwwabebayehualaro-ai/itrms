@@ -79,6 +79,7 @@ import {
     type SystemActor,
     type UnitRef
 } from './engine/rules';
+import { noticesOf } from './engine/notices';
 import { caseAuditTrail } from './case-audit';
 import { dueAt } from './sla';
 import { caseEvents, cases, caseTasks, workflowDefinitions, workflowDefinitionVersions } from './workflow.table';
@@ -1281,6 +1282,7 @@ export class CasesService implements FeeCasePort {
                 name: workflowName
             },
             stateLabels: Object.fromEntries(def.states.flatMap((s) => (s.label ? [[s.key, s.label]] : []))),
+            notices: noticesOf(row.facts),
             startedBy: row.startedBy,
             startedByName: names.get(row.startedBy) ?? null,
             actions,

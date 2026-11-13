@@ -44,6 +44,9 @@ Layer: platform. Shape, public entries and rules: [code-structure.md](../../docs
 - A step in a unit above the actor's scope ("the zone approves for a town") is opened through the reviewed
   `workflow.open_task`; separation of duties finds who else may act through `workflow.role_holders`, and routes a
   one-person office's step up the tree (recorded as a `routed` event), or refuses it when nobody anywhere may take it.
+- A case's `notices` (task 1.2e, `api/engine/notices.ts`): message keys an effect put in its own fact as
+  `facts.<key>.notices`, shown on the case to everyone acting on it (a later step sees what an earlier one found). Only
+  message keys are kept, never text typed on the case.
 
 | Route | Permission |
 |---|---|

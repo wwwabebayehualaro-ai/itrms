@@ -4,7 +4,9 @@
  * makes the vehicle, its first ownership, its plate from the office's stock, its libre and the temporary libre (a numbered
  * certificate); the last step writes the libre in a federal booklet from the office's stationery (task 1.2d, ADR-0050). The refusals
  * at filing, the plate's life (held from approval, given back on rejection, replaced by another), a step that fails undoing
- * everything it did, and each effect run twice making one record. Chassis numbers, plates and names are generated.
+ * everything it did, and each effect run twice making one record. The 1.2e hardening: a chassis claimed by an open request of an
+ * office the filer cannot see, an office with one officer, a step sent up to the zone completed for the office, and the notice of a
+ * confirmed check-digit mismatch at approval. Chassis numbers, plates and names are generated.
  */
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -27,6 +29,7 @@ import {
     setUpRegistrationCertificateCounters
 } from '@itrms/vehicles/seed';
 import type { CaseOut } from '@itrms/workflow/contracts';
+import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { startApi, type As, type TestApi } from './support/api';
@@ -39,7 +42,11 @@ const SUB = {
     bureau: '0199f0a0-d000-7000-8000-000000000001',
     officer: '0199f0a0-d000-7000-8000-00000000d702',
     lead: '0199f0a0-d000-7000-8000-00000000d704',
-    cashier: '0199f0a0-d000-7000-8000-000000000303'
+    cashier: '0199f0a0-d000-7000-8000-000000000303',
+    // an officer who is also the office's lead (task 1.2e), and the zone's seeded lead and officer
+    solo: '0199f0a0-d000-7000-8000-00000000d705',
+    zoneLead: '0199f0a0-d000-7000-8000-000000000103',
+    zoneOfficer: '0199f0a0-d000-7000-8000-000000000104'
 };
 const SERVICE = 'DVC-01';
 
@@ -50,6 +57,8 @@ let stock: PlateStock;
 let stationery: StationeryStock;
 let registration: VehicleRegistrationService;
 let boditi: OrgUnit;
+let zone: OrgUnit;
+let areka: OrgUnit;
 let owner: string;
 const as = {} as Record<keyof typeof SUB, As>;
 const ifMatch = (version: number) => ({ 'if-match': `"${version}"` });
@@ -282,6 +291,17 @@ beforeAll(async () => {
             region: 'SER',
             home: 'WOL-BODITI',
             roles: [['WOL-BODITI', 'competency.lead']]
+        },
+        {
+            username: 'test.reg.solo',
+            sub: SUB.solo,
+            region: 'SER',
+            home: 'WOL-BODITI',
+            roles: [
+                ['WOL-BODITI', 'competency.officer'],
+                ['WOL-BODITI', 'competency.lead'],
+                ['WOL-BODITI', 'records_officer']
+            ]
         }
     ]);
     app = createDatabase(pg.url('app'), { auditKey: randomBytes(32).toString('hex'), contextKey: TEST_CONTEXT_KEY });
@@ -290,10 +310,15 @@ beforeAll(async () => {
     registration = api.http.get(VehicleRegistrationService);
     const region = await api.unit('SER', 'SER');
     boditi = await api.unit('SER', 'WOL-BODITI');
+    zone = await api.unit('SER', 'WOL');
+    areka = await api.unit('SER', 'WOL-AREKA');
     as.bureau = { sub: SUB.bureau, unit: region };
     as.officer = { sub: SUB.officer, unit: boditi };
     as.lead = { sub: SUB.lead, unit: boditi };
     as.cashier = { sub: SUB.cashier, unit: boditi };
+    as.solo = { sub: SUB.solo, unit: boditi };
+    as.zoneLead = { sub: SUB.zoneLead, unit: zone };
+    as.zoneOfficer = { sub: SUB.zoneOfficer, unit: zone };
 
     const root = { id: region.id, regionId: region.regionId };
     await api.installer.scoped({}, async (tx) => {
@@ -796,5 +821,147 @@ describe('a request that does not meet the register', () => {
         const c = await moved(confirmed, as.officer, 'submit');
         expect(c.state).toBe('review');
         expect((await factsOf(c.id)).registration).toMatchObject({ vinCheck: 'mismatch' });
+        // everyone acting on the case sees it, the lead who approves it first among them (task 1.2e)
+        expect((await caseOf(c.id, as.lead)).notices).toEqual(['competency.notice.chassisMismatch']);
+        const plain = await moved(await filed(request()), as.officer, 'submit');
+        expect(plain.notices).toEqual([]);
+    }, 120_000);
+});
+
+describe('the hardening from the 1.2b review (task 1.2e)', () => {
+    // the tests above leave Boditi one booklet; these registrations each take one
+    beforeAll(async () => {
+        const p = place(randomUUID());
+        await inTx(p, (tx) =>
+            stationery.receive(tx, p.ctx, {
+                kind: 'libre_booklet',
+                source: 'ministry',
+                reference: `HARDENING-${randomInt(1000, 9999)}`,
+                receivedOn: today(),
+                range: { series: 'LB', from: 9101, to: 9110 },
+                width: 7
+            })
+        );
+    });
+
+    /** Every other officer and lead of Boditi is away while `work` runs: their roles end, and come back after. */
+    async function othersAway<T>(roles: readonly string[], work: () => Promise<T>): Promise<T> {
+        const { rows } = await api.owner.query<{ id: string }>(
+            `update kernel.role_assignments set valid_to = now() - interval '1 second'
+              where unit_id = $1 and role_key = any($2::text[]) and valid_to is null
+                and user_id <> (select id from kernel.users where keycloak_sub = $3)
+             returning id`,
+            [boditi.id, roles, SUB.solo]
+        );
+        try {
+            return await work();
+        } finally {
+            await api.owner.query('update kernel.role_assignments set valid_to = null where id = any($1::uuid[])', [
+                rows.map((r) => r.id)
+            ]);
+        }
+    }
+
+    /** The step open now, where it is and where it was sent up from. */
+    const openTask = async (id: string, who: As) => {
+        const t = (await caseOf(id, who)).tasks.find((x) => x.status === 'open');
+        return t && { state: t.state, unit: t.unit.id, routedFrom: t.routedFrom?.id ?? null };
+    };
+
+    const handledBy = async (caseId: string) =>
+        (
+            await api.owner.query<{ vehicle: string; plate_holder: string; libre_unit: string }>(
+                `select v.handling_unit_id as vehicle, p.holder_unit_id as plate_holder, l.issuing_unit_id as libre_unit
+                   from vehicles.vehicles v join vehicles.plates p on p.vehicle_id = v.id and p.case_id = $1
+                   join vehicles.libres l on l.vehicle_id = v.id and l.case_id = $1
+                  where v.id = (select vehicle_id from vehicles.vehicle_ownerships where case_id = $1)`,
+                [caseId]
+            )
+        ).rows[0];
+
+    it('refuses a chassis another office’s open request claims, though the filer cannot see that request', async () => {
+        const claimed = request();
+        const c = await moved(await filed(claimed), as.officer, 'submit');
+        // Areka, a sibling of Boditi, does not see Boditi's case
+        const areaPlace = {
+            ...place(c.id),
+            caseId: randomUUID(),
+            handlingUnitId: areka.id,
+            ctx: { ...contextFor(areka), requestId: `reg-${randomUUID()}` }
+        };
+        const seen = await app.scoped(
+            areaPlace.ctx,
+            async (tx) =>
+                (await tx.execute<{ n: number }>(sql`select count(*)::int as n from workflow.cases where id = ${c.id}`))
+                    .rows[0]?.n
+        );
+        expect(seen).toBe(0);
+        await expect(
+            inTx(areaPlace, (tx) => registration.check(tx, areaPlace, { ...claimed, owners: [{ ownerPerson: owner }] }))
+        ).rejects.toMatchObject({ code: 'not_eligible' });
+        // a chassis no open request claims passes the same check there
+        const free = await inTx(areaPlace, (tx) => registration.check(tx, areaPlace, request()));
+        expect(free.registration.notices).toEqual([]);
+        // a request in review is returned to its filer, who withdraws it: the chassis is free again
+        const returned = await moved(c, as.officer, 'return', { comment: 'Test over' });
+        await moved(returned, as.officer, 'withdraw', { comment: 'Test over' });
+        expect((await moved(await filed(claimed), as.officer, 'submit')).state).toBe('review');
+    }, 120_000);
+
+    it('lets an office with one officer, who is also its lead, register a vehicle: the zone approves it', async () => {
+        await othersAway(['competency.officer', 'competency.lead'], async () => {
+            let c = await filed(request(), as.solo);
+            c = await moved(c, as.solo, 'submit');
+            c = await moved(c, as.solo, 'approve');
+            await paid(c);
+            // separation of duties leaves nobody at Boditi for the approval: it goes up to the zone
+            expect(await openTask(c.id, as.zoneLead)).toMatchObject({
+                state: 'approval',
+                unit: zone.id,
+                routedFrom: boditi.id
+            });
+            c = await moved(await caseOf(c.id, as.zoneLead), as.zoneLead, 'approve');
+            expect(c.state).toBe('registration');
+            c = await moved(await caseOf(c.id, as.solo), as.solo, 'register', {
+                answers: { federalVehicleId: federalId() }
+            });
+            c = await moved(c, as.solo, 'issue_booklet', { answers: {} });
+            expect(c.state).toBe('registered');
+            expect(await handledBy(c.id)).toEqual({
+                vehicle: boditi.id,
+                plate_holder: boditi.id,
+                libre_unit: boditi.id
+            });
+        });
+    }, 240_000);
+
+    it('completes a registration step sent up to the zone for the office: the vehicle, plate and libre are the office’s', async () => {
+        let c = await reviewed();
+        await paid(c);
+        // the office's lead who approves is its only officer left: the registration goes up to the zone's officers
+        c = await othersAway(['competency.officer'], async () => {
+            const approvedHere = await moved(await caseOf(c.id, as.solo), as.solo, 'approve');
+            expect(await openTask(approvedHere.id, as.zoneOfficer)).toMatchObject({
+                state: 'registration',
+                unit: zone.id,
+                routedFrom: boditi.id
+            });
+            return moved(await caseOf(c.id, as.zoneOfficer), as.zoneOfficer, 'register', {
+                answers: { federalVehicleId: federalId() }
+            });
+        });
+        expect(c.state).toBe('booklet');
+        c = await moved(await caseOf(c.id), as.officer, 'issue_booklet', { answers: {} });
+        expect(c.state).toBe('registered');
+        expect(await handledBy(c.id)).toEqual({ vehicle: boditi.id, plate_holder: boditi.id, libre_unit: boditi.id });
+    }, 240_000);
+
+    it('refuses the registration step from an office that is not the handling office or above it', async () => {
+        const c = await approved();
+        const atAreka = { ...place(c.id), ctx: { ...contextFor(areka), requestId: `reg-${randomUUID()}` } };
+        await expect(
+            app.scoped(atAreka.ctx, (tx) => registration.register(tx, atAreka, {}, request()))
+        ).rejects.toMatchObject({ status: 403 });
+        await moved(await caseOf(c.id), as.officer, 'reject', { comment: 'Test over' });
     }, 120_000);
 });
