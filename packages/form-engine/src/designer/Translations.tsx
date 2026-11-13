@@ -85,6 +85,10 @@ const kindOf = (t: EngineTranslate, text: FieldText) => {
             return t('form-engine.designer.translations.kind.message', { ref: text.ref ?? '' });
         case 'column':
             return t('form-engine.designer.translations.kind.column', { ref: text.ref ?? '' });
+        case 'section':
+            return t('form-engine.designer.translations.kind.section', { ref: text.ref ?? '' });
+        case 'item':
+            return t('form-engine.designer.translations.kind.item', { ref: text.ref ?? '' });
         case 'setting': {
             const named = SETTING[text.ref ?? ''];
             return named ? t(named) : (text.ref ?? t('form-engine.designer.translations.kind.setting'));

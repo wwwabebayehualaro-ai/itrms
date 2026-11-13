@@ -76,5 +76,18 @@
   "form-engine.core.lint.reads-restricted": "\"{field}\"ን ከሚያዩት አንዳንዶቹ የማያዩትን \"{key}\" ያነባል፤ ለተመሳሳይ ሚናዎች ይገድቡት ወይም ሌላ መስክ ያንብቡ",
   "form-engine.core.lint.key-reserved": "\"{key}\" የሚለው ቁልፍ ጽ/ቤቶች በቅጽ ላይ ለሚጨምሯቸው መስኮች (x_…) የተያዘ ነው፤ ሌላ ይምረጡ",
   "form-engine.core.lint.fee-duplicate": "ከአንድ በላይ የክፍያ መስክ አለ፤ ክፍያው አንድ ጊዜ፣ በአንድ መስክ ይታያል",
-  "form-engine.core.lint.fee-in-rows": "የክፍያ መስክ በሚደገም ክፍል ውስጥ ሊሆን አይችልም፤ ክፍያው ለሙሉ ጥያቄው ነው"
+  "form-engine.core.lint.fee-in-rows": "የክፍያ መስክ በሚደገም ክፍል ውስጥ ሊሆን አይችልም፤ ክፍያው ለሙሉ ጥያቄው ነው",
+  "form-engine.core.validation.checklistInvalid": "የማረጋገጫ ዝርዝሩን መልሶች ያረጋግጡ",
+  "form-engine.core.validation.checklistNotApplicable": "እዚህ ሁሉም ንጥሎች ይመለከታሉ፤ እያንዳንዱን ይመልሱ",
+  "form-engine.core.validation.checklistRemark": "ላልተሳካ እያንዳንዱ ንጥል አስተያየት ይስጡ፦ {items}",
+  "form-engine.core.validation.checklistUnanswered": "ሁሉንም ንጥሎች ይመልሱ፤ ያልተመለሱ፦ {items}",
+  "form-engine.core.validation.invalidLocation": "ቦታውን በኬክሮስና በኬንትሮስ ያስገቡ",
+  "form-engine.core.validation.locationTooRough": "ቦታው በበቂ ትክክለኛነት አልተገኘም፤ በ{max} ሜትር ውስጥ መሆን አለበት",
+  "form-engine.core.validation.oneImage": "እዚህ መያዝ የሚቻለው አንድ ምስል ብቻ ነው",
+  "form-engine.core.print.checklistPassed": "አልፏል፦ {total} ከ{max}",
+  "form-engine.core.print.checklistFailed": "አላለፈም፦ {total} ከ{max}",
+  "form-engine.core.print.checklistOpen": "አልተጠናቀቀም፦ {total} ከ{max}",
+  "form-engine.core.print.checklistFailedItems": "ያልተሳኩ ንጥሎች፦ {items}",
+  "form-engine.core.print.location": "{lat}, {lng}",
+  "form-engine.core.print.locationAccuracy": "{lat}, {lng} (በ{accuracy} ሜትር ውስጥ)"
 }

@@ -8,6 +8,7 @@ export const FIELD_TYPES: readonly string[] = [
     'Card',
     'Checkbox',
     'CheckboxGroup',
+    'Checklist',
     'Chips',
     'ColorPicker',
     'DataTable',
@@ -19,6 +20,7 @@ export const FIELD_TYPES: readonly string[] = [
     'FileUpload',
     'FormArray',
     'FormSection',
+    'GeoPoint',
     'InputMask',
     'InputNumber',
     'InputSwitch',
@@ -27,8 +29,10 @@ export const FIELD_TYPES: readonly string[] = [
     'MultiSelect',
     'Panel',
     'Password',
+    'Photo',
     'RadioButton',
     'Rating',
     'RegistryLookup',
+    'Signature',
     'Slider'
 ];

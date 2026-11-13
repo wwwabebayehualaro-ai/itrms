@@ -6,9 +6,11 @@
  * the shape TanStack Form takes from a form-level validator, and what the error summary counts.
  */
 import { z } from 'zod';
+import { geoPointSchema } from '@itrms/schemas';
+import { checklistError } from './checklist';
 import type { Scope } from './conditions';
 import { ethiopianDateText, isIsoDay, parseDate } from './dates';
-import { shapeError } from './kinds';
+import { IMAGE_TYPES, isFileField, shapeError } from './kinds';
 import { isFormArray, isRequiredIn, type EngineField, type FieldOption } from './model';
 import { evalCondition } from './runtime/formula';
 import { str } from './runtime/path';
@@ -46,12 +48,40 @@ export function fieldSchema(f: EngineField, language = 'am'): z.ZodType<unknown>
     const t = engineTranslator(language);
     const requiredMsg = m.required || t('form-engine.core.validation.required');
 
-    if (f.type === 'FileUpload') {
+    if (f.type === 'Checklist') {
+        return z.unknown().superRefine((v, ctx) => {
+            const message = checklistError(f, v, r.required, t);
+            if (message) ctx.addIssue({ code: 'custom', message });
+        });
+    }
+
+    if (f.type === 'GeoPoint') {
+        const maxAccuracy = typeof f.props.maxAccuracy === 'number' ? f.props.maxAccuracy : undefined;
+        return z.unknown().superRefine((v, ctx) => {
+            if (isBlank(v)) return void (r.required && ctx.addIssue({ code: 'custom', message: requiredMsg }));
+            const point = geoPointSchema.safeParse(v);
+            if (!point.success)
+                return void ctx.addIssue({
+                    code: 'custom',
+                    message: m.type || t('form-engine.core.validation.invalidLocation')
+                });
+            // a fix rougher than the field allows (or one that does not say how rough it is) is not this field's place
+            if (maxAccuracy !== undefined && (point.data.accuracy === undefined || point.data.accuracy > maxAccuracy))
+                ctx.addIssue({
+                    code: 'custom',
+                    message: t('form-engine.core.validation.locationTooRough', { max: String(maxAccuracy) })
+                });
+        });
+    }
+
+    if (isFileField(f)) {
         const maxSize = r.maxFileSize ?? 2_000_000;
-        const exts = r.accept
-            ?.split(',')
-            .map((e) => e.trim().toLowerCase())
-            .filter(Boolean);
+        const exts = IMAGE_TYPES.has(f.type)
+            ? undefined
+            : r.accept
+                  ?.split(',')
+                  .map((e) => e.trim().toLowerCase())
+                  .filter(Boolean);
         return z.unknown().superRefine((value, ctx) => {
             const files = Array.isArray(value) ? (value as Array<Record<string, unknown>>) : [];
             if (r.required && files.length === 0) return void ctx.addIssue({ code: 'custom', message: requiredMsg });
@@ -59,6 +89,14 @@ export function fieldSchema(f: EngineField, language = 'am'): z.ZodType<unknown>
                 return void ctx.addIssue({
                     code: 'custom',
                     message: m.fileType || t('form-engine.core.validation.invalidFile')
+                });
+            // a signature or a photo is one image (task 1.13a)
+            if (IMAGE_TYPES.has(f.type) && files.length > 1)
+                return void ctx.addIssue({ code: 'custom', message: t('form-engine.core.validation.oneImage') });
+            if (IMAGE_TYPES.has(f.type) && files.some((file) => !str(file.type ?? '').startsWith('image/')))
+                return void ctx.addIssue({
+                    code: 'custom',
+                    message: m.fileType || t('form-engine.core.validation.invalidFileType')
                 });
             if (files.some((file) => Number(file.size) > maxSize))
                 return void ctx.addIssue({

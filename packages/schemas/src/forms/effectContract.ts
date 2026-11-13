@@ -20,7 +20,9 @@ export const CONTRACT_KINDS = [
     'range',
     'files',
     'rows',
-    'ref'
+    'ref',
+    'checklist',
+    'geopoint'
 ] as const;
 export type ContractKind = (typeof CONTRACT_KINDS)[number];
 

@@ -17,6 +17,7 @@ import {
     derivedValues,
     holdsValue,
     initialValueOf,
+    isFileField,
     isFormArray,
     maskSensitive,
     onlySensitive,
@@ -592,7 +593,7 @@ export class SubmissionsService {
             else if (values !== null && typeof values === 'object')
                 for (const [key, v] of Object.entries(values as Record<string, unknown>)) {
                     const f = byId.get(key);
-                    if (f?.type === 'FileUpload' && Array.isArray(v))
+                    if (f && isFileField(f) && Array.isArray(v))
                         for (const entry of v)
                             if (
                                 entry &&

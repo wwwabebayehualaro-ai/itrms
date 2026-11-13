@@ -8,6 +8,7 @@ import { NotFoundError } from '@itrms/kernel/errors';
 import { getFile } from '@itrms/kernel/files';
 import {
     holdsValue,
+    isFileField,
     isFormArray,
     lookupRefs,
     scopeFields,
@@ -138,7 +139,7 @@ export async function resolveFiles(
                 for (const [i, row] of value.entries())
                     rows.push(isRecord(row) ? await walk(f.id, row, `${path}[${i}].`) : row);
                 out[f.id] = rows;
-            } else if (f.type === 'FileUpload' && Array.isArray(value)) {
+            } else if (isFileField(f) && Array.isArray(value)) {
                 const entries: unknown[] = [];
                 for (const entry of value) entries.push(await one(f, entry, path));
                 out[f.id] = entries;

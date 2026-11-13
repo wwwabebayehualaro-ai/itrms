@@ -4,4 +4,6 @@ import './registryLookup';
 import './containers';
 import './dataTable';
 import './fee';
+import './checklist';
+import './evidence';
 import './design';

@@ -10,7 +10,11 @@ import { z } from 'zod';
 import {
     AlignJustify,
     Calendar,
+    Camera,
     CaseSensitive,
+    ClipboardCheck,
+    MapPin,
+    Signature,
     CircleDot,
     Hash,
     KeyRound,
@@ -326,6 +330,84 @@ describeFieldType('FileUpload', {
             ) satisfies Record<string, EngineWord>
         })
     })
+});
+
+// ---- inspection and evidence (task 1.13a) -------------------------------------------------------------------------------
+describeFieldType('Checklist', {
+    label: 'form-engine.palette.type.Checklist.label',
+    icon: ClipboardCheck,
+    group: 'choices',
+    hint: 'form-engine.palette.type.Checklist.hint',
+    keywords: ['checklist', 'inspection', 'bolo', 'items', 'pass', 'fail', 'points', 'score', 'ማረጋገጫ'],
+    settings: z.object({
+        scoring: setting(z.enum(['passFail', 'points']).optional(), {
+            title: 'form-engine.settings.Checklist.scoring.title',
+            labels: {
+                passFail: 'form-engine.settings.Checklist.scoring.passFail',
+                points: 'form-engine.settings.Checklist.scoring.points'
+            }
+        }),
+        passMark: num({
+            title: 'form-engine.settings.Checklist.passMark.title',
+            description: 'form-engine.settings.Checklist.passMark.description'
+        }),
+        allowNotApplicable: flag({ title: 'form-engine.settings.Checklist.allowNotApplicable.title' }),
+        remarkOnFail: flag({ title: 'form-engine.settings.Checklist.remarkOnFail.title' })
+    }),
+    defaults: {
+        scoring: 'passFail',
+        allowNotApplicable: true,
+        sections: [{ key: 'section1', items: [{ key: 'item1', text: '' }] }]
+    }
+});
+
+describeFieldType('Signature', {
+    label: 'form-engine.palette.type.Signature.label',
+    icon: Signature,
+    group: 'files',
+    hint: 'form-engine.palette.type.Signature.hint',
+    keywords: ['signature', 'sign', 'ፊርማ']
+});
+
+describeFieldType('Photo', {
+    label: 'form-engine.palette.type.Photo.label',
+    icon: Camera,
+    group: 'files',
+    hint: 'form-engine.palette.type.Photo.hint',
+    keywords: ['photo', 'camera', 'picture', 'face', 'ፎቶ'],
+    settings: z.object({
+        crop: setting(z.enum(['none', 'face']).optional(), {
+            title: 'form-engine.settings.Photo.crop.title',
+            labels: {
+                none: 'form-engine.settings.Photo.crop.none',
+                face: 'form-engine.settings.Photo.crop.face'
+            }
+        }),
+        facing: setting(z.enum(['environment', 'user']).optional(), {
+            title: 'form-engine.settings.Photo.facing.title',
+            labels: {
+                environment: 'form-engine.settings.Photo.facing.environment',
+                user: 'form-engine.settings.Photo.facing.user'
+            }
+        })
+    }),
+    defaults: { crop: 'none', facing: 'environment' }
+});
+
+describeFieldType('GeoPoint', {
+    label: 'form-engine.palette.type.GeoPoint.label',
+    icon: MapPin,
+    group: 'data',
+    hint: 'form-engine.palette.type.GeoPoint.hint',
+    keywords: ['location', 'gps', 'map', 'place', 'coordinates', 'ቦታ'],
+    settings: z.object({
+        maxAccuracy: num({
+            title: 'form-engine.settings.GeoPoint.maxAccuracy.title',
+            description: 'form-engine.settings.GeoPoint.maxAccuracy.description'
+        }),
+        allowManual: flag({ title: 'form-engine.settings.GeoPoint.allowManual.title' })
+    }),
+    defaults: { allowManual: true }
 });
 
 // ---- registry ---------------------------------------------------------------------------------------------------------

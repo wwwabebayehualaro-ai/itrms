@@ -79,7 +79,8 @@ export function setTextIn(text: unknown, language: string, value: string, plainA
     return Object.keys(next).length ? next : undefined;
 }
 
-export type FieldTextKind = 'label' | 'helpText' | 'placeholder' | 'option' | 'message' | 'setting' | 'column';
+export type FieldTextKind =
+    'label' | 'helpText' | 'placeholder' | 'option' | 'message' | 'setting' | 'column' | 'section' | 'item';
 
 /** Texts are read in Amharic when no language is given (the installation's default). */
 export const DEFAULT_FORM_TEXT_LANGUAGE = 'am';
@@ -174,6 +175,29 @@ export function fieldTexts(field: unknown): FieldText[] {
         if (header !== undefined && header !== null)
             texts.push({ path: `${columns.path}.${i}.header`, kind: 'column', ref: String(i + 1), value: header });
     });
+    // a checklist's section titles and item texts (task 1.13a), numbered as the sheet numbers them: 2, 2.3
+    if (Array.isArray(props?.sections))
+        props.sections.forEach((s, i) => {
+            const section = obj(s);
+            if (section?.title !== undefined && section.title !== null)
+                texts.push({
+                    path: `props.sections.${i}.title`,
+                    kind: 'section',
+                    ref: String(i + 1),
+                    value: section.title
+                });
+            if (Array.isArray(section?.items))
+                section.items.forEach((it, j) => {
+                    const item = obj(it);
+                    if (item?.text !== undefined && item.text !== null)
+                        texts.push({
+                            path: `props.sections.${i}.items.${j}.text`,
+                            kind: 'item',
+                            ref: `${i + 1}.${j + 1}`,
+                            value: item.text
+                        });
+                });
+        });
     const rowsEmpty = obj(data?.rowsBinding)?.emptyMessage;
     if (rowsEmpty !== undefined && rowsEmpty !== null)
         texts.push({ path: 'data.rowsBinding.emptyMessage', kind: 'setting', ref: 'rowsEmpty', value: rowsEmpty });

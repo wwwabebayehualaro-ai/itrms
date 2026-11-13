@@ -6,7 +6,7 @@
  * enabled, a calculated value) and JSON (everything, for the rare case nothing else covers). Every change is one undoable edit.
  * With nothing selected it shows the form's outline.
  */
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ComponentProps, type ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 import type { Draft } from 'immer';
 import { text as plainText } from '../core/runtime/path';
@@ -55,6 +55,7 @@ import { getFieldType, type DesignMeta } from '../renderer/kit';
 import type { EngineMessageKey, EngineTranslate } from '../core/messages';
 import { useEngineText } from '../host/text';
 import {
+    ChecklistEditor,
     ColumnsEditor,
     ConditionsEditor,
     LangInput,
@@ -581,6 +582,24 @@ function RowsTab({ stored }: { stored: FormField }) {
                 />
             </Section>
         </div>
+    );
+}
+
+/** A checklist's sections and items (task 1.13a), as `props.sections` (else the palette's defaults) holds them. */
+function ChecklistTab({ stored }: { stored: FormField }) {
+    const { set, language, plainAs } = useFieldEdit(stored.id);
+    const scoring = stored.props?.scoring ?? stored.data?.defaultProps?.scoring;
+    return (
+        <ChecklistEditor
+            value={
+                (stored.props?.sections ?? stored.data?.defaultProps?.sections) as
+                    ComponentProps<typeof ChecklistEditor>['value'] | undefined
+            }
+            points={scoring === 'points'}
+            language={language}
+            plainAs={plainAs}
+            onChange={(sections) => set('props.sections', sections)}
+        />
     );
 }
 
@@ -1166,6 +1185,15 @@ export function Inspector() {
             : []),
         ...(field.type === 'DataTable'
             ? [{ id: 'rows', label: t('form-engine.settings.inspector.tabs.rows'), body: <RowsTab stored={stored} /> }]
+            : []),
+        ...(field.type === 'Checklist'
+            ? [
+                  {
+                      id: 'items',
+                      label: t('form-engine.settings.Checklist.items.title'),
+                      body: <ChecklistTab stored={stored} />
+                  }
+              ]
             : []),
         ...(holdsValue(field) || design?.rules?.length
             ? [

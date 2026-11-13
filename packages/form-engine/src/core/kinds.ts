@@ -2,6 +2,9 @@
  * What kind of value a field holds, and whether a value is of that kind. Checked for every value field, validated or not:
  * a direct API call can send anything, and a rule or a report must never meet a value of the wrong shape.
  */
+import { geoPointSchema } from '@itrms/schemas';
+
+import { checklistError } from './checklist';
 import { isIsoDay, parseDate } from './dates';
 import { isFormArray, type EngineField } from './model';
 import { engineTranslator, type EngineMessageKey } from './messages';
@@ -18,7 +21,18 @@ export type ValueKind =
     | 'range'
     | 'files'
     | 'rows'
-    | 'ref';
+    | 'ref'
+    | 'checklist'
+    | 'geopoint';
+
+/**
+ * The types whose answer is a list of uploaded files (`{ file_id, name, size, type }`): attachments, and a drawn signature or a
+ * photo taken (task 1.13a), each kept as one image file. The server links, scans and resolves all of them the same way.
+ */
+export const FILE_TYPES: ReadonlySet<string> = new Set(['FileUpload', 'Signature', 'Photo']);
+/** The file types that hold one image (a signature, a photo). */
+export const IMAGE_TYPES: ReadonlySet<string> = new Set(['Signature', 'Photo']);
+export const isFileField = (f: Pick<EngineField, 'type'>): boolean => FILE_TYPES.has(f.type);
 
 const TEXT_TYPES = new Set(['InputText', 'InputTextarea', 'InputMask', 'AutoComplete', 'ColorPicker', 'Password']);
 const MULTI_TYPES = new Set(['MultiSelect', 'CheckboxGroup', 'Chips']);
@@ -37,8 +51,10 @@ export function valueKindOf(f: Pick<EngineField, 'type' | 'props'>): ValueKind |
     if (BOOLEAN_TYPES.has(t)) return 'boolean';
     if (t === 'Calendar') return f.props.showTime ? 'datetime' : 'date';
     if (t === 'EthDate') return 'ethdate';
-    if (t === 'FileUpload') return 'files';
+    if (FILE_TYPES.has(t)) return 'files';
     if (t === 'RegistryLookup') return 'ref';
+    if (t === 'Checklist') return 'checklist';
+    if (t === 'GeoPoint') return 'geopoint';
     if (isFormArray(f)) return 'rows';
     return null;
 }
@@ -113,5 +129,11 @@ export function shapeError(f: EngineField, v: unknown, language = 'am'): string 
                 : bad('form-engine.core.validation.invalidReference');
         case 'files':
             return Array.isArray(v) && v.every(isFile) ? undefined : bad('form-engine.core.validation.invalidFile');
+        // a checklist's answers are checked against its items whether or not it is validated: a rule, an effect or a
+        // report reads its outcome (whether every item is answered is the "required" rule's, in validate.ts)
+        case 'checklist':
+            return checklistError(f, v, false, t);
+        case 'geopoint':
+            return geoPointSchema.safeParse(v).success ? undefined : bad('form-engine.core.validation.invalidLocation');
     }
 }

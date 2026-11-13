@@ -16,7 +16,18 @@ export {
     rowScopedIds
 } from './model';
 export { evalCondition, checkRuleFormula } from './runtime/formula';
-export { valueKindOf, shapeError, type ValueKind } from './kinds';
+export { valueKindOf, shapeError, isFileField, FILE_TYPES, IMAGE_TYPES, type ValueKind } from './kinds';
+export {
+    checklistOf,
+    checklistItems,
+    checklistOutcome,
+    checklistError,
+    settledChecklist,
+    isBlankChecklist,
+    type ChecklistDefinition,
+    type ChecklistOutcome,
+    type ChecklistValue
+} from './checklist';
 export { checkContract, contractInput, contractLocks, keyOf as contractKeyOf } from './contract';
 export { checkFeeRule, evaluateFee, feeAnswerContract } from './fees';
 export type { FeeContext, FeeLineResult, FeeProblemCode, FeeResult, FeeRuleProblem } from './fees';

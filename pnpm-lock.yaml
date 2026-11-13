@@ -1062,6 +1062,9 @@ importers:
       '@itrms/fees':
         specifier: workspace:*
         version: link:../fees
+      '@itrms/form-engine':
+        specifier: workspace:*
+        version: link:../../packages/form-engine
       '@itrms/forms':
         specifier: workspace:*
         version: link:../forms
