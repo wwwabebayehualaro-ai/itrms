@@ -59,7 +59,11 @@ export default defineModule({
         'competency.checkBackCapture',
         'competency.backCaptureVehicle',
         'competency.checkPlateExchange',
-        'competency.exchangePlate'
+        'competency.exchangePlate',
+        'competency.checkBolo',
+        'competency.recordBoloInspection',
+        'competency.issueBoloSticker',
+        'competency.issueTemporaryBolo'
     ],
     title: { am: 'የአሽከርካሪና ተሽከርካሪ ብቃት ማረጋገጫ', en: 'Driver and vehicle competency' },
     workProcess: 1,
