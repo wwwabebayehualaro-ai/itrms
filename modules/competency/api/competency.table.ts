@@ -8,6 +8,7 @@
  *   training_enrolments    a school's list of who finished training, entered by the handling unit, class T.
  *   exam_sessions, exam_results   what an examiner recorded, class T.
  *   licence_print_batches  what goes to the region's printer, class T, with its licences.
+ *   bolos                  a vehicle's bolo from its passed inspection (task 1.3a), class R like a licence.
  *
  * A licence's number is null until the national platform accepts it: `pending_national` is not yet anyone's licence.
  * The foreign keys to the register of people are in the migration: this file is read by drizzle-kit, which can't load another slice's
@@ -19,7 +20,14 @@ import { audited, baseColumns, ltree, withRls } from '@itrms/kernel/db';
 import { orgUnits } from '@itrms/kernel/tables';
 import type { I18nText } from '@itrms/schemas';
 
-import { BATCH_STATUSES, ENROLMENT_STATUSES, GRADE_FAMILIES, LICENCE_KINDS, LICENCE_STATUSES } from '../contracts';
+import {
+    BATCH_STATUSES,
+    BOLO_STATUSES,
+    ENROLMENT_STATUSES,
+    GRADE_FAMILIES,
+    LICENCE_KINDS,
+    LICENCE_STATUSES
+} from '../contracts';
 
 export const competencySchema = pgSchema('competency');
 
@@ -289,4 +297,58 @@ export const licencePrintBatchItems = withRls(
         )
     ),
     'transaction'
+);
+
+/**
+ * A vehicle's bolo (task 1.3a, DVC-02), class R like a licence: any office of the region reads it (a checkpoint, a transfer),
+ * the handling office's subtree writes it. One per case: the passed inspection makes it; its sticker or temporary
+ * certificate follows. The vehicle's foreign key is in the migration (another slice's table).
+ */
+export const bolos = withRls(
+    audited(
+        competencySchema.table(
+            'bolos',
+            {
+                ...baseColumns(),
+                ...registry(),
+                vehicleId: uuid('vehicle_id').notNull(),
+                caseId: uuid('case_id').notNull(),
+                status: text('status', { enum: BOLO_STATUSES }).notNull().default('awaiting_sticker'),
+                /** the vehicle's use when inspected: its sticker is of this kind */
+                use: text('use').notNull(),
+                /** the serial printed on the bureau's checklist sheet */
+                checklistSerial: text('checklist_serial').notNull(),
+                inspectedOn: date('inspected_on').notNull(),
+                /** the Ethiopian fiscal year it stands for, and its last day */
+                fiscalYear: integer('fiscal_year').notNull(),
+                validUntil: date('valid_until').notNull(),
+                /** the third-party insurance certificate it was given on (Proclamation 799/2013) */
+                insuranceCertificate: text('insurance_certificate').notNull(),
+                insurer: text('insurer').notNull(),
+                insuredFrom: date('insured_from').notNull(),
+                insuredUntil: date('insured_until').notNull(),
+                /** the sticker's serial from the office's stationery, once given */
+                stickerKey: text('sticker_key'),
+                /** the last day a temporary bolo stands */
+                temporaryUntil: date('temporary_until'),
+                voidReason: text('void_reason')
+            },
+            (t) => [
+                uniqueIndex('bolos_case_uq')
+                    .on(t.caseId)
+                    .where(sql`status <> 'void'`),
+                uniqueIndex('bolos_sticker_uq')
+                    .on(t.regionId, t.stickerKey)
+                    .where(sql`sticker_key IS NOT NULL`),
+                index('bolos_vehicle_idx').on(t.vehicleId, t.validUntil),
+                index('bolos_handling_org_path_gist').using('gist', t.handlingOrgPath),
+                check(
+                    'bolos_status_check',
+                    sql`(status <> 'valid' OR sticker_key IS NOT NULL) AND (status <> 'temporary' OR temporary_until IS NOT NULL) AND (status <> 'void' OR void_reason IS NOT NULL)`
+                ),
+                check('bolos_dates_check', sql`valid_until >= inspected_on AND insured_until >= insured_from`)
+            ]
+        )
+    ),
+    'registry'
 );

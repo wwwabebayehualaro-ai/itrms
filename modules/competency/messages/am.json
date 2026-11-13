@@ -158,5 +158,15 @@
   "competency.rule.exchangeOtherOffice": "ይህን ተሽከርካሪ የሚያስተናግደው ሌላ ጽ/ቤት ነው፤ ቅያሪው እዚያ ወይም ከዝውውር በኋላ እዚህ ይደረጋል።",
   "competency.rule.exchangeNoOldPlate": "ይህ ተሽከርካሪ የሚቀየር የቀድሞ ክልላዊ ሰሌዳ የለውም (ብሔራዊ፣ ልዩ ወይም ምንም ሰሌዳ)።",
   "competency.rule.exchangeUse": "አገልግሎቱ በመዝገቡ ካለው ተሽከርካሪ ጋር አይመሳሰልም።",
-  "competency.rule.exchangeInOpenCase": "የዚህን ተሽከርካሪ ሰሌዳ የሚቀይር ሌላ ያልተዘጋ ጥያቄ አለ።"
+  "competency.rule.exchangeInOpenCase": "የዚህን ተሽከርካሪ ሰሌዳ የሚቀይር ሌላ ያልተዘጋ ጥያቄ አለ።",
+  "competency.rule.boloAlreadyHeld": "ይህ ተሽከርካሪ የዚህን የበጀት ዓመት ቦሎ አስቀድሞ ወስዷል።",
+  "competency.rule.boloInspectedLater": "የምርመራው ቀን ከዛሬ በኋላ ሊሆን አይችልም።",
+  "competency.rule.boloInsurance": "የሦስተኛ ወገን መድን ሰርተፊኬቱን ያስገቡ፦ ቁጥሩን፣ መድን ሰጪውንና የፖሊሲውን ጊዜ።",
+  "competency.rule.boloInsuranceExpired": "የሦስተኛ ወገን መድን ፖሊሲው ዛሬን አይሸፍንም፤ በእሱ ቦሎ አይሰጥም።",
+  "competency.rule.boloInsurancePeriod": "ፖሊሲው ከሚጀምርበት ቀን በፊት ሊያበቃ አይችልም።",
+  "competency.rule.boloNotActive": "ለቦሎ የሚመረመረው በመዝገብ ላይ ያለና ንቁ የሆነ ተሽከርካሪ ብቻ ነው።",
+  "competency.rule.boloNotFailed": "የማረጋገጫ ዝርዝሩ አልፏል፤ እንዳለፈ ይመዝግቡ።",
+  "competency.rule.boloNotPassed": "የማረጋገጫ ዝርዝሩ አላለፈም፤ ያልተሳካ ንጥል ቦሎውን ያግዳል።",
+  "competency.rule.boloRoadFund": "የዚህ አገልግሎት ተሽከርካሪ ከቦሎ በፊት የመንገድ ፈንድ ክፍያ ደረሰኙን ያቀርባል።",
+  "competency.rule.boloStickerGiven": "የቦሎው ምልክት ተሰጥቷል፤ ጊዜያዊ ቦሎ አያስፈልግም።"
 }

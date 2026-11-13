@@ -128,6 +128,25 @@ export const DOCUMENT_DATA_SCHEMAS = {
         bookletSerial: z.string().min(1).nullable(),
         nationalReference: z.string().min(1).nullable()
     }),
+    /**
+     * A vehicle's bolo (task 1.3a): the sticker's serial as its number, or the temporary bolo's own number with its last day,
+     * the inspection it was given on, the fiscal year it stands for, and the third-party insurance it was given on.
+     */
+    'vehicle-bolo.v1': z.object({
+        number: z.string().min(1),
+        plate: z.string(),
+        chassisNumber: z.string().min(1),
+        make: z.string().min(1),
+        model: z.string().min(1),
+        category: i18nTextSchema,
+        use: i18nTextSchema,
+        checklistSerial: z.string().min(1),
+        inspectedOn: dayText,
+        fiscalYear: z.number().int(),
+        validUntil: dayText,
+        temporaryUntil: dayText.nullable(),
+        insurance: z.object({ certificate: z.string().min(1), insurer: z.string().min(1), until: dayText })
+    }),
     'exam-result.v1': z.object({
         sessionOn: dayText,
         serviceName: i18nTextSchema,

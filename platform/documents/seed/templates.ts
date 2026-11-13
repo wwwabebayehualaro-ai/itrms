@@ -220,6 +220,58 @@ body{font-size:6.5pt;line-height:1.25}
 {% if header.stamp %}<img class="stamp" src="{{ header.stamp }}" alt="">{% endif %}${QR}`
         }
     },
+    ...(['vehicle-bolo', 'vehicle-temporary-bolo'] as const).map((key): TemplateSeed => ({
+        key,
+        name:
+            key === 'vehicle-bolo'
+                ? t('የተሽከርካሪ ዓመታዊ ምርመራ (ቦሎ)', 'Vehicle annual inspection (bolo)')
+                : t('ጊዜያዊ ቦሎ', 'Temporary bolo'),
+        version: {
+            paper: 'A5',
+            dataSchema: 'vehicle-bolo.v1',
+            strings: {
+                title: t('የተሽከርካሪ ዓመታዊ የቴክኒክ ምርመራ ማረጋገጫ (ቦሎ)', 'Vehicle annual technical inspection (bolo)'),
+                titleTemporary: t('ጊዜያዊ ቦሎ', 'Temporary bolo'),
+                temporaryNote: t(
+                    'ይህ ጊዜያዊ ቦሎ ነው፤ የቦሎ ምልክቱ እስኪሰጥ ድረስ እስከ ተጠቀሰው ቀን ብቻ ያገለግላል።',
+                    'This is a temporary bolo: it stands only to the day shown, until the bolo sticker is issued.'
+                ),
+                number: t('ቁጥር', 'No.'),
+                sticker: t('የቦሎ ምልክት ቁጥር', 'Bolo sticker number'),
+                plate: t('የሰሌዳ ቁጥር', 'Plate'),
+                chassis: t('የሻሲ ቁጥር', 'Chassis number'),
+                makeModel: t('ሰሪና ሞዴል', 'Make and model'),
+                category: t('የተሽከርካሪው ዓይነት', 'Vehicle type'),
+                use: t('አገልግሎት', 'Service'),
+                checklist: t('የምርመራ ቅጽ ቁጥር', 'Inspection checklist number'),
+                inspectedOn: t('የተመረመረበት ቀን', 'Inspected on'),
+                fiscalYear: t('የበጀት ዓመት', 'Fiscal year'),
+                validUntil: t('የሚያገለግለው እስከ', 'Valid until'),
+                temporaryUntil: t('ጊዜያዊው የሚያገለግለው እስከ', 'Temporary bolo valid until'),
+                insurance: t('የሦስተኛ ወገን መድን', 'Third-party insurance'),
+                insurer: t('መድን ሰጪ', 'Insurer'),
+                insuredUntil: t('ፖሊሲው የሚያበቃበት', 'Policy ends'),
+                efy: t('ዓ.ም', 'E.C.')
+            },
+            body: `${STYLE}${HEAD}<p class="title">{% if temporaryUntil %}{{ t.titleTemporary }}{% else %}{{ t.title }}{% endif %}</p>
+<div class="facts">
+<div><span class="term">{% if temporaryUntil %}{{ t.number }}{% else %}{{ t.sticker }}{% endif %}:</span> <span data-number>{{ number }}</span></div>
+<div><span class="term">{{ t.plate }}:</span> {{ plate }}</div>
+<div><span class="term">{{ t.chassis }}:</span> {{ chassisNumber }}</div>
+<div><span class="term">{{ t.makeModel }}:</span> {{ make }} {{ model }}</div>
+<div><span class="term">{{ t.category }}:</span> {{ category | text }}</div>
+<div><span class="term">{{ t.use }}:</span> {{ use | text }}</div>
+<div><span class="term">{{ t.checklist }}:</span> {{ checklistSerial }}</div>
+<div><span class="term">{{ t.inspectedOn }}:</span> {{ inspectedOn | ethdate }}</div>
+<div><span class="term">{{ t.fiscalYear }}:</span> {{ fiscalYear }} {{ t.efy }}</div>
+<div><span class="term">{{ t.validUntil }}:</span> <span data-valid-until>{{ validUntil | ethdate }}</span></div>
+{% if temporaryUntil %}<div><span class="term">{{ t.temporaryUntil }}:</span> <span data-temporary-until>{{ temporaryUntil | ethdate }}</span></div>{% endif %}
+</div>
+<p><span class="term">{{ t.insurance }}:</span> {{ insurance.certificate }} · {{ t.insurer }}: {{ insurance.insurer }} · {{ t.insuredUntil }}: {{ insurance.until | ethdate }}</p>
+{% if temporaryUntil %}<p class="demo" data-temporary>{{ t.temporaryNote }}</p>{% endif %}
+{% if header.stamp %}<img class="stamp" src="{{ header.stamp }}" alt="">{% endif %}${QR}`
+        }
+    })),
     {
         key: 'exam-result',
         name: t('የፈተና ውጤት ማሳወቂያ', 'Exam result sheet'),
