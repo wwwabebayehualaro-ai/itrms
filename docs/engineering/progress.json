@@ -1590,12 +1590,21 @@
         {
           "id": "1.13a",
           "title": "Form platform, part 3: inspection and evidence field types",
-          "status": "in progress",
+          "status": "in review",
           "branch": "task/1.13a-field-types",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "ec16f68"
+          ],
+          "evidence": [
+            "CI run 43452351196 on PR #65 (head ec16f68): all 10 jobs green: lint, typecheck, unit, build and boundaries; integration on the dev stack 40 files 741/741 plus the S3 contract suite 20/20; e2e journeys (Playwright, BFF sign-in); stories, axe and visual baselines; performance; production profile; Semgrep, Trivy and gitleaks clean",
+            "Server refuses a pass with a failed critical item, and computes the weighted total: core/evidence.spec.ts 'a checklist (points)' (critical item at 0 fails whatever the total; pass mark; points above an item's own, fractions, pass/fail on a points item refused); 'the review of 1.13a' (critical items never 'do not apply'; an all-N/A sheet never passes)",
+            "Outcome is the server's: forms-lookups.int.spec 'stores the outcome the server works out, never the one sent' (a sent passed:true with a failed item is stored passed:false, 1 of 2); unit 'keeps no outcome a browser sent with nothing answered'",
+            "Each type round-trips through server validation and print: forms-lookups.int.spec 'refuses an unanswered or unknown item, a failed item without a remark, a document as a signature and a place off the earth' (422 at each path); 'refuses to save a form whose checklist uses an item key twice'; unit print tests (checklist outcome and failed items by number, the place's coordinates, the signature's file name)",
+            "Renderer: renderer/evidence.spec.tsx 6 tests (checklist answered, outcome shown, remark asked; place typed and from the device, denied; photo face crop frame). Form-engine unit suite 46 files 384 tests; schemas 28; pnpm i18n:check complete in am and en",
+            "Reviews: task-verifier found every item met (integration then pending). Reviewer: H1 (blank-looking checklist kept a sent outcome), M1 and M2 plus L1, L2, L3 and L5 fixed in 7695047; L3 (allowManual enforced only in the browser), L4, L6 and L7 recorded as follow-ups"
+          ],
           "blockers": [],
-          "notes": "Split on 2026-11-13: the field types (Checklist, Signature, Photo, GeoPoint) here, the authoring features (wizard steps, reusable blocks, logic inspector, print preview, analytics) in 1.13c after the bolo inspection (1.3), which needs only the checklist."
+          "notes": "Split on 2026-11-13: the field types (Checklist, Signature, Photo, GeoPoint) here, the authoring features (wizard steps, reusable blocks, logic inspector, print preview, analytics) in 1.13c after the bolo inspection (1.3), which needs only the checklist. Reviewer (2026-11-13): H1 (a blank-looking checklist kept a sent outcome and skipped the shape check), M1 (critical items and all-N/A sheets could pass by not applying), M2 (an unchanged checklist refused on a request change), L1, L2, L3, L5 fixed in 7695047. Open as follow-ups: L3 (a place is the client's statement; allowManual enforced only in the UI), L4 (GeoPoint inputs not refreshed on a later value change), L6 (HEIC outside Safari, old Safari EXIF), L7 (checklist texts bounded only by the document size). Decisions for the owner: the face crop is a fixed 3x4 frame; 'critical' means the sheet cannot pass with it failed or at 0 points, and it never 'does not apply'."
         },
         {
           "id": "1.3",
@@ -3507,6 +3516,16 @@
       "foundIn": "1.2e",
       "item": "An office blocked by a sibling office's open request for the same vehicle cannot see who holds it: a zone view of the open requests that claim a chassis, plate or vehicle (review L5)",
       "movedTo": "1.4"
+    },
+    {
+      "foundIn": "1.13a",
+      "item": "GeoPoint: allowManual is enforced only in the browser (a place is the client's statement), and the typed latitude/longitude are not refreshed when the value changes later (a restored draft) (review L3, L4)",
+      "movedTo": "1.13c"
+    },
+    {
+      "foundIn": "1.13a",
+      "item": "Photo: HEIC photos fail outside Safari and older Safari may not apply EXIF orientation; checklist item texts are bounded only by the document size (review L6, L7)",
+      "movedTo": "1.13c"
     }
   ]
 }
