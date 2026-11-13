@@ -3,7 +3,9 @@
  * fields are dropped, inside rows too). Values are keyed by field id; a repeatable section's value is an array of row objects
  * keyed by its child field ids. This shape is what the backend stores and queries, so it never changes.
  */
+import { settledChecklist } from './checklist';
 import { evaluateAll, type Scope } from './conditions';
+import { FILE_TYPES } from './kinds';
 import { childrenOf, isFormArray, rowScopedIds, type EngineField } from './model';
 import { bindingRoots, resolveString } from './runtime/expression';
 
@@ -14,11 +16,13 @@ const TYPE_DEFAULTS: Record<string, unknown> = {
     MultiSelect: [],
     CheckboxGroup: [],
     FileUpload: [],
+    Signature: [],
+    Photo: [],
     Chips: [],
     Slider: 0,
     Rating: 0
 };
-const LIST_TYPES = new Set(['MultiSelect', 'CheckboxGroup', 'Chips', 'FileUpload']);
+const LIST_TYPES = new Set(['MultiSelect', 'CheckboxGroup', 'Chips', ...FILE_TYPES]);
 
 /** Fields that hold a value of their own (inputs and repeatable sections). */
 export const holdsValue = (f: EngineField) => f.category === 'Input' || isFormArray(f);
@@ -366,6 +370,9 @@ export function settledValues(
                     const v = initialValueOf(f, fields);
                     if (v === undefined) delete current[f.id];
                     else current[f.id] = v;
+                } else if (f.type === 'Checklist' && Object.hasOwn(current, f.id)) {
+                    // a checklist's outcome is worked out of its answers, never taken as sent (task 1.13a)
+                    current[f.id] = settledChecklist(f, current[f.id]);
                 } else if (isFormArray(f) && Array.isArray(current[f.id])) {
                     current[f.id] = (current[f.id] as Record<string, unknown>[]).map((row) =>
                         settle(f.id, { ...(row ?? {}) })
@@ -412,6 +419,8 @@ export function derivedValues(
                         : undefined;
                     if (v === undefined) delete current[f.id];
                     else current[f.id] = v;
+                } else if (f.type === 'Checklist' && Object.hasOwn(current, f.id)) {
+                    current[f.id] = settledChecklist(f, current[f.id]);
                 } else if (
                     isFormArray(f) &&
                     Array.isArray(current[f.id]) &&

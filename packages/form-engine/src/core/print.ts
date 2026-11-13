@@ -4,6 +4,7 @@
  * do not see, display fields and values the form does not know are left out; every value is already worded in one
  * language, with dates Ethiopian. The renderers lay the nodes out; they decide nothing about what shows.
  */
+import { checklistItems, checklistOf, checklistOutcome, isBlankChecklist } from './checklist';
 import type { Scope } from './conditions';
 import { addisDayTime, ethiopianDateText } from './dates';
 import { engineTranslator } from './messages';
@@ -107,6 +108,7 @@ const numOf = (v: unknown) =>
 function isBlankValue(f: Pick<EngineField, 'type'>, v: unknown): boolean {
     if (v === undefined || v === null || v === '') return true;
     if (Array.isArray(v)) return v.length === 0;
+    if (f.type === 'Checklist') return isBlankChecklist(v);
     // an untouched rating holds 0
     return f.type === 'Rating' && v === 0;
 }
@@ -187,7 +189,41 @@ export function printValueText(
                 .map((f) => (isRecord(f) ? (nonEmpty(f.name) ?? nonEmpty(f.filename) ?? '') : ''))
                 .filter(Boolean)
                 .join('\n');
+        case 'checklist':
+            return checklistText(field, value, language);
+        case 'geopoint': {
+            const t = engineTranslator(language);
+            if (!isRecord(value) || typeof value.lat !== 'number' || typeof value.lng !== 'number')
+                return String(value);
+            const at = { lat: value.lat.toFixed(6), lng: value.lng.toFixed(6) };
+            return typeof value.accuracy === 'number'
+                ? t('form-engine.core.print.locationAccuracy', { ...at, accuracy: Math.round(value.accuracy) })
+                : t('form-engine.core.print.location', at);
+        }
     }
+}
+
+/**
+ * A checklist prints its outcome (worked out again from the answers: what is printed is never a stored verdict) and the
+ * numbers of the items that failed, as the sheet numbers them. Each item's answer is the PDF template's to lay out.
+ */
+function checklistText(field: EngineField, value: unknown, language: string): string {
+    const t = engineTranslator(language);
+    const def = checklistOf(field);
+    if (!def || !isRecord(value) || !isRecord(value.items)) return '';
+    const outcome = checklistOutcome(def, value.items);
+    const counts = { total: outcome.total, max: outcome.max };
+    const head =
+        outcome.passed === null
+            ? t('form-engine.core.print.checklistOpen', counts)
+            : t(
+                  outcome.passed ? 'form-engine.core.print.checklistPassed' : 'form-engine.core.print.checklistFailed',
+                  counts
+              );
+    const refs = new Map(checklistItems(def).map((i) => [i.key, i.ref]));
+    return outcome.failed.length
+        ? `${head}\n${t('form-engine.core.print.checklistFailedItems', { items: outcome.failed.map((k) => refs.get(k) ?? k).join(', ') })}`
+        : head;
 }
 
 /**

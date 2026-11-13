@@ -17,6 +17,7 @@ import {
     derivedValues,
     holdsValue,
     initialValueOf,
+    isFileField,
     isFormArray,
     maskSensitive,
     onlySensitive,
@@ -24,6 +25,7 @@ import {
     ROW_ID,
     rowIdOf,
     rowScopedIds,
+    settledChecklist,
     submittedValues,
     validateForm,
     withoutRowIds,
@@ -403,6 +405,12 @@ export class SubmissionsService {
             if (masked.has(f.id)) return blank(value);
             if (isFormArray(f))
                 return canonicalJson(shownAs(f.id, value)) === canonicalJson(shownAs(f.id, stored[f.id]));
+            // a checklist is stored with the server's outcome and trimmed remarks: compared as the server would keep it
+            if (f.type === 'Checklist' && Object.hasOwn(stored, f.id))
+                return (
+                    canonicalJson(settledChecklist(f, value) ?? null) ===
+                    canonicalJson(settledChecklist(f, stored[f.id]) ?? null)
+                );
             if (canonicalJson(value ?? null) === canonicalJson(stored[f.id] ?? null)) return true;
             if (Object.hasOwn(stored, f.id)) return false;
             return (
@@ -592,7 +600,7 @@ export class SubmissionsService {
             else if (values !== null && typeof values === 'object')
                 for (const [key, v] of Object.entries(values as Record<string, unknown>)) {
                     const f = byId.get(key);
-                    if (f?.type === 'FileUpload' && Array.isArray(v))
+                    if (f && isFileField(f) && Array.isArray(v))
                         for (const entry of v)
                             if (
                                 entry &&

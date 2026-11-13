@@ -21,5 +21,6 @@ export * from './problem';
 export * from './search';
 export * from './workflow/definition';
 export * from './forms/effectContract';
+export * from './forms/evidence';
 export * from './money';
 export * from './fees/rule';

@@ -75,6 +75,27 @@ function at save, so a rule never behaves differently in the API; at run time a 
   (`YYYY-MM-DD`, checked strictly), with `props.minDate` / `props.maxDate` as Gregorian days; `ethiopianDateText` writes
   it for people (viewer, filters, exports).
 
+## Inspection and evidence field types (task 1.13a)
+
+- **`Checklist`** (`core/checklist.ts`; the definition is `checklistDefinitionSchema` in `@itrms/schemas`): `props.sections`
+  of items (`key`, `text` in every language, `points`, `critical`), `scoring` `passFail` (each item passes, fails or does
+  not apply; any failed item fails the sheet: the bolo inspection) or `points` (each item gets whole points up to its own;
+  the sheet passes on `passMark` with no critical item left at 0: the practical exam, the vehicle grading),
+  `allowNotApplicable`, `remarkOnFail`. The value is `{ items: { <key>: { result?, points?, remark? } }, outcome }`.
+  `checkDocument` refuses a definition that is not one (a key used twice, a points item without points, a pass mark above
+  the points). The answers are checked whether or not the field is validated (the kind check, `kinds.ts`), Required means
+  every item answered, and `settledValues` / `derivedValues` put the **server's** `outcome` (`total`, `max`, `failed`,
+  `criticalFailed`, `passed`; `passed` is null while an item is open) in place of whatever was sent. Contract kind
+  `checklist` (an effect gets the answers with the outcome); it prints its outcome and the failed items by their numbers
+  (`2.3`). The builder edits sections and items in the inspector's Items tab; their texts are in the translation table.
+- **`Signature`** and **`Photo`**: one image file each, the same answer as `FileUpload` (`isFileField`; the server
+  links, scans and resolves them alike), refused when it is not an image or more than one. A signature is drawn on a pad
+  and kept as a PNG; a photo is taken with the camera (`facing`), made at most 1,600 px on its longest side and kept as a
+  JPEG, cropped to the largest 3 × 4 frame around the face when `crop` is `face` (a licence photo).
+- **`GeoPoint`**: `{ lat, lng, accuracy? }` (WGS 84 degrees, metres), from the device's GPS (six decimals, whole metres)
+  or typed in (`allowManual`); `maxAccuracy` refuses a rougher fix, and a typed place (which has no accuracy). Contract kind
+  `geopoint`. Neither a checklist nor a place is a query column of the data viewer.
+
 ## Texts in every language
 
 A field's label, help text, placeholder, option labels and custom messages are each a plain string (one text for every

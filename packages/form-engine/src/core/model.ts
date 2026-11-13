@@ -182,6 +182,23 @@ export function toEngineField(stored: StoredField, language: string = DEFAULT_TE
                 ? { ...c, header: formTextIn((c as { header?: unknown }).header, language) ?? '' }
                 : c
         );
+    // a checklist's section titles and item texts (task 1.13a): texts in one language
+    if (Array.isArray(props.sections))
+        props.sections = props.sections.map((s: unknown) => {
+            if (!s || typeof s !== 'object') return s;
+            const section = s as { title?: unknown; items?: unknown };
+            return {
+                ...section,
+                ...(section.title !== undefined ? { title: formTextIn(section.title, language) ?? '' } : {}),
+                items: Array.isArray(section.items)
+                    ? section.items.map((it: unknown) =>
+                          it && typeof it === 'object'
+                              ? { ...it, text: formTextIn((it as { text?: unknown }).text, language) ?? '' }
+                              : it
+                      )
+                    : section.items
+            };
+        });
     const v = stored.behavior?.validation;
     const types = v?.types ?? [];
     const rules = v?.rules ?? {};

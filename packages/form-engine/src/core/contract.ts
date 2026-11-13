@@ -7,7 +7,7 @@
  * and validated, and never hidden, disabled or kept from some roles (its own condition or a container's): each of those
  * would let a request be filed without it. The same rules as the server's validation, read from the same model.
  */
-import type { ContractKind, ContractProblem, EffectContract } from '@itrms/schemas';
+import { geoPointSchema, type ContractKind, type ContractProblem, type EffectContract } from '@itrms/schemas';
 
 import { isIsoDay } from './dates';
 import { valueKindOf } from './kinds';
@@ -80,6 +80,7 @@ export function contractLocks(
 const blank = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isScalar = (v: unknown) => typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean';
+const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
 /** Whether a stored value has the shape of a kind (what the effect may rely on, whatever filed it). */
 export function valueOfKind(kind: ContractKind, v: unknown): boolean {
@@ -106,6 +107,11 @@ export function valueOfKind(kind: ContractKind, v: unknown): boolean {
             return Array.isArray(v);
         case 'ref':
             return typeof v === 'string' && UUID.test(v);
+        // a checklist as the server stores it: its answers and the outcome it worked out of them
+        case 'checklist':
+            return isRecord(v) && isRecord(v.items) && isRecord(v.outcome) && typeof v.outcome.total === 'number';
+        case 'geopoint':
+            return geoPointSchema.safeParse(v).success;
     }
 }
 

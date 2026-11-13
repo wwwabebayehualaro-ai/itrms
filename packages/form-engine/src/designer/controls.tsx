@@ -691,3 +691,168 @@ export function ColumnsEditor({
         </div>
     );
 }
+
+// ---- checklist sections and items (task 1.13a) ----------------------------------------------------------------------------
+interface StoredChecklistItem {
+    key: string;
+    text: FormText;
+    points?: number;
+    critical?: boolean;
+}
+interface StoredChecklistSection {
+    key: string;
+    title?: FormText;
+    items: StoredChecklistItem[];
+}
+
+/** A key not yet used among `used`: `<stem><n>`. */
+const freeKey = (stem: string, used: ReadonlySet<string>) => {
+    let n = used.size + 1;
+    while (used.has(`${stem}${n}`)) n += 1;
+    return `${stem}${n}`;
+};
+
+/**
+ * A checklist's sections and their items: each item's text (in the language being edited), its key (what the answers are
+ * kept under: it stays when the text changes), its points for a points checklist, and whether it is critical. Keys are
+ * checked when the form is saved (used once, letters and digits).
+ */
+export function ChecklistEditor({
+    value,
+    onChange,
+    points,
+    language,
+    plainAs
+}: {
+    value?: StoredChecklistSection[];
+    onChange: (sections: StoredChecklistSection[]) => void;
+    points: boolean;
+    language: string;
+    plainAs: string;
+}) {
+    const { t } = useEngineText();
+    const sections = value ?? [];
+    const itemKeys = new Set(sections.flatMap((s) => s.items.map((i) => i.key)));
+    const setSection = (si: number, patch: Partial<StoredChecklistSection>) =>
+        onChange(sections.map((s, j) => (j === si ? { ...s, ...patch } : s)));
+    const setItem = (si: number, ii: number, patch: Partial<StoredChecklistItem>) =>
+        setSection(si, { items: (sections[si]?.items ?? []).map((it, j) => (j === ii ? { ...it, ...patch } : it)) });
+    return (
+        <div className="flex flex-col gap-3" data-checklist-editor>
+            {sections.map((s, si) => (
+                <div key={si} className="flex flex-col gap-2 rounded-md border p-2" data-section={s.key}>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                            {t('form-engine.settings.Checklist.items.section', { n: String(si + 1) })}
+                        </span>
+                        <LangInput
+                            text={s.title}
+                            language={language}
+                            plainAs={plainAs}
+                            hint={false}
+                            placeholder={t('form-engine.settings.Checklist.items.sectionTitle')}
+                            aria-label={t('form-engine.settings.Checklist.items.sectionTitleOf', { n: String(si + 1) })}
+                            onText={(v) => setSection(si, { title: setTextIn(s.title, language, v, plainAs) })}
+                        />
+                        <RowButtons
+                            i={si}
+                            count={sections.length}
+                            what={t('form-engine.settings.Checklist.items.section', { n: String(si + 1) })}
+                            onMove={(by) => onChange(move(sections, si, by))}
+                            onRemove={() => onChange(sections.filter((_, j) => j !== si))}
+                        />
+                    </div>
+                    {s.items.map((it, ii) => {
+                        const ref = `${si + 1}.${ii + 1}`;
+                        return (
+                            <div key={ii} className="flex flex-col gap-1 border-t pt-2" data-item={it.key}>
+                                <div className="flex items-center gap-2">
+                                    <span className="w-8 text-xs text-muted-foreground">{ref}</span>
+                                    <LangInput
+                                        text={it.text}
+                                        language={language}
+                                        plainAs={plainAs}
+                                        hint={false}
+                                        placeholder={t('form-engine.settings.Checklist.items.text')}
+                                        aria-label={t('form-engine.settings.Checklist.items.textOf', { n: ref })}
+                                        onText={(v) =>
+                                            setItem(si, ii, { text: setTextIn(it.text, language, v, plainAs) ?? '' })
+                                        }
+                                    />
+                                    <RowButtons
+                                        i={ii}
+                                        count={s.items.length}
+                                        what={t('form-engine.settings.Checklist.items.remove', { n: ref })}
+                                        onMove={(by) => setSection(si, { items: move(s.items, ii, by) })}
+                                        onRemove={() => setSection(si, { items: s.items.filter((_, j) => j !== ii) })}
+                                    />
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2 ps-10">
+                                    <Input
+                                        value={it.key}
+                                        className="w-32 font-mono text-xs"
+                                        placeholder={t('form-engine.settings.Checklist.items.key')}
+                                        aria-label={t('form-engine.settings.Checklist.items.keyOf', { n: ref })}
+                                        onChange={(e) => setItem(si, ii, { key: e.target.value.trim() })}
+                                    />
+                                    {points && (
+                                        <NumberInput
+                                            value={it.points}
+                                            className="w-20"
+                                            placeholder={t('form-engine.settings.Checklist.items.points')}
+                                            aria-label={t('form-engine.settings.Checklist.items.pointsOf', { n: ref })}
+                                            onChange={(v) => setItem(si, ii, { points: v })}
+                                        />
+                                    )}
+                                    <label className="flex items-center gap-1 text-xs">
+                                        <input
+                                            type="checkbox"
+                                            checked={it.critical === true}
+                                            aria-label={t('form-engine.settings.Checklist.items.criticalOf', {
+                                                n: ref
+                                            })}
+                                            onChange={(e) =>
+                                                setItem(si, ii, { critical: e.target.checked || undefined })
+                                            }
+                                        />
+                                        {t('form-engine.settings.Checklist.items.critical')}
+                                    </label>
+                                </div>
+                            </div>
+                        );
+                    })}
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="self-start"
+                        onClick={() =>
+                            setSection(si, { items: [...s.items, { key: freeKey('item', itemKeys), text: '' }] })
+                        }
+                    >
+                        <Plus />
+                        {t('form-engine.settings.Checklist.items.add')}
+                    </Button>
+                </div>
+            ))}
+            <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="self-start"
+                onClick={() =>
+                    onChange([
+                        ...sections,
+                        {
+                            key: freeKey('section', new Set(sections.map((s) => s.key))),
+                            items: [{ key: freeKey('item', itemKeys), text: '' }]
+                        }
+                    ])
+                }
+            >
+                <Plus />
+                {t('form-engine.settings.Checklist.items.addSection')}
+            </Button>
+        </div>
+    );
+}

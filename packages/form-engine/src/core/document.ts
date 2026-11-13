@@ -5,7 +5,7 @@
  * Forms saved by older builders may carry more keys than the contract names: they are allowed. A bare list of fields (the
  * oldest format) is read as `{ fields: [...] }`.
  */
-import { formConfigSchema } from '@itrms/schemas';
+import { checklistDefinitionSchema, formConfigSchema } from '@itrms/schemas';
 
 import { FIELD_TYPES } from './fieldTypes';
 import { checkRuleFormula } from './runtime/formula';
@@ -115,8 +115,40 @@ export function checkDocument(raw: unknown): DocumentProblem[] {
         ...structure(parsed.data.fields),
         ...testCaseProblems(parsed.data.testCases),
         ...ruleProblems(parsed.data.fields),
-        ...lookupProblems(parsed.data.fields)
+        ...lookupProblems(parsed.data.fields),
+        ...checklistProblems(parsed.data.fields)
     ].slice(0, MAX_PROBLEMS);
+}
+
+/** A checklist's settings (its own over the palette's defaults) must be a checklist: sections, items, keys used once (task 1.13a). */
+function checklistProblems(fields: readonly { type: string; props?: unknown; data?: unknown }[]): DocumentProblem[] {
+    const problems: DocumentProblem[] = [];
+    fields.forEach((f, i) => {
+        // a place's accuracy limit is a number of metres above 0: 0 or less no fix could ever meet
+        if (f.type === 'GeoPoint') {
+            const max = (f.props as { maxAccuracy?: unknown } | null | undefined)?.maxAccuracy;
+            if (max !== undefined && max !== null && !(typeof max === 'number' && Number.isFinite(max) && max > 0))
+                problems.push({
+                    path: `fields[${i}].props.maxAccuracy`,
+                    message: 'The accuracy needed must be more than 0 m'
+                });
+            return;
+        }
+        if (f.type !== 'Checklist') return;
+        const own = (f.props ?? {}) as Record<string, unknown>;
+        const defaults = ((f.data as { defaultProps?: unknown } | null | undefined)?.defaultProps ?? {}) as Record<
+            string,
+            unknown
+        >;
+        const parsed = checklistDefinitionSchema.safeParse({ ...defaults, ...own });
+        if (!parsed.success)
+            for (const issue of parsed.error.issues)
+                problems.push({
+                    path: `fields[${i}].props.${where(issue.path)}`,
+                    message: issue.message.slice(0, 300)
+                });
+    });
+    return problems;
 }
 
 /** A rule's formula (requiredWhen, validWhen) must parse, call known functions and read only what the server has too. */

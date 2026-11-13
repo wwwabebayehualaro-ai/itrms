@@ -60,6 +60,8 @@ export function kindOf(f: EngineField): Kind | null {
     const kind = valueKindOf(f);
     if (kind === 'ethdate') return 'date';
     if (kind === 'range') return null;
+    // a checklist's answers and a place are no single value to filter or group by (a report reads the effects' tables)
+    if (kind === 'checklist' || kind === 'geopoint') return null;
     return kind;
 }
 

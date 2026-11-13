@@ -149,8 +149,8 @@ draft ─► automatic checks ─► test cases ─► review (maker ≠ checker
 | Registries | `RegistryLookup` for person, organisation, vehicle, licence, association, road project; `OrgUnitPicker` | **new** (0.18) |
 | Ethiopian identity and contact | `FaydaNumber` (format check, optional verification later), `EthiopianPhone` (+251 9/7, normalised), `EthiopianAddress` (region → zone → woreda → kebele from reference data, plus free detail) | **new** (0.18) |
 | Vehicles and licences | `PlateNumber` (national `ETH ABC 1234` and legacy regional formats), `VIN` (check digit where applicable), `LicenceCategory` (Proclamation 1074/2018 categories from reference data) | **new** (0.18 / Phase 1) |
-| Evidence | `Document` (typed upload: medical certificate, ID, libre copy; scan status), `Photo` (camera capture, compression, face crop for licence photos), `Signature` (drawn, stored as a file), `GeoPoint` (GPS for field inspections and accidents) | Document 0.18; others Phase 1 |
-| Inspection | `Checklist` matrix (items × pass/fail/NA + remark; e.g. bolo technical inspection, school oversight) | **new** (Phase 1) |
+| Evidence | `Document` (typed upload: medical certificate, ID, libre copy; scan status), `Photo` (camera capture, compression, face crop for licence photos), `Signature` (drawn, stored as a file), `GeoPoint` (GPS for field inspections and accidents) | Document 0.18; others have (1.13a; the face crop is a fixed 3 × 4 frame) |
+| Inspection | `Checklist` matrix (items × pass/fail/NA + remark, or points with a pass mark and critical items; e.g. bolo technical inspection, school oversight, the practical exam, vehicle grading); the outcome is the server's | have (1.13a) |
 | Computed | computed text/number/money (formulas), `Lookup facts` (read-only facts of a picked record) | have / extend |
 
 Every new type is one kit definition (render + builder description + server validation) with its own tests, and is added
@@ -177,7 +177,7 @@ to the contract schema.
 | Access per form/unit | 3 | 0.9, 0.19 |
 | Drafts | 4 | 0.20c |
 | Conditional required, cross-field rules | 5 | 0.17 |
-| Wizard steps | 6 | Phase 1 (1.13a) |
+| Wizard steps | 6 | Phase 1 (1.13c) |
 | Workflow per form | 7 | 0.19–0.20 |
 | Notifications | 8 | 0.20a–0.20b |
 | Version history, diff, rollback, duplicate, import/export | 9 | 0.18a; config packages Phase 1 |

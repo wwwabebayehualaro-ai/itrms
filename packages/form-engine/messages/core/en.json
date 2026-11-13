@@ -76,5 +76,19 @@
   "form-engine.core.lint.reads-restricted": "It reads \"{key}\", which some of the people who see \"{field}\" may not see: restrict it to the same roles, or read another field",
   "form-engine.core.lint.key-reserved": "The key \"{key}\" is reserved for the fields an office adds to a form (x_…): choose another",
   "form-engine.core.lint.fee-duplicate": "The form has more than one Fee field: the fee is shown once, in one field",
-  "form-engine.core.lint.fee-in-rows": "A Fee field cannot sit inside a repeatable section: the fee is for the whole request"
+  "form-engine.core.lint.fee-in-rows": "A Fee field cannot sit inside a repeatable section: the fee is for the whole request",
+  "form-engine.core.validation.checklistInvalid": "Check the checklist's answers",
+  "form-engine.core.validation.checklistNotApplicable": "Every item applies here: answer each one",
+  "form-engine.core.validation.checklistRemark": "Give a remark for each failed item: {items}",
+  "form-engine.core.validation.checklistUnanswered": "Answer every item: {items} not answered",
+  "form-engine.core.validation.invalidLocation": "Enter a place with its latitude and longitude",
+  "form-engine.core.validation.locationTooRough": "The location is not exact enough: it must be within {max} m",
+  "form-engine.core.validation.oneImage": "Only one image can be kept here",
+  "form-engine.core.print.checklistPassed": "Passed: {total} of {max}",
+  "form-engine.core.print.checklistFailed": "Failed: {total} of {max}",
+  "form-engine.core.print.checklistOpen": "Not finished: {total} of {max}",
+  "form-engine.core.print.checklistFailedItems": "Failed items: {items}",
+  "form-engine.core.print.location": "{lat}, {lng}",
+  "form-engine.core.print.locationAccuracy": "{lat}, {lng} (within {accuracy} m)",
+  "form-engine.core.validation.checklistCriticalApplies": "A critical item always applies: answer {items}"
 }
