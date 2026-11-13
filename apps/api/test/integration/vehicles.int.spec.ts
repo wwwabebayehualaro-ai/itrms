@@ -361,7 +361,7 @@ describe('finding a vehicle', () => {
                 async (tx) =>
                     (
                         await tx.execute(
-                            sql`select * from vehicles.search_vehicles('1M8GDM9AXKP042788', 'ETHABC1234', 10)`
+                            sql`select * from vehicles.search_vehicles('1M8GDM9AXKP042788', 'ETHABC1234', 10, null, null)`
                         )
                     ).rows
             );
