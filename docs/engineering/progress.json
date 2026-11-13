@@ -1629,13 +1629,23 @@
         },
         {
           "id": "1.3b",
-          "title": "Bolo technical inspection, part 2: partners and the cycle",
+          "title": "Bolo technical inspection, part 2: re-inspection after a garage and renewal reminders",
+          "status": "in progress",
+          "branch": "task/1.3b-bolo-cycle",
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Split from 1.3 on 2026-11-13. Split again on 2026-11-14 (one session each): the cycle here (a failed vehicle through a garage back to re-inspection on the same case, the inspection register, the renewal reminder before the expiry, follow-up 258); the partner accounts of inspection centres and garages (the first class-P sign-in, ADR-0053) and the monthly to yearly inspection report to the region in 1.3c."
+        },
+        {
+          "id": "1.3c",
+          "title": "Bolo technical inspection, part 3: partner accounts and the inspection report",
           "status": "planned",
           "branch": null,
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split from 1.3 on 2026-11-13."
+          "notes": "Split from 1.3b on 2026-11-14."
         },
         {
           "id": "1.13c",
