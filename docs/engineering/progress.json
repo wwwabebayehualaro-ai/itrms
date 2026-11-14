@@ -1699,8 +1699,8 @@
         {
           "id": "1.13e",
           "title": "Form platform, part 6: print preview and form analytics",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/1.13e-print-analytics",
           "commits": [],
           "evidence": [],
           "blockers": [],
