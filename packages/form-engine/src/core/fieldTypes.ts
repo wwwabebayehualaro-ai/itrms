@@ -20,6 +20,7 @@ export const FIELD_TYPES: readonly string[] = [
     'FileUpload',
     'FormArray',
     'FormSection',
+    'FormStep',
     'GeoPoint',
     'InputMask',
     'InputNumber',

@@ -138,5 +138,11 @@
   "form-engine.renderer.table.range": "{from}–{to} of {total}",
   "form-engine.renderer.table.search": "Search the table",
   "form-engine.renderer.table.searchPlaceholder": "Search…",
-  "form-engine.renderer.table.view": "View"
+  "form-engine.renderer.table.view": "View",
+  "form-engine.renderer.wizard.steps": "Steps",
+  "form-engine.renderer.wizard.position": "Step {current} of {total}",
+  "form-engine.renderer.wizard.next": "Next",
+  "form-engine.renderer.wizard.back": "Back",
+  "form-engine.renderer.wizard.fixStep": "Fix the fields of this step before going on.",
+  "form-engine.renderer.photo.heic": "This browser cannot open HEIC photos. Take the photo again, or choose a JPEG."
 }

@@ -87,6 +87,7 @@ import { EMPTY_DOC, accepts, fromStored, slugify, subtree, toStored, type Design
 import { ChecksSheet, useChecks } from './Checks';
 import { HistorySheet } from './History';
 import { Inspector } from './Inspector';
+import { LogicInspector } from './LogicInspector';
 import { PublishDialog } from './PublishReview';
 import { SaveAsTestCase, TestCasesSheet } from './TestCases';
 import { TranslationsSheet, endonym } from './Translations';
@@ -648,6 +649,7 @@ function Preview() {
             <div>
                 <SaveAsTestCase values={values} />
             </div>
+            <LogicInspector stored={stored} values={values} language={language} />
             {result && (
                 <Card className="p-4">
                     <h3 className="mb-2 text-sm font-semibold">{t('form-engine.designer.preview.stored')}</h3>

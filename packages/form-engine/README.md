@@ -91,10 +91,27 @@ function at save, so a rule never behaves differently in the API; at run time a 
 - **`Signature`** and **`Photo`**: one image file each, the same answer as `FileUpload` (`isFileField`; the server
   links, scans and resolves them alike), refused when it is not an image or more than one. A signature is drawn on a pad
   and kept as a PNG; a photo is taken with the camera (`facing`), made at most 1,600 px on its longest side and kept as a
-  JPEG, cropped to the largest 3 × 4 frame around the face when `crop` is `face` (a licence photo).
+  JPEG, cropped to the largest 3 × 4 frame around the face when `crop` is `face` (a licence photo). It is drawn upright from its
+  EXIF orientation; a HEIC photo a browser cannot open is refused with a message asking for a JPEG (only Safari opens HEIC).
 - **`GeoPoint`**: `{ lat, lng, accuracy? }` (WGS 84 degrees, metres), from the device's GPS (six decimals, whole metres)
-  or typed in (`allowManual`); `maxAccuracy` refuses a rougher fix, and a typed place (which has no accuracy). Contract kind
-  `geopoint`. Neither a checklist nor a place is a query column of the data viewer.
+  or typed in (`allowManual`); `maxAccuracy` refuses a rougher fix, and a typed place (which has no accuracy); `allowManual:
+  false` refuses a typed place on the server too (a place stays the client's statement). Contract kind `geopoint`. Neither a
+  checklist nor a place is a query column of the data viewer. A checklist's item text and section title are at most 500
+  characters in each language.
+
+## Wizard steps and the logic inspector (task 1.13c)
+
+- **`FormStep`** (`core/wizard.ts`, `renderer/Wizard.tsx`): a container at the top of the form (`checkDocument` refuses one
+  inside another field). A form whose top level holds steps is filled one step at a time: a step indicator, Back and Next; Next
+  checks only the step shown (its wrong fields are marked touched, the later steps' are not) and the values stay the form's
+  own across the steps; a step hidden by its rule is skipped; fields outside every step come on the last step, with the
+  form's own buttons; a submit the whole form's check stops goes to the first step holding an error (`firstStepWithErrors`).
+  Enter in a step before the last is Next. Read only or viewed, every step is drawn in order, and printed as a group. The
+  server checks the whole form as always: a step holds no value.
+- **The logic inspector** (`core/explain.ts`, `designer/LogicInspector.tsx`), under the builder's preview: pick a field and
+  see whether it is shown, can be changed and is required, with each rule on the way (the field's own, then each container's
+  around it) and each condition's value, what it compared with and whether it held (`explainAll`, `explainField`). It
+  explains with the engine's own functions. A repeating section's row fields are not explained there.
 
 ## Texts in every language
 

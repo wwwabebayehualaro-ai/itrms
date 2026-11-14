@@ -1,7 +1,7 @@
 /**
  * Is a stored form one the engine can read? Two layers, both run by the API on every save (and usable by the designer):
  *   - the contract (`formConfigSchema` with this engine's field types): the document's shape, known types, data sources;
- *   - the structure: unique keys, parents that exist, no container inside itself.
+ *   - the structure: unique keys, parents that exist, no container inside itself, a wizard step only at the top.
  * Forms saved by older builders may carry more keys than the contract names: they are allowed. A bare list of fields (the
  * oldest format) is read as `{ fields: [...] }`.
  */
@@ -33,7 +33,9 @@ const RESERVED_KEYS = new Set([...Object.getOwnPropertyNames(Object.prototype), 
 const where = (path: readonly PropertyKey[]) =>
     path.map((p, i) => (typeof p === 'number' ? `[${p}]` : `${i ? '.' : ''}${String(p)}`)).join('') || '(document)';
 
-function structure(fields: readonly { id: string; parentId?: string | number | null }[]): DocumentProblem[] {
+function structure(
+    fields: readonly { id: string; type?: string; parentId?: string | number | null }[]
+): DocumentProblem[] {
     const problems: DocumentProblem[] = [];
     const index = new Map<string, number>();
     fields.forEach((f, i) => {
@@ -72,6 +74,14 @@ function structure(fields: readonly { id: string; parentId?: string | number | n
             }
             seen.add(at);
         }
+    });
+    // a wizard's steps are the form's top level: a step inside another field could never be shown on its own (task 1.13c)
+    fields.forEach((f, i) => {
+        if (f.type === 'FormStep' && parentOf.get(f.id))
+            problems.push({
+                path: `fields[${i}].parentId`,
+                message: `The step "${f.id}" must be at the top of the form`
+            });
     });
     return problems;
 }

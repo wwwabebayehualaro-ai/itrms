@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-11-13",
+  "updated": "2026-11-14",
   "statuses": [
     "planned",
     "ready",
@@ -1661,13 +1661,31 @@
         },
         {
           "id": "1.13c",
-          "title": "Form platform, part 4: authoring",
+          "title": "Form platform, part 4: wizard steps and the logic inspector",
+          "status": "in review",
+          "branch": "task/1.13c-wizard-logic",
+          "commits": [
+            "4dc9242"
+          ],
+          "evidence": [
+            "CI run 43529307262 on PR #68 (head 4dc9242): all 10 jobs green: lint, typecheck, unit, build, boundaries and i18n (form-engine 49 files, 403 tests); integration on the dev stack plus the S3 contract suite; e2e journeys; stories, axe and visual baselines; performance; production profile; Semgrep, Trivy and gitleaks clean",
+            "A wizard keeps its values and validates per step: renderer/wizard.spec.tsx 'shows one step at a time, checks only that step on Next, and keeps the values across the steps', 'takes in a step its rule shows, and submits every step''s values from the last', 'goes back to the first step with an error when the submit is stopped', 'draws every step in order when read only'; core/authoring.spec.ts wizard steps (order, step of a field, errors by step, checked whole by the server, only at the top, printed as groups)",
+            "The inspector names the condition and the values that hide a field: designer/logicInspector.spec.tsx 'names the condition that hides a field, with the value it looked at', 'follows the values entered', 'says so when no field has a rule'; core/authoring.spec.ts 'names the container whose rule hides a field, with the value it looked at', 'explains the field''s own list with its logic', 'says why a field is required'",
+            "Follow-ups: 256 authoring.spec 'refuses a typed place on a field that takes only the device''s' and evidence.spec.tsx 'shows the place it holds when the value changes from elsewhere'; 257 authoring.spec 'bounds a checklist item text and a section title', photos drawn with EXIF orientation and HEIC refused with a message (evidence.tsx)",
+            "Reviews: task-verifier found both Done-when items and the definition of done met (no DB, RLS or money change); i18n complete in am and en"
+          ],
+          "blockers": [],
+          "notes": "Split from 1.13a on 2026-11-13. Split again on 2026-11-14 (one session each): wizard steps, the logic inspector and follow-ups 256 and 257 here; reusable blocks with their impact, the print preview with the official header and form analytics in 1.13d. Built (2026-11-14): FormStep container (top level only, checkDocument refuses a nested one; printed as a group); the renderer's wizard (step indicator, Back/Next, Next checks only the step shown and marks its wrong fields touched, values kept, steps hidden by their rule skipped, fields outside every step on the last step, a stopped submit goes to the first step with an error, Enter is Next before the last step, read-only draws every step); core explainAll/explainField and the builder's logic inspector under the preview (each rule from the field outwards, each condition's value and verdict, the required formula). Follow-up 256: allowManual:false refuses a typed place on the server; the typed boxes follow a value set from elsewhere (state adjusted during render). Follow-up 257: photos drawn with imageOrientation from-image; HEIC a browser cannot draw refused with a message; checklist item text and section title at most 500 characters per language. Docker is stopped locally: integration and e2e on CI."
+        },
+        {
+          "id": "1.13d",
+          "title": "Form platform, part 5: reusable blocks, print preview and analytics",
           "status": "planned",
           "branch": null,
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split from 1.13a on 2026-11-13."
+          "notes": "Split from 1.13c on 2026-11-14."
         },
         {
           "id": "1.13b",
@@ -3563,12 +3581,14 @@
     {
       "foundIn": "1.13a",
       "item": "GeoPoint: allowManual is enforced only in the browser (a place is the client's statement), and the typed latitude/longitude are not refreshed when the value changes later (a restored draft) (review L3, L4)",
-      "movedTo": "1.13c"
+      "movedTo": "1.13c",
+      "closedIn": "1.13c: allowManual false refuses a typed place on the server; the typed boxes follow a value set from elsewhere"
     },
     {
       "foundIn": "1.13a",
       "item": "Photo: HEIC photos fail outside Safari and older Safari may not apply EXIF orientation; checklist item texts are bounded only by the document size (review L6, L7)",
-      "movedTo": "1.13c"
+      "movedTo": "1.13c",
+      "closedIn": "1.13c: photos drawn upright from EXIF; HEIC refused with a message where the browser cannot draw it; checklist texts at most 500 characters"
     },
     {
       "foundIn": "1.3a",

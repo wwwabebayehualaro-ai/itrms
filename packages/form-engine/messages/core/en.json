@@ -90,5 +90,6 @@
   "form-engine.core.print.checklistFailedItems": "Failed items: {items}",
   "form-engine.core.print.location": "{lat}, {lng}",
   "form-engine.core.print.locationAccuracy": "{lat}, {lng} (within {accuracy} m)",
-  "form-engine.core.validation.checklistCriticalApplies": "A critical item always applies: answer {items}"
+  "form-engine.core.validation.checklistCriticalApplies": "A critical item always applies: answer {items}",
+  "form-engine.core.validation.locationFromDevice": "Take this place with the device: it cannot be typed in."
 }

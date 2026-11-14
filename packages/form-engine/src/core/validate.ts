@@ -65,6 +65,10 @@ export function fieldSchema(f: EngineField, language = 'am'): z.ZodType<unknown>
                     code: 'custom',
                     message: m.type || t('form-engine.core.validation.invalidLocation')
                 });
+            // a field that takes only the device's place refuses a typed one (it carries no accuracy): what the browser
+            // enforces is checked here too, though a place stays the client's statement (follow-up 256)
+            if (f.props.allowManual === false && point.data.accuracy === undefined)
+                ctx.addIssue({ code: 'custom', message: t('form-engine.core.validation.locationFromDevice') });
             // a fix rougher than the field allows (or one that does not say how rough it is) is not this field's place
             if (maxAccuracy !== undefined && (point.data.accuracy === undefined || point.data.accuracy > maxAccuracy))
                 ctx.addIssue({

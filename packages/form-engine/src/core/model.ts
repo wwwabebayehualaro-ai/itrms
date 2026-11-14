@@ -369,7 +369,8 @@ export function containerTitle(f: Pick<EngineField, 'type' | 'props' | 'label'>)
         Panel: ['header'],
         Fieldset: ['legend', 'header'],
         Card: ['title', 'header'],
-        FormSection: ['title']
+        FormSection: ['title'],
+        FormStep: ['title']
     };
     for (const k of Object.hasOwn(keys, f.type) ? (keys[f.type] ?? []) : []) {
         const v = f.props[k];

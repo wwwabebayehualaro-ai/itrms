@@ -73,5 +73,7 @@
   "form-engine.palette.ui.add": "{label} ጨምር",
   "form-engine.palette.ui.fieldsToAdd": "የሚጨመሩ መስኮች",
   "form-engine.palette.ui.find": "መስክ ፈልግ",
-  "form-engine.palette.ui.noMatch": "“{query}” ጋር የሚስማማ መስክ የለም።"
+  "form-engine.palette.ui.noMatch": "“{query}” ጋር የሚስማማ መስክ የለም።",
+  "form-engine.palette.type.FormStep.label": "ደረጃ",
+  "form-engine.palette.type.FormStep.hint": "በደረጃ የሚሞላ ቅጽ አንድ ገጽ፤ ደረጃዎችን በቅጹ አናት ላይ ያድርጉ።"
 }

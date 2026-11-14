@@ -91,6 +91,7 @@ export const TEXT_PROPS = {
     Fieldset: ['legend', 'header'],
     Card: ['title', 'header', 'subTitle', 'footer'],
     FormSection: ['title', 'description'],
+    FormStep: ['title', 'description'],
     Divider: ['content'],
     FormArray: ['itemLabel', 'addButtonLabel', 'removeButtonLabel', 'emptyMessage'],
     FileUpload: ['chooseLabel']
