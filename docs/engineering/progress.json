@@ -1716,12 +1716,19 @@
         {
           "id": "1.13f",
           "title": "Form platform, part 7: form analytics",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/1.13f-form-analytics",
+          "commits": [
+            "79be7ac"
+          ],
+          "evidence": [
+            "CI run 43548556091 on PR #71 (head 79be7ac): all 10 jobs green: lint, typecheck, unit, build, boundaries and i18n; integration on the dev stack 41 files (forms.int.spec.ts incl. the analytics test) plus the S3 contract suite; e2e journeys; stories, axe and visual baselines; performance; production profile; Semgrep, Trivy and gitleaks clean; migration 0077_form_events.sql applied from zero; OpenAPI regenerated",
+            "Analytics show the field with the most errors: forms.int.spec 'counts the fills, their time, the fields that stopped them and the unfinished ones, keeping no answer' (fieldErrors [fullName 2] from a blocked Next and the server''s own refusal; fills opened 2, submitted 1, stopped 2; median 120 s; abandoned [before any step 1]; a key the version lacks dropped, an unknown step 422; no typed value in the rows nor their audit rows; one audit row per event; a sibling office sees none)",
+            "Renderer: fillReport.spec.tsx 'is opened when shown, stopped with the keys in error, then submitted with its time' (one fill id, no answer sent; a cleared form starts a new fill) and 'reports nothing read only, in the builder preview, or for a form with no published version'; form-engine unit suite 414 tests",
+            "Reviews: reviewer no High; M1 (rate limit, 90-day default, retention follow-up to 1.17), M2 (abandoned read by when a fill opened) and L3-L7 fixed in e0b8e83; Semgrep finding fixed; task-verifier found the Done-when item and the definition of done met, the audit assertion added in 79be7ac; follow-up 261 fixed"
+          ],
           "blockers": [],
-          "notes": "Split from 1.13e on 2026-11-14."
+          "notes": "Split from 1.13e on 2026-11-14. Built (2026-11-14): forms.form_events (migration 0077: class T at the filing unit, insert-only grant, audited, kind and bounds checks): a fill's moments with field keys only (never values), the step and the seconds; POST /forms/{id}/events (submission:create; keys kept only if the version's, a step only if one of its steps) and GET /forms/{id}/analytics (form:read; the caller's scope's fills: opened, submitted, stopped, median seconds, the 20 fields that stop people most, fills left a day or more by the last step). The renderer reports opened, wizard steps, blocked Next or submit (keys in error) and submitted (seconds); off read only, in the builder's preview (reportFill=false) and without a published version; a send never blocks the person. The server records its own refusals of a direct submission (separate transaction). The builder's Analytics sheet shows them with labels. No audit exception: each event is an audited append-only row. Follow-up 261 (header rule duplicated) fixed: issueDocument calls officialHeader. The two 1.13d follow-ups (a block's own references in data sources and texts; services per affected form) re-homed as unscheduled (form platform). Docker stopped locally: integration and e2e on CI. CI on 81a85e3: Semgrep blocked the fill id's Math.random fallback (node_insecure_random_generator); it now uses crypto.getRandomValues when randomUUID is missing. Held locally until the security review reports. Reviewer (2026-11-14): no High. Fixed: M1 (event spam: a telemetry rate-limit bucket, 120 a minute per person; figures default to the last 90 days; retention to 1.17 as a follow-up), M2 (a fill opened in the period and submitted after it counted as abandoned: the fill's whole story is read, only the period's fills count), L3 (wording: no answer kept; the row names who filled it in as every write does, never shown), L4 (a saved request opened to change is not a fill; submitted only when filed), L5 (a refusal naming none of the version's fields is not counted; a failure to count is logged), L6 (from after to refused; a step only on step and blocked, keys only on blocked), L7 (the last step tie-broken by id). Semgrep: the fill id's Math.random fallback replaced by crypto.getRandomValues."
         },
         {
           "id": "1.13b",
@@ -3635,17 +3642,23 @@
     {
       "foundIn": "1.13d",
       "item": "Blocks copied with a key prefix: renameFieldKey does not rename a field's own key inside data.dataSource bindings or {{form.x}} text in props, so a block whose options or labels name its own fields breaks when copied with a prefix (the starter blocks have none; review L6)",
-      "movedTo": "1.13e"
+      "movedTo": "unscheduled (form platform)"
     },
     {
       "foundIn": "1.13d",
       "item": "A block's impact: name the services bound to each affected form (and their open cases), as a form's own publish check does for its services",
-      "movedTo": "1.13e"
+      "movedTo": "unscheduled (form platform)"
     },
     {
       "foundIn": "1.13e",
       "item": "issueDocument resolves the document header itself instead of calling officialHeader (the same rule today: the stored header, else the bureau's name, else the office's): make it call officialHeader so the print preview and the PDF never drift",
-      "movedTo": "1.13f"
+      "movedTo": "1.13f",
+      "closedIn": "1.13f: issueDocument now calls officialHeader, the rule the print preview shows"
+    },
+    {
+      "foundIn": "1.13f",
+      "item": "forms.form_events retention: a worker sweep deleting form events older than about 13 months (the figures read the last 90 days by default)",
+      "movedTo": "1.17"
     }
   ]
 }

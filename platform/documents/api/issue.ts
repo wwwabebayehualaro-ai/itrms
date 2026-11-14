@@ -113,15 +113,12 @@ export async function issueDocument(
             }
         });
     const facts = factsOf(version.dataSchema, checked.data);
-    // the bureau's own name heads its documents, unless the header names another (a zone department's, say)
-    const stored = await settings.value<DocumentHeader>(tx, input.handlingUnitId, DOCUMENT_HEADER_SETTING);
-    const brand = stored.title
-        ? null
-        : await settings.value<I18nText | null>(tx, input.handlingUnitId, BRAND_NAME_SETTING);
-    const header: DocumentHeader = brand ? { ...stored, title: brand } : stored;
-    const unit = (await unitRefs(tx, [input.handlingUnitId])).get(input.handlingUnitId);
+    // the bureau's own name heads its documents, unless the header names another (a zone department's, say): the same header the
+    // builder's print preview shows (task 1.13e)
+    const { header, officeName } = await officialHeader(tx, settings, input.handlingUnitId);
     // frozen on the document for good: a blank office would print on it, and fail its public check, for ever
-    if (!unit) throw new ConflictError('not_configured', { detailKey: 'documents.errors.issuing_office_unreadable' });
+    if (!officeName)
+        throw new ConflictError('not_configured', { detailKey: 'documents.errors.issuing_office_unreadable' });
     const issued = await insertIssued(tx, {
         ...(input.id ? { id: input.id } : {}),
         regionId: input.regionId,
@@ -137,7 +134,7 @@ export async function issueDocument(
         holderMask: facts.holder ? maskedName(facts.holder) : null,
         validUntil: facts.validUntil,
         header,
-        officeName: unit.name as I18nText
+        officeName
     });
     await emit(
         tx,

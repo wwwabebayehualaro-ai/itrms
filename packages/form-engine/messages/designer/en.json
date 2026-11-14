@@ -336,5 +336,19 @@
   "form-engine.designer.print.fill": "Fill in",
   "form-engine.designer.print.printed": "As printed",
   "form-engine.designer.print.intro": "The form as it prints, with the values entered, under your office’s header: the same layout as the PDF.",
-  "form-engine.designer.print.noHeader": "Your office’s header could not be read: the form prints without it here."
+  "form-engine.designer.print.noHeader": "Your office’s header could not be read: the form prints without it here.",
+  "form-engine.designer.analytics.button": "Analytics",
+  "form-engine.designer.analytics.title": "How the form is filled in",
+  "form-engine.designer.analytics.description": "Counts only, from the fills your office and those below it made: no answer is kept.",
+  "form-engine.designer.analytics.failed": "The figures could not be read. Try again.",
+  "form-engine.designer.analytics.opened": "Opened",
+  "form-engine.designer.analytics.submitted": "Submitted",
+  "form-engine.designer.analytics.stopped": "Stopped by its checks",
+  "form-engine.designer.analytics.time": "A submitted fill takes about {minutes} min (the median).",
+  "form-engine.designer.analytics.noTime": "No fill has been submitted yet.",
+  "form-engine.designer.analytics.fields": "Fields that stop people most",
+  "form-engine.designer.analytics.noErrors": "No field has stopped anyone yet.",
+  "form-engine.designer.analytics.abandoned": "Fills left unfinished, by the last step reached",
+  "form-engine.designer.analytics.noAbandoned": "No fill has been left unfinished.",
+  "form-engine.designer.analytics.noStep": "Before any step"
 }

@@ -129,6 +129,15 @@ function at save, so a rule never behaves differently in the API; at run time a 
   every form holding a copy (`impact.blockForms`: the versions in its working copy and its published version, and
   whether it is behind the candidate), shown in the publish review.
 
+## Form analytics (task 1.13f)
+
+A form filled in reports its moments (`renderer/fillReport.ts`, `POST /forms/{id}/events`): opened, a wizard step reached, stopped by
+its checks (the keys of the fields in error, never their values), submitted (the seconds it took), all under one random fill id;
+the server adds the answers it refuses. Off read only, in the builder's preview (`reportFill={false}`) and without a published
+version. Each is one row of `forms.form_events` (class T at the filing unit, append-only, audited). The builder's **Analytics**
+sheet reads `GET /forms/{id}/analytics`: fills opened, submitted and stopped, the median time, the fields that stop people
+most, and the fills left unfinished a day or more by the last step reached.
+
 ## Texts in every language
 
 A field's label, help text, placeholder, option labels and custom messages are each a plain string (one text for every
