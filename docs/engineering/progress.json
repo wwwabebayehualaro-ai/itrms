@@ -1699,10 +1699,11 @@
         {
           "id": "1.13e",
           "title": "Form platform, part 6: print preview",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.13e-print-analytics",
           "commits": [
-            "9378b16"
+            "9378b16",
+            "66109e6"
           ],
           "evidence": [
             "CI run 43542374810 on PR #70 (head 9378b16): all 10 jobs green: lint, typecheck, unit, build, boundaries and i18n; integration on the dev stack plus the S3 contract suite; e2e journeys; stories, axe and visual baselines; performance; production profile; Semgrep, Trivy and gitleaks clean; OpenAPI regenerated for GET /api/v1/document-header",
