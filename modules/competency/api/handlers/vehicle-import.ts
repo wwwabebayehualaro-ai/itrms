@@ -124,7 +124,8 @@ export async function commitImport(
     if (!found) return;
     const outcome = await deps.importer.commitBatch(deps, found);
     if (outcome === 'committed') await tell(system, found, found.batch.createdBy, 'competency.notify.import-committed');
-    else await tell(system, found, found.batch.committedBy, 'competency.notify.import-not-committed');
+    else if (outcome === 'refused')
+        await tell(system, found, found.batch.committedBy, 'competency.notify.import-not-committed');
 }
 
 export function vehicleImportHandlers(

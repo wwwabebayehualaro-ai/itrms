@@ -120,7 +120,8 @@ GRANT UPDATE ("state", "failure_code", "failure_columns", "content_ct", "committ
     "committed_at", "checked_at", "updated_at", "updated_by", "row_version")
     ON "competency"."vehicle_imports" TO itrms_app;
 --> statement-breakpoint
-GRANT UPDATE ("state", "errors", "owner_person_id", "vehicle_id", "updated_at", "updated_by", "row_version")
+GRANT UPDATE ("state", "errors", "sensitive_ct", "owner_person_id", "vehicle_id", "updated_at", "updated_by",
+    "row_version")
     ON "competency"."vehicle_import_rows" TO itrms_app;
 --> statement-breakpoint
 SELECT kernel.apply_rls('competency.vehicle_imports', 'transaction', 'org_path');

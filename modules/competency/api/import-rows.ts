@@ -45,6 +45,9 @@ export type ReadRow =
 
 const fold = (text: string) => text.normalize('NFC').trim().toLowerCase().replace(/\s+/g, ' ');
 
+/** At most `max` characters of a cell, never half of one (a lone surrogate is not text PostgreSQL stores). */
+export const clip = (text: string, max: number): string => Array.from(text).slice(0, max).join('');
+
 /** A list's value by its key or by its label in Amharic or English, folded. */
 function vocabulary<K extends string>(keys: readonly K[], prefix: string): (text: string) => K | undefined {
     const map = new Map<string, K>();
@@ -174,7 +177,9 @@ export function readRow(cells: Readonly<Record<string, string>>): ReadRow {
         return {
             ok: false,
             errors,
-            ...(cells.paper_reference ? { paperReference: cells.paper_reference.slice(0, 60) } : {})
+            ...(cells.paper_reference && cells.paper_reference !== DATE_CELL
+                ? { paperReference: clip(cells.paper_reference, 60) }
+                : {})
         };
     return { ok: true, values: values as ImportValues, owner, sensitive };
 }

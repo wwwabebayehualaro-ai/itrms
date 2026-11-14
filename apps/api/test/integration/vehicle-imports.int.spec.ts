@@ -420,7 +420,134 @@ describe('a sheet of 1,000 paper files (ADR-0054)', () => {
         );
         expect(commit.statusCode).toBe(409);
         expect(await importedVehicles()).toBe(900);
+
+        // the owners' FINs and phones were kept only for the commit: none is left in the committed batch's rows, and the
+        // dry runs and the commit looked owners up on record (never the values)
+        const kept = await api.owner.query<{ n: number }>(
+            `select count(*)::int as n from competency.vehicle_import_rows where import_id = $1 and sensitive_ct is not null`,
+            [first.id]
+        );
+        expect(kept.rows[0]).toEqual({ n: 0 });
+        const looked = await api.owner.query<{ type: string; n: number }>(
+            `select event_type as type, count(*)::int as n from kernel.audit_log
+              where event_type in ('person.import_checked', 'person.import_committed') and row_id = $1 group by event_type`,
+            [first.id]
+        );
+        expect(Object.fromEntries(looked.rows.map((r) => [r.type, r.n > 0]))).toEqual({
+            'person.import_checked': true,
+            'person.import_committed': true
+        });
     }, 600_000);
+});
+
+/** A row of a later sheet: a file of its own (reference, plate and chassis from n), its owner given by the caller. */
+function fileRow(n: number, owner: Partial<Row> = {}): Row {
+    return {
+        paper_reference: `BOD/VEH/${RUN}/L${String(n).padStart(4, '0')}`,
+        scan_file: '',
+        first_registered_on: '04/09/2001',
+        owners_since: '',
+        // six digits: never one of the 1,000-file sheet's five
+        plate: `AA 2-${RUN.slice(0, 2)}${String(n).padStart(4, '0')}`,
+        chassis_number: vin(6000 + n),
+        make: 'Toyota',
+        model: 'Hilux',
+        model_year: '2009',
+        category: 'automobile',
+        use: 'private',
+        colour: '',
+        owner_name_am: `ባለቤት ${nameOf(6000 + n)} ታደሰ`,
+        owner_sex: 'male',
+        owner_phone: '',
+        owner_fin: '',
+        ...owner
+    };
+}
+
+describe('owners the sheet and the register must agree on (ADR-0054)', () => {
+    it('refuses a FIN the register holds under another name, and one FIN with two names wherever the rows fall', async () => {
+        const OTHER_FIN = `8${RUN}00000`;
+        const rows = [
+            // SHARED_FIN is ባለቤት ወረቀት ታደሰ on the register (the 1,000-file commit made them): a mistyped FIN, never them
+            fileRow(0, { owner_name_am: 'ባለቤት ሌላ ታደሰ', owner_fin: SHARED_FIN }),
+            fileRow(1, { owner_name_am: 'ባለቤት አንደኛ ታደሰ', owner_fin: OTHER_FIN }),
+            fileRow(2, { owner_name_am: 'ባለቤት ሁለተኛ ታደሰ', owner_fin: OTHER_FIN }),
+            ...Array.from({ length: 60 }, (_, i) => fileRow(3 + i)),
+            // past the first chunk of 50 rows: still measured against the first row of that FIN
+            fileRow(63, { owner_name_am: 'ባለቤት አንደኛ ታደሰ', owner_fin: OTHER_FIN }),
+            fileRow(64, { owner_name_am: 'ባለቤት ሁለተኛ ታደሰ', owner_fin: OTHER_FIN })
+        ];
+        const batch = await send(as.clerk, {
+            filename: 'owners.csv',
+            format: 'csv',
+            content: csvOf(rows),
+            scanFileIds: await scans(rows.map((r) => r.paper_reference))
+        });
+        await runCheck(batch.id);
+        expect(await batchOf(batch.id)).toMatchObject({
+            state: 'checked',
+            counts: { total: 65, invalid: 3, valid: 62 }
+        });
+        const invalid = await rowsOf(batch.id, 'invalid');
+        expect(invalid.map((r) => [r.line, r.errors.map((e) => [e.column, e.code])])).toEqual([
+            [2, [['owner_fin', 'owner_fin_elsewhere']]],
+            [4, [['owner_fin', 'owner_differs']]],
+            [66, [['owner_fin', 'owner_differs']]]
+        ]);
+        // the message names the line the FIN was first given on
+        expect(invalid[1]?.errors[0]?.message).toContain('3');
+    }, 300_000);
+
+    it('reports a date cell in a text column and a control character at its row, and finishes the dry run', async () => {
+        const good = fileRow(100);
+        const book = new ExcelJS.Workbook();
+        const sheet = book.addWorksheet('files');
+        sheet.addRow([...COLUMNS]);
+        // Excel took the paper reference "5/2012" and the model "9-3" for dates
+        sheet.addRow(
+            COLUMNS.map((c) => (c === 'paper_reference' || c === 'model' ? new Date(2012, 4, 1) : fileRow(101)[c]))
+        );
+        sheet.addRow(COLUMNS.map((c) => (c === 'make' ? 'Toy\u0000ota' : good[c])));
+        const batch = await send(as.clerk, {
+            filename: 'dates.xlsx',
+            format: 'xlsx',
+            content: Buffer.from(await book.xlsx.writeBuffer()).toString('base64'),
+            scanFileIds: await scans([good.paper_reference])
+        });
+        await runCheck(batch.id);
+        expect(await batchOf(batch.id)).toMatchObject({ state: 'checked', counts: { total: 2, invalid: 1, valid: 1 } });
+        const [dated] = await rowsOf(batch.id, 'invalid');
+        expect(dated?.paperReference).toBeNull();
+        expect(dated?.model).toBeNull();
+        expect(dated?.errors.map((e) => [e.column, e.code])).toEqual(
+            expect.arrayContaining([
+                ['paper_reference', 'date_cell'],
+                ['model', 'date_cell']
+            ])
+        );
+        expect((await rowsOf(batch.id, 'valid'))[0]?.make).toBe('Toyota');
+    }, 300_000);
+
+    it('lets a sheet still waiting for the worker be discarded, and the worker then leaves it', async () => {
+        const rows = [fileRow(200, { owner_phone: `09${RUN.slice(0, 2)}900200` })];
+        const batch = await send(as.clerk, { filename: 'stuck.csv', format: 'csv', content: csvOf(rows) });
+        expect(batch.state).toBe('checking');
+        const discarded = await api.call(
+            'POST',
+            `/api/v1/vehicle-imports/${batch.id}/discard`,
+            as.clerk,
+            {},
+            ifMatch(batch.version)
+        );
+        expect(discarded.statusCode, discarded.body).toBe(200);
+        await runCheck(batch.id);
+        expect(await batchOf(batch.id)).toMatchObject({ state: 'discarded', counts: { total: 0 } });
+        const left = await api.owner.query<{ ct: Buffer | null }>(
+            'select content_ct as ct from competency.vehicle_imports where id = $1',
+            [batch.id]
+        );
+        expect(left.rows[0]?.ct).toBeNull();
+    }, 120_000);
 });
 
 describe('a sheet that cannot be read, a workbook, and another office', () => {

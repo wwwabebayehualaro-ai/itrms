@@ -306,7 +306,9 @@ export function VehicleImportReport({ id }: { id: string }) {
             />
         );
     const b = batch.data;
-    const mayDiscard = (b.state === 'checked' || b.state === 'failed') && (mayCreate || b.mayCommit);
+    // a batch still being checked may be given up too: a sheet the worker cannot finish must not wait for ever
+    const mayDiscard =
+        (b.state === 'checked' || b.state === 'failed' || b.state === 'checking') && (mayCreate || b.mayCommit);
     const total = rows.data?.total ?? 0;
 
     const act = async (what: 'commit' | 'discard') => {

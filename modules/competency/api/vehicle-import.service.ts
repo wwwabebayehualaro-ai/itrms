@@ -18,7 +18,15 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, count, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { currentContext, runInContext, type Language } from '@itrms/kernel/context';
 import { FIELD_CRYPTO, type FieldCrypto } from '@itrms/kernel/crypto';
-import { insertAudited, newId, updateAudited, type Database, type DbContext, type Tx } from '@itrms/kernel/db';
+import {
+    insertAudited,
+    newId,
+    updateAudited,
+    updateManyAudited,
+    type Database,
+    type DbContext,
+    type Tx
+} from '@itrms/kernel/db';
 import {
     AppError,
     ConflictError,
@@ -31,7 +39,7 @@ import { downloadLinkedFile, files, linkFile, type ObjectStore } from '@itrms/ke
 import { emit } from '@itrms/kernel/outbox';
 import { users } from '@itrms/kernel/tables';
 import { effectiveServices, unitRefs } from '@itrms/kernel/org';
-import { organisations, PersonsService } from '@itrms/parties/api';
+import { nameKeyOf, organisations, personSensitive, PersonsService } from '@itrms/parties/api';
 import { vehicleCategories, vehicles, VehiclesService } from '@itrms/vehicles/api';
 import { parsePlate, parseVin } from '@itrms/vehicles/contracts';
 import vehiclesAm from '@itrms/vehicles/messages/am';
@@ -54,6 +62,7 @@ import en from '../messages/en.json';
 import { BackCaptureService, PLACEHOLDER_ID, type BackCaptureInput, type CapturePlace } from './back-capture.service';
 import { vehicleImportRows, vehicleImports } from './competency.table';
 import {
+    clip,
     columnOfPath,
     ownerKeyOf,
     readRow,
@@ -62,7 +71,7 @@ import {
     type ImportSensitive,
     type ImportValues
 } from './import-rows';
-import { readSheet, type SheetRecord } from './import-sheet';
+import { DATE_CELL, readSheet, type SheetRecord } from './import-sheet';
 
 type ImportRow = typeof vehicleImports.$inferSelect;
 type RowRecord = typeof vehicleImportRows.$inferSelect;
@@ -170,7 +179,7 @@ interface Seen {
     plate: Map<string, number>;
     libre: Map<string, number>;
     scan: Map<string, number>;
-    owner: Map<string, string>;
+    owner: Map<string, { name: string; line: number }>;
 }
 
 @Injectable()
@@ -446,21 +455,39 @@ export class VehicleImportService {
         return this.get(tx, ctx, id, mayCommit);
     }
 
-    /** A batch given up before its commit: its sheet is cleared; its rows stay, for the record. */
+    /**
+     * A batch given up before its commit: its sheet and its rows' owner details are cleared; its rows stay, for the record. One
+     * still being checked may be given up too (a sheet the worker cannot finish must not wait for ever): the worker's chunks and
+     * its last step find it no longer checking and stop.
+     */
     async discard(tx: Tx, ctx: DbContext, id: string, version: number, mayCommit: boolean): Promise<VehicleImport> {
         const [row] = await tx.select().from(vehicleImports).where(eq(vehicleImports.id, id)).for('update');
         if (!row) throw new NotFoundError();
         if (row.rowVersion !== version) throw new ConflictError('stale_version');
         if (row.createdBy !== ctx.userId && !mayCommit) throw new ForbiddenError();
-        if (row.state !== 'checked' && row.state !== 'failed')
+        if (row.state !== 'checked' && row.state !== 'failed' && row.state !== 'checking')
             throw new ConflictError('invalid_transition', { detailKey: 'competency.errors.import_not_discardable' });
+        // under the batch's lock, so no chunk of the dry run is storing rows meanwhile
+        await tx.execute(sql`select pg_advisory_xact_lock(${IMPORT_LOCK}, hashtext(${id}))`);
         await updateAudited(tx, vehicleImports, id, row.rowVersion, {
             state: 'discarded',
             failureCode: null,
             failureColumns: [],
             contentCt: null
         });
+        await this.clearSensitive(tx, id);
         return this.get(tx, ctx, id, mayCommit);
+    }
+
+    /** The owner details of a batch's rows that will never be committed, cleared (they were kept only for the commit). */
+    private async clearSensitive(tx: Tx, importId: string): Promise<void> {
+        const ids = (
+            await tx
+                .select({ id: vehicleImportRows.id })
+                .from(vehicleImportRows)
+                .where(and(eq(vehicleImportRows.importId, importId), isNotNull(vehicleImportRows.sensitiveCt)))
+        ).map((r) => r.id);
+        if (ids.length > 0) await updateManyAudited(tx, vehicleImportRows, ids, { sensitiveCt: null });
     }
 
     // ---- the worker: the dry run ----
@@ -485,6 +512,14 @@ export class VehicleImportService {
                     return this.crypto.decrypt(tx, row.regionId, contentPlace(importId), row.contentCt);
                 });
                 if (content === undefined) return 'none';
+                // the dry run looks owners up by FIN and by name with phone: on record as the interactive lookups are (never
+                // the values)
+                await deps.database.recordSensitiveEvent(ctx, {
+                    type: 'person.import_checked',
+                    table: personSensitive,
+                    rowId: importId,
+                    data: { by: ['fin', 'name_phone'] }
+                });
                 const sheet = await readSheet(batch.format, content);
                 if (!sheet.ok) {
                     await deps.database.scoped(ctx, (tx) => this.fail(tx, importId, sheet.code, sheet.columns ?? []));
@@ -530,20 +565,22 @@ export class VehicleImportService {
                         }
                     });
                 }
-                await deps.database.scoped(ctx, async (tx) => {
+                const finished = await deps.database.scoped(ctx, async (tx) => {
                     const [row] = await tx
                         .select()
                         .from(vehicleImports)
                         .where(eq(vehicleImports.id, importId))
                         .for('update');
-                    if (row?.state !== 'checking') return;
+                    // discarded meanwhile, or finished by another delivery: nothing to tell
+                    if (row?.state !== 'checking') return false;
                     await updateAudited(tx, vehicleImports, importId, row.rowVersion, {
                         state: 'checked',
                         contentCt: null,
                         checkedAt: new Date()
                     });
+                    return true;
                 });
-                return 'checked' as const;
+                return finished ? ('checked' as const) : ('none' as const);
             }
         );
     }
@@ -605,8 +642,10 @@ export class VehicleImportService {
             if (row.plateKey) setFirst(maps.plate, row.plateKey, row.line);
             if (values.libreNumber) setFirst(maps.libre, fold(values.libreNumber), row.line);
             if (row.scanFileId) setFirst(maps.scan, row.scanFileId, row.line);
-            if (row.ownerKey && values.owner?.kind === 'person')
-                maps.owner.set(row.ownerKey.toString('hex'), ownerText(values.owner) ?? '');
+            // the first row of an owner is the one the others are measured against, as in remember(): whichever chunk reads them
+            const hex = row.ownerKey?.toString('hex');
+            if (hex && values.owner?.kind === 'person' && !maps.owner.has(hex))
+                maps.owner.set(hex, { name: ownerText(values.owner) ?? '', line: row.line });
         }
         return { lines: rows.map((r) => r.line), maps };
     }
@@ -702,13 +741,15 @@ export class VehicleImportService {
         const key = ownerKeyOf(owner, sensitive);
         if (key) {
             verdict.ownerKey = key;
-            const name = seen.owner.get(this.ownerIndex(batch.regionId, key).toString('hex'));
-            if (name !== undefined && name !== ownerText(owner))
-                errors.push({ column: 'owner_fin', code: 'owner_differs' });
+            const first = seen.owner.get(this.ownerIndex(batch.regionId, key).toString('hex'));
+            if (first !== undefined && first.name !== ownerText(owner))
+                errors.push({ column: 'owner_fin', code: 'owner_differs', params: line(first.line) });
         }
 
-        // the register: a file already imported is not an error, it is done
-        if (vin.ok && errors.length === 0) {
+        // the register: a file already imported is not an error, it is done; its scan is not needed again (a sheet sent again
+        // after a fix comes without the scans the first batch took)
+        const blocking = errors.filter((e) => e.code !== 'scan_missing' && e.code !== 'scan_twice');
+        if (vin.ok && blocking.length === 0) {
             const [onRegister] = await tx
                 .select({ id: vehicles.id, source: vehicles.migrationSource, reference: vehicles.paperReference })
                 .from(vehicles)
@@ -751,7 +792,7 @@ export class VehicleImportService {
         if (verdict.scanFileId) setFirst(seen.scan, verdict.scanFileId, line);
         if (verdict.ownerKey && owner !== null) {
             const hex = this.ownerIndex(regionId, verdict.ownerKey).toString('hex');
-            if (!seen.owner.has(hex)) seen.owner.set(hex, owner);
+            if (!seen.owner.has(hex)) seen.owner.set(hex, { name: owner, line });
         }
     }
 
@@ -780,9 +821,11 @@ export class VehicleImportService {
             return found?.id;
         }
         if (sensitive.fin) {
-            const [holder] = (await this.persons.lookup(tx, regionId, { fin: sensitive.fin })).filter(
-                (p) => p.status === 'active'
-            );
+            const holder = await this.finHolder(tx, regionId, owner, sensitive.fin);
+            if (holder === 'differs') {
+                errors.push({ column: 'owner_fin', code: 'owner_fin_elsewhere' });
+                return undefined;
+            }
             if (holder) return holder.id;
         }
         const duplicates = await this.persons.duplicates(tx, regionId, {
@@ -797,9 +840,25 @@ export class VehicleImportService {
         return undefined;
     }
 
+    /**
+     * The person on the register holding a FIN, if any: `differs` when their name is not the row's (a FIN has no check digit, so a
+     * mistyped one can be someone else's; the vehicle must never go to them unseen).
+     */
+    private async finHolder(
+        tx: Tx,
+        regionId: string,
+        owner: Extract<ImportOwner, { kind: 'person' }>,
+        fin: string
+    ): Promise<{ id: string } | 'differs' | undefined> {
+        const [holder] = (await this.persons.lookup(tx, regionId, { fin })).filter((p) => p.status === 'active');
+        if (!holder) return undefined;
+        return nameKeyOf(holder.nameAm) === nameKeyOf(owner.nameAm) ? { id: holder.id } : 'differs';
+    }
+
     private async store(tx: Tx, batch: ImportRow, line: number, verdict: Verdict): Promise<void> {
         const id = newId();
-        const hasSensitive = Boolean(verdict.sensitive.phone || verdict.sensitive.fin);
+        // kept only for a row the commit may put on the register
+        const hasSensitive = verdict.state === 'valid' && Boolean(verdict.sensitive.phone || verdict.sensitive.fin);
         await insertAudited(tx, vehicleImportRows, {
             id,
             regionId: batch.regionId,
@@ -828,7 +887,7 @@ export class VehicleImportService {
      * row in its own transaction: a row the register now refuses (a chassis captured meanwhile) is reported with its errors and the
      * others go on. Retried, it carries on with the rows still valid.
      */
-    async commitBatch(deps: ImportDeps, found: LoadedImport): Promise<'committed' | 'refused'> {
+    async commitBatch(deps: ImportDeps, found: LoadedImport): Promise<'committed' | 'refused' | 'none'> {
         const { batch, ctx } = found;
         const importId = batch.id;
         const committer = batch.committedBy ?? '';
@@ -861,12 +920,29 @@ export class VehicleImportService {
                         .where(and(eq(vehicleImportRows.importId, importId), eq(vehicleImportRows.state, 'valid')))
                         .orderBy(asc(vehicleImportRows.line))
                 );
+                // the commit looks owners up by FIN: on record as the interactive lookup is (never the values)
+                await deps.database.recordSensitiveEvent(ctx, {
+                    type: 'person.import_committed',
+                    table: personSensitive,
+                    rowId: importId,
+                    data: { by: ['fin'] }
+                });
                 for (const { id } of valid) {
                     try {
-                        await deps.database.scoped(ctx, (tx) => this.commitRow(tx, batch, ctx, committer, id));
+                        const attempt = () =>
+                            deps.database.scoped(ctx, (tx) => this.commitRow(tx, batch, ctx, committer, id));
+                        // another batch made the person of this FIN at the same moment: once more, and the FIN finds them
+                        const going = await attempt().catch((error: unknown) => {
+                            if (error instanceof ConflictError && error.detailKey === 'parties.errors.fin_taken')
+                                return attempt();
+                            throw error;
+                        });
+                        // the batch is no longer this committer's to commit (given back meanwhile): nothing more of it
+                        if (!going) return 'none' as const;
                     } catch (error) {
-                        // the register refuses it now: the row says why, the others go on; anything else is retried
-                        if (!(error instanceof AppError)) throw error;
+                        // the register refuses the row now (its rules, or a chassis captured meanwhile): the row says why, the
+                        // others go on; anything else (a refusal of the work itself, a fault) is retried
+                        if (!(error instanceof ValidationError) && !(error instanceof ConflictError)) throw error;
                         await deps.database.scoped(ctx, async (tx) => {
                             const [row] = await tx
                                 .select()
@@ -876,29 +952,46 @@ export class VehicleImportService {
                             if (row?.state !== 'valid') return;
                             await updateAudited(tx, vehicleImportRows, id, row.rowVersion, {
                                 state: 'invalid',
-                                errors: refusalErrors(error)
+                                errors: refusalErrors(error),
+                                sensitiveCt: null
                             });
                         });
                     }
                 }
-                await deps.database.scoped(ctx, async (tx) => {
+                const done = await deps.database.scoped(ctx, async (tx) => {
                     const [row] = await tx
                         .select()
                         .from(vehicleImports)
                         .where(eq(vehicleImports.id, importId))
                         .for('update');
-                    if (row?.state !== 'committing') return;
+                    if (row?.state !== 'committing' || row.committedBy !== committer) return false;
                     await updateAudited(tx, vehicleImports, importId, row.rowVersion, { state: 'committed' });
+                    return true;
                 });
-                return 'committed' as const;
+                return done ? ('committed' as const) : ('none' as const);
             }
         );
     }
 
-    /** One valid row: its owner found or made, the register's rules checked again, and the vehicle put on the register. */
-    private async commitRow(tx: Tx, batch: ImportRow, ctx: DbContext, committer: string, rowId: string): Promise<void> {
+    /**
+     * One valid row: its owner found or made, the register's rules checked again, and the vehicle put on the register. False when
+     * the batch is no longer being committed by this committer (the batch is read under a share lock, so giving it back waits).
+     */
+    private async commitRow(
+        tx: Tx,
+        batch: ImportRow,
+        ctx: DbContext,
+        committer: string,
+        rowId: string
+    ): Promise<boolean> {
+        const [current] = await tx
+            .select({ state: vehicleImports.state, committedBy: vehicleImports.committedBy })
+            .from(vehicleImports)
+            .where(eq(vehicleImports.id, batch.id))
+            .for('share');
+        if (current?.state !== 'committing' || current.committedBy !== committer) return false;
         const [row] = await tx.select().from(vehicleImportRows).where(eq(vehicleImportRows.id, rowId)).for('update');
-        if (row?.state !== 'valid') return;
+        if (row?.state !== 'valid') return true;
         const { owner, ...values } = row.values as ImportValues & { owner: ImportOwner };
         const sensitive: ImportSensitive = row.sensitiveCt
             ? (JSON.parse(
@@ -914,8 +1007,11 @@ export class VehicleImportService {
         await updateAudited(tx, vehicleImportRows, row.id, row.rowVersion, {
             state: 'imported',
             vehicleId: made.vehicle.id,
-            ownerPersonId: owner.kind === 'person' ? ownerId : null
+            ownerPersonId: owner.kind === 'person' ? ownerId : null,
+            // the owner's FIN and phone are the person's now, kept by the register
+            sensitiveCt: null
         });
+        return true;
     }
 
     /** The owner at the commit: the organisation by its TIN; the person an earlier row of the batch made, found by FIN, or made. */
@@ -958,9 +1054,17 @@ export class VehicleImportService {
             if (earlier?.personId) return earlier.personId;
         }
         if (sensitive.fin) {
-            const [holder] = (await this.persons.lookup(tx, place.regionId, { fin: sensitive.fin })).filter(
-                (p) => p.status === 'active'
-            );
+            const holder = await this.finHolder(tx, place.regionId, owner, sensitive.fin);
+            if (holder === 'differs')
+                throw new ValidationError('validation_failed', {
+                    errors: [
+                        {
+                            path: 'sensitive.fin',
+                            code: 'owner_fin_elsewhere',
+                            message: say('competency.import.error.owner_fin_elsewhere')
+                        }
+                    ]
+                });
             if (holder) return holder.id;
         }
         const made = await this.persons.create(
@@ -1013,7 +1117,11 @@ function captureInput(
 
 /** What an invalid row still shows in the report: the facts its cells give, as typed. */
 function partialValues(cells: Readonly<Record<string, string>>): Record<string, unknown> {
-    const pick = (key: string) => cells[key]?.slice(0, 60);
+    // a date cell is reported at its column, never kept as a value
+    const pick = (key: string) => {
+        const text = cells[key];
+        return text && text !== DATE_CELL ? clip(text, 60) : undefined;
+    };
     return {
         ...(pick('plate') ? { plate: pick('plate') } : {}),
         ...(pick('chassis_number') ? { chassisNumber: pick('chassis_number') } : {}),

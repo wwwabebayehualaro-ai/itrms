@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 import { IMPORT_COLUMN_KEYS, importTemplateCsv, MAX_IMPORT_ROWS } from '../contracts';
 import { columnOfPath, ownerKeyOf, readDate, readRow } from '../api/import-rows';
-import { csvRecords, DATE_CELL, readSheet, zipWithinBounds } from '../api/import-sheet';
+import { csvRecords, DATE_CELL, readSheet, storable, zipWithinBounds } from '../api/import-sheet';
 
 /** A row of a paper file as a clerk types it: a car of 2001 E.C., its owner a person. */
 const cells = (over: Record<string, string | undefined> = {}): Record<string, string> => {
@@ -122,6 +122,31 @@ describe('reading a sheet', () => {
         expect(await readSheet('xlsx', bomb.toString('base64'))).toEqual({ ok: false, code: 'too_large' });
     });
 
+    it('measures what the parts unpack to, never trusting the sizes the archive declares', async () => {
+        const data = Buffer.from(await workbook([HEADER, Object.values(cells())]), 'base64');
+        const end = data.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+        // every part claims to unpack to one byte: an archive that lies about its sizes, as a bomb's does
+        const liar = Buffer.from(data);
+        let at = data.readUInt32LE(end + 16);
+        for (let n = 0; n < data.readUInt16LE(end + 10); n++) {
+            liar.writeUInt32LE(1, at + 24);
+            at += 46 + data.readUInt16LE(at + 28) + data.readUInt16LE(at + 30) + data.readUInt16LE(at + 32);
+        }
+        const budget = 4_000;
+        expect(zipWithinBounds(data, budget)).toBe(false);
+        expect(zipWithinBounds(liar, budget)).toBe(false);
+        expect(zipWithinBounds(data)).toBe(true);
+    });
+
+    it('keeps no cell PostgreSQL would refuse: control characters and lone surrogates dropped, a date cell kept as one', async () => {
+        expect(storable('BOD\u0000/VEH\u0007/1')).toBe('BOD/VEH/1');
+        expect(storable('ab\ud800c\udc00d')).toBe('abcd');
+        expect(storable('ሰላም 😀 a\tb')).toBe('ሰላም 😀 a\tb');
+        expect(storable(DATE_CELL)).toBe(DATE_CELL);
+        const sheet = await readSheet('csv', csv([HEADER, Object.values(cells({ make: 'Toy\u0000ota\ud800' }))]));
+        expect(sheet.ok && sheet.records[0]?.cells.make).toBe('Toyota');
+    });
+
     it('keeps quoted commas, quotes and line breaks in a CSV field', () => {
         expect(csvRecords('a,"b, ""c""\nd",e\r\n\r\nf')).toEqual([['a', 'b, "c"\nd', 'e'], [''], ['f']]);
     });
@@ -193,6 +218,19 @@ describe('reading a row', () => {
             ])
         );
         expect(read.errors).toHaveLength(7);
+    });
+
+    it('reports a date cell in a text column at its column, never keeping the date mark as the paper reference', () => {
+        const read = readRow(cells({ paper_reference: DATE_CELL, model: DATE_CELL }));
+        expect(read.ok).toBe(false);
+        if (read.ok) return;
+        expect(read.paperReference).toBeUndefined();
+        expect(read.errors).toEqual(
+            expect.arrayContaining([
+                { column: 'paper_reference', code: 'date_cell' },
+                { column: 'model', code: 'date_cell' }
+            ])
+        );
     });
 
     it('takes an organisation by its TIN, never a person and an organisation together', () => {
