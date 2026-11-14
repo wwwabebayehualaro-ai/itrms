@@ -1842,6 +1842,14 @@
             "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
             "type": "string"
           },
+          "kind": {
+            "default": "form",
+            "enum": [
+              "form",
+              "block"
+            ],
+            "type": "string"
+          },
           "name": {
             "additionalProperties": {
               "minLength": 1,
@@ -7522,6 +7530,18 @@
             "schema": {
               "format": "uuid",
               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "enum": [
+                "form",
+                "block"
+              ],
               "type": "string"
             }
           },
