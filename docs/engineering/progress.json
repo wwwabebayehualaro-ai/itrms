@@ -1733,13 +1733,33 @@
         },
         {
           "id": "1.13b",
-          "title": "Paper-record migration, part 2: bulk import and the backlog",
+          "title": "Paper-record migration, part 2: bulk import",
+          "status": "in progress",
+          "branch": "task/1.13b-bulk-import",
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Split from 1.13 on 2026-11-12. Placed after 1.3 so the campaign counters have the plate exchange and the bolo season to count. Split again on 2026-11-14 (one session each): the bulk import here; sampling QA and the campaign counters in 1.13g; the reconciliation report in 1.13h. Split on 2026-11-14 (one session each): the bulk import here; sampling QA and campaign counters 1.13g; the reconciliation report 1.13h. Design (2026-11-14): competency.vehicle_imports and vehicle_import_rows (migration 0078, class T at the importing office); POST /api/v1/vehicle-imports takes the sheet in the body (CSV text or a workbook in base64, at most 900,000 characters and 2,000 rows: the API's 1 MB body limit; a larger backlog goes in several batches), stored field-encrypted until the worker reads it; the dry run and the commit run in the worker (vehicle-import.check-requested.v1, vehicle-import.commit-requested.v1) on the app's pool as the person who asked, with the roles they still hold; rows checked in chunks of 50 (one transaction each, resumable); each row checked as MIG-01 checks a capture (BackCaptureService.check, owners not yet on the register skipped in the dry run); duplicates within the sheet are errors on the later row; a chassis already imported with the same paper reference is already_imported (idempotent re-run). The commit is maker-checker (SEC-AC-6): the committer is the verifier of every imported vehicle (vehicles.migration_import_row_id). Owners: FIN match reuses the person, else made at the commit; rows of one owner (FIN, or Amharic name + phone) are one person; a name+phone match on the register is an error for a person; organisations by TIN only (must exist). Scans uploaded through the files flow and matched by file name (scan_file, else the paper reference). Assumptions for the owner: the committer verifies the batch as a whole (sampling QA in 1.13g re-checks a share against the scans); organisation owners not on the register are back-captured by hand. Only an office offering MIG-01 may import. Docker stopped locally: integration and e2e on CI. After 3d61ec2 (held until CI of PR #72 reports): an import notice links to the sheet's report (noticeHref); the scans are matched through a name index built once (was a scan of every file per row). CI on 3d61ec2 (run 43597029141): Semgrep blocked a regex test on the TIN cell (regex_dos; now a digit check); the integration fixture typed its parameters and the menu test gained the new entry (58aa641). CI on 58aa641 (run 43597585954): kernel.files forbids / in a file name, so a scan cannot be named after a paper reference as typed: scans are now matched by a key that treats / \\ _ - and spaces alike (BOD-VEH-000123.pdf for BOD/VEH/000123), the template hint says so; held locally until that run's e2e and stories jobs report. CI run 43599688883 on 5c30bb1 (PR #72): lint/typecheck/unit/build/boundaries, integration (42 files, 766 tests; vehicle-imports.int.spec 6 tests: 1,000-row dry run 20 s with every planted error at its row and column, commit by a second person 70 s with 900 vehicles migrated by import and one person for one FIN, re-sent sheet all already_imported and jobs delivered twice change nothing), Semgrep, Trivy, gitleaks, performance, stories/axe, production profile all green; e2e still running when the session paused (the watcher was stopped for low memory)."
+        },
+        {
+          "id": "1.13g",
+          "title": "Paper-record migration, part 3: sampling QA and campaign counters",
           "status": "planned",
           "branch": null,
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split from 1.13 on 2026-11-12. Placed after 1.3 so the campaign counters have the plate exchange and the bolo season to count."
+          "notes": "Split from 1.13b on 2026-11-14."
+        },
+        {
+          "id": "1.13h",
+          "title": "Paper-record migration, part 4: the reconciliation report",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Split from 1.13b on 2026-11-14."
         },
         {
           "id": "1.4",

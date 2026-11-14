@@ -11,6 +11,9 @@
  *   bolos                  a vehicle's bolo from its passed inspection (task 1.3a), class R like a licence.
  *   bolo_inspections       the inspection register (task 1.3b): every inspection of a case, passed or failed, and the garage
  *                          that repaired the vehicle before it, class T.
+ *   vehicle_imports        a sheet of paper vehicle files brought in by a clerk (task 1.13b, ADR-0054), class T at the importing
+ *                          office: the file (field-encrypted, cleared once read), its scans and its state.
+ *   vehicle_import_rows    each row of it: its facts, its errors, its scan and, once committed, the vehicle it made, class T.
  *
  * A licence's number is null until the national platform accepts it: `pending_national` is not yet anyone's licence.
  * The foreign keys to the register of people are in the migration: this file is read by drizzle-kit, which can't load another slice's
@@ -31,7 +34,7 @@ import {
     uuid
 } from 'drizzle-orm/pg-core';
 import { audited, baseColumns, ltree, withRls } from '@itrms/kernel/db';
-import { orgUnits } from '@itrms/kernel/tables';
+import { bytea, orgUnits } from '@itrms/kernel/tables';
 import type { I18nText } from '@itrms/schemas';
 
 import {
@@ -39,8 +42,13 @@ import {
     BOLO_STATUSES,
     ENROLMENT_STATUSES,
     GRADE_FAMILIES,
+    IMPORT_FAILURES,
+    IMPORT_FORMATS,
+    IMPORT_ROW_STATES,
+    IMPORT_STATES,
     LICENCE_KINDS,
-    LICENCE_STATUSES
+    LICENCE_STATUSES,
+    type ImportRowError
 } from '../contracts';
 
 export const competencySchema = pgSchema('competency');
@@ -407,6 +415,107 @@ export const boloInspections = withRls(
                 check('bolo_inspections_attempt_check', sql`attempt >= 1 AND (attempt = 1) = (garage_id IS NULL)`)
             ]
         )
+    ),
+    'transaction'
+);
+
+/**
+ * A sheet of paper vehicle files (task 1.13b, ADR-0054). The file itself is kept field-encrypted only until the worker has read it
+ * into rows (owners' phones and FINs are in it), then cleared. The roles are the ones its maker and its committer held when they
+ * asked: the worker acts with those it still finds them holding.
+ */
+export const vehicleImports = withRls(
+    audited(
+        competencySchema.table(
+            'vehicle_imports',
+            {
+                ...baseColumns(),
+                ...handled(),
+                /** the name the person gave the file: shown, never a key (SEC-IN-9) */
+                filename: text('filename').notNull(),
+                format: text('format', { enum: IMPORT_FORMATS }).notNull(),
+                state: text('state', { enum: IMPORT_STATES }).notNull().default('checking'),
+                failureCode: text('failure_code', { enum: IMPORT_FAILURES }),
+                /** the template's columns a sheet lacked (failure `missing_columns`) */
+                failureColumns: jsonb('failure_columns').$type<string[]>().notNull().default([]),
+                /** the file as sent (CSV text, a workbook in base64), encrypted with the region's data key; null once read */
+                contentCt: bytea('content_ct'),
+                /** the scans sent with it, linked to it so they are kept */
+                scanFileIds: jsonb('scan_file_ids').$type<string[]>().notNull().default([]),
+                /** the language its maker used: the rows' error messages are in it */
+                language: text('language').notNull(),
+                roles: text('roles').array().notNull(),
+                committedBy: uuid('committed_by'),
+                /** the office the committer acted from: the importing office or one above it */
+                commitUnitId: uuid('commit_unit_id').references(() => orgUnits.id),
+                commitRoles: text('commit_roles').array(),
+                committedAt: timestamp('committed_at', { withTimezone: true }),
+                checkedAt: timestamp('checked_at', { withTimezone: true })
+            },
+            (t) => [
+                index('vehicle_imports_unit_idx').on(t.handlingUnitId, t.createdAt),
+                index('vehicle_imports_org_path_gist').using('gist', t.orgPath),
+                check(
+                    'vehicle_imports_state_check',
+                    sql`(state = 'failed') = (failure_code IS NOT NULL)
+                        AND (state IN ('committing', 'committed')) = (committed_by IS NOT NULL)
+                        AND (committed_by IS NULL) = (committed_at IS NULL)
+                        AND (committed_by IS NULL) = (commit_unit_id IS NULL)
+                        AND (committed_by IS NULL OR committed_by IS DISTINCT FROM created_by)
+                        AND jsonb_array_length(scan_file_ids) <= 2000`
+                )
+            ]
+        ),
+        { omit: ['contentCt'] }
+    ),
+    'transaction'
+);
+
+/**
+ * A row of a sheet. Its facts (`values`) are the capture's answers as MIG-01 takes them; the owner's phone and FIN are apart,
+ * field-encrypted (`sensitive_ct`). `owner_key` (a blind index) makes the rows of one owner one person. The vehicle a committed row
+ * made points back at it (vehicles.migration_import_row_id).
+ */
+export const vehicleImportRows = withRls(
+    audited(
+        competencySchema.table(
+            'vehicle_import_rows',
+            {
+                ...baseColumns(),
+                ...handled(),
+                importId: uuid('import_id')
+                    .notNull()
+                    .references(() => vehicleImports.id),
+                line: integer('line').notNull(),
+                state: text('state', { enum: IMPORT_ROW_STATES }).notNull(),
+                paperReference: text('paper_reference'),
+                values: jsonb('values').$type<Record<string, unknown>>().notNull().default({}),
+                sensitiveCt: bytea('sensitive_ct'),
+                errors: jsonb('errors').$type<ImportRowError[]>().notNull().default([]),
+                vinKey: text('vin_key'),
+                plateKey: text('plate_key'),
+                ownerKey: bytea('owner_key'),
+                scanFileId: uuid('scan_file_id'),
+                /** the person the commit made or found for the owner */
+                ownerPersonId: uuid('owner_person_id'),
+                vehicleId: uuid('vehicle_id')
+            },
+            (t) => [
+                uniqueIndex('vehicle_import_rows_line_uq').on(t.importId, t.line),
+                index('vehicle_import_rows_state_idx').on(t.importId, t.state, t.line),
+                index('vehicle_import_rows_owner_idx')
+                    .on(t.importId, t.ownerKey)
+                    .where(sql`owner_key IS NOT NULL`),
+                index('vehicle_import_rows_org_path_gist').using('gist', t.orgPath),
+                check(
+                    'vehicle_import_rows_state_check',
+                    sql`line >= 2 AND (state IN ('imported', 'already_imported')) = (vehicle_id IS NOT NULL)
+                        AND (state <> 'invalid' OR jsonb_array_length(errors) > 0)
+                        AND (state = 'invalid' OR jsonb_array_length(errors) = 0)`
+                )
+            ]
+        ),
+        { omit: ['sensitiveCt', 'ownerKey'] }
     ),
     'transaction'
 );

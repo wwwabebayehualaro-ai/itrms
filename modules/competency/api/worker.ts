@@ -3,3 +3,4 @@
 // http-entries-never-reach-system-pool).
 export { askNationalPlatform, competencyHandlers, sendPrintBatch, type NationalDeps } from './handlers/national';
 export { boloHandlers, remindBoloExpiring, sendBoloReminder, type BoloReminderDeps } from './handlers/bolo-reminders';
+export { checkImport, commitImport, vehicleImportHandlers, type VehicleImportJobDeps } from './handlers/vehicle-import';

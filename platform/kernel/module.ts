@@ -142,7 +142,10 @@ export default defineModule({
             'receipt:read',
             'external-payment:read',
             'external-payment:enter',
-            'issued-document:read'
+            'issued-document:read',
+            // the backlog of paper vehicle files: sheets of them sent for import (task 1.13b, ADR-0054)
+            'vehicle-import:read',
+            'vehicle-import:create'
         ],
         cashier: [
             ...READ_ORG,

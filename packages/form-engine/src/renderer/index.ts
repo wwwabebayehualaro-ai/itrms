@@ -30,6 +30,8 @@ export type {
 
 // registry records by name, for answers shown outside a form (a case's printed steps)
 export { useLookupLabels, useLookupSearch } from '../host/lookups';
+// uploads outside a form (a bulk import's scans, task 1.13b), through the same presigned flow as a form's files
+export { useFileActions } from '../host/files';
 
 // the fee a service's rule works out for the answers so far: the screen names the service, and files the figure it showed
 export { FeeSourceProvider, useFeeSource, useFeePreview, useLatestFee } from '../host/fees';

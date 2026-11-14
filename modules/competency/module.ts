@@ -84,7 +84,9 @@ export default defineModule({
     permissions: {
         licence: ['read', 'issue', 'print'],
         exam: ['read', 'record'],
-        training: ['read', 'record']
+        training: ['read', 'record'],
+        // the bulk import of paper vehicle files (task 1.13b): a sheet sent, and committed by a second person
+        'vehicle-import': ['read', 'create', 'commit']
     },
     roles: {
         'competency.officer': [
@@ -97,7 +99,11 @@ export default defineModule({
             'pii:reveal',
             'issued-document:read',
             // the office's plate stock, which a registration takes a plate from (tasks 1.2a, 1.2b)
-            'plate-stock:read'
+            'plate-stock:read',
+            // a sheet of paper files sent, or another's committed (never one's own, SEC-AC-6), task 1.13b
+            'vehicle-import:read',
+            'vehicle-import:create',
+            'vehicle-import:commit'
         ],
         'competency.lead': [
             'issued-document:read',
@@ -110,7 +116,9 @@ export default defineModule({
             ...CASE_ACT,
             'person:lookup',
             'pii:reveal',
-            'plate-stock:read'
+            'plate-stock:read',
+            'vehicle-import:read',
+            'vehicle-import:commit'
         ],
         'competency.examiner': ['exam:read', 'exam:record', 'training:read', ...REGISTER_READ, ...CASE_ACT],
         'competency.inspector': ['licence:read', ...REGISTER_READ, 'case:read']
@@ -183,6 +191,23 @@ export default defineModule({
                     label: 'competency.action.newBackCapture',
                     route: '/competency/back-captures/new',
                     requires: { permission: 'case:create', services: ['MIG-01'] }
+                }
+            ]
+        },
+        {
+            key: 'competency.vehicleImports',
+            group: 'work-process',
+            order: 13,
+            label: 'competency.nav.vehicleImports',
+            icon: 'file-spreadsheet',
+            route: '/competency/vehicle-imports',
+            requires: { permission: 'vehicle-import:read', services: ['MIG-01'] },
+            quickActions: [
+                {
+                    key: 'competency.newVehicleImport',
+                    label: 'competency.action.newVehicleImport',
+                    route: '/competency/vehicle-imports/new',
+                    requires: { permission: 'vehicle-import:create', services: ['MIG-01'] }
                 }
             ]
         },
