@@ -167,7 +167,8 @@ async function scans(references: string[], sub = SUB.clerk): Promise<string[]> {
                 'files/' || $1::text || '/' || g.id::text, now(), 'upload', $3::uuid, now() + interval '7 days'
            from (select gen_random_uuid() as id, unnest($4::text[]) as name) g
          returning id`,
-        [boditi.regionId, boditi.id, clerk, references]
+        // a file name holds no `/`: a clerk names the scan of `BOD/VEH/…` `BOD-VEH-….pdf`
+        [boditi.regionId, boditi.id, clerk, references.map((r) => r.replaceAll('/', '-'))]
     );
     return rows.map((r) => r.id);
 }
@@ -369,7 +370,7 @@ describe('a sheet of 1,000 paper files (ADR-0054)', () => {
         expect(facts?.find((f) => f.key === 'migrated')?.value).toContain(row0?.paper_reference);
         // the row links to its vehicle and its scan
         expect(imported?.vehicleId).toBe(found?.id);
-        expect(imported?.scan?.filename).toBe(`${row0?.paper_reference}.pdf`);
+        expect(imported?.scan?.filename).toBe(`${row0?.paper_reference.replaceAll('/', '-')}.pdf`);
 
         // the 45 valid rows of the one owner (one FIN) are one person; the others each their own
         const owners = await api.owner.query<{ shared: string; all: string }>(

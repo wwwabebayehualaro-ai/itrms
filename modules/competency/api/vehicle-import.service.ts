@@ -134,6 +134,20 @@ function refusalErrors(error: AppError): ImportRowError[] {
 
 const fold = (text: string) => text.normalize('NFC').trim().toLowerCase();
 
+/**
+ * A scan's name as it is matched: folded, its separators alike. A file name cannot hold a `/` (kernel.files), so the scan of the
+ * paper reference `BOD/VEH/000123` is named `BOD-VEH-000123.pdf` (or with `_` or spaces), and found by it.
+ */
+function scanKey(text: string): string {
+    let key = '';
+    for (const c of fold(text)) {
+        const separator = c === '/' || c === '\\' || c === '_' || c === '-' || c.trim() === '';
+        if (!separator) key += c;
+        else if (!key.endsWith('-')) key += '-';
+    }
+    return key;
+}
+
 /** What one row of the sheet comes to in the dry run. */
 interface Verdict {
     state: Exclude<ImportRowState, 'imported'>;
@@ -560,7 +574,7 @@ export class VehicleImportService {
                     id: batch.id,
                     documentType: SCAN_DOCUMENT
                 });
-                const name = fold(file.filename);
+                const name = scanKey(file.filename);
                 for (const key of [name, name.replace(/\.[a-z0-9]+$/, '')]) if (!linked.has(key)) linked.set(key, id);
             } catch (error) {
                 if (!(error instanceof AppError)) throw error;
@@ -647,7 +661,7 @@ export class VehicleImportService {
         if (!categoryKey) errors.push({ column: 'category', code: 'not_in_list' });
 
         // the scan: the file the row names, else the one named after its paper reference
-        const scan = scans.get(fold(values.scanFile ?? values.paperReference));
+        const scan = scans.get(scanKey(values.scanFile ?? values.paperReference));
         if (!scan) errors.push({ column: values.scanFile ? 'scan_file' : 'paper_reference', code: 'scan_missing' });
         else {
             const first = seen.scan.get(scan);
