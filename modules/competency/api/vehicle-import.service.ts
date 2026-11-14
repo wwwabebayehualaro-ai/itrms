@@ -545,7 +545,10 @@ export class VehicleImportService {
         });
     }
 
-    /** The batch's scans linked to it, so they are kept; one that cannot be (expired meanwhile) is simply not there to match. */
+    /**
+     * The batch's scans linked to it, so they are kept; one that cannot be (expired meanwhile) is simply not there to match. Found
+     * by their name folded, with or without its extension (the first scan sent of a name wins): name → file id.
+     */
     private async linkScans(tx: Tx, batch: ImportRow): Promise<Map<string, string>> {
         // two deliveries at once link one after the other (the second finds them linked), so both hold every scan
         await tx.execute(sql`select pg_advisory_xact_lock(${IMPORT_LOCK}, hashtext(${batch.id}))`);
@@ -557,7 +560,8 @@ export class VehicleImportService {
                     id: batch.id,
                     documentType: SCAN_DOCUMENT
                 });
-                linked.set(id, file.filename);
+                const name = fold(file.filename);
+                for (const key of [name, name.replace(/\.[a-z0-9]+$/, '')]) if (!linked.has(key)) linked.set(key, id);
             } catch (error) {
                 if (!(error instanceof AppError)) throw error;
             }
@@ -643,15 +647,12 @@ export class VehicleImportService {
         if (!categoryKey) errors.push({ column: 'category', code: 'not_in_list' });
 
         // the scan: the file the row names, else the one named after its paper reference
-        const wanted = fold(values.scanFile ?? values.paperReference);
-        const scan = [...scans].find(
-            ([, name]) => fold(name) === wanted || fold(name).replace(/\.[a-z0-9]+$/, '') === wanted
-        );
+        const scan = scans.get(fold(values.scanFile ?? values.paperReference));
         if (!scan) errors.push({ column: values.scanFile ? 'scan_file' : 'paper_reference', code: 'scan_missing' });
         else {
-            const first = seen.scan.get(scan[0]);
+            const first = seen.scan.get(scan);
             if (first !== undefined) errors.push({ column: 'scan_file', code: 'scan_twice', params: line(first) });
-            else verdict.scanFileId = scan[0];
+            else verdict.scanFileId = scan;
         }
 
         // the sheet's other rows: one paper file, chassis, plate or libre in two rows

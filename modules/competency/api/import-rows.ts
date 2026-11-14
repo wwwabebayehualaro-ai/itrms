@@ -190,7 +190,9 @@ function readOwner(
             errors.push({ column: 'owner_tin', code: 'owner_one_of' });
             return { sensitive };
         }
-        if (!/^\d{10}$/.test(cells.owner_tin)) {
+        // ten digits, checked without a regex on the cell (Semgrep regex_dos)
+        const tin = cells.owner_tin;
+        if (tin.length !== 10 || [...tin].some((c) => c < '0' || c > '9')) {
             errors.push({ column: 'owner_tin', code: 'invalid_tin' });
             return { sensitive };
         }

@@ -163,8 +163,8 @@ async function scans(references: string[], sub = SUB.clerk): Promise<string[]> {
     const { rows } = await api.owner.query<{ id: string }>(
         `insert into kernel.files (id, region_id, unit_id, status, filename, content_type, size, sha256, object_key, confirmed_at,
                                    origin, created_by, expires_at)
-         select g.id, $1, $2, 'stored', g.name || '.pdf', 'application/pdf', 10, repeat('a', 64), 'files/' || $1 || '/' || g.id,
-                now(), 'upload', $3, now() + interval '7 days'
+         select g.id, $1::uuid, $2::uuid, 'stored', g.name || '.pdf', 'application/pdf', 10, repeat('a', 64),
+                'files/' || $1::text || '/' || g.id::text, now(), 'upload', $3::uuid, now() + interval '7 days'
            from (select gen_random_uuid() as id, unnest($4::text[]) as name) g
          returning id`,
         [boditi.regionId, boditi.id, clerk, references]

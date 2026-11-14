@@ -239,6 +239,8 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
             'competency.vehicleRegistrations',
             // the back-capture of paper vehicle files (task 1.13), offered with new registration
             'competency.backCaptures',
+            // their bulk import (task 1.13b), with the back-capture
+            'competency.vehicleImports',
             // the plate exchange (task 1.2c), where the office keeps plate stock
             'competency.plateExchanges',
             'competency.licences',
@@ -274,6 +276,8 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
                 'competency.vehicleRegistrations',
                 // the back-capture of paper vehicle files (task 1.13), offered with new registration
                 'competency.backCaptures',
+                // their bulk import (task 1.13b), with the back-capture
+                'competency.vehicleImports',
                 // the plate exchange (task 1.2c), where the office keeps plate stock
                 'competency.plateExchanges',
                 // the bolo inspection (task 1.3a): not a licensing service
