@@ -48,6 +48,23 @@ export type BackCaptureInput = RegistrationInput & {
 
 type Refusal = { path: string; code: string; message: string };
 
+/**
+ * Where a capture is checked: a case's place, or a sheet's row (task 1.13b), which has no case of its own. The office is the
+ * capturing office.
+ */
+export type CapturePlace = Omit<CasePlace, 'caseId'> & { caseId: string | null };
+
+/** How the vehicle came from paper: a case verified by its second person, or a sheet's row committed by its own. */
+export type PaperOrigin =
+    | { source: 'back_capture'; caseId: string; verifiedBy?: string }
+    | { source: 'import'; importRowId: string; verifiedBy?: string };
+
+/**
+ * An id a check needs the shape of and never writes: the owner of a sheet's row that the commit will make, and the row a dry run's
+ * check stands for.
+ */
+export const PLACEHOLDER_ID = '00000000-0000-4000-8000-000000000000';
+
 const refuse = (errors: Refusal[]): never => {
     throw new ValidationError('validation_failed', { errors });
 };
@@ -65,21 +82,28 @@ export class BackCaptureService {
     ) {}
 
     /** The register's command for the capture, in back-capture mode. `verifiedBy` only when the second person verifies. */
-    private registerInput(place: CasePlace, input: BackCaptureInput, verifiedBy?: string): RegisterInput {
+    private registerInput(input: BackCaptureInput, origin: PaperOrigin): RegisterInput {
         const federal = input.federalVehicleId?.trim();
         return {
             ...this.registration.registerInput(input, { firstRegisteredOn: input.firstRegisteredOn }),
             ...(federal ? { federalVehicleId: federal, federalIdSource: 'manual' as const } : {}),
             since: input.ownersSince ?? input.firstRegisteredOn,
             acquiredBy: 'back_capture',
-            caseId: place.caseId,
+            ...(origin.source === 'back_capture' ? { caseId: origin.caseId } : {}),
             migration: {
-                source: 'back_capture',
+                source: origin.source,
                 paperReference: input.paperReference.trim(),
-                caseId: place.caseId,
-                ...(verifiedBy ? { verifiedBy } : {})
+                ...(origin.source === 'back_capture' ? { caseId: origin.caseId } : { importRowId: origin.importRowId }),
+                ...(origin.verifiedBy ? { verifiedBy: origin.verifiedBy } : {})
             }
         };
+    }
+
+    /** The origin a check stands for: the case, or a row (whose id the check does not need). */
+    private originOf(place: CapturePlace): PaperOrigin {
+        return place.caseId
+            ? { source: 'back_capture', caseId: place.caseId }
+            : { source: 'import', importRowId: PLACEHOLDER_ID };
     }
 
     /** The dates of the file, in order: none in the future, none before the first registration, the libre not before its owners. */
@@ -127,9 +151,10 @@ export class BackCaptureService {
     /**
      * What makes a capture acceptable, checked on the server: the register's own checks in back-capture mode (category, chassis
      * number, owners; the chassis not on the register already), the file's dates, a plate no vehicle carries, a federal id no
-     * vehicle has, and no other open request for the same chassis or plate. Nothing is written.
+     * vehicle has, and no other open request for the same chassis or plate. Nothing is written. A sheet's row whose owner the
+     * commit will make (`ownersToBeMade`) is checked without its owner, which is not on the register yet.
      */
-    async check(tx: Tx, place: CasePlace, input: BackCaptureInput) {
+    async check(tx: Tx, place: CapturePlace, input: BackCaptureInput, options: { ownersToBeMade?: boolean } = {}) {
         this.checkDates(input);
         const plate = await this.plateOf(tx, input.plate);
         const federal = input.federalVehicleId?.trim();
@@ -156,7 +181,14 @@ export class BackCaptureService {
         await tx.execute(
             sql`select pg_advisory_xact_lock(hashtextextended(${`competency.back-capture:${plate.key}`}, 0))`
         );
-        const checked = await this.registry.checkRegistration(tx, place.ctx, this.registerInput(place, input));
+        const checked = await this.registry.checkRegistration(
+            tx,
+            place.ctx,
+            this.registerInput(input, this.originOf(place)),
+            {
+                checkOwners: options.ownersToBeMade !== true
+            }
+        );
 
         // a plate another vehicle of the register carries, or carried and gave up (an old plate is never handed out again)
         const [carried] = await tx
@@ -221,13 +253,26 @@ export class BackCaptureService {
         const verifier = place.ctx.userId;
         if (!verifier) throw new ForbiddenError();
         await this.mayVerify(tx, place, verifier);
+        return this.put(tx, place, input, { source: 'back_capture', caseId: place.caseId, verifiedBy: verifier });
+    }
+
+    /**
+     * A sheet's committed row (task 1.13b): the vehicle joins the register as the capture's does, migrated by import (its row, its
+     * paper reference and the second person who committed the sheet). The importer has checked the row again in this transaction.
+     */
+    async importRow(tx: Tx, place: CapturePlace, input: BackCaptureInput, row: { id: string; committedBy: string }) {
+        return this.put(tx, place, input, { source: 'import', importRowId: row.id, verifiedBy: row.committedBy });
+    }
+
+    /** Puts the file's vehicle on the register, with the plate it carries and the libre its owners hold. */
+    private async put(tx: Tx, place: CapturePlace, input: BackCaptureInput, origin: PaperOrigin) {
         this.checkDates(input);
         const plate = await this.plateOf(tx, input.plate);
         await this.checkLibre(tx, place, input);
         // the vehicle is the capturing office's, whoever verified it: the office's own officer, or the one above it when separation
         // of duties sent the step up (SEC-AC-6)
         const ctx = { ...place.ctx, unitId: place.handlingUnitId };
-        const vehicle = await this.registry.register(tx, ctx, this.registerInput(place, input, verifier));
+        const vehicle = await this.registry.register(tx, ctx, this.registerInput(input, origin));
         await this.registry.recordPlate(tx, ctx, vehicle.id, {
             text: plate.text,
             source: plate.format === 'legacy' ? 'legacy' : 'manual',
@@ -237,7 +282,7 @@ export class BackCaptureService {
             await this.registry.recordLibre(tx, ctx, vehicle.id, {
                 number: libreKey(input.libreNumber),
                 issuedOn: input.libreIssuedOn ?? input.ownersSince ?? input.firstRegisteredOn,
-                caseId: place.caseId
+                ...(place.caseId ? { caseId: place.caseId } : {})
             });
         return { vehicle: { id: vehicle.id } };
     }
@@ -259,7 +304,7 @@ export class BackCaptureService {
      * The libre the file records: a booklet serial is kept folded, never one of the stationery's own booklets (those are issued
      * from the stock, not captured), and no other vehicle's libre has it.
      */
-    private async checkLibre(tx: Tx, place: CasePlace, input: BackCaptureInput): Promise<void> {
+    private async checkLibre(tx: Tx, place: CapturePlace, input: BackCaptureInput): Promise<void> {
         const given = input.libreNumber?.trim();
         if (!given) return;
         const parsed = parseStationeryKey(given);

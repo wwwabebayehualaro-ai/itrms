@@ -137,12 +137,14 @@ export const libreSchema = z.object({
 
 /**
  * A vehicle migrated from its paper file (ADR-0054): where it came from, the paper file's reference, the case that captured it
- * and the second person who verified it. null for a vehicle registered in ITRMS.
+ * (or the sheet's row it was imported from, task 1.13b) and the second person who verified it. null for a vehicle registered in
+ * ITRMS.
  */
 export const migrationSchema = z.object({
     source: z.enum(MIGRATION_SOURCES),
     paperReference: z.string(),
     caseId: z.uuid().nullable(),
+    importRowId: z.uuid().nullable(),
     verifiedBy: z.object({ id: z.uuid(), name: z.string() }).nullable(),
     verifiedAt: z.string().nullable()
 });
@@ -296,7 +298,12 @@ export const vehicleRegisterSchema = z
                 source: z.enum(MIGRATION_SOURCES),
                 paperReference: z.string().trim().min(1).max(60),
                 caseId: z.uuid().optional(),
-                /** the second person, who checked the capture against the paper file (a back-capture names it and its case) */
+                /** the sheet's row an import made it from (task 1.13b) */
+                importRowId: z.uuid().optional(),
+                /**
+                 * the second person, who checked the capture against the paper file (a back-capture names it and its case), or
+                 * committed the sheet it was imported from
+                 */
                 verifiedBy: z.uuid().optional()
             })
             .optional()

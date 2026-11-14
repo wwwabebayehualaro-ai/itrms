@@ -359,6 +359,7 @@ function migrationOf(row: Row, verifiers: ReadonlyMap<string, string>): VehicleS
         source: row.migrationSource,
         paperReference: row.paperReference,
         caseId: row.migrationCaseId,
+        importRowId: row.migrationImportRowId,
         verifiedBy: verifier ? { id: verifier, name: verifiers.get(verifier) ?? '' } : null,
         verifiedAt: row.migrationVerifiedAt?.toISOString() ?? null
     };

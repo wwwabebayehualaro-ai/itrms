@@ -5658,6 +5658,44 @@
         ],
         "type": "object"
       },
+      "VehicleImportCreateDto": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "maxLength": 900000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "filename": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "format": {
+            "enum": [
+              "csv",
+              "xlsx"
+            ],
+            "type": "string"
+          },
+          "scanFileIds": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            },
+            "maxItems": 2000,
+            "type": "array"
+          }
+        },
+        "required": [
+          "filename",
+          "format",
+          "content"
+        ],
+        "type": "object"
+      },
       "VersionDto": {
         "additionalProperties": false,
         "properties": {
@@ -11330,6 +11368,228 @@
         },
         "tags": [
           "VehicleCategories"
+        ]
+      }
+    },
+    "/api/v1/vehicle-imports": {
+      "get": {
+        "operationId": "VehicleImportController_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "VehicleImport"
+        ]
+      },
+      "post": {
+        "operationId": "VehicleImportController_create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VehicleImportCreateDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "VehicleImport"
+        ]
+      }
+    },
+    "/api/v1/vehicle-imports/rows/{rowId}": {
+      "get": {
+        "operationId": "VehicleImportController_row",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rowId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "VehicleImport"
+        ]
+      }
+    },
+    "/api/v1/vehicle-imports/rows/{rowId}/scan": {
+      "post": {
+        "operationId": "VehicleImportController_scan",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rowId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "VehicleImport"
+        ]
+      }
+    },
+    "/api/v1/vehicle-imports/{id}": {
+      "get": {
+        "operationId": "VehicleImportController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "VehicleImport"
+        ]
+      }
+    },
+    "/api/v1/vehicle-imports/{id}/commit": {
+      "post": {
+        "operationId": "VehicleImportController_commit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "VehicleImport"
+        ]
+      }
+    },
+    "/api/v1/vehicle-imports/{id}/discard": {
+      "post": {
+        "operationId": "VehicleImportController_discard",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "VehicleImport"
+        ]
+      }
+    },
+    "/api/v1/vehicle-imports/{id}/rows": {
+      "get": {
+        "operationId": "VehicleImportController_rows",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "enum": [
+                "valid",
+                "invalid",
+                "already_imported",
+                "imported"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 2000,
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "VehicleImport"
         ]
       }
     },
