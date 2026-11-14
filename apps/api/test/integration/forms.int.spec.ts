@@ -1263,6 +1263,15 @@ describe('form analytics (task 1.13f)', () => {
             [form.id]
         );
         expect(JSON.stringify(stored.rows)).not.toContain('0911000000');
+        // each moment is written with its audit row, in the same transaction, and the audit holds no answer either
+        const audited = await owner.query<{ n: number; diffs: string }>(
+            `select count(*)::int as n, coalesce(string_agg(a.diff::text, ' '), '') as diffs
+               from kernel.audit_log a join forms.form_events e on e.id = a.row_id
+              where a.table_name = 'forms.form_events' and a.action = 'insert' and e.form_id = $1`,
+            [form.id]
+        );
+        expect(audited.rows[0]?.n).toBe(stored.rows.length);
+        expect(audited.rows[0]?.diffs).not.toContain('0911000000');
         // a sibling office reads none of Damot's fills
         const sibling = await get<{ fills: { opened: number } }>(`/api/v1/forms/${form.id}/analytics`, as.boditi());
         expect(sibling.fills.opened).toBe(0);
