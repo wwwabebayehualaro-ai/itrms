@@ -40,6 +40,7 @@ import {
     isUniqueViolation,
     required
 } from './support';
+import { blockImpact } from './blocks';
 import { assertKeysStable, assertPublishable, publishCheck, publishedDocument } from './governance';
 import { FORM_PUBLISH_GUARD, type FormPublishGuard, type GuardResult } from './publish-guard';
 import {
@@ -133,6 +134,7 @@ export class FormsService {
         const conditions = [];
         if (query.active) conditions.push(eq(formDefinitions.active, query.active === 'true'));
         if (query.owner) conditions.push(eq(formDefinitions.ownerUnitId, query.owner));
+        if (query.kind) conditions.push(eq(formDefinitions.kind, query.kind));
         if (query.q) {
             const like = `%${escapeLike(query.q)}%`;
             conditions.push(
@@ -168,6 +170,7 @@ export class FormsService {
                 key: input.key,
                 name: input.name,
                 category: input.category ?? null,
+                kind: input.kind,
                 document: input.document,
                 documentHash: contentHash(input.document),
                 documentUpdatedBy: ctx.userId ?? null
@@ -270,6 +273,8 @@ export class FormsService {
                     inArray(formDefinitions.key, [...new Set(refs.map((r) => r.key))]),
                     inArray(formVersions.number, [...new Set(refs.map((r) => r.number))]),
                     eq(formDefinitions.active, true),
+                    // a block is never a step's form: forms take a copy of it (task 1.13d)
+                    eq(formDefinitions.kind, 'form'),
                     notComposed(),
                     sql`${formDefinitions.orgPath} @> ${ownerPath}::ltree`
                 )
@@ -295,6 +300,7 @@ export class FormsService {
                     eq(formDefinitions.key, key),
                     eq(formVersions.number, number),
                     eq(formDefinitions.active, true),
+                    eq(formDefinitions.kind, 'form'),
                     notComposed()
                 )
             );
@@ -446,7 +452,9 @@ export class FormsService {
             { id: same?.id ?? null, number: same?.number ?? null, document: form.document },
             language,
             await this.guarded(tx, formId, form.document),
-            await overlayImpact(tx, form, form.document, await this.lockedKeys(tx, formId), language)
+            await overlayImpact(tx, form, form.document, await this.lockedKeys(tx, formId), language),
+            undefined,
+            form.kind === 'block' ? await blockImpact(tx, form.key, same?.number ?? null) : []
         );
     }
 
@@ -500,7 +508,9 @@ export class FormsService {
             { id: candidate.id, number: candidate.number, document: candidate.document },
             language,
             await this.guarded(tx, row.formId, candidate.document),
-            await overlayImpact(tx, form, candidate.document, locks, language)
+            await overlayImpact(tx, form, candidate.document, locks, language),
+            undefined,
+            form.kind === 'block' ? await blockImpact(tx, form.key, candidate.number) : []
         );
     }
 
@@ -698,6 +708,7 @@ export class FormsService {
                 key: row.key,
                 name: row.name,
                 category: row.category,
+                kind: row.kind,
                 active: row.active,
                 status: pending.has(row.id)
                     ? 'pending'

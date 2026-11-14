@@ -113,6 +113,22 @@ function at save, so a rule never behaves differently in the API; at run time a 
   around it) and each condition's value, what it compared with and whether it held (`explainAll`, `explainField`). It
   explains with the engine's own functions. A repeating section's row fields are not explained there.
 
+## Reusable blocks (task 1.13d)
+
+- A **block** is a form of kind `block` (the forms API's `kind`; never filled in, never a service's or a step's form),
+  versioned and published like any form. The starter blocks (`@itrms/forms/seed`: applicant, vehicle, payment,
+  attachments, officer remarks, approval sign-off) are published at the region's root.
+- In the builder the palette lists the published blocks; a click copies the block's published version into the form as a
+  `FormSection` whose `props.block` is `{ key, version, prefix }` (`designer/blocks.ts`). The copied keys are the
+  block's own unless one is taken, then all carry a prefix (`blockApplicant2_`), and the copy's own references are
+  renamed with them. The copy is the form's: a published form version never changes.
+- The section's inspector names the block and version and offers **Update to version N** when a newer one is published:
+  the fields are replaced by the new version's (same prefix); a published key the new version leaves out stays, flagged
+  removed; a field an effect reads never leaves (the update is refused).
+- `blockRefOf` and `blockUses` (`core/blocks.ts`) read a document's copies; the API's publish check of a block lists
+  every form holding a copy (`impact.blockForms`: the versions in its working copy and its published version, and
+  whether it is behind the candidate), shown in the publish review.
+
 ## Texts in every language
 
 A field's label, help text, placeholder, option labels and custom messages are each a plain string (one text for every

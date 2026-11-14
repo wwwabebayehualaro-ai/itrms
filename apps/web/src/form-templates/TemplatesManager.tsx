@@ -102,8 +102,11 @@ export default function TemplatesManager({ mode = 'manage', onFormSubmit }: Temp
     const { data: all = [], isPending, error, refetch } = useTemplateList();
     const { remove, publish } = useTemplateMutations();
     const loadTemplate = useTemplateLoader();
-    // people who start requests pick from forms; view templates (reports) are managed here, not filled in
-    const templates = useMemo(() => (mode === 'start' ? all.filter((t) => !isViewTemplate(t)) : all), [all, mode]);
+    // people who start requests pick from forms; view templates (reports) and blocks (task 1.13d) are managed here, not filled in
+    const templates = useMemo(
+        () => (mode === 'start' ? all.filter((t) => !isViewTemplate(t) && t.kind !== 'block') : all),
+        [all, mode]
+    );
 
     const [publishing, setPublishing] = useState<IFormTemplate | null>(null);
     const [q, setQ] = useState('');

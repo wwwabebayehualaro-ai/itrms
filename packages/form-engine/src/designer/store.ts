@@ -15,6 +15,7 @@ import { setTextIn, type FormField, type FormTemplate } from '@itrms/schemas';
 import type { FormTestCase, TemplateRuntimeConfig } from '@itrms/schemas';
 import type { PublishedKey } from '../core/keys';
 import type { EngineWord } from '../core/messages';
+import { blockCopy, blockOfField, blockPrefix, blockRef, type BlockSource } from './blocks';
 import { keyFromLabel } from './fieldKeys';
 import {
     EMPTY_DOC,
@@ -91,6 +92,13 @@ export interface DesignerActions {
     /** Takes a removed field back into the form. */
     restore: (id: string) => void;
     duplicate: (id: string) => string | null;
+    /** A copy of a block's published version, as a section at the end of the form (task 1.13d). Its id, or null. */
+    insertBlock: (block: BlockSource) => string | null;
+    /**
+     * A block's section brought to a newer version of the block: its fields replaced by the new version's, with the same prefix. A
+     * published key the new version leaves out stays, flagged removed; refused (false) when a field an effect reads would go.
+     */
+    updateBlock: (id: string, block: BlockSource) => boolean;
     update: (id: string, recipe: (f: Draft<FormField>) => void, key?: string) => void;
     rename: (id: string, newKey: string) => void;
     /**
@@ -270,6 +278,84 @@ export function createDesignerStore(
                 });
                 if (copy) set((s) => ({ selected: copy, selection: s.selection + 1 }));
                 return copy;
+            },
+            insertBlock: (block) => {
+                const { doc } = get();
+                const section = createField(
+                    doc,
+                    'FormSection',
+                    'form-engine.palette.type.FormSection.label',
+                    get().language
+                );
+                if (!section) return null;
+                const taken = new Set(Object.keys(doc.byId));
+                const prefix = blockPrefix(block, taken);
+                section.id = uniqueKey(doc, block.key, taken);
+                section.label = block.name;
+                section.props = { ...section.props, title: block.name, block: blockRef(block, prefix) };
+                const fields = blockCopy(block, prefix, section.id);
+                if (fields.some((f) => taken.has(f.id))) return null;
+                edit(
+                    (d) => {
+                        insertField(d, section, ROOT, (d.children[ROOT] ?? []).length);
+                        for (const f of fields) {
+                            const parent = f.parentId ?? section.id;
+                            insertField(d, f, parent, (d.children[parent] ?? []).length);
+                        }
+                    },
+                    undefined,
+                    section.id
+                );
+                return section.id;
+            },
+            updateBlock: (id, block) => {
+                const { doc, published, locked } = get();
+                const section = doc.byId[id];
+                const ref = blockOfField(section);
+                if (!section || !ref || ref.key !== block.key) return false;
+                const old = subtree(doc, id).filter((x) => x !== id);
+                const fields = blockCopy(block, ref.prefix, id);
+                const next = new Set(fields.map((f) => f.id));
+                // a field an effect reads never leaves the form; another field's key may not be taken
+                if (old.some((x) => locked.has(x) && !next.has(x))) return false;
+                if (fields.some((f) => doc.byId[f.id] && !old.includes(f.id))) return false;
+                // a field an effect reads keeps its type, the settings of its kind, its conditions and roles, and its required-ness,
+                // whatever the new version says: the same rule as an edit of it (the server's publish guard checks it again)
+                for (const copy of fields) {
+                    const lock = locked.get(copy.id);
+                    const was = doc.byId[copy.id];
+                    if (!lock || !was) continue;
+                    const kept = lockedParts(was);
+                    copy.type = kept.type;
+                    copy.props = { ...(copy.props ?? {}), ...kept.props, ...(lock.required ? { required: true } : {}) };
+                    copy.behavior = { ...(copy.behavior ?? {}), ...kept.behavior };
+                    copy.visibleToRoles = kept.visibleToRoles;
+                }
+                // a published key the new version leaves out stays in the form, flagged removed (its answers stay readable),
+                // in its container when that is still there
+                const kept = old.filter((x) => published.has(x) && !next.has(x)).map((x) => doc.byId[x]);
+                const placeOf = (f: FormField) =>
+                    f.parentId && (next.has(f.parentId) || f.parentId === id) ? f.parentId : id;
+                edit((d) => {
+                    for (const child of [...(d.children[id] ?? [])]) removeField(d, child);
+                    for (const f of fields) {
+                        const parent = f.parentId ?? id;
+                        insertField(d, f, parent, (d.children[parent] ?? []).length);
+                    }
+                    for (const f of kept) {
+                        if (!f) continue;
+                        const parent = placeOf(f);
+                        insertField(
+                            d,
+                            { ...f, parentId: parent, removed: true },
+                            parent,
+                            (d.children[parent] ?? []).length
+                        );
+                    }
+                    const s = d.byId[id];
+                    if (s) s.props = { ...(s.props ?? {}), block: { ...ref, version: block.version } };
+                });
+                return true;
             },
             update: (id, recipe, key) => {
                 const lock = get().locked.get(id);

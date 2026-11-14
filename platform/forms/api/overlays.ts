@@ -184,7 +184,8 @@ async function overlayBase(tx: Tx, form: DefinitionRow, unit: OrgUnit, locks: Re
 
 /** A unit may overlay a bureau form, below the bureau, within the caller's scope. */
 function assertOverlayable(form: DefinitionRow, unit: OrgUnit, ctx: DbContext): void {
-    if (!isBureauForm(form))
+    // a block is copied, never filled in: an office's additions belong on the form that copies it (task 1.13d)
+    if (!isBureauForm(form) || form.kind === 'block')
         throw new ValidationError('validation_failed', {
             detailKey: 'forms.errors.overlay_bureau_only',
             errors: [{ path: 'formId', code: 'not_regional', message: 'only a bureau form takes overlays' }]

@@ -1125,3 +1125,94 @@ describe('conditional rules, the Ethiopian date and recomputed values (task 0.17
         );
     });
 });
+
+describe('reusable blocks (task 1.13d)', () => {
+    const section = (version: number, prefix = '') => ({
+        id: `applicant${prefix ? '2' : ''}`,
+        type: 'FormSection',
+        category: 'Layout',
+        props: { title: 'Applicant', block: { key: 'block-test-applicant', version, prefix } },
+        layout: { options: { isContainer: true } }
+    });
+    const copied = (prefix = '') => [
+        { ...required(`${prefix}fullName`), parentId: `applicant${prefix ? '2' : ''}` },
+        { ...text(`${prefix}phone`), parentId: `applicant${prefix ? '2' : ''}` }
+    ];
+
+    it('are made and listed apart from the forms, and never filled in on their own', async () => {
+        const made = await call('POST', '/api/v1/forms', as.bureau(), {
+            key: 'block-test-applicant',
+            name: { am: 'አመልካች', en: 'Applicant' },
+            kind: 'block',
+            document: V1
+        });
+        expect(made.statusCode, made.body).toBe(201);
+        const block = made.json<FormOut & { kind: string }>();
+        expect(block.kind).toBe('block');
+        await publish(block.id, as.bureau(), as.bureau2());
+        const blocks = await get<{ items: { key: string }[] }>('/api/v1/forms?kind=block&limit=100', as.bureau());
+        expect(blocks.items.map((f) => f.key)).toContain('block-test-applicant');
+        const forms = await get<{ items: { key: string }[] }>('/api/v1/forms?kind=form&limit=100', as.bureau());
+        expect(forms.items.map((f) => f.key)).not.toContain('block-test-applicant');
+        // a form is never made a block, nor a block a form
+        const turned = await call(
+            'PATCH',
+            `/api/v1/forms/${block.id}`,
+            as.bureau(),
+            { kind: 'form' },
+            ifMatch(block.version)
+        );
+        expect(turned.statusCode, turned.body).toBe(422);
+        const published = await get<FormOut>(`/api/v1/forms/${block.id}`, as.bureau());
+        const refused = await submit(as.damot(), block.id, published.publishedVersion?.id ?? '', {
+            fullName: 'Sample'
+        });
+        expect(refused.statusCode, refused.body).toBe(409);
+    });
+
+    it("shows on a block's next version every form holding a copy, with the versions in its working copy and its published version", async () => {
+        const blocks = await get<{ items: { id: string; key: string }[] }>(
+            '/api/v1/forms?kind=block&limit=100',
+            as.bureau()
+        );
+        const block = blocks.items.find((b) => b.key === 'block-test-applicant');
+        if (!block) throw new Error('no block');
+        // a published form with the copy, a draft form with two copies (the second prefixed), and a form without any
+        const live = await createForm(as.bureau(), 'uses-block-live', {
+            schemaVersion: 2,
+            fields: [section(1), ...copied(), text('note')]
+        });
+        await publish(live.id, as.bureau(), as.bureau2());
+        await createForm(as.bureau(), 'uses-block-draft', {
+            schemaVersion: 2,
+            fields: [section(1), ...copied(), section(1, 'applicant2_'), ...copied('applicant2_')]
+        });
+        await createForm(as.bureau(), 'uses-no-block', V1);
+
+        // the block changes: its next version would be 2
+        const current = await get<FormOut>(`/api/v1/forms/${block.id}`, as.bureau());
+        const edited = await call(
+            'PATCH',
+            `/api/v1/forms/${block.id}`,
+            as.bureau(),
+            { document: V2 },
+            ifMatch(current.version)
+        );
+        expect(edited.statusCode, edited.body).toBe(200);
+        const check = await get<{
+            impact: {
+                blockForms: { key: string; workingCopy: number[]; published: number[]; behind: boolean }[];
+            };
+        }>(`/api/v1/forms/${block.id}/publish-check`, as.bureau());
+        expect(check.impact.blockForms.map((f) => [f.key, f.workingCopy, f.published, f.behind])).toEqual([
+            ['uses-block-draft', [1], [], true],
+            ['uses-block-live', [1], [1], true]
+        ]);
+        // a form's own publish check names no forms
+        const own = await get<{ impact: { blockForms: unknown[] } }>(
+            `/api/v1/forms/${live.id}/publish-check`,
+            as.bureau()
+        );
+        expect(own.impact.blockForms).toEqual([]);
+    });
+});

@@ -48,6 +48,7 @@ import {
     type StoredTableColumn
 } from '@itrms/schemas';
 import { KEY_PATTERN } from './fieldKeys';
+import { BlockNotice } from './BlocksPanel';
 import { checkFormula, checkRuleFormula } from '../core/runtime/formula';
 import type { FieldOptionsBinding } from '@itrms/schemas';
 import { holdsValue, parseDate, storedFieldSchema, toEngineField, type EngineField, type StoredField } from '../core';
@@ -190,6 +191,7 @@ function FieldTab({ stored, field, design }: { stored: FormField; field: EngineF
     const span = plainText(field.props.span ?? '12');
     return (
         <div className="flex flex-col gap-4">
+            <BlockNotice stored={stored} />
             <Row
                 id="insp-label"
                 label={

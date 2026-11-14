@@ -134,7 +134,8 @@ export class SubmissionsService {
         await lockFormShared(tx, input.formId);
         const [form] = await tx.select().from(formDefinitions).where(eq(formDefinitions.id, input.formId));
         if (!form) throw new NotFoundError();
-        if (!form.active)
+        // a block is never filled in on its own: forms take a copy of its fields (task 1.13d)
+        if (!form.active || form.kind === 'block')
             throw new ConflictError('invalid_transition', { detailKey: 'forms.errors.form_no_submissions' });
         // a step's version is the workflow's (checked when it was stored); a person's request is on the published one
         if (!step && !form.publishedVersionId)

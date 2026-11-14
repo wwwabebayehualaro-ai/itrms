@@ -49,6 +49,7 @@ import {
     setUpRegistrationCertificateCounters
 } from '@itrms/vehicles/seed';
 import { importDocumentTemplates } from '@itrms/documents/seed';
+import { importStarterBlocks } from '@itrms/forms/seed';
 import { importFeeRules, importStationeryDemo, parseFeeRules, setUpReceiptCounters } from '@itrms/fees/seed';
 import { importCatalogue } from '@itrms/services/api';
 import { parseCatalogue } from '@itrms/services/seed';
@@ -195,7 +196,9 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
                 plateExchange: await importPlateExchangeService(tx, where),
                 // the bolo inspection (task 1.3a), after the fee rules; its temporary bolos' counters
                 bolo: await importBoloService(tx, where),
-                boloCounters: await setUpBoloCounters(tx, root.regionId)
+                boloCounters: await setUpBoloCounters(tx, root.regionId),
+                // the starter blocks form authors copy into their forms (task 1.13d)
+                blocks: await importStarterBlocks(tx, where)
             };
         });
         logger.info(

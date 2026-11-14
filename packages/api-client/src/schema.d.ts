@@ -2842,6 +2842,11 @@ export interface components {
                 [key: string]: unknown;
             } | unknown[];
             key: string;
+            /**
+             * @default form
+             * @enum {string}
+             */
+            kind: "form" | "block";
             name: {
                 am: string;
                 en: string;
@@ -4845,6 +4850,7 @@ export interface operations {
                 q?: string;
                 active?: "true" | "false";
                 owner?: string;
+                kind?: "form" | "block";
                 limit?: number;
             };
             header?: never;
