@@ -24,6 +24,7 @@ import {
     viewConfigSchema,
     type CheckProblem,
     type ImpactView,
+    type ImpactBlockForm,
     type ImpactOverlay,
     type PublishCheck,
     type QueryGroup
@@ -125,7 +126,9 @@ export async function publishCheck(
      * an overlay's publication (task 0.21f): the form it is composed onto (the bureau's with the overlays above), and the
      * overlay's own problems; its `x_` keys are then its own, never reserved ones
      */
-    overlay?: { base: { id: string; number: number; document: unknown }; problems: CheckProblem[] }
+    overlay?: { base: { id: string; number: number; document: unknown }; problems: CheckProblem[] },
+    /** a block's: the forms holding a copy of it, and the versions they hold (task 1.13d) */
+    blockForms: ImpactBlockForm[] = []
 ): Promise<PublishCheck> {
     const base = overlay ? overlay.base : await publishedVersion(tx, form);
     const lint = lintDocument(candidate.document, { dataSources: DATA_SOURCE_ALLOWLIST });
@@ -154,7 +157,12 @@ export async function publishCheck(
         problems,
         tests,
         diff,
-        impact: { views: await impact(tx, userId, form.id, changed), services: guard?.services ?? [], overlays }
+        impact: {
+            views: await impact(tx, userId, form.id, changed),
+            services: guard?.services ?? [],
+            overlays,
+            blockForms
+        }
     };
 }
 

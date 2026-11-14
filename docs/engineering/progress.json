@@ -1686,7 +1686,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split from 1.13c on 2026-11-14. Split again on 2026-11-14 (one session each): reusable blocks with their impact here; the print preview with the official header and form analytics in 1.13e."
+          "notes": "Split from 1.13c on 2026-11-14. Split again on 2026-11-14 (one session each): reusable blocks with their impact here; the print preview with the official header and form analytics in 1.13e. Design (2026-11-14): a block is a form of kind block (form_definitions.kind, migration 0076, not in the app's UPDATE grant, check constraint): versioned and published like any form (second person), never filled in (submissions refuse it), never a service's or a step's form. A form takes a copy: a FormSection with props.block {key, version, prefix}, keys prefixed only on a clash and the copy's own references renamed; the section's inspector updates it to a newer published version on the author's request (a published key left out stays removed; refused if an effect's field would go). The publish check of a block lists impact.blockForms (working copy and published versions held, behind the candidate). Starter blocks: applicant, vehicle, payment, attachments, officer remarks, approval sign-off (@itrms/forms/seed, run with the competency seed). Assumption for the owner: a block's copy never follows the block on its own (published versions stay as approved). Docker stopped locally: integration and e2e on CI."
         },
         {
           "id": "1.13e",

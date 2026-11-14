@@ -74,11 +74,16 @@ export const formKeySchema = z
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'lower-case letters and digits, joined by hyphens');
 
 export const FORM_STATUSES = ['draft', 'pending', 'published'] as const;
+/** A form people fill in, or a block: a versioned group of fields other forms take a copy of (task 1.13d). */
+export const FORM_KINDS = ['form', 'block'] as const;
+export type FormKind = (typeof FORM_KINDS)[number];
 
 export const formCreateSchema = z.strictObject({
     key: formKeySchema,
     name: formNameSchema,
     category: z.string().trim().min(1).max(100).optional(),
+    /** a block is never filled in or bound to a service: forms take a copy of its fields */
+    kind: z.enum(FORM_KINDS).default('form'),
     document: formDocumentInputSchema
 });
 
@@ -96,6 +101,7 @@ export const formListQuerySchema = z.strictObject({
     active: z.enum(['true', 'false']).optional(),
     /** only those this unit owns (the publish screen's: the region's own, task 0.21e) */
     owner: z.uuid().optional(),
+    kind: z.enum(FORM_KINDS).optional(),
     limit: z.coerce.number().int().min(1).max(100).default(50)
 });
 
@@ -107,6 +113,7 @@ export const formSummarySchema = z.object({
     key: z.string(),
     name: z.record(z.string(), z.string()),
     category: z.string().nullable(),
+    kind: z.enum(FORM_KINDS),
     active: z.boolean(),
     /** draft: the working copy is not what people fill in; pending: a publication waits for approval */
     status: z.enum(FORM_STATUSES),
@@ -349,6 +356,21 @@ export const impactServiceSchema = z.object({
     effects: z.array(z.string())
 });
 
+/**
+ * A form that holds a copy of a block (task 1.13d): what a block's new version touches. The versions of the block its working copy
+ * and its published version hold (empty: none there); a form takes a new one only when its author updates it.
+ */
+export const impactBlockFormSchema = z.object({
+    id: z.uuid(),
+    key: z.string(),
+    name: z.record(z.string(), z.string()),
+    ownerUnit: unitRefSchema,
+    workingCopy: z.array(z.number().int()),
+    published: z.array(z.number().int()),
+    /** it holds a version older than the candidate */
+    behind: z.boolean()
+});
+
 /** A field an effect's input contract locks in the builder: its key, type and required-ness stay (task 0.21d). */
 export const formLockSchema = z.object({
     key: z.string(),
@@ -390,7 +412,9 @@ export const publishCheckSchema = z.object({
         views: z.array(impactViewSchema),
         services: z.array(impactServiceSchema).default([]),
         /** the units' overlays the candidate would re-apply, with their conflicts (task 0.21f) */
-        overlays: z.array(impactOverlaySchema).default([])
+        overlays: z.array(impactOverlaySchema).default([]),
+        /** a block's: the forms that hold a copy of it (task 1.13d) */
+        blockForms: z.array(impactBlockFormSchema).default([])
     })
 });
 
@@ -412,6 +436,7 @@ export const formOverlayPutSchema = z.strictObject({ patch: formOverlaySchema })
 
 export type OverlayConflictOut = z.infer<typeof overlayConflictSchema>;
 export type ImpactOverlay = z.infer<typeof impactOverlaySchema>;
+export type ImpactBlockForm = z.infer<typeof impactBlockFormSchema>;
 export type FormOverlayOut = z.infer<typeof formOverlayOutSchema>;
 
 export type CheckProblem = z.infer<typeof checkProblemSchema>;

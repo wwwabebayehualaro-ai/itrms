@@ -317,5 +317,19 @@
   "form-engine.designer.inspector.skipped": "(እዚህ አልተፈተሸም፤ በአሳሹ ብቻ ወይም በአገልጋዩ ብቻ ይሠራል)",
   "form-engine.designer.inspector.requiredAlways": "አስገዳጅ፡ ሁልጊዜ (ደራሲው አድርጎታል)።",
   "form-engine.designer.inspector.requiredWhenHolds": "አሁን አስገዳጅ ነው፡ ሕጉ {expression} ተሟልቷል።",
-  "form-engine.designer.inspector.requiredWhenFails": "አሁን አስገዳጅ አይደለም፡ ሕጉ {expression} አልተሟላም።"
+  "form-engine.designer.inspector.requiredWhenFails": "አሁን አስገዳጅ አይደለም፡ ሕጉ {expression} አልተሟላም።",
+  "form-engine.designer.blocks.title": "ብሎኮች",
+  "form-engine.designer.blocks.add": "ብሎኩን {name} ጨምር",
+  "form-engine.designer.blocks.version": "ስሪት {number}",
+  "form-engine.designer.blocks.insertFailed": "ብሎኩ ሊጨመር አልቻለም። እንደገና ይሞክሩ።",
+  "form-engine.designer.blocks.holds": "የ«{name}» ብሎክ ቅጂ፣ ስሪት {number}። መስኮቹ የዚህ ቅጽ የራሱ ናቸው።",
+  "form-engine.designer.blocks.update": "ወደ ስሪት {number} አዘምን",
+  "form-engine.designer.blocks.current": "የብሎኩን የመጨረሻ ስሪት ይዟል።",
+  "form-engine.designer.blocks.updateRefused": "ብሎኩ እዚህ ሊዘመን አልቻለም፤ አገልግሎት የሚያነበው መስክ ይወጣል ወይም ከቁልፎቹ አንዱ ተይዟል።",
+  "form-engine.designer.publish.blockForms": "ይህን ብሎክ የሚጠቀሙ ቅጾች",
+  "form-engine.designer.publish.blockFormsNote": "የያዙትን ስሪት ይቀጥላሉ፤ እያንዳንዱ አዲሱን የሚወስደው አዘጋጁ ሲያዘምነው ነው።",
+  "form-engine.designer.publish.blockHolds": "የሥራ ቅጂ፡ ስሪት {working} · የታተመ፡ ስሪት {published}",
+  "form-engine.designer.publish.blockBehind": "የቆየ ስሪት",
+  "form-engine.designer.saveAs.block": "ተደጋጋሚ ብሎክ",
+  "form-engine.designer.saveAs.blockHelp": "ሌሎች ቅጾች የመስኮቹን ቅጂ ይወስዳሉ፤ ብሎክ ራሱ ብቻውን አይሞላም።"
 }

@@ -21,6 +21,8 @@ export const formTemplateSchema = z.object({
     thumbnail_url: z.string().nullable().optional(),
     thumbnail: z.array(z.unknown()).optional(),
     category: z.string().nullable().optional(),
+    /** a form people fill in, or a block other forms take a copy of (task 1.13d) */
+    kind: z.enum(['form', 'block']).optional(),
     is_active: z.boolean().optional(),
     file_relations: objectOrList.optional(),
     created_at: z.string().optional(),

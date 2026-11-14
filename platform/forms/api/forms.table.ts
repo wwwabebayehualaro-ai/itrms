@@ -1,7 +1,7 @@
 /**
  * Forms (architecture.md §6.2, form-platform.md, task 0.16a).
  *
- *   form_definitions   a form and its working copy (`document`), owned by a unit: the bureau's forms at the region's
+ *   form_definitions   a form, or a block (task 1.13d), and its working copy (`document`), owned by a unit: the bureau's forms at the region's
  *                      root, a unit's own forms at the unit (class C: the subtree and its ancestors read, the subtree
  *                      writes; a woreda fills in the bureau's forms and cannot change them).
  *   form_versions      immutable, content-hashed snapshots of a working copy (class C, beside their definition). No UPDATE
@@ -69,6 +69,10 @@ export const formDefinitions = withRls(
                 /** I18nText: Amharic and English required */
                 name: jsonb('name').$type<Record<string, string>>().notNull(),
                 category: text('category'),
+                /** a form people fill in, or a block other forms take a copy of (task 1.13d) */
+                kind: text('kind', { enum: ['form', 'block'] })
+                    .notNull()
+                    .default('form'),
                 active: boolean('active').notNull().default(true),
                 /** the working copy: what the next publication snapshots */
                 document: jsonb('document').notNull(),

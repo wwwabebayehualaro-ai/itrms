@@ -66,13 +66,50 @@ export function useTemplateList() {
  */
 export const isViewTemplate = (t: { category?: string | null }) => t.category === 'Views';
 
-/** Templates a business user can pick to fill in (view templates left out). Same cache entry as `useTemplateList`. */
+/** Templates a business user can pick to fill in (view templates and blocks left out). Same cache entry as `useTemplateList`. */
 export function useVisibleTemplates() {
     const client = useFormsClient();
     return useQuery({
         ...templateListOptions(client),
-        select: (ts: FormTemplate[]) => ts.filter((t) => !isViewTemplate(t))
+        select: (ts: FormTemplate[]) => ts.filter((t) => !isViewTemplate(t) && t.kind !== 'block')
     });
+}
+
+/** A block's published version, as the builder copies it into a form (task 1.13d). */
+export interface PublishedBlock {
+    id: string;
+    key: string;
+    names: Record<string, string>;
+    version: number;
+    document: unknown;
+}
+
+/** The blocks with a published version, from the same list as `useTemplateList`. */
+export function usePublishedBlocks() {
+    const client = useFormsClient();
+    return useQuery({
+        ...templateListOptions(client),
+        select: (ts: FormTemplate[]) => ts.filter((t) => t.kind === 'block' && t.published_version_id)
+    });
+}
+
+/** Fetches a block's published version (its fields), for an insert or an update. */
+export function useBlockLoader() {
+    const client = useFormsClient();
+    return useCallback(
+        async (template: FormTemplate): Promise<PublishedBlock> => {
+            const id = template.id ?? '';
+            const version = (await client.get<WireVersion>(`${FORMS_API.forms}/${id}/versions/published`)).data;
+            return {
+                id,
+                key: template.slug,
+                names: template.names ?? { am: template.name, en: template.name },
+                version: version.number,
+                document: version.document
+            };
+        },
+        [client]
+    );
 }
 
 /** One form with its working copy (a list carries no document, so the detail is never seeded from it). */
@@ -186,6 +223,7 @@ export function useTemplateMutations() {
                 key: keyOf(input.slug || input.names?.en || input.name),
                 name: input.names ?? textAll(input.name),
                 ...(input.category ? { category: input.category } : {}),
+                ...(input.kind === 'block' ? { kind: 'block' } : {}),
                 document: formChangeOf({ form_config: input.form_config }).document ?? { fields: [] }
             };
             return templateOf((await client.post<WireForm>(FORMS_API.forms, body)).data);

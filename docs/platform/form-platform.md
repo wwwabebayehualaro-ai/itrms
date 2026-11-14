@@ -158,7 +158,8 @@ to the contract schema.
 
 ## 6. Authoring experience (what makes it state-of-the-art for a bureau)
 * **Starter templates and reusable blocks:** "Applicant", "Vehicle", "Payment", "Attachments", "Officer remarks", "Approval
-  sign-off". A block is a versioned unit, used in many forms; updating it shows the impact on every form that uses it.
+  sign-off". A block is a versioned unit, used in many forms; updating it shows the impact on every form that uses it (1.13d:
+  a form of kind `block`; a form takes a copy that remembers the block and version, and updates it when its author asks).
 * **Live preview** in `am` / `en` / `wal-Latn`, desktop and phone, **with test data**, and a **logic inspector** ("why is
   this field hidden?", with the values that drove the decision; 1.13c: under the builder's preview).
 * **A translation table** per form with "missing" markers; Ethiopic typing in the builder too.

@@ -317,5 +317,19 @@
   "form-engine.designer.inspector.skipped": "(not checked here: it runs only in the browser or only on the server)",
   "form-engine.designer.inspector.requiredAlways": "Required: always (set by the author).",
   "form-engine.designer.inspector.requiredWhenHolds": "Required now: its rule {expression} holds.",
-  "form-engine.designer.inspector.requiredWhenFails": "Not required now: its rule {expression} does not hold."
+  "form-engine.designer.inspector.requiredWhenFails": "Not required now: its rule {expression} does not hold.",
+  "form-engine.designer.blocks.title": "Blocks",
+  "form-engine.designer.blocks.add": "Add the block {name}",
+  "form-engine.designer.blocks.version": "v{number}",
+  "form-engine.designer.blocks.insertFailed": "The block could not be added. Try again.",
+  "form-engine.designer.blocks.holds": "A copy of the block “{name}”, version {number}. Its fields are this form’s own.",
+  "form-engine.designer.blocks.update": "Update to version {number}",
+  "form-engine.designer.blocks.current": "It holds the block’s latest version.",
+  "form-engine.designer.blocks.updateRefused": "The block could not be updated here: a field a service reads would leave, or one of its keys is taken.",
+  "form-engine.designer.publish.blockForms": "Forms that use this block",
+  "form-engine.designer.publish.blockFormsNote": "They keep the version they hold: each takes the new one when its author updates it.",
+  "form-engine.designer.publish.blockHolds": "working copy: v{working} · published: v{published}",
+  "form-engine.designer.publish.blockBehind": "An older version",
+  "form-engine.designer.saveAs.block": "A reusable block",
+  "form-engine.designer.saveAs.blockHelp": "Other forms take a copy of its fields; a block is never filled in on its own."
 }

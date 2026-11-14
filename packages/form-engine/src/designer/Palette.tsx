@@ -11,6 +11,7 @@ import { Input, Tooltip, TooltipContent, TooltipTrigger, cn } from '@itrms/ui';
 import { PALETTE_GROUPS, PALETTE_GROUP_WORDS, designableTypes, type DesignMeta } from '../renderer/kit';
 import { wordIn } from '../core/messages';
 import { useEngineText } from '../host/text';
+import { BlocksPalette } from './BlocksPanel';
 import { PALETTE_PREFIX } from './Canvas';
 import { useDesignerActions } from './store';
 
@@ -113,6 +114,7 @@ export function Palette() {
                     </section>
                 );
             })}
+            <BlocksPalette query={q} />
             {shown.length === 0 && (
                 <p className="text-sm text-muted-foreground">{t('form-engine.palette.ui.noMatch', { query: q })}</p>
             )}

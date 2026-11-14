@@ -271,7 +271,8 @@ export class ServicesService implements FeeRequestSource {
                 .select({
                     document: formVersions.document,
                     active: formDefinitions.active,
-                    orgPath: formDefinitions.orgPath
+                    orgPath: formDefinitions.orgPath,
+                    kind: formDefinitions.kind
                 })
                 .from(formVersions)
                 .innerJoin(formDefinitions, eq(formDefinitions.id, formVersions.formId))
@@ -279,6 +280,13 @@ export class ServicesService implements FeeRequestSource {
             if (!form) problems.push({ path: 'formVersionId', code: 'unknown_form', message: 'No such form version.' });
             else if (!form.active)
                 problems.push({ path: 'formVersionId', code: 'form_off', message: 'The form is switched off.' });
+            // a block is a group of fields other forms copy, never a request form (task 1.13d)
+            else if (form.kind === 'block')
+                problems.push({
+                    path: 'formVersionId',
+                    code: 'form_is_block',
+                    message: 'A block is not a request form.'
+                });
             else if (regionPath !== undefined && form.orgPath !== regionPath)
                 problems.push({
                     path: 'formVersionId',

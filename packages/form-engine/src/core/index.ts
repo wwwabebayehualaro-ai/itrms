@@ -55,6 +55,7 @@ export type { EngineDocument, EngineField, FieldOption, FieldRules } from './mod
 export { evaluateAll, conditionReferences, explainAll } from './conditions';
 export type { ConditionTrace, ListTrace, Scope } from './conditions';
 export { explainField, type FieldExplanation, type RuleStep } from './explain';
+export { blockRefOf, blockUses, type BlockRef } from './blocks';
 export { errorField, errorsOfStep, firstStepWithErrors, STEP_TYPE, stepOf, wizardSteps } from './wizard';
 export {
     initialValues,

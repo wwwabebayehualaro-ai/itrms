@@ -207,6 +207,36 @@ export function PublishReview({ check }: { check: PublishCheck }) {
             <Section name="changes" title={t('form-engine.designer.publish.changes')}>
                 <DiffView diff={check.diff} />
             </Section>
+            {(check.impact.blockForms ?? []).length > 0 && (
+                <Section
+                    name="blockForms"
+                    title={t('form-engine.designer.publish.blockForms')}
+                    count={check.impact.blockForms?.length ?? 0}
+                >
+                    <p className="mb-2 text-sm text-muted-foreground">
+                        {t('form-engine.designer.publish.blockFormsNote')}
+                    </p>
+                    <ul className="grid gap-1 text-sm">
+                        {(check.impact.blockForms ?? []).map((f) => (
+                            <li key={f.id} data-impact-block-form={f.key}>
+                                <span className="font-medium">{word(f.name as I18nText)}</span>{' '}
+                                <span className="text-xs text-muted-foreground">
+                                    {word(f.ownerUnit.name as I18nText)} ·{' '}
+                                    {t('form-engine.designer.publish.blockHolds', {
+                                        working: f.workingCopy.join(', ') || '—',
+                                        published: f.published.join(', ') || '—'
+                                    })}
+                                </span>
+                                {f.behind && (
+                                    <Badge variant="outline" className="ms-2">
+                                        {t('form-engine.designer.publish.blockBehind')}
+                                    </Badge>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                </Section>
+            )}
             {(check.impact.services ?? []).length > 0 && (
                 <Section
                     name="services"

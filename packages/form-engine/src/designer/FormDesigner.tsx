@@ -67,6 +67,7 @@ import {
     SheetHeader,
     SheetTitle,
     Spinner,
+    Switch,
     ToggleGroup,
     ToggleGroupItem,
     confirmAction,
@@ -226,7 +227,7 @@ function DesignerScreen() {
             // other failures were reported by the mutation (QueryProvider)
         }
     };
-    const saveNew = async (names: Record<string, string>, category: string) => {
+    const saveNew = async (names: Record<string, string>, category: string, block = false) => {
         const { doc } = store.getState();
         try {
             const saved = await create.mutateAsync({
@@ -236,6 +237,7 @@ function DesignerScreen() {
                 version: '1.0.0',
                 is_active: true,
                 ...(category && { category }),
+                ...(block && { kind: 'block' as const }),
                 form_config: toStored(doc)
             });
             afterSave(saved, doc);
@@ -595,7 +597,7 @@ function DesignerScreen() {
                 onOpenChange={setNaming}
                 saving={create.isPending}
                 languages={languages}
-                onSave={(names, category) => void saveNew(names, category)}
+                onSave={(names, category, block) => void saveNew(names, category, block)}
             />
             <JsonDialog open={jsonOpen} onOpenChange={setJsonOpen} store={store} />
             <DataSourcesSheet open={sourcesOpen} onOpenChange={setSourcesOpen} />
@@ -673,11 +675,13 @@ function SaveAsDialog({
     onOpenChange: (o: boolean) => void;
     saving: boolean;
     languages: readonly string[];
-    onSave: (names: Record<string, string>, category: string) => void;
+    onSave: (names: Record<string, string>, category: string, block: boolean) => void;
 }) {
     const { t } = useEngineText();
     const [names, setNames] = useState<Record<string, string>>({});
     const [category, setCategory] = useState('');
+    // a block (task 1.13d): a group of fields other forms take a copy of, never filled in itself
+    const [block, setBlock] = useState(false);
     const { data: all } = useTemplateList();
     const categories = useMemo(
         () => Array.from(new Set((all ?? []).map((t) => t.category).filter((c): c is string => !!c))).sort(),
@@ -704,7 +708,8 @@ function SaveAsDialog({
                                     .map(([tag, v]) => [tag, v.trim()] as const)
                                     .filter(([, v]) => v !== '')
                             ),
-                            category.trim()
+                            category.trim(),
+                            block
                         );
                     }}
                 >
@@ -743,6 +748,15 @@ function SaveAsDialog({
                                 <option key={c} value={c} />
                             ))}
                         </datalist>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-col gap-1">
+                            <Label htmlFor="form-is-block">{t('form-engine.designer.saveAs.block')}</Label>
+                            <p className="text-sm text-muted-foreground">
+                                {t('form-engine.designer.saveAs.blockHelp')}
+                            </p>
+                        </div>
+                        <Switch id="form-is-block" checked={block} onCheckedChange={setBlock} />
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>

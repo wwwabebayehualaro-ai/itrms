@@ -43,6 +43,8 @@ export interface WireForm {
     key: string;
     name: I18nText;
     category: string | null;
+    /** absent from an older API: a form */
+    kind?: 'form' | 'block';
     active: boolean;
     status: 'draft' | 'pending' | 'published';
     ownerUnit: { id: string; code: string; name: I18nText };
@@ -85,7 +87,18 @@ export interface PublishCheck {
     problems: PublishCheckProblem[];
     tests: PublishCheckTest[];
     diff: FormDiff;
-    impact: { views: PublishCheckView[]; services?: PublishCheckService[] };
+    impact: { views: PublishCheckView[]; services?: PublishCheckService[]; blockForms?: PublishCheckBlockForm[] };
+}
+
+/** A form holding a copy of a block (task 1.13d): the block versions its working copy and its published version hold. */
+export interface PublishCheckBlockForm {
+    id: string;
+    key: string;
+    name: Record<string, string>;
+    ownerUnit: { id: string; code: string; name: I18nText };
+    workingCopy: number[];
+    published: number[];
+    behind: boolean;
 }
 
 /** A service whose effects read the form (task 0.21d): its open cases keep their version; its effects' contracts hold. */
@@ -175,6 +188,7 @@ export function templateOf(form: WireForm): FormTemplate {
         // a list carries no document: the builder reads it from the form itself
         form_config: (form.document as FormTemplate['form_config'] | undefined) ?? { fields: [] },
         category: form.category,
+        kind: form.kind ?? 'form',
         is_active: form.active,
         file_relations: [],
         updated_at: form.updatedAt,
