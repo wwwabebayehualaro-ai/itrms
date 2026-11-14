@@ -1,5 +1,5 @@
 /**
- * Form analytics (task 1.13f, form-platform.md §6): aggregate, no personal data. The browser reports a fill's moments (opened, a
+ * Form analytics (task 1.13f, form-platform.md §6): aggregate, no answer kept. The browser reports a fill's moments (opened, a
  * wizard step reached, stopped by the form's checks, submitted) and the server adds the requests it refuses; each is one row of
  * `form_events`, written once and audited like any write. What is read back is counts: how long a form takes, which fields stop
  * people most, and where unfinished fills were left. A field's key is kept, never what was typed.
@@ -23,6 +23,8 @@ type EventInput = Omit<z.infer<typeof formEventInputSchema>, 'kind'> & {
 
 /** A fill not submitted by this long after it was opened is counted as left unfinished. */
 export const ABANDONED_AFTER_HOURS = 24;
+/** The period when the caller names no start. */
+export const DEFAULT_DAYS = 90;
 
 @Injectable()
 export class FormAnalyticsService {
@@ -49,6 +51,10 @@ export class FormAnalyticsService {
             throw new ValidationError('validation_failed', {
                 errors: [{ path: 'step', code: 'unknown_step', message: 'not a step of this version' }]
             });
+        const fieldKeys = [...new Set(input.fieldKeys ?? [])].filter((k) => keys.has(k));
+        // a refusal that names none of the version's fields (a stale version, say) is not a field stopping anyone
+        if (input.kind === 'refused' && fieldKeys.length === 0) return;
+        // the row names who filled the form in, as every write does (created_by, the audit log): never shown with the figures
         await insertAudited(tx, formEvents, {
             regionId: required(ctx.regionId),
             unitId: required(ctx.unitId),
@@ -56,7 +62,7 @@ export class FormAnalyticsService {
             formVersionId: input.formVersionId,
             fill: input.fill,
             kind: input.kind,
-            fieldKeys: [...new Set(input.fieldKeys ?? [])].filter((k) => keys.has(k)),
+            fieldKeys,
             step: input.step ?? null,
             seconds: input.kind === 'submitted' ? (input.seconds ?? null) : null
         });
@@ -72,10 +78,13 @@ export class FormAnalyticsService {
         // the period in Addis Ababa days: from the first one's start to the end of the last one
         const dayStart = (day: string) => new Date(`${day}T00:00:00+03:00`);
         const after = (day: string) => new Date(dayStart(day).getTime() + 86_400_000);
+        // no start given: the last 90 days (the figures stay quick however long a form has been in use)
+        const start = query.from ? dayStart(query.from) : new Date(Date.now() - DEFAULT_DAYS * 86_400_000);
+        const end = query.to ? after(query.to) : undefined;
         const within = and(
             eq(formEvents.formId, formId),
-            query.from ? gte(formEvents.createdAt, dayStart(query.from)) : undefined,
-            query.to ? lt(formEvents.createdAt, after(query.to)) : undefined
+            gte(formEvents.createdAt, start),
+            end ? lt(formEvents.createdAt, end) : undefined
         );
         const [totals] = (
             await tx.execute<{ opened: number; submitted: number; stopped: number; median: number | null }>(sql`
@@ -100,13 +109,17 @@ export class FormAnalyticsService {
         const left = (
             await tx.execute<{ step: string | null; count: number }>(sql`
                 with fills as (
+                    -- a fill's whole story, whenever its later moments came (a fill opened in the period and submitted after
+                    -- it was submitted); only the fills opened in the period count
                     select ${formEvents.fill} as fill,
                            bool_or(${formEvents.kind} = 'submitted') as submitted,
                            min(${formEvents.createdAt}) filter (where ${formEvents.kind} = 'opened') as opened_at,
-                           (array_agg(${formEvents.step} order by ${formEvents.createdAt} desc)
+                           (array_agg(${formEvents.step} order by ${formEvents.createdAt} desc, ${formEvents.id} desc)
                                 filter (where ${formEvents.step} is not null))[1] as step
                       from ${formEvents}
-                     where ${within}
+                     where ${formEvents.formId} = ${formId}
+                       and ${formEvents.fill} in (select ${formEvents.fill} from ${formEvents}
+                                                  where ${within} and ${formEvents.kind} = 'opened')
                      group by ${formEvents.fill})
                 select step, count(*)::int as count
                   from fills

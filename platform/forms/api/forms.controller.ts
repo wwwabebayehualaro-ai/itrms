@@ -5,6 +5,7 @@
 import {
     Body,
     Controller,
+    Logger,
     Delete,
     Get,
     Headers,
@@ -98,6 +99,9 @@ interface Reply {
 
 @Controller('api/v1/forms')
 export class FormsController {
+    /** for what the analytics could not count (it never fails a request) */
+    static readonly log = new Logger('FormAnalytics');
+
     constructor(
         @Inject(DATABASE) private readonly db: Database,
         @Inject(FormsService) private readonly forms: FormsService,
@@ -139,6 +143,7 @@ export class FormsController {
 
     /** One moment of a fill, from the browser (task 1.13f): counts only, no answer. Whoever fills forms in reports them. */
     @Post(':id/events')
+    @RateLimit('telemetry')
     @HttpCode(204)
     @Require('submission:create')
     async event(@Param('id', ParseUUIDPipe) id: string, @Body() body: FormEventDto): Promise<void> {
@@ -429,7 +434,7 @@ export class SubmissionsController {
         } catch (error) {
             // the answers the server refused, for the form's analytics (task 1.13f): the keys only, in a transaction of their
             // own (the refused one rolled back); a failure to record them never hides the refusal
-            if (error instanceof ValidationError && error.errors?.length)
+            if (error instanceof ValidationError && error.errors?.length && error.code === 'validation_failed')
                 await this.db
                     .scoped(ctx, (tx) =>
                         this.analytics.record(tx, ctx, body.formId, {
@@ -439,7 +444,9 @@ export class SubmissionsController {
                             fieldKeys: (error.errors ?? []).map((e) => errorField(e.path))
                         })
                     )
-                    .catch(() => undefined);
+                    .catch((failure: unknown) =>
+                        FormsController.log.warn({ err: failure }, 'a refusal was not counted')
+                    );
             throw error;
         }
     }

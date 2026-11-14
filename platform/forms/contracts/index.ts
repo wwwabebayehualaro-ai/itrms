@@ -772,20 +772,33 @@ export type RegistryLookupProviderDto = z.infer<typeof registryLookupProviderSch
  * One moment of a fill, as the browser reports it (task 1.13f): no answer, only the keys of the fields in error, the step reached
  * and the seconds a submitted fill took. `fill` is a random id the browser makes for one sitting.
  */
-export const formEventInputSchema = z.strictObject({
-    formVersionId: z.uuid(),
-    fill: z.uuid(),
-    kind: z.enum(['opened', 'step', 'blocked', 'submitted']),
-    fieldKeys: z.array(z.string().min(1).max(100)).max(200).optional(),
-    step: z.string().min(1).max(100).optional(),
-    seconds: z.number().int().min(0).max(604_800).optional()
-});
+export const formEventInputSchema = z
+    .strictObject({
+        formVersionId: z.uuid(),
+        fill: z.uuid(),
+        kind: z.enum(['opened', 'step', 'blocked', 'submitted']),
+        fieldKeys: z.array(z.string().min(1).max(100)).max(200).optional(),
+        step: z.string().min(1).max(100).optional(),
+        seconds: z.number().int().min(0).max(604_800).optional()
+    })
+    // a step is reached or stopped at; keys are what stopped it; seconds are a submitted fill's
+    .refine((e) => e.step === undefined || e.kind === 'step' || e.kind === 'blocked', {
+        path: ['step'],
+        message: 'only a step or a stop names a step'
+    })
+    .refine((e) => e.kind !== 'step' || e.step !== undefined, { path: ['step'], message: 'a step names its step' })
+    .refine((e) => e.fieldKeys === undefined || e.kind === 'blocked', {
+        path: ['fieldKeys'],
+        message: 'only a stop names fields'
+    });
 
-export const formAnalyticsQuerySchema = z.strictObject({
-    /** Addis Ababa days, the first and the last of the period (none: from the start, to now) */
-    from: z.iso.date().optional(),
-    to: z.iso.date().optional()
-});
+export const formAnalyticsQuerySchema = z
+    .strictObject({
+        /** Addis Ababa days, the first and the last of the period (none: the last 90 days, to now) */
+        from: z.iso.date().optional(),
+        to: z.iso.date().optional()
+    })
+    .refine((q) => !q.from || !q.to || q.from <= q.to, { path: ['to'], message: 'the period ends before it starts' });
 
 /** A form's figures over a period (task 1.13f): counts only. */
 export const formAnalyticsSchema = z.object({

@@ -132,7 +132,8 @@ function EngineFormBody({
     const report = useFillReporter(
         template?.id,
         template?.published_version_id,
-        reportFill !== false && !view && !readOnly
+        // a saved request opened to change is not a new fill
+        reportFill !== false && !view && !readOnly && !submissionId
     );
     useEffect(() => report.opened(), [report]);
     const invalid = useRef<(values: Values) => void>(() => undefined);
@@ -185,9 +186,11 @@ function EngineFormBody({
                 );
                 await Promise.all((submitCfg.refetch ?? []).map((id) => store.api.refetch(id)));
             }
-            if (onFormSubmit && !submitCfg?.skipDefaultSubmission)
+            if (onFormSubmit && !submitCfg?.skipDefaultSubmission) {
                 response = (await onFormSubmit(submission)) ?? response;
-            report.submitted();
+                // a fill counts as submitted when it was filed
+                report.submitted();
+            }
 
             // the message may show what the server did, e.g. "Posted {{response.submission_data.reference}}"
             const message = submitCfg?.successMessage

@@ -25,10 +25,15 @@ const NOTHING: FillReporter = {
     submitted: () => undefined
 };
 
-const randomId = (): string =>
-    typeof crypto !== 'undefined' && 'randomUUID' in crypto
-        ? crypto.randomUUID()
-        : '00000000-0000-4000-8000-000000000000'.replace(/0/g, () => Math.floor(Math.random() * 16).toString(16));
+/** A random v4 UUID for one sitting (the browser's generator; one without `randomUUID` still has `getRandomValues`). */
+function randomId(): string {
+    if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+    const b = crypto.getRandomValues(new Uint8Array(16));
+    b[6] = ((b[6] ?? 0) & 0x0f) | 0x40;
+    b[8] = ((b[8] ?? 0) & 0x3f) | 0x80;
+    const hex = [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
 
 export function useFillReporter(
     formId: string | undefined,
