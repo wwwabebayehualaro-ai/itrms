@@ -1698,13 +1698,23 @@
         },
         {
           "id": "1.13e",
-          "title": "Form platform, part 6: print preview and form analytics",
+          "title": "Form platform, part 6: print preview",
           "status": "in progress",
           "branch": "task/1.13e-print-analytics",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split from 1.13d on 2026-11-14."
+          "notes": "Split from 1.13d on 2026-11-14. Split again on 2026-11-14 (one session each): the print preview with the official header here; form analytics (a counters table, the browser's reports, the audit exception) in 1.13f. The follow-ups 1.13d moved here (a block's references in data sources and texts, the services per affected form) go to 1.13f with the analytics."
+        },
+        {
+          "id": "1.13f",
+          "title": "Form platform, part 7: form analytics",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Split from 1.13e on 2026-11-14."
         },
         {
           "id": "1.13b",
