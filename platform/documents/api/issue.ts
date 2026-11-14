@@ -32,6 +32,24 @@ export interface IssueInput {
     id?: string;
 }
 
+/**
+ * What heads a unit's documents as they print (task 1.13e: the builder's print preview shows the same): the unit's header, inherited
+ * down the tree, its title the bureau's own name unless the header names another, else the office's name.
+ */
+export async function officialHeader(
+    tx: Tx,
+    settings: Pick<SettingsService, 'value'>,
+    unitId: string
+): Promise<{ header: DocumentHeader; officeName: I18nText | null }> {
+    const stored = await settings.value<DocumentHeader>(tx, unitId, DOCUMENT_HEADER_SETTING);
+    const brand = stored.title ? null : await settings.value<I18nText | null>(tx, unitId, BRAND_NAME_SETTING);
+    const unit = (await unitRefs(tx, [unitId])).get(unitId);
+    return {
+        header: brand ? { ...stored, title: brand } : stored,
+        officeName: (unit?.name as I18nText | undefined) ?? null
+    };
+}
+
 /** The day an instant falls on in Addis Ababa, as a stored day. */
 export const addisDay = (instant: Date): string => isoDate(addisDate(instant));
 

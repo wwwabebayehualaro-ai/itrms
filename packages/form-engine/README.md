@@ -194,6 +194,10 @@ dates Ethiopian. Hidden fields, fields the reader's roles do not see, display fi
   app does in `globals.css`); the page size and margins belong to the document template.
 - **Used by** the PDF worker of task 0.23 for application copies.
 
+The builder's preview has an **As printed** view (task 1.13e, `designer/PrintPreview.tsx`): the values entered, printed by the
+same `PrintForm` the documents use, under the acting office's header (`GET /api/v1/document-header`: the unit's
+`documents.header`, its title the bureau's name or the office's when it has none, as the PDF prints it).
+
 ## Extend it
 
 ```tsx

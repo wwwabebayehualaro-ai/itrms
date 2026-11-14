@@ -331,5 +331,10 @@
   "form-engine.designer.publish.blockHolds": "የሥራ ቅጂ፡ ስሪት {working} · የታተመ፡ ስሪት {published}",
   "form-engine.designer.publish.blockBehind": "የቆየ ስሪት",
   "form-engine.designer.saveAs.block": "ተደጋጋሚ ብሎክ",
-  "form-engine.designer.saveAs.blockHelp": "ሌሎች ቅጾች የመስኮቹን ቅጂ ይወስዳሉ፤ ብሎክ ራሱ ብቻውን አይሞላም።"
+  "form-engine.designer.saveAs.blockHelp": "ሌሎች ቅጾች የመስኮቹን ቅጂ ይወስዳሉ፤ ብሎክ ራሱ ብቻውን አይሞላም።",
+  "form-engine.designer.print.view": "ቅድመ እይታው ቅጹን የሚያሳይበት",
+  "form-engine.designer.print.fill": "ሙላ",
+  "form-engine.designer.print.printed": "እንደሚታተመው",
+  "form-engine.designer.print.intro": "ቅጹ እንደሚታተመው፣ ከገቡት እሴቶች ጋር፣ በጽ/ቤትዎ ርዕስ ሥር፤ ከPDF ጋር አንድ ዓይነት አቀማመጥ።",
+  "form-engine.designer.print.noHeader": "የጽ/ቤትዎ ርዕስ ሊነበብ አልቻለም፤ እዚህ ቅጹ ያለ እሱ ይታተማል።"
 }

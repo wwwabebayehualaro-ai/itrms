@@ -23,7 +23,9 @@ export const FORMS_API = {
     forms: 'v1/forms',
     publications: 'v1/form-publications',
     submissions: 'v1/submissions',
-    savedViews: 'v1/saved-views'
+    savedViews: 'v1/saved-views',
+    /** the acting office's header as its documents print it (the builder's print preview, task 1.13e) */
+    documentHeader: 'v1/document-header'
 } as const;
 
 /**

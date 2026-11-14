@@ -6572,6 +6572,20 @@
         ]
       }
     },
+    "/api/v1/document-header": {
+      "get": {
+        "operationId": "DocumentsController_header",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
     "/api/v1/external-issuers": {
       "get": {
         "operationId": "ExternalPaymentsController_issuers",

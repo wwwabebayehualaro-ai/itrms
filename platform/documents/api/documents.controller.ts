@@ -28,6 +28,17 @@ export class DocumentsController {
         return this.db.scoped(requestDbContext(), async (tx) => ({ items: await this.documents.list(tx, query) }));
     }
 
+    /**
+     * The acting office's header as its documents print it (task 1.13e): the builder's print preview heads the form with it. A
+     * form author's (it is printed on every document the office gives, so nothing in it is for the office alone).
+     */
+    @Get('document-header')
+    @Require('form:read')
+    header() {
+        const ctx = requestDbContext();
+        return this.db.scoped(ctx, (tx) => this.documents.header(tx, ctx.unitId ?? ''));
+    }
+
     /** A reprint: the PDF made when it was issued, never made again. */
     @Get('issued-documents/:id/download')
     @Require('issued-document:read')

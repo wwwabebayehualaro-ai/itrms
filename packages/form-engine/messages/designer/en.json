@@ -331,5 +331,10 @@
   "form-engine.designer.publish.blockHolds": "working copy: v{working} · published: v{published}",
   "form-engine.designer.publish.blockBehind": "An older version",
   "form-engine.designer.saveAs.block": "A reusable block",
-  "form-engine.designer.saveAs.blockHelp": "Other forms take a copy of its fields; a block is never filled in on its own."
+  "form-engine.designer.saveAs.blockHelp": "Other forms take a copy of its fields; a block is never filled in on its own.",
+  "form-engine.designer.print.view": "How the preview shows the form",
+  "form-engine.designer.print.fill": "Fill in",
+  "form-engine.designer.print.printed": "As printed",
+  "form-engine.designer.print.intro": "The form as it prints, with the values entered, under your office’s header: the same layout as the PDF.",
+  "form-engine.designer.print.noHeader": "Your office’s header could not be read: the form prints without it here."
 }
