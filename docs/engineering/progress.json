@@ -1681,10 +1681,11 @@
         {
           "id": "1.13d",
           "title": "Form platform, part 5: reusable blocks",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.13d-reusable-blocks",
           "commits": [
-            "85f12bc"
+            "85f12bc",
+            "a8b6bf6"
           ],
           "evidence": [
             "CI run 43537176676 on PR #69 (head 85f12bc): all 10 jobs green: lint, typecheck, unit, build, boundaries and i18n; integration on the dev stack 41 files and 759 tests (forms.int.spec.ts 20) plus the S3 contract suite; e2e journeys; stories, axe and visual baselines; performance; production profile; Semgrep, Trivy and gitleaks clean; migration 0076_form_blocks.sql applied from zero; OpenAPI regenerated",
