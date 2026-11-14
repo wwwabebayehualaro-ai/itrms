@@ -1662,10 +1662,11 @@
         {
           "id": "1.13c",
           "title": "Form platform, part 4: wizard steps and the logic inspector",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.13c-wizard-logic",
           "commits": [
-            "4dc9242"
+            "4dc9242",
+            "ae0e668"
           ],
           "evidence": [
             "CI run 43529307262 on PR #68 (head 4dc9242): all 10 jobs green: lint, typecheck, unit, build, boundaries and i18n (form-engine 49 files, 403 tests); integration on the dev stack plus the S3 contract suite; e2e journeys; stories, axe and visual baselines; performance; production profile; Semgrep, Trivy and gitleaks clean",
