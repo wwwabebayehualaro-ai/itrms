@@ -336,5 +336,19 @@
   "form-engine.designer.print.fill": "ሙላ",
   "form-engine.designer.print.printed": "እንደሚታተመው",
   "form-engine.designer.print.intro": "ቅጹ እንደሚታተመው፣ ከገቡት እሴቶች ጋር፣ በጽ/ቤትዎ ርዕስ ሥር፤ ከPDF ጋር አንድ ዓይነት አቀማመጥ።",
-  "form-engine.designer.print.noHeader": "የጽ/ቤትዎ ርዕስ ሊነበብ አልቻለም፤ እዚህ ቅጹ ያለ እሱ ይታተማል።"
+  "form-engine.designer.print.noHeader": "የጽ/ቤትዎ ርዕስ ሊነበብ አልቻለም፤ እዚህ ቅጹ ያለ እሱ ይታተማል።",
+  "form-engine.designer.analytics.button": "ትንታኔ",
+  "form-engine.designer.analytics.title": "ቅጹ እንዴት እንደሚሞላ",
+  "form-engine.designer.analytics.description": "ቁጥሮች ብቻ፣ ጽ/ቤትዎና ከሥሩ ያሉት ከሞሏቸው፤ ምንም መልስ አይቀመጥም።",
+  "form-engine.designer.analytics.failed": "ቁጥሮቹ ሊነበቡ አልቻሉም። እንደገና ይሞክሩ።",
+  "form-engine.designer.analytics.opened": "የተከፈቱ",
+  "form-engine.designer.analytics.submitted": "የገቡ",
+  "form-engine.designer.analytics.stopped": "በፍተሻው የቆሙ",
+  "form-engine.designer.analytics.time": "የገባ ሙሌት በግምት {minutes} ደቂቃ ይወስዳል (መካከለኛው)።",
+  "form-engine.designer.analytics.noTime": "እስካሁን የገባ ሙሌት የለም።",
+  "form-engine.designer.analytics.fields": "ሰዎችን በብዛት የሚያቆሙ መስኮች",
+  "form-engine.designer.analytics.noErrors": "እስካሁን ማንንም ያቆመ መስክ የለም።",
+  "form-engine.designer.analytics.abandoned": "ሳይጠናቀቁ የቀሩ ሙሌቶች፣ በደረሱበት የመጨረሻ ደረጃ",
+  "form-engine.designer.analytics.noAbandoned": "ሳይጠናቀቅ የቀረ ሙሌት የለም።",
+  "form-engine.designer.analytics.noStep": "ከየትኛውም ደረጃ በፊት"
 }

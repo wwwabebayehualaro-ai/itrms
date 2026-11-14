@@ -166,7 +166,7 @@ to the contract schema.
 * **A print preview** with the official header (the same layout as the PDF; 1.13e: the preview's "As printed" view, the acting office's header from `GET /document-header` over the PDF's own `PrintForm`).
 * **A diff between versions** (fields added, removed, changed), shown in the review step.
 * **Form analytics** (aggregate, no personal data): time to complete, fields with the most validation errors, drafts
-  abandoned per step. They show where a form confuses staff or citizens.
+  abandoned per step. They show where a form confuses staff or citizens. (1.13f: `forms.form_events`, append-only and audited, the field keys only; the builder's Analytics sheet.)
 * Builder accessibility and keyboard support (the legacy shortcuts are kept).
 
 ## 7. Mapping to the legacy gap register and tasks

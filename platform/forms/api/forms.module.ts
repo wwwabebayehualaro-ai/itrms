@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { DraftsService } from './drafts.service';
+import { FormAnalyticsService } from './analytics.service';
 import { ExportsService } from './exports.service';
 import {
     DraftsController,
@@ -38,6 +39,7 @@ import { SavedViewsService } from './views.service';
         SavedViewsService,
         ExportsService,
         DraftsService,
+        FormAnalyticsService,
         RegistryLookups
     ],
     exports: [FormsService, SubmissionsService, SubmissionQueryService, RegistryLookups]

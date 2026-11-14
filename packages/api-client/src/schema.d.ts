@@ -785,6 +785,38 @@ export interface paths {
         patch: operations["FormsController_update"];
         trace?: never;
     };
+    "/api/v1/forms/{id}/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["FormsController_analyticsOf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/forms/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["FormsController_event"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/forms/{id}/locks": {
         parameters: {
             query?: never;
@@ -2869,6 +2901,17 @@ export interface components {
             } & {
                 [key: string]: string;
             };
+        };
+        FormEventDto: {
+            fieldKeys?: string[];
+            /** Format: uuid */
+            fill: string;
+            /** Format: uuid */
+            formVersionId: string;
+            /** @enum {string} */
+            kind: "opened" | "step" | "blocked" | "submitted";
+            seconds?: number;
+            step?: string;
         };
         FormOverlayPutDto: {
             patch: {
@@ -4956,6 +4999,51 @@ export interface operations {
         };
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FormsController_analyticsOf: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FormsController_event: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FormEventDto"];
+            };
+        };
+        responses: {
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };

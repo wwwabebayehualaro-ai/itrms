@@ -11,6 +11,7 @@ import { useSelector, type AnyFormApi } from '@tanstack/react-form';
 import { Button, cn } from '@itrms/ui';
 import {
     containerTitle,
+    errorField,
     errorsOfStep,
     firstStepWithErrors,
     isVisibleIn,
@@ -23,6 +24,7 @@ import {
 import { useEngineText } from '../host/text';
 import type { RuntimeStore } from './runtimeScope';
 import type { WizardPlace } from './FieldTree';
+import type { FillReporter } from './fillReport';
 
 type Values = Record<string, unknown>;
 
@@ -44,7 +46,13 @@ export function useWizard(
     form: AnyFormApi,
     store: RuntimeStore,
     byId: Map<string, EngineField>,
-    options: { enabled: boolean; language: string; top: React.RefObject<HTMLElement | null> }
+    options: {
+        enabled: boolean;
+        language: string;
+        top: React.RefObject<HTMLElement | null>;
+        /** the fill's moments for the form's analytics (task 1.13f) */
+        report?: Pick<FillReporter, 'step' | 'blocked'>;
+    }
 ): Wizard {
     const all = useMemo(() => wizardSteps(doc.fields), [doc.fields]);
     const on = options.enabled && all.length > 0;
@@ -96,6 +104,7 @@ export function useWizard(
             for (const key of mine) form.setFieldMeta(key, (m) => (m ? { ...m, isTouched: true } : m));
             await form.validate('change');
             setBlocked(true);
+            options.report?.blocked(mine.map(errorField), current.id);
             focusFirstError();
             return;
         }
@@ -103,6 +112,7 @@ export function useWizard(
         const following = steps[index + 1];
         if (following) {
             setChosen(following.id);
+            options.report?.step(following.id);
             toTop();
         }
     };

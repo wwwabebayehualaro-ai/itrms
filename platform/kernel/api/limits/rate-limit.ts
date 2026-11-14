@@ -17,7 +17,7 @@ import { RateLimitedError } from '../errors/app-error';
 import type { Logger } from '../observability/logger';
 import { LOGGER } from '../observability/tokens';
 
-export type RateLimitBucket = 'search' | 'query' | 'reveal' | 'export' | 'comment';
+export type RateLimitBucket = 'search' | 'query' | 'reveal' | 'export' | 'comment' | 'telemetry';
 
 export interface Limit {
     /** requests allowed in one window */
@@ -45,7 +45,9 @@ export const RATE_LIMITS: Readonly<Record<RateLimitBucket, BucketLimits>> = {
         perIp: { max: 60, windowSeconds: 3600 },
         perInstallation: { max: 300, windowSeconds: 3600 }
     },
-    comment: { perPerson: { max: 30, windowSeconds: 60 }, perIp: { max: 150, windowSeconds: 60 } }
+    comment: { perPerson: { max: 30, windowSeconds: 60 }, perIp: { max: 150, windowSeconds: 60 } },
+    // a form's moments for its analytics (task 1.13f): a busy counter's fills, never a script's
+    telemetry: { perPerson: { max: 120, windowSeconds: 60 }, perIp: { max: 600, windowSeconds: 60 } }
 };
 
 /** Counts one request against `key` in a fixed window; says how many seconds until the window ends. */

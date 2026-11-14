@@ -1216,3 +1216,64 @@ describe('reusable blocks (task 1.13d)', () => {
         expect(own.impact.blockForms).toEqual([]);
     });
 });
+
+describe('form analytics (task 1.13f)', () => {
+    it('counts the fills, their time, the fields that stopped them and the unfinished ones, keeping no answer', async () => {
+        const form = await createForm(as.bureau(), 'analytics-form', V1);
+        await publish(form.id, as.bureau(), as.bureau2());
+        const live = await get<FormOut>(`/api/v1/forms/${form.id}`, as.bureau());
+        const versionId = live.publishedVersion?.id ?? '';
+        const event = (who: As, body: Record<string, unknown>) =>
+            call('POST', `/api/v1/forms/${form.id}/events`, who, { formVersionId: versionId, ...body });
+        const done = randomUUID();
+        const left = randomUUID();
+        for (const body of [
+            { fill: done, kind: 'opened' },
+            // a key the version does not have is not kept
+            { fill: done, kind: 'blocked', fieldKeys: ['fullName', 'notAField'] },
+            { fill: done, kind: 'submitted', seconds: 120 },
+            { fill: left, kind: 'opened' }
+        ])
+            expect((await event(as.damot(), body)).statusCode).toBe(204);
+        // a step the version does not have is refused
+        expect((await event(as.damot(), { fill: left, kind: 'step', step: 'nope' })).statusCode).toBe(422);
+        // the server's own refusal of the answers counts too
+        const refused = await submit(as.damot(), form.id, versionId, { phone: '0911000000' });
+        expect(refused.statusCode, refused.body).toBe(422);
+        // the unfinished fill was opened two days ago
+        await owner.query("update forms.form_events set created_at = now() - interval '2 days' where fill = $1", [
+            left
+        ]);
+
+        const figures = await get<{
+            fills: { opened: number; submitted: number; stopped: number };
+            medianSeconds: number | null;
+            fieldErrors: { key: string; count: number }[];
+            abandoned: { step: string | null; count: number }[];
+        }>(`/api/v1/forms/${form.id}/analytics`, as.bureau());
+        expect(figures).toEqual({
+            fills: { opened: 2, submitted: 1, stopped: 2 },
+            medianSeconds: 120,
+            fieldErrors: [{ key: 'fullName', count: 2 }],
+            abandoned: [{ step: null, count: 1 }]
+        });
+        // only keys, never what was typed
+        const stored = await owner.query<{ field_keys: string[] }>(
+            'select field_keys from forms.form_events where form_id = $1 order by created_at',
+            [form.id]
+        );
+        expect(JSON.stringify(stored.rows)).not.toContain('0911000000');
+        // each moment is written with its audit row, in the same transaction, and the audit holds no answer either
+        const audited = await owner.query<{ n: number; diffs: string }>(
+            `select count(*)::int as n, coalesce(string_agg(a.diff::text, ' '), '') as diffs
+               from kernel.audit_log a join forms.form_events e on e.id = a.row_id
+              where a.table_name = 'forms.form_events' and a.action = 'insert' and e.form_id = $1`,
+            [form.id]
+        );
+        expect(audited.rows[0]?.n).toBe(stored.rows.length);
+        expect(audited.rows[0]?.diffs).not.toContain('0911000000');
+        // a sibling office reads none of Damot's fills
+        const sibling = await get<{ fills: { opened: number } }>(`/api/v1/forms/${form.id}/analytics`, as.boditi());
+        expect(sibling.fills.opened).toBe(0);
+    });
+});
