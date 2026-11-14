@@ -1698,13 +1698,29 @@
         },
         {
           "id": "1.13e",
-          "title": "Form platform, part 6: print preview and form analytics",
+          "title": "Form platform, part 6: print preview",
+          "status": "in review",
+          "branch": "task/1.13e-print-analytics",
+          "commits": [
+            "9378b16"
+          ],
+          "evidence": [
+            "CI run 43542374810 on PR #70 (head 9378b16): all 10 jobs green: lint, typecheck, unit, build, boundaries and i18n; integration on the dev stack plus the S3 contract suite; e2e journeys; stories, axe and visual baselines; performance; production profile; Semgrep, Trivy and gitleaks clean; OpenAPI regenerated for GET /api/v1/document-header",
+            "The preview matches the PDF: designer/printPreview.spec.tsx 'heads the printed form with the office''s header and shows the values entered, as the PDF prints them' (the header''s title and subtitle; the body''s markup equals PrintForm''s renderToStaticMarkup, the documents'' own) and 'prints without a header, and says so'; documents.int.spec 'uses the header its unit inherits' reads the same zone header from GET /api/v1/document-header that the issued document froze; the title resolved as the PDF does (stored, else the bureau''s name, else the office''s)",
+            "Reviews: task-verifier found the Done-when item and the definition of done met (no DB change); the duplicated header rule recorded as a follow-up to 1.13f; form-engine unit suite 412 tests, documents 62"
+          ],
+          "blockers": [],
+          "notes": "Split from 1.13d on 2026-11-14. Split again on 2026-11-14 (one session each): the print preview with the official header here; form analytics (a counters table, the browser's reports, the audit exception) in 1.13f. The follow-ups 1.13d moved here (a block's references in data sources and texts, the services per affected form) go to 1.13f with the analytics. Built (2026-11-14): GET /api/v1/document-header (form:read) gives the acting office's header as its documents print it (officialHeader in platform/documents issue.ts: the unit's inherited documents.header, its title the bureau's name or the office's); the builder's preview gains an As printed view: the values entered, printed by the PDF's own PrintForm and print.css, under that header (logo, title, subtitle), on white paper in every theme; the fill-in form stays mounted so its values stay. Tests: designer/printPreview.spec.tsx (the header shown; the body is PrintForm's markup exactly; no header said so); documents.int.spec reads the inherited zone header. Docker stopped locally: integration and e2e on CI."
+        },
+        {
+          "id": "1.13f",
+          "title": "Form platform, part 7: form analytics",
           "status": "planned",
           "branch": null,
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split from 1.13d on 2026-11-14."
+          "notes": "Split from 1.13e on 2026-11-14."
         },
         {
           "id": "1.13b",
@@ -3624,6 +3640,11 @@
       "foundIn": "1.13d",
       "item": "A block's impact: name the services bound to each affected form (and their open cases), as a form's own publish check does for its services",
       "movedTo": "1.13e"
+    },
+    {
+      "foundIn": "1.13e",
+      "item": "issueDocument resolves the document header itself instead of calling officialHeader (the same rule today: the stored header, else the bureau's name, else the office's): make it call officialHeader so the print preview and the PDF never drift",
+      "movedTo": "1.13f"
     }
   ]
 }

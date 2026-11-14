@@ -163,7 +163,7 @@ to the contract schema.
 * **Live preview** in `am` / `en` / `wal-Latn`, desktop and phone, **with test data**, and a **logic inspector** ("why is
   this field hidden?", with the values that drove the decision; 1.13c: under the builder's preview).
 * **A translation table** per form with "missing" markers; Ethiopic typing in the builder too.
-* **A print preview** with the official header (the same layout as the PDF).
+* **A print preview** with the official header (the same layout as the PDF; 1.13e: the preview's "As printed" view, the acting office's header from `GET /document-header` over the PDF's own `PrintForm`).
 * **A diff between versions** (fields added, removed, changed), shown in the review step.
 * **Form analytics** (aggregate, no personal data): time to complete, fields with the most validation errors, drafts
   abandoned per step. They show where a form confuses staff or citizens.

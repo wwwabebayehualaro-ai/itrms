@@ -33,6 +33,15 @@ export type DocumentHeader = z.infer<typeof documentHeaderSchema>;
 
 export const DOCUMENTS_SETTINGS = { [DOCUMENT_HEADER_SETTING]: documentHeaderSchema } as const;
 
+/** The acting office's header as its documents print it (task 1.13e): the title is always there (the office's name at worst). */
+export const officialHeaderSchema = z.object({
+    title: i18nTextSchema,
+    subtitle: i18nTextSchema.nullable(),
+    logo: z.string().nullable(),
+    stamp: z.string().nullable()
+});
+export type OfficialHeader = z.infer<typeof officialHeaderSchema>;
+
 const dayText = z.iso.date();
 const line = z.object({
     label: i18nTextSchema,

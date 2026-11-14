@@ -89,6 +89,7 @@ import { ChecksSheet, useChecks } from './Checks';
 import { HistorySheet } from './History';
 import { Inspector } from './Inspector';
 import { LogicInspector } from './LogicInspector';
+import { PrintPreview } from './PrintPreview';
 import { PublishDialog } from './PublishReview';
 import { SaveAsTestCase, TestCasesSheet } from './TestCases';
 import { TranslationsSheet, endonym } from './Translations';
@@ -627,6 +628,8 @@ function Preview() {
     const unsupported = useMemo(() => unsupportedFields(readDocument(stored, { language }).fields), [stored, language]);
     const [result, setResult] = useState<Record<string, unknown> | null>(null);
     const [values, setValues] = useState<Record<string, unknown>>({});
+    // the same values filled in, or as they print (task 1.13e)
+    const [view, setView] = useState<'fill' | 'print'>('fill');
     // no submit data source: a preview never calls the form's API
     const runtime = useMemo<TemplateRuntimeConfig>(() => ({ ...stored.runtime, submit: undefined }), [stored.runtime]);
     return (
@@ -639,15 +642,42 @@ function Preview() {
                     })}
                 </p>
             )}
-            <EngineForm
-                silent
-                language={language}
-                fields={stored.fields}
-                runtime={runtime}
-                template={{ ...template, id: template.id ?? 'preview', form_config: stored }}
-                onValuesChange={setValues}
-                onFormSubmit={(s: { submission_data: Record<string, unknown> }) => setResult(s.submission_data)}
-            />
+            <ToggleGroup
+                type="single"
+                variant="outline"
+                size="sm"
+                value={view}
+                onValueChange={(v) => v && setView(v as 'fill' | 'print')}
+                className="justify-self-start"
+                aria-label={t('form-engine.designer.print.view')}
+            >
+                <ToggleGroupItem value="fill" className="px-3">
+                    {t('form-engine.designer.print.fill')}
+                </ToggleGroupItem>
+                <ToggleGroupItem value="print" className="px-3" data-print-toggle>
+                    {t('form-engine.designer.print.printed')}
+                </ToggleGroupItem>
+            </ToggleGroup>
+            {/* kept mounted while the print view shows: the values entered stay */}
+            <div hidden={view === 'print'}>
+                <EngineForm
+                    silent
+                    language={language}
+                    fields={stored.fields}
+                    runtime={runtime}
+                    template={{ ...template, id: template.id ?? 'preview', form_config: stored }}
+                    onValuesChange={setValues}
+                    onFormSubmit={(s: { submission_data: Record<string, unknown> }) => setResult(s.submission_data)}
+                />
+            </div>
+            {view === 'print' && (
+                <PrintPreview
+                    stored={stored}
+                    values={values}
+                    language={language}
+                    title={formTextIn(template.names ?? template.name, language) ?? template.name}
+                />
+            )}
             <div>
                 <SaveAsTestCase values={values} />
             </div>

@@ -9,9 +9,16 @@ import { ConflictError, NotFoundError } from '@itrms/kernel/errors';
 import { downloadLinkedFile, type ObjectStore } from '@itrms/kernel/files';
 import { SettingsService } from '@itrms/kernel/settings';
 
-import type { IssuedDocumentOut } from '../contracts';
+import type { IssuedDocumentOut, OfficialHeader } from '../contracts';
 import { documentTemplates, issuedDocuments } from './documents.table';
-import { issueDocument, revokeDocument, supersedeDocument, type IssueInput, type IssuedRow } from './issue';
+import {
+    issueDocument,
+    officialHeader,
+    revokeDocument,
+    supersedeDocument,
+    type IssueInput,
+    type IssuedRow
+} from './issue';
 
 /** The same values, however each was stored: PostgreSQL keeps a jsonb's keys in an order of its own. */
 const sameData = (a: unknown, b: unknown): boolean => {
@@ -56,6 +63,17 @@ export class DocumentsService {
     /** A correction: the old document's QR says superseded from now on. */
     supersede(tx: Tx, oldId: string, correction: Pick<IssueInput, 'data' | 'language' | 'number'>): Promise<IssuedRow> {
         return supersedeDocument(tx, this.settings, oldId, correction);
+    }
+
+    /** The office's header as its documents print it (the builder's print preview, task 1.13e). */
+    async header(tx: Tx, unitId: string): Promise<OfficialHeader> {
+        const { header, officeName } = await officialHeader(tx, this.settings, unitId);
+        return {
+            title: header.title ?? officeName ?? { am: '', en: '' },
+            subtitle: header.subtitle ?? null,
+            logo: header.logo ?? null,
+            stamp: header.stamp ?? null
+        };
     }
 
     /** A document that no longer holds. */

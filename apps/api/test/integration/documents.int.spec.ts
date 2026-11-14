@@ -587,6 +587,14 @@ describe('a document', () => {
                 [doc?.id]
             );
             expect(rows[0]?.header.title?.en).toBe('Sample Zone Department');
+            // the builder's print preview (task 1.13e) shows an office under the same header its documents print
+            const shown = await api.call('GET', '/api/v1/document-header', as.boditiRecords);
+            expect(shown.statusCode, shown.body).toBe(200);
+            expect(shown.json<Record<string, unknown>>()).toMatchObject({
+                title: { en: 'Sample Zone Department' },
+                subtitle: null,
+                logo: null
+            });
         } finally {
             await api.call(
                 'DELETE',
