@@ -7,7 +7,7 @@
  */
 import { useState } from 'react';
 import { Blocks, RefreshCw } from 'lucide-react';
-import { Button, Spinner, useNotify } from '@itrms/ui';
+import { Button, Spinner } from '@itrms/ui';
 import type { FormField, FormTemplate } from '@itrms/schemas';
 
 import { useBlockLoader, usePublishedBlocks } from '../api/templates';
@@ -21,11 +21,12 @@ const publishedNumber = (t: FormTemplate) => Number(t.version) || 0;
 /** The published blocks, in the palette: a click copies one into the form. */
 export function BlocksPalette({ query }: { query: string }) {
     const { t, language } = useEngineText();
-    const notify = useNotify();
     const actions = useDesignerActions();
     const load = useBlockLoader();
     const { data: blocks } = usePublishedBlocks();
     const [busy, setBusy] = useState<string | null>(null);
+    // shown in place: the palette is drawn outside any notifier (its tests, a builder without one)
+    const [problem, setProblem] = useState<string | null>(null);
     const q = query.trim().toLowerCase();
     const shown = (blocks ?? []).filter(
         (b) => !q || [b.name, b.slug, ...Object.values(b.names ?? {})].some((text) => text.toLowerCase().includes(q))
@@ -34,6 +35,7 @@ export function BlocksPalette({ query }: { query: string }) {
     const nameOf = (b: FormTemplate) => b.names?.[language] ?? b.name;
     const insert = async (b: FormTemplate) => {
         setBusy(b.id ?? null);
+        setProblem(null);
         try {
             const block = await load(b);
             if (
@@ -44,9 +46,9 @@ export function BlocksPalette({ query }: { query: string }) {
                     document: block.document
                 })
             )
-                notify.error(t('form-engine.designer.blocks.insertFailed'));
+                setProblem(t('form-engine.designer.blocks.insertFailed'));
         } catch {
-            notify.error(t('form-engine.designer.blocks.insertFailed'));
+            setProblem(t('form-engine.designer.blocks.insertFailed'));
         } finally {
             setBusy(null);
         }
@@ -77,6 +79,11 @@ export function BlocksPalette({ query }: { query: string }) {
                     </span>
                 </button>
             ))}
+            {problem && (
+                <p role="alert" className="px-2 text-xs text-destructive">
+                    {problem}
+                </p>
+            )}
         </section>
     );
 }
@@ -84,11 +91,11 @@ export function BlocksPalette({ query }: { query: string }) {
 /** On a block's section: the block and version it holds, and the update to a newer published one. */
 export function BlockNotice({ stored }: { stored: FormField }) {
     const { t, language } = useEngineText();
-    const notify = useNotify();
     const actions = useDesignerActions();
     const load = useBlockLoader();
     const { data: blocks } = usePublishedBlocks();
     const [busy, setBusy] = useState(false);
+    const [problem, setProblem] = useState<string | null>(null);
     const ref = blockOfField(stored);
     if (!ref) return null;
     const block = (blocks ?? []).find((b) => b.slug === ref.key);
@@ -97,6 +104,7 @@ export function BlockNotice({ stored }: { stored: FormField }) {
     const update = async () => {
         if (!block) return;
         setBusy(true);
+        setProblem(null);
         try {
             const next = await load(block);
             const done = actions.updateBlock(stored.id, {
@@ -105,9 +113,9 @@ export function BlockNotice({ stored }: { stored: FormField }) {
                 name: next.names,
                 document: next.document
             });
-            if (!done) notify.error(t('form-engine.designer.blocks.updateRefused'));
+            if (!done) setProblem(t('form-engine.designer.blocks.updateRefused'));
         } catch {
-            notify.error(t('form-engine.designer.blocks.updateRefused'));
+            setProblem(t('form-engine.designer.blocks.updateRefused'));
         } finally {
             setBusy(false);
         }
@@ -122,6 +130,11 @@ export function BlockNotice({ stored }: { stored: FormField }) {
                 </Button>
             ) : (
                 <p className="text-muted-foreground">{t('form-engine.designer.blocks.current')}</p>
+            )}
+            {problem && (
+                <p role="alert" className="text-destructive">
+                    {problem}
+                </p>
             )}
         </div>
     );

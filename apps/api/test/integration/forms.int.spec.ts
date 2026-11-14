@@ -1130,6 +1130,7 @@ describe('reusable blocks (task 1.13d)', () => {
     const section = (version: number, prefix = '') => ({
         id: `applicant${prefix ? '2' : ''}`,
         type: 'FormSection',
+        category: 'Layout',
         props: { title: 'Applicant', block: { key: 'block-test-applicant', version, prefix } },
         layout: { options: { isContainer: true } }
     });
@@ -1153,6 +1154,15 @@ describe('reusable blocks (task 1.13d)', () => {
         expect(blocks.items.map((f) => f.key)).toContain('block-test-applicant');
         const forms = await get<{ items: { key: string }[] }>('/api/v1/forms?kind=form&limit=100', as.bureau());
         expect(forms.items.map((f) => f.key)).not.toContain('block-test-applicant');
+        // a form is never made a block, nor a block a form
+        const turned = await call(
+            'PATCH',
+            `/api/v1/forms/${block.id}`,
+            as.bureau(),
+            { kind: 'form' },
+            ifMatch(block.version)
+        );
+        expect(turned.statusCode, turned.body).toBe(422);
         const published = await get<FormOut>(`/api/v1/forms/${block.id}`, as.bureau());
         const refused = await submit(as.damot(), block.id, published.publishedVersion?.id ?? '', {
             fullName: 'Sample'

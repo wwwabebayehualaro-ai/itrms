@@ -19,14 +19,18 @@ export interface BlockSource {
 
 const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
-/** The block's own fields (a removed key never comes along into another form). */
+/** The block's own fields (a removed key, and what is inside it, never comes along into another form). */
 export function blockFieldsOf(document: unknown): FormField[] {
     const list = Array.isArray(document)
         ? document
         : isRecord(document) && Array.isArray(document.fields)
           ? document.fields
           : [];
-    return (list as FormField[]).filter((f) => isRecord(f) && typeof f.id === 'string' && !f.removed);
+    const fields = (list as FormField[]).filter((f) => isRecord(f) && typeof f.id === 'string');
+    const gone = new Set(fields.filter((f) => f.removed).map((f) => f.id));
+    // a field inside a removed one goes with it (parents come before their children in a stored document)
+    for (const f of fields) if (f.parentId && gone.has(f.parentId)) gone.add(f.id);
+    return fields.filter((f) => !gone.has(f.id));
 }
 
 /** No prefix when none of the block's keys is taken; else the block's key and a number (`applicant2_`). */

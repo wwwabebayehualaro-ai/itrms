@@ -109,7 +109,8 @@ export class DraftsService {
     private async published(tx: Tx, formId: string, versionId: string): Promise<unknown> {
         const [form] = await tx.select().from(formDefinitions).where(eq(formDefinitions.id, formId));
         if (!form) throw new NotFoundError();
-        if (!form.active)
+        // a block is never filled in, so never drafted (task 1.13d)
+        if (!form.active || form.kind === 'block')
             throw new ConflictError('invalid_transition', { detailKey: 'forms.errors.form_no_submissions' });
         if (form.publishedVersionId !== versionId)
             throw new ConflictError('stale_version', {

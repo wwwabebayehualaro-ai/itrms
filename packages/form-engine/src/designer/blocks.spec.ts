@@ -92,6 +92,42 @@ describe('a copy brought to a newer version', () => {
     });
 });
 
+describe('a copy updated under the locks of the services that read it', () => {
+    it("keeps a locked field's type and required-ness whatever the new version says", () => {
+        const store = storeWith([]);
+        const id =
+            store
+                .getState()
+                .actions.insertBlock(applicant(1, [f('name', 'InputText', { props: { required: true } })])) ?? '';
+        store.getState().actions.setLocked(new Map([['name', { key: 'name', required: true } as never]]));
+        const loose = applicant(2, [f('name', 'InputNumber', { props: {} }), f('phone', 'InputText')]);
+        expect(store.getState().actions.updateBlock(id, loose)).toBe(true);
+        const name = store.getState().doc.byId.name;
+        expect(name?.type).toBe('InputText');
+        expect(name?.props?.required).toBe(true);
+    });
+
+    it('keeps a published key the new version leaves out in its container, and leaves out what sits in a removed field', () => {
+        const store = storeWith([]);
+        const v1 = applicant(1, [
+            f('box', 'Panel', { layout: { options: { isContainer: true } } }),
+            f('inner', 'InputText', { parentId: 'box' })
+        ]);
+        const id = store.getState().actions.insertBlock(v1) ?? '';
+        store.getState().actions.setPublished(new Map([['inner', { key: 'inner' } as never]]));
+        const v2 = applicant(2, [
+            f('box', 'Panel', { layout: { options: { isContainer: true } } }),
+            f('gone', 'Panel', { removed: true, layout: { options: { isContainer: true } } }),
+            f('ghost', 'InputText', { parentId: 'gone' })
+        ]);
+        expect(store.getState().actions.updateBlock(id, v2)).toBe(true);
+        const { doc } = store.getState();
+        expect(doc.byId.inner).toMatchObject({ parentId: 'box', removed: true });
+        expect(doc.byId.ghost).toBeUndefined();
+        expect(doc.byId.gone).toBeUndefined();
+    });
+});
+
 describe('the block versions a stored document holds', () => {
     it('are read from the sections that name the block, once each, lowest first', () => {
         const doc = {

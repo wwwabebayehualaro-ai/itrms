@@ -319,16 +319,39 @@ export function createDesignerStore(
                 // a field an effect reads never leaves the form; another field's key may not be taken
                 if (old.some((x) => locked.has(x) && !next.has(x))) return false;
                 if (fields.some((f) => doc.byId[f.id] && !old.includes(f.id))) return false;
-                // a published key the new version leaves out stays in the form, flagged removed (its answers stay readable)
+                // a field an effect reads keeps its type, the settings of its kind, its conditions and roles, and its required-ness,
+                // whatever the new version says: the same rule as an edit of it (the server's publish guard checks it again)
+                for (const copy of fields) {
+                    const lock = locked.get(copy.id);
+                    const was = doc.byId[copy.id];
+                    if (!lock || !was) continue;
+                    const kept = lockedParts(was);
+                    copy.type = kept.type;
+                    copy.props = { ...(copy.props ?? {}), ...kept.props, ...(lock.required ? { required: true } : {}) };
+                    copy.behavior = { ...(copy.behavior ?? {}), ...kept.behavior };
+                    copy.visibleToRoles = kept.visibleToRoles;
+                }
+                // a published key the new version leaves out stays in the form, flagged removed (its answers stay readable),
+                // in its container when that is still there
                 const kept = old.filter((x) => published.has(x) && !next.has(x)).map((x) => doc.byId[x]);
+                const placeOf = (f: FormField) =>
+                    f.parentId && (next.has(f.parentId) || f.parentId === id) ? f.parentId : id;
                 edit((d) => {
                     for (const child of [...(d.children[id] ?? [])]) removeField(d, child);
                     for (const f of fields) {
                         const parent = f.parentId ?? id;
                         insertField(d, f, parent, (d.children[parent] ?? []).length);
                     }
-                    for (const f of kept)
-                        if (f) insertField(d, { ...f, parentId: id, removed: true }, id, (d.children[id] ?? []).length);
+                    for (const f of kept) {
+                        if (!f) continue;
+                        const parent = placeOf(f);
+                        insertField(
+                            d,
+                            { ...f, parentId: parent, removed: true },
+                            parent,
+                            (d.children[parent] ?? []).length
+                        );
+                    }
                     const s = d.byId[id];
                     if (s) s.props = { ...(s.props ?? {}), block: { ...ref, version: block.version } };
                 });
