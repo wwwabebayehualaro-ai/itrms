@@ -21,7 +21,9 @@ import {
 import { DATABASE, NotReplayable } from '@itrms/kernel/api';
 import type { Database } from '@itrms/kernel/db';
 import { OBJECT_STORE, type ObjectStore } from '@itrms/kernel/files';
-import { ForbiddenError, versionFrom } from '@itrms/kernel/errors';
+import { ForbiddenError, ValidationError, versionFrom } from '@itrms/kernel/errors';
+import { newId } from '@itrms/kernel/db';
+import { errorField } from '@itrms/form-engine/core';
 import { reveal } from '@itrms/kernel/crypto';
 import { currentContext } from '@itrms/kernel/context';
 import { Require, currentPrincipal, requestDbContext } from '@itrms/kernel/iam';
@@ -32,7 +34,9 @@ import {
     draftCreateSchema,
     draftListQuerySchema,
     draftUpdateSchema,
+    formAnalyticsQuerySchema,
     formCreateSchema,
+    formEventInputSchema,
     formListQuerySchema,
     formUpdateSchema,
     publicationDecisionSchema,
@@ -57,10 +61,13 @@ import { SavedViewsService } from './views.service';
 import { ExportsService } from './exports.service';
 import { SubmissionsService } from './submissions.service';
 import { DraftsService } from './drafts.service';
+import { FormAnalyticsService } from './analytics.service';
 
 class FormCreateDto extends createZodDto(formCreateSchema) {}
 class FormUpdateDto extends createZodDto(formUpdateSchema) {}
 class FormListDto extends createZodDto(formListQuerySchema) {}
+class FormEventDto extends createZodDto(formEventInputSchema) {}
+class FormAnalyticsQueryDto extends createZodDto(formAnalyticsQuerySchema) {}
 class PublicationRequestDto extends createZodDto(publicationRequestSchema) {}
 class FormOverlayPutDto extends createZodDto(formOverlayPutSchema) {}
 class PublicationDecisionDto extends createZodDto(publicationDecisionSchema) {}
@@ -95,7 +102,8 @@ export class FormsController {
         @Inject(DATABASE) private readonly db: Database,
         @Inject(FormsService) private readonly forms: FormsService,
         @Inject(SubmissionQueryService) private readonly queries: SubmissionQueryService,
-        @Inject(SavedViewsService) private readonly savedViews: SavedViewsService
+        @Inject(SavedViewsService) private readonly savedViews: SavedViewsService,
+        @Inject(FormAnalyticsService) private readonly analytics: FormAnalyticsService
     ) {}
 
     @Get()
@@ -127,6 +135,22 @@ export class FormsController {
         const ctx = requestDbContext();
         const version = versionFrom(ifMatch);
         return this.db.scoped(ctx, (tx) => this.forms.update(tx, ctx, id, version, body));
+    }
+
+    /** One moment of a fill, from the browser (task 1.13f): counts only, no answer. Whoever fills forms in reports them. */
+    @Post(':id/events')
+    @HttpCode(204)
+    @Require('submission:create')
+    async event(@Param('id', ParseUUIDPipe) id: string, @Body() body: FormEventDto): Promise<void> {
+        const ctx = requestDbContext();
+        await this.db.scoped(ctx, (tx) => this.analytics.record(tx, ctx, id, body));
+    }
+
+    /** The form's figures over a period (task 1.13f), from the fills the caller's office and those below it made. */
+    @Get(':id/analytics')
+    @Require('form:read')
+    analyticsOf(@Param('id', ParseUUIDPipe) id: string, @Query() query: FormAnalyticsQueryDto) {
+        return this.db.scoped(requestDbContext(), (tx) => this.analytics.summary(tx, id, query));
     }
 
     /** What the data viewer can do with the form's submissions (fields, operators, parts, view modes). */
@@ -298,7 +322,8 @@ export class SubmissionsController {
         @Inject(DATABASE) private readonly db: Database,
         @Inject(SubmissionsService) private readonly submissions: SubmissionsService,
         @Inject(SubmissionQueryService) private readonly queries: SubmissionQueryService,
-        @Inject(RegistryLookups) private readonly lookups: RegistryLookups
+        @Inject(RegistryLookups) private readonly lookups: RegistryLookups,
+        @Inject(FormAnalyticsService) private readonly analytics: FormAnalyticsService
     ) {}
 
     /**
@@ -394,12 +419,29 @@ export class SubmissionsController {
 
     @Post()
     @Require('submission:create')
-    create(@Body() body: SubmissionCreateDto) {
+    async create(@Body() body: SubmissionCreateDto) {
         const ctx = requestDbContext();
         const { roles } = currentPrincipal();
-        return this.db.scoped(ctx, (tx) =>
-            this.submissions.create(tx, ctx, roles, body, this.lookups, currentContext()?.language)
-        );
+        try {
+            return await this.db.scoped(ctx, (tx) =>
+                this.submissions.create(tx, ctx, roles, body, this.lookups, currentContext()?.language)
+            );
+        } catch (error) {
+            // the answers the server refused, for the form's analytics (task 1.13f): the keys only, in a transaction of their
+            // own (the refused one rolled back); a failure to record them never hides the refusal
+            if (error instanceof ValidationError && error.errors?.length)
+                await this.db
+                    .scoped(ctx, (tx) =>
+                        this.analytics.record(tx, ctx, body.formId, {
+                            formVersionId: body.formVersionId,
+                            fill: newId(),
+                            kind: 'refused',
+                            fieldKeys: (error.errors ?? []).map((e) => errorField(e.path))
+                        })
+                    )
+                    .catch(() => undefined);
+            throw error;
+        }
     }
 
     @Get(':id')

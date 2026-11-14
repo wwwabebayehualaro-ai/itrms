@@ -23,6 +23,7 @@ import {
 } from '@dnd-kit/core';
 import {
     ArrowLeft,
+    BarChart3,
     Braces,
     Check,
     Database,
@@ -86,6 +87,7 @@ import { DataSources } from './DataSources';
 import { Canvas, DragStateProvider, LIST_PREFIX, PALETTE_PREFIX, dropTarget, type DragState } from './Canvas';
 import { EMPTY_DOC, accepts, fromStored, slugify, subtree, toStored, type DesignDoc } from './document';
 import { ChecksSheet, useChecks } from './Checks';
+import { AnalyticsSheet } from './Analytics';
 import { HistorySheet } from './History';
 import { Inspector } from './Inspector';
 import { LogicInspector } from './LogicInspector';
@@ -184,6 +186,7 @@ function DesignerScreen() {
     const [checksOpen, setChecksOpen] = useState(false);
     const [testsOpen, setTestsOpen] = useState(false);
     const [historyOpen, setHistoryOpen] = useState(false);
+    const [analyticsOpen, setAnalyticsOpen] = useState(false);
     const [publishOpen, setPublishOpen] = useState(false);
     const [mode, setMode] = useState<'design' | 'preview'>('design');
     const [naming, setNaming] = useState(false);
@@ -503,6 +506,12 @@ function DesignerScreen() {
                         {t('form-engine.designer.history.button')}
                     </Button>
                 )}
+                {template.id && template.published_version_id && (
+                    <Button type="button" variant="outline" size="sm" onClick={() => setAnalyticsOpen(true)}>
+                        <BarChart3 />
+                        {t('form-engine.designer.analytics.button')}
+                    </Button>
+                )}
                 <Button type="button" variant="outline" size="sm" onClick={() => setSourcesOpen(true)}>
                     <Database />
                     {t('form-engine.designer.toolbar.dataSources')}
@@ -606,6 +615,7 @@ function DesignerScreen() {
             <ChecksSheet open={checksOpen} onOpenChange={setChecksOpen} />
             <TestCasesSheet open={testsOpen} onOpenChange={setTestsOpen} />
             <HistorySheet open={historyOpen} onOpenChange={setHistoryOpen} />
+            <AnalyticsSheet open={analyticsOpen} onOpenChange={setAnalyticsOpen} />
             {template.id && (
                 <PublishDialog
                     templateId={template.id}
@@ -662,6 +672,7 @@ function Preview() {
             <div hidden={view === 'print'}>
                 <EngineForm
                     silent
+                    reportFill={false}
                     language={language}
                     fields={stored.fields}
                     runtime={runtime}

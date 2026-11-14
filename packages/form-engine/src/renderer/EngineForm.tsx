@@ -12,7 +12,15 @@ import { serverFormErrors } from '../host/client';
 import { useFormsHost, useFormsLanguages, useFormsUser } from '../host/FormsHost';
 import { EngineTextLanguage, useEngineText } from '../host/text';
 import type { FormField, FormTemplate } from '@itrms/schemas';
-import { initialValues, pruneHidden, readDocument, validateForm, type EngineDocument, type FieldErrors } from '../core';
+import {
+    errorField,
+    initialValues,
+    pruneHidden,
+    readDocument,
+    validateForm,
+    type EngineDocument,
+    type FieldErrors
+} from '../core';
 import { RuntimeProvider } from './runtime/RuntimeProvider';
 import { mapToForm } from '../core/runtime/mapping';
 import { resolveBindings, resolveString } from '../core/runtime/expression';
@@ -23,6 +31,7 @@ import { unsupportedFields } from './kit';
 import { RuntimeBridge, RuntimeStore, RuntimeStoreProvider, useRuntimeApi, useRuntimeSelector } from './runtimeScope';
 import { FieldList, TreeProvider, WizardProvider } from './FieldTree';
 import { useWizard, WizardNav, WizardSteps } from './Wizard';
+import { useFillReporter } from './fillReport';
 import './fields/registerAll';
 
 type Values = Record<string, unknown>;
@@ -58,6 +67,8 @@ export interface EngineFormProps {
     showRefresh?: boolean;
     /** No "submitted" message (the builder's preview shows what would be stored instead). */
     silent?: boolean;
+    /** Report the fill's moments to the form's analytics (task 1.13f); off in the builder's preview. On by default. */
+    reportFill?: boolean;
     /** The language its texts are shown in (default: the screens' language). */
     language?: string;
     /** Called with the form's values whenever they change (the builder's preview saves them as a test case). */
@@ -106,6 +117,7 @@ function EngineFormBody({
     readOnly,
     showRefresh,
     silent,
+    reportFill,
     onValuesChange,
     remount
 }: EngineFormProps & { doc: EngineDocument; remount: () => void }) {
@@ -116,6 +128,13 @@ function EngineFormBody({
     const builderTemplate = useTemplate();
     const [store] = useState(() => new RuntimeStore());
     const top = useRef<HTMLFormElement>(null);
+    // the fill's moments for the form's analytics: only where a real form is being filled in
+    const report = useFillReporter(
+        template?.id,
+        template?.published_version_id,
+        reportFill !== false && !view && !readOnly
+    );
+    useEffect(() => report.opened(), [report]);
     const invalid = useRef<(values: Values) => void>(() => undefined);
     const runtimeConfig =
         runtime ?? readDocument(template?.form_config).runtime ?? readDocument(builderTemplate?.form_config).runtime;
@@ -168,6 +187,7 @@ function EngineFormBody({
             }
             if (onFormSubmit && !submitCfg?.skipDefaultSubmission)
                 response = (await onFormSubmit(submission)) ?? response;
+            report.submitted();
 
             // the message may show what the server did, e.g. "Posted {{response.submission_data.reference}}"
             const message = submitCfg?.successMessage
@@ -252,11 +272,15 @@ function EngineFormBody({
     const wizard = useWizard(doc, form as AnyFormApi, store, byId, {
         enabled: !view && !readOnly,
         language: words.language,
-        top
+        top,
+        report
     });
     useEffect(() => {
-        invalid.current = (values) =>
-            wizard.showErrors(validateForm(doc.fields, values, store.get().scope, { language: words.language }));
+        invalid.current = (values) => {
+            const errors = validateForm(doc.fields, values, store.get().scope, { language: words.language });
+            report.blocked(Object.keys(errors).map(errorField), wizard.place?.stepId);
+            wizard.showErrors(errors);
+        };
     });
     const footer = !view && !readOnly && (
         <FormFooter

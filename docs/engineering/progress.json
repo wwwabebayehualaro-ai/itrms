@@ -1721,7 +1721,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split from 1.13e on 2026-11-14."
+          "notes": "Split from 1.13e on 2026-11-14. Built (2026-11-14): forms.form_events (migration 0077: class T at the filing unit, insert-only grant, audited, kind and bounds checks): a fill's moments with field keys only (never values), the step and the seconds; POST /forms/{id}/events (submission:create; keys kept only if the version's, a step only if one of its steps) and GET /forms/{id}/analytics (form:read; the caller's scope's fills: opened, submitted, stopped, median seconds, the 20 fields that stop people most, fills left a day or more by the last step). The renderer reports opened, wizard steps, blocked Next or submit (keys in error) and submitted (seconds); off read only, in the builder's preview (reportFill=false) and without a published version; a send never blocks the person. The server records its own refusals of a direct submission (separate transaction). The builder's Analytics sheet shows them with labels. No audit exception: each event is an audited append-only row. Follow-up 261 (header rule duplicated) fixed: issueDocument calls officialHeader. The two 1.13d follow-ups (a block's own references in data sources and texts; services per affected form) re-homed as unscheduled (form platform). Docker stopped locally: integration and e2e on CI."
         },
         {
           "id": "1.13b",
@@ -3635,17 +3635,18 @@
     {
       "foundIn": "1.13d",
       "item": "Blocks copied with a key prefix: renameFieldKey does not rename a field's own key inside data.dataSource bindings or {{form.x}} text in props, so a block whose options or labels name its own fields breaks when copied with a prefix (the starter blocks have none; review L6)",
-      "movedTo": "1.13e"
+      "movedTo": "unscheduled (form platform)"
     },
     {
       "foundIn": "1.13d",
       "item": "A block's impact: name the services bound to each affected form (and their open cases), as a form's own publish check does for its services",
-      "movedTo": "1.13e"
+      "movedTo": "unscheduled (form platform)"
     },
     {
       "foundIn": "1.13e",
       "item": "issueDocument resolves the document header itself instead of calling officialHeader (the same rule today: the stored header, else the bureau's name, else the office's): make it call officialHeader so the print preview and the PDF never drift",
-      "movedTo": "1.13f"
+      "movedTo": "1.13f",
+      "closedIn": "1.13f: issueDocument now calls officialHeader, the rule the print preview shows"
     }
   ]
 }

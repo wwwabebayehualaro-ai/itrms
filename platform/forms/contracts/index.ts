@@ -767,3 +767,39 @@ export const registryLookupItemsQuerySchema = z.strictObject({
 
 export type RegistryLookupItem = z.infer<typeof registryLookupItemSchema>;
 export type RegistryLookupProviderDto = z.infer<typeof registryLookupProviderSchema>;
+
+/**
+ * One moment of a fill, as the browser reports it (task 1.13f): no answer, only the keys of the fields in error, the step reached
+ * and the seconds a submitted fill took. `fill` is a random id the browser makes for one sitting.
+ */
+export const formEventInputSchema = z.strictObject({
+    formVersionId: z.uuid(),
+    fill: z.uuid(),
+    kind: z.enum(['opened', 'step', 'blocked', 'submitted']),
+    fieldKeys: z.array(z.string().min(1).max(100)).max(200).optional(),
+    step: z.string().min(1).max(100).optional(),
+    seconds: z.number().int().min(0).max(604_800).optional()
+});
+
+export const formAnalyticsQuerySchema = z.strictObject({
+    /** Addis Ababa days, the first and the last of the period (none: from the start, to now) */
+    from: z.iso.date().optional(),
+    to: z.iso.date().optional()
+});
+
+/** A form's figures over a period (task 1.13f): counts only. */
+export const formAnalyticsSchema = z.object({
+    fills: z.object({
+        /** fills opened, fills submitted, and the times a fill was stopped by the form's checks (the browser's or the server's) */
+        opened: z.number().int(),
+        submitted: z.number().int(),
+        stopped: z.number().int()
+    }),
+    /** the median time from opened to submitted; null with no submitted fill */
+    medianSeconds: z.number().int().nullable(),
+    /** the fields that stopped fills most, most first (at most 20) */
+    fieldErrors: z.array(z.object({ key: z.string(), count: z.number().int() })),
+    /** fills opened a day ago or more and never submitted, by the last step reached (null: before any step) */
+    abandoned: z.array(z.object({ step: z.string().nullable(), count: z.number().int() }))
+});
+export type FormAnalytics = z.infer<typeof formAnalyticsSchema>;

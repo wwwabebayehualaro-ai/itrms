@@ -487,3 +487,48 @@ export const submissionExports = withRls(
     ),
     'transaction'
 );
+
+/**
+ * What happened while people filled a form in (task 1.13f): aggregate analytics with no personal data. A fill (a random id the
+ * browser makes for one sitting) was opened, reached a step, was stopped by its checks (the keys of the fields in error, never
+ * their values) or was submitted (the seconds it took). Written once (class T at the filing unit); read only as counts.
+ */
+export const formEvents = withRls(
+    audited(
+        formsSchema.table(
+            'form_events',
+            {
+                ...baseColumns(),
+                regionId: uuid('region_id').notNull(),
+                unitId: uuid('unit_id')
+                    .notNull()
+                    .references(() => orgUnits.id),
+                /** set by trigger from the unit */
+                orgPath: ltree('org_path').notNull().default(''),
+                formId: uuid('form_id')
+                    .notNull()
+                    .references(() => formDefinitions.id),
+                formVersionId: uuid('form_version_id')
+                    .notNull()
+                    .references(() => formVersions.id),
+                fill: uuid('fill').notNull(),
+                kind: text('kind', { enum: ['opened', 'step', 'blocked', 'refused', 'submitted'] }).notNull(),
+                /** the keys of the fields in error (blocked, refused) */
+                fieldKeys: text('field_keys')
+                    .array()
+                    .notNull()
+                    .default(sql`'{}'::text[]`),
+                /** the wizard step reached, or the one it was stopped at */
+                step: text('step'),
+                /** the seconds from opened to submitted */
+                seconds: integer('seconds')
+            },
+            (t) => [
+                index('form_events_form_idx').on(t.formId, t.createdAt),
+                index('form_events_fill_idx').on(t.formId, t.fill),
+                index('form_events_org_path_gist').using('gist', t.orgPath)
+            ]
+        )
+    ),
+    'transaction'
+);
