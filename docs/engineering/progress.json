@@ -1716,10 +1716,11 @@
         {
           "id": "1.13f",
           "title": "Form platform, part 7: form analytics",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.13f-form-analytics",
           "commits": [
-            "79be7ac"
+            "79be7ac",
+            "ab67df2"
           ],
           "evidence": [
             "CI run 43548556091 on PR #71 (head 79be7ac): all 10 jobs green: lint, typecheck, unit, build, boundaries and i18n; integration on the dev stack 41 files (forms.int.spec.ts incl. the analytics test) plus the S3 contract suite; e2e journeys; stories, axe and visual baselines; performance; production profile; Semgrep, Trivy and gitleaks clean; migration 0077_form_events.sql applied from zero; OpenAPI regenerated",
