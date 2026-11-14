@@ -528,6 +528,61 @@ describe('owners the sheet and the register must agree on (ADR-0054)', () => {
         expect((await rowsOf(batch.id, 'valid'))[0]?.make).toBe('Toyota');
     }, 300_000);
 
+    it('stores a CSV cell holding a NUL or a lone surrogate as text, and finishes the dry run', async () => {
+        const nul = fileRow(150, { make: 'Toy\u0000ota' });
+        const surrogate = fileRow(151, { model: 'Hilux\ud800' });
+        const batch = await send(as.clerk, {
+            filename: 'control.csv',
+            format: 'csv',
+            content: csvOf([nul, surrogate]),
+            scanFileIds: await scans([nul.paper_reference, surrogate.paper_reference])
+        });
+        await runCheck(batch.id);
+        expect(await batchOf(batch.id)).toMatchObject({ state: 'checked', counts: { total: 2, valid: 2 } });
+        const [first, second] = await rowsOf(batch.id);
+        expect(first?.make).toBe('Toyota');
+        expect(second?.model?.startsWith('Hilux')).toBe(true);
+        expect(second?.model).not.toContain('\ud800');
+    }, 120_000);
+
+    it('refuses at the commit a FIN another batch gave the register under another name since the dry run', async () => {
+        const FIN = `7${RUN}00000`;
+        const earlier = fileRow(160, { owner_name_am: 'ባለቤት ቀዳሚ ታደሰ', owner_fin: FIN });
+        const later = fileRow(161, { owner_name_am: 'ባለቤት ኋለኛ ታደሰ', owner_fin: FIN });
+        const sendOne = async (row: Row, name: string) => {
+            const batch = await send(as.clerk, {
+                filename: name,
+                format: 'csv',
+                content: csvOf([row]),
+                scanFileIds: await scans([row.paper_reference])
+            });
+            await runCheck(batch.id);
+            const checked = await batchOf(batch.id);
+            // the FIN is no one's yet: both rows are valid in their dry runs
+            expect(checked).toMatchObject({ state: 'checked', counts: { valid: 1 } });
+            return checked;
+        };
+        const commit = async (batch: VehicleImport) => {
+            const res = await api.call(
+                'POST',
+                `/api/v1/vehicle-imports/${batch.id}/commit`,
+                as.verifier,
+                {},
+                ifMatch(batch.version)
+            );
+            expect(res.statusCode, res.body).toBe(202);
+            await runCommit(batch.id);
+            return batchOf(batch.id);
+        };
+        const a = await sendOne(earlier, 'fin-a.csv');
+        const b = await sendOne(later, 'fin-b.csv');
+        expect(await commit(a)).toMatchObject({ state: 'committed', counts: { imported: 1 } });
+        expect(await commit(b)).toMatchObject({ state: 'committed', counts: { imported: 0, invalid: 1 } });
+        const [refused] = await rowsOf(b.id, 'invalid');
+        expect(refused?.errors.map((e) => [e.column, e.code])).toEqual([['owner_fin', 'owner_fin_elsewhere']]);
+        expect(refused?.vehicleId).toBeNull();
+    }, 180_000);
+
     it('lets a sheet still waiting for the worker be discarded, and the worker then leaves it', async () => {
         const rows = [fileRow(200, { owner_phone: `09${RUN.slice(0, 2)}900200` })];
         const batch = await send(as.clerk, { filename: 'stuck.csv', format: 'csv', content: csvOf(rows) });

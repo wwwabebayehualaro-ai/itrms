@@ -136,6 +136,17 @@ describe('reading a sheet', () => {
         expect(zipWithinBounds(data, budget)).toBe(false);
         expect(zipWithinBounds(liar, budget)).toBe(false);
         expect(zipWithinBounds(data)).toBe(true);
+
+        // what JSZip would still read in full: an end record counting no parts, a byte before the archive (JSZip shifts every
+        // offset by it), a ZIP64 mark
+        const none = Buffer.from(data);
+        none.writeUInt16LE(0, end + 8);
+        none.writeUInt16LE(0, end + 10);
+        expect(zipWithinBounds(none)).toBe(false);
+        expect(zipWithinBounds(Buffer.concat([Buffer.from([0]), data]))).toBe(false);
+        const zip64 = Buffer.from(data);
+        zip64.writeUInt16LE(0xffff, end + 4);
+        expect(zipWithinBounds(zip64)).toBe(false);
     });
 
     it('keeps no cell PostgreSQL would refuse: control characters and lone surrogates dropped, a date cell kept as one', async () => {

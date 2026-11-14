@@ -39,7 +39,7 @@ import { downloadLinkedFile, files, linkFile, type ObjectStore } from '@itrms/ke
 import { emit } from '@itrms/kernel/outbox';
 import { users } from '@itrms/kernel/tables';
 import { effectiveServices, unitRefs } from '@itrms/kernel/org';
-import { nameKeyOf, organisations, personSensitive, PersonsService } from '@itrms/parties/api';
+import { nameKeyOf, organisations, PersonsService } from '@itrms/parties/api';
 import { vehicleCategories, vehicles, VehiclesService } from '@itrms/vehicles/api';
 import { parsePlate, parseVin } from '@itrms/vehicles/contracts';
 import vehiclesAm from '@itrms/vehicles/messages/am';
@@ -461,14 +461,15 @@ export class VehicleImportService {
      * its last step find it no longer checking and stop.
      */
     async discard(tx: Tx, ctx: DbContext, id: string, version: number, mayCommit: boolean): Promise<VehicleImport> {
+        // the batch's lock first, as a chunk of the dry run takes it (then the batch's row, through its rows' key): no chunk is
+        // storing rows meanwhile, and the two never wait for each other in turn
+        await tx.execute(sql`select pg_advisory_xact_lock(${IMPORT_LOCK}, hashtext(${id}))`);
         const [row] = await tx.select().from(vehicleImports).where(eq(vehicleImports.id, id)).for('update');
         if (!row) throw new NotFoundError();
         if (row.rowVersion !== version) throw new ConflictError('stale_version');
         if (row.createdBy !== ctx.userId && !mayCommit) throw new ForbiddenError();
         if (row.state !== 'checked' && row.state !== 'failed' && row.state !== 'checking')
             throw new ConflictError('invalid_transition', { detailKey: 'competency.errors.import_not_discardable' });
-        // under the batch's lock, so no chunk of the dry run is storing rows meanwhile
-        await tx.execute(sql`select pg_advisory_xact_lock(${IMPORT_LOCK}, hashtext(${id}))`);
         await updateAudited(tx, vehicleImports, id, row.rowVersion, {
             state: 'discarded',
             failureCode: null,
@@ -516,7 +517,7 @@ export class VehicleImportService {
                 // the values)
                 await deps.database.recordSensitiveEvent(ctx, {
                     type: 'person.import_checked',
-                    table: personSensitive,
+                    table: vehicleImports,
                     rowId: importId,
                     data: { by: ['fin', 'name_phone'] }
                 });
@@ -604,6 +605,12 @@ export class VehicleImportService {
         // two deliveries at once link one after the other (the second finds them linked), so both hold every scan
         await tx.execute(sql`select pg_advisory_xact_lock(${IMPORT_LOCK}, hashtext(${batch.id}))`);
         const linked = new Map<string, string>();
+        // discarded since its sheet was read: its scans stay the sender's, to send again with a corrected sheet
+        const [current] = await tx
+            .select({ state: vehicleImports.state })
+            .from(vehicleImports)
+            .where(eq(vehicleImports.id, batch.id));
+        if (current?.state !== 'checking') return linked;
         for (const id of batch.scanFileIds) {
             try {
                 const file = await linkFile(tx, id, {
@@ -923,7 +930,7 @@ export class VehicleImportService {
                 // the commit looks owners up by FIN: on record as the interactive lookup is (never the values)
                 await deps.database.recordSensitiveEvent(ctx, {
                     type: 'person.import_committed',
-                    table: personSensitive,
+                    table: vehicleImports,
                     rowId: importId,
                     data: { by: ['fin'] }
                 });

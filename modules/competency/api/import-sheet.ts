@@ -88,13 +88,22 @@ export function zipWithinBounds(data: Buffer, maxBytes = MAX_UNPACKED_BYTES): bo
             break;
         }
     if (end < 0) return false;
+    // only an archive JSZip reads as this does: one disk, no ZIP64 marks, the directory ending where the end record begins (JSZip
+    // shifts every offset by any gap), and exactly the parts the end record counts (JSZip reads every header it finds)
+    const disk = data.readUInt16LE(end + 4);
+    const directoryDisk = data.readUInt16LE(end + 6);
+    const onDisk = data.readUInt16LE(end + 8);
     const entries = data.readUInt16LE(end + 10);
+    const size = data.readUInt32LE(end + 12);
     const offset = data.readUInt32LE(end + 16);
-    if (entries > MAX_ZIP_ENTRIES || offset === 0xffffffff || offset >= data.length) return false;
+    if (disk !== 0 || directoryDisk !== 0 || onDisk !== entries || entries > MAX_ZIP_ENTRIES) return false;
+    if (size === 0xffffffff || offset === 0xffffffff || offset + size !== end) return false;
     let at = offset;
     let left = maxBytes;
-    for (let n = 0; n < entries; n++) {
-        if (at + 46 > data.length || data.readUInt32LE(at) !== ENTRY) return false;
+    let counted = 0;
+    while (at < end) {
+        if (++counted > entries) return false;
+        if (at + 46 > end || data.readUInt32LE(at) !== ENTRY) return false;
         const method = data.readUInt16LE(at + 10);
         const packed = data.readUInt32LE(at + 20);
         const unpacked = data.readUInt32LE(at + 24);
@@ -103,21 +112,21 @@ export function zipWithinBounds(data: Buffer, maxBytes = MAX_UNPACKED_BYTES): bo
         if (local + 30 > data.length || data.readUInt32LE(local) !== LOCAL) return false;
         const start = local + 30 + data.readUInt16LE(local + 26) + data.readUInt16LE(local + 28);
         if (start + packed > data.length) return false;
-        let size: number;
-        if (method === 0) size = packed;
+        let real: number;
+        if (method === 0) real = packed;
         else if (method === 8) {
             try {
                 // one byte over what is left: a part that unpacks to more stops there, never unpacked whole
-                size = inflateRawSync(data.subarray(start, start + packed), { maxOutputLength: left + 1 }).length;
+                real = inflateRawSync(data.subarray(start, start + packed), { maxOutputLength: left + 1 }).length;
             } catch {
                 return false;
             }
         } else return false;
-        if (size > left) return false;
-        left -= size;
+        if (real > left) return false;
+        left -= real;
         at += 46 + data.readUInt16LE(at + 28) + data.readUInt16LE(at + 30) + data.readUInt16LE(at + 32);
     }
-    return true;
+    return at === end && counted === entries;
 }
 
 /**
