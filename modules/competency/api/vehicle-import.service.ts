@@ -36,7 +36,7 @@ import {
     ValidationError
 } from '@itrms/kernel/errors';
 import { downloadLinkedFile, files, linkFile, type ObjectStore } from '@itrms/kernel/files';
-import { emit } from '@itrms/kernel/outbox';
+import { emit, outboxEvents } from '@itrms/kernel/outbox';
 import { users } from '@itrms/kernel/tables';
 import { effectiveServices, unitRefs } from '@itrms/kernel/org';
 import { nameKeyOf, organisations, PersonsService } from '@itrms/parties/api';
@@ -303,6 +303,18 @@ export class VehicleImportService {
             .from(vehicleImportRows)
             .where(and(inArray(vehicleImportRows.importId, ids), isNotNull(vehicleImportRows.scanFileId)))
             .groupBy(vehicleImportRows.importId);
+        const events = rows.flatMap((r) => (r.state === 'committing' && r.commitEventId ? [r.commitEventId] : []));
+        // a commit whose job died after its attempts (task 1.13g): it may be given back to checked
+        const dead = new Set(
+            events.length === 0
+                ? []
+                : (
+                      await tx
+                          .select({ id: outboxEvents.id })
+                          .from(outboxEvents)
+                          .where(and(inArray(outboxEvents.id, events), eq(outboxEvents.status, 'dead')))
+                  ).map((e) => e.id)
+        );
         const people = [...new Set(rows.flatMap((r) => [r.createdBy, r.committedBy].filter((v): v is string => !!v)))];
         const names = new Map(
             people.length === 0
@@ -341,7 +353,9 @@ export class VehicleImportService {
                 createdAt: r.createdAt.toISOString(),
                 committedBy: person(r.committedBy),
                 committedAt: r.committedAt?.toISOString() ?? null,
-                mayCommit: mayCommit && r.state === 'checked' && counts.valid > 0 && r.createdBy !== ctx.userId
+                mayCommit: mayCommit && r.state === 'checked' && counts.valid > 0 && r.createdBy !== ctx.userId,
+                commitStopped: r.state === 'committing' && !!r.commitEventId && dead.has(r.commitEventId),
+                mayGiveBack: mayCommit && r.state === 'committing' && !!r.commitEventId && dead.has(r.commitEventId)
             };
         });
     }
@@ -444,15 +458,59 @@ export class VehicleImportService {
             .where(and(eq(vehicleImportRows.importId, id), eq(vehicleImportRows.state, 'valid')));
         if ((valid?.n ?? 0) === 0)
             throw new ConflictError('invalid_transition', { detailKey: 'competency.errors.import_nothing_valid' });
+        // the job at the importing office (the committer's own or one below it): its people see whether it died
+        const event = await emit(
+            tx,
+            'vehicle-import.commit-requested.v1',
+            { importId: id },
+            { unitId: row.handlingUnitId, regionId: row.regionId }
+        );
         await updateAudited(tx, vehicleImports, id, row.rowVersion, {
             state: 'committing',
             committedBy: userId,
             commitUnitId: required(ctx.unitId),
             commitRoles: [...roles],
-            committedAt: new Date()
+            committedAt: new Date(),
+            commitEventId: event.id
         });
-        await emit(tx, 'vehicle-import.commit-requested.v1', { importId: id });
         return this.get(tx, ctx, id, mayCommit);
+    }
+
+    /**
+     * A commit whose job died after all its attempts (task 1.13g) is given back to checked, by someone who may commit: what it put
+     * on the register stays, its other valid rows wait for a commit again. Refused while the job is alive (pending, queued or
+     * running): the batch's lock first, as a discard takes it, then the batch, then the job's row, so an administrator's retry of
+     * the job and the give-back never both go on; a row being committed holds the batch under a share lock, so this waits for it.
+     */
+    async giveBack(tx: Tx, ctx: DbContext, id: string, version: number, mayCommit: boolean): Promise<VehicleImport> {
+        if (!mayCommit) throw new ForbiddenError();
+        await tx.execute(sql`select pg_advisory_xact_lock(${IMPORT_LOCK}, hashtext(${id}))`);
+        const [row] = await tx.select().from(vehicleImports).where(eq(vehicleImports.id, id)).for('update');
+        if (!row) throw new NotFoundError();
+        if (row.rowVersion !== version) throw new ConflictError('stale_version');
+        if (row.state !== 'committing' || !row.commitEventId)
+            throw new ConflictError('invalid_transition', { detailKey: 'competency.errors.import_not_committing' });
+        const [event] = await tx
+            .select({ status: outboxEvents.status })
+            .from(outboxEvents)
+            .where(eq(outboxEvents.id, row.commitEventId))
+            .for('update');
+        if (event?.status !== 'dead')
+            throw new ConflictError('invalid_transition', { detailKey: 'competency.errors.import_commit_running' });
+        await this.returnToChecked(tx, row);
+        return this.get(tx, ctx, id, mayCommit);
+    }
+
+    /** A batch no longer being committed: checked again, its committer and their job cleared. */
+    private async returnToChecked(tx: Tx, row: ImportRow): Promise<void> {
+        await updateAudited(tx, vehicleImports, row.id, row.rowVersion, {
+            state: 'checked',
+            committedBy: null,
+            commitUnitId: null,
+            commitRoles: null,
+            committedAt: null,
+            commitEventId: null
+        });
     }
 
     /**
@@ -907,13 +965,7 @@ export class VehicleImportService {
                     .where(eq(vehicleImports.id, importId))
                     .for('update');
                 if (row?.state !== 'committing') return;
-                await updateAudited(tx, vehicleImports, importId, row.rowVersion, {
-                    state: 'checked',
-                    committedBy: null,
-                    commitUnitId: null,
-                    commitRoles: null,
-                    committedAt: null
-                });
+                await this.returnToChecked(tx, row);
             });
             return 'refused';
         }
@@ -1010,7 +1062,13 @@ export class VehicleImportService {
         const ownerId = await this.ownerForCommit(tx, place, row, owner, sensitive);
         const input = captureInput(values, categoryKey, owner, ownerId);
         await this.capture.check(tx, place, input);
-        const made = await this.capture.importRow(tx, place, input, { id: row.id, committedBy: committer });
+        const made = await this.capture.importRow(tx, place, input, {
+            id: row.id,
+            committedBy: committer,
+            clerkId: required(batch.createdBy ?? undefined),
+            scanFileId: row.scanFileId,
+            batch: { id: batch.id, name: batch.filename }
+        });
         await updateAudited(tx, vehicleImportRows, row.id, row.rowVersion, {
             state: 'imported',
             vehicleId: made.vehicle.id,

@@ -29,13 +29,14 @@ const keys = {
     row: (id: string) => ['vehicle-imports', 'row', id] as const
 };
 
-/** A batch the worker is still on: the screens ask again until it is done. */
-export const isWorking = (state: ImportState) => state === 'checking' || state === 'committing';
+/** A batch the worker is still on (not one whose commit job died): the screens ask again until it is done. */
+export const isWorking = (batch: Pick<VehicleImport, 'state' | 'commitStopped'>) =>
+    batch.state === 'checking' || (batch.state === 'committing' && !batch.commitStopped);
 
 export function useVehicleImports() {
     return useQuery<{ items: VehicleImport[] }>({
         queryKey: keys.list,
-        refetchInterval: (query) => (query.state.data?.items.some((i) => isWorking(i.state)) ? 3000 : false),
+        refetchInterval: (query) => (query.state.data?.items.some((i) => isWorking(i)) ? 3000 : false),
         queryFn: async ({ signal }) =>
             (await client.get<{ items: VehicleImport[] }>('v1/vehicle-imports', { params: { limit: 50 }, signal })).data
     });
@@ -44,7 +45,7 @@ export function useVehicleImports() {
 export function useVehicleImport(id: string) {
     return useQuery<VehicleImport>({
         queryKey: keys.one(id),
-        refetchInterval: (query) => (query.state.data && isWorking(query.state.data.state) ? 3000 : false),
+        refetchInterval: (query) => (query.state.data && isWorking(query.state.data) ? 3000 : false),
         queryFn: async ({ signal }) => (await client.get<VehicleImport>(`v1/vehicle-imports/${id}`, { signal })).data
     });
 }
@@ -104,6 +105,22 @@ export function useDiscardVehicleImport() {
             (
                 await client.post<VehicleImport>(
                     `v1/vehicle-imports/${input.id}/discard`,
+                    {},
+                    { headers: { 'If-Match': `"${input.version}"` } }
+                )
+            ).data,
+        onSuccess: () => queries.invalidateQueries({ queryKey: keys.all })
+    });
+}
+
+/** Gives back a sheet whose commit job failed all its attempts, so that its remaining rows can be committed again. */
+export function useGiveBackImport() {
+    const queries = useQueryClient();
+    return useMutation({
+        mutationFn: async (input: { id: string; version: number }) =>
+            (
+                await client.post<VehicleImport>(
+                    `v1/vehicle-imports/${input.id}/give-back`,
                     {},
                     { headers: { 'If-Match': `"${input.version}"` } }
                 )

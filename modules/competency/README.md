@@ -49,8 +49,25 @@ then puts each valid row on the register in its own transaction as migrated by `
 committer its verifier), with its plate and libre. Owners: a person by FIN, else made at the commit, the rows of one owner (one
 FIN, or one Amharic name with one phone) one person; a possible duplicate on the register is an error for a person to resolve; an
 organisation must be on the register (its TIN). The sheet is kept field-encrypted only until it is read; an owner's phone and FIN
-are encrypted in the row. Both jobs run on the app's pool as the person who asked, with the roles they still hold. Sampling QA and
-the campaign counters are task 1.13g, the reconciliation report 1.13h.
+are encrypted in the row. Both jobs run on the app's pool as the person who asked, with the roles they still hold. The vehicle
+keeps its batch and the file's name (`vehicles.migration_import_id`, `migration_import_name`), shown in the search, the record and
+the lookup. A commit whose job died after all its attempts (its outbox event `dead`, `vehicle_imports.commit_event_id`) is given
+back to checked by someone who may commit (`POST …/give-back`), never while the job is alive; what it committed stays. The
+campaign counters are task 1.13i, the reconciliation report 1.13h.
+
+**Sampling QA (task 1.13g, ADR-0054 §3).** When a paper file joins the register (a back-capture verified, or a sheet's row
+committed), the record counts to its clerk at the capturing office (the case's starter, or the sheet's sender) and the share
+(`competency.migration_sample_percent`, default 5, to agree with the zone; set by the bureau or for a kind of office, never by the
+office measured) is drawn, in the same transaction
+(`api/migration-sampling.service.ts`, `api/sampling.ts`): p percent is k of every block of n records (k/n = p/100 in lowest terms:
+5% is 1 in 20), the k places chosen at random when the block opens, so every complete block draws exactly k and the draw cannot be
+foreseen (the places, and where in its block a clerk stands, never enter the audit log; a clerk sees neither their own records
+waiting for a re-check nor their own counts). A clerk's draws at an office are one after another (an advisory lock, then the
+counter's row); a share changed opens a new block at the next record, and a clerk with fewer records than a block may have none
+drawn yet. A drawn record (`migration_samples`, class T) is re-checked against its scan by a third person, never its clerk nor its
+verifier (`migration-sample:recheck`; the database refuses it too): correct, or the facts found wrong, once. A re-check measures:
+it never changes the vehicle (a correction is a service of its own). `GET /api/v1/migration-samples/clerks` counts each clerk's
+records, draws, re-checks, re-checks with errors and errors; in a two-person office the re-check is done from the office above.
 
 **Acting for the handling office, and one vehicle in one open request (task 1.2e).** The steps that write a vehicle's records
 (register, the plate, the libre and its booklet, the exchange, the back-capture's verification) run for the case's handling

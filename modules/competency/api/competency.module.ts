@@ -14,6 +14,8 @@ import { EXCHANGE_EFFECTS } from './exchange.effects';
 import { PlateExchangeService } from './exchange.service';
 import { LICENCE_EFFECTS } from './licence.effects';
 import { LicencesService } from './licences.service';
+import { MigrationSampleController } from './migration-sample.controller';
+import { MigrationSamplingService } from './migration-sampling.service';
 import { GarageLookup, LicenceLookup, TrainingSchoolLookup } from './lookups';
 import { RegisterService } from './register.service';
 import { REGISTRATION_EFFECTS } from './registration.effects';
@@ -23,16 +25,17 @@ import { VehicleImportService } from './vehicle-import.service';
 
 /**
  * Driver licences (task 0.24a): the register, its rules and the effects a licence service's workflow names; and the new vehicle
- * registration service's effects over the vehicle register (task 1.2b); the back-capture of paper vehicle files (task 1.13) and their bulk import (task 1.13b); the plate exchange (task 1.2c); and the bolo inspection (tasks 1.3a, 1.3b).
+ * registration service's effects over the vehicle register (task 1.2b); the back-capture of paper vehicle files (task 1.13) and their bulk import (task 1.13b) with its sampling QA (task 1.13g); the plate exchange (task 1.2c); and the bolo inspection (tasks 1.3a, 1.3b).
  */
 @Module({
     imports: [FormsModule, PartiesModule, DocumentsModule, VehiclesModule, FeesModule],
-    controllers: [CompetencyController, VehicleImportController],
+    controllers: [CompetencyController, VehicleImportController, MigrationSampleController],
     providers: [
         LicencesService,
         RegisterService,
         VehicleRegistrationService,
         BackCaptureService,
+        MigrationSamplingService,
         VehicleImportService,
         PlateExchangeService,
         BoloService,

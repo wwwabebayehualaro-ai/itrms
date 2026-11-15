@@ -175,6 +175,8 @@ export class VehicleRegistry {
                 paperReference: input.migration?.paperReference ?? null,
                 migrationCaseId: input.migration?.caseId ?? null,
                 migrationImportRowId: input.migration?.importRowId ?? null,
+                migrationImportId: input.migration?.importId ?? null,
+                migrationImportName: input.migration?.importName ?? null,
                 migrationVerifiedBy: input.migration?.verifiedBy ?? null,
                 migrationVerifiedAt: input.migration?.verifiedBy ? new Date() : null
             });

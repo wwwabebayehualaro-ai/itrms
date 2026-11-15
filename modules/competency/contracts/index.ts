@@ -6,12 +6,14 @@ import { i18nTextSchema } from '@itrms/schemas';
 import { z } from 'zod';
 
 import { BOLO_EVENTS, BOLO_REMINDER_DAYS_SETTING, TEMPORARY_BOLO_DAYS_SETTING } from './bolo';
+import { MIGRATION_SAMPLE_SETTING, sampleShareSchema } from './migration-sample';
 import { MEDICAL_MONTHS_SETTING, RENEWAL_WINDOW_SETTING } from './rules';
 import { VEHICLE_IMPORT_EVENTS } from './vehicle-import';
 
 export * from './back-capture';
 export * from './bolo';
 export * from './exchange';
+export * from './migration-sample';
 export * from './registration';
 export * from './rules';
 export * from './vehicle-import';
@@ -32,7 +34,8 @@ export const COMPETENCY_SETTINGS = {
     [MEDICAL_MONTHS_SETTING]: monthsSetting,
     [RENEWAL_WINDOW_SETTING]: monthsSetting,
     [TEMPORARY_BOLO_DAYS_SETTING]: z.number().int().min(1).max(90),
-    [BOLO_REMINDER_DAYS_SETTING]: z.number().int().min(1).max(120)
+    [BOLO_REMINDER_DAYS_SETTING]: z.number().int().min(1).max(120),
+    [MIGRATION_SAMPLE_SETTING]: sampleShareSchema
 } as const;
 
 /** The document a licence prints as. */

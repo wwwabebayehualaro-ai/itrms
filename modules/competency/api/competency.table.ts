@@ -14,6 +14,9 @@
  *   vehicle_imports        a sheet of paper vehicle files brought in by a clerk (task 1.13b, ADR-0054), class T at the importing
  *                          office: the file (field-encrypted, cleared once read), its scans and its state.
  *   vehicle_import_rows    each row of it: its facts, its errors, its scan and, once committed, the vehicle it made, class T.
+ *   migration_sample_counters   where each clerk's draw of sampling QA stands at an office (task 1.13g), class T.
+ *   migration_samples      a migrated vehicle drawn for a re-check against its scan, and the re-check, class T at the capturing
+ *                          office.
  *
  * A licence's number is null until the national platform accepts it: `pending_national` is not yet anyone's licence.
  * The foreign keys to the register of people are in the migration: this file is read by drizzle-kit, which can't load another slice's
@@ -48,6 +51,10 @@ import {
     IMPORT_STATES,
     LICENCE_KINDS,
     LICENCE_STATUSES,
+    SAMPLE_FIELDS,
+    SAMPLE_OUTCOMES,
+    SAMPLE_SOURCES,
+    SAMPLE_STATES,
     type ImportRowError
 } from '../contracts';
 
@@ -450,7 +457,12 @@ export const vehicleImports = withRls(
                 commitUnitId: uuid('commit_unit_id').references(() => orgUnits.id),
                 commitRoles: text('commit_roles').array(),
                 committedAt: timestamp('committed_at', { withTimezone: true }),
-                checkedAt: timestamp('checked_at', { withTimezone: true })
+                checkedAt: timestamp('checked_at', { withTimezone: true }),
+                /**
+                 * kernel.outbox_events: the commit's job (task 1.13g). A commit whose job is dead may be given back to checked;
+                 * one whose job is still alive may not.
+                 */
+                commitEventId: uuid('commit_event_id')
             },
             (t) => [
                 index('vehicle_imports_unit_idx').on(t.handlingUnitId, t.createdAt),
@@ -463,6 +475,10 @@ export const vehicleImports = withRls(
                         AND (committed_by IS NULL) = (commit_unit_id IS NULL)
                         AND (committed_by IS NULL OR committed_by IS DISTINCT FROM created_by)
                         AND jsonb_array_length(scan_file_ids) <= 2000`
+                ),
+                check(
+                    'vehicle_imports_commit_event_check',
+                    sql`commit_event_id IS NULL OR state IN ('committing', 'committed')`
                 )
             ]
         ),
@@ -516,6 +532,99 @@ export const vehicleImportRows = withRls(
             ]
         ),
         { omit: ['sensitiveCt', 'ownerKey'] }
+    ),
+    'transaction'
+);
+
+/**
+ * Where a clerk's draw stands at an office (task 1.13g): their migrated records so far, those drawn, and the block the next is
+ * drawn from (sampling.ts). The block's drawn places and where in it the clerk stands never enter the audit log, so the draw cannot
+ * be read ahead.
+ */
+export const migrationSampleCounters = withRls(
+    audited(
+        competencySchema.table(
+            'migration_sample_counters',
+            {
+                ...baseColumns(),
+                ...handled(),
+                clerkId: uuid('clerk_id').notNull(),
+                records: integer('records').notNull().default(0),
+                drawn: integer('drawn').notNull().default(0),
+                share: integer('share').notNull(),
+                blockSize: integer('block_size').notNull(),
+                blockPosition: integer('block_position').notNull().default(0),
+                blockPicks: integer('block_picks')
+                    .array()
+                    .notNull()
+                    .default(sql`'{}'::integer[]`)
+            },
+            (t) => [
+                uniqueIndex('migration_sample_counters_clerk_uq').on(t.handlingUnitId, t.clerkId),
+                index('migration_sample_counters_org_path_gist').using('gist', t.orgPath),
+                check(
+                    'migration_sample_counters_check',
+                    sql`share BETWEEN 0 AND 100 AND block_size BETWEEN 1 AND 100
+                        AND block_position BETWEEN 0 AND block_size AND cardinality(block_picks) <= block_size
+                        AND drawn BETWEEN 0 AND records`
+                )
+            ]
+        ),
+        { omit: ['blockPicks', 'blockPosition'] }
+    ),
+    'transaction'
+);
+
+/**
+ * A migrated vehicle drawn for a re-check (task 1.13g): who captured it (the clerk), who verified it, its scan, and the re-check
+ * by a third person: correct, or the facts found wrong. The foreign keys to the vehicle, the case and the scan are in the
+ * migration.
+ */
+export const migrationSamples = withRls(
+    audited(
+        competencySchema.table(
+            'migration_samples',
+            {
+                ...baseColumns(),
+                ...handled(),
+                vehicleId: uuid('vehicle_id').notNull(),
+                source: text('source', { enum: SAMPLE_SOURCES }).notNull(),
+                caseId: uuid('case_id'),
+                importRowId: uuid('import_row_id').references(() => vehicleImportRows.id),
+                clerkId: uuid('clerk_id').notNull(),
+                verifierId: uuid('verifier_id').notNull(),
+                scanFileId: uuid('scan_file_id'),
+                /** the share in force when it was drawn */
+                share: integer('share').notNull(),
+                state: text('state', { enum: SAMPLE_STATES }).notNull().default('drawn'),
+                outcome: text('outcome', { enum: SAMPLE_OUTCOMES }),
+                errorFields: text('error_fields', { enum: SAMPLE_FIELDS })
+                    .array()
+                    .notNull()
+                    .default(sql`'{}'::text[]`),
+                note: text('note'),
+                recheckedBy: uuid('rechecked_by'),
+                recheckedAt: timestamp('rechecked_at', { withTimezone: true })
+            },
+            (t) => [
+                uniqueIndex('migration_samples_vehicle_uq').on(t.vehicleId),
+                index('migration_samples_queue_idx').on(t.handlingUnitId, t.state, t.createdAt),
+                index('migration_samples_clerk_idx').on(t.clerkId, t.handlingUnitId),
+                index('migration_samples_org_path_gist').using('gist', t.orgPath),
+                check(
+                    'migration_samples_check',
+                    sql`(source = 'back_capture') = (case_id IS NOT NULL) AND (source = 'import') = (import_row_id IS NOT NULL)
+                        AND clerk_id <> verifier_id AND share BETWEEN 1 AND 100
+                        AND (state = 'rechecked') = (rechecked_by IS NOT NULL)
+                        AND (rechecked_by IS NULL) = (rechecked_at IS NULL)
+                        AND (rechecked_by IS NULL) = (outcome IS NULL)
+                        AND rechecked_by IS DISTINCT FROM clerk_id AND rechecked_by IS DISTINCT FROM verifier_id
+                        AND (outcome IS NOT DISTINCT FROM 'errors') = (cardinality(error_fields) > 0)
+                        AND cardinality(error_fields) <= 40
+                        AND coalesce(length(note), 1) BETWEEN 1 AND 500 AND (note IS NULL OR state = 'rechecked')`
+                )
+            ]
+        )
     ),
     'transaction'
 );

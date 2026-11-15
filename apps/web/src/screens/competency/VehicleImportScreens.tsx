@@ -50,6 +50,7 @@ import {
     useCommitVehicleImport,
     useCreateVehicleImport,
     useDiscardVehicleImport,
+    useGiveBackImport,
     useVehicleImport,
     useVehicleImportRow,
     useVehicleImportRows,
@@ -291,10 +292,11 @@ export function VehicleImportReport({ id }: { id: string }) {
     const batch = useVehicleImport(id);
     const [state, setState] = useState<ImportRowState | 'all'>('all');
     const [offset, setOffset] = useState(0);
-    const working = batch.data ? isWorking(batch.data.state) : false;
+    const working = batch.data ? isWorking(batch.data) : false;
     const rows = useVehicleImportRows(id, state === 'all' ? undefined : state, offset, working);
     const commit = useCommitVehicleImport();
     const discard = useDiscardVehicleImport();
+    const giveBack = useGiveBackImport();
 
     if (batch.isPending) return <Skeleton className="h-40 w-full" />;
     if (batch.error)
@@ -311,15 +313,20 @@ export function VehicleImportReport({ id }: { id: string }) {
         (b.state === 'checked' || b.state === 'failed' || b.state === 'checking') && (mayCreate || b.mayCommit);
     const total = rows.data?.total ?? 0;
 
-    const act = async (what: 'commit' | 'discard') => {
+    const act = async (what: 'commit' | 'discard' | 'give-back') => {
         const ok = await confirmAction({
-            message: t(what === 'commit' ? 'competency.imports.commitConfirm' : 'competency.imports.discardConfirm', {
-                valid: String(b.counts.valid)
-            }),
+            message: t(
+                what === 'commit'
+                    ? 'competency.imports.commitConfirm'
+                    : what === 'give-back'
+                      ? 'competency.imports.giveBackConfirm'
+                      : 'competency.imports.discardConfirm',
+                { valid: String(b.counts.valid) }
+            ),
             danger: what === 'discard'
         });
         if (!ok) return;
-        const mutation = what === 'commit' ? commit : discard;
+        const mutation = what === 'commit' ? commit : what === 'give-back' ? giveBack : discard;
         mutation.mutate(
             { id: b.id, version: b.version },
             { onError: (error) => notify.error(getApiErrorMessage(error)) }
@@ -339,6 +346,15 @@ export function VehicleImportReport({ id }: { id: string }) {
                         {b.mayCommit && (
                             <Button data-action="commit" disabled={commit.isPending} onClick={() => void act('commit')}>
                                 {t('competency.imports.commit', { valid: String(b.counts.valid) })}
+                            </Button>
+                        )}
+                        {b.mayGiveBack && (
+                            <Button
+                                data-action="give-back"
+                                disabled={giveBack.isPending}
+                                onClick={() => void act('give-back')}
+                            >
+                                {t('competency.imports.giveBack')}
                             </Button>
                         )}
                         {mayDiscard && (
@@ -370,6 +386,11 @@ export function VehicleImportReport({ id }: { id: string }) {
                     </span>
                 )}
             </div>
+            {b.commitStopped && (
+                <p className="text-destructive text-sm" role="alert" data-commit-stopped>
+                    {t('competency.imports.commitStopped')}
+                </p>
+            )}
             {b.state === 'checked' && !b.mayCommit && b.counts.valid > 0 && (
                 <p className="text-sm" data-commit-hint>
                     {t('competency.imports.commitHint')}

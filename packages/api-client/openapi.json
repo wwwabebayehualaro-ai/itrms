@@ -2749,6 +2749,55 @@
         ],
         "type": "object"
       },
+      "MigrationSampleRecheckDto": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "default": [],
+            "items": {
+              "enum": [
+                "paper_reference",
+                "first_registered_on",
+                "owners_since",
+                "plate",
+                "libre",
+                "federal_vehicle_id",
+                "chassis_number",
+                "engine_number",
+                "make",
+                "model",
+                "model_year",
+                "category",
+                "use",
+                "capacity",
+                "colour",
+                "fuel",
+                "owners",
+                "scan"
+              ],
+              "type": "string"
+            },
+            "maxItems": 18,
+            "type": "array"
+          },
+          "note": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "correct",
+              "errors"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome"
+        ],
+        "type": "object"
+      },
       "MoveUnitDto": {
         "additionalProperties": false,
         "properties": {
@@ -8469,6 +8518,148 @@
         ]
       }
     },
+    "/api/v1/migration-samples": {
+      "get": {
+        "operationId": "MigrationSampleController_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "enum": [
+                "drawn",
+                "rechecked"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 100000,
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "MigrationSample"
+        ]
+      }
+    },
+    "/api/v1/migration-samples/clerks": {
+      "get": {
+        "operationId": "MigrationSampleController_clerks",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "MigrationSample"
+        ]
+      }
+    },
+    "/api/v1/migration-samples/{id}": {
+      "get": {
+        "operationId": "MigrationSampleController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "MigrationSample"
+        ]
+      }
+    },
+    "/api/v1/migration-samples/{id}/recheck": {
+      "post": {
+        "operationId": "MigrationSampleController_recheck",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MigrationSampleRecheckDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "MigrationSample"
+        ]
+      }
+    },
+    "/api/v1/migration-samples/{id}/scan": {
+      "post": {
+        "operationId": "MigrationSampleController_scan",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "MigrationSample"
+        ]
+      }
+    },
     "/api/v1/org-units": {
       "post": {
         "operationId": "OrgController_create",
@@ -11514,6 +11705,29 @@
     "/api/v1/vehicle-imports/{id}/discard": {
       "post": {
         "operationId": "VehicleImportController_discard",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "VehicleImport"
+        ]
+      }
+    },
+    "/api/v1/vehicle-imports/{id}/give-back": {
+      "post": {
+        "operationId": "VehicleImportController_giveBack",
         "parameters": [
           {
             "in": "path",

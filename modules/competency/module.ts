@@ -46,6 +46,13 @@ export default defineModule({
             key: 'competency.bolo_reminder_days',
             default: 30,
             overridableAt: ['installation', 'region', 'unitType', 'unit']
+        },
+        // the share of each clerk's migrated records re-checked against the scan, in percent (task 1.13g, ADR-0054 §3); the
+        // default is to agree with the zone. Never an office's own: the office measured does not set its own measure
+        {
+            key: 'competency.migration_sample_percent',
+            default: 5,
+            overridableAt: ['installation', 'region', 'unitType']
         }
     ],
     effects: [
@@ -86,7 +93,9 @@ export default defineModule({
         exam: ['read', 'record'],
         training: ['read', 'record'],
         // the bulk import of paper vehicle files (task 1.13b): a sheet sent, and committed by a second person
-        'vehicle-import': ['read', 'create', 'commit']
+        'vehicle-import': ['read', 'create', 'commit'],
+        // sampling QA of migrated records (task 1.13g): the drawn records read, and re-checked by a third person
+        'migration-sample': ['read', 'recheck']
     },
     roles: {
         'competency.officer': [
@@ -103,7 +112,10 @@ export default defineModule({
             // a sheet of paper files sent, or another's committed (never one's own, SEC-AC-6), task 1.13b
             'vehicle-import:read',
             'vehicle-import:create',
-            'vehicle-import:commit'
+            'vehicle-import:commit',
+            // a migrated record drawn for a re-check, never one's own capture or verification (task 1.13g)
+            'migration-sample:read',
+            'migration-sample:recheck'
         ],
         'competency.lead': [
             'issued-document:read',
@@ -118,7 +130,9 @@ export default defineModule({
             'pii:reveal',
             'plate-stock:read',
             'vehicle-import:read',
-            'vehicle-import:commit'
+            'vehicle-import:commit',
+            'migration-sample:read',
+            'migration-sample:recheck'
         ],
         'competency.examiner': ['exam:read', 'exam:record', 'training:read', ...REGISTER_READ, ...CASE_ACT],
         'competency.inspector': ['licence:read', ...REGISTER_READ, 'case:read']
@@ -210,6 +224,16 @@ export default defineModule({
                     requires: { permission: 'vehicle-import:create', services: ['MIG-01'] }
                 }
             ]
+        },
+        // sampling QA of migrated records (task 1.13g): the drawn records waiting for a re-check, and each clerk's counts
+        {
+            key: 'competency.migrationSamples',
+            group: 'work-process',
+            order: 13,
+            label: 'competency.nav.migrationSamples',
+            icon: 'list-checks',
+            route: '/competency/migration-samples',
+            requires: { permission: 'migration-sample:read', services: ['MIG-01'] }
         },
         {
             key: 'competency.plateExchanges',
