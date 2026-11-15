@@ -30,12 +30,13 @@ export interface Sums {
 
 /**
  * An office's (or the whole report's) sums over its codes. `paper` and `missing` add the codes that have a paper count; the share is
- * the verified vehicles of those codes over their paper, so a code nobody counted does not inflate it. `verified` is every code's.
+ * the verified vehicles of those codes, each at most its paper count, over their paper: a code nobody counted, or a surplus in one
+ * code, never hides the files missing in another, and the share is never above 1. `verified` is every code's.
  */
 export function sumsOf(codes: readonly CodeCount[]): Sums {
     const counted = codes.filter((c): c is { paper: number; verified: number } => c.paper !== null);
     const paper = counted.length === 0 ? null : counted.reduce((n, c) => n + c.paper, 0);
-    const verifiedOfCounted = counted.reduce((n, c) => n + c.verified, 0);
+    const verifiedOfCounted = counted.reduce((n, c) => n + Math.min(c.verified, c.paper), 0);
     return {
         verified: codes.reduce((n, c) => n + c.verified, 0),
         paper,

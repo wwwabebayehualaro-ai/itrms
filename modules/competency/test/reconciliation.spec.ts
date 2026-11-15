@@ -35,7 +35,8 @@ describe('sumsOf', () => {
             { paper: 5, verified: 6 },
             { paper: null, verified: 100 }
         ]);
-        expect(sums).toEqual({ verified: 110, paper: 15, missing: 6, share: 10 / 15 });
+        // code 2's surplus (6 of 5) does not make up for code 1's missing files
+        expect(sums).toEqual({ verified: 110, paper: 15, missing: 6, share: 9 / 15 });
     });
     it('has no paper, missing or share when no code is counted', () => {
         expect(sumsOf([{ paper: null, verified: 3 }])).toEqual({

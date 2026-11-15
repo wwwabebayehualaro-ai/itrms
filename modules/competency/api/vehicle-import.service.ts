@@ -492,7 +492,7 @@ export class VehicleImportService {
         if (row.state !== 'committing' || !row.commitEventId)
             throw new ConflictError('invalid_transition', { detailKey: 'competency.errors.import_not_committing' });
         const [event] = await tx
-            .select({ status: outboxEvents.status })
+            .select({ status: outboxEvents.status, lastError: outboxEvents.lastError })
             .from(outboxEvents)
             .where(eq(outboxEvents.id, row.commitEventId))
             .for('update');
@@ -507,7 +507,8 @@ export class VehicleImportService {
             type: 'job.resolved',
             table: outboxEvents,
             rowId: row.commitEventId,
-            data: { by: 'vehicle-import.give-back', importId: row.id }
+            // why the job died stays on record: the next commit of the batch may die the same way
+            data: { by: 'vehicle-import.give-back', importId: row.id, lastError: event.lastError }
         });
         await this.returnToChecked(tx, row);
         return this.get(tx, ctx, id, mayCommit);

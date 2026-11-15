@@ -383,5 +383,7 @@
   "competency.report.codes.5": "Code 5",
   "competency.report.codes.35": "Code 35",
   "competency.report.codes.other": "Other (national or special plate, no plate)",
-  "competency.errors.paper_count_own_office": "An office does not set its own paper count: the office above it counts the files."
+  "competency.errors.paper_count_own_office": "An office does not set its own paper count: the office above it counts the files.",
+  "competency.errors.paper_count_not_offered": "This office does not migrate paper vehicle files, so it has no paper count.",
+  "competency.errors.paper_count_future": "The day the files were counted cannot be after today."
 }

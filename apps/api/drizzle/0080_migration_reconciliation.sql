@@ -31,6 +31,10 @@ ALTER TABLE "competency"."migration_samples" ADD CONSTRAINT "migration_samples_s
 ALTER TABLE "competency"."migration_paper_counts" ADD CONSTRAINT "migration_paper_counts_enums_check"
     CHECK ("plate_code" IN ('1', '2', '3', '4', '5', '35', 'other'));
 --> statement-breakpoint
+-- an office never counts its own files (the service also requires the counter to be above it)
+ALTER TABLE "competency"."migration_paper_counts" ADD CONSTRAINT "migration_paper_counts_counter_check"
+    CHECK ("counted_by_unit_id" <> "handling_unit_id");
+--> statement-breakpoint
 CREATE TRIGGER "set_org_path" BEFORE INSERT OR UPDATE ON "competency"."migration_paper_counts"
     FOR EACH ROW EXECUTE FUNCTION "kernel"."set_org_path"('handling_unit_id');
 --> statement-breakpoint

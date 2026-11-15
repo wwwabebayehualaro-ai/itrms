@@ -383,5 +383,7 @@
   "competency.report.codes.5": "ኮድ 5",
   "competency.report.codes.35": "ኮድ 35",
   "competency.report.codes.other": "ሌላ (አገራዊ ወይም ልዩ ሰሌዳ፣ ሰሌዳ የሌለው)",
-  "competency.errors.paper_count_own_office": "ጽ/ቤት የራሱን የወረቀት ቆጠራ አያስገባም፦ ፋይሎቹን የሚቆጥረው ከላይ ያለው ጽ/ቤት ነው።"
+  "competency.errors.paper_count_own_office": "ጽ/ቤት የራሱን የወረቀት ቆጠራ አያስገባም፦ ፋይሎቹን የሚቆጥረው ከላይ ያለው ጽ/ቤት ነው።",
+  "competency.errors.paper_count_not_offered": "ይህ ጽ/ቤት የወረቀት የተሽከርካሪ ፋይሎችን አያዛውርም፤ ስለዚህ የወረቀት ቆጠራ የለውም።",
+  "competency.errors.paper_count_future": "ፋይሎቹ የተቆጠሩበት ቀን ከዛሬ በኋላ ሊሆን አይችልም።"
 }

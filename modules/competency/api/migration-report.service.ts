@@ -7,11 +7,13 @@
 import { Injectable } from '@nestjs/common';
 import { and, count, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
-import { ConflictError, ForbiddenError, NotFoundError } from '@itrms/kernel/errors';
-import { unitRefs } from '@itrms/kernel/org';
+import { currentContext } from '@itrms/kernel/context';
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
+import { effectiveServices, unitRefs, type UnitRef } from '@itrms/kernel/org';
 import { cases } from '@itrms/workflow/api';
 
 import {
+    addisDay,
     BACK_CAPTURE_SERVICE,
     PAPER_PLATE_CODES,
     type MigrationReport,
@@ -20,10 +22,17 @@ import {
     type ReconciliationOffice
 } from '../contracts';
 import { migrationPaperCounts, vehicleImportRows, vehicleImports } from './competency.table';
+import am from '../messages/am.json';
+import en from '../messages/en.json';
 import { missingOf, plateCodeOf, sumsOf } from './reconciliation';
 
 /** One office's count of one plate code is written one at a time (the advisory lock's first key). */
 const PAPER_COUNT_LOCK = 0x1e8d;
+/** kernel.region_units answers at most this many units per call */
+const REFS_PER_CALL = 200;
+
+/** A refusal in the language of the person acting. */
+const say = (key: keyof typeof en): string => (currentContext()?.language === 'en' ? en : am)[key];
 
 @Injectable()
 export class MigrationReportService {
@@ -66,7 +75,10 @@ export class MigrationReportService {
             ...importRows.keys()
         ]);
         if (ids.size === 0) return [];
-        const units = await unitRefs(tx, [...ids]);
+        const all = [...ids];
+        const units = new Map<string, UnitRef>();
+        for (let i = 0; i < all.length; i += REFS_PER_CALL)
+            for (const [k, v] of await unitRefs(tx, all.slice(i, i + REFS_PER_CALL))) units.set(k, v);
         return [...ids]
             .map((id) => {
                 const codes = PAPER_PLATE_CODES.map((plateCode) => {
@@ -104,7 +116,7 @@ export class MigrationReportService {
                      where pa.vehicle_id = v.id
                      order by pa.since, pa.created_at limit 1) p on true
              where v.migration_source is not null
-               and v.handling_org_path <@ (select nullif(current_setting('app.scope_path', true), '')::ltree)
+               and v.handling_org_path <@ (select kernel.ctx_scope())
                ${only ? sql`and v.handling_unit_id = ${only}` : sql``}
              group by v.handling_unit_id, p.legacy_use_code`);
         const out = new Map<string, Map<PaperPlateCode, number>>();
@@ -168,6 +180,22 @@ export class MigrationReportService {
         const unit = found[0];
         if (!unit) throw new NotFoundError();
         if (unit.above !== true) throw new ForbiddenError({ detailKey: 'competency.errors.paper_count_own_office' });
+        // the unit above checked it is the caller's active unit; the database refuses an office counting itself too
+        const counter = ctx.unitId;
+        if (!counter) throw new ForbiddenError({ detailKey: 'competency.errors.paper_count_own_office' });
+        // only an office that migrates paper files has a count to reconcile (ADR-0026: its services)
+        if (!(await effectiveServices(tx, input.unitId)).includes(BACK_CAPTURE_SERVICE))
+            throw new ValidationError('validation_failed', {
+                errors: [
+                    { path: 'unitId', code: 'not_offered', message: say('competency.errors.paper_count_not_offered') }
+                ]
+            });
+        if (input.countedOn > addisDay())
+            throw new ValidationError('validation_failed', {
+                errors: [
+                    { path: 'countedOn', code: 'future_date', message: say('competency.errors.paper_count_future') }
+                ]
+            });
         // two first counts of one office and code at once: the second waits and finds the first (never a unique violation)
         await tx.execute(
             sql`select pg_advisory_xact_lock(${PAPER_COUNT_LOCK}, hashtext(${`${input.unitId}:${input.plateCode}`}))`
@@ -182,11 +210,7 @@ export class MigrationReportService {
                 )
             )
             .for('update');
-        const changes = {
-            count: input.count,
-            countedOn: input.countedOn,
-            countedByUnitId: ctx.unitId ?? input.unitId
-        };
+        const changes = { count: input.count, countedOn: input.countedOn, countedByUnitId: counter };
         if (current) {
             if (version === undefined || current.rowVersion !== version) throw new ConflictError('stale_version');
             await updateAudited(tx, migrationPaperCounts, current.id, current.rowVersion, changes);

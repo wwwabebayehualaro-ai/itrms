@@ -8,7 +8,7 @@
 import { randomInt, randomUUID } from 'node:crypto';
 
 import { sql } from 'drizzle-orm';
-import { VehicleImportService } from '@itrms/competency/api';
+import { MigrationReportService, VehicleImportService } from '@itrms/competency/api';
 import { vehicleImportHandlers } from '@itrms/competency/api/worker';
 import type { MigrationReport, ReconciliationOffice, VehicleImport } from '@itrms/competency/contracts';
 import competencyAm from '@itrms/competency/messages/am';
@@ -432,6 +432,20 @@ describe('the paper counts', () => {
         expect(await count(boditi, id.verifier)).toBe(2);
         expect(await count(zone, id.zone)).toBe(2);
         expect((await reportAs(as.zone)).offices.map((o) => o.unit.code)).toContain('WOL-BODITI');
+    });
+
+    it("are never a sibling's: the register is regional, the report is the caller's subtree", async () => {
+        // vehicles are read region-wide under RLS (class R): the report limits them to the caller's subtree itself
+        const reportAt = (unit: OrgUnit, userId: string) => {
+            const ctx = contextFor(unit, userId);
+            return app.scoped(ctx, (tx) => new MigrationReportService().report(tx, ctx, false));
+        };
+        const sibling = await reportAt(damot, id.verifier);
+        expect(sibling.offices.map((o) => o.unit.code)).not.toContain('WOL-BODITI');
+        expect(sibling.total.verified).toBe(0);
+        const own = await reportAt(boditi, id.verifier);
+        expect(own.total.verified).toBeGreaterThan(0);
+        expect(own.offices.map((o) => o.unit.code)).toEqual(['WOL-BODITI']);
     });
 });
 
