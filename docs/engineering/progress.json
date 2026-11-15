@@ -1761,10 +1761,11 @@
         {
           "id": "1.13g",
           "title": "Paper-record migration, part 3: sampling QA and the import follow-ups",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.13g-sampling-qa",
           "commits": [
-            "5980756"
+            "5980756",
+            "9358372"
           ],
           "evidence": [
             "CI run 43742066937 (PR #73, 5980756) → all 10 jobs green",
