@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-11-14",
+  "updated": "2026-11-15",
   "statuses": [
     "planned",
     "ready",
@@ -1734,14 +1734,15 @@
         {
           "id": "1.13b",
           "title": "Paper-record migration, part 2: bulk import",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.13b-bulk-import",
           "commits": [
             "3d61ec2",
             "58aa641",
             "5c30bb1",
             "3698f5a",
-            "20d16d6"
+            "20d16d6",
+            "48a38de"
           ],
           "evidence": [
             "CI run 43634686820 on 20d16d6 (PR #72): all 10 jobs green: lint/typecheck/unit/build/boundaries, Semgrep, Trivy, gitleaks, performance, stories/axe, production profile, licences",
