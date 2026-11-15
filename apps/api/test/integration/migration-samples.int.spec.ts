@@ -344,10 +344,12 @@ describe("the draw of a clerk's imported records", () => {
 
 describe('a back-capture verified at a share of 100%', () => {
     it('is drawn with its case and its scan, counted to the clerk who captured it', async () => {
+        // the bureau's share (an office may not set its own: it could switch its checks off)
+        const region = await api.unit('SER', 'SER');
         await api.owner.query(
             `insert into kernel.settings_values (id, region_id, unit_id, key, value)
              values (gen_random_uuid(), $1, $2, 'competency.migration_sample_percent', '100'::jsonb)`,
-            [boditi.regionId, boditi.id]
+            [region.regionId, region.id]
         );
         try {
             const person = await api.call('POST', '/api/v1/persons', as.capturer, {
@@ -445,7 +447,7 @@ describe('a back-capture verified at a share of 100%', () => {
         } finally {
             await api.owner.query(
                 "delete from kernel.settings_values where unit_id = $1 and key = 'competency.migration_sample_percent'",
-                [boditi.id]
+                [region.id]
             );
         }
     }, 240_000);
