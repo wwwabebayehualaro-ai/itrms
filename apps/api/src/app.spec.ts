@@ -32,6 +32,8 @@ describe('POSTs kept out of the idempotency records (@NotReplayable)', () => {
             'FeesController.preview',
             // confirming an upload: checked against the object outside a transaction, and safe to repeat by its state
             'FilesController.confirm',
+            // a drawn record's scan for its re-check (task 1.13g): a short-lived link (each download is on record)
+            'MigrationSampleController.scan',
             // the duplicate check and the FIN/phone lookup: a sensitive value in the request
             'PersonsController.duplicates',
             'PersonsController.lookup',

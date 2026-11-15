@@ -1,6 +1,6 @@
 /**
  * The bulk import of paper vehicle files (task 1.13b): a sheet sent, its dry-run report read, committed by a second person or
- * discarded; a row's scan downloaded. The reading, the checking and the commit itself are the worker's (vehicle-import.service.ts).
+ * discarded, or given back when its commit's job died (task 1.13g); a row's scan downloaded. The reading, the checking and the commit itself are the worker's (vehicle-import.service.ts).
  */
 import { Body, Controller, Get, Headers, HttpCode, Inject, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { createZodDto } from 'nestjs-zod';
@@ -83,6 +83,15 @@ export class VehicleImportController {
         const ctx = requestDbContext();
         const { roles } = currentPrincipal();
         return this.db.scoped(ctx, (tx) => this.imports.commit(tx, ctx, roles, id, versionFrom(ifMatch), mayCommit()));
+    }
+
+    // a commit whose job died after its attempts, back to checked (task 1.13g)
+    @Post(':id/give-back')
+    @HttpCode(200)
+    @Require('vehicle-import:commit')
+    giveBack(@Param('id', ParseUUIDPipe) id: string, @Headers('if-match') ifMatch: string | undefined) {
+        const ctx = requestDbContext();
+        return this.db.scoped(ctx, (tx) => this.imports.giveBack(tx, ctx, id, versionFrom(ifMatch), mayCommit()));
     }
 
     @Post(':id/discard')

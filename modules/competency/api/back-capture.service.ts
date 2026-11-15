@@ -14,13 +14,14 @@ import { parseStationeryKey } from '@itrms/fees/contracts';
 import { libres, PlateStock, plateAssignments, vehicles, VehicleRegistry, VehiclesService } from '@itrms/vehicles/api';
 import { federalVehicleIdSchema, parsePlate, parseVin, type vehicleRegisterSchema } from '@itrms/vehicles/contracts';
 import { cases } from '@itrms/workflow/api';
-import type { z } from 'zod';
+import { z } from 'zod';
 
 import { addisDay } from '../contracts';
 import am from '../messages/am.json';
 import en from '../messages/en.json';
 import { actForHandlingOffice, claimedElsewhere } from './handling-office';
 import type { CasePlace } from './licences.service';
+import { MigrationSamplingService } from './migration-sampling.service';
 import { VehicleRegistrationService, type RegistrationInput } from './registration.service';
 
 type Words = keyof typeof am;
@@ -44,7 +45,12 @@ export type BackCaptureInput = RegistrationInput & {
     /** the libre the current owners hold: its booklet's serial and the day it was issued */
     libreNumber?: string;
     libreIssuedOn?: string;
+    /** the scan of the paper file, as the request's file field holds it (its first file is the one a re-check opens) */
+    paperFileScan?: unknown;
 };
+
+/** The first file of a request's file field, as the form engine stores an answer of it. */
+const firstFile = z.array(z.looseObject({ file_id: z.uuid() })).min(1);
 
 type Refusal = { path: string; code: string; message: string };
 
@@ -57,7 +63,7 @@ export type CapturePlace = Omit<CasePlace, 'caseId'> & { caseId: string | null }
 /** How the vehicle came from paper: a case verified by its second person, or a sheet's row committed by its own. */
 export type PaperOrigin =
     | { source: 'back_capture'; caseId: string; verifiedBy?: string }
-    | { source: 'import'; importRowId: string; verifiedBy?: string };
+    | { source: 'import'; importRowId: string; importId: string; importName: string; verifiedBy?: string };
 
 /**
  * An id a check needs the shape of and never writes: the owner of a sheet's row that the commit will make, and the row a dry run's
@@ -78,7 +84,8 @@ export class BackCaptureService {
         @Inject(VehicleRegistry) private readonly registry: VehicleRegistry,
         @Inject(VehiclesService) private readonly vehicles: VehiclesService,
         @Inject(PlateStock) private readonly stock: PlateStock,
-        @Inject(VehicleRegistrationService) private readonly registration: VehicleRegistrationService
+        @Inject(VehicleRegistrationService) private readonly registration: VehicleRegistrationService,
+        @Inject(MigrationSamplingService) private readonly sampling: MigrationSamplingService
     ) {}
 
     /** The register's command for the capture, in back-capture mode. `verifiedBy` only when the second person verifies. */
@@ -93,7 +100,9 @@ export class BackCaptureService {
             migration: {
                 source: origin.source,
                 paperReference: input.paperReference.trim(),
-                ...(origin.source === 'back_capture' ? { caseId: origin.caseId } : { importRowId: origin.importRowId }),
+                ...(origin.source === 'back_capture'
+                    ? { caseId: origin.caseId }
+                    : { importRowId: origin.importRowId, importId: origin.importId, importName: origin.importName }),
                 ...(origin.verifiedBy ? { verifiedBy: origin.verifiedBy } : {})
             }
         };
@@ -103,7 +112,7 @@ export class BackCaptureService {
     private originOf(place: CapturePlace): PaperOrigin {
         return place.caseId
             ? { source: 'back_capture', caseId: place.caseId }
-            : { source: 'import', importRowId: PLACEHOLDER_ID };
+            : { source: 'import', importRowId: PLACEHOLDER_ID, importId: PLACEHOLDER_ID, importName: 'sheet' };
     }
 
     /** The dates of the file, in order: none in the future, none before the first registration, the libre not before its owners. */
@@ -252,16 +261,60 @@ export class BackCaptureService {
         if (made) return { vehicle: { id: made.id } };
         const verifier = place.ctx.userId;
         if (!verifier) throw new ForbiddenError();
-        await this.mayVerify(tx, place, verifier);
-        return this.put(tx, place, input, { source: 'back_capture', caseId: place.caseId, verifiedBy: verifier });
+        const clerk = await this.mayVerify(tx, place, verifier);
+        const captured = await this.put(tx, place, input, {
+            source: 'back_capture',
+            caseId: place.caseId,
+            verifiedBy: verifier
+        });
+        // sampling QA (task 1.13g): the record counts to the clerk who captured it, and may be drawn for a re-check
+        const scan = firstFile.safeParse(input.paperFileScan);
+        await this.sampling.count(tx, {
+            regionId: place.regionId,
+            handlingUnitId: place.handlingUnitId,
+            vehicleId: captured.vehicle.id,
+            origin: { source: 'back_capture', caseId: place.caseId },
+            clerkId: clerk,
+            verifierId: verifier,
+            scanFileId: scan.success ? (scan.data[0]?.file_id ?? null) : null
+        });
+        return captured;
     }
 
     /**
      * A sheet's committed row (task 1.13b): the vehicle joins the register as the capture's does, migrated by import (its row, its
      * paper reference and the second person who committed the sheet). The importer has checked the row again in this transaction.
      */
-    async importRow(tx: Tx, place: CapturePlace, input: BackCaptureInput, row: { id: string; committedBy: string }) {
-        return this.put(tx, place, input, { source: 'import', importRowId: row.id, verifiedBy: row.committedBy });
+    async importRow(
+        tx: Tx,
+        place: CapturePlace,
+        input: BackCaptureInput,
+        row: {
+            id: string;
+            committedBy: string;
+            clerkId: string;
+            scanFileId: string | null;
+            batch: { id: string; name: string };
+        }
+    ) {
+        const made = await this.put(tx, place, input, {
+            source: 'import',
+            importRowId: row.id,
+            importId: row.batch.id,
+            importName: row.batch.name,
+            verifiedBy: row.committedBy
+        });
+        // sampling QA (task 1.13g): the row counts to the clerk who sent the sheet
+        await this.sampling.count(tx, {
+            regionId: place.regionId,
+            handlingUnitId: place.handlingUnitId,
+            vehicleId: made.vehicle.id,
+            origin: { source: 'import', importRowId: row.id },
+            clerkId: row.clerkId,
+            verifierId: row.committedBy,
+            scanFileId: row.scanFileId
+        });
+        return made;
     }
 
     /** Puts the file's vehicle on the register, with the plate it carries and the libre its owners hold. */
@@ -291,13 +344,14 @@ export class BackCaptureService {
      * Who may verify: someone of the capturing office or an office above it, and never the person who captured the file. The seeded
      * workflow already keeps the capturer off the step; this holds whatever workflow a bureau publishes (ADR-0054, SEC-AC-6).
      */
-    private async mayVerify(tx: Tx, place: CasePlace, verifier: string): Promise<void> {
+    private async mayVerify(tx: Tx, place: CasePlace, verifier: string): Promise<string> {
         const [kase] = await tx.select({ startedBy: cases.startedBy }).from(cases).where(eq(cases.id, place.caseId));
         // a case the acting office cannot see (RLS: not its own or below it) is not one it may verify
         if (!kase) throw new ForbiddenError({ detailKey: 'competency.errors.act_from_handling_office' });
         if (kase.startedBy === verifier)
             throw new ForbiddenError({ detailKey: 'competency.errors.verify_own_capture' });
         await actForHandlingOffice(tx, place);
+        return kase.startedBy;
     }
 
     /**

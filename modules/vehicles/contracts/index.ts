@@ -145,6 +145,8 @@ export const migrationSchema = z.object({
     paperReference: z.string(),
     caseId: z.uuid().nullable(),
     importRowId: z.uuid().nullable(),
+    /** the sheet an imported vehicle came from (task 1.13g): its batch and the name its sender gave the file */
+    batch: z.object({ id: z.uuid(), name: z.string() }).nullable(),
     verifiedBy: z.object({ id: z.uuid(), name: z.string() }).nullable(),
     verifiedAt: z.string().nullable()
 });
@@ -298,14 +300,22 @@ export const vehicleRegisterSchema = z
                 source: z.enum(MIGRATION_SOURCES),
                 paperReference: z.string().trim().min(1).max(60),
                 caseId: z.uuid().optional(),
-                /** the sheet's row an import made it from (task 1.13b) */
+                /** the sheet's row an import made it from (task 1.13b), and its batch with the file's name (task 1.13g) */
                 importRowId: z.uuid().optional(),
+                importId: z.uuid().optional(),
+                importName: z.string().trim().min(1).max(200).optional(),
                 /**
                  * the second person, who checked the capture against the paper file (a back-capture names it and its case), or
                  * committed the sheet it was imported from
                  */
                 verifiedBy: z.uuid().optional()
             })
+            .refine(
+                (m) =>
+                    (m.importRowId === undefined) === (m.importId === undefined) &&
+                    (m.importId === undefined) === (m.importName === undefined),
+                { path: ['importId'], message: 'send the row, the batch and its name together' }
+            )
             .optional()
     })
     .refine((v) => (v.federalVehicleId === undefined) === (v.federalIdSource === undefined), {

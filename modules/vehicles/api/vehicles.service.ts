@@ -360,6 +360,10 @@ function migrationOf(row: Row, verifiers: ReadonlyMap<string, string>): VehicleS
         paperReference: row.paperReference,
         caseId: row.migrationCaseId,
         importRowId: row.migrationImportRowId,
+        batch:
+            row.migrationImportId && row.migrationImportName
+                ? { id: row.migrationImportId, name: row.migrationImportName }
+                : null,
         verifiedBy: verifier ? { id: verifier, name: verifiers.get(verifier) ?? '' } : null,
         verifiedAt: row.migrationVerifiedAt?.toISOString() ?? null
     };

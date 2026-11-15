@@ -1760,13 +1760,23 @@
         },
         {
           "id": "1.13g",
-          "title": "Paper-record migration, part 3: sampling QA and campaign counters",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "title": "Paper-record migration, part 3: sampling QA and the import follow-ups",
+          "status": "in review",
+          "branch": "task/1.13g-sampling-qa",
+          "commits": [
+            "5980756"
+          ],
+          "evidence": [
+            "CI run 43742066937 (PR #73, 5980756) → all 10 jobs green",
+            "integration (real PostgreSQL 16, dev stack) → 779 passed in 43 files, incl. migration-samples.int.spec.ts (draw at 5% and 100%, concurrent draws, audit rows of the commit job, verify and give-back, RLS sibling/zone, re-check rules, DB CHECK refusal); S3 contract suite 20 passed",
+            "e2e (Playwright, BFF sign-in) → 56 + 4 passed, incl. competency/vehicle-import.spec.ts (sheet sent, committed, batch on search and record, lead re-checks, clerks tab)",
+            "unit → competency 79, vehicles 99, web 77, api 15 (all packages green on CI); sampling.spec.ts covers blockOf/drawStep",
+            "lint, typecheck, boundaries, check:slices, i18n:check (am/en) → pass; migration 0079 applied from zero on CI; pnpm openapi regenerated",
+            "Semgrep, gitleaks, Trivy → clean",
+            "reviewer (Fable) → 1 medium + 6 low, fixed; task-verifier → ready with caveats (CI pending), met by run 43742066937"
+          ],
           "blockers": [],
-          "notes": "Split from 1.13b on 2026-11-14."
+          "notes": "Split from 1.13b on 2026-11-14. Split on 2026-11-15: the campaign counters are 1.13i. Built: sampling QA (migration_samples, migration_sample_counters, migration 0079): k random places per block of n per clerk (k/n = the share), the draw in the transaction that puts the vehicle on the register; setting competency.migration_sample_percent (default 5, a placeholder to agree with the zone; set by the installation, the bureau or the unit type, never the office itself); re-check API and screens by a third person (never the clerk nor the verifier, also a DB CHECK), the scan opened on record; counts per clerk (never the caller's own, nor their waiting draws); the import batch on the vehicle (search, record, lookup); give-back of a commit whose job is dead; e2e import journey. A re-check measures and never changes the vehicle; the vehicles slice keeps the batch id and file name (it may not read competency tables). Reviewer (Fable): 1 medium (the clerk could foresee the draw) and 6 low, all fixed. Verifier: ready with caveats (CI, evidence), now met."
         },
         {
           "id": "1.13h",
@@ -1777,6 +1787,16 @@
           "evidence": [],
           "blockers": [],
           "notes": "Split from 1.13b on 2026-11-14."
+        },
+        {
+          "id": "1.13i",
+          "title": "Paper-record migration, part 5: campaign counters",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Split from 1.13g on 2026-11-15."
         },
         {
           "id": "1.4",
@@ -3712,6 +3732,21 @@
       "foundIn": "1.13b",
       "item": "A commit job that dead-letters after its attempts leaves the batch committing (neither discardable nor committable again): give it a way back to checked, by an administrator or on the last attempt",
       "movedTo": "1.13g"
+    },
+    {
+      "foundIn": "1.13g",
+      "item": "Sampling QA keeps only the first file of a back-capture's scan field: a paper file scanned as several images opens only its first page from the re-check (the case shows them all). Keep every file of the field and give the re-check one link per file",
+      "movedTo": "1.13h"
+    },
+    {
+      "foundIn": "1.13g",
+      "item": "A commit given back leaves its outbox event dead in the administrators' dead-letter list (a retry of it is harmless: the batch is no longer committing). Resolve the event when the batch is given back (needs a grant or a definer function)",
+      "movedTo": "1.13h"
+    },
+    {
+      "foundIn": "1.13g",
+      "item": "Agree with the zone the share of each clerk's migrated records re-checked (competency.migration_sample_percent: 5% placeholder, set by the bureau or per kind of office) together with the backlog target (ADR-0054 Consequences)",
+      "movedTo": "discovery: Wolaita Zone"
     }
   ]
 }

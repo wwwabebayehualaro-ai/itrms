@@ -11,6 +11,7 @@
   "form-engine.core.documentType.letter": "Letter",
   "form-engine.core.documentType.libre_copy": "Libre copy",
   "form-engine.core.documentType.medical_certificate": "Medical certificate",
+  "form-engine.core.documentType.paper_file_scan": "Scanned paper file",
   "form-engine.core.documentType.other": "Other",
   "form-engine.core.documentType.payment_receipt": "Payment receipt",
   "form-engine.core.documentType.photo": "Photo",

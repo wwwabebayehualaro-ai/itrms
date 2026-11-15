@@ -134,7 +134,11 @@ export const vehicleImportSchema = z.object({
     committedBy: personRefSchema.nullable(),
     committedAt: z.string().nullable(),
     /** whether the caller may commit it now: it is checked, has a valid row, and the caller did not make it (SEC-AC-6) */
-    mayCommit: z.boolean()
+    mayCommit: z.boolean(),
+    /** the commit's job died after all its attempts (task 1.13g): the batch waits to be given back */
+    commitStopped: z.boolean(),
+    /** whether the caller may give it back to checked now */
+    mayGiveBack: z.boolean()
 });
 export type VehicleImport = z.infer<typeof vehicleImportSchema>;
 

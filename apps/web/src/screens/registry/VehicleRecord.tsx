@@ -135,7 +135,23 @@ export function VehicleRecord({ id }: { id: string }) {
                                               ) : (
                                                   <span data-paper-reference>{v.migration.paperReference}</span>
                                               )
-                                      }
+                                      },
+                                      ...(v.migration.batch
+                                          ? [
+                                                {
+                                                    term: t('vehicles.migration.batch'),
+                                                    value: (
+                                                        <Link
+                                                            href={`/competency/vehicle-imports/${v.migration.batch.id}`}
+                                                            className="hover:underline"
+                                                            data-migration-batch
+                                                        >
+                                                            {v.migration.batch.name}
+                                                        </Link>
+                                                    )
+                                                }
+                                            ]
+                                          : [])
                                   ]
                                 : [])
                         ]}

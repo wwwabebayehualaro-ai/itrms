@@ -11,6 +11,7 @@
   "form-engine.core.documentType.letter": "ደብዳቤ",
   "form-engine.core.documentType.libre_copy": "የሊብሬ ቅጂ",
   "form-engine.core.documentType.medical_certificate": "የሕክምና የምስክር ወረቀት",
+  "form-engine.core.documentType.paper_file_scan": "የተቃኘ የወረቀት ፋይል",
   "form-engine.core.documentType.other": "ሌላ",
   "form-engine.core.documentType.payment_receipt": "የክፍያ ደረሰኝ",
   "form-engine.core.documentType.photo": "ፎቶ",

@@ -124,6 +124,11 @@ export function VehiclesSearch() {
                                             />
                                         </span>
                                     )}
+                                    {v.migration?.batch && (
+                                        <span className="text-muted-foreground ms-2 text-xs" data-migration-batch>
+                                            {v.migration.batch.name}
+                                        </span>
+                                    )}
                                     {v.matched && v.matched !== 'plate' && (
                                         <span className="text-muted-foreground ms-2 text-xs" data-matched={v.matched}>
                                             {t(`vehicles.match.${v.matched}`)}

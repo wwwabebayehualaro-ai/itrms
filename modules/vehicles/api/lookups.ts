@@ -35,6 +35,12 @@ const SOURCE: Record<MigrationSource, Key> = {
 function migrated(v: VehicleSummary, language: string): string | null {
     if (!v.migration) return null;
     const params = { source: text(SOURCE[v.migration.source], language), reference: v.migration.paperReference };
+    if (v.migration.batch && v.migration.verifiedBy)
+        return text('vehicles.migration.summaryBatch', language, {
+            ...params,
+            batch: v.migration.batch.name,
+            name: v.migration.verifiedBy.name
+        });
     return v.migration.verifiedBy
         ? text('vehicles.migration.summaryVerified', language, { ...params, name: v.migration.verifiedBy.name })
         : text('vehicles.migration.summary', language, params);

@@ -239,6 +239,8 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
             'competency.vehicleRegistrations',
             // the back-capture of paper vehicle files (task 1.13), offered with new registration
             'competency.backCaptures',
+            // sampling QA of migrated records (task 1.13g)
+            'competency.migrationSamples',
             // their bulk import (task 1.13b), with the back-capture
             'competency.vehicleImports',
             // the plate exchange (task 1.2c), where the office keeps plate stock
@@ -276,6 +278,8 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
                 'competency.vehicleRegistrations',
                 // the back-capture of paper vehicle files (task 1.13), offered with new registration
                 'competency.backCaptures',
+                // sampling QA of migrated records (task 1.13g)
+                'competency.migrationSamples',
                 // their bulk import (task 1.13b), with the back-capture
                 'competency.vehicleImports',
                 // the plate exchange (task 1.2c), where the office keeps plate stock

@@ -166,7 +166,13 @@ export const vehicles = withRls(
                 migrationVerifiedBy: uuid('migration_verified_by'),
                 migrationVerifiedAt: timestamp('migration_verified_at', { withTimezone: true }),
                 /** competency.vehicle_import_rows (foreign key in the migration): the row of the sheet it came from */
-                migrationImportRowId: uuid('migration_import_row_id')
+                migrationImportRowId: uuid('migration_import_row_id'),
+                /**
+                 * competency.vehicle_imports (foreign key in the migration): the sheet itself, and the name its sender gave the file
+                 * (task 1.13g), so every view shows the batch without reading the competency slice
+                 */
+                migrationImportId: uuid('migration_import_id'),
+                migrationImportName: text('migration_import_name')
             },
             (t) => [
                 uniqueIndex('vehicles_federal_id_uq')
@@ -225,6 +231,9 @@ export const vehicles = withRls(
                         and (${t.migrationSource} is distinct from 'import'
                              or (${t.migrationImportRowId} is not null and ${t.migrationVerifiedBy} is not null))
                         and (${t.migrationImportRowId} is null or ${t.migrationSource} = 'import')
+                        and (${t.migrationImportRowId} is null) = (${t.migrationImportId} is null)
+                        and (${t.migrationImportId} is null) = (${t.migrationImportName} is null)
+                        and coalesce(length(${t.migrationImportName}), 1) between 1 and 200
                         and (${t.migrationVerifiedBy} is null) = (${t.migrationVerifiedAt} is null)`
                 ),
                 check(
