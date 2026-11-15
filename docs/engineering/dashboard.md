@@ -41,7 +41,7 @@ titles, statuses, branches, commits, notes and follow-ups. It never shows person
 It reads three attached files, one per dataset (`tasks`, `phases`, `followups`), made by `cli.mjs export`. It does not
 read the repository, so **a session refreshes it** whenever `/task-review` or `/phase-report` runs, or when asked:
 
-1. `node tools/progress/cli.mjs export <scratchpad>/dash`.
+1. `node tools/progress/cli.mjs export .tmp/dash` (inside the repository, git-ignored: Claude Code uploads a file from there without asking; a file outside the working directories needs a confirmation that no allow rule skips).
 2. Upload each file to the dashboard: Artifact tool, `url` = the dashboard, `asset: true`, `file_path` = the file. Use one
    call per file.
 3. Update each dataset with ArtifactData `update` on `datasets/<id>` (pin `if_version` from a `get`): the new `url`,

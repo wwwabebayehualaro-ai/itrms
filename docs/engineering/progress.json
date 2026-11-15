@@ -1782,12 +1782,12 @@
         {
           "id": "1.13h",
           "title": "Paper-record migration, part 4: the reconciliation report",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/1.13h-reconciliation",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split from 1.13b on 2026-11-14."
+          "notes": "Split from 1.13b on 2026-11-14. Design (2026-11-15): competency.migration_paper_counts (class T at the office, migration 0080), set only by a unit above the office (an office never sets its own target), If-Match on update. Report per office and old-plate use code (1-5, 35, other: the legacy_use_code of the vehicle's earliest plate assignment): paper, verified (migrated vehicles on the register; both sources always carry a verifier), missing = paper - verified; awaiting second person per office only (open MIG-01 cases, valid rows of checked or committing batches: a capture's plate is typed only once verified); share = verified / paper (the phase gate's measure). Typed tables only. With the 1.13g follow-ups: every file of a back-capture's scan on the sample (scan_file_ids, one link each); a give-back resolves the dead commit event (status done, audited job.resolved: the app role already holds the status grant, no definer function needed)."
         },
         {
           "id": "1.13i",

@@ -21,6 +21,7 @@ import { FIELD_CRYPTO, type FieldCrypto } from '@itrms/kernel/crypto';
 import {
     insertAudited,
     newId,
+    recordEvent,
     updateAudited,
     updateManyAudited,
     type Database,
@@ -497,6 +498,17 @@ export class VehicleImportService {
             .for('update');
         if (event?.status !== 'dead')
             throw new ConflictError('invalid_transition', { detailKey: 'competency.errors.import_commit_running' });
+        // the dead commit is answered: it leaves the administrators' dead letters (a retry would find the batch checked anyway)
+        await tx
+            .update(outboxEvents)
+            .set({ status: 'done', lastError: 'given back: the batch is checked again' })
+            .where(eq(outboxEvents.id, row.commitEventId));
+        await recordEvent(tx, {
+            type: 'job.resolved',
+            table: outboxEvents,
+            rowId: row.commitEventId,
+            data: { by: 'vehicle-import.give-back', importId: row.id }
+        });
         await this.returnToChecked(tx, row);
         return this.get(tx, ctx, id, mayCommit);
     }

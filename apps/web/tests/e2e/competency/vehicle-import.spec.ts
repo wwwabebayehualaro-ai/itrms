@@ -3,7 +3,8 @@
  * sends a sheet of three paper files with the scans of two; the worker checks it and the report shows the two valid rows and the
  * third's error at its column. The competency officer commits it (never the sender, SEC-AC-6) and the register finds the vehicles
  * marked as imported, with their batch, in the search and on the record. With the region's share of sampling QA set to 100% for the
- * run, both are drawn: the lead re-checks one as correct and one with an error, and the clerks' counts show them. Paper references,
+ * run, both are drawn: the lead re-checks one as correct and one with an error, and the clerks' counts show them; the reconciliation
+ * report (task 1.13h) counts them as verified at the office. Paper references,
  * plates, chassis numbers, names and phones are generated.
  */
 import { randomInt } from 'node:crypto';
@@ -189,6 +190,18 @@ test.describe('the bulk import of paper vehicle files', () => {
             await lead.goto('/competency/migration-samples');
             await lead.locator('[data-tab="clerks"]').click();
             await expect(lead.locator(`[data-clerk-row="${clerkId}"]`).first()).toBeVisible();
+
+            // the reconciliation report (task 1.13h) counts the imported files as verified under plate code 2 at the office, and
+            // offers the office no paper count of its own (the zone above sets it)
+            await lead.goto('/competency/migration-report');
+            const boditi = lead.locator('[data-office="WOL-BODITI"]');
+            await expect(boditi).toBeVisible();
+            await expect
+                .poll(async () =>
+                    Number(await boditi.locator('[data-code="2"] [data-cell="verified"]').first().innerText())
+                )
+                .toBeGreaterThanOrEqual(2);
+            await expect(boditi.locator('[data-action="paper-count"]')).toHaveCount(0);
 
             // the sender cannot re-check their own records
             const own = await api(records).status(

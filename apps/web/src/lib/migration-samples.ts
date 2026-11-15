@@ -64,10 +64,15 @@ export function useRecheckSample(id: string) {
     });
 }
 
-/** A short-lived link to a sampled record's scan. */
+/** A short-lived link to one page of a sampled record's scan. */
 export function useSampleScanLink() {
     return useMutation({
-        mutationFn: async (id: string) =>
-            (await client.post<{ url: string; expiresAt: string }>(`v1/migration-samples/${id}/scan`, {})).data.url
+        mutationFn: async (input: { id: string; fileId: string }) =>
+            (
+                await client.post<{ url: string; expiresAt: string }>(
+                    `v1/migration-samples/${input.id}/scans/${input.fileId}`,
+                    {}
+                )
+            ).data.url
     });
 }

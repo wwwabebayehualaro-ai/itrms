@@ -343,7 +343,7 @@ describe("the draw of a clerk's imported records", () => {
                         origin: { source: 'import', importRowId: r.id },
                         clerkId: clerk,
                         verifierId: id.verifier,
-                        scanFileId: null
+                        scanFileIds: []
                     })
                 )
             )
@@ -355,7 +355,7 @@ describe("the draw of a clerk's imported records", () => {
 });
 
 describe('a back-capture verified at a share of 100%', () => {
-    it('is drawn with its case and its scan, counted to the clerk who captured it', async () => {
+    it('is drawn with its case and every page of its scan, counted to the clerk who captured it', async () => {
         // the bureau's share (an office may not set its own: it could switch its checks off)
         const region = await api.unit('SER', 'SER');
         await api.owner.query(
@@ -376,12 +376,13 @@ describe('a back-capture verified at a share of 100%', () => {
                 acknowledgedDuplicates: []
             });
             expect(person.statusCode, person.body).toBe(201);
-            const [scan] = await scans([reference(900)], SUB.capturer);
+            // a scan of two pages: both are kept on the sample, in order
+            const [scan, scan2] = await scans([reference(900), reference(901)], SUB.capturer);
             const filed = await api.call('POST', '/api/v1/service-requests', as.capturer, {
                 serviceCode: 'MIG-01',
                 answers: {
                     paperReference: reference(900),
-                    paperFileScan: [{ file_id: scan }],
+                    paperFileScan: [{ file_id: scan }, { file_id: scan2 }],
                     owners: [{ ownerPerson: person.json<{ id: string }>().id }],
                     firstRegisteredOn: '2009-05-12',
                     ownersSince: '2015-03-01',
@@ -431,21 +432,46 @@ describe('a back-capture verified at a share of 100%', () => {
                 clerk: { id: id.capturer },
                 verifier: { id: id.verifier },
                 hasScan: true,
+                scans: [
+                    { id: scan, filename: `${reference(900).replaceAll('/', '-')}.pdf` },
+                    { id: scan2, filename: `${reference(901).replaceAll('/', '-')}.pdf` }
+                ],
                 share: 100,
                 state: 'drawn',
                 mayRecheck: true,
                 vehicle: { paperReference: reference(900) }
             });
 
-            // the scan opens for the re-check, from the zone above too, and the download is on record
-            const link = await api.call('POST', `/api/v1/migration-samples/${drawn?.id ?? ''}/scan`, as.zone);
-            expect(link.statusCode, link.body).toBe(200);
-            const downloads = await api.owner.query<{ n: number }>(
-                `select count(*)::int as n from kernel.audit_log
-                  where action = 'event' and event_type = 'file.downloaded' and row_id = $1`,
-                [scan]
+            // each page opens for the re-check, from the zone above too, and every download is on record
+            for (const page of [scan, scan2]) {
+                const link = await api.call(
+                    'POST',
+                    `/api/v1/migration-samples/${drawn?.id ?? ''}/scans/${page ?? ''}`,
+                    as.zone
+                );
+                expect(link.statusCode, link.body).toBe(200);
+                const downloads = await api.owner.query<{ n: number }>(
+                    `select count(*)::int as n from kernel.audit_log
+                      where action = 'event' and event_type = 'file.downloaded' and row_id = $1`,
+                    [page]
+                );
+                expect(downloads.rows[0]?.n).toBe(1);
+            }
+            // a file that is not a page of the sample's scan is not found, whoever it belongs to
+            const [other] = await scans([reference(902)], SUB.capturer);
+            for (const stranger of [other, randomUUID()]) {
+                const refused = await api.call(
+                    'POST',
+                    `/api/v1/migration-samples/${drawn?.id ?? ''}/scans/${stranger ?? ''}`,
+                    as.zone
+                );
+                expect(refused.statusCode).toBe(404);
+            }
+            const kept = await api.owner.query<{ scan_file_id: string; scan_file_ids: string[] }>(
+                'select scan_file_id, scan_file_ids from competency.migration_samples where id = $1',
+                [drawn?.id]
             );
-            expect(downloads.rows[0]?.n).toBe(1);
+            expect(kept.rows[0]).toEqual({ scan_file_id: scan, scan_file_ids: [scan, scan2] });
 
             // the database itself refuses a re-check by the clerk
             await expect(
@@ -561,11 +587,13 @@ describe('a commit whose job died', () => {
         expect(detailOf('competency.errors.import_commit_running')).toContain(early.json<{ detail?: string }>().detail);
 
         // the job failed all its attempts (the worker marks it dead)
-        await api.owner.query(
+        const dead = await api.owner.query<{ id: string }>(
             `update kernel.outbox_events set status = 'dead'
-              where id = (select commit_event_id from competency.vehicle_imports where id = $1)`,
+              where id = (select commit_event_id from competency.vehicle_imports where id = $1)
+              returning id`,
             [committing.id]
         );
+        const deadId = dead.rows[0]?.id ?? '';
         const stopped = await batchOf(committing.id, as.verifier);
         expect(stopped).toMatchObject({ state: 'committing', commitStopped: true, mayGiveBack: true });
         const back = await api.call(
@@ -578,6 +606,16 @@ describe('a commit whose job died', () => {
         expect(back.statusCode, back.body).toBe(200);
         expect(await auditOf(requestIdOf(back))).toMatchObject({ 'competency.vehicle_imports:update': 1 });
         expect(back.json<VehicleImport>()).toMatchObject({ state: 'checked', committedBy: null, mayCommit: true });
+        // the dead commit is answered: it leaves the administrators' dead letters, on record in the same request
+        const resolved = await api.owner.query<{ status: string; resolutions: number }>(
+            `select e.status,
+                    (select count(*)::int from kernel.audit_log l
+                      where l.action = 'event' and l.event_type = 'job.resolved' and l.row_id = e.id
+                        and l.request_id = $2) as resolutions
+               from kernel.outbox_events e where e.id = $1`,
+            [deadId, requestIdOf(back)]
+        );
+        expect(resolved.rows[0]).toEqual({ status: 'done', resolutions: 1 });
 
         // the dead job sent back by an administrator finds the batch no longer committing: nothing is put on the register
         await runCommit(committing.id);

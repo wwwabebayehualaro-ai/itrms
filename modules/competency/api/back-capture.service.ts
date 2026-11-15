@@ -45,12 +45,14 @@ export type BackCaptureInput = RegistrationInput & {
     /** the libre the current owners hold: its booklet's serial and the day it was issued */
     libreNumber?: string;
     libreIssuedOn?: string;
-    /** the scan of the paper file, as the request's file field holds it (its first file is the one a re-check opens) */
+    /** the scan of the paper file, as the request's file field holds it (every page is kept on a drawn sample, in order) */
     paperFileScan?: unknown;
 };
 
-/** The first file of a request's file field, as the form engine stores an answer of it. */
-const firstFile = z.array(z.looseObject({ file_id: z.uuid() })).min(1);
+/** The files of a request's file field, as the form engine stores an answer of it. */
+const scanFiles = z.array(z.looseObject({ file_id: z.uuid() }));
+/** The most pages a drawn sample keeps (the table's check says the same). */
+const MAX_SCAN_PAGES = 20;
 
 type Refusal = { path: string; code: string; message: string };
 
@@ -268,7 +270,7 @@ export class BackCaptureService {
             verifiedBy: verifier
         });
         // sampling QA (task 1.13g): the record counts to the clerk who captured it, and may be drawn for a re-check
-        const scan = firstFile.safeParse(input.paperFileScan);
+        const scan = scanFiles.safeParse(input.paperFileScan);
         await this.sampling.count(tx, {
             regionId: place.regionId,
             handlingUnitId: place.handlingUnitId,
@@ -276,7 +278,7 @@ export class BackCaptureService {
             origin: { source: 'back_capture', caseId: place.caseId },
             clerkId: clerk,
             verifierId: verifier,
-            scanFileId: scan.success ? (scan.data[0]?.file_id ?? null) : null
+            scanFileIds: scan.success ? [...new Set(scan.data.map((f) => f.file_id))].slice(0, MAX_SCAN_PAGES) : []
         });
         return captured;
     }
@@ -312,7 +314,7 @@ export class BackCaptureService {
             origin: { source: 'import', importRowId: row.id },
             clerkId: row.clerkId,
             verifierId: row.committedBy,
-            scanFileId: row.scanFileId
+            scanFileIds: row.scanFileId ? [row.scanFileId] : []
         });
         return made;
     }

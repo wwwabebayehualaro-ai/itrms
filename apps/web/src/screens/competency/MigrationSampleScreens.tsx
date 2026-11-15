@@ -212,7 +212,7 @@ export function MigrationSamples() {
     );
 }
 
-function ScanButton({ id }: { id: string }) {
+function ScanButton({ id, fileId, filename }: { id: string; fileId: string; filename: string }) {
     const { t } = useText();
     const notify = useNotify();
     const link = useSampleScanLink();
@@ -223,13 +223,16 @@ function ScanButton({ id }: { id: string }) {
             data-action="scan"
             disabled={link.isPending}
             onClick={() =>
-                link.mutate(id, {
-                    onSuccess: (url) => window.open(url, '_blank', 'noopener'),
-                    onError: (error) => notify.error(getApiErrorMessage(error))
-                })
+                link.mutate(
+                    { id, fileId },
+                    {
+                        onSuccess: (url) => window.open(url, '_blank', 'noopener'),
+                        onError: (error) => notify.error(getApiErrorMessage(error))
+                    }
+                )
             }
         >
-            {t('competency.samples.openScan')}
+            {filename || t('competency.samples.openScan')}
         </Button>
     );
 }
@@ -330,7 +333,9 @@ export function MigrationSample({ id }: { id: string }) {
                 title={t('competency.samples.recordTitle', { plate: s.vehicle.plate ?? s.vehicle.chassisNumber })}
                 actions={
                     <div className="flex gap-2">
-                        {s.hasScan && <ScanButton id={s.id} />}
+                        {s.scans.map((f) => (
+                            <ScanButton key={f.id} id={s.id} fileId={f.id} filename={f.filename} />
+                        ))}
                         <Button variant="outline" asChild>
                             <Link href="/competency/migration-samples">{t('competency.samples.back')}</Link>
                         </Button>

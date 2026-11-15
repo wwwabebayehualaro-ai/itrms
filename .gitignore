@@ -78,3 +78,6 @@ tests/load/summary.json
 
 # the local note of the dev stack's test accounts and passwords (never committed)
 /test-accounts*
+
+# local exports (the progress dashboard's data files, docs/engineering/dashboard.md)
+.tmp/

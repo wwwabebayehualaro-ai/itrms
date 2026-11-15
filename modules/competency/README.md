@@ -53,7 +53,7 @@ are encrypted in the row. Both jobs run on the app's pool as the person who aske
 keeps its batch and the file's name (`vehicles.migration_import_id`, `migration_import_name`), shown in the search, the record and
 the lookup. A commit whose job died after all its attempts (its outbox event `dead`, `vehicle_imports.commit_event_id`) is given
 back to checked by someone who may commit (`POST …/give-back`), never while the job is alive; what it committed stays. The
-campaign counters are task 1.13i, the reconciliation report 1.13h.
+campaign counters are task 1.13i.
 
 **Sampling QA (task 1.13g, ADR-0054 §3).** When a paper file joins the register (a back-capture verified, or a sheet's row
 committed), the record counts to its clerk at the capturing office (the case's starter, or the sheet's sender) and the share
@@ -68,6 +68,30 @@ drawn yet. A drawn record (`migration_samples`, class T) is re-checked against i
 verifier (`migration-sample:recheck`; the database refuses it too): correct, or the facts found wrong, once. A re-check measures:
 it never changes the vehicle (a correction is a service of its own). `GET /api/v1/migration-samples/clerks` counts each clerk's
 records, draws, re-checks, re-checks with errors and errors; in a two-person office the re-check is done from the office above.
+A drawn record keeps every page of its scan (`scan_file_ids`, at most 20, the first also in `scan_file_id`); the re-check opens
+each page through its own short-lived link, `POST /api/v1/migration-samples/:id/scans/:fileId` (404 for a file that is not one of
+the sample's pages; every download is on record).
+
+**Reconciliation report (task 1.13h, ADR-0054 §4).** `GET /api/v1/migration-report` (`migration-report:read`) measures the
+migration per office the caller's active unit holds, against the zone's own count of the paper files on the shelves
+(`api/migration-report.service.ts`, arithmetic in `api/reconciliation.ts`; typed tables only, never the JSONB answers). Definitions:
+- *Plate code group*: `PAPER_PLATE_CODES` = `1, 2, 3, 4, 5, 35, other`, the use code of the old regional plate that paper files are
+  shelved by. A migrated vehicle's code is the `legacy_use_code` of its earliest plate assignment (by `since`, then `created_at`);
+  the six use codes map to themselves, anything else (a national or special plate, no plate, another code) is `other`.
+- *Verified*: vehicles on the register with `migration_source` set (both sources always carry a verifier), counted at the vehicle's
+  `handling_unit_id`, per code. A later transfer moves the vehicle, and so its count, to the new office (transfers: task 1.4).
+- *Awaiting*: captured, the second person not done; only per office, not per code (a capture's plate is in the typed tables only once
+  verified). It is the open MIG-01 cases at the office (the case's frozen `serviceCode`, not closed: drafts and submitted
+  captures alike) and the `valid` rows of that office's sheets in state `checked` or `committing`.
+- *Paper*: the zone's count for an office and code (`migration_paper_counts`, class T at the counted office), none when not entered.
+  *Missing* = max(paper - verified, 0), none without a paper count. *Share* = verified over paper, summed over the codes that have a
+  paper count (none if no code has one, or the paper total is 0): the phase gate's migrated share. The sums of an office and the
+  report's total use the same rule.
+`PUT /api/v1/migration-report/paper-counts` (`migration-report:count`, the roles that may re-check samples) sets a count: the caller's
+active unit must be a strict ancestor of the office (an office never sets its own target: 403
+`competency.errors.paper_count_own_office`; an office outside the caller's subtree is 404). A new count carries no `If-Match`; a
+change carries the count's version (otherwise 409 `stale_version`). The register is read region-wide by RLS, so the report limits
+its vehicle query to the caller's subtree by hand.
 
 **Acting for the handling office, and one vehicle in one open request (task 1.2e).** The steps that write a vehicle's records
 (register, the plate, the libre and its booklet, the exchange, the back-capture's verification) run for the case's handling

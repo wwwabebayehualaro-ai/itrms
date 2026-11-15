@@ -95,7 +95,9 @@ export default defineModule({
         // the bulk import of paper vehicle files (task 1.13b): a sheet sent, and committed by a second person
         'vehicle-import': ['read', 'create', 'commit'],
         // sampling QA of migrated records (task 1.13g): the drawn records read, and re-checked by a third person
-        'migration-sample': ['read', 'recheck']
+        'migration-sample': ['read', 'recheck'],
+        // the reconciliation report (task 1.13h): paper files counted against the vehicles migrated; counted by the zone above
+        'migration-report': ['read', 'count']
     },
     roles: {
         'competency.officer': [
@@ -115,7 +117,9 @@ export default defineModule({
             'vehicle-import:commit',
             // a migrated record drawn for a re-check, never one's own capture or verification (task 1.13g)
             'migration-sample:read',
-            'migration-sample:recheck'
+            'migration-sample:recheck',
+            'migration-report:read',
+            'migration-report:count'
         ],
         'competency.lead': [
             'issued-document:read',
@@ -132,7 +136,9 @@ export default defineModule({
             'vehicle-import:read',
             'vehicle-import:commit',
             'migration-sample:read',
-            'migration-sample:recheck'
+            'migration-sample:recheck',
+            'migration-report:read',
+            'migration-report:count'
         ],
         'competency.examiner': ['exam:read', 'exam:record', 'training:read', ...REGISTER_READ, ...CASE_ACT],
         'competency.inspector': ['licence:read', ...REGISTER_READ, 'case:read']
@@ -234,6 +240,16 @@ export default defineModule({
             icon: 'list-checks',
             route: '/competency/migration-samples',
             requires: { permission: 'migration-sample:read', services: ['MIG-01'] }
+        },
+        // the reconciliation report (task 1.13h): paper files counted against the vehicles migrated, per office and plate code
+        {
+            key: 'competency.migrationReport',
+            group: 'work-process',
+            order: 13,
+            label: 'competency.nav.migrationReport',
+            icon: 'list-checks',
+            route: '/competency/migration-report',
+            requires: { permission: 'migration-report:read', services: ['MIG-01'] }
         },
         {
             key: 'competency.plateExchanges',

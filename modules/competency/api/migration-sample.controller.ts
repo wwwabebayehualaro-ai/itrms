@@ -49,14 +49,14 @@ export class MigrationSampleController {
         return this.db.scoped(ctx, (tx) => this.samples.get(tx, ctx, id, mayRecheck()));
     }
 
-    // a short-lived link (never kept for a replay); the download is on record
-    @Post(':id/scan')
+    // a short-lived link to one page of the scan (never kept for a replay); the download is on record
+    @Post(':id/scans/:fileId')
     @HttpCode(200)
     @NotReplayable()
     @Require('migration-sample:read')
-    scan(@Param('id', ParseUUIDPipe) id: string) {
+    scan(@Param('id', ParseUUIDPipe) id: string, @Param('fileId', ParseUUIDPipe) fileId: string) {
         const ctx = requestDbContext();
-        return this.db.scoped(ctx, (tx) => this.samples.scanLink(tx, ctx, this.store, id));
+        return this.db.scoped(ctx, (tx) => this.samples.scanLink(tx, ctx, this.store, id, fileId));
     }
 
     @Post(':id/recheck')
