@@ -18,6 +18,7 @@ import competencyEn from '@itrms/competency/messages/en';
 import { importBackCaptureService } from '@itrms/competency/seed';
 import { loadSlices } from '@itrms/kernel/api';
 import { createDatabase, type Database } from '@itrms/kernel/db';
+import { NO_OBJECT_STORE } from '@itrms/kernel/files';
 import { createSystemDatabase, type SystemDatabase } from '@itrms/kernel/db/system';
 import { permissionsOf, rolePermissions } from '@itrms/kernel/iam';
 import type { OrgUnit } from '@itrms/kernel/org';
@@ -203,44 +204,55 @@ async function auditOf(requestId: string): Promise<Record<string, number>> {
 
 beforeAll(async () => {
     pg = await startPostgres();
-    api = await startApi(pg, [
-        {
-            username: 'test.qa.clerk',
-            sub: SUB.clerk,
-            region: 'SER',
-            home: 'WOL-BODITI',
-            // a clerk who could re-check another's records: their own are refused by the rule, not the role
-            roles: [
-                ['WOL-BODITI', 'records_officer'],
-                ['WOL-BODITI', 'competency.officer']
-            ]
-        },
-        {
-            username: 'test.qa.capturer',
-            sub: SUB.capturer,
-            region: 'SER',
-            home: 'WOL-BODITI',
-            roles: [
-                ['WOL-BODITI', 'records_officer'],
-                ['WOL-BODITI', 'competency.officer']
-            ]
-        },
-        {
-            username: 'test.qa.verifier',
-            sub: SUB.verifier,
-            region: 'SER',
-            home: 'WOL-BODITI',
-            roles: [['WOL-BODITI', 'competency.officer']]
-        },
-        {
-            username: 'test.qa.checker',
-            sub: SUB.checker,
-            region: 'SER',
-            home: 'WOL-BODITI',
-            roles: [['WOL-BODITI', 'competency.lead']]
-        },
-        { username: 'test.qa.zone', sub: SUB.zone, region: 'SER', home: 'WOL', roles: [['WOL', 'competency.officer']] }
-    ]);
+    api = await startApi(
+        pg,
+        [
+            {
+                username: 'test.qa.clerk',
+                sub: SUB.clerk,
+                region: 'SER',
+                home: 'WOL-BODITI',
+                // a clerk who could re-check another's records: their own are refused by the rule, not the role
+                roles: [
+                    ['WOL-BODITI', 'records_officer'],
+                    ['WOL-BODITI', 'competency.officer']
+                ]
+            },
+            {
+                username: 'test.qa.capturer',
+                sub: SUB.capturer,
+                region: 'SER',
+                home: 'WOL-BODITI',
+                roles: [
+                    ['WOL-BODITI', 'records_officer'],
+                    ['WOL-BODITI', 'competency.officer']
+                ]
+            },
+            {
+                username: 'test.qa.verifier',
+                sub: SUB.verifier,
+                region: 'SER',
+                home: 'WOL-BODITI',
+                roles: [['WOL-BODITI', 'competency.officer']]
+            },
+            {
+                username: 'test.qa.checker',
+                sub: SUB.checker,
+                region: 'SER',
+                home: 'WOL-BODITI',
+                roles: [['WOL-BODITI', 'competency.lead']]
+            },
+            {
+                username: 'test.qa.zone',
+                sub: SUB.zone,
+                region: 'SER',
+                home: 'WOL',
+                roles: [['WOL', 'competency.officer']]
+            }
+        ],
+        // a scan's link is signed, never fetched: no object behind it is needed
+        { objectStore: { ...NO_OBJECT_STORE, presignGet: ({ key }) => Promise.resolve(`https://store.test/${key}`) } }
+    );
     app = createDatabase(pg.url('app'), { contextKey: TEST_CONTEXT_KEY });
     system = createSystemDatabase(pg.url('system'), { onUse: () => undefined });
     const region = await api.unit('SER', 'SER');
