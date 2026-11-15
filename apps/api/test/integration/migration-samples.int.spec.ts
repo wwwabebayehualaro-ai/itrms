@@ -9,6 +9,7 @@
  */
 import { randomInt, randomUUID } from 'node:crypto';
 
+import { sql } from 'drizzle-orm';
 import { MigrationSamplingService, VehicleImportService } from '@itrms/competency/api';
 import { vehicleImportHandlers } from '@itrms/competency/api/worker';
 import type { ClerkCounts, MigrationSample, VehicleImport, VehicleImportRow } from '@itrms/competency/contracts';
@@ -35,8 +36,7 @@ const SUB = {
     capturer: '0199f0a0-d000-7000-8000-00000000d302',
     verifier: '0199f0a0-d000-7000-8000-00000000d303',
     checker: '0199f0a0-d000-7000-8000-00000000d304',
-    zone: '0199f0a0-d000-7000-8000-00000000d305',
-    damot: '0199f0a0-d000-7000-8000-00000000d306'
+    zone: '0199f0a0-d000-7000-8000-00000000d305'
 };
 type Who = keyof typeof SUB;
 
@@ -45,6 +45,8 @@ let api: TestApi;
 let app: Database;
 let system: SystemDatabase;
 let boditi: OrgUnit;
+/** a sibling office of Boditi (a woreda: it holds no competency roles, so it is read as an office, under RLS) */
+let damot: OrgUnit;
 const as = {} as Record<Who, As>;
 const id = {} as Record<Who, string>;
 const catalogue = rolePermissions(loadSlices(SLICES).manifests);
@@ -237,14 +239,7 @@ beforeAll(async () => {
             home: 'WOL-BODITI',
             roles: [['WOL-BODITI', 'competency.lead']]
         },
-        { username: 'test.qa.zone', sub: SUB.zone, region: 'SER', home: 'WOL', roles: [['WOL', 'competency.officer']] },
-        {
-            username: 'test.qa.damot',
-            sub: SUB.damot,
-            region: 'SER',
-            home: 'WOL-DAMOT-GALE',
-            roles: [['WOL-DAMOT-GALE', 'competency.officer']]
-        }
+        { username: 'test.qa.zone', sub: SUB.zone, region: 'SER', home: 'WOL', roles: [['WOL', 'competency.officer']] }
     ]);
     app = createDatabase(pg.url('app'), { contextKey: TEST_CONTEXT_KEY });
     system = createSystemDatabase(pg.url('system'), { onUse: () => undefined });
@@ -252,7 +247,7 @@ beforeAll(async () => {
     boditi = await api.unit('SER', 'WOL-BODITI');
     for (const who of ['clerk', 'capturer', 'verifier', 'checker'] as const) as[who] = { sub: SUB[who], unit: boditi };
     as.zone = { sub: SUB.zone, unit: await api.unit('SER', 'WOL') };
-    as.damot = { sub: SUB.damot, unit: await api.unit('SER', 'WOL-DAMOT-GALE') };
+    damot = await api.unit('SER', 'WOL-DAMOT-GALE');
     for (const who of Object.keys(SUB) as Who[]) id[who] = await api.userId(SUB[who]);
     await api.installer.scoped({}, async (tx) => {
         const root = { id: region.id, regionId: region.regionId };
@@ -469,8 +464,11 @@ describe('the re-check', () => {
             expect(res.statusCode, `${who}: ${res.body}`).toBe(403);
             expect(detailOf('competency.errors.recheck_own_record')).toContain(res.json<{ detail?: string }>().detail);
         }
-        expect((await api.call('GET', `/api/v1/migration-samples/${first.id}`, as.damot)).statusCode).toBe(404);
-        expect((await samplesOf(as.damot)).items.some((s) => s.unit.id === boditi.id)).toBe(false);
+        const sibling = await app.scoped(contextFor(damot, id.verifier), async (tx) => ({
+            samples: (await tx.execute(sql`select id from competency.migration_samples`)).rows.length,
+            counters: (await tx.execute(sql`select id from competency.migration_sample_counters`)).rows.length
+        }));
+        expect(sibling).toEqual({ samples: 0, counters: 0 });
         // the zone above sees it
         expect((await api.call('GET', `/api/v1/migration-samples/${first.id}`, as.zone)).statusCode).toBe(200);
     });
@@ -527,10 +525,6 @@ describe('the re-check', () => {
             items: ClerkCounts[];
         }>().items;
         expect(own.some((c) => c.clerk.id === id.clerk)).toBe(false);
-        const sibling = (await api.call('GET', '/api/v1/migration-samples/clerks', as.damot)).json<{
-            items: ClerkCounts[];
-        }>().items;
-        expect(sibling.some((c) => c.unit.id === boditi.id)).toBe(false);
     });
 });
 

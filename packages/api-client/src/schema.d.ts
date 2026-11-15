@@ -3087,7 +3087,7 @@ export interface components {
             /** @enum {string} */
             contentType: "application/pdf" | "image/jpeg" | "image/png" | "image/webp";
             /** @enum {string} */
-            documentType?: "id_card" | "fayda_card" | "photo" | "medical_certificate" | "libre_copy" | "bolo_certificate" | "driver_licence_copy" | "training_certificate" | "education_certificate" | "tin_certificate" | "trade_licence" | "contract" | "design_drawing" | "payment_receipt" | "letter" | "other";
+            documentType?: "id_card" | "fayda_card" | "photo" | "medical_certificate" | "libre_copy" | "bolo_certificate" | "driver_licence_copy" | "training_certificate" | "education_certificate" | "tin_certificate" | "trade_licence" | "contract" | "design_drawing" | "payment_receipt" | "letter" | "paper_file_scan" | "other";
             filename: string;
             sha256: string;
             size: number;
@@ -5727,6 +5727,7 @@ export interface operations {
         parameters: {
             query?: {
                 state?: "drawn" | "rechecked";
+                vehicleId?: string;
                 limit?: number;
                 offset?: number;
             };

@@ -3732,6 +3732,11 @@
       "foundIn": "1.13g",
       "item": "A commit given back leaves its outbox event dead in the administrators' dead-letter list (a retry of it is harmless: the batch is no longer committing). Resolve the event when the batch is given back (needs a grant or a definer function)",
       "movedTo": "1.13h"
+    },
+    {
+      "foundIn": "1.13g",
+      "item": "Agree with the zone the share of each clerk's migrated records re-checked (competency.migration_sample_percent: 5% placeholder, set by the bureau or per kind of office) together with the backlog target (ADR-0054 Consequences)",
+      "movedTo": "discovery: Wolaita Zone"
     }
   ]
 }

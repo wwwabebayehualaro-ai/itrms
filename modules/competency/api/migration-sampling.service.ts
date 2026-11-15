@@ -36,7 +36,7 @@ type SampleRow = typeof migrationSamples.$inferSelect;
 const SCAN_OWNERS = new Set(['forms.submissions', 'competency.vehicle_imports']);
 const COUNTER_LOCK = 0x1e8c;
 /** No one's id: what a context without a person compares with (it then sees no one's waiting records as its own). */
-const PLACEHOLDER_USER = '00000000-0000-4000-8000-000000000000';
+const NO_ONE = '00000000-0000-4000-8000-000000000000';
 
 /** A record that joined the register from paper, as the draw counts it. */
 export interface MigratedRecord {
@@ -130,7 +130,7 @@ export class MigrationSamplingService {
      * their records were drawn (and so which of the next will be) until someone has re-checked them.
      */
     private visibleTo(ctx: DbContext) {
-        return sql`not (${migrationSamples.clerkId} = ${ctx.userId ?? PLACEHOLDER_USER} and ${migrationSamples.state} = 'drawn')`;
+        return sql`not (${migrationSamples.clerkId} = ${ctx.userId ?? NO_ONE} and ${migrationSamples.state} = 'drawn')`;
     }
 
     /** The drawn records the caller's office and those below it hold: those waiting first, oldest first. */
@@ -298,7 +298,7 @@ export class MigrationSamplingService {
                     eq(migrationSamples.clerkId, migrationSampleCounters.clerkId)
                 )
             )
-            .where(ne(migrationSampleCounters.clerkId, ctx.userId ?? PLACEHOLDER_USER))
+            .where(ne(migrationSampleCounters.clerkId, ctx.userId ?? NO_ONE))
             .groupBy(migrationSampleCounters.id)
             .orderBy(asc(migrationSampleCounters.handlingUnitId), asc(migrationSampleCounters.clerkId))
             .limit(500);

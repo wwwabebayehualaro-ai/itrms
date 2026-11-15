@@ -108,6 +108,8 @@ export const DOCUMENT_TYPES = [
     'design_drawing',
     'payment_receipt',
     'letter',
+    /** a scanned paper file of the backlog (ADR-0054): a back-capture's or a bulk import's */
+    'paper_file_scan',
     'other'
 ] as const;
 
