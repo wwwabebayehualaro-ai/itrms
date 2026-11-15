@@ -352,7 +352,11 @@ describe('a back-capture verified at a share of 100%', () => {
         try {
             const person = await api.call('POST', '/api/v1/persons', as.capturer, {
                 nameAm: { given: 'ባለቤት', father: `ናሙና${nameOf(900)}`, grandfather: 'ታደሰ' },
-                nameEn: { given: 'Sample', father: `Check${RUN}`, grandfather: 'Person' },
+                nameEn: {
+                    given: 'Sample',
+                    father: `Check${[...RUN].map((d) => 'abcdefghij'.charAt(Number(d))).join('')}`,
+                    grandfather: 'Person'
+                },
                 sex: 'female',
                 birthYear: 1979,
                 acknowledgedDuplicates: []
@@ -477,9 +481,9 @@ describe('the re-check', () => {
         const [first, second] = drawn;
         if (!first || !second) throw new Error('no samples');
         const empty = await recheck(first, as.checker, { outcome: 'errors', fields: [] });
-        expect(empty.statusCode).toBe(400);
+        expect(empty.statusCode).toBe(422);
         const wrongWay = await recheck(first, as.checker, { outcome: 'correct', fields: ['colour'] });
-        expect(wrongWay.statusCode).toBe(400);
+        expect(wrongWay.statusCode).toBe(422);
 
         const ok = await recheck(first, as.checker, { outcome: 'correct' });
         expect(ok.statusCode, ok.body).toBe(200);
