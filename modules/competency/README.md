@@ -35,8 +35,22 @@ no fee. `competency.checkBackCapture` checks the capture in back-capture mode wh
 plate no vehicle carries and not in the stock, no other open request for the chassis or plate). The verification step keeps
 whoever captured the file off it (separation of duties); `competency.backCaptureVehicle` then registers the vehicle as migrated,
 verified by the actor, with its plate and libre. Until then the vehicle is not on the register, so no service can act on it.
-The vehicle search offers the back-capture when it finds nothing (capture on touch). The bulk import, sampling QA, campaign
-counters and the reconciliation report are task 1.13b.
+The vehicle search offers the back-capture when it finds nothing (capture on touch).
+
+**The bulk import of paper vehicle files (task 1.13b, ADR-0054).** The backlog's other road in: a sheet of paper files (CSV or an
+Excel workbook, the template's columns in `contracts/vehicle-import.ts`), one row per file, sent with the files' scans to
+`POST /api/v1/vehicle-imports` by an office that offers MIG-01. It never runs in the request: the worker reads it
+(`vehicle-import.check-requested.v1`, `import-sheet.ts`: a workbook's unpacked size is bounded before ExcelJS opens it) and checks
+every row as a back-capture is checked (`import-rows.ts` for the cells, then `BackCaptureService.check` in back-capture mode): the
+dry run, whose report gives each row's errors at their columns. A paper file, chassis, plate, libre or scan twice in the sheet is
+an error on the later row; a chassis already on the register from an import with the same paper reference is `already_imported`,
+so a sheet sent again makes nothing. A second person, never the sender (SEC-AC-6), commits it (`vehicle-import:commit`); the worker
+then puts each valid row on the register in its own transaction as migrated by `import` (`vehicles.migration_import_row_id`, the
+committer its verifier), with its plate and libre. Owners: a person by FIN, else made at the commit, the rows of one owner (one
+FIN, or one Amharic name with one phone) one person; a possible duplicate on the register is an error for a person to resolve; an
+organisation must be on the register (its TIN). The sheet is kept field-encrypted only until it is read; an owner's phone and FIN
+are encrypted in the row. Both jobs run on the app's pool as the person who asked, with the roles they still hold. Sampling QA and
+the campaign counters are task 1.13g, the reconciliation report 1.13h.
 
 **Acting for the handling office, and one vehicle in one open request (task 1.2e).** The steps that write a vehicle's records
 (register, the plate, the libre and its booklet, the exchange, the back-capture's verification) run for the case's handling

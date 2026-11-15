@@ -116,11 +116,17 @@ export function VehicleRecord({ id }: { id: string }) {
                                       },
                                       {
                                           term: t('vehicles.migration.paperReference'),
-                                          // the capture case (with the scan) is the handling office's to open
+                                          // the capture case, or the imported sheet's row (each with the scan), is the
+                                          // handling office's to open
                                           value:
-                                              v.migration.caseId && v.handlingUnit.id === activeUnitId ? (
+                                              (v.migration.caseId || v.migration.importRowId) &&
+                                              v.handlingUnit.id === activeUnitId ? (
                                                   <Link
-                                                      href={`/cases/${v.migration.caseId}`}
+                                                      href={
+                                                          v.migration.caseId
+                                                              ? `/cases/${v.migration.caseId}`
+                                                              : `/competency/vehicle-imports/rows/${v.migration.importRowId ?? ''}`
+                                                      }
                                                       className="hover:underline"
                                                       data-paper-reference
                                                   >

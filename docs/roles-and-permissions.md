@@ -86,6 +86,7 @@ In code a permission is `resource:action` with the resource in kebab-case, as th
 | `external_statement` | — | — | — | — | — | C R | — | — | — | R |
 | `driver_licence` (registry) | R | — | R | R | — | — | R (via effects only) | R | R | R |
 | `vehicle` (registry: vehicles, ownership history, plates, libres; `vehicle:read`, task 1.1a; changed only by case effects, never by a request of its own) | R | R | R | R | R | R | R | R | R | R |
+| `vehicle_import` (a sheet of paper vehicle files, task 1.13b: C sends it, `commit` puts its checked valid rows on the register; never one's own sheet, SEC-AC-6; only where MIG-01 is offered) | — | — | — | C R | — | — | C R commit | R commit | — | — |
 | `issued_document` | — | — | R | R | R | R | R | R | — | R |
 | `document_template` | A | — | R | — | — | — | — | — | — | R |
 | `form` (definitions; `publish` asks, `approve` decides: maker-checker; `overlay` writes and asks to publish the office's own overlay on a bureau form, 0.21f) | C U publish approve overlay | C U publish (own unit's forms) overlay | R approve | R | R | R | R | R | R | R |

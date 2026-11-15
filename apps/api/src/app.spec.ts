@@ -42,7 +42,9 @@ describe('POSTs kept out of the idempotency records (@NotReplayable)', () => {
             // a read sent as POST (the query is a document): its answer holds submissions' answers (personal data)
             'SubmissionsController.query',
             // a submission's Sensitive answers in clear, on reason; each reveal is on record (task 0.20d)
-            'SubmissionsController.reveal'
+            'SubmissionsController.reveal',
+            // an imported row's scan (task 1.13b): a short-lived link, as an export's download (each download is on record)
+            'VehicleImportController.scan'
         ]);
     });
 });

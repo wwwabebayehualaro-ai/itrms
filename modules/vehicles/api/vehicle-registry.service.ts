@@ -73,7 +73,9 @@ export class VehicleRegistry {
     async checkRegistration(
         tx: Tx,
         ctx: DbContext,
-        given: z.input<typeof vehicleRegisterSchema>
+        given: z.input<typeof vehicleRegisterSchema>,
+        /** `checkOwners: false`: the owners are not on the register yet (an import's dry run, which makes them only at the commit) */
+        options: { checkOwners?: boolean } = {}
     ): Promise<{ vinKey: string; chassisNumber: string; vinCheck: VinCheck; chassisKind: ChassisKind }> {
         const input = checked(vehicleRegisterSchema, given);
         const regionId = required(ctx.regionId);
@@ -105,7 +107,7 @@ export class VehicleRegistry {
         notFuture('since', since);
         if (since < input.firstRegisteredOn)
             throw fieldError('since', 'before_registration', 'is before the first registration');
-        await this.checkOwners(tx, input.owners, 'owners');
+        if (options.checkOwners !== false) await this.checkOwners(tx, input.owners, 'owners');
         const [onRegister] = await tx
             .select({ id: vehicles.id })
             .from(vehicles)
@@ -172,6 +174,7 @@ export class VehicleRegistry {
                 migrationSource: input.migration?.source ?? null,
                 paperReference: input.migration?.paperReference ?? null,
                 migrationCaseId: input.migration?.caseId ?? null,
+                migrationImportRowId: input.migration?.importRowId ?? null,
                 migrationVerifiedBy: input.migration?.verifiedBy ?? null,
                 migrationVerifiedAt: input.migration?.verifiedBy ? new Date() : null
             });

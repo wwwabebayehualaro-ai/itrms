@@ -5,8 +5,8 @@
  */
 import 'reflect-metadata';
 
-import { LicencesService } from '@itrms/competency/api';
-import { boloHandlers, competencyHandlers } from '@itrms/competency/api/worker';
+import { LicencesService, VehicleImportService } from '@itrms/competency/api';
+import { boloHandlers, competencyHandlers, vehicleImportHandlers } from '@itrms/competency/api/worker';
 import { documentsHandlers } from '@itrms/documents/api/worker';
 import { DOCUMENTS_ROUTES } from '@itrms/documents/contracts';
 import { PaymentsService } from '@itrms/fees/api';
@@ -89,6 +89,12 @@ async function main() {
                 }),
                 // a bolo's renewal reminder to its owners, when it comes due (task 1.3b); SMS through the fake gateway for now
                 ...boloHandlers(system, { sms, crypto: app.get<FieldCrypto>(FIELD_CRYPTO) }),
+                // the bulk import of paper vehicle files (task 1.13b): its dry run and its commit, as the person who asked
+                ...vehicleImportHandlers(system, {
+                    database,
+                    importer: app.get(VehicleImportService),
+                    permissionsOf: (roles) => permissionsOf(catalogue, roles)
+                }),
                 ...formsHandlers(system, {
                     database,
                     store: objectStore ?? NO_OBJECT_STORE,

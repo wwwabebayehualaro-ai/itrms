@@ -40,9 +40,10 @@ export function useMarkRead() {
     });
 }
 
-/** Where a notice leads: its case, or the form whose export it is about. */
+/** Where a notice leads: its case, the form whose export it is about, or the imported sheet's report (task 1.13b). */
 export function noticeHref(notice: Notice): string | null {
     if (notice.link?.caseId) return `/cases/${notice.link.caseId}`;
     if (notice.link?.formId) return `/submitted-forms/template/${notice.link.formId}`;
+    if (notice.link?.importId) return `/competency/vehicle-imports/${notice.link.importId}`;
     return null;
 }

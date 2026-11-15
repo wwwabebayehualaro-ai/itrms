@@ -157,13 +157,16 @@ export const vehicles = withRls(
                 status: text('status', { enum: VEHICLE_STATUSES }).notNull().default('active'),
                 /**
                  * A vehicle migrated from its paper file (ADR-0054, task 1.13): how it came, the paper file's reference, the
-                 * case that captured it and the second person who verified it. All null for a vehicle registered in ITRMS.
+                 * case that captured it (or the sheet's row it was imported from, task 1.13b) and the second person who verified
+                 * it. All null for a vehicle registered in ITRMS.
                  */
                 migrationSource: text('migration_source', { enum: MIGRATION_SOURCES }),
                 paperReference: text('paper_reference'),
                 migrationCaseId: uuid('migration_case_id'),
                 migrationVerifiedBy: uuid('migration_verified_by'),
-                migrationVerifiedAt: timestamp('migration_verified_at', { withTimezone: true })
+                migrationVerifiedAt: timestamp('migration_verified_at', { withTimezone: true }),
+                /** competency.vehicle_import_rows (foreign key in the migration): the row of the sheet it came from */
+                migrationImportRowId: uuid('migration_import_row_id')
             },
             (t) => [
                 uniqueIndex('vehicles_federal_id_uq')
@@ -174,6 +177,10 @@ export const vehicles = withRls(
                 uniqueIndex('vehicles_migration_case_uq')
                     .on(t.migrationCaseId)
                     .where(sql`${t.migrationCaseId} is not null`),
+                // one vehicle per imported row: what a commit run again finds (task 1.13b)
+                uniqueIndex('vehicles_migration_import_row_uq')
+                    .on(t.migrationImportRowId)
+                    .where(sql`${t.migrationImportRowId} is not null`),
                 index('vehicles_region_vin_idx').on(t.regionId, t.vinKey),
                 index('vehicles_region_engine_idx').on(t.regionId, t.engineKey),
                 index('vehicles_vin_trgm').using('gin', sql`${t.vinKey} gin_trgm_ops`),
@@ -215,6 +222,9 @@ export const vehicles = withRls(
                         and (${t.migrationSource} is distinct from 'back_capture'
                              or (${t.migrationCaseId} is not null and ${t.migrationVerifiedBy} is not null
                                  and ${t.migrationVerifiedAt} is not null))
+                        and (${t.migrationSource} is distinct from 'import'
+                             or (${t.migrationImportRowId} is not null and ${t.migrationVerifiedBy} is not null))
+                        and (${t.migrationImportRowId} is null or ${t.migrationSource} = 'import')
                         and (${t.migrationVerifiedBy} is null) = (${t.migrationVerifiedAt} is null)`
                 ),
                 check(

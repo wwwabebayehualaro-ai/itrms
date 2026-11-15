@@ -7,12 +7,14 @@ import { z } from 'zod';
 
 import { BOLO_EVENTS, BOLO_REMINDER_DAYS_SETTING, TEMPORARY_BOLO_DAYS_SETTING } from './bolo';
 import { MEDICAL_MONTHS_SETTING, RENEWAL_WINDOW_SETTING } from './rules';
+import { VEHICLE_IMPORT_EVENTS } from './vehicle-import';
 
 export * from './back-capture';
 export * from './bolo';
 export * from './exchange';
 export * from './registration';
 export * from './rules';
+export * from './vehicle-import';
 
 export const LICENCE_STATUSES = ['pending_national', 'active', 'voided'] as const;
 export type LicenceStatus = (typeof LICENCE_STATUSES)[number];
@@ -64,7 +66,8 @@ export const COMPETENCY_EVENTS = {
         attempt: z.number().int().min(0).default(0)
     }),
     'licence-batch.print-requested.v1': z.object({ batchId: z.uuid() }),
-    ...BOLO_EVENTS
+    ...BOLO_EVENTS,
+    ...VEHICLE_IMPORT_EVENTS
 } as const;
 
 /** What an answer of the national platform gives a licence, as an event's input to the case's effects. */

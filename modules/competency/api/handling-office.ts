@@ -32,7 +32,7 @@ export async function actForHandlingOffice(tx: Tx, place: CasePlace): Promise<Ca
  * Whether another open case of the region claims the vehicle: through the reviewed lookup (migration 0073), not the cases the
  * filer's office sees, so that two sibling offices cannot both take a fee and hold a plate for one vehicle.
  */
-export async function claimedElsewhere(tx: Tx, caseId: string, claim: VehicleClaim): Promise<boolean> {
+export async function claimedElsewhere(tx: Tx, caseId: string | null, claim: VehicleClaim): Promise<boolean> {
     const { rows } = await tx.execute<{ claimed: boolean }>(
         sql`select competency.vehicle_in_open_case(${claim.vinKey ?? null}, ${claim.plateKey ?? null},
                                                    ${claim.vehicleId ?? null}::uuid, ${caseId}::uuid) as claimed`
