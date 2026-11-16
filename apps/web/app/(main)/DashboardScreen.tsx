@@ -19,6 +19,7 @@ import { useAuthStore } from '@/lib/auth/authStore';
 import { formatDateTime } from '@/lib/format';
 import { useText } from '@/lib/preferences';
 import { useApprovalCount } from '@/lib/workspace';
+import { CampaignWidget } from '@/screens/competency/CampaignWidget';
 import { MyTasksWidget } from '@/screens/workflow/MyTasksWidget';
 
 const greetingKey = (h: number) =>
@@ -43,6 +44,7 @@ export function DashboardScreen() {
     const latest = useSubmissionList({ mine: true, limit: 6 }, { enabled: canRead });
     const approvals = useApprovalCount();
     const canAct = useCan('case:act');
+    const canSeeCampaigns = useCan('campaign:read');
     const formName = useMemo(() => new Map((forms.data ?? []).map((t) => [String(t.id), t.name])), [forms.data]);
 
     return (
@@ -81,6 +83,9 @@ export function DashboardScreen() {
 
             {/* the steps waiting in the person's office for their roles (task 0.20d) */}
             {canAct && <MyTasksWidget />}
+
+            {/* each office's count against its target in the open campaigns (task 1.13i) */}
+            {canSeeCampaigns && <CampaignWidget />}
 
             <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
                 <Stat

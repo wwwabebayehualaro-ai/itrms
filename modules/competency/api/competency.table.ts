@@ -17,6 +17,10 @@
  *   migration_sample_counters   where each clerk's draw of sampling QA stands at an office (task 1.13g), class T.
  *   migration_samples      a migrated vehicle drawn for a re-check against its scan, and the re-check, class T at the capturing
  *                          office.
+ *   migration_paper_counts the zone's count of paper files for an office and plate code (task 1.13h), class T at the office.
+ *   campaigns              a unit's campaign over a span of days (task 1.13i), class C: the unit's subtree writes it and the offices
+ *                          below it read it, as they must to see what targets them.
+ *   campaign_targets       an office's target in a campaign, class T at the office; set by a unit above it.
  *
  * A licence's number is null until the national platform accepts it: `pending_national` is not yet anyone's licence.
  * The foreign keys to the register of people are in the migration: this file is read by drizzle-kit, which can't load another slice's
@@ -43,6 +47,7 @@ import type { I18nText } from '@itrms/schemas';
 import {
     BATCH_STATUSES,
     BOLO_STATUSES,
+    CAMPAIGN_KINDS,
     ENROLMENT_STATUSES,
     GRADE_FAMILIES,
     IMPORT_FAILURES,
@@ -663,6 +668,63 @@ export const migrationPaperCounts = withRls(
                 uniqueIndex('migration_paper_counts_uq').on(t.handlingUnitId, t.plateCode),
                 index('migration_paper_counts_org_path_gist').using('gist', t.orgPath),
                 check('migration_paper_counts_check', sql`count BETWEEN 0 AND 10000000`)
+            ]
+        )
+    ),
+    'transaction'
+);
+
+/**
+ * A campaign a unit runs over a span of days (task 1.13i, ADR-0054 §2): the plate exchange, the bolo season. Class C (config): the
+ * unit's subtree writes it, and every office below reads it, which is how an office sees the campaign that targets it. The length
+ * and the bounds are checked in the migration.
+ */
+export const campaigns = withRls(
+    audited(
+        competencySchema.table(
+            'campaigns',
+            {
+                ...baseColumns(),
+                ...handled(),
+                kind: text('kind', { enum: CAMPAIGN_KINDS }).notNull(),
+                name: jsonb('name').$type<I18nText>().notNull(),
+                startsOn: date('starts_on').notNull(),
+                endsOn: date('ends_on').notNull(),
+                closedAt: timestamp('closed_at', { withTimezone: true })
+            },
+            (t) => [
+                index('campaigns_unit_kind_idx').on(t.handlingUnitId, t.kind),
+                index('campaigns_org_path_gist').using('gist', t.orgPath),
+                check('campaigns_dates_check', sql`ends_on >= starts_on AND ends_on - starts_on < 366`)
+            ]
+        )
+    ),
+    'config'
+);
+
+/**
+ * An office's target in a campaign (task 1.13i): the row belongs to the office (its subtree and the units above it see it), and the
+ * unit that set it is its own column: an office never sets its own.
+ */
+export const campaignTargets = withRls(
+    audited(
+        competencySchema.table(
+            'campaign_targets',
+            {
+                ...baseColumns(),
+                ...handled(),
+                campaignId: uuid('campaign_id')
+                    .notNull()
+                    .references(() => campaigns.id),
+                target: integer('target').notNull(),
+                setByUnitId: uuid('set_by_unit_id')
+                    .notNull()
+                    .references(() => orgUnits.id)
+            },
+            (t) => [
+                uniqueIndex('campaign_targets_uq').on(t.campaignId, t.handlingUnitId),
+                index('campaign_targets_org_path_gist').using('gist', t.orgPath),
+                check('campaign_targets_check', sql`target BETWEEN 1 AND 10000000`)
             ]
         )
     ),

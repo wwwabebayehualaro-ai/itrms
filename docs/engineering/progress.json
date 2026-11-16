@@ -1803,12 +1803,12 @@
         {
           "id": "1.13i",
           "title": "Paper-record migration, part 5: campaign counters",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/1.13i-campaign-counters",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split from 1.13g on 2026-11-15."
+          "notes": "Split from 1.13g on 2026-11-15. Design (2026-11-16): competency.campaigns is RLS class config (the running unit's subtree reads it and the units above; only the subtree writes), campaign_targets class T at the office (a sibling sees the zone's campaign, never another office's target). Counts from typed tables limited by hand to kernel.ctx_scope() and the campaign's subtree (both sources are class R). Assumption: a woreda sees every campaign of the units above it, targeting it or not; the kind's service is not checked when a target is set."
         },
         {
           "id": "1.4",

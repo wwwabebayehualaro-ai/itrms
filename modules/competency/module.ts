@@ -97,7 +97,9 @@ export default defineModule({
         // sampling QA of migrated records (task 1.13g): the drawn records read, and re-checked by a third person
         'migration-sample': ['read', 'recheck'],
         // the reconciliation report (task 1.13h): paper files counted against the vehicles migrated; counted by the zone above
-        'migration-report': ['read', 'count']
+        'migration-report': ['read', 'count'],
+        // campaign counters (task 1.13i): each office's daily count against the target its unit above set; run by the unit above
+        campaign: ['read', 'manage']
     },
     roles: {
         'competency.officer': [
@@ -119,7 +121,9 @@ export default defineModule({
             'migration-sample:read',
             'migration-sample:recheck',
             'migration-report:read',
-            'migration-report:count'
+            'migration-report:count',
+            'campaign:read',
+            'campaign:manage'
         ],
         'competency.lead': [
             'issued-document:read',
@@ -138,10 +142,12 @@ export default defineModule({
             'migration-sample:read',
             'migration-sample:recheck',
             'migration-report:read',
-            'migration-report:count'
+            'migration-report:count',
+            'campaign:read',
+            'campaign:manage'
         ],
         'competency.examiner': ['exam:read', 'exam:record', 'training:read', ...REGISTER_READ, ...CASE_ACT],
-        'competency.inspector': ['licence:read', ...REGISTER_READ, 'case:read']
+        'competency.inspector': ['licence:read', ...REGISTER_READ, 'case:read', 'campaign:read']
     },
     services: [
         'DVC-01',
@@ -250,6 +256,16 @@ export default defineModule({
             icon: 'list-checks',
             route: '/competency/migration-report',
             requires: { permission: 'migration-report:read', services: ['MIG-01'] }
+        },
+        // campaign counters (task 1.13i): plate exchange and bolo season, each office's daily count against its target
+        {
+            key: 'competency.campaigns',
+            group: 'work-process',
+            order: 13,
+            label: 'competency.nav.campaigns',
+            icon: 'target',
+            route: '/competency/campaigns',
+            requires: { permission: 'campaign:read' }
         },
         {
             key: 'competency.plateExchanges',
