@@ -3006,6 +3006,45 @@
         ],
         "type": "object"
       },
+      "PaperCountDto": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "maximum": 10000000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "countedOn": {
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+            "type": "string"
+          },
+          "plateCode": {
+            "enum": [
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "35",
+              "other"
+            ],
+            "type": "string"
+          },
+          "unitId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unitId",
+          "plateCode",
+          "count",
+          "countedOn"
+        ],
+        "type": "object"
+      },
       "PaymentDto": {
         "additionalProperties": false,
         "properties": {
@@ -8519,6 +8558,44 @@
         ]
       }
     },
+    "/api/v1/migration-report": {
+      "get": {
+        "operationId": "MigrationReportController_get",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "MigrationReport"
+        ]
+      }
+    },
+    "/api/v1/migration-report/paper-counts": {
+      "put": {
+        "operationId": "MigrationReportController_setPaperCount",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaperCountDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "MigrationReport"
+        ]
+      }
+    },
     "/api/v1/migration-samples": {
       "get": {
         "operationId": "MigrationSampleController_list",
@@ -8648,13 +8725,21 @@
         ]
       }
     },
-    "/api/v1/migration-samples/{id}/scan": {
+    "/api/v1/migration-samples/{id}/scans/{fileId}": {
       "post": {
         "operationId": "MigrationSampleController_scan",
         "parameters": [
           {
             "in": "path",
             "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "fileId",
             "required": true,
             "schema": {
               "type": "string"

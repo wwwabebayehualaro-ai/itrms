@@ -239,7 +239,8 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
             'competency.vehicleRegistrations',
             // the back-capture of paper vehicle files (task 1.13), offered with new registration
             'competency.backCaptures',
-            // sampling QA of migrated records (task 1.13g)
+            // the reconciliation report (task 1.13h) and sampling QA of migrated records (task 1.13g)
+            'competency.migrationReport',
             'competency.migrationSamples',
             // their bulk import (task 1.13b), with the back-capture
             'competency.vehicleImports',
@@ -278,7 +279,8 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
                 'competency.vehicleRegistrations',
                 // the back-capture of paper vehicle files (task 1.13), offered with new registration
                 'competency.backCaptures',
-                // sampling QA of migrated records (task 1.13g)
+                // the reconciliation report (task 1.13h) and sampling QA of migrated records (task 1.13g)
+                'competency.migrationReport',
                 'competency.migrationSamples',
                 // their bulk import (task 1.13b), with the back-capture
                 'competency.vehicleImports',

@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-11-15",
+  "updated": "2026-11-16",
   "statuses": [
     "planned",
     "ready",
@@ -1782,12 +1782,22 @@
         {
           "id": "1.13h",
           "title": "Paper-record migration, part 4: the reconciliation report",
-          "status": "planned",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/1.13h-reconciliation",
+          "commits": [
+            "b13deb5"
+          ],
+          "evidence": [
+            "CI run 43749964269 (PR #74, b13deb5) → all 10 jobs green",
+            "integration (real PostgreSQL 16, dev stack) → 786 passed in 44 files, incl. migration-report.int.spec.ts: verified per office and code equals an independent count of the register; paper counts set by the zone above with audit and If-Match 409s; an office never counts itself (403); 422 bodies; sibling never sees counts nor (hand-written subtree limit) another office's vehicles; awaiting work of a checked sheet and an open capture; S3 contract suite 20 passed",
+            "migration-samples.int.spec.ts → every page of a two-file scan listed and opened on record, a foreign file id 404; give-back resolves the dead commit event (status done, job.resolved audited in the same request)",
+            "e2e (Playwright) → 56 + 4 passed, incl. the report step of competency/vehicle-import.spec.ts",
+            "unit → competency 86 (reconciliation.spec.ts: code mapping, missing, share capped per code); api 15; web 77",
+            "lint, typecheck, boundaries, check:slices, i18n:check (am/en), db:generate no drift; migration 0080 applied from zero on CI; pnpm openapi regenerated; Semgrep, gitleaks, Trivy clean",
+            "reviewer (Fable) on 22eba96 → 1 high, 2 medium, 4 low fixed in b13deb5; one low (withdrawing a count) moved to 1.16"
+          ],
           "blockers": [],
-          "notes": "Split from 1.13b on 2026-11-14."
+          "notes": "Split from 1.13b on 2026-11-14. Design (2026-11-15): competency.migration_paper_counts (class T at the office, migration 0080), set only by a unit above the office (an office never sets its own target), If-Match on update. Report per office and old-plate use code (1-5, 35, other: the legacy_use_code of the vehicle's earliest plate assignment): paper, verified (migrated vehicles on the register; both sources always carry a verifier), missing = paper - verified; awaiting second person per office only (open MIG-01 cases, valid rows of checked or committing batches: a capture's plate is typed only once verified); share = verified / paper (the phase gate's measure). Typed tables only. With the 1.13g follow-ups: every file of a back-capture's scan on the sample (scan_file_ids, one link each); a give-back resolves the dead commit event (status done, audited job.resolved: the app role already holds the status grant, no definer function needed). Reviewer (Fable) on 22eba96: 1 high (the verified count read the unset app.scope_path: always 0; now kernel.ctx_scope()), 2 medium (share capped per code; a negative test of the hand-written subtree limit on the regional register), 4 low (DB CHECK counter <> office; MIG-01 offered and no future day; unit refs in chunks of 200; give-back keeps last_error in the audit) fixed in b13deb5; the delete of a count moved to 1.16."
         },
         {
           "id": "1.13i",
@@ -3748,6 +3758,11 @@
       "foundIn": "1.13g",
       "item": "Agree with the zone the share of each clerk's migrated records re-checked (competency.migration_sample_percent: 5% placeholder, set by the bureau or per kind of office) together with the backlog target (ADR-0054 Consequences)",
       "movedTo": "discovery: Wolaita Zone"
+    },
+    {
+      "foundIn": "1.13h",
+      "item": "A paper count cannot be withdrawn (no audited delete): a count keyed to the wrong office or code can only be set to 0, and that office then stays in the report",
+      "movedTo": "1.16"
     }
   ]
 }

@@ -67,6 +67,8 @@ export const migrationSampleSchema = z.object({
     clerk: personRefSchema,
     verifier: personRefSchema,
     hasScan: z.boolean(),
+    /** every page of the scan, in order; each opens through its own link */
+    scans: z.array(z.object({ id: z.uuid(), filename: z.string() })),
     /** the share in force when it was drawn */
     share: z.number().int(),
     state: z.enum(SAMPLE_STATES),

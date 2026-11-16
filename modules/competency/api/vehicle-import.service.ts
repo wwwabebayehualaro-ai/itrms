@@ -21,6 +21,7 @@ import { FIELD_CRYPTO, type FieldCrypto } from '@itrms/kernel/crypto';
 import {
     insertAudited,
     newId,
+    recordEvent,
     updateAudited,
     updateManyAudited,
     type Database,
@@ -491,12 +492,24 @@ export class VehicleImportService {
         if (row.state !== 'committing' || !row.commitEventId)
             throw new ConflictError('invalid_transition', { detailKey: 'competency.errors.import_not_committing' });
         const [event] = await tx
-            .select({ status: outboxEvents.status })
+            .select({ status: outboxEvents.status, lastError: outboxEvents.lastError })
             .from(outboxEvents)
             .where(eq(outboxEvents.id, row.commitEventId))
             .for('update');
         if (event?.status !== 'dead')
             throw new ConflictError('invalid_transition', { detailKey: 'competency.errors.import_commit_running' });
+        // the dead commit is answered: it leaves the administrators' dead letters (a retry would find the batch checked anyway)
+        await tx
+            .update(outboxEvents)
+            .set({ status: 'done', lastError: 'given back: the batch is checked again' })
+            .where(eq(outboxEvents.id, row.commitEventId));
+        await recordEvent(tx, {
+            type: 'job.resolved',
+            table: outboxEvents,
+            rowId: row.commitEventId,
+            // why the job died stays on record: the next commit of the batch may die the same way
+            data: { by: 'vehicle-import.give-back', importId: row.id, lastError: event.lastError }
+        });
         await this.returnToChecked(tx, row);
         return this.get(tx, ctx, id, mayCommit);
     }

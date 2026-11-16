@@ -51,6 +51,7 @@ import {
     IMPORT_STATES,
     LICENCE_KINDS,
     LICENCE_STATUSES,
+    PAPER_PLATE_CODES,
     SAMPLE_FIELDS,
     SAMPLE_OUTCOMES,
     SAMPLE_SOURCES,
@@ -594,6 +595,11 @@ export const migrationSamples = withRls(
                 clerkId: uuid('clerk_id').notNull(),
                 verifierId: uuid('verifier_id').notNull(),
                 scanFileId: uuid('scan_file_id'),
+                /** every page of the scan, in order; the first is `scan_file_id` */
+                scanFileIds: uuid('scan_file_ids')
+                    .array()
+                    .notNull()
+                    .default(sql`'{}'::uuid[]`),
                 /** the share in force when it was drawn */
                 share: integer('share').notNull(),
                 state: text('state', { enum: SAMPLE_STATES }).notNull().default('drawn'),
@@ -622,7 +628,41 @@ export const migrationSamples = withRls(
                         AND (outcome IS NOT DISTINCT FROM 'errors') = (cardinality(error_fields) > 0)
                         AND cardinality(error_fields) <= 40
                         AND coalesce(length(note), 1) BETWEEN 1 AND 500 AND (note IS NULL OR state = 'rechecked')`
+                ),
+                check(
+                    'migration_samples_scans_check',
+                    sql`(scan_file_id IS NULL) = (cardinality(scan_file_ids) = 0)
+                        AND (scan_file_id IS NULL OR scan_file_ids[1] = scan_file_id) AND cardinality(scan_file_ids) <= 20`
                 )
+            ]
+        )
+    ),
+    'transaction'
+);
+
+/**
+ * The zone's count of paper files on an office's shelves for one plate-code group (task 1.13h): the target the reconciliation report
+ * measures the migrated vehicles against. The row belongs to the office counted (its subtree and the offices above it see it); the
+ * unit that counted it is its own column. The list of codes and the bounds are checked in the migration.
+ */
+export const migrationPaperCounts = withRls(
+    audited(
+        competencySchema.table(
+            'migration_paper_counts',
+            {
+                ...baseColumns(),
+                ...handled(),
+                plateCode: text('plate_code', { enum: PAPER_PLATE_CODES }).notNull(),
+                count: integer('count').notNull(),
+                countedOn: date('counted_on').notNull(),
+                countedByUnitId: uuid('counted_by_unit_id')
+                    .notNull()
+                    .references(() => orgUnits.id)
+            },
+            (t) => [
+                uniqueIndex('migration_paper_counts_uq').on(t.handlingUnitId, t.plateCode),
+                index('migration_paper_counts_org_path_gist').using('gist', t.orgPath),
+                check('migration_paper_counts_check', sql`count BETWEEN 0 AND 10000000`)
             ]
         )
     ),

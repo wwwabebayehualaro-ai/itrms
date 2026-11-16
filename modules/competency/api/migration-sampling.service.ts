@@ -47,7 +47,8 @@ export interface MigratedRecord {
     origin: { source: 'back_capture'; caseId: string } | { source: 'import'; importRowId: string };
     clerkId: string;
     verifierId: string;
-    scanFileId: string | null;
+    /** the pages of the record's scan, in order (at most 20) */
+    scanFileIds: string[];
 }
 
 @Injectable()
@@ -117,7 +118,8 @@ export class MigrationSamplingService {
                 importRowId: record.origin.source === 'import' ? record.origin.importRowId : null,
                 clerkId: record.clerkId,
                 verifierId: record.verifierId,
-                scanFileId: record.scanFileId,
+                scanFileId: record.scanFileIds[0] ?? null,
+                scanFileIds: record.scanFileIds,
                 share
             });
         return drawn;
@@ -217,6 +219,17 @@ export class MigrationSamplingService {
             tx,
             rows.map((r) => r.handlingUnitId)
         );
+        const scanIds = [...new Set(rows.flatMap((r) => r.scanFileIds))];
+        const filenames = new Map(
+            scanIds.length === 0
+                ? []
+                : (
+                      await tx
+                          .select({ id: files.id, filename: files.filename })
+                          .from(files)
+                          .where(inArray(files.id, scanIds))
+                  ).map((f) => [f.id, f.filename])
+        );
         const person = (id: string) => ({ id, name: names.get(id) ?? '' });
         return rows.map((r) => {
             const vehicle = facts.get(r.vehicleId);
@@ -236,6 +249,7 @@ export class MigrationSamplingService {
                 clerk: person(r.clerkId),
                 verifier: person(r.verifierId),
                 hasScan: r.scanFileId !== null,
+                scans: r.scanFileIds.map((id) => ({ id, filename: filenames.get(id) ?? '' })),
                 share: r.share,
                 state: r.state,
                 outcome: r.outcome,
@@ -255,24 +269,25 @@ export class MigrationSamplingService {
         return !userId || row.clerkId === userId || row.verifierId === userId;
     }
 
-    /** A short link to the drawn record's scan; the download is on record. */
+    /** A short link to one page of the drawn record's scan; the download is on record. */
     async scanLink(
         tx: Tx,
         ctx: DbContext,
         store: ObjectStore,
-        id: string
+        id: string,
+        fileId: string
     ): Promise<{ url: string; expiresAt: string }> {
         const [row] = await tx
             .select()
             .from(migrationSamples)
             .where(and(eq(migrationSamples.id, id), this.visibleTo(ctx)));
-        if (!row?.scanFileId) throw new NotFoundError();
+        if (!row?.scanFileIds.includes(fileId)) throw new NotFoundError();
         const [file] = await tx
             .select({ table: files.linkedTable, id: files.linkedId })
             .from(files)
-            .where(eq(files.id, row.scanFileId));
+            .where(eq(files.id, fileId));
         if (!file?.table || !file.id || !SCAN_OWNERS.has(file.table)) throw new NotFoundError();
-        return downloadLinkedFile(tx, store, row.scanFileId, { table: file.table, id: file.id });
+        return downloadLinkedFile(tx, store, fileId, { table: file.table, id: file.id });
     }
 
     /**

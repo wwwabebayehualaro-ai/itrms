@@ -1121,6 +1121,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/migration-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["MigrationReportController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/migration-report/paper-counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["MigrationReportController_setPaperCount"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/migration-samples": {
         parameters: {
             query?: never;
@@ -1185,7 +1217,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/migration-samples/{id}/scan": {
+    "/api/v1/migration-samples/{id}/scans/{fileId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -3362,6 +3394,15 @@ export interface components {
             values: {
                 [key: string]: unknown;
             };
+        };
+        PaperCountDto: {
+            count: number;
+            /** Format: date */
+            countedOn: string;
+            /** @enum {string} */
+            plateCode: "1" | "2" | "3" | "4" | "5" | "35" | "other";
+            /** Format: uuid */
+            unitId: string;
         };
         PaymentDto: {
             amountSantim: string;
@@ -5723,6 +5764,44 @@ export interface operations {
             };
         };
     };
+    MigrationReportController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MigrationReportController_setPaperCount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaperCountDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     MigrationSampleController_list: {
         parameters: {
             query?: {
@@ -5810,6 +5889,7 @@ export interface operations {
             header?: never;
             path: {
                 id: string;
+                fileId: string;
             };
             cookie?: never;
         };

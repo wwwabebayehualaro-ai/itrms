@@ -14,6 +14,8 @@ import { EXCHANGE_EFFECTS } from './exchange.effects';
 import { PlateExchangeService } from './exchange.service';
 import { LICENCE_EFFECTS } from './licence.effects';
 import { LicencesService } from './licences.service';
+import { MigrationReportController } from './migration-report.controller';
+import { MigrationReportService } from './migration-report.service';
 import { MigrationSampleController } from './migration-sample.controller';
 import { MigrationSamplingService } from './migration-sampling.service';
 import { GarageLookup, LicenceLookup, TrainingSchoolLookup } from './lookups';
@@ -29,13 +31,14 @@ import { VehicleImportService } from './vehicle-import.service';
  */
 @Module({
     imports: [FormsModule, PartiesModule, DocumentsModule, VehiclesModule, FeesModule],
-    controllers: [CompetencyController, VehicleImportController, MigrationSampleController],
+    controllers: [CompetencyController, VehicleImportController, MigrationSampleController, MigrationReportController],
     providers: [
         LicencesService,
         RegisterService,
         VehicleRegistrationService,
         BackCaptureService,
         MigrationSamplingService,
+        MigrationReportService,
         VehicleImportService,
         PlateExchangeService,
         BoloService,
