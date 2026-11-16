@@ -1823,10 +1823,19 @@
         {
           "id": "1.4a",
           "title": "Transfers, part 1: encumbrances",
-          "status": "in progress",
+          "status": "in review",
           "branch": "task/1.4a-encumbrances",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "3f858fe"
+          ],
+          "evidence": [
+            "CI run 43935558111 (PR #76, 3f858fe) → all 10 jobs green",
+            "integration (real PostgreSQL 16, dev stack) → 838 passed in 46 files, incl. encumbrances.int.spec.ts: recording with audit in the same request, 422/409 refusals; release only by its holder (asked in the recording office, confirmed by another person there or above, a sibling refused, refusal back to open, stale 409); the database keeps the two persons against the app role (self-confirm, open→released, rewriting a released hold refused); the letters (own upload only, linked elsewhere 409, opened on record, sibling 404); the block on each conflict naming the holder, after approval and on the payment order, released then given; unknown conflict 409; 5 concurrent rounds never both block and give; a region matrix with the court-order floor; holds on the summaries, search, record and lookup; the class R isolation matrix; S3 contract suite 20 passed",
+            "e2e (Playwright) → 56 + 4 passed",
+            "unit → vehicles 109 (encumbrances.spec.ts: schemas, default matrix and its floor, the refusal per language); api 15; web 77",
+            "lint, typecheck, boundaries, check:slices, i18n:check (am/en), db:generate no drift; migration 0083 applied from zero on CI; pnpm openapi regenerated; Semgrep, gitleaks, Trivy clean",
+            "architect (Opus) design; reviewer (Fable) on bb7f1e7 → no high, 2 medium (DB-enforced maker-checker; the letter path untested and not in the UI), 8 low: fixed in 3f858fe except two moved (publish-time check to 1.4b, the refused letter's file to 1.16)"
+          ],
           "blockers": [],
           "notes": "Split from 1.4 on 2026-11-16 (one session each). Design (architect, 2026-11-16): holder = a parties.organisations row (kinds bank and court added); vehicles.vehicle_encumbrances class R on recorded_org_path (any office of the region sees it, only the recording office's line writes); recording is a direct audited command; release is maker-checker (requested in the recording office citing the holder's release letter, confirmed by another user there or above; DB CHECK). The block is the effect vehicles.checkEncumbrances:<conflict> a service names on filing, before the payment order and before its giving effect; which kinds block which conflict is the regional setting vehicles.encumbrance_blocks (installation/region only). Shared/exclusive advisory lock per vehicle. Demonstrated by a test-only DVC-12 version (no source says an encumbrance blocks the plate exchange). To confirm with the zone: no block on DVC-12 or bolo; replacement blocked by bank loan and court order only."
         },
