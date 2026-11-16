@@ -1823,10 +1823,11 @@
         {
           "id": "1.4a",
           "title": "Transfers, part 1: encumbrances",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.4a-encumbrances",
           "commits": [
-            "3f858fe"
+            "3f858fe",
+            "7ec8fa8"
           ],
           "evidence": [
             "CI run 43935558111 (PR #76, 3f858fe) → all 10 jobs green",
