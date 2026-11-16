@@ -27,7 +27,8 @@ export class CampaignController {
     @Get()
     @Require('campaign:read')
     list() {
-        return this.db.scoped(requestDbContext(), (tx) => this.campaigns.list(tx, mayManage()));
+        const ctx = requestDbContext();
+        return this.db.scoped(ctx, (tx) => this.campaigns.list(tx, ctx, mayManage()));
     }
 
     @Post()

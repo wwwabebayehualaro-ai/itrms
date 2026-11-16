@@ -18,6 +18,8 @@ import type {
 import client from './api/client';
 
 export type { Campaign, CampaignCreateInput, CampaignKind, CampaignList, CampaignOffice, CampaignProgress };
+/** the id, code and name of an office */
+export type UnitRef = CampaignOffice['unit'];
 
 const KEY = ['campaigns'] as const;
 

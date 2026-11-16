@@ -42,7 +42,8 @@ import {
     useCreateCampaign,
     useSetCampaignTarget,
     type Campaign,
-    type CampaignOffice
+    type CampaignOffice,
+    type UnitRef
 } from '@/lib/campaigns';
 import { formatDay } from '@/lib/format';
 import { usePreferences, useText } from '@/lib/preferences';
@@ -319,6 +320,69 @@ function TargetForm({
     );
 }
 
+/** A first target for an office below the caller that offers the service the campaign counts: the office is picked from the candidates. */
+function AddTargetForm({
+    campaignId,
+    candidates,
+    onDone
+}: {
+    campaignId: string;
+    candidates: readonly UnitRef[];
+    onDone: () => void;
+}) {
+    const { t, text } = useText();
+    const notify = useNotify();
+    const set = useSetCampaignTarget(campaignId);
+    const invalid = t('competency.campaign.invalid.target');
+    const schema = z.object({
+        unitId: z.string().min(1, t('competency.campaign.invalid.office')),
+        target: z
+            .string()
+            .regex(/^\d{1,8}$/, invalid)
+            .refine((v) => Number(v) >= 1 && Number(v) <= MAX_CAMPAIGN_TARGET, invalid)
+    });
+    const form = useZodForm({
+        schema,
+        defaultValues: { unitId: '', target: '' },
+        onSubmit: async (v) => {
+            await set.mutateAsync({ target: { unitId: v.unitId, target: Number(v.target) }, version: null });
+            notify.success(t('competency.campaign.saved'));
+            onDone();
+        }
+    });
+    return (
+        <ZodForm form={form}>
+            <form.AppField name="unitId">
+                {(f) => (
+                    <f.SelectField
+                        label={t('competency.campaign.office')}
+                        placeholder={t('competency.campaign.pickOffice')}
+                        options={candidates.map((u) => ({ value: u.id, label: text({ am: '', en: '', ...u.name }) }))}
+                    />
+                )}
+            </form.AppField>
+            <form.AppField name="target">
+                {(f) => (
+                    <f.TextField
+                        label={t('competency.campaign.targetLabel')}
+                        inputMode="numeric"
+                        maxLength={8}
+                        autoComplete="off"
+                        data-field="target"
+                    />
+                )}
+            </form.AppField>
+            <div className="flex justify-end">
+                <form.AppForm>
+                    <form.SubmitButton data-action="save-target">
+                        {t('competency.campaign.saveTarget')}
+                    </form.SubmitButton>
+                </form.AppForm>
+            </div>
+        </ZodForm>
+    );
+}
+
 export function CampaignDetail({ id }: { id: string }) {
     const { t, text, language } = useText();
     const { calendar } = usePreferences();
@@ -326,6 +390,7 @@ export function CampaignDetail({ id }: { id: string }) {
     const progress = useCampaign(id);
     const close = useCloseCampaign(id);
     const [target, setTarget] = useState<CampaignOffice | null>(null);
+    const [adding, setAdding] = useState(false);
     if (progress.isPending) return <Skeleton className="h-40 w-full" />;
     if (progress.error)
         return (
@@ -335,7 +400,7 @@ export function CampaignDetail({ id }: { id: string }) {
                 description={getApiErrorMessage(progress.error)}
             />
         );
-    const { campaign, offices, total, mayManage, ownUnitId } = progress.data;
+    const { campaign, offices, total, mayManage, mayClose, candidates, ownUnitId } = progress.data;
     const name = text({ am: '', en: '', ...campaign.name });
     const open = campaign.closedAt === null;
     return (
@@ -358,7 +423,12 @@ export function CampaignDetail({ id }: { id: string }) {
                             tone={open ? 'success' : 'muted'}
                             label={t(open ? 'competency.campaign.open' : 'competency.campaign.closed')}
                         />
-                        {mayManage && open && (
+                        {mayManage && open && candidates.length > 0 && (
+                            <Button variant="outline" data-action="add-target" onClick={() => setAdding(true)}>
+                                {t('competency.campaign.addTarget')}
+                            </Button>
+                        )}
+                        {mayClose && open && (
                             <Button
                                 variant="outline"
                                 data-action="close-campaign"
@@ -463,6 +533,21 @@ export function CampaignDetail({ id }: { id: string }) {
                     </TableBody>
                 </Table>
             )}
+            <Dialog open={adding} onOpenChange={setAdding}>
+                <DialogContent data-add-target-dialog>
+                    <DialogHeader>
+                        <DialogTitle>{t('competency.campaign.addTargetTitle')}</DialogTitle>
+                        <DialogDescription>{t('competency.campaign.addTargetIntro')}</DialogDescription>
+                    </DialogHeader>
+                    {adding && (
+                        <AddTargetForm
+                            campaignId={campaign.id}
+                            candidates={candidates}
+                            onDone={() => setAdding(false)}
+                        />
+                    )}
+                </DialogContent>
+            </Dialog>
             <Dialog open={target !== null} onOpenChange={(o) => !o && setTarget(null)}>
                 <DialogContent data-target-dialog>
                     <DialogHeader>

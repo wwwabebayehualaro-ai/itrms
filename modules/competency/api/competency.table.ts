@@ -18,8 +18,8 @@
  *   migration_samples      a migrated vehicle drawn for a re-check against its scan, and the re-check, class T at the capturing
  *                          office.
  *   migration_paper_counts the zone's count of paper files for an office and plate code (task 1.13h), class T at the office.
- *   campaigns              a unit's campaign over a span of days (task 1.13i), class C: the unit's subtree writes it and the offices
- *                          below it read it, as they must to see what targets them.
+ *   campaigns              a unit's campaign over a span of days (task 1.13i), class C: the running unit and the units above it
+ *                          write it and the offices below it read it, as they must to see what targets them.
  *   campaign_targets       an office's target in a campaign, class T at the office; set by a unit above it.
  *
  * A licence's number is null until the national platform accepts it: `pending_national` is not yet anyone's licence.
@@ -378,6 +378,8 @@ export const bolos = withRls(
                     .on(t.regionId, t.stickerKey)
                     .where(sql`sticker_key IS NOT NULL`),
                 index('bolos_vehicle_idx').on(t.vehicleId, t.validUntil),
+                // the campaign counters' day predicate (task 1.13i)
+                index('bolos_inspected_on_idx').on(t.inspectedOn),
                 index('bolos_handling_org_path_gist').using('gist', t.handlingOrgPath),
                 check(
                     'bolos_status_check',
@@ -676,7 +678,8 @@ export const migrationPaperCounts = withRls(
 
 /**
  * A campaign a unit runs over a span of days (task 1.13i, ADR-0054 §2): the plate exchange, the bolo season. Class C (config): the
- * unit's subtree writes it, and every office below reads it, which is how an office sees the campaign that targets it. The length
+ * running unit and the units above it write it, and every office below reads it, which is how an office sees the campaign that
+ * targets it. The length
  * and the bounds are checked in the migration.
  */
 export const campaigns = withRls(

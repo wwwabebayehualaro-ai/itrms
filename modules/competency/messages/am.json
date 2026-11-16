@@ -425,6 +425,11 @@
   "competency.campaign.seriesDay": "{day}፦ {count}",
   "competency.campaign.grandTotal": "ሁሉም ጽ/ቤቶች",
   "competency.campaign.noOffices": "በዚህ ዘመቻ ውስጥ ዒላማ ወይም ቆጠራ ያለው ጽ/ቤት እስካሁን የለም።",
+  "competency.campaign.addTarget": "ዒላማ ጨምር",
+  "competency.campaign.addTargetTitle": "የአዲስ ጽ/ቤት ዒላማ",
+  "competency.campaign.addTargetIntro": "ዘመቻው የሚቆጥረውን አገልግሎት የሚሰጥና እስካሁን ዒላማ የሌለው ከእርስዎ በታች ያለ ጽ/ቤት ይምረጡ።",
+  "competency.campaign.pickOffice": "ጽ/ቤት ይምረጡ",
+  "competency.campaign.invalid.office": "ጽ/ቤት ይምረጡ።",
   "competency.campaign.setTarget": "ዒላማ አስቀምጥ",
   "competency.campaign.dialogTitle": "የጽ/ቤት ዒላማ",
   "competency.campaign.dialogFor": "{office}፣ {campaign}",
@@ -446,6 +451,7 @@
   "competency.errors.campaign_overlap": "ይህ ክፍል በእነዚህ ቀናት ውስጥ የዚህ ዓይነት ክፍት ዘመቻ አስቀድሞ አለው።",
   "competency.errors.campaign_closed": "ዘመቻው ተዘግቷል።",
   "competency.errors.campaign_target_own_office": "ጽ/ቤት የራሱን ዒላማ አያስቀምጥም፦ ዒላማውን የሚያስቀምጠው ከላይ ያለው ክፍል ነው።",
+  "competency.errors.campaign_service_not_offered": "ይህ ጽ/ቤት ዘመቻው የሚቆጥረውን አገልግሎት አይሰጥም፤ ስለዚህ ዒላማ ሊደረግለት አይችልም።",
   "competency.errors.campaign_outside": "ይህ ጽ/ቤት ዘመቻውን የሚያካሂደው ክፍል ሥር አይደለም።",
   "competency.errors.campaign_not_yours": "ይህን ማድረግ የሚችለው ዘመቻውን የሚያካሂደው ክፍል ወይም ከእሱ በላይ ያለ ክፍል ብቻ ነው።"
 }

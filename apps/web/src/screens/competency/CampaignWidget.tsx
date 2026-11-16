@@ -18,16 +18,24 @@ import {
     StatusBadge
 } from '@itrms/ui';
 
-import { useCampaignProgresses, useCampaigns } from '@/lib/campaigns';
+import { useCampaignProgresses, useCampaigns, type Campaign } from '@/lib/campaigns';
 import { useText } from '@/lib/preferences';
+import { todayInAddis } from '@/screens/fees/form-bits';
 
-/** the open campaigns the widget shows */
+/** the campaigns the widget shows */
 const SHOWN = 3;
 
 export function CampaignWidget() {
     const { t, text } = useText();
     const list = useCampaigns();
-    const open = (list.data?.items ?? []).filter((c) => c.closedAt === null).slice(0, SHOWN);
+    const today = todayInAddis();
+    const held = new Set(list.data?.heldAbove ?? []);
+    const running = (c: Campaign) => c.startsOn <= today && today <= c.endsOn;
+    // the open campaigns that are running now first, those of the person's unit or a unit above it before those started below it
+    const open = (list.data?.items ?? [])
+        .filter((c) => c.closedAt === null)
+        .sort((a, b) => Number(running(b)) - Number(running(a)) || Number(held.has(b.id)) - Number(held.has(a.id)))
+        .slice(0, SHOWN);
     const progresses = useCampaignProgresses(open.map((c) => c.id));
     return (
         <Card data-widget="campaigns">
@@ -80,17 +88,17 @@ export function CampaignWidget() {
                                         {progress && progress.total.expected !== null && (
                                             <StatusBadge
                                                 value={
-                                                    progress.total.total >= progress.total.expected
+                                                    progress.total.targetedTotal >= progress.total.expected
                                                         ? 'on-track'
                                                         : 'behind'
                                                 }
                                                 tone={
-                                                    progress.total.total >= progress.total.expected
+                                                    progress.total.targetedTotal >= progress.total.expected
                                                         ? 'success'
                                                         : 'warning'
                                                 }
                                                 label={t(
-                                                    progress.total.total >= progress.total.expected
+                                                    progress.total.targetedTotal >= progress.total.expected
                                                         ? 'competency.campaign.onTrack'
                                                         : 'competency.campaign.behind'
                                                 )}

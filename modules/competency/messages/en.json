@@ -425,6 +425,11 @@
   "competency.campaign.seriesDay": "{day}: {count}",
   "competency.campaign.grandTotal": "All offices",
   "competency.campaign.noOffices": "No office has a target or a count in this campaign yet.",
+  "competency.campaign.addTarget": "Add a target",
+  "competency.campaign.addTargetTitle": "Target of a new office",
+  "competency.campaign.addTargetIntro": "Pick an office below you that offers the service this campaign counts and has no target yet.",
+  "competency.campaign.pickOffice": "Pick an office",
+  "competency.campaign.invalid.office": "Pick an office.",
   "competency.campaign.setTarget": "Set the target",
   "competency.campaign.dialogTitle": "Target of an office",
   "competency.campaign.dialogFor": "{office}, {campaign}",
@@ -446,6 +451,7 @@
   "competency.errors.campaign_overlap": "This unit already has an open campaign of this kind in these days.",
   "competency.errors.campaign_closed": "The campaign is closed.",
   "competency.errors.campaign_target_own_office": "An office does not set its own target: the unit above it sets it.",
+  "competency.errors.campaign_service_not_offered": "This office does not offer the service the campaign counts, so it cannot be given a target.",
   "competency.errors.campaign_outside": "This office is not below the unit that runs the campaign.",
   "competency.errors.campaign_not_yours": "Only the unit that runs a campaign, or a unit above it, may do this."
 }

@@ -13,11 +13,12 @@ import { and, desc, eq, isNull, sql, type SQL } from 'drizzle-orm';
 import { insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { currentContext } from '@itrms/kernel/context';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
-import { unitRefs, type UnitRef } from '@itrms/kernel/org';
+import { effectiveServices, unitRefs, type UnitRef } from '@itrms/kernel/org';
 
 import {
     addisDay,
     CAMPAIGN_SERIES_DAYS,
+    CAMPAIGN_SERVICES,
     type Campaign,
     type CampaignCreateInput,
     type CampaignKind,
@@ -30,12 +31,16 @@ import { campaignTargets, campaigns } from './competency.table';
 import am from '../messages/am.json';
 import en from '../messages/en.json';
 import { daysAfter } from './bolo-validity';
-import { expectedBy, onTrack, seriesOf, totalsOf } from './campaigns';
+import { countingEnd, expectedBy, onTrack, seriesOf, totalsOf } from './campaigns';
 
 /** One unit's campaigns of one kind are made one at a time, so two of them cannot overlap (the advisory lock's first key). */
 const CAMPAIGN_LOCK = 0x1e90;
 /** An office's target in a campaign is written one at a time. */
 const TARGET_LOCK = 0x1e91;
+/** A campaign is closed one at a time and its targets are set under the shared lock, so a target never lands on a closed campaign. */
+const CLOSE_LOCK = 0x1e92;
+/** the offices a campaign offers for a first target */
+const CANDIDATE_LIMIT = 300;
 /** kernel.region_units answers at most this many units per call */
 const REFS_PER_CALL = 200;
 /** the campaigns a list shows */
@@ -63,7 +68,7 @@ const SOURCES: Record<CampaignKind, { from: SQL; day: SQL; counted: SQL }> = {
 @Injectable()
 export class CampaignService {
     /** The campaigns the caller reads: those their unit runs or holds below it, and those of the units above that target it. */
-    async list(tx: Tx, mayManage: boolean): Promise<CampaignList> {
+    async list(tx: Tx, ctx: DbContext, mayManage: boolean): Promise<CampaignList> {
         const rows = await tx
             .select()
             .from(campaigns)
@@ -73,7 +78,22 @@ export class CampaignService {
             tx,
             rows.map((r) => r.handlingUnitId)
         );
-        return { items: rows.map((r) => this.view(r, units)), mayManage };
+        // the campaigns of the caller's unit and the units above it, apart from those started below
+        const above = new Set<string>();
+        if (ctx.unitId && rows.length > 0) {
+            const { rows: found } = await tx.execute<{ id: string }>(sql`
+                select c.id
+                  from competency.campaigns c
+                  join kernel.org_units h on h.id = c.handling_unit_id
+                  join kernel.org_units a on a.id = ${ctx.unitId}
+                 where h.path @> a.path and c.id = any(${`{${rows.map((r) => r.id).join(',')}}`}::uuid[])`);
+            for (const r of found) above.add(r.id);
+        }
+        return {
+            items: rows.map((r) => this.view(r, units)),
+            mayManage,
+            heldAbove: rows.map((r) => r.id).filter((i) => above.has(i))
+        };
     }
 
     /** A new campaign of the caller's active unit: its span is checked by the contract, and it may not overlap an open one of its kind. */
@@ -110,23 +130,26 @@ export class CampaignService {
     async progress(tx: Tx, ctx: DbContext, id: string, mayManage: boolean): Promise<CampaignProgress> {
         const campaign = await this.load(tx, id);
         const today = addisDay();
-        const todayCounted = today >= campaign.startsOn;
-        // the window the counts are of: the campaign's days that have come by; the series ends where it ends
-        const windowEnd = today < campaign.endsOn ? today : campaign.endsOn;
+        // the window the counts are of: the campaign's days that have come by, and none after the day it was closed; the series ends there
+        const windowEnd = countingEnd(campaign.endsOn, campaign.closedAt ? addisDay(campaign.closedAt) : null, today);
+        const counting = windowEnd >= campaign.startsOn;
         const [targets, totals, byDay] = await Promise.all([
             tx.select().from(campaignTargets).where(eq(campaignTargets.campaignId, id)),
-            todayCounted ? this.totals(tx, campaign, windowEnd) : Promise.resolve(new Map<string, number>()),
-            todayCounted ? this.byDay(tx, campaign, windowEnd) : Promise.resolve(new Map<string, Map<string, number>>())
+            counting ? this.totals(tx, campaign, windowEnd) : Promise.resolve(new Map<string, number>()),
+            counting ? this.byDay(tx, campaign, windowEnd) : Promise.resolve(new Map<string, Map<string, number>>())
         ]);
+        const candidates = mayManage && !campaign.closedAt ? await this.candidates(tx, ctx, campaign) : [];
         const ids = new Set<string>([...targets.map((t) => t.handlingUnitId), ...totals.keys()]);
-        const units = await this.refs(tx, [campaign.handlingUnitId, ...ids]);
-        const seriesEnd = todayCounted ? windowEnd : today;
+        const units = await this.refs(tx, [campaign.handlingUnitId, ...ids, ...candidates]);
+        const seriesEnd = windowEnd;
         const offices = [...ids]
             .map((unitId): CampaignOffice => {
                 const target = targets.find((t) => t.handlingUnitId === unitId);
                 const series = seriesOf(byDay.get(unitId) ?? new Map(), seriesEnd);
                 const total = totals.get(unitId) ?? 0;
-                const expected = target ? expectedBy(target.target, campaign.startsOn, campaign.endsOn, today) : null;
+                const expected = target
+                    ? expectedBy(target.target, campaign.startsOn, campaign.endsOn, windowEnd)
+                    : null;
                 return {
                     unit: units.get(unitId) ?? { id: unitId, code: '', name: {} },
                     target: target ? { count: target.target, version: target.rowVersion } : null,
@@ -138,6 +161,10 @@ export class CampaignService {
                 };
             })
             .sort((a, b) => a.unit.code.localeCompare(b.unit.code) || a.unit.id.localeCompare(b.unit.id));
+        const atOrAbove = (await this.relation(tx, ctx, campaign.handlingUnitId))?.atOrAbove === true;
+        // a unit below the campaign's may set the targets of its own offices: it has some to give, or has given some
+        const mayTarget =
+            mayManage && (atOrAbove || candidates.length > 0 || (await this.hasTargetsBelow(tx, ctx, id)));
         return {
             campaign: this.view(campaign, units),
             offices,
@@ -149,7 +176,9 @@ export class CampaignService {
                     expected: o.expected
                 }))
             ),
-            mayManage: mayManage && (await this.relation(tx, ctx, campaign.handlingUnitId))?.atOrAbove === true,
+            mayManage: mayTarget,
+            mayClose: mayManage && atOrAbove,
+            candidates: candidates.map((u) => units.get(u) ?? { id: u, code: '', name: {} }),
             ownUnitId: ctx.unitId ?? null
         };
     }
@@ -167,6 +196,8 @@ export class CampaignService {
         version: number | undefined,
         mayManage: boolean
     ): Promise<CampaignProgress> {
+        // shared with other targets, exclusive against the closing: the campaign is read after the lock, so a close that came first is seen
+        await tx.execute(sql`select pg_advisory_xact_lock_shared(${CLOSE_LOCK}, hashtext(${id}))`);
         const campaign = await this.load(tx, id);
         if (campaign.closedAt)
             throw new ConflictError('invalid_transition', { detailKey: 'competency.errors.campaign_closed' });
@@ -191,6 +222,17 @@ export class CampaignService {
             throw new ValidationError('validation_failed', {
                 errors: [
                     { path: 'unitId', code: 'outside_campaign', message: say('competency.errors.campaign_outside') }
+                ]
+            });
+        // the office is given a target for what it holds: it must offer the service whose records the campaign counts
+        if (!(await effectiveServices(tx, input.unitId)).includes(CAMPAIGN_SERVICES[campaign.kind]))
+            throw new ValidationError('validation_failed', {
+                errors: [
+                    {
+                        path: 'unitId',
+                        code: 'service_not_offered',
+                        message: say('competency.errors.campaign_service_not_offered')
+                    }
                 ]
             });
         // two first targets of one office at once: the second waits and finds the first (never a unique violation)
@@ -218,6 +260,7 @@ export class CampaignService {
 
     /** Closes a campaign: by the unit that runs it or one above it, on its version. A closed campaign takes no more targets. */
     async close(tx: Tx, ctx: DbContext, id: string, version: number, mayManage: boolean): Promise<CampaignProgress> {
+        await tx.execute(sql`select pg_advisory_xact_lock(${CLOSE_LOCK}, hashtext(${id}))`);
         const campaign = await this.load(tx, id);
         if ((await this.relation(tx, ctx, campaign.handlingUnitId))?.atOrAbove !== true)
             throw new ForbiddenError({ detailKey: 'competency.errors.campaign_not_yours' });
@@ -232,6 +275,46 @@ export class CampaignService {
         const [row] = await tx.select().from(campaigns).where(eq(campaigns.id, id));
         if (!row) throw new NotFoundError();
         return row;
+    }
+
+    /**
+     * The offices the caller may give a first target: active units below both the campaign's unit and the caller's, with no target yet,
+     * that offer the service the campaign counts (the unit type's default with the unit's own override, as effectiveServices reads it,
+     * for all of them in one query). At most CANDIDATE_LIMIT, by code.
+     */
+    private async candidates(tx: Tx, ctx: DbContext, campaign: CampaignRow): Promise<string[]> {
+        if (!ctx.unitId) return [];
+        const service = CAMPAIGN_SERVICES[campaign.kind];
+        const { rows } = await tx.execute<{ id: string }>(sql`
+            select u.id
+              from kernel.org_units u
+              join kernel.org_units a on a.id = ${ctx.unitId}
+             where u.active
+               and a.path @> u.path and u.id <> a.id
+               and ${campaign.orgPath}::ltree @> u.path and u.id <> ${campaign.handlingUnitId}
+               and not exists (select 1 from competency.campaign_targets t
+                                where t.campaign_id = ${campaign.id} and t.handling_unit_id = u.id)
+               and coalesce(
+                     (select o.enabled from kernel.unit_service_overrides o
+                       where o.org_unit_id = u.id and o.service_code = ${service}),
+                     (select s.enabled from kernel.unit_type_services s
+                       where s.unit_type_id = u.unit_type_id and s.service_code = ${service}),
+                     false)
+             order by u.code, u.id
+             limit ${CANDIDATE_LIMIT}`);
+        return rows.map((r) => r.id);
+    }
+
+    /** Whether the campaign has a target at an office strictly below the caller's active unit. */
+    private async hasTargetsBelow(tx: Tx, ctx: DbContext, id: string): Promise<boolean> {
+        if (!ctx.unitId) return false;
+        const { rows } = await tx.execute<{ found: boolean }>(sql`
+            select exists (
+                select 1 from competency.campaign_targets t
+                  join kernel.org_units u on u.id = t.handling_unit_id
+                  join kernel.org_units a on a.id = ${ctx.unitId}
+                 where t.campaign_id = ${id} and a.path @> u.path and u.id <> a.id) as found`);
+        return rows[0]?.found === true;
     }
 
     /** Whether the caller's active unit is the campaign's unit or above it. */

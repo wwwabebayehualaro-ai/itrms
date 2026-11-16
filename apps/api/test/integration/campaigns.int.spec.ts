@@ -7,7 +7,7 @@
  */
 import { randomInt, randomUUID } from 'node:crypto';
 
-import { sql } from 'drizzle-orm';
+import { sql, type SQL } from 'drizzle-orm';
 import { CampaignService, VehicleImportService, daysAfter } from '@itrms/competency/api';
 import { vehicleImportHandlers } from '@itrms/competency/api/worker';
 import {
@@ -25,7 +25,7 @@ import { createDatabase, type Database } from '@itrms/kernel/db';
 import { createSystemDatabase, type SystemDatabase } from '@itrms/kernel/db/system';
 import { NO_OBJECT_STORE } from '@itrms/kernel/files';
 import { permissionsOf, rolePermissions } from '@itrms/kernel/iam';
-import type { OrgUnit } from '@itrms/kernel/org';
+import { setServiceOverride, type OrgUnit } from '@itrms/kernel/org';
 import { contextFor, TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import { vinCheckDigit } from '@itrms/vehicles/contracts';
 import { importVehicleCategories } from '@itrms/vehicles/seed';
@@ -48,8 +48,10 @@ let app: Database;
 let system: SystemDatabase;
 let boditi: OrgUnit;
 let zone: OrgUnit;
-/** a sibling office of Boditi (a woreda: it holds no competency roles, so it is read as an office, under RLS) */
+/** a sibling office of Boditi (a woreda: it holds no competency roles, so it is read as an office, under RLS); it is given the bolo and the plate exchange by agreement */
 let damot: OrgUnit;
+/** a grade 3 town: it offers neither the bolo nor the plate exchange */
+let gesuba: OrgUnit;
 const as = {} as Record<Who, As>;
 const id = {} as Record<Who, string>;
 const catalogue = rolePermissions(loadSlices(SLICES).manifests);
@@ -217,6 +219,8 @@ const officeOf = (progress: CampaignProgress, code: string) => {
 const vehicleIds: string[] = [];
 let bolo: Campaign;
 let exchange: Campaign;
+/** an open plate exchange of the zone, closed by the last test */
+let later: Campaign;
 
 beforeAll(async () => {
     pg = await startPostgres();
@@ -256,6 +260,7 @@ beforeAll(async () => {
     boditi = await api.unit('SER', 'WOL-BODITI');
     zone = await api.unit('SER', 'WOL');
     damot = await api.unit('SER', 'WOL-DAMOT-GALE');
+    gesuba = await api.unit('SER', 'WOL-GESUBA');
     as.clerk = { sub: SUB.clerk, unit: boditi };
     as.verifier = { sub: SUB.verifier, unit: boditi };
     as.zone = { sub: SUB.zone, unit: zone };
@@ -264,6 +269,9 @@ beforeAll(async () => {
         const root = { id: region.id, regionId: region.regionId };
         await importVehicleCategories(tx, root);
         await importBackCaptureService(tx, root);
+        // a woreda offers neither service by its type: Damot Gale is given both, to have a target and no count
+        for (const code of ['DVC-02', 'DVC-12'])
+            await setServiceOverride(tx, damot.id, code, true, 'test: given by agreement with the zone');
     });
 }, 240_000);
 
@@ -327,6 +335,19 @@ describe('a campaign', () => {
 });
 
 describe('the targets', () => {
+    it('are offered to the offices below that offer the service, until they have one', async () => {
+        const before = await progressOf(as.zone, bolo.id);
+        const codes = before.candidates.map((u) => u.code);
+        expect(codes).toEqual(expect.arrayContaining(['WOL-BODITI', 'WOL-DAMOT-GALE']));
+        // the zone is never its own candidate, and a grade 3 town does not offer the bolo
+        expect(codes).not.toContain('WOL');
+        expect(codes).not.toContain('WOL-GESUBA');
+        expect(before).toMatchObject({ mayManage: true, mayClose: true });
+        // an office with nothing below it has no candidate, and cannot close
+        const office = await progressOf(as.verifier, bolo.id);
+        expect(office).toMatchObject({ candidates: [], mayManage: false, mayClose: false });
+    });
+
     it('are set by the unit above the office, on record, with If-Match for a change', async () => {
         const created = await putTarget(as.zone, bolo.id, { unitId: boditi.id, target: 20 });
         expect(created.statusCode, created.body).toBe(200);
@@ -381,6 +402,20 @@ describe('the targets', () => {
         const none = await api.owner.query<{ n: number }>(
             'select count(*)::int as n from competency.campaign_targets where handling_unit_id in ($1, $2) and target = 1',
             [zone.id, damot.id]
+        );
+        expect(none.rows[0]?.n).toBe(0);
+    });
+
+    it('are refused for an office that does not offer the service the campaign counts with 422', async () => {
+        for (const campaign of [bolo, exchange]) {
+            const res = await putTarget(as.zone, campaign.id, { unitId: gesuba.id, target: 3 });
+            expect(res.statusCode, res.body).toBe(422);
+            expect(JSON.stringify(res.json())).toContain('unitId');
+            expect(JSON.stringify(res.json())).toContain('service_not_offered');
+        }
+        const none = await api.owner.query<{ n: number }>(
+            'select count(*)::int as n from competency.campaign_targets where handling_unit_id = $1',
+            [gesuba.id]
         );
         expect(none.rows[0]?.n).toBe(0);
     });
@@ -490,8 +525,11 @@ describe('the daily counts', () => {
 
         // the totals add the offices: Damot Gale has a target and no count
         const all = await progressOf(as.zone, bolo.id);
-        expect(all.total).toEqual({ today: 2, total: 3, target: 25, expected: 7 });
-        expect(all).toMatchObject({ mayManage: true, ownUnitId: zone.id });
+        expect(all.total).toEqual({ today: 2, total: 3, target: 25, expected: 7, targetedTotal: 3 });
+        expect(all).toMatchObject({ mayManage: true, mayClose: true, ownUnitId: zone.id });
+        // both offices have a target now: none is left to be given a first one
+        expect(all.candidates.map((u) => u.code)).not.toContain('WOL-BODITI');
+        expect(all.candidates.map((u) => u.code)).not.toContain('WOL-DAMOT-GALE');
     }, 600_000);
 
     it('are Boditi’s for Boditi, and never a sibling’s: the register is regional, the campaign is the caller’s subtree', async () => {
@@ -504,10 +542,16 @@ describe('the daily counts', () => {
         expect(sibling.campaign.id).toBe(bolo.id);
         expect(sibling.offices.map((o) => o.unit.code)).not.toContain('WOL-BODITI');
         expect(sibling.total).toMatchObject({ today: 0, total: 0 });
-        const targets = await app.scoped(contextFor(damot, id.verifier), async (tx) =>
-            Number((await tx.execute(sql`select count(*)::int as n from competency.campaign_targets`)).rows[0]?.n)
-        );
-        expect(targets).toBe(0);
+        // Damot Gale reads its own target of the zone's campaign, and no other office's
+        const rowsOf = (where: SQL) =>
+            app.scoped(contextFor(damot, id.verifier), async (tx) =>
+                Number(
+                    (await tx.execute(sql`select count(*)::int as n from competency.campaign_targets where ${where}`))
+                        .rows[0]?.n
+                )
+            );
+        expect(await rowsOf(sql`handling_unit_id <> ${damot.id}`)).toBe(0);
+        expect(await rowsOf(sql`handling_unit_id = ${damot.id}`)).toBe(1);
 
         const own = await at(boditi, id.verifier, bolo.id);
         expect(own.offices.map((o) => o.unit.code)).toEqual(['WOL-BODITI']);
@@ -525,6 +569,27 @@ describe('the daily counts', () => {
         expect(seen.offices.map((o) => o.unit.code)).toEqual(['WOL-BODITI']);
         expect(seen).toMatchObject({ mayManage: false, ownUnitId: boditi.id });
         expect(seen.total).toMatchObject({ today: 2, total: 3, target: 20 });
+    });
+});
+
+describe('a campaign not yet started', () => {
+    it('shows nothing counted and nothing expected', async () => {
+        const res = await create(
+            as.zone,
+            body('bolo_season', { startsOn: daysAfter(ENDS, 31), endsOn: daysAfter(ENDS, 60) })
+        );
+        expect(res.statusCode, res.body).toBe(201);
+        const future = res.json<Campaign>().id;
+        const set = await putTarget(as.zone, future, { unitId: boditi.id, target: 10 });
+        expect(set.statusCode, set.body).toBe(200);
+        const progress = await progressOf(as.zone, future);
+        expect(officeOf(progress, 'WOL-BODITI')).toMatchObject({
+            today: 0,
+            total: 0,
+            target: { count: 10 },
+            expected: 0
+        });
+        expect(progress.total).toEqual({ today: 0, total: 0, target: 10, expected: 0, targetedTotal: 0 });
     });
 });
 
@@ -549,5 +614,23 @@ describe('closing a campaign', () => {
         // a closed campaign no longer blocks another of its kind in its days
         const next = await create(as.zone, body('plate_exchange'));
         expect(next.statusCode, next.body).toBe(201);
+        later = next.json<Campaign>();
+    });
+
+    it('stops the counting at its closing day', async () => {
+        const closed = await api.call('POST', `/api/v1/campaigns/${later.id}/close`, as.zone, {}, ifMatch(1));
+        expect(closed.statusCode, closed.body).toBe(200);
+        // closed yesterday, as if it had been then: the plate exchanged today (and the target's pace) are after it
+        await api.owner.query(
+            `update competency.campaigns set closed_at = (($2::date + time '12:00') at time zone 'Africa/Addis_Ababa') where id = $1`,
+            [later.id, YESTERDAY]
+        );
+        const progress = await progressOf(as.zone, later.id);
+        const office = officeOf(progress, 'WOL-BODITI');
+        // two plates gave way yesterday and one today: the closing day counts, the day after does not
+        expect(office).toMatchObject({ today: 0, total: 2 });
+        expect(office.series.at(-1)).toEqual({ day: YESTERDAY, count: 2 });
+        expect(progress.total).toMatchObject({ today: 0, total: 2 });
+        expect(progress).toMatchObject({ candidates: [] });
     });
 });

@@ -3,8 +3,8 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { campaignCreateSchema, spanDays } from '../contracts';
-import { elapsedDays, expectedBy, onTrack, seriesOf, totalsOf } from '../api/campaigns';
+import { CAMPAIGN_SERVICES, campaignCreateSchema, spanDays } from '../contracts';
+import { countingEnd, elapsedDays, expectedBy, onTrack, seriesOf, totalsOf } from '../api/campaigns';
 
 describe('spanDays', () => {
     it('counts both ends', () => {
@@ -20,6 +20,23 @@ describe('elapsedDays', () => {
         expect(elapsedDays('2026-11-10', '2026-11-19', '2026-11-10')).toBe(1);
         expect(elapsedDays('2026-11-10', '2026-11-19', '2026-11-14')).toBe(5);
         expect(elapsedDays('2026-11-10', '2026-11-19', '2026-12-31')).toBe(10);
+    });
+});
+
+describe('countingEnd', () => {
+    it('is today while the campaign runs, and its last day after it', () => {
+        expect(countingEnd('2026-11-19', null, '2026-11-14')).toBe('2026-11-14');
+        expect(countingEnd('2026-11-19', null, '2026-12-01')).toBe('2026-11-19');
+    });
+    it('stops at the closing day, which still counts', () => {
+        expect(countingEnd('2026-11-19', '2026-11-12', '2026-11-14')).toBe('2026-11-12');
+        expect(countingEnd('2026-11-19', '2026-11-14', '2026-11-14')).toBe('2026-11-14');
+        expect(countingEnd('2026-11-19', '2026-11-30', '2026-11-14')).toBe('2026-11-14');
+        expect(countingEnd('2026-11-19', '2026-11-12', '2026-12-01')).toBe('2026-11-12');
+    });
+    it('gives the pace of a closed campaign up to its closing day', () => {
+        const end = countingEnd('2026-11-19', '2026-11-14', '2026-11-18');
+        expect(expectedBy(100, '2026-11-10', '2026-11-19', end)).toBe(50);
     });
 });
 
@@ -76,14 +93,20 @@ describe('totalsOf', () => {
                 { today: 1, total: 3, target: null, expected: null },
                 { today: 0, total: 5, target: 10, expected: 5 }
             ])
-        ).toEqual({ today: 3, total: 18, target: 50, expected: 25 });
+        ).toEqual({ today: 3, total: 18, target: 50, expected: 25, targetedTotal: 15 });
     });
     it('has no target when none is set', () => {
         expect(totalsOf([{ today: 1, total: 1, target: null, expected: null }])).toMatchObject({
             target: null,
             expected: null
         });
-        expect(totalsOf([])).toEqual({ today: 0, total: 0, target: null, expected: null });
+        expect(totalsOf([])).toEqual({ today: 0, total: 0, target: null, expected: null, targetedTotal: 0 });
+    });
+});
+
+describe('campaignServices', () => {
+    it('names the service each kind counts', () => {
+        expect(CAMPAIGN_SERVICES).toEqual({ plate_exchange: 'DVC-12', bolo_season: 'DVC-02' });
     });
 });
 

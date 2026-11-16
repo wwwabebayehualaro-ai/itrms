@@ -1,13 +1,25 @@
 /**
- * Campaigns (ADR-0054 ง2, task 1.13i): a unit runs a campaign over a span of days (the plate exchange of task 1.2c, the bolo season of
+ * Campaigns (ADR-0054 ยง2, task 1.13i): a unit runs a campaign over a span of days (the plate exchange of task 1.2c, the bolo season of
  * task 1.3), sets a target for each office below it, and the dashboard shows each office's daily count against it. What is counted comes
  * from typed tables only: a plate exchanged on its day, a bolo inspected on its day, never form answers.
  */
 import { i18nTextSchema } from '@itrms/schemas';
 import { z } from 'zod';
 
+import { BOLO_SERVICE } from './bolo';
+import { PLATE_EXCHANGE_SERVICE } from './exchange';
+
 export const CAMPAIGN_KINDS = ['plate_exchange', 'bolo_season'] as const;
 export type CampaignKind = (typeof CAMPAIGN_KINDS)[number];
+
+/**
+ * The service whose records a campaign counts. An office is given a target only if it offers it, so a target compares an office with
+ * its own records, and the totals never count a nested office's records twice.
+ */
+export const CAMPAIGN_SERVICES: Record<CampaignKind, string> = {
+    plate_exchange: PLATE_EXCHANGE_SERVICE,
+    bolo_season: BOLO_SERVICE
+};
 
 /** A campaign lasts at most one year (a leap year's days). */
 export const MAX_CAMPAIGN_DAYS = 366;
@@ -78,14 +90,25 @@ export const campaignProgressSchema = z.object({
         today: z.number().int(),
         total: z.number().int(),
         target: z.number().int().nullable(),
-        expected: z.number().int().nullable()
+        expected: z.number().int().nullable(),
+        /** the total of the offices that have a target only: what the pace is compared with */
+        targetedTotal: z.number().int()
     }),
-    /** whether the caller may set targets and close it (it is theirs to run) */
+    /** whether the caller may set targets: it is theirs to run, or they hold offices below them that may be given one */
     mayManage: z.boolean(),
+    /** whether the caller may close it: the unit that runs it, or one above */
+    mayClose: z.boolean(),
+    /** the offices the caller may give a first target (below the campaign's unit and the caller's, offering the service); at most 300 */
+    candidates: z.array(unitRefSchema),
     /** the caller's active unit: it is never offered a target of its own */
     ownUnitId: z.uuid().nullable()
 });
 export type CampaignProgress = z.infer<typeof campaignProgressSchema>;
 
-export const campaignListSchema = z.object({ items: z.array(campaignSchema), mayManage: z.boolean() });
+export const campaignListSchema = z.object({
+    items: z.array(campaignSchema),
+    mayManage: z.boolean(),
+    /** the campaigns among the items run by the caller's unit or a unit above it (the others were started below) */
+    heldAbove: z.array(z.uuid())
+});
 export type CampaignList = z.infer<typeof campaignListSchema>;

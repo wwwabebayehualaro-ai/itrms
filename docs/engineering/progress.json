@@ -3764,6 +3764,16 @@
       "foundIn": "1.13h",
       "item": "A paper count cannot be withdrawn (no audited delete): a count keyed to the wrong office or code can only be set to 0, and that office then stays in the report",
       "movedTo": "1.16"
+    },
+    {
+      "foundIn": "1.13i",
+      "item": "The plate-exchange count credits the ended old plate's handling unit and counts any ended_reason 'exchanged' (also a legacy plate replaced by a legacy one): once handling units move (1.4), count the replacing national plate (replaced_by_id, format national) on its since day at its handling unit",
+      "movedTo": "1.4"
+    },
+    {
+      "foundIn": "1.13i",
+      "item": "campaigns.int.spec.ts reads today once at load while the service takes the Addis day per request: a run across Addis midnight can flake; inject a clock into CampaignService.progress if it does",
+      "movedTo": "1.16"
     }
   ]
 }

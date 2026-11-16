@@ -43,7 +43,7 @@ CREATE INDEX "campaigns_org_path_gist" ON "competency"."campaigns" USING gist ("
 --> statement-breakpoint
 -- The hand-written part (task 1.13i): the kinds a text column takes; an office never sets its own target (the service also requires
 -- the setter to be above it); the units' paths; what the app may change (a campaign's name, last day and closing; a target's number
--- and who set it, never its office nor its campaign); the classes: a campaign is config (the running unit's subtree writes it, the
+-- and who set it, never its office nor its campaign); the classes: a campaign is config (the running unit and the units above it write it, the
 -- offices below read it), a target is transaction at the office (its subtree and the units above it).
 ALTER TABLE "competency"."campaigns" ADD CONSTRAINT "campaigns_enums_check"
     CHECK ("kind" IN ('plate_exchange', 'bolo_season'));
