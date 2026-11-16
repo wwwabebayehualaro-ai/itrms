@@ -1803,10 +1803,19 @@
         {
           "id": "1.13i",
           "title": "Paper-record migration, part 5: campaign counters",
-          "status": "in progress",
+          "status": "in review",
           "branch": "task/1.13i-campaign-counters",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "8a09419"
+          ],
+          "evidence": [
+            "CI run 43802609667 (PR #75, 8a09419) → all 10 jobs green",
+            "integration (real PostgreSQL 16, dev stack) → 801 passed in 45 files, incl. campaigns.int.spec.ts: created by the running unit on record; overlap 409; 422 bodies; targets by the unit above with If-Match, never by the office itself, never outside the campaign's subtree, only on an office offering the service; daily counts equal an independent SQL count of the typed tables within the window; a sibling sees no other office's count or target; an office sees its zone's campaign; not yet started and closed campaigns; S3 contract suite 20 passed",
+            "e2e (Playwright) → 55 + 4 passed, 1 flaky (forms/governance.spec.ts, unrelated to this task, passed on retry)",
+            "unit → competency 101 (campaigns.spec.ts: span, elapsed, expected, on-track, zero-filled series, counting end, totals incl. targetedTotal); api 15; web 77",
+            "lint, typecheck, boundaries, check:slices, i18n:check (am/en), db:generate no drift; migrations 0081 and 0082 applied from zero on CI; Semgrep, gitleaks, Trivy clean",
+            "reviewer (Fable) on d630729 → 1 high (sibling test), 2 medium (first target from the UI; targets on intermediate units), 8 low: fixed in 8a09419 except two moved (the exchange's crediting to 1.4, the midnight clock to 1.16)"
+          ],
           "blockers": [],
           "notes": "Split from 1.13g on 2026-11-15. Design (2026-11-16): competency.campaigns is RLS class config (the running unit's subtree reads it and the units above; only the subtree writes), campaign_targets class T at the office (a sibling sees the zone's campaign, never another office's target). Counts from typed tables limited by hand to kernel.ctx_scope() and the campaign's subtree (both sources are class R). Assumption: a woreda sees every campaign of the units above it, targeting it or not; the kind's service is not checked when a target is set."
         },
