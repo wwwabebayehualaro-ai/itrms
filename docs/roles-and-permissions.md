@@ -25,6 +25,11 @@ Role keys are `<process>.<function>` for work-process roles, and plain names for
 | `viewer` | — | any | Read-only dashboards and registries: names and addresses, never a sensitive field (no FIN, phone or birth date; no lookup by them, no reveal) |
 | `plate_keeper` | — | bureau, zone, ፈርጅ-1 town (units with `holds_plate_stock`) | The office's plate stock (task 1.2a): receives federal deliveries, hands plates to the unit directly below and accepts what it is sent, recalls and writes off with a reason; reads the register. Assumed role: confirm with a bureau who keeps the plates (a storekeeper or competency staff) |
 
+Encumbrances on vehicles (task 1.4a, permissions `encumbrance:read`, `encumbrance:record`, `encumbrance:release`): `competency.officer` and
+`competency.lead` read, record and release (request the release in the recording office; confirm another person's request);
+`unit_head` reads and confirms the release of what an office below recorded; `competency.inspector` and `auditor` read. Nobody
+confirms a release they asked for (SEC-AC-6).
+
 ### Work-process roles
 For each process `p`, `p.officer` handles cases and `p.lead` decides the steps that need a lead or director. Rows marked
 [D] have matching positions in the scans.

@@ -129,6 +129,15 @@ export function VehiclesSearch() {
                                             {v.migration.batch.name}
                                         </span>
                                     )}
+                                    {v.encumbrances.length > 0 && (
+                                        <span className="ms-2" data-encumbered>
+                                            <StatusBadge
+                                                value="encumbered"
+                                                tone="danger"
+                                                label={t('vehicles.field.encumbrances')}
+                                            />
+                                        </span>
+                                    )}
                                     {v.matched && v.matched !== 'plate' && (
                                         <span className="text-muted-foreground ms-2 text-xs" data-matched={v.matched}>
                                             {t(`vehicles.match.${v.matched}`)}

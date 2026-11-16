@@ -1823,12 +1823,12 @@
         {
           "id": "1.4a",
           "title": "Transfers, part 1: encumbrances",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/1.4a-encumbrances",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split from 1.4 on 2026-11-16 (one session each)."
+          "notes": "Split from 1.4 on 2026-11-16 (one session each). Design (architect, 2026-11-16): holder = a parties.organisations row (kinds bank and court added); vehicles.vehicle_encumbrances class R on recorded_org_path (any office of the region sees it, only the recording office's line writes); recording is a direct audited command; release is maker-checker (requested in the recording office citing the holder's release letter, confirmed by another user there or above; DB CHECK). The block is the effect vehicles.checkEncumbrances:<conflict> a service names on filing, before the payment order and before its giving effect; which kinds block which conflict is the regional setting vehicles.encumbrance_blocks (installation/region only). Shared/exclusive advisory lock per vehicle. Demonstrated by a test-only DVC-12 version (no source says an encumbrance blocks the plate exchange). To confirm with the zone: no block on DVC-12 or bolo; replacement blocked by bank loan and court order only."
         },
         {
           "id": "1.4b",

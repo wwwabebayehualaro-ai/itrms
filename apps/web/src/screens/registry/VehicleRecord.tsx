@@ -28,8 +28,10 @@ import { getApiErrorMessage } from '@/lib/api/errors';
 import { useAuthStore } from '@/lib/auth/authStore';
 import { formatDay } from '@/lib/format';
 import { usePreferences, useText } from '@/lib/preferences';
+import { useVehicleEncumbrances } from '@/lib/encumbrances';
 import { useVehicle, type Vehicle } from '@/lib/vehicles';
 
+import { EncumbranceTable, RecordEncumbrance } from './EncumbrancePanel';
 import { HolderLink, STATUS_TONE } from './vehicle-parts';
 
 export function VehicleRecord({ id }: { id: string }) {
@@ -37,6 +39,7 @@ export function VehicleRecord({ id }: { id: string }) {
     const calendar = usePreferences((s) => s.calendar);
     const vehicle = useVehicle(id);
     const activeUnitId = useAuthStore((s) => s.workspace?.activeUnit.id);
+    const mayRecord = useAuthStore((s) => s.workspace?.permissions.includes('encumbrance:record') ?? false);
 
     if (vehicle.isPending) return <Skeleton className="h-48 w-full" />;
     if (vehicle.error || !vehicle.data)
@@ -50,8 +53,22 @@ export function VehicleRecord({ id }: { id: string }) {
     const unit = (name: Record<string, string>) => text({ am: '', en: '', ...name });
     const kg = (value: number | null) => (value === null ? null : value.toLocaleString(language));
 
+    const holds = v.encumbrances
+        .map((e) =>
+            t('vehicles.encumbrance.bannerItem', {
+                kind: t(`vehicles.encumbrance.kind.${e.kind}`),
+                holder: text({ am: '', en: '', ...e.holder.name })
+            })
+        )
+        .join('; ');
+
     return (
         <div className="max-w-5xl" data-screen="vehicle-record">
+            {v.encumbrances.length > 0 && (
+                <Alert variant="destructive" className="mb-4" data-encumbered>
+                    <AlertDescription>{t('vehicles.encumbrance.banner', { holds })}</AlertDescription>
+                </Alert>
+            )}
             <RecordLayout
                 header={
                     <PageHeader
@@ -172,6 +189,16 @@ export function VehicleRecord({ id }: { id: string }) {
                         value: 'libres',
                         label: t('vehicles.record.libres'),
                         content: <Libres vehicle={v} day={day} unit={unit} />
+                    },
+                    {
+                        value: 'encumbrances',
+                        label: t('vehicles.encumbrance.title'),
+                        content: (
+                            <Encumbrances
+                                vehicleId={v.id}
+                                mayRecord={mayRecord && v.status !== 'transferred_out' && v.status !== 'deregistered'}
+                            />
+                        )
                     }
                 ]}
                 defaultTab="owners"
@@ -300,5 +327,30 @@ function Libres({
                 ))}
             </TableBody>
         </Table>
+    );
+}
+
+/** Every hold of the vehicle, released ones included; an office that may record one has the button. */
+function Encumbrances({ vehicleId, mayRecord }: { vehicleId: string; mayRecord: boolean }) {
+    const { t } = useText();
+    const holds = useVehicleEncumbrances(vehicleId);
+    if (holds.isPending) return <Skeleton className="h-24 w-full" />;
+    return (
+        <div className="flex flex-col gap-4" data-encumbrances-tab>
+            {mayRecord && (
+                <div>
+                    <RecordEncumbrance vehicleId={vehicleId} />
+                </div>
+            )}
+            {holds.error ? (
+                <Alert variant="destructive">
+                    <AlertDescription>
+                        {getApiErrorMessage(holds.error, t('vehicles.encumbrance.loadFailed'))}
+                    </AlertDescription>
+                </Alert>
+            ) : (
+                <EncumbranceTable items={holds.data ?? []} />
+            )}
+        </div>
     );
 }

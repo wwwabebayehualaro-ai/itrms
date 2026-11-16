@@ -111,6 +111,9 @@ export default defineModule({
             ...READ_ORG,
             ...REGISTER,
             'plate-stock:read',
+            // confirms the release of a hold the office below recorded (task 1.4a)
+            'encumbrance:read',
+            'encumbrance:release',
             'stationery:read',
             'role-assignment:read',
             'audit-log:read',
@@ -178,6 +181,7 @@ export default defineModule({
             ...READ_ORG,
             ...REGISTER,
             'plate-stock:read',
+            'encumbrance:read',
             'stationery:read',
             'role-assignment:read',
             'audit-log:read',

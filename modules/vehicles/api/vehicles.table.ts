@@ -16,6 +16,9 @@
  *                        task 1.2a); a transition trigger and a deferred match with plate_assignments are in the migration.
  *   plate_movements      the ledger of the stock: receipts, allocations down the tree and their acceptance, recalls,
  *                        assignments, retirements and write-offs (class T of the lower unit; insert-only).
+ *   vehicle_encumbrances the holds on a vehicle (bank loan, court order, revenue or customs hold): recorded by an office on
+ *                        the holder's letter, released by the same office on the holder's release letter and a second
+ *                        person's confirmation (class R of the recording office, task 1.4a).
  *
  * The four child tables carry the vehicle's region and handling unit, copied from the vehicle by a trigger in the migration
  * (a unit cannot write a child row for a vehicle it does not handle). The foreign keys to the people register, the checks
@@ -24,6 +27,7 @@
  */
 import { sql } from 'drizzle-orm';
 import {
+    bigint,
     boolean,
     check,
     date,
@@ -45,6 +49,8 @@ import {
     ACQUIRED_BY,
     CATEGORY_FAMILIES,
     CHASSIS_KINDS,
+    ENCUMBRANCE_KINDS,
+    ENCUMBRANCE_STATUSES,
     FEDERAL_ID_SOURCES,
     FUELS,
     LIBRE_STATUSES,
@@ -587,4 +593,94 @@ export const plateMovements = withRls(
         )
     ),
     'transaction'
+);
+
+/**
+ * A hold on a vehicle (contracts/encumbrances.ts, task 1.4a). The holder is an external body, a `parties.organisations` row; the
+ * office that recorded the hold acts for it. Region and recording scope come from triggers in the migration (the vehicle's region,
+ * the recording unit's path); the foreign keys to the organisation and to the stored letters are there too. A released hold is
+ * final, and what the letter said (kind, vehicle, holder, reference, date) never changes.
+ */
+export const vehicleEncumbrances = withRls(
+    audited(
+        vehiclesSchema.table(
+            'vehicle_encumbrances',
+            {
+                ...baseColumns(),
+                /** set by trigger from the vehicle */
+                regionId: uuid('region_id').notNull(),
+                vehicleId: uuid('vehicle_id')
+                    .notNull()
+                    .references(() => vehicles.id),
+                recordedUnitId: uuid('recorded_unit_id')
+                    .notNull()
+                    .references(() => orgUnits.id),
+                /** set by trigger from the recording unit */
+                recordedOrgPath: ltree('recorded_org_path').notNull().default(''),
+                kind: text('kind', { enum: ENCUMBRANCE_KINDS }).notNull(),
+                /** parties.organisations (foreign key in the migration) */
+                holderOrganisationId: uuid('holder_organisation_id').notNull(),
+                letterReference: text('letter_reference').notNull(),
+                letterDate: date('letter_date').notNull(),
+                amountSantim: bigint('amount_santim', { mode: 'bigint' }),
+                note: text('note'),
+                /** kernel.files (foreign key in the migration): the holder's letter */
+                letterFileId: uuid('letter_file_id'),
+                status: text('status', { enum: ENCUMBRANCE_STATUSES }).notNull().default('open'),
+                releaseReference: text('release_reference'),
+                releaseDate: date('release_date'),
+                /** kernel.files (foreign key in the migration): the holder's release letter */
+                releaseFileId: uuid('release_file_id'),
+                releaseNote: text('release_note'),
+                releaseRequestedBy: uuid('release_requested_by'),
+                releaseRequestedAt: timestamp('release_requested_at', { withTimezone: true }),
+                releasedBy: uuid('released_by'),
+                releasedAt: timestamp('released_at', { withTimezone: true }),
+                releaseRefusalReason: text('release_refusal_reason')
+            },
+            (t) => [
+                uniqueIndex('vehicle_encumbrances_letter_uq').on(
+                    t.vehicleId,
+                    t.kind,
+                    t.holderOrganisationId,
+                    t.letterReference
+                ),
+                // what a vehicle still carries: the check of every conflicting service and the vehicle's summary
+                index('vehicle_encumbrances_vehicle_idx')
+                    .on(t.vehicleId)
+                    .where(sql`${t.status} <> 'released'`),
+                index('vehicle_encumbrances_region_status_idx').on(t.regionId, t.status),
+                index('vehicle_encumbrances_recorded_gist').using('gist', t.recordedOrgPath),
+                check('vehicle_encumbrances_kind_check', sql`${t.kind} in ${oneOf(ENCUMBRANCE_KINDS)}`),
+                check('vehicle_encumbrances_status_check', sql`${t.status} in ${oneOf(ENCUMBRANCE_STATUSES)}`),
+                check(
+                    'vehicle_encumbrances_text_check',
+                    sql`length(${t.letterReference}) between 1 and 60 and coalesce(length(${t.note}), 1) between 1 and 500
+                        and coalesce(length(${t.releaseReference}), 1) between 1 and 60
+                        and coalesce(length(${t.releaseNote}), 1) between 1 and 500
+                        and coalesce(length(${t.releaseRefusalReason}), 10) between 10 and 500
+                        and coalesce(${t.amountSantim}, 1) > 0`
+                ),
+                check(
+                    'vehicle_encumbrances_status_fields_check',
+                    sql`(${t.status} = 'open' and ${t.releaseReference} is null and ${t.releaseDate} is null
+                            and ${t.releaseFileId} is null and ${t.releaseNote} is null and ${t.releaseRequestedBy} is null
+                            and ${t.releaseRequestedAt} is null and ${t.releasedBy} is null and ${t.releasedAt} is null)
+                        or (${t.status} = 'release_pending' and ${t.releaseReference} is not null and ${t.releaseDate} is not null
+                            and ${t.releaseRequestedBy} is not null and ${t.releaseRequestedAt} is not null
+                            and ${t.releasedBy} is null and ${t.releasedAt} is null and ${t.releaseRefusalReason} is null)
+                        or (${t.status} = 'released' and ${t.releaseReference} is not null and ${t.releaseDate} is not null
+                            and ${t.releaseRequestedBy} is not null and ${t.releaseRequestedAt} is not null
+                            and ${t.releasedBy} is not null and ${t.releasedAt} is not null
+                            and ${t.releasedBy} <> ${t.releaseRequestedBy} and ${t.releaseRefusalReason} is null)`
+                ),
+                check(
+                    'vehicle_encumbrances_dates_check',
+                    sql`${t.releaseDate} is null or ${t.releaseDate} >= ${t.letterDate}`
+                )
+            ]
+        )
+    ),
+    'registry',
+    'recorded_org_path'
 );

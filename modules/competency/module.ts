@@ -113,6 +113,10 @@ export default defineModule({
             'issued-document:read',
             // the office's plate stock, which a registration takes a plate from (tasks 1.2a, 1.2b)
             'plate-stock:read',
+            // the holds on vehicles the office records and releases for their holders (task 1.4a)
+            'encumbrance:read',
+            'encumbrance:record',
+            'encumbrance:release',
             // a sheet of paper files sent, or another's committed (never one's own, SEC-AC-6), task 1.13b
             'vehicle-import:read',
             'vehicle-import:create',
@@ -137,6 +141,9 @@ export default defineModule({
             'person:lookup',
             'pii:reveal',
             'plate-stock:read',
+            'encumbrance:read',
+            'encumbrance:record',
+            'encumbrance:release',
             'vehicle-import:read',
             'vehicle-import:commit',
             'migration-sample:read',
@@ -147,7 +154,7 @@ export default defineModule({
             'campaign:manage'
         ],
         'competency.examiner': ['exam:read', 'exam:record', 'training:read', ...REGISTER_READ, ...CASE_ACT],
-        'competency.inspector': ['licence:read', ...REGISTER_READ, 'case:read', 'campaign:read']
+        'competency.inspector': ['licence:read', ...REGISTER_READ, 'case:read', 'campaign:read', 'encumbrance:read']
     },
     services: [
         'DVC-01',

@@ -27,6 +27,7 @@ import {
     type vehicleSchema,
     type vehicleSummarySchema
 } from '../contracts';
+import { EncumbranceService } from './encumbrances.service';
 import { joinName, unitRefs, type UnitRef } from './support';
 import {
     libres,
@@ -60,7 +61,8 @@ export class VehiclesService {
     constructor(
         @Inject(PersonsService) private readonly persons: PersonsService,
         @Inject(OrganisationsService) private readonly organisations: OrganisationsService,
-        @Inject(SettingsService) private readonly settings: SettingsService
+        @Inject(SettingsService) private readonly settings: SettingsService,
+        @Inject(EncumbranceService) private readonly encumbrances: EncumbranceService
     ) {}
 
     /** The region's old plate codes as the caller's office has them (the setting, else the shipped list). */
@@ -168,6 +170,7 @@ export class VehiclesService {
             rows.map((r) => r.handlingUnitId)
         );
         const ownersOf = new Map(open.map((o) => [o.vehicleId, holders.get(o.id) ?? []]));
+        const holds = await this.encumbrances.openFor(tx, wanted);
         // the second person who verified a back-capture, by the name staff know them by (users are a regional record)
         const verifierIds = [...new Set(rows.flatMap((r) => (r.migrationVerifiedBy ? [r.migrationVerifiedBy] : [])))];
         const verifiers = new Map(
@@ -191,7 +194,8 @@ export class VehiclesService {
                         category: { key: category?.key ?? '', name: category?.name ?? {} },
                         currentPlate: plate ? { text: plate.plateText, format: plate.format } : null,
                         owners: ownersOf.get(r.id) ?? [],
-                        migration: migrationOf(r, verifiers)
+                        migration: migrationOf(r, verifiers),
+                        encumbrances: holds.get(r.id) ?? []
                     }
                 ];
             })
@@ -347,6 +351,7 @@ function summaryOf(row: Row, units: ReadonlyMap<string, UnitRef>): VehicleSummar
         owners: [],
         handlingUnit: units.get(row.handlingUnitId) ?? { id: row.handlingUnitId, code: '', name: {} },
         migration: null,
+        encumbrances: [],
         matched: null
     };
 }

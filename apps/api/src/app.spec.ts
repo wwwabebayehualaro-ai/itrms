@@ -26,6 +26,8 @@ describe('POSTs kept out of the idempotency records (@NotReplayable)', () => {
         // the slices are loaded by the import of SLICES above; each entry here is reviewed with its handler
         expect(SLICES.length).toBeGreaterThan(0);
         expect(notReplayableHandlers()).toEqual([
+            // a hold's letter (task 1.4a): a short-lived link (each download is on record)
+            'EncumbrancesController.file',
             // a background export's download link: short-lived, never kept for a replay (each download is on record)
             'ExportsController.download',
             // a fee preview (task 0.22a): a read sent as POST (the answers are a body); it stores nothing and is safe to repeat

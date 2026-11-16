@@ -46,6 +46,14 @@ function migrated(v: VehicleSummary, language: string): string | null {
         : text('vehicles.migration.summary', language, params);
 }
 
+/** "Court order: <holder>; Bank loan: <holder>", or null for a vehicle with no hold. */
+function encumbered(v: VehicleSummary, language: string): string | null {
+    if (v.encumbrances.length === 0) return null;
+    return v.encumbrances
+        .map((e) => `${text(`vehicles.encumbrance.kind.${e.kind}`, language)}: ${localized(e.holder.name, language)}`)
+        .join('; ');
+}
+
 @Injectable()
 export class VehicleLookup implements RegistryLookupProvider {
     readonly key = 'vehicle';
@@ -66,7 +74,8 @@ export class VehicleLookup implements RegistryLookupProvider {
             { key: 'owner', label: text('vehicles.field.owner', language) },
             { key: 'federalId', label: text('vehicles.field.federalId', language) },
             { key: 'handlingUnit', label: text('vehicles.field.handlingUnit', language) },
-            { key: 'migrated', label: text('vehicles.field.migrated', language) }
+            { key: 'migrated', label: text('vehicles.field.migrated', language) },
+            { key: 'encumbrances', label: text('vehicles.field.encumbrances', language) }
         ];
     }
 
@@ -109,7 +118,9 @@ export class VehicleLookup implements RegistryLookupProvider {
                     language
                 ),
                 // migrated from its paper file (ADR-0054): the file's reference and who verified the capture
-                fact('migrated', 'vehicles.field.migrated', migrated(v, language), language)
+                fact('migrated', 'vehicles.field.migrated', migrated(v, language), language),
+                // a hold the holder has not lifted: shown under the pick, so the officer knows before the service says no
+                fact('encumbrances', 'vehicles.field.encumbrances', encumbered(v, language), language)
             ]
         };
     }

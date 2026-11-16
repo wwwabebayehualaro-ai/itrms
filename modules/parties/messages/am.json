@@ -121,6 +121,8 @@
   "parties.kind.insurer": "መድን ድርጅት",
   "parties.kind.health_facility": "የጤና ተቋም",
   "parties.kind.government_office": "የመንግሥት መሥሪያ ቤት",
+  "parties.kind.bank": "ባንክ",
+  "parties.kind.court": "ፍርድ ቤት",
   "parties.kind.other": "ሌላ",
   "parties.role.chair": "ሊቀ መንበር",
   "parties.role.secretary": "ጸሐፊ",
