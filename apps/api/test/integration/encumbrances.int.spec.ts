@@ -191,6 +191,8 @@ interface Transition {
     [key: string]: unknown;
 }
 let published = 0;
+/** DVC-12 as seeded: every checked version is built on it, never on the one before (the checks would pile up) */
+let seeded: { form: string; fee: string; definition: { transitions: Transition[] } } | undefined;
 /** DVC-12's seeded flow with `vehicles.checkEncumbrances:<conflict>` on filing, before the payment order and before the plate is given. */
 async function publishChecked(conflict: string): Promise<void> {
     published += 1;
@@ -202,7 +204,8 @@ async function publishChecked(conflict: string): Promise<void> {
           where d.code = $1`,
         [SERVICE]
     );
-    const current = rows[0];
+    seeded ??= rows[0];
+    const current = seeded;
     if (!current) throw new Error('DVC-12 is not seeded');
     const check = `vehicles.checkEncumbrances:${conflict}`;
     const definition = {
@@ -705,13 +708,18 @@ describe('the blocks on the services a hold conflicts with', () => {
         const { id } = await onTheRoad(boditi);
         await recorded(id, 'bank_loan');
         expect((await filing(id)).status).toBe(422);
+        // the region's own value, on the version it has
+        const settings = (await api.call('GET', `/api/v1/org-units/${region.id}/settings`, as.bureau)).json<{
+            settings: { key: string; own: { version: number } | null }[];
+        }>().settings;
+        const own = settings.find((s) => s.key === ENCUMBRANCE_BLOCKS_SETTING)?.own;
         const set = await api.call(
             'PUT',
             `/api/v1/org-units/${region.id}/settings/${ENCUMBRANCE_BLOCKS_SETTING}`,
             as.bureau,
-            {
-                value: { ...DEFAULT_ENCUMBRANCE_BLOCKS, replacement: ['court_order'] }
-            }
+            { value: { ...DEFAULT_ENCUMBRANCE_BLOCKS, replacement: ['court_order'] } },
+            // a new value is version 0
+            { 'if-match': `"${own?.version ?? 0}"` }
         );
         expect(set.statusCode, set.body).toBe(200);
         expect((await filing(id)).status).toBe(200);

@@ -1293,7 +1293,9 @@ describe('the lookup of a vehicle in a form', () => {
             'federalId',
             'handlingUnit',
             // migrated from paper (task 1.13): the paper reference and the verifier, or nothing
-            'migrated'
+            'migrated',
+            // the holds the holders have not lifted (task 1.4a), or nothing
+            'encumbrances'
         ]);
         const en = await api.call('GET', '/api/v1/registry-lookups', as.damot(), undefined, {
             'accept-language': 'en'
