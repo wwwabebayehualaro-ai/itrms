@@ -22,6 +22,7 @@ import {
     Replace,
     ScrollText,
     SlidersHorizontal,
+    Target,
     Undo2,
     Users,
     Workflow
@@ -49,6 +50,7 @@ export const MENU_ICONS: Readonly<Record<string, LucideIcon>> = {
     replace: Replace,
     'scroll-text': ScrollText,
     'sliders-horizontal': SlidersHorizontal,
+    target: Target,
     'undo-2': Undo2,
     users: Users,
     workflow: Workflow

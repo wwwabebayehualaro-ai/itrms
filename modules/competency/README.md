@@ -93,6 +93,51 @@ active unit must be a strict ancestor of the office (an office never sets its ow
 change carries the count's version (otherwise 409 `stale_version`). The register is read region-wide by RLS, so the report limits
 its vehicle query to the caller's subtree by hand.
 
+**Campaign counters (task 1.13i, ADR-0054 §2).** A unit runs a *campaign* over a span of days, sets a target for each office below it,
+and the dashboard shows each office's daily count against its target (plate exchange, task 1.2c; bolo season, task 1.3). Typed tables
+only, never the JSONB answers (`api/campaign.service.ts`, arithmetic in `api/campaigns.ts`). Definitions and assumptions:
+- *Kinds*: `CAMPAIGN_KINDS` = `plate_exchange`, `bolo_season`. A campaign is `competency.campaigns` (name as `I18nText`, `starts_on`,
+  `ends_on`, `closed_at`); at most 366 days (checked in the contract and the migration, 0081).
+- *What counts*, per office (`handling_unit_id`) per Gregorian day in Africa/Addis_Ababa, only within `[starts_on, ends_on]`:
+  `plate_exchange` = `vehicles.plate_assignments` with `ended_reason = 'exchanged'` on their `until` day (the day the old regional
+  plate gave way to the national one, task 1.2c); `bolo_season` = `competency.bolos` on `inspected_on`, not `void`. An office is the
+  handling unit of the counted row. The registers are class R (read region-wide), so every count is limited by hand to the caller's
+  subtree and to the campaign unit's subtree (`handling_org_path <@ kernel.ctx_scope()`): a sibling office never sees another's count.
+- *Target*: `competency.campaign_targets` (class T at the office, unique per campaign and office, 1 to 10,000,000, set by a unit above
+  the office, never by the office itself: database CHECK `set_by_unit_id <> handling_unit_id`).
+- *Progress* per office with a target or a count: `today` (the count on today's Addis day), `total` so far, the last 14 days
+  zero-filled, and `expected` = round(target x elapsed days / campaign days). Both end at the counting end = min(`ends_on`, the Addis
+  day of `closed_at`, today): a closed campaign stops counting at its closing day (that day counts, the days after do not), and
+  elapsed days run from `starts_on` to that end inclusive (0 before the start). `onTrack` = total >= expected (an even pace is
+  assumed; a real season may be front- or back-loaded). The totals add the offices; target and expected add only those with a
+  target, and `targetedTotal` (the total of the offices with a target) is what the totals' pace is compared with, so an office
+  counted without a target does not make the whole look on track. A few grouped queries, no per-office loops.
+- *How an office sees its zone's campaign*: `campaigns` is class C (config): the unit's subtree writes it, and the offices below it
+  (and the unit's own subtree) read it (the running unit and the units above it write it), so a woreda sees the campaigns of every unit above it, targeting it or not; its own target
+  row is class T and its subtree reads it. A sibling sees the zone's campaign and none of the other offices' targets or counts. No
+  SECURITY DEFINER function is involved.
+- *Rules*: any unit may run a campaign (the targets scope it). A target is only for an office that offers the service whose records
+  the campaign counts (`CAMPAIGN_SERVICES`: `bolo_season` = DVC-02, `plate_exchange` = DVC-12; the unit's effective services, else
+  422 `service_not_offered` on `unitId`), so a target compares an office with its own records and the totals never count a nested
+  office's records twice. An open campaign of the same kind at
+  the same unit may not overlap another (409 `duplicate_reference`; a closed one does not count). A target is set for an office that
+  is a strict descendant of both the campaign's unit (else 422) and the caller's active unit (else 403
+  `competency.errors.campaign_target_own_office`); new without `If-Match`, a change with the target's version (else 409
+  `stale_version`). A closed campaign takes no target (409): a target is set under a shared advisory lock on the campaign and the
+  closing takes it exclusively (a row lock would need the UPDATE policy, which a unit below the campaign's does not have), so a
+  target never lands on a campaign closed at the same time. Closing (`POST /campaigns/:id/close`, `If-Match`) is for the campaign's
+  unit or above (`mayClose`). The progress also lists `candidates` for a first target (only for a caller with `campaign:manage`, on
+  an open campaign): the active units strictly below both the campaign's unit and the caller's, offering the service and with no
+  target yet, found in one query that applies the unit type's default and the unit's override as `effectiveServices` does, at most
+  300 by code. `mayManage` is true for a caller at or above the campaign's unit, or below it with a candidate or a target below
+  their own unit (a town may set the targets of its own offices); `mayClose` only at or above. The count queries are served by
+  the partial index on `plate_assignments (until) where ended_reason = 'exchanged'` and the index on `bolos (inspected_on)` (0082).
+- API: `GET /api/v1/campaigns`, `POST /api/v1/campaigns`, `GET /api/v1/campaigns/:id` (with progress), `PUT /api/v1/campaigns/:id/targets`,
+  `POST /api/v1/campaigns/:id/close`; permissions `campaign:read` (officer, lead, inspector) and `campaign:manage` (officer, lead).
+  Web: `/competency/campaigns`, the detail (with "add a target" over the candidates), and the home page's `CampaignWidget` (up to
+  three open campaigns, those running now first and those of the person's unit or above before those started below it; the pace
+  compares `targetedTotal` with `expected`).
+
 **Acting for the handling office, and one vehicle in one open request (task 1.2e).** The steps that write a vehicle's records
 (register, the plate, the libre and its booklet, the exchange, the back-capture's verification) run for the case's handling
 office: taken in it, or in an office above it when separation of duties left nobody in the office and the step was sent up the

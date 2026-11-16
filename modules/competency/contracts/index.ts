@@ -12,6 +12,7 @@ import { VEHICLE_IMPORT_EVENTS } from './vehicle-import';
 
 export * from './back-capture';
 export * from './bolo';
+export * from './campaign';
 export * from './exchange';
 export * from './migration-report';
 export * from './migration-sample';

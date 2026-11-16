@@ -1,0 +1,2 @@
+CREATE INDEX "bolos_inspected_on_idx" ON "competency"."bolos" USING btree ("inspected_on");--> statement-breakpoint
+CREATE INDEX "plate_assignments_exchanged_until_idx" ON "vehicles"."plate_assignments" USING btree ("until") WHERE "vehicles"."plate_assignments"."ended_reason" = 'exchanged';

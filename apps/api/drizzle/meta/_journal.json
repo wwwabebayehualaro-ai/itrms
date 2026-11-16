@@ -568,6 +568,20 @@
       "when": 1794766547926,
       "tag": "0080_migration_reconciliation",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1794798477970,
+      "tag": "0081_campaigns",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1794801105444,
+      "tag": "0082_campaign_count_indexes",
+      "breakpoints": true
     }
   ]
 }

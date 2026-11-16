@@ -372,6 +372,10 @@ export const plateAssignments = withRls(
                     .on(t.vehicleId)
                     .where(sql`${t.until} is null`),
                 index('plate_assignments_region_key_idx').on(t.regionId, t.plateKey),
+                // the campaign counters' day predicate: the plates that gave way to the national one (task 1.13i)
+                index('plate_assignments_exchanged_until_idx')
+                    .on(t.until)
+                    .where(sql`${t.endedReason} = 'exchanged'`),
                 index('plate_assignments_key_trgm').using('gin', sql`${t.plateKey} gin_trgm_ops`),
                 index('plate_assignments_handling_gist').using('gist', t.handlingOrgPath),
                 check('plate_assignments_format_check', sql`${t.format} in ${oneOf(PLATE_FORMATS)}`),
