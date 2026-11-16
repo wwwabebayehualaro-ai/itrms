@@ -1803,10 +1803,11 @@
         {
           "id": "1.13i",
           "title": "Paper-record migration, part 5: campaign counters",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.13i-campaign-counters",
           "commits": [
-            "8a09419"
+            "8a09419",
+            "f170b18"
           ],
           "evidence": [
             "CI run 43802609667 (PR #75, 8a09419) → all 10 jobs green",
