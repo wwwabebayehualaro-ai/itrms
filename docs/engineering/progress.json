@@ -1782,10 +1782,11 @@
         {
           "id": "1.13h",
           "title": "Paper-record migration, part 4: the reconciliation report",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.13h-reconciliation",
           "commits": [
-            "b13deb5"
+            "b13deb5",
+            "128ef25"
           ],
           "evidence": [
             "CI run 43749964269 (PR #74, b13deb5) → all 10 jobs green",
