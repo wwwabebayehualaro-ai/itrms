@@ -156,6 +156,44 @@ export const DOCUMENT_DATA_SCHEMAS = {
         temporaryUntil: dayText.nullable(),
         insurance: z.object({ certificate: z.string().min(1), insurer: z.string().min(1), until: dayText })
     }),
+    /**
+     * A letter of an ownership transfer (task 1.4b): the justice office is asked to authenticate the contract and told the vehicle
+     * has no hold, the revenue office is given the value the committee set (the duty is its own to determine), the tax office is
+     * asked to register the buyers of a code-3 vehicle. One shape for the three; the valuation is on the revenue letter only.
+     */
+    'vehicle-transfer-letter.v1': z.object({
+        number: z.string().min(1),
+        issuedOn: dayText,
+        validUntil: dayText,
+        kind: z.enum(['justice', 'revenue', 'tax']),
+        addressee: z.string().min(1),
+        caseNumber: z.number().int(),
+        acquiredBy: i18nTextSchema,
+        vehicle: z.object({
+            plate: z.string().min(1),
+            chassisNumber: z.string().min(1),
+            engineNumber: z.string().min(1).nullable(),
+            make: z.string().min(1),
+            model: z.string().min(1),
+            modelYear: z.number().int(),
+            category: i18nTextSchema,
+            use: i18nTextSchema
+        }),
+        sellers: z.array(z.object({ name: z.string().min(1) })).min(1),
+        buyers: z.array(z.object({ name: z.string().min(1) })).min(1),
+        valuation: z
+            .object({
+                valuedOn: dayText,
+                committeeValueSantim: santimTextSchema,
+                purchasePriceSantim: santimTextSchema.nullable(),
+                marketValueSantim: santimTextSchema.nullable(),
+                contractValueSantim: santimTextSchema.nullable(),
+                depreciationPercent: z.string().min(1).nullable(),
+                valuers: z.string().min(1).nullable(),
+                inspectionNote: z.string().min(1).nullable()
+            })
+            .nullable()
+    }),
     'exam-result.v1': z.object({
         sessionOn: dayText,
         serviceName: i18nTextSchema,

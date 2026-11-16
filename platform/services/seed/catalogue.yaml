@@ -1,7 +1,7 @@
 # The service catalogue (task 0.21b): the 54 services of the reference design, by work process, with the source's
 # Amharic text verbatim and our English (docs/service-catalogue.md, from Documents/; generated from it); and the
 # migration's own service, the back-capture of paper vehicle files (MIG-01, ADR-0054, task 1.13), and the plate
-# exchange (DVC-12, Directive 1050/2025, task 1.2c). A region's
+# exchange (DVC-12, Directive 1050/2025, task 1.2c) and the ownership transfer (DVC-13, task 1.4b). A region's
 # catalogue is seeded from this file (idempotent by code); a service is "not configured" until a service version is
 # published for it. Codes are stable: forms, menus, unit types and cases name them.
 services:
@@ -156,6 +156,13 @@ services:
     name:
       am: የቀድሞ ክልላዊ ሰሌዳን በብሔራዊ ሰሌዳ መቀየር
       en: Exchange an old regional plate for a national plate
+  # not in the source list: the change of a vehicle's owner (ስም ዝውውር), priced by the zone's fee sheet (task 1.4b)
+  - code: DVC-13
+    process: 1
+    module: competency
+    name:
+      am: የተሽከርካሪ ባለቤትነት (ስም) ዝውውር
+      en: Vehicle ownership transfer
   # not one of the bureau's 54: the migration of its paper vehicle files (ADR-0054, task 1.13)
   - code: MIG-01
     process: 1

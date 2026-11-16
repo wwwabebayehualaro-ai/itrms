@@ -589,6 +589,13 @@
       "when": 1794834414426,
       "tag": "0083_vehicle_encumbrances",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1794859571675,
+      "tag": "0084_ownership_transfer",
+      "breakpoints": true
     }
   ]
 }

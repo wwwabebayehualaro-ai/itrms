@@ -1,6 +1,6 @@
 import { defineModule } from '@itrms/module-sdk';
 
-// Work process 1 (service-catalogue.md, DVC-01…11). Task 0.10b declared what the shell needs; task 0.24a adds the licence register,
+// Work process 1 (service-catalogue.md, DVC-01…13). Task 0.10b declared what the shell needs; task 0.24a adds the licence register,
 // its effects and its lookups.
 const LICENSING = ['DVC-03', 'DVC-04', 'DVC-08', 'DVC-10', 'DVC-11'];
 // the register (roles-and-permissions.md §2): officers register and correct applicants and check their identity
@@ -53,6 +53,12 @@ export default defineModule({
             key: 'competency.migration_sample_percent',
             default: 5,
             overridableAt: ['installation', 'region', 'unitType']
+        },
+        // how many days a letter of an ownership transfer stands (task 1.4b); a stated assumption until the zone says
+        {
+            key: 'competency.transfer_letter_valid_days',
+            default: 30,
+            overridableAt: ['installation', 'region', 'unitType', 'unit']
         }
     ],
     effects: [
@@ -78,6 +84,12 @@ export default defineModule({
         'competency.backCaptureVehicle',
         'competency.checkPlateExchange',
         'competency.exchangePlate',
+        'competency.checkOwnershipTransfer',
+        'competency.recordValuation',
+        'competency.issueTransferLetters',
+        'competency.recordTransferEvidence',
+        'competency.transferOwnership',
+        'competency.revokeTransferLetters',
         'competency.checkBolo',
         'competency.recordBoloInspection',
         'competency.issueBoloSticker',
@@ -154,7 +166,16 @@ export default defineModule({
             'campaign:manage'
         ],
         'competency.examiner': ['exam:read', 'exam:record', 'training:read', ...REGISTER_READ, ...CASE_ACT],
-        'competency.inspector': ['licence:read', ...REGISTER_READ, 'case:read', 'campaign:read', 'encumbrance:read']
+        // the inspector also acts on the steps of a case it is assigned (the bolo's inspection, the valuation of a transfer) and
+        // reads the documents of the case it works on
+        'competency.inspector': [
+            'licence:read',
+            ...REGISTER_READ,
+            ...CASE_ACT,
+            'issued-document:read',
+            'campaign:read',
+            'encumbrance:read'
+        ]
     },
     services: [
         'DVC-01',
@@ -170,11 +191,18 @@ export default defineModule({
         'DVC-11',
         // the plate exchange (Directive 1050/2025): the plates part of DVC-01, its own service
         'DVC-12',
+        // the change of a vehicle's owner (task 1.4b): not in the source list, priced by the zone's fee sheet
+        'DVC-13',
         // the back-capture of paper vehicle files (ADR-0054): the migration's own service, beside the bureau's
         'MIG-01'
     ],
     // a registration takes its plate from the office's own stock (task 1.2b): an office without one doesn't offer it
-    capabilitiesRequired: { 'DVC-01': ['holds_plate_stock'], 'DVC-12': ['holds_plate_stock'] },
+    // the transfer issues a libre, from the office's stationery (booklets)
+    capabilitiesRequired: {
+        'DVC-01': ['holds_plate_stock'],
+        'DVC-12': ['holds_plate_stock'],
+        'DVC-13': ['holds_stationery']
+    },
     menu: [
         {
             key: 'competency.applications',
@@ -288,6 +316,23 @@ export default defineModule({
                     label: 'competency.action.newPlateExchange',
                     route: '/competency/plate-exchanges/new',
                     requires: { permission: 'case:create', services: ['DVC-12'] }
+                }
+            ]
+        },
+        {
+            key: 'competency.ownershipTransfers',
+            group: 'work-process',
+            order: 14,
+            label: 'competency.nav.ownershipTransfers',
+            icon: 'repeat',
+            route: '/competency/ownership-transfers',
+            requires: { permission: 'vehicle:read', services: ['DVC-13'] },
+            quickActions: [
+                {
+                    key: 'competency.newOwnershipTransfer',
+                    label: 'competency.action.newOwnershipTransfer',
+                    route: '/competency/ownership-transfers/new',
+                    requires: { permission: 'case:create', services: ['DVC-13'] }
                 }
             ]
         },

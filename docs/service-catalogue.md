@@ -57,6 +57,12 @@ Module `road-safety`.
 Directive 1050/2025, task 1.2c). The plates part of DVC-01, as its own service: every vehicle on an old regional plate exchanges
 it. Offered wherever DVC-01 is; not counted in the totals.
 
+**Not in the source: DVC-13, the ownership transfer** (የተሽከርካሪ ባለቤትነት (ስም) ዝውውር; task 1.4b). A vehicle changes hands by sale, gift,
+inheritance, court order or auction: the office checks it against the paper inspection, a committee sets its value, the letters
+the justice, revenue and tax offices ask for are written, and, once the fee is paid, the owners change in the register and the
+new libre is issued. The zone's fee sheet prices it (name change 1,000, new libre 2,000: to confirm). Offered wherever DVC-01 is;
+not counted in the totals.
+
 **Not in the source: MIG-01, the back-capture of a paper vehicle file** (የወረቀት ተሽከርካሪ ፋይል ምዝገባ; ADR-0054, task 1.13). The
 migration's own service, in the catalogue beside the 54 and offered wherever DVC-01 is: a vehicle with no electronic record is
 captured from its paper file and verified by a second person before any service acts on it. It is not counted in the totals.

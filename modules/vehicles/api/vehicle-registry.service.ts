@@ -10,7 +10,7 @@
  * transfer ends the open period on the day the next begins.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { insertAudited, newId, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { ConflictError, ForbiddenError, NotFoundError } from '@itrms/kernel/errors';
 import { OrganisationsService, PersonsService } from '@itrms/parties/api';
@@ -193,7 +193,10 @@ export class VehicleRegistry {
         return row;
     }
 
-    /** Ends the open ownership period on the day the new holders' begins. `version` is the vehicle's, as the caller read it. */
+    /**
+     * Ends the open ownership period on the day the new holders' begins, and takes the libre in force out of force with it: it
+     * was written for the owners who no longer hold the vehicle. `version` is the vehicle's, as the caller read it.
+     */
     async transferOwnership(
         tx: Tx,
         ctx: DbContext,
@@ -203,18 +206,127 @@ export class VehicleRegistry {
     ): Promise<VehicleRow> {
         const input = checked(ownershipTransferSchema, given);
         const vehicle = await this.lock(tx, ctx, vehicleId, version);
+        await this.moveOwnership(tx, vehicle, input);
+        return updateAudited(tx, vehicles, vehicleId, version, {});
+    }
+
+    /**
+     * What an ownership transfer to `owners` would meet, without writing (task 1.4b): the vehicle is on the register and in the
+     * caller's scope, the buyers are on the register, and they are not the owners the vehicle already has. Returns the open
+     * period and its holders (the sellers), which a case keeps to see later that nobody moved the vehicle in between.
+     */
+    async checkTransfer(
+        tx: Tx,
+        ctx: DbContext,
+        vehicleId: string,
+        owners: readonly OwnerRef[]
+    ): Promise<{ openPeriodId: string; sellers: OwnerRef[]; vinKey: string }> {
+        const [vehicle] = await tx.select().from(vehicles).where(eq(vehicles.id, vehicleId));
+        if (!vehicle) throw new NotFoundError();
+        if (!withinScope(vehicle.handlingOrgPath, ctx.scopePath ?? ''))
+            throw new ForbiddenError({ detailKey: 'vehicles.errors.other_office' });
+        if (vehicle.status !== 'active')
+            throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.not_on_register' });
+        const open = await this.openPeriod(tx, vehicleId);
+        await this.checkOwners(tx, owners, 'owners');
+        const held = await tx
+            .select()
+            .from(vehicleOwners)
+            .where(eq(vehicleOwners.ownershipId, open.id))
+            .orderBy(asc(vehicleOwners.ordinal));
+        const sellers = held.flatMap((h): OwnerRef[] =>
+            h.personId
+                ? [{ kind: 'person', id: h.personId }]
+                : h.organisationId
+                  ? [{ kind: 'organisation', id: h.organisationId }]
+                  : []
+        );
+        const ids = new Set(sellers.map((s) => s.id));
+        if (owners.length === sellers.length && owners.every((o) => ids.has(o.id)))
+            throw fieldError('owners', 'same_owners', 'are the owners the vehicle already has');
+        return { openPeriodId: open.id, sellers, vinKey: vehicle.vinKey };
+    }
+
+    /**
+     * An ownership transfer of a case (task 1.4b): the period the case's request saw (`expect`) ends, the buyers' begins on the
+     * same day, the libre in force is cancelled and the buyers' libre is issued, with no number until its booklet, pointing at the
+     * one it replaces. A vehicle whose owners changed since the request was filed is a 409. Run again for the same case it returns
+     * what the case made: one period, one libre.
+     */
+    async transferOwnershipWithLibre(
+        tx: Tx,
+        ctx: DbContext,
+        vehicleId: string,
+        given: z.input<typeof ownershipTransferSchema> & { caseId: string },
+        expect: { ownershipId: string }
+    ): Promise<{
+        vehicle: VehicleRow;
+        ownershipId: string;
+        cancelled: typeof libres.$inferSelect | null;
+        libre: typeof libres.$inferSelect;
+    }> {
+        const input = checked(ownershipTransferSchema, given);
+        const caseId = given.caseId;
+        const vehicle = await this.lock(tx, ctx, vehicleId);
+        const [done] = await tx
+            .select()
+            .from(vehicleOwnerships)
+            .where(and(eq(vehicleOwnerships.vehicleId, vehicleId), eq(vehicleOwnerships.caseId, caseId)));
+        if (done) {
+            const [libre] = await tx
+                .select()
+                .from(libres)
+                .where(and(eq(libres.ownershipId, done.id), eq(libres.caseId, caseId)));
+            if (!libre) throw new NotFoundError();
+            const [cancelled] = libre.replacesId
+                ? await tx.select().from(libres).where(eq(libres.id, libre.replacesId))
+                : [];
+            return { vehicle, ownershipId: done.id, cancelled: cancelled ?? null, libre };
+        }
+        const open = await this.openPeriod(tx, vehicleId);
+        if (open.id !== expect.ownershipId)
+            throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.owners_changed' });
+        const { ownershipId, cancelled } = await this.moveOwnership(tx, vehicle, input);
+        await this.recordLibre(tx, ctx, vehicleId, {
+            issuedOn: input.since,
+            caseId,
+            ...(cancelled ? { replacesId: cancelled.id } : {})
+        });
+        const [libre] = await tx
+            .select()
+            .from(libres)
+            .where(and(eq(libres.ownershipId, ownershipId), eq(libres.caseId, caseId)));
+        const [now] = await tx.select().from(vehicles).where(eq(vehicles.id, vehicleId));
+        if (!libre || !now) throw new NotFoundError();
+        return { vehicle: now, ownershipId, cancelled: cancelled ?? null, libre };
+    }
+
+    /** The shared body of a transfer: the open period ends, the new one begins, the libre in force is out of force. */
+    private async moveOwnership(
+        tx: Tx,
+        vehicle: VehicleRow,
+        input: z.output<typeof ownershipTransferSchema>
+    ): Promise<{ ownershipId: string; cancelled: typeof libres.$inferSelect | undefined }> {
         if (vehicle.status !== 'active')
             throw new ConflictError('invalid_transition', {
                 detailKey: 'vehicles.errors.not_on_register'
             });
         notFuture('since', input.since);
-        const open = await this.openPeriod(tx, vehicleId);
+        const open = await this.openPeriod(tx, vehicle.id);
         if (input.since <= open.since)
             throw fieldError('since', 'before_period', 'is not after the current owners took it');
         await this.checkOwners(tx, input.owners, 'owners');
         await updateAudited(tx, vehicleOwnerships, open.id, open.rowVersion, { until: input.since });
-        await this.openOwnership(tx, vehicleId, input);
-        return updateAudited(tx, vehicles, vehicleId, version, {});
+        const ownershipId = await this.openOwnership(tx, vehicle.id, input);
+        // the libre was written for the owners who no longer hold the vehicle (checked at commit: libre_in_force)
+        const [inForce] = await tx
+            .select()
+            .from(libres)
+            .where(and(eq(libres.vehicleId, vehicle.id), eq(libres.status, 'issued')));
+        const cancelled = inForce
+            ? await updateAudited(tx, libres, inForce.id, inForce.rowVersion, { status: 'cancelled' })
+            : undefined;
+        return { ownershipId, cancelled };
     }
 
     /**
@@ -356,6 +468,16 @@ export class VehicleRegistry {
         const issuingUnitId = input.issuingUnitId ?? required(ctx.unitId);
         if (!(await unitRefs(tx, [issuingUnitId])).has(issuingUnitId))
             throw fieldError('issuingUnitId', 'unknown_unit', 'is not a unit of this region');
+        if (input.replacesId) {
+            const [named] = await tx.select().from(libres).where(eq(libres.id, input.replacesId));
+            // the libre in force is replaced by this one without being named; only one already out of force can be pointed at
+            if (!named || named.vehicleId !== vehicleId || named.status === 'issued')
+                throw fieldError(
+                    'replacesId',
+                    'not_replaceable',
+                    'is not a libre of this vehicle that is out of force'
+                );
+        }
         const [current] = await tx
             .select()
             .from(libres)
@@ -371,7 +493,7 @@ export class VehicleRegistry {
                     number: input.number ?? null,
                     issuedOn: input.issuedOn,
                     issuingUnitId,
-                    replacesId: current?.id ?? null,
+                    replacesId: current?.id ?? input.replacesId ?? null,
                     nationalReference: input.nationalReference ?? null,
                     caseId: input.caseId ?? null
                 }),
@@ -559,7 +681,7 @@ export class VehicleRegistry {
         input: Pick<z.infer<typeof ownershipTransferSchema>, 'since' | 'owners' | 'note' | 'caseId'> & {
             acquiredBy: z.infer<typeof ownershipTransferSchema>['acquiredBy'] | 'first_registration';
         }
-    ): Promise<void> {
+    ): Promise<string> {
         const [vehicle] = await tx.select().from(vehicles).where(eq(vehicles.id, vehicleId));
         if (!vehicle) throw new NotFoundError();
         const ownershipId = newId();
@@ -585,5 +707,6 @@ export class VehicleRegistry {
                 ordinal
             });
         }
+        return ownershipId;
     }
 }

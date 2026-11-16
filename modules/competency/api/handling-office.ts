@@ -29,6 +29,16 @@ export async function actForHandlingOffice(tx: Tx, place: CasePlace): Promise<Ca
 }
 
 /**
+ * One request at a time claims a vehicle: two filed at the same moment (a plate exchange and an ownership transfer, say) wait for
+ * each other's transaction here, so the second sees the first's facts in `claimedElsewhere`. Held until the transaction ends.
+ */
+export async function lockVehicleClaim(tx: Tx, vehicleId: string): Promise<void> {
+    await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtextextended(${`competency.vehicle-claim:${vehicleId}`}, 0))`
+    );
+}
+
+/**
  * Whether another open case of the region claims the vehicle: through the reviewed lookup (migration 0073), not the cases the
  * filer's office sees, so that two sibling offices cannot both take a fee and hold a plate for one vehicle.
  */

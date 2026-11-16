@@ -352,7 +352,9 @@ export const libreRecordSchema = z.strictObject({
     issuedOn: isoDate,
     issuingUnitId: z.uuid().optional(),
     nationalReference: z.string().trim().min(1).max(60).optional(),
-    caseId: z.uuid().optional()
+    caseId: z.uuid().optional(),
+    /** a libre of the vehicle already out of force that this one replaces (the one in force is replaced without being named) */
+    replacesId: z.uuid().optional()
 });
 export type LibreRecord = z.infer<typeof libreRecordSchema>;
 

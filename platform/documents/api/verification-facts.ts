@@ -27,6 +27,14 @@ export function factsOf(schema: DocumentDataSchema, data: Record<string, unknown
         // a bolo stands to its temporary last day while it is temporary, else to the fiscal year's: a vehicle's, no person's
         case 'vehicle-bolo.v1':
             return { holder: null, validUntil: text(data.temporaryUntil) ?? text(data.validUntil) };
+        // the letters name the buyers (the people the transfer is for) and stand to their last day
+        case 'vehicle-transfer-letter.v1': {
+            const buyers = Array.isArray(data.buyers) ? data.buyers : [];
+            const names = buyers
+                .map((o) => text((o as { name?: unknown } | null)?.name))
+                .filter((n): n is string => n !== null);
+            return { holder: names.length ? names.join(', ') : null, validUntil: text(data.validUntil) };
+        }
         case 'application-copy.v1':
         case 'exam-result.v1':
             return { holder: null, validUntil: null };

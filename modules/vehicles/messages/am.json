@@ -285,5 +285,6 @@
   "vehicles.errors.encumbrance_vehicle_unknown": "ይህ በመዝገቡ ውስጥ ያለ ተሽከርካሪ አይደለም።",
   "vehicles.errors.encumbrance_holder_unknown": "ባለመብቱ በመዝገቡ ውስጥ ያለ ድርጅት አይደለም።",
   "vehicles.errors.encumbrance_release_before_letter": "የመልቀቂያ ደብዳቤው ቀን ከባለመብቱ ደብዳቤ ቀን በፊት ነው።",
-  "vehicles.errors.encumbrance_file_not_own": "ፋይሉ በእርስዎ የተጫነ አይደለም።"
+  "vehicles.errors.encumbrance_file_not_own": "ፋይሉ በእርስዎ የተጫነ አይደለም።",
+  "vehicles.errors.owners_changed": "የተሽከርካሪው ባለቤቶች ጥያቄው ከቀረበ በኋላ ተለውጠዋል፤ ዝውውሩ በአዲስ ጥያቄ መቅረብ አለበት።"
 }

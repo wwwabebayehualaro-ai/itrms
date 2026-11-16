@@ -254,6 +254,8 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
             'competency.vehicleImports',
             // the plate exchange (task 1.2c), where the office keeps plate stock
             'competency.plateExchanges',
+            // the ownership transfer (task 1.4b), where the office keeps stationery
+            'competency.ownershipTransfers',
             'competency.licences',
             // the bolo inspection (task 1.3a)
             'competency.bolos',
@@ -296,6 +298,8 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
                 'competency.vehicleImports',
                 // the plate exchange (task 1.2c), where the office keeps plate stock
                 'competency.plateExchanges',
+                // the ownership transfer (task 1.4b)
+                'competency.ownershipTransfers',
                 // the bolo inspection (task 1.3a): not a licensing service
                 'competency.bolos',
                 ...REGISTER_AND_STOCK

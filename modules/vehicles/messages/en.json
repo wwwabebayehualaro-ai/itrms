@@ -285,5 +285,6 @@
   "vehicles.errors.encumbrance_vehicle_unknown": "This is not a vehicle of the register.",
   "vehicles.errors.encumbrance_holder_unknown": "The holder is not an organisation of the register.",
   "vehicles.errors.encumbrance_release_before_letter": "The release letter's date is before the date of the holder's letter.",
-  "vehicles.errors.encumbrance_file_not_own": "The file is not one you uploaded."
+  "vehicles.errors.encumbrance_file_not_own": "The file is not one you uploaded.",
+  "vehicles.errors.owners_changed": "The owners of the vehicle changed after the request was filed: the transfer must be filed again."
 }

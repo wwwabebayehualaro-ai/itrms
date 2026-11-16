@@ -68,6 +68,24 @@ export async function setUpCounter(tx: Tx, setup: CounterSetup): Promise<void> {
         });
 }
 
+/** Whether the unit has a counter of this key: what a filing checks, so that a step much later is not the first to find none. */
+export async function counterExists(tx: Tx, key: string, unitId: string): Promise<boolean> {
+    const [found] = await tx
+        .select({ key: numberCounters.key })
+        .from(numberCounters)
+        .where(sql`${numberCounters.unitId} = ${unitId} and ${numberCounters.key} = ${key}`);
+    return found !== undefined;
+}
+
+/** The same check as a refusal: 409 `not_configured` naming the counter. */
+export async function requireCounter(tx: Tx, key: string, unitId: string): Promise<void> {
+    if (!(await counterExists(tx, key, unitId)))
+        throw new ConflictError('not_configured', {
+            detailKey: 'kernel.detail.no_number_series',
+            params: { counter: key }
+        });
+}
+
 /** `{unit}`, `{seq}` or `{seq:06}` (zero-padded), `{efy}`. */
 export function formatNumber(pattern: string, values: { unit: string; seq: bigint; efy: number }): string {
     return pattern.replace(/\{(unit|efy|seq)(?::0(\d))?\}/g, (_, name: string, width?: string) => {

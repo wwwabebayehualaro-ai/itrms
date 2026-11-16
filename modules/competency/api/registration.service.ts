@@ -11,7 +11,7 @@ import { ConflictError, ValidationError } from '@itrms/kernel/errors';
 import { DocumentsService, documentTemplates, issuedDocuments } from '@itrms/documents/api';
 import { StationeryStock } from '@itrms/fees/api';
 import { parseStationeryKey } from '@itrms/fees/contracts';
-import { nextNumber } from '@itrms/kernel/numbering';
+import { nextNumber, requireCounter } from '@itrms/kernel/numbering';
 import { unitRefs } from '@itrms/kernel/org';
 import { organisations, persons } from '@itrms/parties/api';
 import {
@@ -110,6 +110,22 @@ const factId = (facts: Facts, key: string): string => {
     return id;
 };
 
+/** The owners a form's rows name: one person or one organisation in each (the register's own owner references). */
+export function ownersOf(rows: readonly unknown[]): { kind: 'person' | 'organisation'; id: string }[] {
+    return rows.map((row, i) => {
+        const parsed = ownerRowSchema.safeParse(row);
+        const person = parsed.success ? parsed.data.ownerPerson : undefined;
+        const organisation = parsed.success ? parsed.data.ownerOrganisation : undefined;
+        if (!parsed.success || Boolean(person) === Boolean(organisation))
+            throw new ValidationError('validation_failed', {
+                errors: [{ path: `owners.${i}`, code: 'owner_one_of', message: say('competency.rule.ownerOneOf') }]
+            });
+        return person
+            ? { kind: 'person' as const, id: person }
+            : { kind: 'organisation' as const, id: organisation ?? '' };
+    });
+}
+
 @Injectable()
 export class VehicleRegistrationService {
     constructor(
@@ -138,18 +154,7 @@ export class VehicleRegistrationService {
                     message: say('competency.rule.sizeMetres')
                 }))
             });
-        const owners = input.owners.map((row, i) => {
-            const parsed = ownerRowSchema.safeParse(row);
-            const person = parsed.success ? parsed.data.ownerPerson : undefined;
-            const organisation = parsed.success ? parsed.data.ownerOrganisation : undefined;
-            if (!parsed.success || Boolean(person) === Boolean(organisation))
-                throw new ValidationError('validation_failed', {
-                    errors: [{ path: `owners.${i}`, code: 'owner_one_of', message: say('competency.rule.ownerOneOf') }]
-                });
-            return person
-                ? { kind: 'person' as const, id: person }
-                : { kind: 'organisation' as const, id: organisation ?? '' };
-        });
+        const owners = ownersOf(input.owners);
         const given: Record<string, unknown> = {
             owners,
             chassisNumber: input.chassisNumber,
@@ -190,6 +195,8 @@ export class VehicleRegistrationService {
      * owners), and that no other open request is for the same chassis. Nothing is written.
      */
     async check(tx: Tx, place: CasePlace, input: RegistrationInput) {
+        // the certificate is numbered from the office's counter when the vehicle is registered: an office with none finds out now
+        await requireCounter(tx, REGISTRATION_CERTIFICATE_COUNTER, place.handlingUnitId);
         const given = this.registerInput(input, { firstRegisteredOn: addisDay() });
         const vin = parseVin(input.chassisNumber, {
             ...(input.chassisKind === 'other' || input.chassisKind === 'iso3779'
@@ -226,6 +233,8 @@ export class VehicleRegistrationService {
 
     /** The office's next free plate, held for the case so that a registration approved can always be completed. */
     async reservePlate(tx: Tx, place: CasePlace) {
+        // an office that cannot number the certificate finds out here, not at the registration step after the fee is taken
+        await requireCounter(tx, REGISTRATION_CERTIFICATE_COUNTER, place.handlingUnitId);
         const plate = await this.stock.reserve(tx, place.ctx, {
             holderUnitId: place.handlingUnitId,
             caseId: place.caseId,
@@ -356,7 +365,7 @@ export class VehicleRegistrationService {
             caseId: place.caseId
         });
         const templateKey = template || REGISTRATION_CERTIFICATE_TEMPLATE;
-        const issued = await this.certificate(tx, place, libre, templateKey);
+        const issued = await this.issueCertificate(tx, place, libre, templateKey);
         const known = factObject(facts, 'documents') ?? {};
         return {
             libre: { id: libre.id, number: libre.number, template: templateKey },
@@ -429,7 +438,7 @@ export class VehicleRegistrationService {
             number: item.itemKey,
             ...(given.libreNationalReference ? { nationalReference: given.libreNationalReference } : {})
         });
-        const issued = await this.certificate(tx, place, libre, templateKey);
+        const issued = await this.issueCertificate(tx, place, libre, templateKey);
         const known = factObject(facts, 'documents') ?? {};
         return {
             libre: { id: libre.id, number: libre.number, template: templateKey, booklet: item.itemKey },
@@ -446,7 +455,7 @@ export class VehicleRegistrationService {
      * The libre's registration certificate as the vehicle and the libre now stand: issued once, numbered from the office's
      * counter; issued again (the same number) when what it says has changed, the one before saying superseded.
      */
-    private async certificate(tx: Tx, place: CasePlace, libre: typeof libres.$inferSelect, templateKey: string) {
+    async issueCertificate(tx: Tx, place: CasePlace, libre: typeof libres.$inferSelect, templateKey: string) {
         const [standing] = await tx
             .select({ number: issuedDocuments.number, language: issuedDocuments.language })
             .from(issuedDocuments)

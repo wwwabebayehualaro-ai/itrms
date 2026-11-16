@@ -5,7 +5,7 @@
  * registration's effects (VehicleRegistrationService.reservePlate, assignPlate, releasePlate); this adds the check and the federal id.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { currentContext } from '@itrms/kernel/context';
 import type { Tx } from '@itrms/kernel/db';
 import { ConflictError, ValidationError } from '@itrms/kernel/errors';
@@ -14,7 +14,7 @@ import { plateAssignments, plates, vehicles, VehicleRegistry } from '@itrms/vehi
 import { exchangeEntrySchema } from '../contracts';
 import am from '../messages/am.json';
 import en from '../messages/en.json';
-import { actForHandlingOffice, claimedElsewhere } from './handling-office';
+import { actForHandlingOffice, claimedElsewhere, lockVehicleClaim } from './handling-office';
 import type { CasePlace } from './licences.service';
 import { VehicleRegistrationService } from './registration.service';
 
@@ -64,9 +64,7 @@ export class PlateExchangeService {
             return refuse('vehicle', 'no_old_plate', 'competency.rule.exchangeNoOldPlate');
         if (input.use !== vehicle.use) return refuse('use', 'mismatch', 'competency.rule.exchangeUse');
         // two requests for one vehicle filed at the same moment: the second waits for the first's transaction, then sees its facts
-        await tx.execute(
-            sql`select pg_advisory_xact_lock(hashtextextended(${`competency.plate-exchange:${vehicle.id}`}, 0))`
-        );
+        await lockVehicleClaim(tx, vehicle.id);
         // any open exchange of the vehicle in the region, whichever office filed it (task 1.2e)
         if (await claimedElsewhere(tx, place.caseId, { vehicleId: vehicle.id }))
             throw new ValidationError('not_eligible', {
