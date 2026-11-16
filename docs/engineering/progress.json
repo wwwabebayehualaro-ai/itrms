@@ -1821,14 +1821,34 @@
           "notes": "Split from 1.13g on 2026-11-15. Design (2026-11-16): competency.campaigns is RLS class config (the running unit's subtree reads it and the units above; only the subtree writes), campaign_targets class T at the office (a sibling sees the zone's campaign, never another office's target). Counts from typed tables limited by hand to kernel.ctx_scope() and the campaign's subtree (both sources are class R). Assumption: a woreda sees every campaign of the units above it, targeting it or not; the kind's service is not checked when a target is set."
         },
         {
-          "id": "1.4",
-          "title": "Ownership transfer and zone transfer out/in",
+          "id": "1.4a",
+          "title": "Transfers, part 1: encumbrances",
           "status": "planned",
           "branch": null,
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Split from 1.4 on 2026-11-16 (one session each)."
+        },
+        {
+          "id": "1.4b",
+          "title": "Transfers, part 2: ownership transfer",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Split from 1.4 on 2026-11-16 (one session each)."
+        },
+        {
+          "id": "1.4c",
+          "title": "Transfers, part 3: zone transfer out/in",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Split from 1.4 on 2026-11-16 (one session each)."
         },
         {
           "id": "1.5",
@@ -3463,7 +3483,7 @@
     {
       "foundIn": "1.1a",
       "item": "transferOwnership leaves the former owners' libre 'issued' (libres_issued_uq still points at the closed period): the 1.2/1.4 transfer effect must issue or cancel the libre in the same transaction, with a test",
-      "movedTo": "1.4"
+      "movedTo": "1.4b"
     },
     {
       "foundIn": "1.1a",
@@ -3483,7 +3503,7 @@
     {
       "foundIn": "1.1a",
       "item": "Vehicles migrations housekeeping: vehicles_region_vin_idx duplicates vehicles_vin_uq, vehicles_engine_trgm is used by no query; chain triggers do not cover DELETE (itrms_app has no DELETE grant); child rows copy handling_unit_id only on INSERT, a handling-unit change needs a cascade",
-      "movedTo": "1.4"
+      "movedTo": "1.4c"
     },
     {
       "foundIn": "1.1a",
@@ -3499,7 +3519,7 @@
     {
       "foundIn": "1.2a",
       "item": "A stock plate assigned to a vehicle is closed (retired/lost) only within the holder's line (class R on plates): after a vehicle changes handling unit, its new office cannot retire the plate. The transfer effect must hand the assigned plate over (a transfer movement) or close it through the issuing line",
-      "movedTo": "1.4"
+      "movedTo": "1.4c"
     },
     {
       "foundIn": "1.2a",
@@ -3524,7 +3544,7 @@
     {
       "foundIn": "1.2b",
       "item": "Chassis uniqueness for pre-1981 'other' numbers (vehicles_vin_uq on the folded key alone): scope it or add the make",
-      "movedTo": "1.4"
+      "movedTo": "1.4b"
     },
     {
       "foundIn": "1.2b",
@@ -3539,7 +3559,7 @@
     {
       "foundIn": "1.2b",
       "item": "Reviewer L1: the libre counter is created only for units whose type offered DVC-01 at seeding; an office enabled later fails not_configured at the last step. Check the counter at approval, or create counters when a service is enabled for a unit",
-      "movedTo": "1.4"
+      "movedTo": "1.4b"
     },
     {
       "foundIn": "1.2b",
@@ -3588,7 +3608,7 @@
     {
       "foundIn": "1.2b",
       "item": "Discovery 2026-11-11: vehicle encumbrances (bank loan, court order, revenue/customs) block a transfer; not modelled yet",
-      "movedTo": "1.4"
+      "movedTo": "1.4a"
     },
     {
       "foundIn": "1.2b",
@@ -3618,7 +3638,7 @@
     {
       "foundIn": "1.12a",
       "item": "Ownership transfer: valuation by the zone's technical expert (santim), letters to the justice office (authentication, no encumbrance), revenue office (stamp duty on the value) and tax office (code-3 business taxpayer); zone-transfer document with plate history and encumbrances, valid 15 days",
-      "movedTo": "1.4"
+      "movedTo": "1.4a"
     },
     {
       "foundIn": "1.12a",
@@ -3699,7 +3719,7 @@
     {
       "foundIn": "1.2e",
       "item": "An office blocked by a sibling office's open request for the same vehicle cannot see who holds it: a zone view of the open requests that claim a chassis, plate or vehicle (review L5)",
-      "movedTo": "1.4"
+      "movedTo": "1.4c"
     },
     {
       "foundIn": "1.13a",
@@ -3778,7 +3798,7 @@
     {
       "foundIn": "1.13i",
       "item": "The plate-exchange count credits the ended old plate's handling unit and counts any ended_reason 'exchanged' (also a legacy plate replaced by a legacy one): once handling units move (1.4), count the replacing national plate (replaced_by_id, format national) on its since day at its handling unit",
-      "movedTo": "1.4"
+      "movedTo": "1.4c"
     },
     {
       "foundIn": "1.13i",
