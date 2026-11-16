@@ -7,6 +7,7 @@
  */
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { useFileActions } from '@itrms/form-engine/renderer';
 import { ENCUMBRANCE_KINDS, encumbranceRecordSchema, releaseRequestSchema } from '@itrms/vehicles/contracts';
 import {
     Alert,
@@ -21,6 +22,7 @@ import {
     DialogTitle,
     EmptyState,
     EthiopianDatePicker,
+    Input,
     Label,
     StatusBadge,
     Table,
@@ -39,6 +41,7 @@ import { getApiErrorMessage } from '@/lib/api/errors';
 import { useAuthStore } from '@/lib/auth/authStore';
 import {
     useConfirmRelease,
+    useEncumbranceFileLink,
     useRecordEncumbrance,
     useRefuseRelease,
     useRequestRelease,
@@ -63,12 +66,14 @@ function DateField({
     id,
     label,
     value,
-    onChange
+    onChange,
+    min
 }: {
     id: string;
     label: string;
     value: string;
     onChange: (v: string) => void;
+    min?: string;
 }) {
     const { t, language } = useText();
     const calendar = usePreferences((s) => s.calendar);
@@ -80,6 +85,7 @@ function DateField({
                 value={value || null}
                 onChange={(v) => onChange(v ?? '')}
                 language={language === 'en' ? 'en' : 'am'}
+                min={min}
                 max={today()}
                 labels={{
                     placeholder: t('vehicles.encumbrance.pickDate'),
@@ -146,6 +152,15 @@ export function EncumbranceTable({
                                 <TableCell>
                                     {e.letterReference}
                                     <span className="text-muted-foreground ms-2 text-xs">{day(e.letterDate)}</span>
+                                    {e.letterFile && (
+                                        <div>
+                                            <LetterLink
+                                                id={e.id}
+                                                fileId={e.letterFile.id}
+                                                label={t('vehicles.encumbrance.letter')}
+                                            />
+                                        </div>
+                                    )}
                                 </TableCell>
                                 <TableCell>{text({ am: '', en: '', ...e.recordedUnit.name })}</TableCell>
                                 <TableCell>
@@ -157,6 +172,15 @@ export function EncumbranceTable({
                                     {e.status === 'release_pending' && e.releaseRequestedBy && (
                                         <div className="text-muted-foreground text-xs">
                                             {t('vehicles.encumbrance.requestedBy', { name: e.releaseRequestedBy.name })}
+                                        </div>
+                                    )}
+                                    {e.status !== 'open' && e.releaseFile && (
+                                        <div>
+                                            <LetterLink
+                                                id={e.id}
+                                                fileId={e.releaseFile.id}
+                                                label={t('vehicles.encumbrance.releaseLetter')}
+                                            />
                                         </div>
                                     )}
                                     {e.status === 'open' && e.releaseRefusalReason && (
@@ -217,11 +241,56 @@ function Problem({ message }: { message: string | undefined }) {
     );
 }
 
+/** The holder's letter (or release letter) of a hold, as a short-lived link; opening it is on record. */
+function LetterLink({ id, fileId, label }: { id: string; fileId: string; label: string }) {
+    const { t } = useText();
+    const notify = useNotify();
+    const link = useEncumbranceFileLink();
+    return (
+        <Button
+            variant="link"
+            size="sm"
+            className="h-auto p-0"
+            data-letter-link={fileId}
+            disabled={link.isPending}
+            onClick={() =>
+                link.mutate(
+                    { id, fileId },
+                    {
+                        onSuccess: (url) => window.open(url, '_blank', 'noopener'),
+                        onError: (error) =>
+                            notify.error(getApiErrorMessage(error, t('vehicles.encumbrance.openLetterFailed')))
+                    }
+                )
+            }
+        >
+            {label}
+        </Button>
+    );
+}
+
+/** A scan or photo of the letter, sent before the command that names it (the bytes go to the store, not through the API). */
+function LetterUpload({ id, label, onPick }: { id: string; label: string; onPick: (file: File | null) => void }) {
+    return (
+        <div className="flex flex-col gap-2">
+            <Label htmlFor={id}>{label}</Label>
+            <Input
+                id={id}
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/webp"
+                onChange={(e) => onPick(e.target.files?.[0] ?? null)}
+            />
+        </div>
+    );
+}
+
 function RequestDialog({ row, onClose }: { row: Encumbrance; onClose: () => void }) {
     const { t } = useText();
     const notify = useNotify();
+    const { uploadFile } = useFileActions();
     const request = useRequestRelease(row);
     const [problem, setProblem] = useState<string>();
+    const [scan, setScan] = useState<File | null>(null);
     const schema = useMemo(
         () =>
             z.object({
@@ -246,7 +315,10 @@ function RequestDialog({ row, onClose }: { row: Encumbrance; onClose: () => void
                 return;
             }
             try {
-                await request.mutateAsync(parsed.data);
+                const releaseFileId = scan
+                    ? (await uploadFile({ file: scan, documentType: 'encumbrance_letter' })).file_id
+                    : undefined;
+                await request.mutateAsync({ ...parsed.data, releaseFileId });
                 notify.success(t('vehicles.encumbrance.releaseRequested'));
                 onClose();
             } catch (error) {
@@ -272,9 +344,15 @@ function RequestDialog({ row, onClose }: { row: Encumbrance; onClose: () => void
                                 label={t('vehicles.encumbrance.releaseDate')}
                                 value={field.state.value}
                                 onChange={field.handleChange}
+                                min={row.letterDate}
                             />
                         )}
                     </form.Field>
+                    <LetterUpload
+                        id="releaseLetterFile"
+                        label={t('vehicles.encumbrance.releaseLetterFile')}
+                        onPick={setScan}
+                    />
                     <form.AppField name="note">
                         {(f) => <f.TextField label={t('vehicles.encumbrance.note')} />}
                     </form.AppField>
@@ -294,7 +372,8 @@ function RequestDialog({ row, onClose }: { row: Encumbrance; onClose: () => void
 }
 
 function ConfirmDialog({ row, onClose }: { row: Encumbrance; onClose: () => void }) {
-    const { t } = useText();
+    const { t, language } = useText();
+    const calendar = usePreferences((s) => s.calendar);
     const notify = useNotify();
     const confirm = useConfirmRelease(row);
     return (
@@ -304,8 +383,35 @@ function ConfirmDialog({ row, onClose }: { row: Encumbrance; onClose: () => void
                     <DialogTitle>{t('vehicles.encumbrance.confirmRelease')}</DialogTitle>
                     <DialogDescription>{t('vehicles.encumbrance.confirmIntro')}</DialogDescription>
                 </DialogHeader>
-                <div className="text-sm">
-                    {row.releaseReference} · {row.releaseDate}
+                <div className="flex flex-col gap-1 text-sm">
+                    <div>
+                        {t('vehicles.encumbrance.letter')}: {row.letterReference} ·{' '}
+                        {formatDay(row.letterDate, { language, calendar })}
+                        {row.letterFile && (
+                            <>
+                                {' · '}
+                                <LetterLink
+                                    id={row.id}
+                                    fileId={row.letterFile.id}
+                                    label={t('vehicles.encumbrance.letter')}
+                                />
+                            </>
+                        )}
+                    </div>
+                    <div>
+                        {t('vehicles.encumbrance.releaseLetter')}: {row.releaseReference} ·{' '}
+                        {formatDay(row.releaseDate, { language, calendar })}
+                        {row.releaseFile && (
+                            <>
+                                {' · '}
+                                <LetterLink
+                                    id={row.id}
+                                    fileId={row.releaseFile.id}
+                                    label={t('vehicles.encumbrance.releaseLetter')}
+                                />
+                            </>
+                        )}
+                    </div>
                 </div>
                 {confirm.error && (
                     <Problem message={getApiErrorMessage(confirm.error, t('vehicles.encumbrance.actionFailed'))} />
@@ -401,7 +507,9 @@ function RefuseDialog({ row, onClose }: { row: Encumbrance; onClose: () => void 
 export function RecordEncumbrance({ vehicleId }: { vehicleId: string }) {
     const { t, text } = useText();
     const notify = useNotify();
+    const { uploadFile } = useFileActions();
     const [open, setOpen] = useState(false);
+    const [scan, setScan] = useState<File | null>(null);
     const [search, setSearch] = useState('');
     const [problem, setProblem] = useState<string>();
     const found = useOrganisations(search);
@@ -443,7 +551,10 @@ export function RecordEncumbrance({ vehicleId }: { vehicleId: string }) {
                 return;
             }
             try {
-                await record.mutateAsync(parsed.data);
+                const letterFileId = scan
+                    ? (await uploadFile({ file: scan, documentType: 'encumbrance_letter' })).file_id
+                    : undefined;
+                await record.mutateAsync({ ...parsed.data, letterFileId });
                 notify.success(t('vehicles.encumbrance.recorded'));
                 setOpen(false);
             } catch (error) {
@@ -468,7 +579,7 @@ export function RecordEncumbrance({ vehicleId }: { vehicleId: string }) {
                                 {(f) => (
                                     <f.SelectField
                                         label={t('vehicles.encumbrance.kindLabel')}
-                                        placeholder={t('vehicles.encumbrance.pickHolder')}
+                                        placeholder={t('vehicles.encumbrance.pickKind')}
                                         options={ENCUMBRANCE_KINDS.map((k) => ({
                                             value: k,
                                             label: t(`vehicles.encumbrance.kind.${k}`)
@@ -526,6 +637,11 @@ export function RecordEncumbrance({ vehicleId }: { vehicleId: string }) {
                             <form.AppField name="note">
                                 {(f) => <f.TextField label={t('vehicles.encumbrance.note')} />}
                             </form.AppField>
+                            <LetterUpload
+                                id="letterFile"
+                                label={t('vehicles.encumbrance.letterFile')}
+                                onPick={setScan}
+                            />
                             <Problem message={problem} />
                             <DialogFooter>
                                 <Button type="button" variant="outline" onClick={() => setOpen(false)}>

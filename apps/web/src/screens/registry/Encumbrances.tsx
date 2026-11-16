@@ -4,7 +4,7 @@
  * The encumbrances the active office recorded (task 1.4a): releases waiting for a second person first, then the open ones. The
  * office's list is its subtree's; a vehicle's own tab shows every hold on it, whichever office recorded it.
  */
-import { Alert, AlertDescription, PageHeader, Skeleton } from '@itrms/ui';
+import { Alert, AlertDescription, Button, PageHeader, Skeleton } from '@itrms/ui';
 
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { useOfficeEncumbrances } from '@/lib/encumbrances';
@@ -29,6 +29,21 @@ export function Encumbrances() {
             )}
             {(pending.isPending || open.isPending) && <Skeleton className="h-24 w-full" />}
             {pending.data && open.data && <EncumbranceTable items={[...pending.data, ...open.data]} vehicleLink />}
+            {(pending.hasNextPage || open.hasNextPage) && (
+                <div>
+                    <Button
+                        variant="outline"
+                        data-load-more
+                        disabled={pending.isFetchingNextPage || open.isFetchingNextPage}
+                        onClick={() => {
+                            if (pending.hasNextPage) void pending.fetchNextPage();
+                            if (open.hasNextPage) void open.fetchNextPage();
+                        }}
+                    >
+                        {t('vehicles.encumbrance.loadMore')}
+                    </Button>
+                </div>
+            )}
         </div>
     );
 }

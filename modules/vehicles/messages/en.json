@@ -268,6 +268,11 @@
   "vehicles.encumbrance.actionFailed": "The change could not be saved.",
   "vehicles.encumbrance.letter": "Letter",
   "vehicles.encumbrance.releaseLetter": "Release letter",
+  "vehicles.encumbrance.loadMore": "Show more",
+  "vehicles.encumbrance.pickKind": "Choose the kind",
+  "vehicles.encumbrance.letterFile": "Holder's letter (scan or photo)",
+  "vehicles.encumbrance.releaseLetterFile": "Holder's release letter (scan or photo)",
+  "vehicles.encumbrance.openLetterFailed": "The letter could not be opened.",
   "vehicles.errors.encumbered": "This vehicle is under a {kind} held by {holder} (letter {reference}, recorded by {office}){more}; the service cannot go on until the holder releases it.",
   "vehicles.errors.encumbrance_other_office": "Only the office that recorded this encumbrance, or an office above it when confirming, can do this.",
   "vehicles.errors.encumbrance_own_request": "The release must be confirmed by a different person than the one who recorded it.",
@@ -275,5 +280,10 @@
   "vehicles.errors.encumbrance_not_pending": "No release of this encumbrance is waiting for confirmation.",
   "vehicles.errors.encumbrance_vehicle_off_register": "An encumbrance can be recorded only on a vehicle that is on the register.",
   "vehicles.errors.encumbrance_conflict_unknown": "The service names an encumbrance check ({conflict}) that is not configured.",
-  "vehicles.errors.duplicate_encumbrance": "This holder's letter is already recorded for this vehicle."
+  "vehicles.errors.duplicate_encumbrance": "This holder's letter is already recorded for this vehicle.",
+  "vehicles.errors.encumbrance_in_future": "The date is in the future.",
+  "vehicles.errors.encumbrance_vehicle_unknown": "This is not a vehicle of the register.",
+  "vehicles.errors.encumbrance_holder_unknown": "The holder is not an organisation of the register.",
+  "vehicles.errors.encumbrance_release_before_letter": "The release letter's date is before the date of the holder's letter.",
+  "vehicles.errors.encumbrance_file_not_own": "The file is not one you uploaded."
 }

@@ -3804,6 +3804,16 @@
       "foundIn": "1.13i",
       "item": "campaigns.int.spec.ts reads today once at load while the service takes the Addis day per request: a run across Addis midnight can flake; inject a clock into CampaignService.progress if it does",
       "movedTo": "1.16"
+    },
+    {
+      "foundIn": "1.4a",
+      "item": "The encumbrance block exists only where a workflow names vehicles.checkEncumbrances: make ServicesService.publish refuse a version whose giving transition lacks the check (like unpaidGiving) and validate its argument against ENCUMBRANCE_CONFLICTS",
+      "movedTo": "1.4b"
+    },
+    {
+      "foundIn": "1.4a",
+      "item": "A refused release orphans its letter file (linked, never expiring, no longer downloadable): keep the refused letter reachable as history, or unlink and expire it",
+      "movedTo": "1.16"
     }
   ]
 }

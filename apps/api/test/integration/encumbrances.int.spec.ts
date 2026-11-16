@@ -9,6 +9,7 @@
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 
 import { createDatabase, type Database, type DbContext } from '@itrms/kernel/db';
+import { NO_OBJECT_STORE } from '@itrms/kernel/files';
 import { asUnit, contextFor, ISOLATION_CASES, TEST_CONTEXT_KEY, VISIBLE, WRITABLE } from '@itrms/kernel/testing';
 import type { OrgUnit } from '@itrms/kernel/org';
 import { importPlateExchangeService, importVehicleServices } from '@itrms/competency/seed';
@@ -173,6 +174,29 @@ async function refused(work: Promise<unknown>): Promise<string> {
     throw new Error('expected a refusal');
 }
 
+/** A letter `sub` uploaded and had stored at Boditi (a row, as the upload's confirmation leaves it). */
+async function upload(sub: string): Promise<string> {
+    const { rows } = await api.owner.query<{ id: string }>(
+        `insert into kernel.files (id, region_id, unit_id, status, filename, content_type, size, sha256, object_key, confirmed_at,
+                                   origin, created_by, expires_at)
+         select g.id, $1::uuid, $2::uuid, 'stored', 'letter.pdf', 'application/pdf', 10, repeat('a', 64),
+                'files/' || $1::text || '/' || g.id::text, now(), 'upload', $3::uuid, now() + interval '7 days'
+           from (select gen_random_uuid() as id) g
+         returning id`,
+        [boditi.regionId, boditi.id, await api.userId(sub)]
+    );
+    return rows[0]?.id ?? '';
+}
+const holdWithLetter = (vehicleId: string, letterFileId: string, who = as.officer) =>
+    api.call('POST', '/api/v1/encumbrances', who, {
+        vehicleId,
+        kind: 'bank_loan',
+        holderOrganisationId: bank.id,
+        letterReference: letter(),
+        letterDate: '2026-10-01',
+        letterFileId
+    });
+
 // ---- DVC-12 as a bureau would publish it with the check named
 
 const step = (c: CaseOut, who: As, body: object) =>
@@ -287,32 +311,39 @@ const plateGiven = async (vehicleId: string) =>
 
 beforeAll(async () => {
     pg = await startPostgres();
-    api = await startApi(pg, [
+    api = await startApi(
+        pg,
+        [
+            {
+                username: 'test.enc.officer',
+                sub: SUB.officer,
+                region: 'SER',
+                home: 'WOL-BODITI',
+                roles: [
+                    ['WOL-BODITI', 'competency.officer'],
+                    ['WOL-BODITI', 'records_officer']
+                ]
+            },
+            {
+                username: 'test.enc.lead',
+                sub: SUB.lead,
+                region: 'SER',
+                home: 'WOL-BODITI',
+                roles: [['WOL-BODITI', 'competency.lead']]
+            },
+            {
+                username: 'test.enc.trx',
+                sub: SUB.trxClerk,
+                region: 'TRX',
+                home: 'TRX-W1',
+                roles: [['TRX-W1', 'records_officer']]
+            }
+        ],
         {
-            username: 'test.enc.officer',
-            sub: SUB.officer,
-            region: 'SER',
-            home: 'WOL-BODITI',
-            roles: [
-                ['WOL-BODITI', 'competency.officer'],
-                ['WOL-BODITI', 'records_officer']
-            ]
-        },
-        {
-            username: 'test.enc.lead',
-            sub: SUB.lead,
-            region: 'SER',
-            home: 'WOL-BODITI',
-            roles: [['WOL-BODITI', 'competency.lead']]
-        },
-        {
-            username: 'test.enc.trx',
-            sub: SUB.trxClerk,
-            region: 'TRX',
-            home: 'TRX-W1',
-            roles: [['TRX-W1', 'records_officer']]
+            // a letter's link is signed, never fetched: no object behind it is needed
+            objectStore: { ...NO_OBJECT_STORE, presignGet: ({ key }) => Promise.resolve(`https://store.test/${key}`) }
         }
-    ]);
+    );
     app = createDatabase(pg.url('app'), { auditKey: randomBytes(32).toString('hex'), contextKey: TEST_CONTEXT_KEY });
     registry = api.http.get(VehicleRegistry);
     region = await api.unit('SER', 'SER');
@@ -583,6 +614,79 @@ describe('what the database keeps, whatever the writer', () => {
         ).toMatch(/status_fields_check/);
     });
 
+    it('keeps the maker-checker for the app role: no made-up requester, no skipped step, no rewritten evidence', async () => {
+        const open = await recorded((await onTheRoad(boditi)).id, 'bank_loan');
+        // a release asked for in the name of someone else
+        expect(
+            await refused(
+                asUnit(app, boditi, (tx) =>
+                    tx.execute(sql`update vehicles.vehicle_encumbrances
+                        set status = 'release_pending', release_reference = 'R-1', release_date = '2026-10-02',
+                            release_requested_by = ${randomUUID()}, release_requested_at = now()
+                      where id = ${open.id}`)
+                )
+            )
+        ).toMatch(/encumbrance_transition|cannot go from/);
+        // open straight to released, asking and confirming in one statement
+        expect(
+            await refused(
+                asUnit(app, boditi, (tx) =>
+                    tx.execute(sql`update vehicles.vehicle_encumbrances
+                        set status = 'released', release_reference = 'R-1', release_date = '2026-10-02',
+                            release_requested_by = ${randomUUID()}, release_requested_at = now(),
+                            released_by = kernel.ctx_user(), released_at = now()
+                      where id = ${open.id}`)
+                )
+            )
+        ).toMatch(/encumbrance_transition|cannot go from/);
+        expect((await read(open.id)).status).toBe('open');
+
+        // a pending release: the confirmation names the signed user, and changes nothing the request wrote
+        const pending = (await releaseRequest(open, as.officer)).json<Encumbrance>();
+        expect(
+            await refused(
+                asUnit(app, boditi, (tx) =>
+                    tx.execute(sql`update vehicles.vehicle_encumbrances
+                        set status = 'released', released_by = ${randomUUID()}, released_at = now()
+                      where id = ${pending.id}`)
+                )
+            )
+        ).toMatch(/encumbrance_transition|cannot go from/);
+        expect(
+            await refused(
+                asUnit(app, boditi, (tx) =>
+                    tx.execute(sql`update vehicles.vehicle_encumbrances
+                        set status = 'released', release_requested_by = kernel.ctx_user(), released_by = ${randomUUID()},
+                            released_at = now()
+                      where id = ${pending.id}`)
+                )
+            )
+        ).toMatch(/encumbrance_transition|cannot go from|status_fields_check/);
+        expect(
+            await refused(
+                asUnit(app, boditi, (tx) =>
+                    tx.execute(sql`update vehicles.vehicle_encumbrances
+                        set status = 'released', release_reference = 'OTHER-1', released_by = kernel.ctx_user(),
+                            released_at = now()
+                      where id = ${pending.id}`)
+                )
+            )
+        ).toMatch(/encumbrance_transition|cannot go from/);
+        expect((await read(pending.id)).status).toBe('release_pending');
+
+        // a released hold changes no more: its release evidence cannot be rewritten
+        expect((await confirmation(pending, as.lead)).statusCode).toBe(200);
+        expect(
+            await refused(
+                asUnit(app, boditi, (tx) =>
+                    tx.execute(
+                        sql`update vehicles.vehicle_encumbrances set release_note = 'rewritten' where id = ${open.id}`
+                    )
+                )
+            )
+        ).toMatch(/encumbrance_transition|cannot go from/);
+    });
+
     it('takes a hold on a new vehicle only open, and lets an org-unit move rewrite the scope of a released one', async () => {
         const { id } = await onTheRoad(boditi);
         const e = await recorded(id, 'court_order', court);
@@ -602,6 +706,75 @@ describe('what the database keeps, whatever the writer', () => {
                 )
             )
         ).toMatch(/encumbrance_transition|an encumbrance is recorded open/);
+    });
+});
+
+describe('the letters of a hold', () => {
+    it('links the caller’s own stored upload to the hold, in the same request and on record', async () => {
+        const { id } = await onTheRoad(boditi);
+        const fileId = await upload(SUB.officer);
+        const res = await holdWithLetter(id, fileId);
+        expect(res.statusCode, res.body).toBe(201);
+        const e = res.json<Encumbrance>();
+        expect(e.letterFile).toEqual({ id: fileId });
+        const { rows } = await api.owner.query<{ linked_table: string; linked_id: string; expires_at: Date | null }>(
+            'select linked_table, linked_id, expires_at from kernel.files where id = $1',
+            [fileId]
+        );
+        expect(rows[0]).toMatchObject({
+            linked_table: 'vehicles.vehicle_encumbrances',
+            linked_id: e.id,
+            expires_at: null
+        });
+        expect(await auditOf(requestIdOf(res))).toMatchObject({
+            'vehicles.vehicle_encumbrances:insert': 1,
+            'kernel.files:update': 1
+        });
+    });
+
+    it('refuses another person’s upload with 422, and a file already kept by another record with 409', async () => {
+        const { id } = await onTheRoad(boditi);
+        const theirs = await holdWithLetter(id, await upload(SUB.lead));
+        expect(theirs.statusCode, theirs.body).toBe(422);
+        expect(theirs.json<ProblemBody>().errors).toEqual([expect.objectContaining({ path: 'letterFileId' })]);
+        const fileId = await upload(SUB.officer);
+        expect((await holdWithLetter(id, fileId)).statusCode).toBe(201);
+        const again = await holdWithLetter((await onTheRoad(boditi)).id, fileId);
+        expect(again.statusCode, again.body).toBe(409);
+        expect(again.json<ProblemBody>().code).toBe('invalid_transition');
+    });
+
+    it('gives the recording office a short link to a letter, on record, and a sibling office a 404', async () => {
+        const { id } = await onTheRoad(boditi);
+        const letterFile = await upload(SUB.officer);
+        const e = (await holdWithLetter(id, letterFile)).json<Encumbrance>();
+        const link = await api.call('POST', `/api/v1/encumbrances/${e.id}/files/${letterFile}`, as.officer);
+        expect(link.statusCode, link.body).toBe(200);
+        expect(link.json<{ url: string }>().url).toMatch(/^https:\/\/store\.test\//);
+        const { rows } = await api.owner.query<{ n: number }>(
+            "select count(*)::int as n from kernel.audit_log where event_type = 'file.downloaded' and row_id = $1",
+            [letterFile]
+        );
+        expect(rows[0]?.n).toBe(1);
+        // a file that is not a letter of this hold is not found either
+        const other = await upload(SUB.officer);
+        expect((await api.call('POST', `/api/v1/encumbrances/${e.id}/files/${other}`, as.officer)).statusCode).toBe(
+            404
+        );
+        expect(
+            (await api.call('POST', `/api/v1/encumbrances/${e.id}/files/${letterFile}`, as.damotHead)).statusCode
+        ).toBe(404);
+    });
+
+    it('links the release letter when the release is asked for', async () => {
+        const { id } = await onTheRoad(boditi);
+        const e = await recorded(id, 'bank_loan');
+        const releaseFile = await upload(SUB.officer);
+        const asked = await releaseRequest(e, as.officer, { releaseFileId: releaseFile });
+        expect(asked.statusCode, asked.body).toBe(200);
+        expect(asked.json<Encumbrance>().releaseFile).toEqual({ id: releaseFile });
+        const link = await api.call('POST', `/api/v1/encumbrances/${e.id}/files/${releaseFile}`, as.lead);
+        expect(link.statusCode, link.body).toBe(200);
     });
 });
 
@@ -713,6 +886,15 @@ describe('the blocks on the services a hold conflicts with', () => {
             settings: { key: string; own: { version: number } | null }[];
         }>().settings;
         const own = settings.find((s) => s.key === ENCUMBRANCE_BLOCKS_SETTING)?.own;
+        // the floor: no region lets a court order pass a change of owner
+        const lowered = await api.call(
+            'PUT',
+            `/api/v1/org-units/${region.id}/settings/${ENCUMBRANCE_BLOCKS_SETTING}`,
+            as.bureau,
+            { value: { ...DEFAULT_ENCUMBRANCE_BLOCKS, 'ownership-transfer': ['bank_loan'] } },
+            { 'if-match': `"${own?.version ?? 0}"` }
+        );
+        expect(lowered.statusCode, lowered.body).toBe(422);
         const set = await api.call(
             'PUT',
             `/api/v1/org-units/${region.id}/settings/${ENCUMBRANCE_BLOCKS_SETTING}`,

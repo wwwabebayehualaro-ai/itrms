@@ -23,7 +23,9 @@ export default defineModule({
         {
             key: ENCUMBRANCE_BLOCKS_SETTING,
             default: Object.fromEntries(Object.entries(DEFAULT_ENCUMBRANCE_BLOCKS).map(([k, v]) => [k, [...v]])),
-            overridableAt: ['installation', 'region']
+            overridableAt: ['installation', 'region'],
+            // loosening it lets a held vehicle change hands: a change needs a second factor entered in the last 5 minutes
+            sensitive: true
         }
     ],
     // the check a service's workflow names on filing, before its payment order and before the step that gives the result

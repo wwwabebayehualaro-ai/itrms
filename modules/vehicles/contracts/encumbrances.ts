@@ -31,10 +31,13 @@ export const DEFAULT_ENCUMBRANCE_BLOCKS: Record<EncumbranceConflict, Encumbrance
     // a new plate or booklet changes nothing a tax or customs hold protects
     replacement: ['bank_loan', 'court_order']
 };
-export const encumbranceBlocksSchema = z.record(
-    z.enum(ENCUMBRANCE_CONFLICTS),
-    z.array(z.enum(ENCUMBRANCE_KINDS)).max(10)
-);
+/** The floor no region may lower: a court order always stops a change of owner or of zone. */
+const COURT_FLOOR = ['ownership-transfer', 'zone-transfer-out'] as const;
+export const encumbranceBlocksSchema = z
+    .record(z.enum(ENCUMBRANCE_CONFLICTS), z.array(z.enum(ENCUMBRANCE_KINDS)).max(10))
+    .refine((blocks) => COURT_FLOOR.every((conflict) => blocks[conflict]?.includes('court_order') === true), {
+        message: 'a court order must stay among the kinds that block an ownership transfer and a zone transfer out'
+    });
 
 /** The effect a service names to refuse itself while the vehicle is encumbered: `vehicles.checkEncumbrances:<conflict>`. */
 export const ENCUMBRANCE_EFFECTS = { checkEncumbrances: 'vehicles.checkEncumbrances' } as const;

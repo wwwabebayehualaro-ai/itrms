@@ -93,7 +93,9 @@ CREATE TRIGGER "set_org_path" BEFORE INSERT OR UPDATE ON "vehicles"."vehicle_enc
     FOR EACH ROW EXECUTE FUNCTION "kernel"."set_org_path"('recorded_unit_id', 'recorded_org_path');
 --> statement-breakpoint
 -- The machine of contracts/encumbrances.ts: a hold is recorded open; a release is requested (open to release_pending), then
--- confirmed (to released, final) or refused (back to open).
+-- confirmed (to released, final) or refused (back to open). The maker-checker is kept here too, for the app role: the one who
+-- asks is the signed context's user at the recording office, the one who confirms is the signed context's user, and what the
+-- request wrote (reference, date, letter) is what is confirmed; a released hold changes no more.
 CREATE FUNCTION "vehicles"."check_encumbrance_transition"() RETURNS trigger
     LANGUAGE plpgsql
     SET search_path = pg_catalog, pg_temp
@@ -118,6 +120,24 @@ BEGIN
             WHEN OLD.status = 'release_pending' THEN NEW.status IN ('open', 'released')
             ELSE false
         END;
+    -- the release that is confirmed is the one that was asked for
+    IF ok AND OLD.status = 'release_pending' AND NEW.status = 'released' THEN
+        ok := NEW.release_requested_by IS NOT DISTINCT FROM OLD.release_requested_by
+            AND NEW.release_requested_at IS NOT DISTINCT FROM OLD.release_requested_at
+            AND NEW.release_reference IS NOT DISTINCT FROM OLD.release_reference
+            AND NEW.release_date IS NOT DISTINCT FROM OLD.release_date
+            AND NEW.release_file_id IS NOT DISTINCT FROM OLD.release_file_id
+            AND NEW.release_note IS NOT DISTINCT FROM OLD.release_note;
+    END IF;
+    -- whoever the API signed for is the one named: the app role cannot name another person or act for another office
+    IF ok AND current_user = 'itrms_app' THEN
+        IF OLD.status = 'open' AND NEW.status = 'release_pending' THEN
+            ok := coalesce(NEW.release_requested_by = kernel.ctx_user(), false)
+                AND coalesce(NEW.recorded_unit_id = kernel.ctx_unit(), false);
+        ELSIF OLD.status = 'release_pending' AND NEW.status = 'released' THEN
+            ok := coalesce(NEW.released_by = kernel.ctx_user(), false);
+        END IF;
+    END IF;
     IF NOT ok THEN
         RAISE EXCEPTION 'vehicles: encumbrance % cannot go from % to %', OLD.id, OLD.status, NEW.status
             USING ERRCODE = 'check_violation', CONSTRAINT = 'encumbrance_transition';
@@ -128,7 +148,9 @@ $$;
 --> statement-breakpoint
 -- not on the scope column: an org-unit move rewrites every row's recorded_org_path, and a released hold must survive it
 CREATE TRIGGER "encumbrance_transition" BEFORE INSERT OR UPDATE OF "vehicle_id", "recorded_unit_id", "kind",
-    "holder_organisation_id", "letter_reference", "letter_date", "status" ON "vehicles"."vehicle_encumbrances"
+    "holder_organisation_id", "letter_reference", "letter_date", "status", "release_reference", "release_date",
+    "release_file_id", "release_note", "release_requested_by", "release_requested_at", "released_by", "released_at",
+    "release_refusal_reason" ON "vehicles"."vehicle_encumbrances"
     FOR EACH ROW EXECUTE FUNCTION "vehicles"."check_encumbrance_transition"();
 --> statement-breakpoint
 GRANT SELECT, INSERT ON "vehicles"."vehicle_encumbrances" TO itrms_app;

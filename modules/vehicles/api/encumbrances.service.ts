@@ -32,7 +32,7 @@ import {
 } from '../contracts';
 import am from '../messages/am.json';
 import en from '../messages/en.json';
-import { checked, fieldError, guardUnique, notFuture, required, unitRefs, withinScope, type UnitRef } from './support';
+import { checked, fieldError, guardUnique, required, today, unitRefs, withinScope, type UnitRef } from './support';
 import { vehicleEncumbrances, vehicles } from './vehicles.table';
 
 type Row = typeof vehicleEncumbrances.$inferSelect;
@@ -78,17 +78,25 @@ export class EncumbranceService {
         const input = checked(encumbranceRecordSchema, given);
         const regionId = required(ctx.regionId);
         const unitId = required(ctx.unitId);
-        notFuture('letterDate', input.letterDate);
+        if (input.letterDate > today())
+            throw fieldError('letterDate', 'in_future', words('vehicles.errors.encumbrance_in_future'));
         await this.lockVehicle(tx, input.vehicleId);
         const [vehicle] = await tx.select().from(vehicles).where(eq(vehicles.id, input.vehicleId));
-        if (!vehicle) throw fieldError('vehicleId', 'not_found', 'is not a vehicle of the register');
+        if (!vehicle) throw fieldError('vehicleId', 'not_found', words('vehicles.errors.encumbrance_vehicle_unknown'));
         if (vehicle.status !== 'active' && vehicle.status !== 'stolen')
             throw new ValidationError('validation_failed', {
                 detailKey: 'vehicles.errors.encumbrance_vehicle_off_register',
-                errors: [{ path: 'vehicleId', code: 'off_register', message: 'is not on the register' }]
+                errors: [
+                    {
+                        path: 'vehicleId',
+                        code: 'off_register',
+                        message: words('vehicles.errors.encumbrance_vehicle_off_register')
+                    }
+                ]
             });
         const [holder] = await this.organisations.summaries(tx, [input.holderOrganisationId]);
-        if (!holder) throw fieldError('holderOrganisationId', 'not_found', 'is not an organisation of the register');
+        if (!holder)
+            throw fieldError('holderOrganisationId', 'not_found', words('vehicles.errors.encumbrance_holder_unknown'));
         const [same] = await tx
             .select({ id: vehicleEncumbrances.id })
             .from(vehicleEncumbrances)
@@ -142,9 +150,14 @@ export class EncumbranceService {
         guardOffice(row, ctx, 'own');
         if (row.status !== 'open')
             throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.encumbrance_not_open' });
-        notFuture('releaseDate', input.releaseDate);
+        if (input.releaseDate > today())
+            throw fieldError('releaseDate', 'in_future', words('vehicles.errors.encumbrance_in_future'));
         if (input.releaseDate < row.letterDate)
-            throw fieldError('releaseDate', 'before_letter', "is before the date of the holder's letter");
+            throw fieldError(
+                'releaseDate',
+                'before_letter',
+                words('vehicles.errors.encumbrance_release_before_letter')
+            );
         if (input.releaseFileId) await this.ownUpload(tx, ctx, input.releaseFileId, 'releaseFileId');
         const updated = await updateAudited(tx, vehicleEncumbrances, id, version, {
             status: 'release_pending',
@@ -198,7 +211,7 @@ export class EncumbranceService {
     }
 
     /**
-     * Holds, newest first. Without a vehicle: the ones recorded in the caller's subtree (the office's list); of one vehicle:
+     * Holds, newest first (pending releases: oldest first). Without a vehicle: the ones recorded in the caller's subtree (the office's list); of one vehicle:
      * all of them, as the whole region reads the register.
      */
     async list(
@@ -206,19 +219,29 @@ export class EncumbranceService {
         given: z.input<typeof encumbranceListQuerySchema>
     ): Promise<{ items: Encumbrance[]; nextCursor: string | null }> {
         const query = checked(encumbranceListQuerySchema, given);
+        // releases waiting for a second person: the oldest hold first, so none is left at the bottom; the rest, newest first
+        const oldestFirst = query.status === 'release_pending';
         const conditions: (SQL | undefined)[] = [
             query.vehicleId
                 ? eq(vehicleEncumbrances.vehicleId, query.vehicleId)
                 : // the signed scope, never a setting the request could have set
                   sql`${vehicleEncumbrances.recordedOrgPath} <@ (select kernel.ctx_scope())`,
             query.status ? eq(vehicleEncumbrances.status, query.status) : undefined,
-            query.after ? lt(vehicleEncumbrances.id, query.after) : undefined
+            query.after
+                ? oldestFirst
+                    ? sql`(${vehicleEncumbrances.createdAt}, ${vehicleEncumbrances.id}) > (select c.created_at, c.id from vehicles.vehicle_encumbrances c where c.id = ${query.after})`
+                    : lt(vehicleEncumbrances.id, query.after)
+                : undefined
         ];
         const rows = await tx
             .select()
             .from(vehicleEncumbrances)
             .where(and(...conditions))
-            .orderBy(desc(vehicleEncumbrances.id))
+            .orderBy(
+                ...(oldestFirst
+                    ? [asc(vehicleEncumbrances.createdAt), asc(vehicleEncumbrances.id)]
+                    : [desc(vehicleEncumbrances.id)])
+            )
             .limit(query.limit + 1);
         const page = rows.slice(0, query.limit);
         return {
@@ -369,7 +392,8 @@ export class EncumbranceService {
             if (error instanceof NotFoundError) return undefined;
             throw error;
         });
-        if (!file || file.createdBy !== ctx.userId) throw fieldError(path, 'not_found', 'is not a file you uploaded');
+        if (!file || file.createdBy !== ctx.userId)
+            throw fieldError(path, 'not_found', words('vehicles.errors.encumbrance_file_not_own'));
     }
 
     private async holders(tx: Tx, rows: readonly Row[]): Promise<Map<string, Record<string, string>>> {

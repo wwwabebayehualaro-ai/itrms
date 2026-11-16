@@ -5,7 +5,7 @@
  * commands the screens make (record, request release, confirm, refuse), through the BFF. A change refreshes every vehicle read,
  * as the record, the search and the banner all show what a vehicle carries.
  */
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
     Encumbrance,
     EncumbranceRecord,
@@ -37,13 +37,33 @@ export function useVehicleEncumbrances(vehicleId: string) {
     });
 }
 
-/** The holds the active office's subtree recorded, in one status. */
+/** The holds the active office's subtree recorded, in one status, a page at a time (`fetchNextPage` while `hasNextPage`). */
 export function useOfficeEncumbrances(status: EncumbranceStatus) {
-    return useQuery({
+    return useInfiniteQuery({
         queryKey: encumbranceKeys.list({ office: true, status }),
-        queryFn: async ({ signal }) =>
-            (await client.get<EncumbranceList>('v1/encumbrances', { params: { status, limit: 100 }, signal })).data
-                .items
+        initialPageParam: undefined as string | undefined,
+        queryFn: async ({ pageParam, signal }) =>
+            (
+                await client.get<EncumbranceList>('v1/encumbrances', {
+                    params: { status, limit: 50, after: pageParam },
+                    signal
+                })
+            ).data,
+        getNextPageParam: (last) => last.nextCursor ?? undefined,
+        select: (data) => data.pages.flatMap((page) => page.items)
+    });
+}
+
+/** A short-lived link to the holder's letter or release letter of a hold (the download is on record). */
+export function useEncumbranceFileLink() {
+    return useMutation({
+        mutationFn: async (input: { id: string; fileId: string }) =>
+            (
+                await client.post<{ url: string; expiresAt: string }>(
+                    `v1/encumbrances/${input.id}/files/${input.fileId}`,
+                    {}
+                )
+            ).data.url
     });
 }
 

@@ -29,6 +29,10 @@ Encumbrances on vehicles (task 1.4a, permissions `encumbrance:read`, `encumbranc
 `competency.lead` read, record and release (request the release in the recording office; confirm another person's request);
 `unit_head` reads and confirms the release of what an office below recorded; `competency.inspector` and `auditor` read. Nobody
 confirms a release they asked for (SEC-AC-6).
+`encumbrance:release` covers asking for a release, confirming it and refusing it: a unit head of the recording office may ask,
+and never confirms a release they asked for themselves. Every reader of the vehicle register (`vehicle:read`) sees the open
+holds of a vehicle (kind, holder, letter date, recording office) on its record, in the search and in the lookup (the task text:
+a hold must be seen before a service is tried). To revisit before partner accounts read the register (ADR-0053).
 
 ### Work-process roles
 For each process `p`, `p.officer` handles cases and `p.lead` decides the steps that need a lead or director. Rows marked

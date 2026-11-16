@@ -68,6 +68,17 @@ describe('the default matrix of blocks', () => {
         ).toBe(false);
         expect(encumbranceBlocksSchema.safeParse({ replacement: ['bank_loan'] }).success).toBe(false);
     });
+
+    it('keeps a court order among the blocks of a transfer of owner and of zone, whatever a region sets', () => {
+        const without = (conflict: 'ownership-transfer' | 'zone-transfer-out') =>
+            encumbranceBlocksSchema.safeParse({ ...DEFAULT_ENCUMBRANCE_BLOCKS, [conflict]: ['bank_loan'] }).success;
+        expect(without('ownership-transfer')).toBe(false);
+        expect(without('zone-transfer-out')).toBe(false);
+        // a replacement may drop any kind, the court order included
+        expect(encumbranceBlocksSchema.safeParse({ ...DEFAULT_ENCUMBRANCE_BLOCKS, replacement: [] }).success).toBe(
+            true
+        );
+    });
 });
 
 describe('the refusal in both languages', () => {
