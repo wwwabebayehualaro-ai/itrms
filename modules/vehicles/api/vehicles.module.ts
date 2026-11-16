@@ -2,6 +2,9 @@ import { Inject, Module, type OnModuleInit } from '@nestjs/common';
 import { FormsModule, RegistryLookups } from '@itrms/forms/api';
 import { PartiesModule } from '@itrms/parties/api';
 
+import { ENCUMBRANCE_EFFECTS_LIST } from './encumbrance.effects';
+import { EncumbrancesController } from './encumbrances.controller';
+import { EncumbranceService } from './encumbrances.service';
 import { VehicleLookup } from './lookups';
 import { PlateStockController } from './plate-stock.controller';
 import { PlateStock } from './plate-stock.service';
@@ -11,13 +14,21 @@ import { VehiclesService } from './vehicles.service';
 
 /**
  * The vehicle register (task 1.1a). Other slices read vehicles through VehiclesService and change them through
- * VehicleRegistry in their effects (a plate from the stock: VehicleRegistry.assignStockPlate, task 1.2a); forms pick a vehicle through the lookup provider registered here.
+ * VehicleRegistry in their effects (a plate from the stock: VehicleRegistry.assignStockPlate, task 1.2a); the holds on a vehicle are
+ * EncumbranceService (task 1.4a), whose check a service's workflow names as an effect; forms pick a vehicle through the lookup provider registered here.
  */
 @Module({
     imports: [FormsModule, PartiesModule],
-    controllers: [VehiclesController, VehicleCategoriesController, PlateStockController],
-    providers: [VehiclesService, VehicleRegistry, VehicleLookup, PlateStock],
-    exports: [VehiclesService, VehicleRegistry, PlateStock]
+    controllers: [VehiclesController, VehicleCategoriesController, PlateStockController, EncumbrancesController],
+    providers: [
+        VehiclesService,
+        VehicleRegistry,
+        VehicleLookup,
+        PlateStock,
+        EncumbranceService,
+        ...ENCUMBRANCE_EFFECTS_LIST
+    ],
+    exports: [VehiclesService, VehicleRegistry, PlateStock, EncumbranceService]
 })
 export class VehiclesModule implements OnModuleInit {
     constructor(

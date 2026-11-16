@@ -401,6 +401,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/encumbrances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["EncumbrancesController_list"];
+        put?: never;
+        post: operations["EncumbrancesController_record"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/encumbrances/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["EncumbrancesController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/encumbrances/{id}/files/{fileId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["EncumbrancesController_file"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/encumbrances/{id}/release-confirmation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["EncumbrancesController_confirmRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/encumbrances/{id}/release-refusal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["EncumbrancesController_refuseRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/encumbrances/{id}/release-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["EncumbrancesController_requestRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/external-issuers": {
         parameters: {
             query?: never;
@@ -3202,7 +3298,7 @@ export interface components {
             /** @enum {string} */
             contentType: "application/pdf" | "image/jpeg" | "image/png" | "image/webp";
             /** @enum {string} */
-            documentType?: "id_card" | "fayda_card" | "photo" | "medical_certificate" | "libre_copy" | "bolo_certificate" | "driver_licence_copy" | "training_certificate" | "education_certificate" | "tin_certificate" | "trade_licence" | "contract" | "design_drawing" | "payment_receipt" | "letter" | "paper_file_scan" | "other";
+            documentType?: "id_card" | "fayda_card" | "photo" | "medical_certificate" | "libre_copy" | "bolo_certificate" | "driver_licence_copy" | "training_certificate" | "education_certificate" | "tin_certificate" | "trade_licence" | "contract" | "design_drawing" | "payment_receipt" | "letter" | "paper_file_scan" | "encumbrance_letter" | "other";
             filename: string;
             sha256: string;
             size: number;
@@ -3448,7 +3544,7 @@ export interface components {
                 unitId: string;
             };
             /** @enum {string} */
-            kind: "association" | "training_school" | "contractor" | "consultant" | "garage" | "insurer" | "health_facility" | "government_office" | "other";
+            kind: "association" | "training_school" | "contractor" | "consultant" | "garage" | "insurer" | "health_facility" | "government_office" | "bank" | "court" | "other";
             licenceNumber?: string;
             name: {
                 am: string;
@@ -3464,7 +3560,7 @@ export interface components {
                 unitId: string;
             } | null;
             /** @enum {string} */
-            kind?: "association" | "training_school" | "contractor" | "consultant" | "garage" | "insurer" | "health_facility" | "government_office" | "other";
+            kind?: "association" | "training_school" | "contractor" | "consultant" | "garage" | "insurer" | "health_facility" | "government_office" | "bank" | "court" | "other";
             licenceNumber?: string | null;
             name?: {
                 am: string;
@@ -3639,6 +3735,21 @@ export interface components {
             receivedOn: string;
             reference: string;
         };
+        RecordDto: {
+            amountSantim?: string;
+            /** Format: uuid */
+            holderOrganisationId: string;
+            /** @enum {string} */
+            kind: "bank_loan" | "court_order" | "revenue_hold" | "customs_hold" | "insurance_hold";
+            /** Format: date */
+            letterDate: string;
+            /** Format: uuid */
+            letterFileId?: string;
+            letterReference: string;
+            note?: string;
+            /** Format: uuid */
+            vehicleId: string;
+        };
         RefDecisionDto: {
             /** @enum {string} */
             decision: "verified" | "rejected";
@@ -3654,6 +3765,17 @@ export interface components {
         };
         RefRevocationDto: {
             reason: string;
+        };
+        ReleaseRefusalDto: {
+            reason: string;
+        };
+        ReleaseRequestDto: {
+            note?: string;
+            /** Format: date */
+            releaseDate: string;
+            /** Format: uuid */
+            releaseFileId?: string;
+            releaseReference: string;
         };
         RenameUnitDto: {
             name: {
@@ -4698,6 +4820,153 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EncumbrancesController_list: {
+        parameters: {
+            query?: {
+                vehicleId?: string;
+                status?: "open" | "release_pending" | "released";
+                after?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EncumbrancesController_record: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EncumbrancesController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EncumbrancesController_file: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                fileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EncumbrancesController_confirmRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EncumbrancesController_refuseRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseRefusalDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EncumbrancesController_requestRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseRequestDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {

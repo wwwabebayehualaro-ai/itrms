@@ -110,6 +110,8 @@ export const DOCUMENT_TYPES = [
     'letter',
     /** a scanned paper file of the backlog (ADR-0054): a back-capture's or a bulk import's */
     'paper_file_scan',
+    /** a holder's letter that puts a hold on a vehicle, or releases it (task 1.4a) */
+    'encumbrance_letter',
     'other'
 ] as const;
 

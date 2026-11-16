@@ -11,7 +11,9 @@ import { z } from 'zod';
 
 import { CHASSIS_KINDS, VIN_CHECKS } from './vin';
 import { DEFAULT_LEGACY_PLATE_REGIONS, foldPlate, PLATE_FORMATS } from './plate';
+import { ENCUMBRANCE_BLOCKS_SETTING, encumbranceBlocksSchema, openEncumbranceSchema } from './encumbrances';
 
+export * from './encumbrances';
 export * from './plate';
 export * from './plate-stock';
 export * from './vin';
@@ -74,7 +76,8 @@ export const VEHICLES_SETTINGS = {
                     .max(10)
             })
         )
-        .max(60)
+        .max(60),
+    [ENCUMBRANCE_BLOCKS_SETTING]: encumbranceBlocksSchema
 } as const;
 export { DEFAULT_LEGACY_PLATE_REGIONS };
 
@@ -167,6 +170,8 @@ export const vehicleSummarySchema = z.object({
     owners: z.array(holderSchema),
     handlingUnit: unitRefSchema,
     migration: migrationSchema.nullable(),
+    /** the encumbrances not yet released (task 1.4a): a hold the holder has not lifted */
+    encumbrances: z.array(openEncumbranceSchema),
     /** how the search found it (a search only) */
     matched: z.enum(VEHICLE_MATCHES).nullable()
 });

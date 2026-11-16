@@ -59,6 +59,16 @@ they are relied on.
       value, authentication of the sale contract by the justice office, and business-tax registration for commercial
       (code 3) vehicles.
 
+  - **Encumbrances on a vehicle (task 1.4a): stated assumptions, to confirm with a bureau.**
+    - *Bank lien:* a bank that lends against a vehicle keeps the libre until it sends its release letter; no ownership transfer
+      or move to another zone happens before. The recording office acts for the bank on its letter.
+    - *Court order (ዕግድ):* a court's order stops the transfer or sale until the court lifts it by a letter.
+    - *Revenue hold:* a tax lien of the revenue authority for unpaid tax (Proclamation 983/2016, Income Tax).
+    - *Customs hold:* duty unpaid, or a duty-free import that may not be sold before the period or the authority's approval
+      (Proclamation 859/2014, Customs).
+    - Which of them stops a plate or libre replacement is a setting (`vehicles.encumbrance_blocks`); the shipped default blocks
+      a replacement only for a bank loan and a court order.
+
 ## 3. Driver licensing and traffic penalties are being centralised ⚠️
 
 - Licences fall under **Proclamation 1074/2018** (drivers' qualification certification licence, replacing 600/2008).

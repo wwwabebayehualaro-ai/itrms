@@ -121,6 +121,8 @@
   "parties.kind.insurer": "Insurer",
   "parties.kind.health_facility": "Health facility",
   "parties.kind.government_office": "Government office",
+  "parties.kind.bank": "Bank",
+  "parties.kind.court": "Court",
   "parties.kind.other": "Other",
   "parties.role.chair": "Chair",
   "parties.role.secretary": "Secretary",

@@ -217,6 +217,9 @@ export const ORGANISATION_KINDS = [
     'insurer',
     'health_facility',
     'government_office',
+    // the holders of an encumbrance on a vehicle (task 1.4a)
+    'bank',
+    'court',
     'other'
 ] as const;
 export const MEMBER_ROLES = ['chair', 'secretary', 'treasurer', 'manager', 'owner', 'member'] as const;

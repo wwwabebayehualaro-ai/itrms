@@ -48,7 +48,7 @@ import parties from '@itrms/parties/manifest';
 import partiesAm from '@itrms/parties/messages/am';
 import partiesEn from '@itrms/parties/messages/en';
 import partiesWal from '@itrms/parties/messages/wal-Latn';
-import { VehiclesModule } from '@itrms/vehicles/api';
+import { ENCUMBRANCE_EFFECTS_LIST, VehiclesModule } from '@itrms/vehicles/api';
 import { VEHICLES_SETTINGS } from '@itrms/vehicles/contracts';
 import vehicles from '@itrms/vehicles/manifest';
 import vehiclesAm from '@itrms/vehicles/messages/am';
@@ -123,6 +123,7 @@ export const SLICES: ApiSlice[] = [
     {
         manifest: vehicles,
         module: VehiclesModule,
+        effects: effectKeys([...ENCUMBRANCE_EFFECTS_LIST]),
         settings: VEHICLES_SETTINGS,
         messages: { am: vehiclesAm, en: vehiclesEn, 'wal-Latn': vehiclesWal }
     },
