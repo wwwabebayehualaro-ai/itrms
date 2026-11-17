@@ -3981,6 +3981,11 @@
       "foundIn": "1.4c",
       "item": "A standing release has no cancel path: an owner who changes their mind after DVC-14 is released waits out the release's days; give DVC-14 a revoke step, or let the source expire its own release while no DVC-15 is filed (reviewer, low)",
       "movedTo": "1.4c2"
+    },
+    {
+      "foundIn": "1.4c",
+      "item": "pnpm audit: picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf, ReDoS on repeated extglobs, high) has no fixed release; reached only at build, lint and dev time through eslint-config-next, next-intl's watcher and glob helpers, on the repository's own patterns. Ignored in pnpm-workspace.yaml auditConfig: remove the ignore and pin picomatch when a fix ships",
+      "movedTo": "watch (dependency update)"
     }
   ]
 }
