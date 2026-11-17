@@ -62,5 +62,6 @@ one, write a new ADR that supersedes it. Format: context, decision, consequences
 | [0055](0055-case-scoped-document-reading.md) | Case-scoped document reading (`issued-document:read-case`) through a workflow port, widened office-wide by a region setting | accepted (2026-11-17) |
 | [0056](0056-counters-on-enable.md) | Request code sets up a fresh counter (key, unit, pattern only) when an office is created or given a service, from the manifests' `numberSequences` and `countersRequired` | accepted (2026-11-17) |
 | [0057](0057-vehicle-transfer-between-offices.md) | A vehicle moves between offices by linked cases (handling unit changes) and between regions by a QR-verifiable transfer document; validity, re-inspection, plate exchange, covering letter and fee are configuration | accepted (2026-11-17) |
+| [0058](0058-vehicle-transferred-out.md) | A vehicle transferred out of the region keeps its records and only reads transferred out; a lapsed transfer document is undone only by a case at the sending office | accepted (2026-11-17) |
 
 All tool choices and the answers to the technical open questions: [`../tech-stack.md`](../tech-stack.md).
