@@ -447,6 +447,18 @@ export class VehicleTransferService {
             documentNumber: string | null;
         }
     ) {
+        const [standing] = await tx
+            .select({ document: issuedDocuments })
+            .from(issuedDocuments)
+            .innerJoin(documentTemplates, eq(documentTemplates.id, issuedDocuments.templateId))
+            .where(
+                and(
+                    eq(documentTemplates.key, VEHICLE_TRANSFER_COVERING_LETTER_TEMPLATE),
+                    eq(issuedDocuments.subjectId, handover.id),
+                    isNull(issuedDocuments.supersededBy)
+                )
+            );
+        if (standing) return standing.document;
         const language = currentContext()?.language === 'en' ? 'en' : 'am';
         const vehicle = await this.vehicleRecords.get(tx, given.vehicleId);
         const holders = vehicle.ownerships.find((o) => o.id === handover.ownershipId)?.holders ?? [];
@@ -510,14 +522,16 @@ export class VehicleTransferService {
         const [bolo] = await tx
             .select()
             .from(bolos)
-            .where(and(eq(bolos.vehicleId, vehicleId), ne(bolos.status, 'void')))
+            .where(and(eq(bolos.vehicleId, vehicleId), inArray(bolos.status, ['valid', 'temporary'])))
             .orderBy(desc(bolos.validUntil))
             .limit(1);
         if (!bolo) return null;
+        // a sticker given after a temporary bolo keeps the temporary day on its row: the status says which day stands
+        const temporary = bolo.status === 'temporary';
         return {
             serial: bolo.stickerKey,
-            validUntil: bolo.temporaryUntil ?? bolo.validUntil,
-            temporary: bolo.status === 'temporary'
+            validUntil: temporary ? (bolo.temporaryUntil ?? bolo.validUntil) : bolo.validUntil,
+            temporary
         };
     }
 

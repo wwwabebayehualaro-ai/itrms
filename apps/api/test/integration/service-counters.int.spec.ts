@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Counters on enable (task 1.4b4, ADR-0056), on a real PostgreSQL 16 through the API: an office created with a type gets the
  * counters its services and its capabilities need, an office given a service later gets that service's, in the same
  * transaction and on record; a counter it has is never touched. And the grant behind it: request code may insert a fresh
@@ -80,22 +80,24 @@ describe('an office created with a type', () => {
             kind: 'town_admin',
             levelKey: 'town',
             code,
-            name: { am: 'የሙከራ ከተማ', en: 'Trial town' },
+            name: { am: 'á‹¨áˆ™áŠ¨áˆ« áŠ¨á‰°áˆ›', en: 'Trial town' },
             category: 'f1',
             unitTypeId: type?.id
         });
         expect(created.statusCode, created.body).toBe(201);
         const id = created.json<{ id: string }>().id;
-        // DVC-01 and DVC-13 the certificate, DVC-13 the letters, DVC-02 the temporary bolo, DVC-03 the licence; it collects cash
+        // DVC-01 and DVC-13 the certificate, DVC-13 the letters, DVC-14 the transfer document, DVC-02 the temporary bolo, DVC-03
+        // the licence; it collects cash
         expect(await countersOf(id)).toEqual([
             { key: 'competency.licence', pattern: '{unit}/DL/{seq:06}', last_value: '0', period: '' },
             { key: 'competency.temporary-bolo', pattern: '{unit}/TB/{seq:05}', last_value: '0', period: '' },
+            { key: 'competency.transfer-document', pattern: '{unit}/VT/{seq:05}/{efy}', last_value: '0', period: '' },
             { key: 'competency.transfer-letter', pattern: '{unit}/OT/{seq:05}/{efy}', last_value: '0', period: '' },
             { key: 'fees.receipt', pattern: '{unit}/{seq:06}/{efy}', last_value: '0', period: '' },
             { key: 'vehicles.registration-certificate', pattern: '{unit}/RC/{seq:06}', last_value: '0', period: '' }
         ]);
         const events = await setUpEvents(id);
-        expect(events).toHaveLength(5);
+        expect(events).toHaveLength(6);
         for (const e of events) {
             expect(e.because).toBe('unit_created');
             expect(e.actor_id).not.toBeNull();
@@ -113,7 +115,7 @@ describe('an office created with a type', () => {
             kind: 'town_admin',
             levelKey: 'town',
             code,
-            name: { am: 'የሙከራ ከተማ', en: 'Trial town' },
+            name: { am: 'á‹¨áˆ™áŠ¨áˆ« áŠ¨á‰°áˆ›', en: 'Trial town' },
             category: 'f1',
             unitTypeId: type?.id
         });
@@ -175,7 +177,7 @@ describe('an office given a service later', () => {
 });
 
 describe('a register taken over at an office given the service', () => {
-    it('continues from the paper register’s start in its year, the counter made at 0 not yet used', async () => {
+    it('continues from the paper registerâ€™s start in its year, the counter made at 0 not yet used', async () => {
         const given = await api.call(
             'PUT',
             `/api/v1/org-units/${damot.id}/services/DVC-13`,

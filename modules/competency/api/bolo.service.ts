@@ -368,6 +368,7 @@ export class BoloService {
     async issueSticker(tx: Tx, at: CasePlace, facts: Facts, answers: unknown) {
         const place = await actForHandlingOffice(tx, at);
         const bolo = await this.boloOf(tx, facts);
+        await this.stillOnTheRegister(tx, bolo.vehicleId);
         const named =
             isRecord(answers) && typeof answers.stickerSerial === 'string' ? answers.stickerSerial.trim() : '';
         const item = await this.stationery.use(tx, place.ctx, {
@@ -401,9 +402,20 @@ export class BoloService {
      * the office's counter, it stands for the office's `competency.bolo_temporary_days` (30 by default), never past the bolo's own
      * last day. Issued once: run again it returns the same one; once the sticker is given it is refused.
      */
+    /**
+     * A sticker or a temporary bolo goes only to a vehicle still on the register: one that left the region since its inspection
+     * (ADR-0058) keeps its records, but no service acts on it.
+     */
+    private async stillOnTheRegister(tx: Tx, vehicleId: string): Promise<void> {
+        const [vehicle] = await tx.select({ status: vehicles.status }).from(vehicles).where(eq(vehicles.id, vehicleId));
+        if (vehicle?.status !== 'active')
+            throw new ConflictError('invalid_transition', { detailKey: 'competency.rule.boloNotActive' });
+    }
+
     async issueTemporary(tx: Tx, at: CasePlace, facts: Facts) {
         const place = await actForHandlingOffice(tx, at);
         const bolo = await this.boloOf(tx, facts);
+        await this.stillOnTheRegister(tx, bolo.vehicleId);
         if (bolo.status === 'valid')
             throw new ConflictError('invalid_transition', { detailKey: 'competency.rule.boloStickerGiven' });
         if (

@@ -211,6 +211,8 @@ async function supersedeSeededForm(
     const hash = contentHash(form.document);
     // nosemgrep: ajinabraham.njsscan.crypto.timing_attack_node.node_timing_attack -- a content hash of a seeded form, not a secret
     if (live.contentHash === hash) return undefined;
+    // the definition's document is the designer's working draft: a bureau's unpublished edit is never overwritten
+    if (definition.documentHash !== live.contentHash) return undefined;
     const [last] = await tx
         .select({ number: formVersions.number })
         .from(formVersions)

@@ -46,3 +46,72 @@ CREATE TRIGGER "handover_transition" BEFORE INSERT OR UPDATE OF "status", "vehic
     "in_case_id", "received_on", "received_by"
     ON "vehicles"."vehicle_handovers"
     FOR EACH ROW EXECUTE FUNCTION "vehicles"."check_handover_transition"();
+--> statement-breakpoint
+-- Hand-written (task 1.4c2, ADR-0058): the ownership chain of 0064 closed every period of a vehicle that left the region. A vehicle
+-- transferred out now keeps its owners as they were, so it may keep its one open period; one transferred out before kept none.
+CREATE OR REPLACE FUNCTION "vehicles"."check_ownership_chain"() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path = pg_catalog, pg_temp
+AS $$
+DECLARE
+    v_id uuid;
+    v_status text;
+    v_first date;
+    periods integer;
+    open_periods integer;
+    wanted_open integer;
+    first_since date;
+BEGIN
+    IF TG_TABLE_NAME = 'vehicles' THEN
+        v_id := NEW.id;
+    ELSIF TG_TABLE_NAME = 'vehicle_ownerships' THEN
+        v_id := NEW.vehicle_id;
+    ELSE
+        SELECT o.vehicle_id INTO v_id FROM vehicles.vehicle_ownerships o WHERE o.id = NEW.ownership_id;
+    END IF;
+    SELECT v.status, v.first_registered_on INTO v_status, v_first FROM vehicles.vehicles v WHERE v.id = v_id;
+    IF NOT FOUND THEN
+        RETURN NULL;
+    END IF;
+    SELECT count(*), count(*) FILTER (WHERE o.until IS NULL), min(o.since)
+      INTO periods, open_periods, first_since
+      FROM vehicles.vehicle_ownerships o WHERE o.vehicle_id = v_id;
+    IF periods = 0 THEN
+        RAISE EXCEPTION 'vehicles: vehicle % has no owners on record', v_id
+            USING ERRCODE = 'check_violation', CONSTRAINT = 'ownership_chain';
+    END IF;
+    -- transferred out keeps its period open (ADR-0058, task 1.4c2), as stolen does; one taken out before kept none
+    wanted_open := CASE WHEN v_status IN ('active', 'stolen') THEN 1 ELSE 0 END;
+    IF v_status = 'transferred_out' AND open_periods <= 1 THEN
+        wanted_open := open_periods;
+    END IF;
+    IF open_periods <> wanted_open THEN
+        RAISE EXCEPTION 'vehicles: vehicle % (%) must have % open ownership period, has %',
+            v_id, v_status, CASE wanted_open WHEN 1 THEN 'one' ELSE 'no' END, open_periods
+            USING ERRCODE = 'check_violation', CONSTRAINT = 'ownership_chain';
+    END IF;
+    IF first_since < v_first THEN
+        RAISE EXCEPTION 'vehicles: the first owners of vehicle % took it before its first registration', v_id
+            USING ERRCODE = 'check_violation', CONSTRAINT = 'ownership_chain';
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM (
+            SELECT o.since, lag(o.until) OVER w AS prev_until, row_number() OVER w AS n
+              FROM vehicles.vehicle_ownerships o WHERE o.vehicle_id = v_id
+            WINDOW w AS (ORDER BY o.since)
+        ) s WHERE s.n > 1 AND s.prev_until IS DISTINCT FROM s.since
+    ) THEN
+        RAISE EXCEPTION 'vehicles: the ownership periods of vehicle % have a gap or an overlap', v_id
+            USING ERRCODE = 'check_violation', CONSTRAINT = 'ownership_chain';
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM vehicles.vehicle_ownerships o
+         WHERE o.vehicle_id = v_id
+           AND NOT EXISTS (SELECT 1 FROM vehicles.vehicle_owners w WHERE w.ownership_id = o.id)
+    ) THEN
+        RAISE EXCEPTION 'vehicles: an ownership period of vehicle % has no holder', v_id
+            USING ERRCODE = 'check_violation', CONSTRAINT = 'ownership_chain';
+    END IF;
+    RETURN NULL;
+END;
+$$;

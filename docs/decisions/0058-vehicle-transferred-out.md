@@ -25,5 +25,8 @@ one.
 ## Consequences
 
 - `setStatus` no longer sets `transferred_out`: a release is the only way a vehicle gets that status.
+- The ownership chain (migration 0064) let only an active or stolen vehicle keep an open period. Migration 0087 lets a vehicle
+  transferred out keep its one open period, or none if it left before this decision.
+- A sticker or a temporary bolo is given only to an active vehicle, even on a bolo case that was open when it left.
 - A vehicle returning to a region it left (task 1.4c3) brings its own record back to active instead of creating a new one.
 - Reminders and other notices skip a vehicle that is not active.

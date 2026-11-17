@@ -341,20 +341,15 @@ describe('a vehicle transferred out of the region', () => {
 
     it('is refused at the filing without the name or the region it goes to', async () => {
         const v = await onTheRoad();
-        const noName = await tried(
-            await file(OUT, { vehicle: v.id, destination: 'outside', destinationRegion: REGION }, as.officer),
-            as.officer,
-            'submit'
-        );
-        expect(noName.status).toBe(422);
-        expect(noName.body.errors?.map((e) => e.path)).toContain('destinationName');
-        const noRegion = await tried(
-            await file(OUT, { vehicle: v.id, destination: 'outside', destinationName: DESTINATION }, as.officer),
-            as.officer,
-            'submit'
-        );
-        expect(noRegion.status).toBe(422);
-        expect(noRegion.body.errors?.map((e) => e.path)).toContain('destinationRegion');
+        // the form asks for both once the destination is outside: the request is refused before any check runs
+        for (const [answers, missing] of [
+            [{ vehicle: v.id, destination: 'outside', destinationRegion: REGION }, 'destinationName'],
+            [{ vehicle: v.id, destination: 'outside', destinationName: DESTINATION }, 'destinationRegion']
+        ] as const) {
+            const filed = await api.call('POST', '/api/v1/service-requests', as.officer, { serviceCode: OUT, answers });
+            expect(filed.statusCode, filed.body).toBe(422);
+            expect(filed.json<{ errors?: { path: string }[] }>().errors?.map((e) => e.path)).toContain(missing);
+        }
     }, 300_000);
 
     it('is stopped by a hold recorded before the document is issued', async () => {
@@ -394,20 +389,33 @@ describe('a vehicle transferred out of the region', () => {
         const v = await onTheRoad();
         const out = await atTheDocument(v.id);
         await moved(out, as.officer, 'issue_document', { answers: DOCUMENT_ANSWERS });
-        // another transfer out of it is refused: the vehicle is not on the register
-        const again = await tried(await file(OUT, { vehicle: v.id, ...OUTSIDE }, as.officer), as.officer, 'submit');
-        expect(again.status).toBe(422);
-        expect(again.body.errors).toEqual([expect.objectContaining({ path: 'vehicle', code: 'not_active' })]);
+        // another request for it is refused at the filing: the form's vehicle list holds only vehicles on the register
+        const again = await api.call('POST', '/api/v1/service-requests', as.officer, {
+            serviceCode: OUT,
+            answers: { vehicle: v.id, ...OUTSIDE }
+        });
+        expect(again.statusCode, again.body).toBe(422);
+        expect(again.json<{ errors?: { path: string; code: string }[] }>().errors).toEqual([
+            expect.objectContaining({ path: 'vehicle', code: 'invalid_reference' })
+        ]);
         // the zone, which could receive a release to an office of the region, is refused this one
         const [release] = await query<{ id: string }>(
             'select id from vehicles.vehicle_handovers where vehicle_id = $1',
             [v.id]
         );
-        await expect(
-            app.scoped(contextFor(zone), (tx) =>
+        const refused: unknown = await app
+            .scoped(contextFor(zone), (tx) =>
                 tx.execute(sql`select * from vehicles.accept_handover(${release?.id}::uuid, ${randomUUID()}::uuid)`)
             )
-        ).rejects.toBeTruthy();
+            .then(
+                () => undefined,
+                (e: unknown) => e
+            );
+        // refused for having no office of the region to go to, not for any other reason
+        expect((refused as { cause?: { code?: string; message?: string } } | undefined)?.cause).toMatchObject({
+            code: '42501',
+            message: 'vehicles: the handover is not to an office of the caller'
+        });
         expect(await query('select status from vehicles.vehicles where id = $1', [v.id])).toEqual([
             { status: 'transferred_out' }
         ]);
