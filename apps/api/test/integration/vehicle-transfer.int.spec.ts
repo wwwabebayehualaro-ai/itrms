@@ -609,7 +609,7 @@ describe('the tree changed after a receipt', () => {
                 { parentId },
                 ifMatch(unit.version)
             );
-            expect(res.statusCode, res.body).toBe(200);
+            expect(res.statusCode, res.body).toBe(201);
         };
         await moveTo(other.id);
         await moveTo(zone.id);
