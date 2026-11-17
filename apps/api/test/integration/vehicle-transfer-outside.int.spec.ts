@@ -291,6 +291,20 @@ describe('a vehicle transferred out of the region', () => {
         expect(await query('select status from vehicles.vehicles where id = $1', [v.id])).toEqual([
             { status: 'transferred_out' }
         ]);
+        // the release and the status change are on record, in the step's transaction
+        const [handover] = await query<{ id: string }>(
+            'select id from vehicles.vehicle_handovers where vehicle_id = $1',
+            [v.id]
+        );
+        expect(
+            await query(
+                `select table_name || ':' || action as line from kernel.audit_log
+                  where (table_name = 'vehicles.vehicle_handovers' and row_id = $1)
+                     or (table_name = 'vehicles.vehicles' and row_id = $2 and diff::text like '%transferred_out%')
+                  order by 1`,
+                [handover?.id, v.id]
+            )
+        ).toEqual([{ line: 'vehicles.vehicle_handovers:insert' }, { line: 'vehicles.vehicles:update' }]);
         expect(
             await query(
                 `select status, destination_kind, to_unit_id, destination_name, destination_region
