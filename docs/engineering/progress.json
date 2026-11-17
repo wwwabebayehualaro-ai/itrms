@@ -1897,14 +1897,15 @@
         {
           "id": "1.4b2",
           "title": "Transfers, part 2b: publish rules",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.4b2-publish-rules-counters",
           "commits": [
             "76787c2",
             "73bf9d8",
             "5997b17",
             "301aa91",
-            "63e5678"
+            "63e5678",
+            "60b97de"
           ],
           "evidence": [
             "CI run 44056775700 (PR #79, 63e5678) → all 10 jobs green",
@@ -1919,7 +1920,7 @@
         {
           "id": "1.4b4",
           "title": "Transfers, part 2d: counters on enable",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
