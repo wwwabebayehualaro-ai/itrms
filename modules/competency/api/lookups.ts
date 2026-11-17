@@ -8,7 +8,7 @@ import type { LookupItem, RegistryLookupProvider } from '@itrms/forms/api';
 import { contextOfTx, type Tx } from '@itrms/kernel/db';
 import { organisations, OrganisationsService } from '@itrms/parties/api';
 import { plateAssignments, vehicleHandovers, vehicles, VehiclesService } from '@itrms/vehicles/api';
-import { searchKeys } from '@itrms/vehicles/contracts';
+import { foldPlate, parsePlate, searchKeys } from '@itrms/vehicles/contracts';
 
 import { GARAGE_KIND, TRANSFER_IN_SERVICE, type Licence } from '../contracts';
 import am from '../messages/am.json';
@@ -151,7 +151,10 @@ export class ReleasedVehicleLookup implements RegistryLookupProvider {
     async search(tx: Tx, q: string, limit: number, language: string): Promise<LookupItem[]> {
         // the text is applied before the limit, so an old release is found among many: the chassis key, the federal id, or a plate
         // the vehicle carried, normalised as the register's own search does
-        const { key, plateKey } = searchKeys(q);
+        const { key } = searchKeys(q);
+        // a plate is read as the register reads it: an old regional plate (AA 2-12345) has a key of its own, not its bare characters
+        const parsed = parsePlate(q, await this.vehicles.legacyRegions(tx));
+        const plateKey = parsed?.key ?? foldPlate(q).replace(/[^A-Z0-9]/g, '');
         const vin = key.replace(/-/g, '');
         // the keys hold only letters, digits and hyphens: nothing in them is a pattern character
         const like = (part: string) => `%${part}%`;
