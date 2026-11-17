@@ -163,6 +163,19 @@ services:
     name:
       am: የተሽከርካሪ ባለቤትነት (ስም) ዝውውር
       en: Vehicle ownership transfer
+  # not in the source list as codes: the zone's "leaving or entering the zone" (task 1.4c, ADR-0057)
+  - code: DVC-14
+    process: 1
+    module: competency
+    name:
+      am: ተሽከርካሪ ወደ ሌላ መሥሪያ ቤት ማዛወር
+      en: Transfer a vehicle out to another office
+  - code: DVC-15
+    process: 1
+    module: competency
+    name:
+      am: ከሌላ መሥሪያ ቤት የተዛወረ ተሽከርካሪ መቀበል
+      en: Take in a vehicle transferred from another office
   # not one of the bureau's 54: the migration of its paper vehicle files (ADR-0054, task 1.13)
   - code: MIG-01
     process: 1

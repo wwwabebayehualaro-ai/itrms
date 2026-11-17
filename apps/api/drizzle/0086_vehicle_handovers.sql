@@ -303,3 +303,28 @@ $$;
 REVOKE ALL ON FUNCTION "vehicles"."handover_destination"(uuid, text) FROM PUBLIC;
 --> statement-breakpoint
 GRANT EXECUTE ON FUNCTION "vehicles"."handover_destination"(uuid, text) TO itrms_app;
+--> statement-breakpoint
+-- The offices a vehicle may be released to, for the transfer out's picker (task 1.4c): active offices of the caller's region,
+-- other than the caller's, given the transfer in; by code or name. Ids, codes and names only.
+CREATE FUNCTION "vehicles"."handover_destinations"(p_query text, p_service text, p_limit integer)
+    RETURNS TABLE (id uuid, code text, name jsonb)
+    LANGUAGE sql
+    STABLE
+    SECURITY DEFINER
+    SET search_path = pg_catalog, pg_temp
+AS $$
+    SELECT u.id, u.code, to_jsonb(u.name)
+      FROM kernel.org_units u
+     WHERE u.region_id = kernel.ctx_region() AND u.active AND u.id IS DISTINCT FROM kernel.ctx_unit()
+       AND vehicles.handover_destination(u.id, p_service)
+       AND (coalesce(p_query, '') = ''
+            OR strpos(lower(u.code), lower(p_query)) > 0
+            OR strpos(lower(coalesce(u.name ->> 'am', '')), lower(p_query)) > 0
+            OR strpos(lower(coalesce(u.name ->> 'en', '')), lower(p_query)) > 0)
+     ORDER BY u.code
+     LIMIT least(greatest(coalesce(p_limit, 20), 1), 50);
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION "vehicles"."handover_destinations"(text, text, integer) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION "vehicles"."handover_destinations"(text, text, integer) TO itrms_app;

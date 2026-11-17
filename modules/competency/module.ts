@@ -23,7 +23,7 @@ export default defineModule({
     layer: 'work-process',
     version: '0.0.0',
     dependsOn: ['kernel', 'integrations', 'forms', 'fees', 'documents', 'workflow', 'services', 'parties', 'vehicles'],
-    lookups: ['driver-licence', 'training-school', 'garage'],
+    lookups: ['driver-licence', 'training-school', 'garage', 'office'],
     // what the proclamation sets no figure for (ADR-0047)
     settings: [
         {
@@ -68,6 +68,20 @@ export default defineModule({
             overridableAt: ['installation', 'region'],
             // turning it off relaxes a control: a change needs a fresh second factor (SEC-SE-5)
             sensitive: true
+        },
+        // how long a vehicle released to another office stands for it (task 1.4c, ADR-0057: the zone's document, 15 days)
+        {
+            key: 'competency.vehicle_transfer_valid_days',
+            default: 15,
+            overridableAt: ['installation', 'region']
+        },
+        // whether the receiving office inspects the vehicle again before it receives it (no, until the zone says)
+        {
+            key: 'competency.vehicle_transfer_reinspect',
+            default: false,
+            overridableAt: ['installation', 'region'],
+            // turning it off drops a control: a change needs a fresh second factor (SEC-SE-5)
+            sensitive: true
         }
     ],
     effects: [
@@ -99,6 +113,11 @@ export default defineModule({
         'competency.recordTransferEvidence',
         'competency.transferOwnership',
         'competency.revokeTransferLetters',
+        'competency.checkTransferOut',
+        'competency.releaseVehicle',
+        'competency.checkTransferIn',
+        'competency.recordTransferInspection',
+        'competency.receiveVehicle',
         'competency.checkBolo',
         'competency.recordBoloInspection',
         'competency.issueBoloSticker',
@@ -216,6 +235,9 @@ export default defineModule({
         'DVC-12',
         // the change of a vehicle's owner (task 1.4b): not in the source list, priced by the zone's fee sheet
         'DVC-13',
+        // a vehicle leaving one office and entering another of the region (task 1.4c, ADR-0057)
+        'DVC-14',
+        'DVC-15',
         // the back-capture of paper vehicle files (ADR-0054): the migration's own service, beside the bureau's
         'MIG-01'
     ],
@@ -224,7 +246,9 @@ export default defineModule({
     capabilitiesRequired: {
         'DVC-01': ['holds_plate_stock'],
         'DVC-12': ['holds_plate_stock'],
-        'DVC-13': ['holds_stationery']
+        'DVC-13': ['holds_stationery'],
+        // the vehicle's stock plate joins the receiving office's stock (task 1.4c)
+        'DVC-15': ['holds_plate_stock']
     },
     menu: [
         {
@@ -356,6 +380,29 @@ export default defineModule({
                     label: 'competency.action.newOwnershipTransfer',
                     route: '/competency/ownership-transfers/new',
                     requires: { permission: 'case:create', services: ['DVC-13'] }
+                }
+            ]
+        },
+        {
+            key: 'competency.vehicleTransfers',
+            group: 'work-process',
+            order: 14,
+            label: 'competency.nav.vehicleTransfers',
+            icon: 'arrow-left-right',
+            route: '/competency/vehicle-transfers',
+            requires: { permission: 'vehicle:read', services: ['DVC-14', 'DVC-15'] },
+            quickActions: [
+                {
+                    key: 'competency.newTransferOut',
+                    label: 'competency.action.newTransferOut',
+                    route: '/competency/vehicle-transfers/out/new',
+                    requires: { permission: 'case:create', services: ['DVC-14'] }
+                },
+                {
+                    key: 'competency.newTransferIn',
+                    label: 'competency.action.newTransferIn',
+                    route: '/competency/vehicle-transfers/in/new',
+                    requires: { permission: 'case:create', services: ['DVC-15'] }
                 }
             ]
         },

@@ -20,7 +20,7 @@ import { MigrationReportController } from './migration-report.controller';
 import { MigrationReportService } from './migration-report.service';
 import { MigrationSampleController } from './migration-sample.controller';
 import { MigrationSamplingService } from './migration-sampling.service';
-import { GarageLookup, LicenceLookup, TrainingSchoolLookup } from './lookups';
+import { GarageLookup, LicenceLookup, OfficeLookup, TrainingSchoolLookup } from './lookups';
 import { RegisterService } from './register.service';
 import { REGISTRATION_EFFECTS } from './registration.effects';
 import { VehicleRegistrationService } from './registration.service';
@@ -28,10 +28,12 @@ import { TRANSFER_EFFECTS_LIST } from './transfer.effects';
 import { OwnershipTransferService } from './transfer.service';
 import { VehicleImportController } from './vehicle-import.controller';
 import { VehicleImportService } from './vehicle-import.service';
+import { VEHICLE_TRANSFER_EFFECTS_LIST } from './vehicle-transfer.effects';
+import { VehicleTransferService } from './vehicle-transfer.service';
 
 /**
  * Driver licences (task 0.24a): the register, its rules and the effects a licence service's workflow names; and the new vehicle
- * registration service's effects over the vehicle register (task 1.2b); the back-capture of paper vehicle files (task 1.13) and their bulk import (task 1.13b) with its sampling QA (task 1.13g); the plate exchange (task 1.2c); the ownership transfer (task 1.4b); and the bolo inspection (tasks 1.3a, 1.3b); the campaign counters over the plate exchange and the bolo season (task 1.13i).
+ * registration service's effects over the vehicle register (task 1.2b); the back-capture of paper vehicle files (task 1.13) and their bulk import (task 1.13b) with its sampling QA (task 1.13g); the plate exchange (task 1.2c); the ownership transfer (task 1.4b); the transfer of a vehicle between offices (task 1.4c); and the bolo inspection (tasks 1.3a, 1.3b); the campaign counters over the plate exchange and the bolo season (task 1.13i).
  */
 @Module({
     imports: [FormsModule, PartiesModule, DocumentsModule, VehiclesModule, FeesModule],
@@ -53,15 +55,18 @@ import { VehicleImportService } from './vehicle-import.service';
         VehicleImportService,
         PlateExchangeService,
         OwnershipTransferService,
+        VehicleTransferService,
         BoloService,
         LicenceLookup,
         TrainingSchoolLookup,
         GarageLookup,
+        OfficeLookup,
         ...LICENCE_EFFECTS,
         ...REGISTRATION_EFFECTS,
         ...BACK_CAPTURE_EFFECTS,
         ...EXCHANGE_EFFECTS,
         ...TRANSFER_EFFECTS_LIST,
+        ...VEHICLE_TRANSFER_EFFECTS_LIST,
         ...BOLO_EFFECTS
     ],
     exports: [LicencesService, VehicleImportService]
@@ -71,12 +76,14 @@ export class CompetencyModule implements OnModuleInit {
         @Inject(RegistryLookups) private readonly lookups: RegistryLookups,
         @Inject(LicenceLookup) private readonly licence: LicenceLookup,
         @Inject(TrainingSchoolLookup) private readonly school: TrainingSchoolLookup,
-        @Inject(GarageLookup) private readonly garage: GarageLookup
+        @Inject(GarageLookup) private readonly garage: GarageLookup,
+        @Inject(OfficeLookup) private readonly office: OfficeLookup
     ) {}
 
     onModuleInit(): void {
         this.lookups.register(this.licence);
         this.lookups.register(this.school);
         this.lookups.register(this.garage);
+        this.lookups.register(this.office);
     }
 }
