@@ -90,3 +90,67 @@ describe('effects', () => {
         expect(() => Effect('integrations.national.requestLicence')).not.toThrow();
     });
 });
+
+// ---- what an effect takes, and what it needs before it (task 1.4b2)
+
+@Injectable()
+@Effect('vehicles.checkHolds', { argument: { values: ['transfer', 'replacement'], required: true } })
+class CheckHolds implements WorkflowEffect {
+    run() {
+        return Promise.resolve();
+    }
+}
+
+@Injectable()
+@Effect('competency.giveIt', { requiresBefore: ['vehicles.checkHolds:transfer'] })
+class GiveIt implements WorkflowEffect {
+    run() {
+        return Promise.resolve();
+    }
+}
+
+@Injectable()
+@Effect('competency.giveOther', { requiresBefore: ['vehicles.checkHolds:sale'] })
+class GiveOther implements WorkflowEffect {
+    run() {
+        return Promise.resolve();
+    }
+}
+
+@Injectable()
+@Effect('competency.giveBare', { requiresBefore: ['vehicles.checkHolds'] })
+class GiveBare implements WorkflowEffect {
+    run() {
+        return Promise.resolve();
+    }
+}
+
+describe('what an effect takes and needs', () => {
+    it('keeps the arguments and the references a transition needs before it', async () => {
+        const registry = await registryWith(CheckHolds, GiveIt);
+        expect(registry.argumentOf('vehicles.checkHolds')).toEqual({
+            values: ['transfer', 'replacement'],
+            required: true
+        });
+        expect(registry.argumentOf('competency.giveIt')).toBeUndefined();
+        expect(registry.requiresBefore('competency.giveIt')).toEqual(['vehicles.checkHolds:transfer']);
+        expect(registry.requiresBefore('vehicles.checkHolds')).toEqual([]);
+    });
+
+    it('refuses to start when what is required is not installed, takes no such argument, or needs one', async () => {
+        await expect(registryWith(GiveIt)).rejects.toThrow('which no installed module provides');
+        await expect(registryWith(CheckHolds, GiveOther)).rejects.toThrow(
+            'an argument vehicles.checkHolds does not take'
+        );
+        await expect(registryWith(CheckHolds, GiveBare)).rejects.toThrow(
+            'an argument vehicles.checkHolds does not take'
+        );
+    });
+
+    it('refuses a mark whose reference or argument list is not one', () => {
+        expect(() => Effect('competency.x', { requiresBefore: ['not a reference'] })).toThrow(
+            'is not an effect reference'
+        );
+        expect(() => Effect('competency.x', { argument: { values: [] } })).toThrow('names the values it takes');
+    });
+});

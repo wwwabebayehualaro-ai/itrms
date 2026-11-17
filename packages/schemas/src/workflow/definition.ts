@@ -223,3 +223,7 @@ export function parseStepForm(ref: string): { key: string; number: number } | nu
 
 /** An effect reference's registered key (without its argument). */
 export const effectKeyOf = (ref: string): string => ref.split(':')[0] ?? ref;
+
+/** What follows the key in an effect reference (`licence-card` of `documents.issue:licence-card`), if anything. */
+export const effectArgumentOf = (ref: string): string | undefined =>
+    ref.includes(':') ? ref.slice(ref.indexOf(':') + 1) : undefined;

@@ -37,6 +37,7 @@ import { FormsService, RegistryLookups, SubmissionsService, submissions } from '
 import type { FeeCasePort, PaymentChange } from '@itrms/fees/api';
 import type { PaymentFacts } from '@itrms/fees/contracts';
 import {
+    effectArgumentOf,
     effectKeyOf,
     fromStates,
     parseStepForm,
@@ -701,7 +702,7 @@ export class CasesService implements FeeCasePort {
                     detailKey: 'workflow.errors.effect_missing',
                     params: { key }
                 });
-            const argument = ref.includes(':') ? ref.slice(ref.indexOf(':') + 1) : undefined;
+            const argument = effectArgumentOf(ref);
             const contract = this.effects.contract(key);
             const result = await effect.run({
                 tx,

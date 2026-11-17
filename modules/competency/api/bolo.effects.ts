@@ -44,7 +44,7 @@ export class CheckBoloEffect implements WorkflowEffect<BoloInput> {
  * answers (no contract: a contracted effect reads the request), filed and settled like any form's, so the outcome is the server's.
  */
 @Injectable()
-@Effect(B.recordBoloInspection)
+@Effect(B.recordBoloInspection, { argument: { values: ['pass', 'fail'] } })
 export class RecordBoloInspectionEffect implements WorkflowEffect {
     constructor(@Inject(BoloService) private readonly bolo: BoloService) {}
 

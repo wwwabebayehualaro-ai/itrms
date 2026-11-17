@@ -51,6 +51,17 @@ type EffectClass = abstract new (...args: never[]) => WorkflowEffect;
 const MARKS = new WeakMap<object, string>();
 const CONTRACTS = new WeakMap<object, EffectContract>();
 const GIVES = new WeakSet<object>();
+const ARGUMENTS = new WeakMap<object, EffectArgument>();
+const REQUIRES = new WeakMap<object, readonly string[]>();
+
+/** The arguments an effect takes after its key (`documents.issue:application-copy`), and whether it needs one. */
+export interface EffectArgument {
+    values: readonly string[];
+    required?: boolean;
+}
+
+/** `<module>.<name>` or `<module>.<name>:<argument>`: a reference another effect requires before it. */
+const REFERENCE = /^[a-z][a-z0-9-]*\.[a-zA-Z][a-zA-Z0-9_.-]*(:[a-z0-9][a-z0-9-]*)?$/;
 
 export interface EffectOptions {
     /**
@@ -64,6 +75,16 @@ export interface EffectOptions {
      * transition that runs it must guard on `payment.settled` (ADR-0042), or publishing the service version is refused.
      */
     givesService?: boolean;
+    /**
+     * The arguments it takes (task 1.4b2): publishing a service version that names it with another, or without one it
+     * requires, is refused. An effect that declares none takes none.
+     */
+    argument?: EffectArgument;
+    /**
+     * The references a transition must name earlier in its effects, in the same transaction (task 1.4b2): the encumbrance
+     * check before a transfer. Publishing a version that does not is refused.
+     */
+    requiresBefore?: readonly string[];
 }
 
 /** Marks an injectable class as the effect `key`, with its input contract. */
@@ -73,10 +94,17 @@ export function Effect(key: string, options: EffectOptions = {}) {
     const contract = options.input === undefined ? undefined : effectContractSchema.safeParse(options.input);
     if (contract && !contract.success)
         throw new Error(`@Effect('${key}'): its input contract is not valid: ${contract.error.message}`);
+    for (const ref of options.requiresBefore ?? [])
+        // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- REFERENCE is anchored and linear, and the reference is a decorator's literal
+        if (!REFERENCE.test(ref)) throw new Error(`@Effect('${key}'): "${ref}" is not an effect reference`);
+    if (options.argument && options.argument.values.length === 0)
+        throw new Error(`@Effect('${key}'): an argument names the values it takes`);
     return (target: EffectClass): void => {
         MARKS.set(target, key);
         if (contract?.success) CONTRACTS.set(target, contract.data);
         if (options.givesService) GIVES.add(target);
+        if (options.argument) ARGUMENTS.set(target, options.argument);
+        if (options.requiresBefore?.length) REQUIRES.set(target, [...options.requiresBefore]);
     };
 }
 
@@ -98,6 +126,8 @@ export class EffectRegistry implements OnModuleInit {
     private readonly effects = new Map<string, WorkflowEffect>();
     private readonly contracts = new Map<string, EffectContract>();
     private readonly giving = new Set<string>();
+    private readonly arguments = new Map<string, EffectArgument>();
+    private readonly requires = new Map<string, readonly string[]>();
 
     constructor(private readonly discovery: DiscoveryService) {}
 
@@ -115,7 +145,21 @@ export class EffectRegistry implements OnModuleInit {
             const contract = CONTRACTS.get(metatype);
             if (contract) this.contracts.set(key, contract);
             if (GIVES.has(metatype)) this.giving.add(key);
+            const argument = ARGUMENTS.get(metatype);
+            if (argument) this.arguments.set(key, argument);
+            const requires = REQUIRES.get(metatype);
+            if (requires) this.requires.set(key, requires);
         }
+        // what an effect requires before it is itself an effect that is installed, with an argument it takes
+        for (const [key, refs] of this.requires)
+            for (const ref of refs) {
+                const [needed, argument] = ref.split(':');
+                if (!needed || !this.effects.has(needed))
+                    throw new Error(`The effect ${key} requires ${ref}, which no installed module provides`);
+                const takes = this.arguments.get(needed);
+                if (argument !== undefined ? !takes?.values.includes(argument) : takes?.required === true)
+                    throw new Error(`The effect ${key} requires ${ref}, an argument ${needed} does not take`);
+            }
     }
 
     /** Every registered key: what a workflow definition may name. */
@@ -130,6 +174,16 @@ export class EffectRegistry implements OnModuleInit {
     /** Whether running the effect gives the service (`givesService`): a fee-bearing service guards it on payment. */
     givesService(key: string): boolean {
         return this.giving.has(key);
+    }
+
+    /** The arguments the effect takes, if any. */
+    argumentOf(key: string): EffectArgument | undefined {
+        return this.arguments.get(key);
+    }
+
+    /** The references a transition must name before the effect. */
+    requiresBefore(key: string): readonly string[] {
+        return this.requires.get(key) ?? [];
     }
 
     /** The effect's input contract, if it declares one. */

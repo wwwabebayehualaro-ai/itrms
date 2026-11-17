@@ -190,3 +190,91 @@ export async function firstServiceVersion(
     });
     await updateAudited(tx, serviceDefinitions, service.id, service.rowVersion, { currentVersionId: version.id });
 }
+
+/**
+ * A seeded service whose current version a seed wrote, on an older flow of this workflow: a new workflow version and a new service
+ * version on it, everything else kept (task 1.4b2; DVC-13 got its return to the letters and its timeout's revocation in 1.4b3). A
+ * version a person published, or one on another workflow, is the bureau's, and is left alone; so is a flow that is already this
+ * one. Cases keep the version they froze. Returns whether it made a version.
+ */
+export async function supersedeSeededVersion(
+    tx: Tx,
+    root: { id: string; regionId: string },
+    service: typeof serviceDefinitions.$inferSelect,
+    workflowKey: string,
+    definition: unknown
+): Promise<boolean> {
+    if (!service.currentVersionId) return false;
+    const [current] = await tx.select().from(serviceVersions).where(eq(serviceVersions.id, service.currentVersionId));
+    if (!current || current.createdBy !== null) return false;
+    const [running] = await tx
+        .select({ version: workflowDefinitionVersions, flow: workflowDefinitions })
+        .from(workflowDefinitionVersions)
+        .innerJoin(workflowDefinitions, eq(workflowDefinitions.id, workflowDefinitionVersions.definitionId))
+        .where(eq(workflowDefinitionVersions.id, current.workflowVersionId));
+    if (!running || running.flow.key !== workflowKey || running.flow.regionId !== root.regionId) return false;
+    // a version added to the workflow since (a bureau's edit, published or not) is theirs to publish: left alone
+    if (running.flow.latestVersionId !== running.version.id) return false;
+    const parsed = workflowDefinitionSchema.parse(definition);
+    const hash = contentHash(parsed);
+    // nosemgrep: ajinabraham.njsscan.crypto.timing_attack_node.node_timing_attack -- a content hash of a seeded flow, not a secret
+    if (running.version.contentHash === hash) return false;
+    // today's flow may already be a version of the workflow: it is used again, never stored twice (as the designer does)
+    const [stored] = await tx
+        .select()
+        .from(workflowDefinitionVersions)
+        .where(
+            and(
+                eq(workflowDefinitionVersions.definitionId, running.flow.id),
+                eq(workflowDefinitionVersions.contentHash, hash)
+            )
+        );
+    const flowVersion =
+        stored ??
+        (await insertAudited(tx, workflowDefinitionVersions, {
+            regionId: root.regionId,
+            ownerUnitId: root.id,
+            definitionId: running.flow.id,
+            number:
+                ((
+                    await tx
+                        .select({ number: workflowDefinitionVersions.number })
+                        .from(workflowDefinitionVersions)
+                        .where(eq(workflowDefinitionVersions.definitionId, running.flow.id))
+                        .orderBy(desc(workflowDefinitionVersions.number))
+                        .limit(1)
+                )[0]?.number ?? 0) + 1,
+            contentHash: hash,
+            definition: parsed
+        }));
+    await updateAudited(tx, workflowDefinitions, running.flow.id, running.flow.rowVersion, {
+        latestVersionId: flowVersion.id
+    });
+    const [lastService] = await tx
+        .select({ number: serviceVersions.number, from: serviceVersions.effectiveFrom })
+        .from(serviceVersions)
+        .where(eq(serviceVersions.serviceId, service.id))
+        .orderBy(desc(serviceVersions.number))
+        .limit(1);
+    const today = addisDay();
+    const content = {
+        formVersionId: current.formVersionId,
+        workflowVersionId: flowVersion.id,
+        feeRuleVersionId: current.feeRuleVersionId,
+        defaults: current.defaults,
+        overridePolicy: current.overridePolicy,
+        inputMap: current.inputMap,
+        // never before the version it follows: what cases froze is never rewritten
+        effectiveFrom: lastService?.from && lastService.from > today ? lastService.from : today
+    };
+    const version = await insertAudited(tx, serviceVersions, {
+        regionId: root.regionId,
+        serviceId: service.id,
+        number: (lastService?.number ?? 0) + 1,
+        contentHash: contentHash(content),
+        templateVersionIds: current.templateVersionIds,
+        ...content
+    });
+    await updateAudited(tx, serviceDefinitions, service.id, service.rowVersion, { currentVersionId: version.id });
+    return true;
+}

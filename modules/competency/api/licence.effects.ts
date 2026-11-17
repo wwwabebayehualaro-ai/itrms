@@ -56,7 +56,7 @@ export class CreatePendingLicenceEffect implements WorkflowEffect<{ person: stri
 
 /** An examiner's step: its answers are the result, and whose it is comes from the case's facts or its request. */
 @Injectable()
-@Effect(COMPETENCY_EFFECTS.recordExam)
+@Effect(COMPETENCY_EFFECTS.recordExam, { argument: { values: ['passed', 'failed'] } })
 export class RecordExamEffect implements WorkflowEffect {
     constructor(@Inject(LicencesService) private readonly licences: LicencesService) {}
 

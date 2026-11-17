@@ -118,5 +118,8 @@
   "services.errors.no_fee_now": "አገልግሎቱ አሁን ምንም ክፍያ አያስከፍልም።",
   "services.errors.version_changed": "ስሪት {expected} ተቀይሯል፤ እንደገና ያንብቡት።",
   "services.errors.version_unusable": "የአገልግሎቱ የሥራ ፍሰት ወይም ቅጽ ተዘግቷል፣ ወይም ከእንግዲህ ያልተጫነ ተግባር ይጠቅሳል።",
-  "services.publish.unguarded_service": "የሥራ ፍሰቱ ሽግግር {transition} ክፍያው መከፈሉን ሳያረጋግጥ አገልግሎቱን ይሰጣል፤ በpayment.settled ጥበቃ ያድርጉለት።"
+  "services.publish.unguarded_service": "የሥራ ፍሰቱ ሽግግር {transition} ክፍያው መከፈሉን ሳያረጋግጥ አገልግሎቱን ይሰጣል፤ በpayment.settled ጥበቃ ያድርጉለት።",
+  "services.publish.unknown_argument": "የሥራ ፍሰቱ ሽግግር {transition} {effect}ን በ\"{argument}\" ይጠራዋል፤ ይህን አይቀበልም።",
+  "services.publish.argument_required": "የሥራ ፍሰቱ ሽግግር {transition} {effect}ን የሚያስፈልገውን ነጋሪ ሳይሰጥ ይጠራዋል።",
+  "services.publish.required_before": "የሥራ ፍሰቱ ሽግግር {transition} {effect}ን ያስኬዳል፤ ነገር ግን በዚያው ሽግግር ከሱ በፊት {required} የለም።"
 }

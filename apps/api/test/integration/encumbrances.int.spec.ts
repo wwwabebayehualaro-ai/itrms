@@ -218,7 +218,7 @@ let published = 0;
 /** DVC-12 as seeded: every checked version is built on it, never on the one before (the checks would pile up) */
 let seeded: { form: string; fee: string; definition: { transitions: Transition[] } } | undefined;
 /** DVC-12's seeded flow with `vehicles.checkEncumbrances:<conflict>` on filing, before the payment order and before the plate is given. */
-async function publishChecked(conflict: string): Promise<void> {
+async function publishChecked(conflict: string, status = 201): Promise<ProblemBody> {
     published += 1;
     const { rows } = await api.owner.query<{ form: string; fee: string; definition: { transitions: Transition[] } }>(
         `select v.form_version_id as form, v.fee_rule_version_id as fee, w.definition
@@ -255,7 +255,8 @@ async function publishChecked(conflict: string): Promise<void> {
         defaults: { approval_unit: 'handling' },
         overridePolicy: { approval_unit: ['region', 'unit'], sla: ['region', 'unit'] }
     });
-    expect(version.statusCode, version.body).toBe(201);
+    expect(version.statusCode, version.body).toBe(status);
+    return version.json<ProblemBody>();
 }
 
 async function filed(vehicleId: string): Promise<CaseOut> {
@@ -847,13 +848,11 @@ describe('the blocks on the services a hold conflicts with', () => {
         expect(c.state).toBe('review');
     });
 
-    it('answers 409 not_configured for a conflict the setting does not know', async () => {
-        await publishChecked('no-such-service');
-        const { id } = await onTheRoad(boditi);
-        const c = await filed(id);
-        const res = await step(c, as.officer, { action: 'submit' });
-        expect(res.statusCode, res.body).toBe(409);
-        expect(res.json<ProblemBody>().code).toBe('not_configured');
+    it('refuses to publish a check for a conflict it does not know (task 1.4b2: once 409 at the step)', async () => {
+        const refused = await publishChecked('no-such-service', 422);
+        expect(refused.errors).toContainEqual(
+            expect.objectContaining({ path: 'workflowVersionId', code: 'unknown_argument' })
+        );
     });
 
     it('never both blocks and gives: a hold recorded while the plate is being given either stops it or follows it', async () => {

@@ -436,7 +436,7 @@ describe('a workflow', () => {
         expect(await docsOf(`caseId=${c.id}`)).toHaveLength(1);
     }, 120_000);
 
-    it('has its transition refused for a document this slice can’t build', async () => {
+    it('is refused at publish for a document this slice can’t build (task 1.4b2: once 409 at the step)', async () => {
         const version = await api.call('POST', '/api/v1/workflow-definitions', as.bureau, {
             key: 'bad-document-flow',
             name: t('Bad'),
@@ -444,7 +444,7 @@ describe('a workflow', () => {
                 ...COPY_FLOW,
                 transitions: [
                     { from: 'draft', to: 'review', action: 'submit', effects: ['documents.issue:licence-card'] },
-                    { from: 'review', to: 'done', action: 'approve' }
+                    { from: 'review', to: 'done', action: 'approve', effects: ['documents.issue'] }
                 ]
             }
         });
@@ -461,27 +461,14 @@ describe('a workflow', () => {
             ).rows[0]?.id,
             overridePolicy: {}
         });
-        expect(published.statusCode, published.body).toBe(201);
-        const answers = { applicant: 'Generated Applicant', grade: 'auto' };
-        const shown = (
-            await api.call('POST', '/api/v1/fees/preview', as.boditiRecords, { serviceCode: 'RS-06', answers })
-        ).json<{ feeRuleVersionId: string; totalSantim: string }>();
-        const c = (
-            await api.call('POST', '/api/v1/service-requests', as.boditiRecords, {
-                serviceCode: 'RS-06',
-                answers,
-                fee: { ruleVersionId: shown.feeRuleVersionId, totalSantim: shown.totalSantim }
-            })
-        ).json<CaseOut>();
-        const refused = await api.call(
-            'POST',
-            `/api/v1/cases/${c.id}/transitions`,
-            as.boditiRecords,
-            { action: 'submit' },
-            ifMatch(c.version)
+        expect(published.statusCode, published.body).toBe(422);
+        // a template it does not build, and none at all
+        expect(published.json<{ errors: { path: string; code: string }[] }>().errors).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ path: 'workflowVersionId', code: 'unknown_argument' }),
+                expect.objectContaining({ path: 'workflowVersionId', code: 'argument_required' })
+            ])
         );
-        expect(refused.statusCode).toBe(409);
-        expect(refused.json()).toMatchObject({ code: 'not_configured' });
     });
 });
 

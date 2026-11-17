@@ -44,6 +44,9 @@ import {
 import {
     factsOf,
     unpaidGiving,
+    argumentProblems,
+    missingBefore,
+    type ArgumentProblem,
     frozenConfig,
     keyProblem,
     resolveConfig,
@@ -217,7 +220,14 @@ export class ServicesService implements FeeRequestSource {
         input: { workflowVersionId: string; formVersionId: string | null },
         regionPath?: string
     ): Promise<
-        VersionFacts & { effects: string[]; formDocument: unknown; reassessed: boolean; unpaidGiving: number[] }
+        VersionFacts & {
+            effects: string[];
+            formDocument: unknown;
+            reassessed: boolean;
+            unpaidGiving: number[];
+            argumentProblems: ArgumentProblem[];
+            missingBefore: { index: number; effect: string; required: string }[];
+        }
     > {
         try {
             return await this.checkedFacts(tx, input, regionPath);
@@ -233,7 +243,14 @@ export class ServicesService implements FeeRequestSource {
         input: { workflowVersionId: string; formVersionId: string | null },
         regionPath?: string
     ): Promise<
-        VersionFacts & { effects: string[]; formDocument: unknown; reassessed: boolean; unpaidGiving: number[] }
+        VersionFacts & {
+            effects: string[];
+            formDocument: unknown;
+            reassessed: boolean;
+            unpaidGiving: number[];
+            argumentProblems: ArgumentProblem[];
+            missingBefore: { index: number; effect: string; required: string }[];
+        }
     > {
         const problems: { path: string; code: string; message: string }[] = [];
         const [workflow] = await tx
@@ -318,7 +335,18 @@ export class ServicesService implements FeeRequestSource {
         );
         // transitions that give the service without guarding on its payment (ADR-0042): refused for a service with a fee
         const unpaid = unpaidGiving(definition, (e) => this.effects.givesService(e), effectKeyOf).map((u) => u.index);
-        return { ...factsOf(definition, fieldKeys), effects, formDocument, reassessed, unpaidGiving: unpaid };
+        // effects named with an argument they do not take, and those without what they require before them (task 1.4b2)
+        const args = argumentProblems(definition, (e) => this.effects.argumentOf(e), effectKeyOf);
+        const before = missingBefore(definition, (e) => this.effects.requiresBefore(e), effectKeyOf);
+        return {
+            ...factsOf(definition, fieldKeys),
+            effects,
+            formDocument,
+            reassessed,
+            unpaidGiving: unpaid,
+            argumentProblems: args,
+            missingBefore: before
+        };
     }
 
     /** The region's root, if the person's seat is there (a bureau's decision); else 403. */
@@ -361,6 +389,27 @@ export class ServicesService implements FeeRequestSource {
                         transition: String(index + 1)
                     })
                 });
+        // fee or no fee: an effect with an argument it does not take, or without the check it needs first (task 1.4b2)
+        for (const p of facts.argumentProblems)
+            problems.push({
+                path: 'workflowVersionId',
+                code: p.problem,
+                message: servicesText(`services.publish.${p.problem}`, currentLanguage(), {
+                    transition: String(p.index + 1),
+                    effect: p.effect,
+                    argument: p.argument ?? ''
+                })
+            });
+        for (const m of facts.missingBefore)
+            problems.push({
+                path: 'workflowVersionId',
+                code: 'required_before',
+                message: servicesText('services.publish.required_before', currentLanguage(), {
+                    transition: String(m.index + 1),
+                    effect: m.effect,
+                    required: m.required
+                })
+            });
         if (problems.length) throw fieldErrors(problems);
         const effectiveFrom = input.effectiveFrom ?? addisToday();
         // a version holds from today or later, never before the one before it: what cases froze is never rewritten, and

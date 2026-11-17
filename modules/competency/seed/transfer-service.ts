@@ -33,6 +33,7 @@ import {
     publishedForm,
     REJECT_ROLES,
     REVIEW_LABEL,
+    supersedeSeededVersion,
     task,
     text,
     WITHDRAW,
@@ -367,7 +368,6 @@ export async function importOwnershipTransferService(tx: Tx, root: { id: string;
         .where(and(eq(serviceDefinitions.regionId, root.regionId), eq(serviceDefinitions.code, code)))
         .for('update');
     if (!service) throw new Error(`service ${code}: seed the catalogue first`);
-    if (service.currentVersionId) return 0;
     const name = text('የባለቤትነት (ስም) ዝውውር', 'Ownership transfer');
     const valuation = await publishedForm(
         tx,
@@ -399,20 +399,18 @@ export async function importOwnershipTransferService(tx: Tx, root: { id: string;
         LIBRE_BOOKLET_FORM
     );
     const form = await publishedForm(tx, root, 'vehicle-ownership-transfer', name, OWNERSHIP_TRANSFER_FORM);
+    const flow = ownershipTransferFlow(
+        `vehicle-transfer-valuation@${valuation.number}`,
+        `vehicle-transfer-letters@${letters.number}`,
+        `vehicle-transfer-evidence@${evidence.number}`,
+        `vehicle-libre-booklet@${booklet.number}`
+    );
+    // seeded before 1.4b3: the seed's own version moves to today's flow (the bureau's own is never touched)
+    if (service.currentVersionId)
+        return (await supersedeSeededVersion(tx, root, service, 'vehicle-ownership-transfer', flow)) ? 1 : 0;
     await firstServiceVersion(tx, root, service, {
         formVersionId: form.versionId,
-        workflowVersionId: await workflowVersion(
-            tx,
-            root,
-            'vehicle-ownership-transfer',
-            name,
-            ownershipTransferFlow(
-                `vehicle-transfer-valuation@${valuation.number}`,
-                `vehicle-transfer-letters@${letters.number}`,
-                `vehicle-transfer-evidence@${evidence.number}`,
-                `vehicle-libre-booklet@${booklet.number}`
-            )
-        ),
+        workflowVersionId: await workflowVersion(tx, root, 'vehicle-ownership-transfer', name, flow),
         feeRuleVersionId: await approvedFeeRule(tx, root.regionId, 'dvc-13-ownership-transfer')
     });
     return 1;
