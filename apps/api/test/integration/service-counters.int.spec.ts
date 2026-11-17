@@ -17,8 +17,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startApi, type As, type TestApi } from './support/api';
 import { startPostgres, type TestPostgres } from './support/postgres';
 
-// the seeded zone administrator of Wolaita
+// the seeded zone administrator of Wolaita (service settings) and the bureau's (who creates an office)
 const ZONE_ADMIN = '0199f0a0-d000-7000-8000-000000000102';
+const BUREAU = '0199f0a0-d000-7000-8000-000000000001';
 
 let pg: TestPostgres;
 let api: TestApi;
@@ -28,6 +29,7 @@ let areka: OrgUnit;
 let damot: OrgUnit;
 let boditi: OrgUnit;
 let admin: As;
+let bureau: As;
 
 beforeAll(async () => {
     pg = await startPostgres();
@@ -38,6 +40,7 @@ beforeAll(async () => {
     damot = await api.unit('SER', 'WOL-DAMOT-GALE');
     boditi = await api.unit('SER', 'WOL-BODITI');
     admin = { sub: ZONE_ADMIN, unit: zone };
+    bureau = { sub: BUREAU, unit: await api.unit('SER', 'SER') };
 }, 300_000);
 
 afterAll(async () => {
@@ -72,7 +75,7 @@ describe('an office created with a type', () => {
             )
         ).rows;
         const code = `WOL-CNT-${randomUUID().slice(0, 6)}`;
-        const created = await api.call('POST', '/api/v1/org-units', admin, {
+        const created = await api.call('POST', '/api/v1/org-units', bureau, {
             parentId: zone.id,
             kind: 'town_admin',
             levelKey: 'town',
@@ -102,7 +105,7 @@ describe('an office created with a type', () => {
         const total = async () =>
             (await api.owner.query<{ n: number }>('select count(*)::int as n from kernel.number_counters')).rows[0]?.n;
         const before = await total();
-        const again = await api.call('POST', '/api/v1/org-units', admin, {
+        const again = await api.call('POST', '/api/v1/org-units', bureau, {
             parentId: zone.id,
             kind: 'town_admin',
             levelKey: 'town',
