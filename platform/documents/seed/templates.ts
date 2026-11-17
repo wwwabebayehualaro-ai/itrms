@@ -1,5 +1,5 @@
 /**
- * The Phase 0 templates: application copy, receipt, driver-licence card, exam result sheet, the vehicle registration certificate (the temporary libre, ADR-0050), and the three letters of an ownership transfer (task 1.4b). Their layouts stand in until a
+ * The Phase 0 templates: application copy, receipt, driver-licence card, exam result sheet, the vehicle registration certificate (the temporary libre, ADR-0050), the three letters of an ownership transfer (task 1.4b), and the vehicle data transfer document with its covering letter (task 1.4c2). Their layouts stand in until a
  * bureau's forms and permission to copy them are known (docs/demo-plan.md); every word is the template's own, in Amharic and
  * English. Nothing here names a real office: that comes from the unit's header.
  */
@@ -12,6 +12,9 @@ export interface TemplateSeed {
 }
 
 const t = (am: string, en: string) => ({ am, en });
+
+/** What a template prints for a value the document has none of. */
+const DASH = '—';
 
 const STYLE = `<style>
 h1{font-size:15pt;margin:0}
@@ -478,6 +481,158 @@ body{font-size:6.5pt;line-height:1.25}
 <tr><td>{% for s in sellers %}<div data-seller>{{ s.name }}</div>{% endfor %}</td><td>{% for b in buyers %}<div data-buyer>{{ b.name }}</div>{% endfor %}</td></tr>
 </tbody></table>
 <p data-business-taxpayer>{{ t.ask }}</p>
+<p class="foot">{{ t.signature }}: ______________________</p>
+{% if header.stamp %}<img class="stamp" src="{{ header.stamp }}" alt="">{% endif %}${QR}`
+        }
+    },
+    {
+        key: 'vehicle-transfer-document',
+        name: t('የተሽከርካሪ መረጃ ማስተላለፊያ ሰነድ', 'Vehicle data transfer document'),
+        version: {
+            paper: 'A4',
+            dataSchema: 'vehicle-transfer-document.v1',
+            strings: {
+                title: t('የተሽከርካሪ መረጃ ማስተላለፊያ ሰነድ', 'Vehicle data transfer document'),
+                number: t('ቁጥር', 'No.'),
+                issuedOn: t('ቀን', 'Date'),
+                caseNumber: t('የጉዳይ ቁጥር', 'Case number'),
+                validUntil: t('ሰነዱ የሚያገለግለው እስከ', 'This document stands until'),
+                destination: t('የሚዛወርበት መሥሪያ ቤት', 'Going to'),
+                region: t('ክልል', 'Region'),
+                owners: t('የተሽከርካሪው ባለቤት', 'Owner of the vehicle'),
+                address: t('አድራሻ', 'Address'),
+                plate: t('የሰሌዳ ቁጥር', 'Plate'),
+                chassis: t('የሻሲ ቁጥር', 'Chassis number'),
+                engine: t('የሞተር ቁጥር', 'Engine number'),
+                makeModel: t('ሰሪና ሞዴል', 'Make and model'),
+                year: t('የተሠራበት ዓመት', 'Year made'),
+                category: t('የተሽከርካሪው ዓይነት', 'Vehicle type'),
+                use: t('አገልግሎት', 'Service'),
+                plates: t('ተሽከርካሪው የያዛቸው ሰሌዳዎች', 'Plates the vehicle has carried'),
+                since: t('ከ', 'From'),
+                until: t('እስከ', 'Until'),
+                place: t('ሰሌዳው የተሰጠበት ቦታ', 'Where the plate was issued'),
+                efy: t('ዓ.ም', 'E.C.'),
+                customs: t('የጉምሩክ ማሳወቂያ ቁጥር', 'Customs declaration number'),
+                taxReceipt: t('የግብር ደረሰኝ ቁጥር', 'Tax receipt number'),
+                purchaseValue: t('የግዢ ዋጋ (ብር)', 'Purchase value (Birr)'),
+                excise: t('የተከፈለ ኤክሳይስ ታክስ (ብር)', 'Excise tax paid (Birr)'),
+                bolo: t('ቦሎ', 'Bolo'),
+                boloSerial: t('የተለጣፊ ቁጥር', 'Sticker serial'),
+                boloUntil: t('የሚያገለግለው እስከ', 'Stands until'),
+                boloTemporary: t('ጊዜያዊ ቦሎ', 'Temporary bolo'),
+                holds: t('ዕዳና ዕገዳዎች', 'Debts and holds'),
+                holdKind: t('ዓይነት', 'Kind'),
+                holdHolder: t('ባለመብቱ', 'Holder'),
+                holdReference: t('የደብዳቤ ቁጥር', 'Letter reference'),
+                holdDate: t('የደብዳቤ ቀን', 'Letter date'),
+                holdAmount: t('መጠን (ብር)', 'Amount (Birr)'),
+                none: t('የለም', 'none'),
+                remarks: t('ማስታወሻ', 'Remarks'),
+                preparedBy: t('ያዘጋጀው', 'Prepared by'),
+                approvedBy: t('ያጸደቀው', 'Approved by'),
+                ruleErasure: t(
+                    'በሰነዱ ላይ ማንኛውም ስርዝ ድርዝ ወይም ማጥፊያ ዋጋ የለውም።',
+                    'Any erasure or overwriting on this document makes it void.'
+                ),
+                ruleValid: t('ይህ ሰነድ እስከ', 'This document is valid until'),
+                ruleValidEnd: t('ድረስ ብቻ ያገለግላል።', 'only.'),
+                ruleVoid: t(
+                    'በተጠቀሰው ጊዜ ውስጥ አገልግሎቱ ካልተሰጠ ሰነዱ ዋጋ አልባ ይሆናል።',
+                    'If the service is not given within that time, the document is void.'
+                )
+            },
+            body: `${STYLE}${HEAD}<p class="title">{{ t.title }}</p>
+<div class="facts">
+<div><span class="term">{{ t.number }}:</span> <span data-number>{{ number }}</span></div>
+<div><span class="term">{{ t.issuedOn }}:</span> {{ issuedOn | ethdate }}</div>
+<div><span class="term">{{ t.caseNumber }}:</span> {{ caseNumber }}</div>
+<div><span class="term">{{ t.validUntil }}:</span> <span data-valid-until>{{ validUntil | ethdate }}</span></div>
+<div><span class="term">{{ t.destination }}:</span> <span data-destination>{{ destination.name }}</span></div>
+<div><span class="term">{{ t.region }}:</span> {{ destination.region | default: "${DASH}" }}</div>
+</div>
+<table><thead><tr><th>{{ t.owners }}</th><th>{{ t.address }}</th></tr></thead><tbody>
+{% for o in owners %}<tr><td data-owner>{{ o.name }}</td><td>{{ o.address | default: "${DASH}" }}</td></tr>{% endfor %}
+</tbody></table>
+<div class="facts">
+<div><span class="term">{{ t.plate }}:</span> {{ vehicle.plate }}</div>
+<div><span class="term">{{ t.chassis }}:</span> {{ vehicle.chassisNumber }}</div>
+<div><span class="term">{{ t.engine }}:</span> {{ vehicle.engineNumber | default: "${DASH}" }}</div>
+<div><span class="term">{{ t.makeModel }}:</span> {{ vehicle.make }} {{ vehicle.model }}</div>
+<div><span class="term">{{ t.year }}:</span> {{ vehicle.modelYear | default: "${DASH}" }}</div>
+<div><span class="term">{{ t.category }}:</span> {{ vehicle.category | text }}</div>
+<div><span class="term">{{ t.use }}:</span> {{ vehicle.use | text }}</div>
+</div>
+<table><thead><tr><th>{{ t.plates }}</th><th>{{ t.since }}</th><th>{{ t.until }}</th><th>{{ t.place }}</th></tr></thead><tbody>
+{% for p in plates %}<tr><td data-plate>{{ p.plate }}</td><td>{% if p.since %}{{ p.since | ethdate }}{% elsif p.year %}{{ p.year }} {{ t.efy }}{% else %}${DASH}{% endif %}</td><td>{% if p.until %}{{ p.until | ethdate }}{% else %}${DASH}{% endif %}</td><td>{{ p.place | default: "${DASH}" }}</td></tr>{% endfor %}
+</tbody></table>
+<div class="facts">
+<div><span class="term">{{ t.customs }}:</span> {{ customsDeclarationNumber | default: "${DASH}" }}</div>
+<div><span class="term">{{ t.taxReceipt }}:</span> {{ taxReceiptNumber | default: "${DASH}" }}</div>
+<div><span class="term">{{ t.purchaseValue }}:</span> {% if purchaseValueSantim %}{{ purchaseValueSantim | birr }}{% else %}${DASH}{% endif %}</div>
+<div><span class="term">{{ t.excise }}:</span> {% if excisePaidSantim %}{{ excisePaidSantim | birr }}{% else %}${DASH}{% endif %}</div>
+</div>
+<p><span class="term">{{ t.bolo }}:</span> {% if bolo %}{{ t.boloSerial }}: {{ bolo.serial | default: "${DASH}" }} · {{ t.boloUntil }}: {{ bolo.validUntil | ethdate }}{% if bolo.temporary %} ({{ t.boloTemporary }}){% endif %}{% else %}${DASH}{% endif %}</p>
+<table><thead><tr><th colspan="5">{{ t.holds }}</th></tr></thead><tbody>
+{% if holds.size == 0 %}<tr><td colspan="5"><span data-holds-none>{{ t.none }}</span></td></tr>{% else %}<tr><th>{{ t.holdKind }}</th><th>{{ t.holdHolder }}</th><th>{{ t.holdReference }}</th><th>{{ t.holdDate }}</th><th class="num">{{ t.holdAmount }}</th></tr>
+{% for h in holds %}<tr data-hold><td>{{ h.kind | text }}</td><td>{{ h.holder }}</td><td>{{ h.letterReference }}</td><td>{{ h.letterDate | ethdate }}</td><td class="num">{% if h.amountSantim %}{{ h.amountSantim | birr }}{% else %}${DASH}{% endif %}</td></tr>{% endfor %}{% endif %}
+</tbody></table>
+<p><span class="term">{{ t.remarks }}:</span> {{ remarks | default: "${DASH}" }}</p>
+<div class="facts">
+<div><span class="term">{{ t.preparedBy }}:</span> {% if preparedBy %}{{ preparedBy }}{% else %}______________________{% endif %}</div>
+<div><span class="term">{{ t.approvedBy }}:</span> {% if approvedBy %}{{ approvedBy }}{% else %}______________________{% endif %}</div>
+</div>
+<div class="foot" data-rules>
+<p>{{ t.ruleErasure }}</p>
+<p>{{ t.ruleValid }} {{ validUntil | ethdate }} {{ t.ruleValidEnd }}</p>
+<p>{{ t.ruleVoid }}</p>
+</div>
+{% if header.stamp %}<img class="stamp" src="{{ header.stamp }}" alt="">{% endif %}${QR}`
+        }
+    },
+    {
+        key: 'vehicle-transfer-covering-letter',
+        name: t('የተሽከርካሪ ማስተላለፊያ ማሳወቂያ ደብዳቤ', 'Vehicle transfer covering letter'),
+        version: {
+            paper: 'A4',
+            dataSchema: 'vehicle-transfer-covering-letter.v1',
+            strings: {
+                title: t('የተሽከርካሪ ዝውውር ማሳወቂያ ደብዳቤ', 'Vehicle transfer covering letter'),
+                to: t('ለ', 'To'),
+                number: t('ቁጥር', 'No.'),
+                issuedOn: t('ቀን', 'Date'),
+                caseNumber: t('የጉዳይ ቁጥር', 'Case number'),
+                validUntil: t('ደብዳቤው የሚያገለግለው እስከ', 'This letter stands until'),
+                subject: t('ጉዳዩ', 'Subject'),
+                subjectText: t('የተሽከርካሪ ዝውውር ስለማሳወቅ', 'Notice of a vehicle transfer'),
+                plate: t('የሰሌዳ ቁጥር', 'Plate'),
+                chassis: t('የሻሲ ቁጥር', 'Chassis number'),
+                makeModel: t('ሰሪና ሞዴል', 'Make and model'),
+                owners: t('የተሽከርካሪው ባለቤት', 'Owner of the vehicle'),
+                documentNumber: t('የመረጃ ማስተላለፊያ ሰነድ ቁጥር', 'Vehicle data transfer document no.'),
+                ask: t(
+                    'ከላይ የተመለከተው ተሽከርካሪ ወደ መሥሪያ ቤታችሁ እንዲዛወር ተለቋል። ባለቤቱ ከዚህ ደብዳቤ ጋር የተያያዘውን የመረጃ ማስተላለፊያ ሰነድ ይዞ ይቀርባል፤ እባካችሁ ተሽከርካሪውን መዝግባችሁ ተቀበሉ።',
+                    'The vehicle above is released to your office. The owner will bring the vehicle data transfer document that goes with this letter; please register the vehicle and receive it.'
+                ),
+                signature: t('የሰጪው ባለሥልጣን ፊርማ', "Issuing officer's signature")
+            },
+            body: `${STYLE}${HEAD}<p class="title">{{ t.title }}</p>
+<div class="facts">
+<div><span class="term">{{ t.number }}:</span> <span data-number>{{ number }}</span></div>
+<div><span class="term">{{ t.issuedOn }}:</span> {{ issuedOn | ethdate }}</div>
+<div><span class="term">{{ t.caseNumber }}:</span> {{ caseNumber }}</div>
+<div><span class="term">{{ t.validUntil }}:</span> <span data-valid-until>{{ validUntil | ethdate }}</span></div>
+</div>
+<p><span class="term">{{ t.to }}:</span> {{ addressee }}</p>
+<p><span class="term">{{ t.subject }}:</span> {{ t.subjectText }}</p>
+<div class="facts">
+<div><span class="term">{{ t.plate }}:</span> {{ vehicle.plate }}</div>
+<div><span class="term">{{ t.chassis }}:</span> {{ vehicle.chassisNumber }}</div>
+<div><span class="term">{{ t.makeModel }}:</span> {{ vehicle.make }} {{ vehicle.model }}</div>
+<div><span class="term">{{ t.documentNumber }}:</span> <span data-document-number>{{ documentNumber | default: "${DASH}" }}</span></div>
+</div>
+<p><span class="term">{{ t.owners }}:</span> {% for o in owners %}<span data-owner>{{ o.name }}</span>{% unless forloop.last %}, {% endunless %}{% endfor %}</p>
+<p>{{ t.ask }}</p>
 <p class="foot">{{ t.signature }}: ______________________</p>
 {% if header.stamp %}<img class="stamp" src="{{ header.stamp }}" alt="">{% endif %}${QR}`
         }

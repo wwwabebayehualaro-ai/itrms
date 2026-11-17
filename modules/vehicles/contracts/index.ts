@@ -367,7 +367,8 @@ export const libreBookletSchema = z.strictObject({
 export type LibreBooklet = z.infer<typeof libreBookletSchema>;
 
 export const statusChangeSchema = z.strictObject({
-    status: z.enum(VEHICLE_STATUSES).exclude(['active']),
+    // 'transferred_out' is not here: a vehicle gets it only from a release outside the region (ADR-0058)
+    status: z.enum(VEHICLE_STATUSES).exclude(['active', 'transferred_out']),
     /** the day the vehicle left the register (the open ownership period ends then) */
     on: isoDate
 });

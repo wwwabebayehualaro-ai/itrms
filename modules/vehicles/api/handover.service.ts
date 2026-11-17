@@ -62,6 +62,84 @@ export class VehicleHandovers {
      * and the destination is another active office of the region that offers `service` (the transfer in). Nothing is written.
      */
     async check(tx: Tx, ctx: DbContext, vehicleId: string, toUnitId: string, service: string): Promise<HandoverCheck> {
+        const { vehicle, openPeriodId } = await this.checkVehicle(tx, ctx, vehicleId);
+        if (toUnitId === vehicle.handlingUnitId)
+            throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.handover_same_office' });
+        // the destination: an active office of the region given the transfer in (a sibling is answered by the reviewed lookup)
+        const { rows } = await tx.execute<{ ok: boolean }>(
+            sql`select vehicles.handover_destination(${toUnitId}::uuid, ${service}) as ok`
+        );
+        if (rows[0]?.ok !== true)
+            throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.handover_not_offered' });
+        return { openPeriodId, vinKey: vehicle.vinKey, toUnitId };
+    }
+
+    /**
+     * Whether the caller's office may release the vehicle outside the region (ADR-0058): the vehicle part of `check`, with no
+     * destination to look up. Nothing is written.
+     */
+    async checkOutside(tx: Tx, ctx: DbContext, vehicleId: string): Promise<{ openPeriodId: string; vinKey: string }> {
+        const { vehicle, openPeriodId } = await this.checkVehicle(tx, ctx, vehicleId);
+        return { openPeriodId, vinKey: vehicle.vinKey };
+    }
+
+    /**
+     * The release outside the region (the transfer out's giving step): the vehicle reads `transferred_out` and the release stands
+     * as its claim. Nothing else changes (ADR-0058: the owners, plate, libre and stock plate stay). Run again for the same case it
+     * returns the release it made.
+     */
+    async releaseOutside(
+        tx: Tx,
+        ctx: DbContext,
+        given: {
+            vehicleId: string;
+            caseId: string;
+            ownershipId: string;
+            on: string;
+            validUntil: string;
+            destination: { name: string; region: string | null };
+        }
+    ): Promise<Handover> {
+        const [made] = await tx.select().from(vehicleHandovers).where(eq(vehicleHandovers.caseId, given.caseId));
+        if (made) return made;
+        // the region reads every vehicle; a row-level lock needs the right to update it, so the scope is checked on a plain read first
+        const [seen] = await tx.select().from(vehicles).where(eq(vehicles.id, given.vehicleId));
+        if (!seen) throw new NotFoundError();
+        if (!withinScope(seen.handlingOrgPath, ctx.scopePath ?? ''))
+            throw new ForbiddenError({ detailKey: 'vehicles.errors.other_office' });
+        const [vehicle] = await tx.select().from(vehicles).where(eq(vehicles.id, given.vehicleId)).for('update');
+        if (!vehicle) throw new NotFoundError();
+        if (vehicle.status !== 'active')
+            throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.not_on_register' });
+        if (vehicle.handlingUnitId !== ctx.unitId)
+            throw new ForbiddenError({ detailKey: 'vehicles.errors.other_office' });
+        const [open] = await tx
+            .select({ id: vehicleOwnerships.id })
+            .from(vehicleOwnerships)
+            .where(and(eq(vehicleOwnerships.vehicleId, vehicle.id), sql`${vehicleOwnerships.until} is null`));
+        if (open?.id !== given.ownershipId)
+            throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.owners_changed' });
+        await this.expireLapsed(tx, vehicle.id, given.on);
+        const released = await insertAudited(tx, vehicleHandovers, {
+            regionId: ctx.regionId ?? '',
+            vehicleId: vehicle.id,
+            ownershipId: given.ownershipId,
+            fromUnitId: vehicle.handlingUnitId,
+            toUnitId: null,
+            destinationKind: 'outside',
+            destinationName: given.destination.name,
+            destinationRegion: given.destination.region,
+            caseId: given.caseId,
+            releasedOn: given.on,
+            releasedBy: ctx.userId ?? null,
+            validUntil: given.validUntil
+        });
+        await updateAudited(tx, vehicles, vehicle.id, vehicle.rowVersion, { status: 'transferred_out' });
+        return released;
+    }
+
+    /** The vehicle part of every release's check: it exists, the caller's office handles it, it is active and has owners. */
+    private async checkVehicle(tx: Tx, ctx: DbContext, vehicleId: string) {
         const [vehicle] = await tx.select().from(vehicles).where(eq(vehicles.id, vehicleId));
         if (!vehicle) throw new NotFoundError();
         if (!withinScope(vehicle.handlingOrgPath, ctx.scopePath ?? ''))
@@ -73,15 +151,23 @@ export class VehicleHandovers {
             .from(vehicleOwnerships)
             .where(and(eq(vehicleOwnerships.vehicleId, vehicleId), sql`${vehicleOwnerships.until} is null`));
         if (!open) throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.no_owners' });
-        if (toUnitId === vehicle.handlingUnitId)
-            throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.handover_same_office' });
-        // the destination: an active office of the region given the transfer in (a sibling is answered by the reviewed lookup)
-        const { rows } = await tx.execute<{ ok: boolean }>(
-            sql`select vehicles.handover_destination(${toUnitId}::uuid, ${service}) as ok`
-        );
-        if (rows[0]?.ok !== true)
-            throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.handover_not_offered' });
-        return { openPeriodId: open.id, vinKey: vehicle.vinKey, toUnitId };
+        return { vehicle, openPeriodId: open.id };
+    }
+
+    /** A release of the vehicle that lapsed unused is expired, so a new one may stand. */
+    private async expireLapsed(tx: Tx, vehicleId: string, on: string): Promise<void> {
+        const lapsed = await tx
+            .select()
+            .from(vehicleHandovers)
+            .where(
+                and(
+                    eq(vehicleHandovers.vehicleId, vehicleId),
+                    eq(vehicleHandovers.status, 'released'),
+                    lt(vehicleHandovers.validUntil, on)
+                )
+            );
+        for (const row of lapsed)
+            await updateAudited(tx, vehicleHandovers, row.id, row.rowVersion, { status: 'expired' });
     }
 
     /**
@@ -102,18 +188,7 @@ export class VehicleHandovers {
     ): Promise<Handover> {
         const [made] = await tx.select().from(vehicleHandovers).where(eq(vehicleHandovers.caseId, given.caseId));
         if (made) return made;
-        const lapsed = await tx
-            .select()
-            .from(vehicleHandovers)
-            .where(
-                and(
-                    eq(vehicleHandovers.vehicleId, given.vehicleId),
-                    eq(vehicleHandovers.status, 'released'),
-                    lt(vehicleHandovers.validUntil, given.on)
-                )
-            );
-        for (const row of lapsed)
-            await updateAudited(tx, vehicleHandovers, row.id, row.rowVersion, { status: 'expired' });
+        await this.expireLapsed(tx, given.vehicleId, given.on);
         const [unit] = await tx
             .select({ id: orgUnits.id })
             .from(orgUnits)

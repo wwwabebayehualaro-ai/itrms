@@ -192,17 +192,72 @@ export async function firstServiceVersion(
 }
 
 /**
+ * A new published version of a seeded form, when the one the service uses is the form's published version, a seed wrote it
+ * (`createdBy` null) and today's content differs. Returns the new version's id, or undefined when nothing was published.
+ */
+async function supersedeSeededForm(
+    tx: Tx,
+    root: { id: string; regionId: string },
+    usedVersionId: string,
+    form: { key: string; document: object }
+): Promise<string | undefined> {
+    const [definition] = await tx
+        .select()
+        .from(formDefinitions)
+        .where(and(eq(formDefinitions.regionId, root.regionId), eq(formDefinitions.key, form.key)));
+    if (!definition || definition.publishedVersionId !== usedVersionId) return undefined;
+    const [live] = await tx.select().from(formVersions).where(eq(formVersions.id, usedVersionId));
+    if (!live || live.createdBy !== null) return undefined;
+    const hash = contentHash(form.document);
+    // nosemgrep: ajinabraham.njsscan.crypto.timing_attack_node.node_timing_attack -- a content hash of a seeded form, not a secret
+    if (live.contentHash === hash) return undefined;
+    const [last] = await tx
+        .select({ number: formVersions.number })
+        .from(formVersions)
+        .where(eq(formVersions.formId, definition.id))
+        .orderBy(desc(formVersions.number))
+        .limit(1);
+    // today's form may already be a version of it: used again, never stored twice
+    const [stored] = await tx
+        .select()
+        .from(formVersions)
+        .where(and(eq(formVersions.formId, definition.id), eq(formVersions.contentHash, hash)));
+    const version =
+        stored ??
+        (await insertAudited(tx, formVersions, {
+            regionId: root.regionId,
+            ownerUnitId: root.id,
+            formId: definition.id,
+            number: (last?.number ?? 0) + 1,
+            contentHash: hash,
+            document: form.document
+        }));
+    await updateAudited(tx, formDefinitions, definition.id, definition.rowVersion, {
+        document: form.document,
+        documentHash: hash,
+        publishedVersionId: version.id,
+        publishedAt: new Date()
+    });
+    return version.id;
+}
+
+/**
  * A seeded service whose current version a seed wrote, on an older flow of this workflow: a new workflow version and a new service
  * version on it, everything else kept (task 1.4b2; DVC-13 got its return to the letters and its timeout's revocation in 1.4b3). A
  * version a person published, or one on another workflow, is the bureau's, and is left alone; so is a flow that is already this
  * one. Cases keep the version they froze. Returns whether it made a version.
+ *
+ * `form`: the request form the new service version should use (task 1.4c2: DVC-14's request gained its destination). A new form
+ * version is published only when the form's published version is one a seed wrote and the service still uses it, and its content
+ * differs; a form a person changed is theirs. With an unchanged flow but a changed form, the service gets a version on the new form.
  */
 export async function supersedeSeededVersion(
     tx: Tx,
     root: { id: string; regionId: string },
     service: typeof serviceDefinitions.$inferSelect,
     workflowKey: string,
-    definition: unknown
+    definition: unknown,
+    form?: { key: string; document: object }
 ): Promise<boolean> {
     if (!service.currentVersionId) return false;
     const [current] = await tx.select().from(serviceVersions).where(eq(serviceVersions.id, service.currentVersionId));
@@ -218,7 +273,10 @@ export async function supersedeSeededVersion(
     const parsed = workflowDefinitionSchema.parse(definition);
     const hash = contentHash(parsed);
     // nosemgrep: ajinabraham.njsscan.crypto.timing_attack_node.node_timing_attack -- a content hash of a seeded flow, not a secret
-    if (running.version.contentHash === hash) return false;
+    const sameFlow = running.version.contentHash === hash;
+    const formVersionId =
+        form && current.formVersionId ? await supersedeSeededForm(tx, root, current.formVersionId, form) : undefined;
+    if (sameFlow && !formVersionId) return false;
     // today's flow may already be a version of the workflow: it is used again, never stored twice (as the designer does)
     const [stored] = await tx
         .select()
@@ -247,9 +305,10 @@ export async function supersedeSeededVersion(
             contentHash: hash,
             definition: parsed
         }));
-    await updateAudited(tx, workflowDefinitions, running.flow.id, running.flow.rowVersion, {
-        latestVersionId: flowVersion.id
-    });
+    if (flowVersion.id !== running.flow.latestVersionId)
+        await updateAudited(tx, workflowDefinitions, running.flow.id, running.flow.rowVersion, {
+            latestVersionId: flowVersion.id
+        });
     const [lastService] = await tx
         .select({ number: serviceVersions.number, from: serviceVersions.effectiveFrom })
         .from(serviceVersions)
@@ -258,7 +317,7 @@ export async function supersedeSeededVersion(
         .limit(1);
     const today = addisDay();
     const content = {
-        formVersionId: current.formVersionId,
+        formVersionId: formVersionId ?? current.formVersionId,
         workflowVersionId: flowVersion.id,
         feeRuleVersionId: current.feeRuleVersionId,
         defaults: current.defaults,

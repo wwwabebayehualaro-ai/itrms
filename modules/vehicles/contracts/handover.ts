@@ -8,13 +8,21 @@ import { z } from 'zod';
 export const HANDOVER_STATUSES = ['released', 'received', 'expired'] as const;
 export type HandoverStatus = (typeof HANDOVER_STATUSES)[number];
 
+/** Where a release goes: an office of the region (it receives it), or outside it (ADR-0058: another region, or an office without ITRMS). */
+export const HANDOVER_DESTINATIONS = ['office', 'outside'] as const;
+export type HandoverDestination = (typeof HANDOVER_DESTINATIONS)[number];
+
 const isoDate = z.iso.date();
 
 export const vehicleHandoverSchema = z.object({
     id: z.uuid(),
     vehicleId: z.uuid(),
     fromUnitId: z.uuid(),
-    toUnitId: z.uuid(),
+    /** null for a release outside the region */
+    toUnitId: z.uuid().nullable(),
+    destinationKind: z.enum(HANDOVER_DESTINATIONS),
+    destinationName: z.string().nullable(),
+    destinationRegion: z.string().nullable(),
     status: z.enum(HANDOVER_STATUSES),
     releasedOn: isoDate,
     validUntil: isoDate,

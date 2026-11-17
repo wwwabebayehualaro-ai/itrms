@@ -55,6 +55,7 @@ import {
     ENCUMBRANCE_STATUSES,
     FEDERAL_ID_SOURCES,
     FUELS,
+    HANDOVER_DESTINATIONS,
     HANDOVER_STATUSES,
     LIBRE_STATUSES,
     MIGRATION_SOURCES,
@@ -623,9 +624,12 @@ export const vehicleHandovers = withRls(
                     .references(() => orgUnits.id),
                 /** set by trigger from the releasing unit */
                 fromOrgPath: ltree('from_org_path').notNull().default(''),
-                toUnitId: uuid('to_unit_id')
-                    .notNull()
-                    .references(() => orgUnits.id),
+                /** null for a release outside the region (ADR-0058) */
+                toUnitId: uuid('to_unit_id').references(() => orgUnits.id),
+                destinationKind: text('destination_kind', { enum: HANDOVER_DESTINATIONS }).notNull().default('office'),
+                /** the body or office outside the region it goes to, as the document names it */
+                destinationName: text('destination_name'),
+                destinationRegion: text('destination_region'),
                 /** the transfer-out case (no foreign key: the register does not depend on the workflow) */
                 caseId: uuid('case_id').notNull(),
                 releasedOn: date('released_on').notNull(),
@@ -650,6 +654,16 @@ export const vehicleHandovers = withRls(
                 index('vehicle_handovers_from_gist').using('gist', t.fromOrgPath),
                 check('vehicle_handovers_status_check', sql`${t.status} in ${oneOf(HANDOVER_STATUSES)}`),
                 check('vehicle_handovers_units_check', sql`${t.fromUnitId} <> ${t.toUnitId}`),
+                check('vehicle_handovers_kind_check', sql`${t.destinationKind} in ${oneOf(HANDOVER_DESTINATIONS)}`),
+                check(
+                    'vehicle_handovers_destination_check',
+                    sql`(${t.destinationKind} = 'office' and ${t.toUnitId} is not null and ${t.destinationName} is null and ${t.destinationRegion} is null) or (${t.destinationKind} = 'outside' and ${t.toUnitId} is null and ${t.destinationName} is not null and length(${t.destinationName}) between 1 and 200 and coalesce(length(${t.destinationRegion}), 1) between 1 and 100)`
+                ),
+                // an outside release is never received: no office of this installation takes it in
+                check(
+                    'vehicle_handovers_outside_check',
+                    sql`${t.status} <> 'received' or ${t.destinationKind} = 'office'`
+                ),
                 check('vehicle_handovers_dates_check', sql`${t.validUntil} >= ${t.releasedOn}`),
                 check(
                     'vehicle_handovers_received_check',

@@ -15,7 +15,7 @@ import type { OutboxHandler } from '@itrms/kernel/api/worker';
 import { emit } from '@itrms/kernel/outbox';
 import { orgUnits } from '@itrms/kernel/tables';
 import { phoneForNotice } from '@itrms/parties/api/worker';
-import { plateAssignments, vehicleOwners, vehicleOwnerships } from '@itrms/vehicles/api';
+import { plateAssignments, vehicleOwners, vehicleOwnerships, vehicles } from '@itrms/vehicles/api';
 
 import { addisDay, COMPETENCY_EVENTS } from '../../contracts';
 import { reminderText } from '../bolo-validity';
@@ -31,7 +31,8 @@ const REASON = 'competency.bolo_reminder';
 
 /**
  * Marks a due bolo reminded and asks for one SMS per owner; returns how many. False when there is nothing to do: reminded already,
- * no longer standing, or past its last day.
+ * no longer standing, past its last day, or the vehicle is no longer on the register (one that left the region, ADR-0058, or was
+ * deregistered, is reminded of nothing).
  */
 export async function remindBoloExpiring(system: SystemDatabase, boloId: string): Promise<number | false> {
     return system.systemContext(REASON, async (tx) => {
@@ -41,6 +42,11 @@ export async function remindBoloExpiring(system: SystemDatabase, boloId: string)
             .where(and(eq(bolos.id, boloId), isNull(bolos.remindedAt)))
             .for('update');
         if (bolo?.status !== 'valid' || bolo.validUntil < addisDay()) return false;
+        const [vehicle] = await tx
+            .select({ status: vehicles.status })
+            .from(vehicles)
+            .where(eq(vehicles.id, bolo.vehicleId));
+        if (vehicle?.status !== 'active') return false;
         const [unit] = await tx
             .select({ path: orgUnits.path })
             .from(orgUnits)

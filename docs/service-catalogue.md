@@ -68,8 +68,10 @@ or entering the zone"; task 1.4c, ADR-0057). DVC-14, at the office that handles 
 region once paid and approved; DVC-15, at that office, receives it, and the vehicle and its live records move there (never a
 copy). The release stands 15 days (a region's setting), the receiving office may be asked to inspect the vehicle again (a setting,
 off), and each service has its own fee rule (the demo charges the zone's 2,000 on DVC-14 and nothing on DVC-15: to confirm which
-side charges). A vehicle going to another region, or to an office without ITRMS, takes the transfer document instead (task 1.4c2)
-and is registered there from it (task 1.4c3). Offered wherever DVC-01 is; not counted in the totals.
+side charges). A vehicle going to another region, or to an office without ITRMS, takes the vehicle data transfer document
+instead (task 1.4c2, ADR-0058): DVC-14 is filed with "outside" and the name and region it goes to, and once paid and approved the
+officer issues the document (15 days, a covering letter with it) and the vehicle reads transferred out, keeping its records; it is
+registered there from the document (task 1.4c3). Offered wherever DVC-01 is; not counted in the totals.
 
 **Not in the source: MIG-01, the back-capture of a paper vehicle file** (የወረቀት ተሽከርካሪ ፋይል ምዝገባ; ADR-0054, task 1.13). The
 migration's own service, in the catalogue beside the 54 and offered wherever DVC-01 is: a vehicle with no electronic record is

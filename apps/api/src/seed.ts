@@ -39,7 +39,8 @@ import {
     importVehicleServices,
     setUpBoloCounters,
     setUpLicenceCounters,
-    setUpTransferLetterCounters
+    setUpTransferLetterCounters,
+    setUpVehicleTransferDocumentCounters
 } from '@itrms/competency/seed';
 import { FieldCrypto } from '@itrms/kernel/crypto';
 import { OrganisationsService, PersonsService } from '@itrms/parties/api';
@@ -204,6 +205,8 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
                 // the transfer of a vehicle between offices (task 1.4c): out with the zone's fee, in with none
                 transferOut: await importTransferOutService(tx, where),
                 transferIn: await importTransferInService(tx, where),
+                // the transfer document of a vehicle leaving the region (task 1.4c2): its counter at each office that offers DVC-14
+                transferDocumentCounters: await setUpVehicleTransferDocumentCounters(tx, root.regionId),
                 // the bolo inspection (task 1.3a), after the fee rules; its temporary bolos' counters
                 bolo: await importBoloService(tx, where),
                 boloCounters: await setUpBoloCounters(tx, root.regionId),

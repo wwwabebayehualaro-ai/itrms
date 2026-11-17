@@ -496,5 +496,11 @@
   "competency.rule.transferInspectionNotMatching": "The vehicle must be the one its record describes before it is received.",
   "competency.setting.vehicle_transfer_valid_days": "Days a vehicle released to another office stands for it",
   "competency.setting.vehicle_transfer_reinspect": "The receiving office inspects a transferred vehicle again",
-  "competency.rule.transferAcquiredBy": "Choose how the buyers came by the vehicle: sale, gift, inheritance, court order or auction."
+  "competency.rule.transferAcquiredBy": "Choose how the buyers came by the vehicle: sale, gift, inheritance, court order or auction.",
+  "competency.setting.vehicle_transfer_covering_letter": "Send a covering letter with a vehicle released to an office of this region",
+  "competency.rule.transferOutDestinationName": "Name the office the vehicle moves to.",
+  "competency.rule.transferOutDestinationRegion": "Name the region the vehicle moves to.",
+  "competency.rule.transferOutNoOffice": "Choose the office the vehicle moves to.",
+  "competency.rule.transferDocumentAmount": "An amount is in whole Birr, from 1 to 10,000,000,000.",
+  "competency.rule.transferDocumentPlateYear": "The year of an earlier plate is an Ethiopian year, from 1900 to 2100."
 }
