@@ -217,6 +217,7 @@ export async function supersedeSeededVersion(
     if (running.flow.latestVersionId !== running.version.id) return false;
     const parsed = workflowDefinitionSchema.parse(definition);
     const hash = contentHash(parsed);
+    // nosemgrep: ajinabraham.njsscan.crypto.timing_attack_node.node_timing_attack -- a content hash of a seeded flow, not a secret
     if (running.version.contentHash === hash) return false;
     // today's flow may already be a version of the workflow: it is used again, never stored twice (as the designer does)
     const [stored] = await tx

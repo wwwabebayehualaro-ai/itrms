@@ -636,7 +636,7 @@ describe('what is seeded', () => {
             `insert into workflow.workflow_definition_versions (id, region_id, owner_unit_id, definition_id, number, content_hash, definition)
              select gen_random_uuid(), w.region_id, w.owner_unit_id, w.definition_id,
                     (select max(number) + 1 from workflow.workflow_definition_versions where definition_id = w.definition_id),
-                    'first-flow',
+                    encode(sha256('first-flow'::bytea), 'hex'),
                     jsonb_set(w.definition, '{transitions}', (
                         select jsonb_agg(case when t->>'on' = 'timeout' then t - 'effects' else t end)
                           from jsonb_array_elements(w.definition->'transitions') t
@@ -666,7 +666,7 @@ describe('what is seeded', () => {
                         effective_from, created_by)
                  select gen_random_uuid(), v.region_id, v.service_id,
                         (select max(number) + 1 from services.service_versions where service_id = v.service_id),
-                        'first-flow-' || $2::text, v.form_version_id, $1, v.fee_rule_version_id, v.template_version_ids,
+                        encode(sha256(('first-flow-' || $2::text)::bytea), 'hex'), v.form_version_id, $1, v.fee_rule_version_id, v.template_version_ids,
                         v.defaults, v.override_policy, v.input_map, v.effective_from, $3::uuid
                    from services.service_definitions d join services.service_versions v on v.id = d.current_version_id
                   where d.code = 'DVC-13'
@@ -719,7 +719,7 @@ describe('what is seeded', () => {
             `insert into workflow.workflow_definition_versions (id, region_id, owner_unit_id, definition_id, number, content_hash, definition)
              select gen_random_uuid(), region_id, owner_unit_id, definition_id,
                     (select max(number) + 1 from workflow.workflow_definition_versions where definition_id = v.definition_id),
-                    'bureau-edit', definition
+                    encode(sha256('bureau-edit'::bytea), 'hex'), definition
                from workflow.workflow_definition_versions v where id = $1
              returning id`,
             [flow?.id]
