@@ -1994,10 +1994,19 @@
         {
           "id": "1.4c2b",
           "title": "Transfers, part 3b2: cancel a release",
-          "status": "in progress",
+          "status": "done",
           "branch": "task/1.4c2b-cancel-release",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "db43ce4",
+            "db43ce4"
+          ],
+          "evidence": [
+            "CI PR #83 run 44190601852: success, all 10 jobs (lint/typecheck/test/build/boundaries, dev stack + integration, e2e incl. the new outside transfer and cancel journey, Semgrep, gitleaks, Trivy, stories/axe, performance, production profile)",
+            "local integration (Docker): vehicle-release-cancel 12/12 (office and outside releases cancelled, documents revoked, vehicle active with records unchanged, audit rows, wrong/missing number and empty reason refused, lapsed document without number by setting, refused while a DVC-15 or another DVC-16 is open, other office cannot pick it, trigger refuses a cancel without an open DVC-16 of the office, correction to another vehicle, re-run writes nothing, release_in_open_case with no context); vehicle-transfer, vehicle-transfer-outside, isolation, services, service-counters, ownership-transfer pass",
+            "turbo typecheck/lint/test competency, vehicles, documents, api, web green; i18n:check complete am/en; boundaries and check:slices clean; openapi no diff",
+            "migration 0088 reviewed: cancelled status and columns, trigger requires an open DVC-16 case of the releasing office naming the release, today, by the caller; column grant; vehicle_in_open_case cancelRelease arm; definer release_in_open_case on the isolation allow-list",
+            "reviewer (Fable): 3 medium + 2 low fixed (trigger needs an open DVC-16, correction to another vehicle, lookup searches before its limit, trigger refusal mapped to a conflict, triggers always re-enabled in the test); CI e2e then caught a legacy-plate search miss in the lookup, fixed; task-verifier: Done-when met"
+          ],
           "blockers": [],
           "notes": "Split from 1.4c2 on 2026-11-17 (architect: the workflow engine lets nobody act out of a wait and a task cannot time out, so a cancellable step after the release would need an engine change). DVC-16: filed at the releasing office, approved by a lead; handover released -> cancelled (a new status in the trigger); revokes the transfer document and its covering letter; an outside release sets the vehicle back to active; refused while a DVC-15 names an office release. To confirm with the zone: no fee; a fresh document for an owner who still moves is a new paid DVC-14. Design (architect, 2026-11-17), decided in auto mode (ADR-0059): DVC-16 draft -> review (officer) -> approval (lead, SoD) -> cancelled, no fee (to confirm); handover released -> cancelled (migration 0088: cancel_case_id/cancelled_on/cancelled_by, trigger checks the cancelling case); outside release: the handed-back document number must match, required while valid, optional once lapsed unless competency.vehicle_release_cancel_unreturned (default true, sensitive) is off; documents revoked, vehicle back to active; refused while a DVC-15 or another DVC-16 names the release (definer competency.release_in_open_case); lookup released-vehicle."
         },
@@ -4022,7 +4031,8 @@
     {
       "foundIn": "1.4c",
       "item": "A standing release has no cancel path: an owner who changes their mind after DVC-14 is released waits out the release's days; give DVC-14 a revoke step, or let the source expire its own release while no DVC-15 is filed (reviewer, low)",
-      "movedTo": "1.4c2"
+      "movedTo": "1.4c2",
+      "closedIn": "1.4c2b: DVC-16 cancels a standing release (ADR-0059)"
     },
     {
       "foundIn": "1.4c",
@@ -4032,7 +4042,8 @@
     {
       "foundIn": "1.4c2",
       "item": "An e2e journey for the outside transfer (DVC-14 to another region: the document step and the printed document); only the office path has one",
-      "movedTo": "1.4c2b"
+      "movedTo": "1.4c2b",
+      "closedIn": "1.4c2b: apps/web/tests/e2e/competency/vehicle-transfer-outside.spec.ts (transfer out of the region, its document, its cancellation)"
     }
   ]
 }
