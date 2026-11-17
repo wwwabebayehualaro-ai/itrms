@@ -517,5 +517,6 @@
   "competency.lookup.fact.releasedTo": "Released to",
   "competency.vehicleTransfers.fileCancel": "Cancel a vehicle release",
   "competency.action.newReleaseCancel": "Cancel a vehicle release",
-  "competency.setting.vehicle_release_cancel_unreturned": "Cancel a release to another region without its transfer document once the document has lapsed"
+  "competency.setting.vehicle_release_cancel_unreturned": "Cancel a release to another region without its transfer document once the document has lapsed",
+  "competency.rule.releaseCancelCheckFirst": "The release is checked on an earlier step than the one that cancels it."
 }

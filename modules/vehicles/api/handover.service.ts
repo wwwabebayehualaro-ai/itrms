@@ -55,6 +55,16 @@ function refusedBy(error: unknown): string | undefined {
     return undefined;
 }
 
+/** Whether the register refused a cancellation by a check of the handover (the trigger, or the table's own constraints). */
+function refusedCancel(error: unknown): boolean {
+    for (let e: unknown = error; e; e = (e as { cause?: unknown }).cause) {
+        const { code, constraint } = e as { code?: string; constraint?: string };
+        if (code === '23514' && (constraint?.startsWith('handover_') || constraint?.startsWith('vehicle_handovers_')))
+            return true;
+    }
+    return false;
+}
+
 @Injectable()
 export class VehicleHandovers {
     /**
@@ -252,14 +262,23 @@ export class VehicleHandovers {
             if (open?.id !== handover.ownershipId)
                 throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.owners_changed' });
         }
-        const cancelled = await updateAudited(tx, vehicleHandovers, handover.id, handover.rowVersion, {
-            status: 'cancelled',
-            cancelCaseId: given.caseId,
-            cancelledOn: given.on,
-            cancelledBy: ctx.userId ?? null
-        });
-        if (vehicle) await updateAudited(tx, vehicles, vehicle.id, vehicle.rowVersion, { status: 'active' });
-        return cancelled;
+        // the trigger of migration 0088 is the last word (the case, the office, the day, the caller): its refusal is a conflict, not a 500
+        try {
+            const cancelled = await updateAudited(tx, vehicleHandovers, handover.id, handover.rowVersion, {
+                status: 'cancelled',
+                cancelCaseId: given.caseId,
+                cancelledOn: given.on,
+                cancelledBy: ctx.userId ?? null
+            });
+            if (vehicle) await updateAudited(tx, vehicles, vehicle.id, vehicle.rowVersion, { status: 'active' });
+            return cancelled;
+        } catch (error) {
+            if (!refusedCancel(error)) throw error;
+            throw new ConflictError('invalid_transition', {
+                detailKey: 'vehicles.errors.handover_not_standing',
+                cause: error
+            });
+        }
     }
 
     /** The release a receipt by this case made, if it was received already. */

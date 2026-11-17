@@ -80,14 +80,16 @@ test.describe('a vehicle released outside the region', () => {
         await act(boditi.officer, outId, 'issue_document', WORD.issue);
         await inState(boditi.officer, outId, 'transferred_out');
 
-        // the documents are issued: the transfer document, with its number, and the covering letter
+        // the documents are issued: the transfer document, with its number, and the covering letter (beside the fee's receipt)
         const issued = await api(boditi.officer).get<{ items: { templateKey: string; number: string | null }[] }>(
             `v1/issued-documents?caseId=${outId}`
         );
-        expect(issued.items.map((d) => d.templateKey).sort()).toEqual([
-            'vehicle-transfer-covering-letter',
-            'vehicle-transfer-document'
-        ]);
+        expect(
+            issued.items
+                .map((d) => d.templateKey)
+                .filter((k) => k.startsWith('vehicle-transfer-'))
+                .sort()
+        ).toEqual(['vehicle-transfer-covering-letter', 'vehicle-transfer-document']);
         const documentNumber = issued.items.find((d) => d.templateKey === 'vehicle-transfer-document')?.number ?? '';
         expect(documentNumber).not.toBe('');
         const left = await api(boditi.officer).get<{ status: string }>(`v1/vehicles/${vehicle?.id}`);

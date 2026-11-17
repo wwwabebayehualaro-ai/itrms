@@ -10,7 +10,7 @@ import { and, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { currentContext } from '@itrms/kernel/context';
 import type { Tx } from '@itrms/kernel/db';
-import { AppError, ValidationError } from '@itrms/kernel/errors';
+import { AppError, ConflictError, ValidationError } from '@itrms/kernel/errors';
 import { nextNumber, requireCounter } from '@itrms/kernel/numbering';
 import { unitRefs } from '@itrms/kernel/org';
 import { SettingsService } from '@itrms/kernel/settings';
@@ -24,6 +24,7 @@ import {
     VehicleHandovers,
     VehiclesService
 } from '@itrms/vehicles/api';
+import { cases } from '@itrms/workflow/api';
 import vehiclesAm from '@itrms/vehicles/messages/am';
 import vehiclesEn from '@itrms/vehicles/messages/en';
 
@@ -417,7 +418,9 @@ export class VehicleTransferService {
         const standing = await this.handovers.standing(tx, input.vehicle);
         if (!standing || standing.fromUnitId !== place.handlingUnitId)
             return refuse('vehicle', 'not_released', 'competency.rule.releaseCancelNoRelease');
-        const saw = text(factObject(facts, 'cancelRelease')?.handoverId);
+        // the release the filing saw: a correction naming another vehicle is a new request's, checked afresh
+        const seen = factObject(facts, 'cancelRelease');
+        const saw = seen?.vehicleId === input.vehicle ? text(seen.handoverId) : undefined;
         if (saw && saw !== standing.id)
             return refuse('vehicle', 'release_changed', 'competency.rule.releaseCancelChanged');
         if (!text(input.reason?.trim())) return refuse('reason', 'required', 'competency.rule.releaseCancelReason');
@@ -475,8 +478,14 @@ export class VehicleTransferService {
      */
     async cancelRelease(tx: Tx, at: CasePlace, facts: Facts) {
         const place = await actForHandlingOffice(tx, at);
-        const handoverId = text(factObject(facts, 'cancelRelease')?.handoverId);
-        if (!handoverId) return notEligible('competency.rule.releaseCancelNoRelease');
+        // the check must have run on an earlier step: the register's trigger reads the case's stored facts, not these
+        const [stored] = await tx.select({ facts: cases.facts }).from(cases).where(eq(cases.id, place.caseId));
+        const handoverId = text(factObject(stored?.facts ?? {}, 'cancelRelease')?.handoverId);
+        if (!handoverId || handoverId !== text(factObject(facts, 'cancelRelease')?.handoverId))
+            throw new ConflictError('not_configured', {
+                detail: say('competency.rule.releaseCancelCheckFirst'),
+                detailKey: 'competency.rule.releaseCancelCheckFirst'
+            });
         const on = addisDay();
         const handover = await this.handovers.cancel(tx, place.ctx, { handoverId, caseId: place.caseId, on });
         const standing = await tx

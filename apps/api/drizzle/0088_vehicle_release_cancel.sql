@@ -8,7 +8,7 @@ ALTER TABLE "vehicles"."vehicle_handovers" ADD CONSTRAINT "vehicle_handovers_sta
 --> statement-breakpoint
 -- Hand-written (task 1.4c2b, ADR-0059): a release is cancelled by its own case at the releasing office. `cancelled` is final, like
 -- `received` and `expired`: the trigger of 0087 lets only a standing release leave `released`, and now also lets it go to
--- `cancelled` when the cancelling case is named: another case than the release's own, of the releasing office, whose facts name
+-- `cancelled` when the cancelling case is named: another case than the release's own, an open DVC-16 case of the releasing office whose facts name
 -- this very release (the check effect wrote them on an earlier transition), today, by the caller. Whatever else is written for any
 -- other status leaves the cancel columns as they were.
 CREATE OR REPLACE FUNCTION "vehicles"."check_handover_transition"() RETURNS trigger
@@ -38,12 +38,14 @@ BEGIN
             USING ERRCODE = 'check_violation', CONSTRAINT = 'handover_transition';
     END IF;
     IF NEW.status = 'cancelled' THEN
-        -- the case's closed_at is not tested: the engine closes the case after its last effect ran
+        -- the case is an open DVC-16 case: the engine runs a transition's effects before it writes the case's state and closed_at, so
+        -- the case is still open while its cancel effect runs. No state name is tested: a bureau may rename its flow's states.
         IF NEW.cancel_case_id IS NULL OR NEW.cancel_case_id = OLD.case_id
             OR NEW.cancelled_on IS DISTINCT FROM (now() AT TIME ZONE 'Africa/Addis_Ababa')::date
             OR NEW.cancelled_by IS DISTINCT FROM kernel.ctx_user()
             OR NOT EXISTS (SELECT 1 FROM workflow.cases c
                             WHERE c.id = NEW.cancel_case_id AND c.handling_unit_id = OLD.from_unit_id
+                              AND c.closed_at IS NULL AND (c.config ->> 'serviceCode') = 'DVC-16'
                               AND (c.facts #>> '{cancelRelease,handoverId}') = OLD.id::text) THEN
             RAISE EXCEPTION 'vehicles: handover % is cancelled only by a case of its releasing office that names it, today', OLD.id
                 USING ERRCODE = 'check_violation', CONSTRAINT = 'handover_transition';

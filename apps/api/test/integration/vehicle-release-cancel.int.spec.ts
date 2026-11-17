@@ -418,16 +418,24 @@ describe('the cancellation of a release to an office of the region', () => {
             'select chassis_number as c from vehicles.vehicles where id = $1',
             [v.id]
         );
-        const listed = async (who: As) => {
+        const [plate] = await query<{ p: string }>(
+            'select plate_text as p from vehicles.plate_assignments where vehicle_id = $1 and until is null',
+            [v.id]
+        );
+        const listed = async (who: As, q = chassis?.c ?? '') => {
             const res = await api.call(
                 'GET',
-                `/api/v1/registry-lookups/released-vehicle?q=${encodeURIComponent(chassis?.c ?? '')}`,
+                `/api/v1/registry-lookups/released-vehicle?q=${encodeURIComponent(q)}`,
                 who
             );
             expect(res.statusCode, res.body).toBe(200);
             return res.json<{ items: { id: string }[] }>().items.map((i) => i.id);
         };
         expect(await listed(as.officer)).toContain(v.id);
+        // found by its plate too, as the register's own search reads it
+        expect(plate?.p).toBeTruthy();
+        expect(await listed(as.officer, plate?.p ?? '')).toContain(v.id);
+        expect(await listed(as.officer, 'ZZZZZZ')).not.toContain(v.id);
         // the zone reads the vehicle, but the release is Boditi's to cancel
         expect(await listed(as.zoneOfficer)).not.toContain(v.id);
         const filed = await api.call('POST', '/api/v1/service-requests', as.zoneOfficer, {
@@ -493,12 +501,29 @@ describe('the cancellation of a release outside the region', () => {
         expect(await statusOf(v.id)).toBe('transferred_out');
     }, 300_000);
 
+    it('is checked afresh when a returned request is corrected to name another vehicle', async () => {
+        const a = await releasedOutside();
+        const b = await releasedOutside();
+        let c = await file(CANCEL, cancelAnswers(a.v.id, { documentNumber: a.number }), as.officer);
+        c = await moved(c, as.officer, 'submit');
+        c = await moved(c, as.officer, 'return', { comment: 'Wrong vehicle' });
+        c = await moved(c, as.officer, 'correct', {
+            answers: cancelAnswers(b.v.id, { documentNumber: b.number })
+        });
+        expect(c.state).toBe('review');
+        c = await moved(c, as.officer, 'approve');
+        c = await moved(c, as.lead, 'approve');
+        expect(c.state).toBe('cancelled');
+        expect((await handoverOf(b.v.id))?.status).toBe('cancelled');
+        expect((await handoverOf(a.v.id))?.status).toBe('released');
+    }, 300_000);
+
     it('once its document has lapsed, goes ahead without it, unless the region says no', async () => {
         const { v, out } = await releasedOutside();
         // the trigger refuses a day moved by hand: this is the passing of time
-        await api.owner.query('alter table vehicles.vehicle_handovers disable trigger user');
-        await api.owner.query('alter table documents.issued_documents disable trigger user');
         try {
+            await api.owner.query('alter table vehicles.vehicle_handovers disable trigger user');
+            await api.owner.query('alter table documents.issued_documents disable trigger user');
             await api.owner.query(
                 `update vehicles.vehicle_handovers set released_on = $2::date - 3, valid_until = $2::date - 1
                   where vehicle_id = $1`,
@@ -546,6 +571,50 @@ describe('the cancelled status', () => {
             )
         ).toMatchObject({ code: '23514', constraint: 'handover_transition' });
         expect((await handoverOf(v.id))?.status).toBe('cancelled');
+    }, 300_000);
+
+    it('is not written by a case that is closed, or that is no DVC-16 case', async () => {
+        const write = (handoverId: string | undefined, caseId: string) =>
+            refusedAs(
+                boditi,
+                sql`update vehicles.vehicle_handovers set status = 'cancelled', cancel_case_id = ${caseId}::uuid,
+                        cancelled_on = (now() at time zone 'Africa/Addis_Ababa')::date, cancelled_by = kernel.ctx_user()
+                    where id = ${handoverId}::uuid`
+            );
+        const trigger = { code: '23514', constraint: 'handover_transition' };
+        // a cancellation filed and checked, then rejected: its facts still name the release, but the case is closed
+        const { v, out, number } = await releasedOutside();
+        const handover = await handoverOf(v.id);
+        let rejected = await file(CANCEL, cancelAnswers(v.id, { documentNumber: number }), as.officer);
+        rejected = await moved(rejected, as.officer, 'submit');
+        rejected = await moved(rejected, as.officer, 'reject', { comment: 'The owner withdrew' });
+        expect(rejected.state).toBe('rejected');
+        expect(await write(handover?.id, rejected.id)).toMatchObject(trigger);
+        // the same for one that was returned and withdrawn
+        const other = await releasedOutside();
+        const otherHandover = await handoverOf(other.v.id);
+        let withdrawn = await file(CANCEL, cancelAnswers(other.v.id, { documentNumber: other.number }), as.officer);
+        withdrawn = await moved(withdrawn, as.officer, 'submit');
+        withdrawn = await moved(withdrawn, as.officer, 'return', { comment: 'Not yet' });
+        withdrawn = await moved(withdrawn, as.officer, 'withdraw', { comment: 'The owner withdrew' });
+        expect(await write(otherHandover?.id, withdrawn.id)).toMatchObject(trigger);
+        // a DVC-16 case that is open at review cannot be stood in for by a case of another service, the release's own included
+        const third = await releasedOutside();
+        const thirdHandover = await handoverOf(third.v.id);
+        const open = await moved(
+            await file(CANCEL, cancelAnswers(third.v.id, { documentNumber: third.number }), as.officer),
+            as.officer,
+            'submit'
+        );
+        expect(await write(thirdHandover?.id, third.out.id)).toMatchObject(trigger);
+        expect(await write(thirdHandover?.id, out.id)).toMatchObject(trigger);
+        // and the case itself is held to its service: made another one's, it names the release and is still refused
+        await api.owner.query(
+            `update workflow.cases set config = config || '{"serviceCode":"DVC-99"}'::jsonb where id = $1`,
+            [open.id]
+        );
+        expect(await write(thirdHandover?.id, open.id)).toMatchObject(trigger);
+        expect((await handoverOf(v.id))?.status).toBe('released');
     }, 300_000);
 
     it('is never written over a release that was received', async () => {

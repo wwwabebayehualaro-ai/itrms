@@ -517,5 +517,6 @@
   "competency.lookup.fact.releasedTo": "የተለቀቀለት",
   "competency.vehicleTransfers.fileCancel": "የተሽከርካሪ መልቀቂያ ሰርዝ",
   "competency.action.newReleaseCancel": "የተሽከርካሪ መልቀቂያ ሰርዝ",
-  "competency.setting.vehicle_release_cancel_unreturned": "የማስተላለፊያ ሰነዱ ጊዜ ካለፈ ሳይመለስም ወደ ሌላ ክልል የተሰጠ መልቀቂያ ይሰረዛል"
+  "competency.setting.vehicle_release_cancel_unreturned": "የማስተላለፊያ ሰነዱ ጊዜ ካለፈ ሳይመለስም ወደ ሌላ ክልል የተሰጠ መልቀቂያ ይሰረዛል",
+  "competency.rule.releaseCancelCheckFirst": "መልቀቂያው የሚረጋገጠው ከሚሰርዘው እርምጃ በፊት ባለ እርምጃ ላይ ነው።"
 }

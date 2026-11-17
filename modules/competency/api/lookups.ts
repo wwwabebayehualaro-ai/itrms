@@ -3,11 +3,12 @@
  * 1.3b), organisations of that kind. Facts under a pick are what a counter clerk needs and no more.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import type { LookupItem, RegistryLookupProvider } from '@itrms/forms/api';
 import { contextOfTx, type Tx } from '@itrms/kernel/db';
 import { organisations, OrganisationsService } from '@itrms/parties/api';
-import { vehicleHandovers, VehiclesService } from '@itrms/vehicles/api';
+import { plateAssignments, vehicleHandovers, vehicles, VehiclesService } from '@itrms/vehicles/api';
+import { searchKeys } from '@itrms/vehicles/contracts';
 
 import { GARAGE_KIND, TRANSFER_IN_SERVICE, type Licence } from '../contracts';
 import am from '../messages/am.json';
@@ -148,23 +149,40 @@ export class ReleasedVehicleLookup implements RegistryLookupProvider {
     }
 
     async search(tx: Tx, q: string, limit: number, language: string): Promise<LookupItem[]> {
-        const releases = await tx
-            .select()
+        // the text is applied before the limit, so an old release is found among many: the chassis key, the federal id, or a plate
+        // the vehicle carried, normalised as the register's own search does
+        const { key, plateKey } = searchKeys(q);
+        const vin = key.replace(/-/g, '');
+        // the keys hold only letters, digits and hyphens: nothing in them is a pattern character
+        const like = (part: string) => `%${part}%`;
+        const matches =
+            vin.length === 0
+                ? undefined
+                : or(
+                      sql`${vehicles.vinKey} like ${like(vin)}`,
+                      eq(vehicles.federalVehicleId, key),
+                      sql`exists (select 1 from ${plateAssignments} a
+                                   where a.vehicle_id = ${vehicles.id} and a.plate_key like ${like(plateKey)})`
+                  );
+        const rows = await tx
+            .select({ release: vehicleHandovers })
             .from(vehicleHandovers)
+            .innerJoin(vehicles, eq(vehicles.id, vehicleHandovers.vehicleId))
             .where(
                 and(
                     eq(vehicleHandovers.status, 'released'),
-                    eq(vehicleHandovers.fromUnitId, contextOfTx(tx).unitId ?? '')
+                    eq(vehicleHandovers.fromUnitId, contextOfTx(tx).unitId ?? ''),
+                    matches
                 )
             )
             .orderBy(desc(vehicleHandovers.releasedOn), desc(vehicleHandovers.createdAt))
             .limit(ReleasedVehicleLookup.SCAN);
-        const items = await this.items(tx, releases, language);
-        const wanted = q.trim().toLowerCase();
-        return items
-            .filter((i) => wanted === '' || i.search.includes(wanted))
-            .slice(0, limit)
-            .map((i) => i.item);
+        const items = await this.items(
+            tx,
+            rows.map((r) => r.release),
+            language
+        );
+        return items.slice(0, limit).map((i) => i.item);
     }
 
     async resolve(tx: Tx, ids: readonly string[], language: string): Promise<LookupItem[]> {
@@ -196,7 +214,7 @@ export class ReleasedVehicleLookup implements RegistryLookupProvider {
         tx: Tx,
         releases: readonly (typeof vehicleHandovers.$inferSelect)[],
         language: string
-    ): Promise<{ item: LookupItem; search: string }[]> {
+    ): Promise<{ item: LookupItem }[]> {
         if (releases.length === 0) return [];
         const byVehicle = new Map(
             (
@@ -224,7 +242,6 @@ export class ReleasedVehicleLookup implements RegistryLookupProvider {
             const plate = v.currentPlate?.text ?? null;
             return [
                 {
-                    search: [plate, v.chassisNumber, v.federalVehicleId].filter(Boolean).join(' ').toLowerCase(),
                     item: {
                         id: v.id,
                         active: true,
