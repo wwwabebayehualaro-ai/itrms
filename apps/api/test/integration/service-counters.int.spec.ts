@@ -7,7 +7,8 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 
 import { createDatabase, type Database } from '@itrms/kernel/db';
-import { nextNumber } from '@itrms/kernel/numbering';
+import { efy } from '@itrms/ethiopian-calendar';
+import { nextNumber, setUpCounter } from '@itrms/kernel/numbering';
 import { contextFor, TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import type { OrgUnit } from '@itrms/kernel/org';
 import { sql } from 'drizzle-orm';
@@ -97,7 +98,7 @@ describe('an office created with a type', () => {
             expect(e.actor_id).not.toBeNull();
             expect(e.request_id).toBe(created.headers['x-request-id']);
         }
-        // a create refused (the same code again) leaves no counter behind
+        // a create refused (the same code again) makes no counter
         const total = async () =>
             (await api.owner.query<{ n: number }>('select count(*)::int as n from kernel.number_counters')).rows[0]?.n;
         const before = await total();
@@ -167,6 +168,37 @@ describe('an office given a service later', () => {
     }, 120_000);
 });
 
+describe('a register taken over at an office given the service', () => {
+    it('continues from the paper register’s start in its year, the counter made at 0 not yet used', async () => {
+        const given = await api.call(
+            'PUT',
+            `/api/v1/org-units/${damot.id}/services/DVC-13`,
+            admin,
+            { enabled: true, reason: 'transfers here' },
+            { 'if-match': '"0"' }
+        );
+        expect(given.statusCode, given.body).toBe(200);
+        const thisYear = efy(new Date());
+        // the paper letters of last year ran to 500: this year starts again at 1
+        await api.installer.scoped({}, (tx) =>
+            setUpCounter(tx, {
+                key: 'competency.transfer-letter',
+                unitId: damot.id,
+                regionId: damot.regionId,
+                pattern: '{unit}/OT/{seq:05}/{efy}',
+                startAfter: 500n,
+                startYear: thisYear - 1
+            })
+        );
+        expect((await countersOf(damot.id)).find((c) => c.key === 'competency.transfer-letter')).toMatchObject({
+            last_value: '500',
+            period: String(thisYear - 1)
+        });
+        const first = await api.installer.scoped({}, (tx) => nextNumber(tx, 'competency.transfer-letter', damot.id));
+        expect(first.number).toBe(`WOL-DAMOT-GALE/OT/00001/${thisYear}`);
+    }, 120_000);
+});
+
 describe('the grant behind it (0085)', () => {
     const key = () => `test.counter-${randomUUID().slice(0, 8)}`;
     const asZone = (statement: ReturnType<typeof sql>) => app.scoped(contextFor(zone), (tx) => tx.execute(statement));
@@ -184,11 +216,22 @@ describe('the grant behind it (0085)', () => {
             asZone(sql`insert into kernel.number_counters (id, region_id, unit_id, key, pattern, period)
                        values (${randomUUID()}, ${boditi.regionId}, ${boditi.id}, ${key()}, '{unit}/{seq}', '2019')`)
         ).rejects.toMatchObject({ cause: { code: '42501' } });
-        // another region's office is outside the zone's subtree
+        // a pattern that does not name its own unit first, even in the subtree (0085's trigger)
+        await expect(
+            asZone(sql`insert into kernel.number_counters (id, region_id, unit_id, key, pattern)
+                       values (${randomUUID()}, ${boditi.regionId}, ${boditi.id}, ${key()}, 'WOL-AREKA/{seq}')`)
+        ).rejects.toMatchObject({ cause: { code: '23514' } });
+        // the region's root is above the zone: visible to it, outside its subtree (the class T policy)
+        const region = await api.unit('SER', 'SER');
+        await expect(
+            asZone(sql`insert into kernel.number_counters (id, region_id, unit_id, key, pattern)
+                       values (${randomUUID()}, ${region.regionId}, ${region.id}, ${key()}, '{unit}/{seq}')`)
+        ).rejects.toMatchObject({ cause: { code: '42501' } });
+        // another region's office is not even visible to the trigger that sets the row's path
         const other = await api.unit('TRX', 'TRX-W1');
         await expect(
             asZone(sql`insert into kernel.number_counters (id, region_id, unit_id, key, pattern)
                        values (${randomUUID()}, ${other.regionId}, ${other.id}, ${key()}, '{unit}/{seq}')`)
-        ).rejects.toMatchObject({ cause: { code: '42501' } });
+        ).rejects.toMatchObject({ cause: { code: '23503' } });
     }, 120_000);
 });

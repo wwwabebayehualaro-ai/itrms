@@ -63,6 +63,9 @@ export async function setUpCounter(tx: Tx, setup: CounterSetup): Promise<void> {
             set: {
                 pattern: setup.pattern,
                 lastValue: sql`greatest(${numberCounters.lastValue}, ${start})`,
+                // a counter made when its office was given the service (ADR-0056) and not used yet takes the start's year
+                period: sql`case when ${numberCounters.lastValue} = 0 and ${numberCounters.period} = ''
+                                 then ${period} else ${numberCounters.period} end`,
                 updatedAt: sql`now()`
             }
         });

@@ -160,7 +160,9 @@ export const manifestSchema = z
                             .string()
                             .min(1)
                             .max(80)
-                            .regex(/\{seq(:0\d)?\}/, 'must contain {seq} or {seq:0N}'),
+                            .regex(/\{seq(:0\d)?\}/, 'must contain {seq} or {seq:0N}')
+                            // an office's numbers name the office (and the database refuses request code's otherwise, 0085)
+                            .startsWith('{unit}/', 'must begin with {unit}/'),
                         capabilities: z
                             .array(z.string().regex(CAPABILITY, 'must be a snake_case capability'))
                             .default([])

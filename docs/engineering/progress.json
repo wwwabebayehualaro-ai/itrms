@@ -3939,6 +3939,11 @@
       "foundIn": "1.4b2",
       "item": "The seeded-flow check (argumentProblems, missingBefore) covers only the services the transfer suite seeds (DVC-01, DVC-12, DVC-13): run it over every seed builder (licence, bolo, back-capture) against the real effect declarations (reviewer, low)",
       "movedTo": "1.4c"
+    },
+    {
+      "foundIn": "1.4b4",
+      "item": "An office that takes over a paper register now has an app-made counter at 0 as soon as it is given the service: the paper import (task 1.13) must set its start (setUpCounter startAfter/startYear) before its first number, and the migration runbook say so (reviewer, low)",
+      "movedTo": "1.13"
     }
   ]
 }
