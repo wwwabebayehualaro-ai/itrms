@@ -15,7 +15,7 @@
  *   `workflow.open_task`, which checks the case and the unit again in SQL.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import {
     actFor,
     contentHash,
@@ -409,6 +409,34 @@ export class CasesService implements FeeCasePort {
         const [row] = await tx.select({ id: cases.id }).from(cases).where(eq(cases.id, caseId));
         if (!row) throw new NotFoundError();
         return { items: await this.casePeople(tx, caseId, q ?? null, null) };
+    }
+
+    /**
+     * Whether the person works on the case (ADR-0055, the documents' DOCUMENT_CASE_ACCESS): a step of it they took or acted on, or an
+     * open step waiting for one of their roles in their active unit (what their inbox shows). Under the request's RLS.
+     */
+    async worksOn(tx: Tx, caseId: string, who: { userId: string; unitId: string; roles: readonly string[] }) {
+        const [found] = await tx
+            .select({ id: caseTasks.id })
+            .from(caseTasks)
+            .where(
+                and(
+                    eq(caseTasks.caseId, caseId),
+                    or(
+                        eq(caseTasks.claimedBy, who.userId),
+                        eq(caseTasks.actedBy, who.userId),
+                        who.roles.length > 0
+                            ? and(
+                                  eq(caseTasks.status, 'open'),
+                                  eq(caseTasks.unitId, who.unitId),
+                                  inArray(caseTasks.role, [...who.roles])
+                              )
+                            : undefined
+                    )
+                )
+            )
+            .limit(1);
+        return found !== undefined;
     }
 
     /**

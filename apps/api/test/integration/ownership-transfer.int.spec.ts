@@ -1160,3 +1160,76 @@ describe('who sees what (class T at the handling office, class R for the registe
         expect(seen.owners.map((o) => o.id)).toEqual([buyer]);
     }, 300_000);
 });
+
+describe('the inspector reads the documents of its cases (ADR-0055, task 1.4b3)', () => {
+    const letterIds = async (caseId: string) =>
+        (
+            await query<{ id: string }>(
+                `select d.id from documents.issued_documents d join documents.document_templates t on t.id = d.template_id
+                  where d.case_id = $1 and t.key like 'vehicle-transfer-%' and d.superseded_by is null order by t.key`,
+                [caseId]
+            )
+        ).map((r) => r.id);
+    const listed = async (caseId: string | undefined, who: As) => {
+        const res = await api.call('GET', `/api/v1/issued-documents${caseId ? `?caseId=${caseId}` : ''}`, who);
+        return {
+            status: res.statusCode,
+            ids: res.statusCode === 200 ? res.json<{ items: { id: string }[] }>().items.map((i) => i.id) : []
+        };
+    };
+    const denials = async (reason: string) =>
+        (
+            await query<{ n: number }>(
+                `select count(*)::int as n from kernel.audit_log where event_type = 'access.denied' and diff->>'reason' = $1`,
+                [reason]
+            )
+        )[0]?.n ?? 0;
+
+    /** A transfer at its papers whose valuation another inspector made: this inspector never worked on it. */
+    async function valuedBySomeoneElse() {
+        const vehicle = await onTheRoad(boditi);
+        let c = await file(SERVICE, answersOf(vehicle.id, [await person()]));
+        c = await moved(c, as.officer, 'submit');
+        c = await moved(c, as.officer, 'approve');
+        c = await moved(c, as.solo, 'value', { answers: VALUATION });
+        return moved(c, as.officer, 'issue_letters', { answers: LETTERS });
+    }
+
+    it('reads the letters of a case it valued, and neither the list nor a letter of a case it did not', async () => {
+        const { c: mine } = await drive('outside');
+        expect((await listed(mine.id, as.inspector)).ids.sort()).toEqual((await letterIds(mine.id)).sort());
+        const [myLetter] = await letterIds(mine.id);
+        // its own: no refusal (the PDF may still be on its way: 409 until the worker renders it)
+        expect([200, 409]).toContain(
+            (await api.call('GET', `/api/v1/issued-documents/${myLetter}/download`, as.inspector)).statusCode
+        );
+
+        const other = await valuedBySomeoneElse();
+        expect(await letterIds(other.id)).toHaveLength(2);
+        expect(await listed(other.id, as.inspector)).toEqual({ status: 200, ids: [] });
+        const before = await denials('not_on_case');
+        const [otherLetter] = await letterIds(other.id);
+        expect(
+            (await api.call('GET', `/api/v1/issued-documents/${otherLetter}/download`, as.inspector)).statusCode
+        ).toBe(403);
+        expect(await denials('not_on_case')).toBe(before + 1);
+        // and no list without a case
+        expect((await listed(undefined, as.inspector)).status).toBe(403);
+        // the officer reads the office's, as before
+        expect((await listed(other.id, as.officer)).ids).toHaveLength(2);
+    }, 300_000);
+
+    it('reads the office’s documents when the region allows its case-bound readers to', async () => {
+        const other = await valuedBySomeoneElse();
+        await regionSetting('documents.case_readers_office_wide', true, async () => {
+            expect((await listed(other.id, as.inspector)).ids).toHaveLength(2);
+            expect((await listed(undefined, as.inspector)).status).toBe(200);
+            const [letter] = await letterIds(other.id);
+            expect([200, 409]).toContain(
+                (await api.call('GET', `/api/v1/issued-documents/${letter}/download`, as.inspector)).statusCode
+            );
+        });
+        // and only while it does
+        expect(await listed(other.id, as.inspector)).toEqual({ status: 200, ids: [] });
+    }, 300_000);
+});

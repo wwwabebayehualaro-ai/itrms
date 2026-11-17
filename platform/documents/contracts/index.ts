@@ -31,7 +31,13 @@ export const documentHeaderSchema = z.strictObject({
 });
 export type DocumentHeader = z.infer<typeof documentHeaderSchema>;
 
-export const DOCUMENTS_SETTINGS = { [DOCUMENT_HEADER_SETTING]: documentHeaderSchema } as const;
+/** Whether a holder of `issued-document:read-case` only reads the documents of its cases (ADR-0055): false unless the region says. */
+export const DOCUMENT_CASE_READERS_SETTING = 'documents.case_readers_office_wide';
+
+export const DOCUMENTS_SETTINGS = {
+    [DOCUMENT_HEADER_SETTING]: documentHeaderSchema,
+    [DOCUMENT_CASE_READERS_SETTING]: z.boolean()
+} as const;
 
 /** The acting office's header as its documents print it (task 1.13e): the title is always there (the office's name at worst). */
 export const officialHeaderSchema = z.object({

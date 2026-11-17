@@ -38,7 +38,7 @@ export function OpenPdfButton({ document, label }: { document: IssuedDocumentOut
 export function CaseDocuments({ caseId }: { caseId: string }) {
     const { t, text, language } = useText();
     const calendar = usePreferences((s) => s.calendar);
-    const documents = useIssuedDocuments({ caseId }, useCan('issued-document:read'));
+    const documents = useIssuedDocuments({ caseId }, useCan('issued-document:read-case'));
     const items = documents.data?.items ?? [];
     if (items.length === 0) return null;
     return (

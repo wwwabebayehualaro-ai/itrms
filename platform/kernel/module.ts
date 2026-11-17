@@ -43,8 +43,9 @@ const PAYMENTS_READ = [
     'receipt:read',
     'receipt-reversal:read',
     'external-payment:read',
-    // what the office has printed: a receipt, a copy of an application (task 0.23a)
-    'issued-document:read'
+    // what the office has printed: a receipt, a copy of an application (task 0.23a); read-case is implied (ADR-0055)
+    'issued-document:read',
+    'issued-document:read-case'
 ];
 const CASE_ACT = ['case:read', 'case:act', 'case:comment'];
 
@@ -146,6 +147,7 @@ export default defineModule({
             'external-payment:read',
             'external-payment:enter',
             'issued-document:read',
+            'issued-document:read-case',
             // the backlog of paper vehicle files: sheets of them sent for import (task 1.13b, ADR-0054)
             'vehicle-import:read',
             'vehicle-import:create'

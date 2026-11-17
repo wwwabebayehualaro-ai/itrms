@@ -41,10 +41,13 @@ plate exchange and a second transfer; a bolo and the recording of a hold are not
 figures in whole Birr as santim (`competency.ownership_transfers`, class T at the handling office) and refuses a vehicle that does
 not match its paper inspection. `issueTransferLetters` writes the revenue letter (the valuation, no duty), the justice letter (a
 sale or a gift: authenticate the contract; the vehicle has no hold) and, for a code-3 vehicle, the tax letter, each numbered from
-`competency.transfer-letter` (`{unit}/OT/{seq:05}/{efy}`) and standing `competency.transfer_letter_valid_days` (30). `transferOwnership`
+`competency.transfer-letter` (`{unit}/OT/{seq:05}/{efy}`) and standing `competency.transfer_letter_valid_days` (30); a letter that
+expired is issued again with the next number after a return from `outside` (the old one superseded). `recordTransferEvidence` refuses
+(422 `letter_expired`) a contract or stamp duty receipt dated after the letter it answers stopped standing, unless the region sets
+`competency.transfer_letter_validity_enforced` to false (task 1.4b3). The payment timeout revokes the letters. `transferOwnership`
 ends the sellers' period, begins the buyers', cancels the old libre and revokes its certificate, issues the new libre and its
 certificate and refuses (409 `owners_changed`) a vehicle whose owners changed since the filing. Assumptions, to confirm with a
-bureau: a new booklet on every transfer, the demo fees, the 30-day letter validity, and that ITRMS never computes a tax or a duty
+bureau: a new booklet on every transfer, the demo fees, the 30-day letter validity and its binding the papers, and that ITRMS never computes a tax or a duty
 (the revenue office determines the stamp duty on the value the committee set). Deferred: publish-time rules for required effects
 (task 1.4b2) and the pre-1981 chassis identity (task 1.13j).
 

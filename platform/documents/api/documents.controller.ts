@@ -4,7 +4,7 @@ import { DATABASE } from '@itrms/kernel/api';
 import { currentContext } from '@itrms/kernel/context';
 import type { Database } from '@itrms/kernel/db';
 import { OBJECT_STORE, type ObjectStore } from '@itrms/kernel/files';
-import { Require, requestDbContext } from '@itrms/kernel/iam';
+import { currentPrincipal, Require, requestDbContext } from '@itrms/kernel/iam';
 import { createZodDto } from 'nestjs-zod';
 
 import { issuedDocumentQuerySchema } from '../contracts';
@@ -22,10 +22,14 @@ export class DocumentsController {
         private readonly documents: DocumentsService
     ) {}
 
+    /** Office-wide readers and case-bound ones (`read-case`, ADR-0055): the service decides which documents each reads. */
     @Get('issued-documents')
-    @Require('issued-document:read')
+    @Require('issued-document:read-case')
     list(@Query() query: DocumentQueryDto) {
-        return this.db.scoped(requestDbContext(), async (tx) => ({ items: await this.documents.list(tx, query) }));
+        const reader = currentPrincipal();
+        return this.db.scoped(requestDbContext(), async (tx) => ({
+            items: await this.documents.listFor(tx, reader, query)
+        }));
     }
 
     /**
@@ -41,10 +45,13 @@ export class DocumentsController {
 
     /** A reprint: the PDF made when it was issued, never made again. */
     @Get('issued-documents/:id/download')
-    @Require('issued-document:read')
+    @Require('issued-document:read-case')
     download(@Param('id', ParseUUIDPipe) id: string) {
         const language = currentContext()?.language ?? 'am';
         const notReady = (language === 'en' ? en : am)['documents.notReady'];
-        return this.db.scoped(requestDbContext(), (tx) => this.documents.download(tx, this.store, id, notReady));
+        const reader = currentPrincipal();
+        return this.db.scoped(requestDbContext(), (tx) =>
+            this.documents.download(tx, this.store, id, notReady, reader)
+        );
     }
 }

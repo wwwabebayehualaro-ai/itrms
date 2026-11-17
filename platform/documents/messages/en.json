@@ -8,6 +8,7 @@
   "documents.notReady": "The PDF of this document is not ready yet. Try again shortly.",
   "documents.receipt.download": "Download the PDF",
   "documents.setting.header": "What heads this office's documents",
+  "documents.setting.case_readers_office_wide": "Readers bound to their cases read every document of their office",
   "documents.state.failed": "Could not be made",
   "documents.state.late": "Late: ask the administrator",
   "documents.state.rendered": "Ready",

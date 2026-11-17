@@ -130,6 +130,7 @@ export default defineModule({
             ...CASE_ACT,
             'pii:reveal',
             'issued-document:read',
+            'issued-document:read-case',
             // the office's plate stock, which a registration takes a plate from (tasks 1.2a, 1.2b)
             'plate-stock:read',
             // the holds on vehicles the office records and releases for their holders (task 1.4a)
@@ -150,6 +151,7 @@ export default defineModule({
         ],
         'competency.lead': [
             'issued-document:read',
+            'issued-document:read-case',
             'licence:read',
             'licence:issue',
             'licence:print',
@@ -174,12 +176,12 @@ export default defineModule({
         ],
         'competency.examiner': ['exam:read', 'exam:record', 'training:read', ...REGISTER_READ, ...CASE_ACT],
         // the inspector also acts on the steps of a case it is assigned (the bolo's inspection, the valuation of a transfer) and
-        // reads the documents of the case it works on
+        // reads the documents of the cases it works on, not the office's (ADR-0055; the region may widen it)
         'competency.inspector': [
             'licence:read',
             ...REGISTER_READ,
             ...CASE_ACT,
-            'issued-document:read',
+            'issued-document:read-case',
             'campaign:read',
             'encumbrance:read'
         ]

@@ -40,7 +40,7 @@ For each process `p`, `p.officer` handles cases and `p.lead` decides the steps t
 
 | Process (module) | `.officer` positions | `.lead` positions | Extra roles |
 |---|---|---|---|
-| `competency` | licensing and control experts (X–XII), data, quality and records staff; at the zone **and** at ፈርጅ-1 towns such as Boditi [D] | competency team leader (XV), at the zone and at Boditi [D] | `competency.examiner` (theory/field exams), `competency.inspector` (bolo technical inspection; values a vehicle in an ownership transfer, DVC-13, task 1.4b: it acts on the steps it is assigned and reads the documents of the case) [A] |
+| `competency` | licensing and control experts (X–XII), data, quality and records staff; at the zone **and** at ፈርጅ-1 towns such as Boditi [D] | competency team leader (XV), at the zone and at Boditi [D] | `competency.examiner` (theory/field exams), `competency.inspector` (bolo technical inspection; values a vehicle in an ownership transfer, DVC-13, task 1.4b: it acts on the steps it is assigned and reads only the documents of the cases it works on, `issued-document:read-case`, unless the region sets `documents.case_readers_office_wide`, ADR-0055, task 1.4b3) [A] |
 | `public_transport` | public transport officers (IX–XIII) [D, zone and woreda] | public transport director / team leader [D] | — |
 | `freight` | freight competency experts [D] | freight directorate director [D] | — |
 | `road_safety` | road traffic safety experts (XI–XII) [D, woreda] | safety team leader (XIV) [D] | `road_safety.ticket_writer` (Phase 2) |

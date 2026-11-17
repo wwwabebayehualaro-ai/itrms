@@ -2,14 +2,15 @@
  * Documents as the API serves them (task 0.23a), and issuing for a work process's own effects. A reprint is the stored
  * PDF, through a short-lived link, on record: nothing is rendered again.
  */
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { recordEvent, type Tx } from '@itrms/kernel/db';
-import { ConflictError, NotFoundError } from '@itrms/kernel/errors';
+import { ConflictError, ForbiddenError, NotFoundError } from '@itrms/kernel/errors';
 import { downloadLinkedFile, type ObjectStore } from '@itrms/kernel/files';
 import { SettingsService } from '@itrms/kernel/settings';
 
-import type { IssuedDocumentOut, OfficialHeader } from '../contracts';
+import { DOCUMENT_CASE_READERS_SETTING, type IssuedDocumentOut, type OfficialHeader } from '../contracts';
+import { DOCUMENT_CASE_ACCESS, type DocumentCaseAccess, type DocumentCaseReader } from './case-access';
 import { documentTemplates, issuedDocuments } from './documents.table';
 import {
     issueDocument,
@@ -35,9 +36,18 @@ const sameData = (a: unknown, b: unknown): boolean => {
     return JSON.stringify(sorted(a)) === JSON.stringify(sorted(b));
 };
 
+/** The person asking for documents: their roles and permissions in their active unit. */
+export type DocumentReader = DocumentCaseReader & { permissions: ReadonlySet<string> };
+
+const OFFICE_READ = 'issued-document:read';
+const CASE_READ = 'issued-document:read-case';
+
 @Injectable()
 export class DocumentsService {
-    constructor(@Inject(SettingsService) private readonly settings: SettingsService) {}
+    constructor(
+        @Inject(SettingsService) private readonly settings: SettingsService,
+        @Optional() @Inject(DOCUMENT_CASE_ACCESS) private readonly cases?: DocumentCaseAccess
+    ) {}
 
     /** Issues a document in the caller's transaction: for a work process's effect. */
     issue(tx: Tx, input: IssueInput): Promise<IssuedRow> {
@@ -81,6 +91,16 @@ export class DocumentsService {
         return revokeDocument(tx, row, reason);
     }
 
+    /**
+     * The documents this person may read of a case or a record (ADR-0055): an office-wide reader as RLS shows them; a case-bound
+     * one only a case it works on, and nothing for a case it does not (as RLS answers a list), never a list without a case.
+     */
+    async listFor(tx: Tx, reader: DocumentReader, query: { caseId?: string; subjectId?: string }) {
+        if (await this.readsOffice(tx, reader)) return this.list(tx, query);
+        if (!query.caseId) throw new ForbiddenError({ audit: { reason: 'case_required', permission: CASE_READ } });
+        return (await this.worksOn(tx, query.caseId, reader)) ? this.list(tx, query) : [];
+    }
+
     /** The documents the person sees of a case or a record, newest first. */
     async list(tx: Tx, query: { caseId?: string; subjectId?: string }): Promise<IssuedDocumentOut[]> {
         const rows = await tx
@@ -121,9 +141,13 @@ export class DocumentsService {
     }
 
     /** The stored PDF: 404 for what the person can't see, 409 until it has been made. */
-    async download(tx: Tx, store: ObjectStore, id: string, notReady: string) {
+    async download(tx: Tx, store: ObjectStore, id: string, notReady: string, reader?: DocumentReader) {
         const [row] = await tx.select().from(issuedDocuments).where(eq(issuedDocuments.id, id));
         if (!row) throw new NotFoundError();
+        // a case-bound reader: a document of a case it works on, or a refusal on record (ADR-0055)
+        if (reader && !(await this.readsOffice(tx, reader)))
+            if (!row.caseId || !(await this.worksOn(tx, row.caseId, reader)))
+                throw new ForbiddenError({ audit: { reason: 'not_on_case', permission: CASE_READ } });
         if (row.state !== 'rendered' || !row.fileId)
             throw new ConflictError('invalid_transition', { detail: notReady });
         const link = await downloadLinkedFile(tx, store, row.fileId, {
@@ -132,5 +156,15 @@ export class DocumentsService {
         });
         await recordEvent(tx, { type: 'document.printed', table: issuedDocuments, rowId: row.id });
         return link;
+    }
+
+    /** An office-wide reader: the permission, or the region's setting for case-bound readers (exactly `true`). */
+    private async readsOffice(tx: Tx, reader: DocumentReader): Promise<boolean> {
+        if (reader.permissions.has(OFFICE_READ)) return true;
+        return (await this.settings.value<unknown>(tx, reader.unitId, DOCUMENT_CASE_READERS_SETTING)) === true;
+    }
+
+    private async worksOn(tx: Tx, caseId: string, reader: DocumentReader): Promise<boolean> {
+        return this.cases ? this.cases.worksOn(tx, caseId, reader) : false;
     }
 }

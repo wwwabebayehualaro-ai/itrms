@@ -3,6 +3,7 @@ import { SERVICE_CATALOGUE } from '@itrms/kernel/org';
 import { FORM_PUBLISH_GUARD, FormsModule } from '@itrms/forms/api';
 import { CasesService, WorkflowModule } from '@itrms/workflow/api';
 import { FEE_CASE_PORT, FEE_REQUEST_SOURCE, FeesModule } from '@itrms/fees/api';
+import { DOCUMENT_CASE_ACCESS } from '@itrms/documents/api';
 
 import { ServiceFormGuard } from './contracts';
 import { ServicesController } from './services.controller';
@@ -25,8 +26,17 @@ import { ServicesService } from './services.service';
         { provide: FORM_PUBLISH_GUARD, useExisting: ServiceFormGuard },
         { provide: FEE_REQUEST_SOURCE, useExisting: ServicesService },
         // the workflow moves a case its payment settles (task 0.22b): bound here, above both slices
-        { provide: FEE_CASE_PORT, useExisting: CasesService }
+        { provide: FEE_CASE_PORT, useExisting: CasesService },
+        // a case-bound reader's documents are those of the cases it works on (ADR-0055)
+        { provide: DOCUMENT_CASE_ACCESS, useExisting: CasesService }
     ],
-    exports: [ServicesService, SERVICE_CATALOGUE, FORM_PUBLISH_GUARD, FEE_REQUEST_SOURCE, FEE_CASE_PORT]
+    exports: [
+        ServicesService,
+        SERVICE_CATALOGUE,
+        FORM_PUBLISH_GUARD,
+        FEE_REQUEST_SOURCE,
+        FEE_CASE_PORT,
+        DOCUMENT_CASE_ACCESS
+    ]
 })
 export class ServicesModule {}
