@@ -63,10 +63,14 @@ test.describe('the transfer of a vehicle between offices', () => {
             officer: await person(browser, ZONE.officer)
         };
 
-        // a Boditi vehicle of the demo still on its old plate: the last one, so the plate exchange's journey keeps its own
+        // a Boditi vehicle of the demo still on its old plate, the last one: the plate exchange's journey takes the first, and the
+        // register's journey reads the story vehicle (on its national plate), which stays at Boditi
         const found = await api(boditi.officer).get<{ items: Found[] }>('v1/vehicles?status=active&limit=100');
         const vehicle = found.items
-            .filter((v) => v.status === 'active' && v.handlingUnit.code === 'WOL-BODITI' && v.currentPlate)
+            .filter(
+                (v) =>
+                    v.status === 'active' && v.handlingUnit.code === 'WOL-BODITI' && v.currentPlate?.format === 'legacy'
+            )
             .pop();
         expect(vehicle, 'a Boditi vehicle in the demo').toBeDefined();
         const plate = vehicle?.currentPlate?.text ?? '';
