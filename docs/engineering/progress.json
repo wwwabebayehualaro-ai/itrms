@@ -1974,10 +1974,20 @@
         {
           "id": "1.4c2",
           "title": "Transfers, part 3b: the transfer document",
-          "status": "in progress",
+          "status": "done",
           "branch": "task/1.4c2-transfer-document",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "be7aa6b",
+            "be7aa6b"
+          ],
+          "evidence": [
+            "CI PR #82 run 44164039691: all jobs green (lint/typecheck/test/build/boundaries, dev stack + integration, e2e, Semgrep, gitleaks, Trivy, stories/axe, performance, production profile)",
+            "local integration (Docker): vehicle-transfer-outside 7/7 (document issued, VT/00001 + covering letter VT/00002, valid today+15, vehicle transferred_out with records unchanged, audit rows, filing refusals, hold stops it, bad Birr/year 422, no office can accept it (42501), re-run returns same documents, office covering letter by setting); with vehicle-transfer, service-counters, bolo, vehicles, isolation: 178 passed",
+            "render.spec goldens am/en for vehicle-transfer-document.v1 and covering-letter.v1; verification-facts.spec masked holder + validUntil",
+            "turbo typecheck/lint/test competency, vehicles, documents, api, web: 15/15; i18n:check complete am/en; boundaries and check:slices clean; openapi regenerated, no diff",
+            "migration 0087 reviewed: destination columns + checks, handover trigger with IS DISTINCT FROM, ownership chain lets transferred_out keep its open period (ADR-0058)",
+            "reviewer (Fable): 4 medium + 1 low fixed (bolo sticker/temporary only for active vehicles, bolo date printed by status, covering letter once per release, seed keeps a bureau's draft form, exact accept_handover refusal); task-verifier: all Done-when met, audit assertion added"
+          ],
           "blockers": [],
           "notes": "Split from 1.4c on 2026-11-17 (architect). Template vehicle-transfer-document (dataSchema vehicle-transfer-document.v1) with the zone's sections; counter {unit}/VT/{seq:05}/{efy} (countersRequired DVC-14); verification facts; the vehicle transferred_out via setStatus; the covering-letter setting. Open: whether a transferred_out vehicle whose document lapses unused can be reactivated, and how. Design (architect, 2026-11-17), decided in auto mode: DVC-14 form v2 with destination office|outside (toOffice, or destinationName + destinationRegion); flow v2 approval -> document (step form: customs and tax numbers, purchase value and excise in whole Birr kept as santim, earlier plates, remarks; all optional, printed '-') -> transferred_out; releaseVehicleOut issues vehicle-transfer-document.v1 numbered {unit}/VT/{seq:05}/{efy} (countersRequired DVC-14) and the covering letter (always for outside; the setting competency.vehicle_transfer_covering_letter for an ITRMS office), sets the vehicle transferred_out and writes an outside handover (migration 0087: to_unit_id nullable, destination_kind/name/region); the vehicle keeps its records (ADR-0058). Cancel and reinstate split to 1.4c2b."
         },
@@ -4018,6 +4028,11 @@
       "foundIn": "1.4c",
       "item": "pnpm audit: picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf, ReDoS on repeated extglobs, high) has no fixed release; reached only at build, lint and dev time through eslint-config-next, next-intl's watcher and glob helpers, on the repository's own patterns. Ignored in pnpm-workspace.yaml auditConfig: remove the ignore and pin picomatch when a fix ships",
       "movedTo": "watch (dependency update)"
+    },
+    {
+      "foundIn": "1.4c2",
+      "item": "An e2e journey for the outside transfer (DVC-14 to another region: the document step and the printed document); only the office path has one",
+      "movedTo": "1.4c2b"
     }
   ]
 }
