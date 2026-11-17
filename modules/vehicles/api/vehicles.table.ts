@@ -16,6 +16,8 @@
  *                        task 1.2a); a transition trigger and a deferred match with plate_assignments are in the migration.
  *   plate_movements      the ledger of the stock: receipts, allocations down the tree and their acceptance, recalls,
  *                        assignments, retirements and write-offs (class T of the lower unit; insert-only).
+ *   vehicle_handovers    a vehicle released by its office to another of the region (class R of the releasing office, task
+ *                        1.4c): received by the other office's transfer in, which moves the vehicle and its live rows.
  *   vehicle_encumbrances the holds on a vehicle (bank loan, court order, revenue or customs hold): recorded by an office on
  *                        the holder's letter, released by the same office on the holder's release letter and a second
  *                        person's confirmation (class R of the recording office, task 1.4a).
@@ -53,6 +55,7 @@ import {
     ENCUMBRANCE_STATUSES,
     FEDERAL_ID_SOURCES,
     FUELS,
+    HANDOVER_STATUSES,
     LIBRE_STATUSES,
     MIGRATION_SOURCES,
     MOVEMENT_KINDS,
@@ -581,7 +584,7 @@ export const plateMovements = withRls(
                 check('plate_movements_quantity_check', sql`${t.quantity} between 1 and 10000`),
                 check(
                     'plate_movements_units_check',
-                    sql`(${t.kind} in ('allocate', 'recall')) = (${t.fromUnitId} is not null and ${t.toUnitId} is not null)`
+                    sql`(${t.kind} in ('allocate', 'recall', 'hand_over_out', 'hand_over_in')) = (${t.fromUnitId} is not null and ${t.toUnitId} is not null)`
                 ),
                 check('plate_movements_batch_check', sql`(${t.kind} = 'receive') = (${t.batchId} is not null)`),
                 check('plate_movements_accept_check', sql`(${t.kind} = 'accept') = (${t.ofMovementId} is not null)`),
@@ -593,6 +596,70 @@ export const plateMovements = withRls(
         )
     ),
     'transaction'
+);
+
+/**
+ * A vehicle released by its office to another office of the region (contracts/handover.ts, task 1.4c). The region comes from the
+ * vehicle and the scope from the releasing office (triggers in the migration); only the reviewed command
+ * `vehicles.accept_handover` writes its receipt, as it moves the vehicle.
+ */
+export const vehicleHandovers = withRls(
+    audited(
+        vehiclesSchema.table(
+            'vehicle_handovers',
+            {
+                ...baseColumns(),
+                /** set by trigger from the vehicle */
+                regionId: uuid('region_id').notNull(),
+                vehicleId: uuid('vehicle_id')
+                    .notNull()
+                    .references(() => vehicles.id),
+                /** the ownership period open at the release: the receipt refuses a vehicle whose owners changed since */
+                ownershipId: uuid('ownership_id')
+                    .notNull()
+                    .references(() => vehicleOwnerships.id),
+                fromUnitId: uuid('from_unit_id')
+                    .notNull()
+                    .references(() => orgUnits.id),
+                /** set by trigger from the releasing unit */
+                fromOrgPath: ltree('from_org_path').notNull().default(''),
+                toUnitId: uuid('to_unit_id')
+                    .notNull()
+                    .references(() => orgUnits.id),
+                /** the transfer-out case (no foreign key: the register does not depend on the workflow) */
+                caseId: uuid('case_id').notNull(),
+                releasedOn: date('released_on').notNull(),
+                releasedBy: uuid('released_by'),
+                validUntil: date('valid_until').notNull(),
+                status: text('status', { enum: HANDOVER_STATUSES }).notNull().default('released'),
+                /** the transfer-in case that received it */
+                inCaseId: uuid('in_case_id'),
+                receivedOn: date('received_on'),
+                receivedBy: uuid('received_by')
+            },
+            (t) => [
+                uniqueIndex('vehicle_handovers_case_uq').on(t.caseId),
+                uniqueIndex('vehicle_handovers_in_case_uq')
+                    .on(t.inCaseId)
+                    .where(sql`${t.inCaseId} is not null`),
+                // one release standing per vehicle
+                uniqueIndex('vehicle_handovers_released_uq')
+                    .on(t.vehicleId)
+                    .where(sql`${t.status} = 'released'`),
+                index('vehicle_handovers_to_idx').on(t.toUnitId, t.status),
+                index('vehicle_handovers_from_gist').using('gist', t.fromOrgPath),
+                check('vehicle_handovers_status_check', sql`${t.status} in ${oneOf(HANDOVER_STATUSES)}`),
+                check('vehicle_handovers_units_check', sql`${t.fromUnitId} <> ${t.toUnitId}`),
+                check('vehicle_handovers_dates_check', sql`${t.validUntil} >= ${t.releasedOn}`),
+                check(
+                    'vehicle_handovers_received_check',
+                    sql`(${t.status} = 'received') = (${t.inCaseId} is not null and ${t.receivedOn} is not null and ${t.receivedBy} is not null)`
+                )
+            ]
+        )
+    ),
+    'registry',
+    'from_org_path'
 );
 
 /**

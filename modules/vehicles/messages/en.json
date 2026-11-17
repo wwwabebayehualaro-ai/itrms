@@ -191,6 +191,8 @@
   "vehicles.plateStock.kind.retire": "Retired",
   "vehicles.plateStock.kind.lose": "Lost",
   "vehicles.plateStock.kind.write_off": "Written off",
+  "vehicles.plateStock.kind.hand_over_out": "Went with its vehicle to another office",
+  "vehicles.plateStock.kind.hand_over_in": "Came with its vehicle from another office",
   "vehicles.field.madeIn": "Made in",
   "vehicles.field.engineHp": "Engine power (HP)",
   "vehicles.field.cylinders": "Cylinders",
@@ -286,5 +288,11 @@
   "vehicles.errors.encumbrance_holder_unknown": "The holder is not an organisation of the register.",
   "vehicles.errors.encumbrance_release_before_letter": "The release letter's date is before the date of the holder's letter.",
   "vehicles.errors.encumbrance_file_not_own": "The file is not one you uploaded.",
-  "vehicles.errors.owners_changed": "The owners of the vehicle changed after the request was filed: the transfer must be filed again."
+  "vehicles.errors.owners_changed": "The owners of the vehicle changed after the request was filed: the transfer must be filed again.",
+  "vehicles.errors.handover_same_office": "The vehicle is handled by this office already.",
+  "vehicles.errors.handover_not_offered": "That office does not take vehicles in from another office.",
+  "vehicles.errors.handover_not_open": "This vehicle is not released to this office, or its release was received or replaced.",
+  "vehicles.errors.handover_expired": "The release of this vehicle has lapsed: the sending office releases it again.",
+  "vehicles.errors.handover_owners_changed": "The owners of the vehicle changed after its release: it is released again.",
+  "vehicles.errors.handover_not_yours": "This vehicle is released to another office."
 }
