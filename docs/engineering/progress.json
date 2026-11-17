@@ -1920,10 +1920,21 @@
         {
           "id": "1.4b4",
           "title": "Transfers, part 2d: counters on enable",
-          "status": "in progress",
+          "status": "in review",
           "branch": "task/1.4b4-counters-on-enable",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "0140c3b",
+            "1512342",
+            "7a3d00d",
+            "ca4e172"
+          ],
+          "evidence": [
+            "CI run 44083994448 (PR #80, 7a3d00d) → all 10 jobs green; run on ca4e172 (adds the receipt assertion) → integration, unit, Semgrep, gitleaks, Trivy and the rest green",
+            "integration (real PostgreSQL 16, CI, ca4e172) → 881 passed in 48 files, incl. service-counters.int.spec.ts 5 tests: a ፈርጅ-1 town created by the bureau gets its five counters fresh (licence, temporary bolo, transfer letter, receipt, registration certificate), five numbering.counter_set_up events with actor and request id, and issues its first receipt number <code>/000001/<efy>; a refused create makes none; Areka given DVC-13 gets the letters' and the certificate's counters once (off, on and reset add none) and numbers WOL-AREKA/OT/00001/<efy>; a counter in use (41) left alone; a paper register's start set later continues in its year (500, then 00001 in the new year); the grant: a fresh counter in the subtree only, never last_value or period (42501), a pattern not beginning {unit}/ (23514), the region's root (42501), another region (23503). Shown at the counter level: a full case at a new office also needs plate and stationery stock (1.12a, 1.2d)",
+            "unit (CI) → 69/69 turbo tasks, 1,217 tests, incl. apps/api counters.spec.ts (manifest patterns equal the contracts'; counterNeeds by service and capability) and loader.spec.ts (a counter for a service not served, or one nobody declares); e2e (Playwright, CI on 7a3d00d) → 56 + 4 passed",
+            "lint, typecheck, boundaries, check:slices, i18n:check (no new user strings); migration 0085 (grant + trigger) applied from zero on CI; Semgrep, gitleaks, Trivy clean; ADR-0056",
+            "architect (Opus) design; reviewer (Fable) on 0140c3b → no high, 2 medium (an injection as itrms_app could plant another office's pattern: a trigger now requires {unit}/; the cross-region test expected the wrong error: corrected, the region's root added), 3 low (a migrated start's year on an unused counter: fixed; the refused-create test's wording; {unit}/ required in manifests) fixed in 1512342, the paper register's start → follow-up to 1.13; task-verifier: both Done-when items met at the counter level (the receipt number then added, ca4e172)"
+          ],
           "blockers": [],
           "notes": "Split from 1.4b2 on 2026-11-17 (architect: one session was borderline). Design (architect, 2026-11-17): numberSequences gain capabilities, a countersRequired map per service; ensureCounter (raw insert, on conflict do nothing, a numbering.counter_set_up event) called by OrgAdminService create/setService/resetService for all the unit's effective services; migration 0085 grants itrms_app INSERT on (id, region_id, unit_id, key, pattern) of kernel.number_counters; ADR-0056. Includes the receipt counter of a new collects_cash office."
         },
