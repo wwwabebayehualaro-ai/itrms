@@ -181,7 +181,8 @@ BEGIN
             USING ERRCODE = 'check_violation', CONSTRAINT = 'handover_expired';
     END IF;
     SELECT u.path INTO dest FROM kernel.org_units u WHERE u.id = h.to_unit_id AND u.active;
-    IF dest IS NULL OR NOT (dest <@ kernel.ctx_scope()) THEN
+    -- the function's search_path leaves out public, where ltree's operators live: named in full
+    IF dest IS NULL OR NOT (dest OPERATOR(public.<@) kernel.ctx_scope()) THEN
         RAISE EXCEPTION 'vehicles: the handover is not to an office of the caller' USING ERRCODE = 'insufficient_privilege';
     END IF;
     SELECT * INTO v FROM vehicles.vehicles WHERE id = h.vehicle_id FOR UPDATE;
