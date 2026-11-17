@@ -72,3 +72,7 @@ auditConfig:
     # braces (via eslint-config-next → micromatch, lint time only): no fixed release yet. It expands the repository's own
     # glob patterns, never user input. Tracked as a follow-up of task 0.4; remove when a fix ships.
     - GHSA-vfj7-8cjw-p6xm
+    # picomatch up to 4.0.7 (via eslint-config-next, next-intl's file watcher and glob helpers: build, lint and dev time):
+    # ReDoS on repeated extglobs, no fixed release yet (2026-11-17). It matches the repository's own glob patterns, never
+    # user input. Tracked as a follow-up of task 1.4c; remove when a fix ships.
+    - GHSA-fc5q-39xc-vjpf

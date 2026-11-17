@@ -2,6 +2,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
     Archive,
+    ArrowLeftRight,
     BadgeCheck,
     Banknote,
     Building2,
@@ -32,6 +33,7 @@ import {
 
 export const MENU_ICONS: Readonly<Record<string, LucideIcon>> = {
     archive: Archive,
+    'arrow-left-right': ArrowLeftRight,
     'badge-check': BadgeCheck,
     banknote: Banknote,
     'building-2': Building2,

@@ -10530,7 +10530,9 @@
                 "assign",
                 "retire",
                 "lose",
-                "write_off"
+                "write_off",
+                "hand_over_out",
+                "hand_over_in"
               ],
               "type": "string"
             }

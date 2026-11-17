@@ -431,6 +431,12 @@ describe('every tenant table', () => {
             // the registers' searches, limited to the caller's region; ids only (task 0.14)
             'parties.search_organisations(text,integer)',
             'parties.search_persons(text,bytea,bytea,integer)',
+            // the receipt of a vehicle released to the caller's office: moves it and its live records, only for the
+            // receiving office's open transfer in of a release a transfer out made (task 1.4c)
+            'vehicles.accept_handover(uuid,uuid)',
+            // whether an office of the caller's region takes vehicles in, and which do: yes or no, ids, codes and names
+            'vehicles.handover_destination(uuid,text)',
+            'vehicles.handover_destinations(text,text,integer)',
             // the vehicle register's ranked search by federal id, chassis number, plate and engine number, with the status and
             // owner filters; ids only (tasks 1.1a, 1.2e)
             'vehicles.search_vehicles(text,text,integer,text,uuid)',

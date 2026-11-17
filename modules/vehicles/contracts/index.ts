@@ -14,6 +14,7 @@ import { DEFAULT_LEGACY_PLATE_REGIONS, foldPlate, PLATE_FORMATS } from './plate'
 import { ENCUMBRANCE_BLOCKS_SETTING, encumbranceBlocksSchema, openEncumbranceSchema } from './encumbrances';
 
 export * from './encumbrances';
+export * from './handover';
 export * from './plate';
 export * from './plate-stock';
 export * from './vin';

@@ -486,16 +486,22 @@ export class PlateStock {
                 lost: heldBy(id, 'lost')
             };
             const allocatedDown = below(id, path);
+            // a plate that came or went with its vehicle (a handover, task 1.4c) counts at each office as taken in or given up
             const received =
                 sumOf((l) => l.kind === 'receive' && l.unitId === id) +
                 sumOf((l) => l.kind === 'allocate' && l.to === id) -
-                sumOf((l) => l.kind === 'recall' && l.from === id);
+                sumOf((l) => l.kind === 'recall' && l.from === id) +
+                sumOf((l) => l.kind === 'hand_over_in' && l.unitId === id) -
+                sumOf((l) => l.kind === 'hand_over_out' && l.unitId === id);
             const handedDown =
                 sumOf((l) => l.kind === 'allocate' && l.from === id) - sumOf((l) => l.kind === 'recall' && l.to === id);
-            // deliveries taken in directly by a unit further down are below this one without having come through it
-            const receivedBelow = sumOf(
-                (l) => l.kind === 'receive' && (pathOf.get(l.unitId) ?? '').startsWith(`${path}.`)
-            );
+            const isBelow = (unitOf: string) => (pathOf.get(unitOf) ?? '').startsWith(`${path}.`);
+            // deliveries taken in directly by a unit further down are below this one without having come through it, and so
+            // are plates handed over to or from a unit further down
+            const receivedBelow =
+                sumOf((l) => l.kind === 'receive' && isBelow(l.unitId)) +
+                sumOf((l) => l.kind === 'hand_over_in' && isBelow(l.unitId)) -
+                sumOf((l) => l.kind === 'hand_over_out' && isBelow(l.unitId));
             const holding = Object.values(statuses).reduce((a, b) => a + b, 0);
             return {
                 unit: refs.get(id) ?? emptyRef(id),

@@ -35,7 +35,10 @@ export const MOVEMENT_KINDS = [
     'assign',
     'retire',
     'lose',
-    'write_off'
+    'write_off',
+    // a vehicle handed to another office takes its plate along: one row at each office (task 1.4c)
+    'hand_over_out',
+    'hand_over_in'
 ] as const;
 export type MovementKind = (typeof MOVEMENT_KINDS)[number];
 

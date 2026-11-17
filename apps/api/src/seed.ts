@@ -34,6 +34,8 @@ import {
     importLicenceGrades,
     importLicenceServices,
     importOwnershipTransferService,
+    importTransferInService,
+    importTransferOutService,
     importVehicleServices,
     setUpBoloCounters,
     setUpLicenceCounters,
@@ -199,6 +201,9 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
                 // the ownership transfer (task 1.4b), after the fee rules; its letters' counters
                 ownershipTransfer: await importOwnershipTransferService(tx, where),
                 transferLetterCounters: await setUpTransferLetterCounters(tx, root.regionId),
+                // the transfer of a vehicle between offices (task 1.4c): out with the zone's fee, in with none
+                transferOut: await importTransferOutService(tx, where),
+                transferIn: await importTransferInService(tx, where),
                 // the bolo inspection (task 1.3a), after the fee rules; its temporary bolos' counters
                 bolo: await importBoloService(tx, where),
                 boloCounters: await setUpBoloCounters(tx, root.regionId),

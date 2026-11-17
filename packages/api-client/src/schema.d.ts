@@ -7227,7 +7227,7 @@ export interface operations {
         parameters: {
             query?: {
                 unitId?: string;
-                kind?: "receive" | "allocate" | "accept" | "recall" | "assign" | "retire" | "lose" | "write_off";
+                kind?: "receive" | "allocate" | "accept" | "recall" | "assign" | "retire" | "lose" | "write_off" | "hand_over_out" | "hand_over_in";
                 after?: string;
                 limit?: number;
             };

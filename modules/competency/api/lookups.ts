@@ -3,12 +3,12 @@
  * 1.3b), organisations of that kind. Facts under a pick are what a counter clerk needs and no more.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { LookupItem, RegistryLookupProvider } from '@itrms/forms/api';
 import type { Tx } from '@itrms/kernel/db';
 import { organisations, OrganisationsService } from '@itrms/parties/api';
 
-import { GARAGE_KIND, type Licence } from '../contracts';
+import { GARAGE_KIND, TRANSFER_IN_SERVICE, type Licence } from '../contracts';
 import am from '../messages/am.json';
 import en from '../messages/en.json';
 import { LicencesService } from './licences.service';
@@ -72,6 +72,48 @@ export class LicenceLookup implements RegistryLookupProvider {
                     value: licence.validUntil
                 }
             ]
+        };
+    }
+}
+
+/**
+ * The office a vehicle is released to (task 1.4c): an active office of the region, not the caller's, that takes vehicles in
+ * (DVC-15). A person reads only their own branch of the tree, so the offices are listed by the register's reviewed lookup.
+ */
+@Injectable()
+export class OfficeLookup implements RegistryLookupProvider {
+    readonly key = 'office';
+    readonly permission = 'vehicle:read';
+
+    title(language: string): string {
+        return text('competency.lookup.office.title', language);
+    }
+
+    facts(language: string): { key: string; label: string }[] {
+        return [{ key: 'code', label: text('competency.lookup.fact.code', language) }];
+    }
+
+    async search(tx: Tx, q: string, limit: number, language: string): Promise<LookupItem[]> {
+        const { rows } = await tx.execute<{ id: string; code: string; name: Record<string, string> }>(
+            sql`select id, code, name from vehicles.handover_destinations(${q.trim()}, ${TRANSFER_IN_SERVICE}, ${limit})`
+        );
+        return rows.map((r) => this.item(r, language));
+    }
+
+    async resolve(tx: Tx, ids: readonly string[], language: string): Promise<LookupItem[]> {
+        if (ids.length === 0) return [];
+        const { rows } = await tx.execute<{ id: string; code: string; name: Record<string, string> }>(
+            sql`select id, code, name from kernel.region_units(${`{${ids.join(',')}}`}::uuid[])`
+        );
+        return rows.map((r) => this.item(r, language));
+    }
+
+    private item(unit: { id: string; code: string; name: Record<string, string> }, language: string): LookupItem {
+        return {
+            id: unit.id,
+            active: true,
+            label: unit.name[language] || unit.name.am || unit.code,
+            facts: [{ key: 'code', label: text('competency.lookup.fact.code', language), value: unit.code }]
         };
     }
 }

@@ -121,6 +121,18 @@ rules:
           label: { am: የአዲስ ሊብሬ ክፍያ, en: New libre }
           kind: fixed
           amount: '200000'
+  - key: dvc-14-transfer-out
+    name: { am: ተሽከርካሪ ከመሥሪያ ቤት ማዛወር, en: Vehicle transfer out }
+    document:
+      schemaVersion: 1
+      demo: true
+      basis: "the zone's fee sheet: leaving or entering the zone 2,000 (M); charged on the transfer out until the zone says (R2)"
+      inputs: {}
+      lines:
+        - key: transfer
+          label: { am: የዝውውር ክፍያ, en: Transfer }
+          kind: fixed
+          amount: '200000'
   - key: dvc-01-registration
     name: { am: አዲስ የተሽከርካሪ ምዝገባ, en: New vehicle registration }
     document:

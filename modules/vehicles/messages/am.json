@@ -191,6 +191,8 @@
   "vehicles.plateStock.kind.retire": "ጡረታ ወጥቷል",
   "vehicles.plateStock.kind.lose": "ጠፍቷል",
   "vehicles.plateStock.kind.write_off": "ተሰርዟል",
+  "vehicles.plateStock.kind.hand_over_out": "ከተሽከርካሪው ጋር ወደ ሌላ መሥሪያ ቤት ሄዷል",
+  "vehicles.plateStock.kind.hand_over_in": "ከተሽከርካሪው ጋር ከሌላ መሥሪያ ቤት መጥቷል",
   "vehicles.field.madeIn": "የተሠራበት አገር",
   "vehicles.field.engineHp": "የሞተር ኃይል (HP)",
   "vehicles.field.cylinders": "ሲሊንደር",
@@ -286,5 +288,11 @@
   "vehicles.errors.encumbrance_holder_unknown": "ባለመብቱ በመዝገቡ ውስጥ ያለ ድርጅት አይደለም።",
   "vehicles.errors.encumbrance_release_before_letter": "የመልቀቂያ ደብዳቤው ቀን ከባለመብቱ ደብዳቤ ቀን በፊት ነው።",
   "vehicles.errors.encumbrance_file_not_own": "ፋይሉ በእርስዎ የተጫነ አይደለም።",
-  "vehicles.errors.owners_changed": "የተሽከርካሪው ባለቤቶች ጥያቄው ከቀረበ በኋላ ተለውጠዋል፤ ዝውውሩ በአዲስ ጥያቄ መቅረብ አለበት።"
+  "vehicles.errors.owners_changed": "የተሽከርካሪው ባለቤቶች ጥያቄው ከቀረበ በኋላ ተለውጠዋል፤ ዝውውሩ በአዲስ ጥያቄ መቅረብ አለበት።",
+  "vehicles.errors.handover_same_office": "ተሽከርካሪው ቀድሞውኑ በዚህ መሥሪያ ቤት ይስተናገዳል።",
+  "vehicles.errors.handover_not_offered": "ያ መሥሪያ ቤት ከሌላ መሥሪያ ቤት የሚዛወሩ ተሽከርካሪዎችን አይቀበልም።",
+  "vehicles.errors.handover_not_open": "ይህ ተሽከርካሪ ለዚህ መሥሪያ ቤት አልተለቀቀም፣ ወይም መልቀቁ ተቀብሎ ወይም ተተክቶ አልቋል።",
+  "vehicles.errors.handover_expired": "የዚህ ተሽከርካሪ መልቀቂያ ጊዜው አልፏል፤ የሚልከው መሥሪያ ቤት እንደገና ይለቀዋል።",
+  "vehicles.errors.handover_owners_changed": "ተሽከርካሪው ከተለቀቀ በኋላ ባለቤቶቹ ተቀይረዋል፤ እንደገና ይለቀቃል።",
+  "vehicles.errors.handover_not_yours": "ይህ ተሽከርካሪ ለሌላ መሥሪያ ቤት ተለቋል።"
 }

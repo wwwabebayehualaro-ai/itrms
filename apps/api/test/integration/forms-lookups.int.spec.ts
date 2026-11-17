@@ -287,6 +287,8 @@ describe('the registries a form can point to', () => {
             'driver-licence',
             // the garage a failed vehicle is repaired at (task 1.3b)
             'garage',
+            // the office a vehicle is transferred to (task 1.4c)
+            'office',
             'organisation',
             'person',
             'training-school',

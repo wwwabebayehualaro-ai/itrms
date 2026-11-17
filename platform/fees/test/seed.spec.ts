@@ -36,6 +36,7 @@ describe('the demo fee rules', () => {
             'dvc-06-replacement',
             'dvc-12-plate-exchange',
             'dvc-13-ownership-transfer',
+            'dvc-14-transfer-out',
             'dvc-01-registration',
             'dvc-02-bolo'
         ]);
