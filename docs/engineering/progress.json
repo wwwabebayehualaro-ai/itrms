@@ -1853,13 +1853,14 @@
         {
           "id": "1.4b",
           "title": "Transfers, part 2: ownership transfer",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.4b-ownership-transfer",
           "commits": [
             "4af8a0f",
             "26dbd41",
             "0cd4ad2",
-            "f6336c1"
+            "f6336c1",
+            "8bf52b1"
           ],
           "evidence": [
             "CI run 44011994700 (PR #77, f6336c1) → all 10 jobs green",
@@ -1875,7 +1876,7 @@
         {
           "id": "1.4b2",
           "title": "Transfers, part 2b: publish rules and counters on enable",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
