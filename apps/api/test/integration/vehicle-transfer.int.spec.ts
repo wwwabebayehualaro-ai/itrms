@@ -49,7 +49,8 @@ const SUB = {
     officer: '0199f0a0-d000-7000-8000-00000000f801',
     lead: '0199f0a0-d000-7000-8000-00000000f802',
     zoneLead: '0199f0a0-d000-7000-8000-00000000f803',
-    zoneInspector: '0199f0a0-d000-7000-8000-00000000f804'
+    zoneInspector: '0199f0a0-d000-7000-8000-00000000f804',
+    zoneCashier: '0199f0a0-d000-7000-8000-00000000f805'
 };
 const OUT = 'DVC-14';
 const IN = 'DVC-15';
@@ -240,6 +241,13 @@ beforeAll(async () => {
             roles: [['WOL', 'competency.lead']]
         },
         {
+            username: 'test.vt.zonecashier',
+            sub: SUB.zoneCashier,
+            region: 'SER',
+            home: 'WOL',
+            roles: [['WOL', 'cashier']]
+        },
+        {
             username: 'test.vt.zoneinspector',
             sub: SUB.zoneInspector,
             region: 'SER',
@@ -262,6 +270,7 @@ beforeAll(async () => {
     as.lead = { sub: SUB.lead, unit: boditi };
     as.zoneLead = { sub: SUB.zoneLead, unit: zone };
     as.zoneInspector = { sub: SUB.zoneInspector, unit: zone };
+    as.zoneCashier = { sub: SUB.zoneCashier, unit: zone };
 
     const root = { id: region.id, regionId: region.regionId };
     await api.installer.scoped({}, async (tx) => {
@@ -450,6 +459,9 @@ describe('the release’s days', () => {
             const { v } = await releasedToZone();
             const [release] = await handoversOf(v.id);
             expect(release?.valid_until).toBe(daysAfter(today(), 3));
+            // the zone filed its transfer in while the release stood: once it lapses, that case claims the vehicle no more
+            const early = await moved(await file(IN, { vehicle: v.id }, as.zoneOfficer), as.zoneOfficer, 'submit');
+            expect(early.state).toBe('review');
             // the release lapsed (the days set back: the guard on its days is lifted for this one write)
             await api.owner.query('alter table vehicles.vehicle_handovers disable trigger handover_transition');
             try {
@@ -525,6 +537,8 @@ describe('the reviewed command that moves the vehicle', () => {
                 tx.execute(sql`select * from vehicles.accept_handover(${release?.id}::uuid, ${randomUUID()}::uuid)`)
             )
         ).rejects.toMatchObject({ cause: { code: '42501' } });
+        // the receiving office, but with a case that is not this release's transfer in
+        await expect(accept(zone, randomUUID())).rejects.toMatchObject({ cause: { code: '23514' } });
         // the app may not write a receipt itself
         await expect(
             app.scoped(contextFor(boditi), (tx) =>
@@ -537,5 +551,57 @@ describe('the reviewed command that moves the vehicle', () => {
         const inCase = await receivedAtZone(v.id);
         const again = await accept(zone, inCase.id);
         expect(again.rows).toEqual([]);
+    }, 300_000);
+});
+
+describe('a vehicle moved down the tree, from the zone to Boditi', () => {
+    it('is received by an office that cannot reach the zone’s records itself: only the reviewed command moves them', async () => {
+        const v = await onTheRoad(zone);
+        let out = await file(OUT, { vehicle: v.id, toOffice: boditi.id }, as.zoneOfficer);
+        out = await moved(out, as.zoneOfficer, 'submit');
+        out = await moved(out, as.zoneOfficer, 'approve');
+        await paid(out, as.zoneCashier);
+        out = await moved(await caseOf(out.id, as.zoneOfficer), as.zoneLead, 'approve');
+        expect((await moved(out, as.zoneOfficer, 'release')).state).toBe('released');
+        // Boditi cannot write the zone's vehicle before the receipt
+        const touch = (unit: OrgUnit) =>
+            app.scoped(contextFor(unit), async (tx) => {
+                const r = await tx.execute(sql`update vehicles.vehicles set colour = colour where id = ${v.id}`);
+                return r.rowCount;
+            });
+        expect(await touch(boditi)).toBe(0);
+        let inCase = await moved(await file(IN, { vehicle: v.id }, as.officer), as.officer, 'submit');
+        inCase = await moved(inCase, as.officer, 'approve');
+        inCase = await moved(await caseOf(inCase.id, as.officer), as.lead, 'approve');
+        expect((await moved(inCase, as.officer, 'receive')).state).toBe('received');
+        expect(await handlingOf('vehicles.vehicles', 'id = $1', [v.id])).toEqual([boditi.id]);
+        expect(await handlingOf('vehicles.libres', "vehicle_id = $1 and status = 'issued'", [v.id])).toEqual([
+            boditi.id
+        ]);
+        expect(await touch(boditi)).toBe(1);
+    }, 300_000);
+});
+
+describe('the tree changed after a receipt', () => {
+    it('moves an office above a received handover, and back', async () => {
+        const { v } = await releasedToZone();
+        await receivedAtZone(v.id);
+        const other = await api.unit('SER', 'TZB');
+        const moveTo = async (parentId: string) => {
+            const unit = (await api.call('GET', `/api/v1/org-units/${boditi.id}`, as.bureau)).json<{
+                version: number;
+            }>();
+            const res = await api.call(
+                'POST',
+                `/api/v1/org-units/${boditi.id}/moves`,
+                as.bureau,
+                { parentId },
+                ifMatch(unit.version)
+            );
+            expect(res.statusCode, res.body).toBe(200);
+        };
+        await moveTo(other.id);
+        await moveTo(zone.id);
+        expect((await handoversOf(v.id)).map((h) => h.status)).toEqual(['received']);
     }, 300_000);
 });

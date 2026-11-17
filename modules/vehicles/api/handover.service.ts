@@ -7,14 +7,36 @@
  */
 import { Injectable } from '@nestjs/common';
 import { and, eq, lt, sql } from 'drizzle-orm';
+import type { PgTable } from 'drizzle-orm/pg-core';
 import { insertAudited, recordEvent, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { ConflictError, ForbiddenError, NotFoundError } from '@itrms/kernel/errors';
 import { orgUnits } from '@itrms/kernel/tables';
 
-import { vehicleHandovers, vehicleOwnerships, vehicles } from './vehicles.table';
+import {
+    libres,
+    plateAssignments,
+    plateMovements,
+    plates,
+    vehicleHandovers,
+    vehicleOwners,
+    vehicleOwnerships,
+    vehicles
+} from './vehicles.table';
 import { withinScope } from './support';
 
 type Handover = typeof vehicleHandovers.$inferSelect;
+
+/** The tables the reviewed command moves rows of, by the name it returns: each move is audited against its own table. */
+const TABLES: Record<string, PgTable | undefined> = {
+    'vehicles.vehicles': vehicles,
+    'vehicles.vehicle_ownerships': vehicleOwnerships,
+    'vehicles.vehicle_owners': vehicleOwners,
+    'vehicles.plate_assignments': plateAssignments,
+    'vehicles.libres': libres,
+    'vehicles.plates': plates,
+    'vehicles.plate_movements': plateMovements,
+    'vehicles.vehicle_handovers': vehicleHandovers
+};
 
 /** What a release needs to know and the receipt checks again: the vehicle's open period and its key. */
 export interface HandoverCheck {
@@ -121,7 +143,10 @@ export class VehicleHandovers {
 
     /** The release a receipt by this case made, if it was received already. */
     async receivedBy(tx: Tx, caseId: string): Promise<Handover | undefined> {
-        const [row] = await tx.select().from(vehicleHandovers).where(eq(vehicleHandovers.inCaseId, caseId));
+        const [row] = await tx
+            .select()
+            .from(vehicleHandovers)
+            .where(and(eq(vehicleHandovers.inCaseId, caseId), eq(vehicleHandovers.status, 'received')));
         return row;
     }
 
@@ -140,11 +165,13 @@ export class VehicleHandovers {
             if (!constraint) throw error;
             throw new ConflictError('invalid_transition', { detailKey: `vehicles.errors.${constraint}`, cause: error });
         }
+        const [handover] = await tx.select().from(vehicleHandovers).where(eq(vehicleHandovers.id, handoverId));
         for (const row of rows)
             await recordEvent(tx, {
                 type: 'vehicles.handover_moved',
+                table: TABLES[row.tbl],
                 rowId: row.row_id,
-                data: { table: row.tbl, handoverId, caseId }
+                data: { from: handover?.fromUnitId, to: handover?.toUnitId, handoverId, caseId }
             });
         return { moved: rows.length };
     }

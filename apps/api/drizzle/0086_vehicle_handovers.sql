@@ -61,8 +61,11 @@ CREATE FUNCTION "vehicles"."check_handover_transition"() RETURNS trigger
 AS $$
 BEGIN
     IF TG_OP = 'INSERT' THEN
-        IF NEW.status <> 'released' THEN
-            RAISE EXCEPTION 'vehicles: a handover is released first' USING ERRCODE = 'check_violation', CONSTRAINT = 'handover_transition';
+        IF NEW.status <> 'released' OR NEW.in_case_id IS NOT NULL OR NEW.received_on IS NOT NULL OR NEW.received_by IS NOT NULL
+            OR NEW.released_on <> (now() AT TIME ZONE 'Africa/Addis_Ababa')::date
+            OR NEW.valid_until > NEW.released_on + 60 THEN
+            RAISE EXCEPTION 'vehicles: a handover is released today, for at most 60 days, and received only by the command'
+                USING ERRCODE = 'check_violation', CONSTRAINT = 'handover_transition';
         END IF;
         RETURN NEW;
     END IF;
@@ -77,7 +80,10 @@ BEGIN
 END;
 $$;
 --> statement-breakpoint
-CREATE TRIGGER "handover_transition" BEFORE INSERT OR UPDATE ON "vehicles"."vehicle_handovers"
+-- not on the scope column: an org-unit move rewrites every row's from_org_path, and a final handover must survive it
+CREATE TRIGGER "handover_transition" BEFORE INSERT OR UPDATE OF "status", "vehicle_id", "ownership_id", "from_unit_id",
+    "to_unit_id", "case_id", "released_on", "valid_until", "in_case_id", "received_on", "received_by"
+    ON "vehicles"."vehicle_handovers"
     FOR EACH ROW EXECUTE FUNCTION "vehicles"."check_handover_transition"();
 --> statement-breakpoint
 -- The plate machine of 0066 with one more move: an assigned plate follows its vehicle to the office that now handles it (a
@@ -183,6 +189,21 @@ BEGIN
         RAISE EXCEPTION 'vehicles: vehicle % is no longer the releasing office''s', v.id
             USING ERRCODE = 'check_violation', CONSTRAINT = 'handover_not_open';
     END IF;
+    -- the release is the source's transfer out, run to its release (paid and approved: its guards), for this vehicle and office
+    IF NOT EXISTS (SELECT 1 FROM workflow.cases c
+                    WHERE c.id = h.case_id AND c.handling_unit_id = h.from_unit_id AND c.state = 'released'
+                      AND (c.facts #>> '{transferOut,vehicleId}') = h.vehicle_id::text
+                      AND (c.facts #>> '{transferOut,toUnitId}') = h.to_unit_id::text) THEN
+        RAISE EXCEPTION 'vehicles: handover % was not released by a transfer out', h.id
+            USING ERRCODE = 'check_violation', CONSTRAINT = 'handover_not_open';
+    END IF;
+    -- the receipt is the destination's own open transfer in of this release
+    IF NOT EXISTS (SELECT 1 FROM workflow.cases c
+                    WHERE c.id = p_case AND c.handling_unit_id = h.to_unit_id AND c.closed_at IS NULL
+                      AND (c.facts #>> '{transferIn,handoverId}') = h.id::text) THEN
+        RAISE EXCEPTION 'vehicles: case % is not the transfer in of handover %', p_case, h.id
+            USING ERRCODE = 'check_violation', CONSTRAINT = 'handover_not_yours';
+    END IF;
     IF NOT EXISTS (SELECT 1 FROM vehicles.vehicle_ownerships o
                     WHERE o.id = h.ownership_id AND o.vehicle_id = v.id AND o.until IS NULL) THEN
         RAISE EXCEPTION 'vehicles: the owners of vehicle % changed since the release', v.id
@@ -262,8 +283,10 @@ AS $$
                     WHERE c.region_id = kernel.ctx_region() AND c.closed_at IS NULL AND c.id IS DISTINCT FROM p_except
                       AND p_vehicle_id IS NOT NULL AND (c.facts #>> '{transferOut,vehicleId}') = p_vehicle_id::text)
         OR EXISTS (SELECT 1 FROM workflow.cases c
+                     JOIN vehicles.vehicle_handovers r ON r.id::text = (c.facts #>> '{transferIn,handoverId}')
                     WHERE c.region_id = kernel.ctx_region() AND c.closed_at IS NULL AND c.id IS DISTINCT FROM p_except
-                      AND p_vehicle_id IS NOT NULL AND (c.facts #>> '{transferIn,vehicleId}') = p_vehicle_id::text)
+                      AND p_vehicle_id IS NOT NULL AND (c.facts #>> '{transferIn,vehicleId}') = p_vehicle_id::text
+                      AND r.status = 'released' AND r.valid_until >= (now() AT TIME ZONE 'Africa/Addis_Ababa')::date)
         OR EXISTS (SELECT 1 FROM vehicles.vehicle_handovers h
                     WHERE h.region_id = kernel.ctx_region() AND p_vehicle_id IS NOT NULL AND h.vehicle_id = p_vehicle_id
                       AND h.status = 'released' AND h.valid_until >= (now() AT TIME ZONE 'Africa/Addis_Ababa')::date
