@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { BOLO_EVENTS, BOLO_REMINDER_DAYS_SETTING, TEMPORARY_BOLO_DAYS_SETTING } from './bolo';
 import { MIGRATION_SAMPLE_SETTING, sampleShareSchema } from './migration-sample';
 import { MEDICAL_MONTHS_SETTING, RENEWAL_WINDOW_SETTING } from './rules';
-import { TRANSFER_LETTER_VALID_DAYS_SETTING } from './transfer';
+import { TRANSFER_LETTER_ENFORCED_SETTING, TRANSFER_LETTER_VALID_DAYS_SETTING } from './transfer';
 import { VEHICLE_IMPORT_EVENTS } from './vehicle-import';
 
 export * from './back-capture';
@@ -40,7 +40,8 @@ export const COMPETENCY_SETTINGS = {
     [TEMPORARY_BOLO_DAYS_SETTING]: z.number().int().min(1).max(90),
     [BOLO_REMINDER_DAYS_SETTING]: z.number().int().min(1).max(120),
     [MIGRATION_SAMPLE_SETTING]: sampleShareSchema,
-    [TRANSFER_LETTER_VALID_DAYS_SETTING]: z.number().int().min(1).max(180)
+    [TRANSFER_LETTER_VALID_DAYS_SETTING]: z.number().int().min(1).max(180),
+    [TRANSFER_LETTER_ENFORCED_SETTING]: z.boolean()
 } as const;
 
 /** The document a licence prints as. */

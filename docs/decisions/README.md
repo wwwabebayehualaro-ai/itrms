@@ -59,5 +59,6 @@ one, write a new ADR that supersedes it. Format: context, decision, consequences
 | [0052](0052-health-facts-on-the-licence.md) | Blood group and health facts on the licence: optional, sensitive (encrypted, audited reveal), printed only by region setting | accepted (2026-11-11) |
 | [0053](0053-partner-access-before-integration.md) | Stakeholders get scheduled exports and limited partner accounts first; system adapters when a counterpart exists; every exchange under an agreement | accepted (2026-11-11) |
 | [0054](0054-paper-migration-capture-on-touch.md) | Paper records migrate by capture on touch (second-person verified), campaigns and a backlog factory with sampling QA | accepted (2026-11-11) |
+| [0055](0055-case-scoped-document-reading.md) | Case-scoped document reading (`issued-document:read-case`) through a workflow port, widened office-wide by a region setting | accepted (2026-11-17) |
 
 All tool choices and the answers to the technical open questions: [`../tech-stack.md`](../tech-stack.md).

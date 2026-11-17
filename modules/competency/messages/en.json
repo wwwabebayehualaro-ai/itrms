@@ -472,5 +472,7 @@
   "competency.rule.evidenceTaxRegistration": "A code-3 vehicle needs the buyers’ tax registration reference.",
   "competency.rule.evidenceDate": "A date cannot be in the future, or before the letters were issued.",
   "competency.setting.transfer_letter_valid_days": "Days a transfer letter stands",
+  "competency.rule.evidenceLetterExpired": "On that day the letter to this office was no longer valid. Return the case to the letters step to issue it again.",
+  "competency.setting.transfer_letter_validity_enforced": "Papers must be dated while their transfer letter is valid",
   "competency.rule.transferAcquiredBy": "Choose how the buyers came by the vehicle: sale, gift, inheritance, court order or auction."
 }

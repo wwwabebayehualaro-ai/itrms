@@ -29,6 +29,7 @@ import {
     REGISTRATION_CERTIFICATE_TEMPLATE,
     TRANSFER_ACQUIRED_BY,
     TRANSFER_LETTER_COUNTER,
+    TRANSFER_LETTER_ENFORCED_SETTING,
     TRANSFER_LETTER_TEMPLATES,
     TRANSFER_LETTER_VALID_DAYS_SETTING,
     valuationEntrySchema,
@@ -39,7 +40,7 @@ import am from '../messages/am.json';
 import en from '../messages/en.json';
 import { daysAfter } from './bolo-validity';
 import { ownershipTransfers } from './competency.table';
-import { actForHandlingOffice, claimedElsewhere, lockVehicleClaim } from './handling-office';
+import { actForCase, actForHandlingOffice, claimedElsewhere, lockVehicleClaim } from './handling-office';
 import type { CasePlace } from './licences.service';
 import { ownersOf, VehicleRegistrationService } from './registration.service';
 
@@ -243,11 +244,13 @@ export class OwnershipTransferService {
             const addressee = offices[kind];
             if (!addressee) continue;
             const templateKey = TRANSFER_LETTER_TEMPLATES[kind];
-            const standing = await this.standing(tx, templateKey, place.caseId);
-            // the letter's number and language stay as first issued: an officer reading in another language changes nothing on it
+            const found = await this.standing(tx, templateKey, place.caseId);
+            // a letter that expired is issued again with a new number and new days, the old one superseded (task 1.4b3);
+            // one that still stands keeps its number, days and language: an officer reading in another language changes nothing
+            const standing = found && found.validUntil >= today ? found : undefined;
             const number =
                 standing?.number ?? (await nextNumber(tx, TRANSFER_LETTER_COUNTER, place.handlingUnitId)).number;
-            const language = (standing?.language ?? currentContext()?.language) === 'en' ? 'en' : 'am';
+            const language = ((standing ?? found)?.language ?? currentContext()?.language) === 'en' ? 'en' : 'am';
             const sellers = vehicle.ownerships.find((o) => o.id === row.sellerOwnershipId)?.holders ?? [];
             const buyers = refsSchema.safeParse(factObject(facts, 'transfer')?.buyers);
             if (!buyers.success) throw missingFact('transfer');
@@ -320,12 +323,23 @@ export class OwnershipTransferService {
                 code: 'required'
             });
         const today = addisDay();
-        for (const [path, day] of [
-            ['contractAuthenticatedOn', given.contractAuthenticatedOn],
-            ['stampDutyPaidOn', given.stampDutyPaidOn]
-        ] as const)
-            if (day !== undefined && (day > today || day < row.lettersIssuedOn))
+        // strict (the default): each paper is dated while a letter it answers stood, the contract the justice office's and the
+        // receipt the revenue office's; the days the papers carry count, not the day they are recorded (task 1.4b3)
+        const strict = await this.lettersBind(tx, place.handlingUnitId);
+        for (const [path, day, kind] of [
+            ['contractAuthenticatedOn', given.contractAuthenticatedOn, 'justice'],
+            ['stampDutyPaidOn', given.stampDutyPaidOn, 'revenue']
+        ] as const) {
+            if (day === undefined) continue;
+            if (day > today || day < row.lettersIssuedOn)
                 refusals.push({ path, key: 'competency.rule.evidenceDate', code: 'out_of_range' });
+            else if (strict) {
+                const windows = await this.letterWindows(tx, TRANSFER_LETTER_TEMPLATES[kind], place.caseId);
+                if (windows.length === 0) throw missingFact('letters');
+                if (!windows.some((w) => day >= w.issuedOn && day <= w.validUntil))
+                    refusals.push({ path, key: 'competency.rule.evidenceLetterExpired', code: 'letter_expired' });
+            }
+        }
         if (refusals.length > 0) return refuseAll(refusals);
         await updateAudited(tx, ownershipTransfers, row.id, row.rowVersion, {
             contractReference: given.contractReference ?? null,
@@ -399,9 +413,9 @@ export class OwnershipTransferService {
 
     // ---- a rejected case ----
 
-    /** A case rejected before the transfer: its letters no longer stand, and their QR says so. */
+    /** A case rejected before the transfer, or closed unpaid by its timeout: its letters no longer stand, and their QR says so. */
     async revokeLetters(tx: Tx, at: CasePlace) {
-        const place = await actForHandlingOffice(tx, at);
+        const place = await actForCase(tx, at);
         const standing = await tx
             .select({ document: issuedDocuments })
             .from(issuedDocuments)
@@ -534,6 +548,33 @@ export class OwnershipTransferService {
                 )
             );
         return rows.map((r) => r.document);
+    }
+
+    /**
+     * The days each letter of this kind stood for the case, superseded ones too (a letter issued again after it expired), never
+     * one revoked. Read strictly: a letter without its days stood on none.
+     */
+    private async letterWindows(tx: Tx, templateKey: string, caseId: string) {
+        const rows = await tx
+            .select({ data: issuedDocuments.data })
+            .from(issuedDocuments)
+            .innerJoin(documentTemplates, eq(documentTemplates.id, issuedDocuments.templateId))
+            .where(
+                and(
+                    eq(documentTemplates.key, templateKey),
+                    eq(issuedDocuments.subjectId, caseId),
+                    isNull(issuedDocuments.revokedAt)
+                )
+            );
+        return rows.flatMap(({ data }) => {
+            const { issuedOn, validUntil } = data as { issuedOn?: unknown; validUntil?: unknown };
+            return typeof issuedOn === 'string' && typeof validUntil === 'string' ? [{ issuedOn, validUntil }] : [];
+        });
+    }
+
+    /** Whether the letters' days bind the papers: on unless the region's setting is exactly `false`. */
+    private async lettersBind(tx: Tx, unitId: string): Promise<boolean> {
+        return (await this.settings.value<unknown>(tx, unitId, TRANSFER_LETTER_ENFORCED_SETTING)) !== false;
     }
 
     /** A number of days the office's settings give, or its default when the setting is not a positive whole number. */

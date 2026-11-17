@@ -1874,6 +1874,16 @@
           "notes": "Split from 1.4 on 2026-11-16 (one session each). Design (architect, 2026-11-17): new service DVC-13 (not in the source list) draft→review→valuation (competency.inspector, value in santim)→letters (justice for sale/gift, revenue always, tax for code 3; numbered, valid 30 days by setting)→outside (authenticated contract, stamp duty receipt, tax registration: references only, ITRMS never computes their taxes)→payment→approval→transfer (the giving step: closes the seller period, cancels the old libre and revokes its certificate, opens the buyers period, issues the new libre and certificate in one transaction)→booklet (a new federal booklet from stock). Encumbrance check on filing, letters, before payment and before the transfer. An open transfer claims the vehicle (vehicle_in_open_case arm). Follow-up 1 (libre left issued) resolved with a deferred libre_in_force trigger; follow-up 3 counter check at filing/approval here, counters on enable in 1.4b2; publish rules in 1.4b2; chassis identity to 1.13j. Assumptions to confirm: a new booklet on transfer; fees 1,000 + 2,000 Birr (demo)."
         },
         {
+          "id": "1.4b3",
+          "title": "Transfers, part 2c: strict transfer documents",
+          "status": "in progress",
+          "branch": "task/1.4b3-strict-transfer-documents",
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Added 2026-11-17 at the product owner's request (\"make strict and make it configurable\" for the 1.4b follow-ups on the letters' validity and the inspector's documents), done before 1.4b2. Design (architect, 2026-11-17): competency.transfer_letter_validity_enforced (default true, installation/region) checked in recordEvidence against each paper's letter window; outside -> letters return and renewal of an expired letter with a new number; the payment timeout revokes the letters (system path in actForCase only); issued-document:read-case + DOCUMENT_CASE_ACCESS port + documents.case_readers_office_wide (default false, installation/region), ADR-0055. Assumptions to confirm with the zone: strict by default; the tax letter has no dated paper to check."
+        },
+        {
           "id": "1.4b2",
           "title": "Transfers, part 2b: publish rules and counters on enable",
           "status": "ready",

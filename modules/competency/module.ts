@@ -59,6 +59,13 @@ export default defineModule({
             key: 'competency.transfer_letter_valid_days',
             default: 30,
             overridableAt: ['installation', 'region', 'unitType', 'unit']
+        },
+        // whether the papers that come back must be dated while their letter stood (task 1.4b3): strict unless the region
+        // turns it off; an office does not relax a rule it is held to
+        {
+            key: 'competency.transfer_letter_validity_enforced',
+            default: true,
+            overridableAt: ['installation', 'region']
         }
     ],
     effects: [
