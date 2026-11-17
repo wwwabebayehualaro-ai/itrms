@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * The vehicle transfer's screens (task 1.4c, DVC-14 and DVC-15): the requests of both services, which are the platform's own
+ * The vehicle transfer's screens (task 1.4c, DVC-14, DVC-15 and DVC-16): the requests of the services, which are the platform's own
  * requests list narrowed to them. The vehicle moves to the other office only through the cases, on the platform's case page.
  */
 import Link from 'next/link';
@@ -33,11 +33,17 @@ export function VehicleTransfers() {
                                     {t('competency.vehicleTransfers.fileIn')}
                                 </Link>
                             </Button>
+                            <Button asChild variant="outline">
+                                <Link href="/competency/vehicle-transfers/cancel/new">
+                                    {t('competency.vehicleTransfers.fileCancel')}
+                                </Link>
+                            </Button>
                         </div>
                     )
                 }
             />
             <Requests fixed={{ service: 'DVC-15' }} title={t('competency.vehicleTransfers.fileIn')} />
+            <Requests fixed={{ service: 'DVC-16' }} title={t('competency.vehicleTransfers.fileCancel')} />
         </div>
     );
 }

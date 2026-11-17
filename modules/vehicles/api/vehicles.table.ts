@@ -639,10 +639,17 @@ export const vehicleHandovers = withRls(
                 /** the transfer-in case that received it */
                 inCaseId: uuid('in_case_id'),
                 receivedOn: date('received_on'),
-                receivedBy: uuid('received_by')
+                receivedBy: uuid('received_by'),
+                /** the cancelling case of the releasing office (task 1.4c2b, ADR-0059) */
+                cancelCaseId: uuid('cancel_case_id'),
+                cancelledOn: date('cancelled_on'),
+                cancelledBy: uuid('cancelled_by')
             },
             (t) => [
                 uniqueIndex('vehicle_handovers_case_uq').on(t.caseId),
+                uniqueIndex('vehicle_handovers_cancel_case_uq')
+                    .on(t.cancelCaseId)
+                    .where(sql`${t.cancelCaseId} is not null`),
                 uniqueIndex('vehicle_handovers_in_case_uq')
                     .on(t.inCaseId)
                     .where(sql`${t.inCaseId} is not null`),
@@ -668,6 +675,10 @@ export const vehicleHandovers = withRls(
                 check(
                     'vehicle_handovers_received_check',
                     sql`(${t.status} = 'received') = (${t.inCaseId} is not null and ${t.receivedOn} is not null and ${t.receivedBy} is not null)`
+                ),
+                check(
+                    'vehicle_handovers_cancelled_check',
+                    sql`(${t.status} = 'cancelled') = (${t.cancelCaseId} is not null and ${t.cancelledOn} is not null and ${t.cancelledBy} is not null)`
                 )
             ]
         )

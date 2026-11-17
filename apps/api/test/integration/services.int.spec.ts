@@ -200,7 +200,7 @@ describe('the catalogue', () => {
         const res = await api.call('GET', '/api/v1/services', as.damotRecords);
         expect(res.statusCode).toBe(200);
         const list = res.json<{ code: string; enabled: boolean; configured: boolean }[]>();
-        expect(list).toHaveLength(59);
+        expect(list).toHaveLength(60);
         expect(list.find((s) => s.code === SERVICE)).toMatchObject({ enabled: true, configured: false });
         // licences are a zone's or a licensing town's, not a woreda's
         expect(list.find((s) => s.code === 'DVC-03')).toMatchObject({ enabled: false });

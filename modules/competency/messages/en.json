@@ -502,5 +502,21 @@
   "competency.rule.transferOutDestinationRegion": "Name the region the vehicle moves to.",
   "competency.rule.transferOutNoOffice": "Choose the office the vehicle moves to.",
   "competency.rule.transferDocumentAmount": "An amount is in whole Birr, from 1 to 10,000,000,000.",
-  "competency.rule.transferDocumentPlateYear": "The year of an earlier plate is an Ethiopian year, from 1900 to 2100."
+  "competency.rule.transferDocumentPlateYear": "The year of an earlier plate is an Ethiopian year, from 1900 to 2100.",
+  "competency.rule.releaseCancelNoRelease": "This vehicle has no standing release from this office.",
+  "competency.rule.releaseCancelChanged": "The release changed since the request was filed; file it again.",
+  "competency.rule.releaseCancelDocumentNumber": "The number does not match the transfer document issued for this release.",
+  "competency.rule.releaseCancelDocumentRequired": "The transfer document is still valid: the owner hands it back and its number is entered.",
+  "competency.rule.releaseCancelUnreturnedOff": "This region cancels a release to another region only with its transfer document handed back.",
+  "competency.rule.releaseCancelInOpenCase": "The receiving office has filed its transfer in, or another cancellation is open: finish that first.",
+  "competency.rule.releaseCancelReason": "Give the reason for the cancellation.",
+  "competency.lookup.releasedVehicle.title": "Released vehicle",
+  "competency.lookup.fact.plate": "Plate",
+  "competency.lookup.fact.vehicle": "Vehicle",
+  "competency.lookup.fact.owner": "Owner",
+  "competency.lookup.fact.releasedTo": "Released to",
+  "competency.vehicleTransfers.fileCancel": "Cancel a vehicle release",
+  "competency.action.newReleaseCancel": "Cancel a vehicle release",
+  "competency.setting.vehicle_release_cancel_unreturned": "Cancel a release to another region without its transfer document once the document has lapsed",
+  "competency.rule.releaseCancelCheckFirst": "The release is checked on an earlier step than the one that cancels it."
 }

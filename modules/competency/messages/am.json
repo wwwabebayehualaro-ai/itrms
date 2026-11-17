@@ -502,5 +502,21 @@
   "competency.rule.transferOutDestinationRegion": "ተሽከርካሪው የሚዛወርበትን ክልል ይጻፉ።",
   "competency.rule.transferOutNoOffice": "ተሽከርካሪው የሚዛወርበትን መሥሪያ ቤት ይምረጡ።",
   "competency.rule.transferDocumentAmount": "መጠኑ ከ1 እስከ 10,000,000,000 ሙሉ ብር መሆን አለበት።",
-  "competency.rule.transferDocumentPlateYear": "የቀድሞ ሰሌዳ ዓመት ከ1900 እስከ 2100 ያለ ዓ.ም መሆን አለበት።"
+  "competency.rule.transferDocumentPlateYear": "የቀድሞ ሰሌዳ ዓመት ከ1900 እስከ 2100 ያለ ዓ.ም መሆን አለበት።",
+  "competency.rule.releaseCancelNoRelease": "ይህ ተሽከርካሪ ከዚህ መሥሪያ ቤት የተለቀቀ መልቀቂያ የለውም።",
+  "competency.rule.releaseCancelChanged": "መልቀቂያው ጥያቄው ከቀረበ በኋላ ተለውጧል፤ ጥያቄውን እንደገና ያቅርቡ።",
+  "competency.rule.releaseCancelDocumentNumber": "ቁጥሩ ለዚህ መልቀቂያ ከተሰጠው የተሽከርካሪ መረጃ ማስተላለፊያ ሰነድ ቁጥር ጋር አይመሳሰልም።",
+  "competency.rule.releaseCancelDocumentRequired": "የተሽከርካሪ መረጃ ማስተላለፊያ ሰነዱ አሁንም አገልግሎት ላይ ነው፤ ባለቤቱ መልሶ ያስረክብ፣ ቁጥሩም ይመዝገብ።",
+  "competency.rule.releaseCancelUnreturnedOff": "ይህ ክልል ወደ ሌላ ክልል የተሰጠ መልቀቂያን የሚሰርዘው የማስተላለፊያ ሰነዱ ተመልሶ ሲገባ ብቻ ነው።",
+  "competency.rule.releaseCancelInOpenCase": "ተቀባዩ መሥሪያ ቤት የመረከብ ጥያቄውን አቅርቧል፣ ወይም ሌላ የመሰረዝ ጥያቄ ክፍት ነው፤ መጀመሪያ እሱን ይጨርሱ።",
+  "competency.rule.releaseCancelReason": "የመሰረዙን ምክንያት ይጻፉ።",
+  "competency.lookup.releasedVehicle.title": "የተለቀቀ ተሽከርካሪ",
+  "competency.lookup.fact.plate": "ሰሌዳ",
+  "competency.lookup.fact.vehicle": "ተሽከርካሪ",
+  "competency.lookup.fact.owner": "ባለቤት",
+  "competency.lookup.fact.releasedTo": "የተለቀቀለት",
+  "competency.vehicleTransfers.fileCancel": "የተሽከርካሪ መልቀቂያ ሰርዝ",
+  "competency.action.newReleaseCancel": "የተሽከርካሪ መልቀቂያ ሰርዝ",
+  "competency.setting.vehicle_release_cancel_unreturned": "የማስተላለፊያ ሰነዱ ጊዜ ካለፈ ሳይመለስም ወደ ሌላ ክልል የተሰጠ መልቀቂያ ይሰረዛል",
+  "competency.rule.releaseCancelCheckFirst": "መልቀቂያው የሚረጋገጠው ከሚሰርዘው እርምጃ በፊት ባለ እርምጃ ላይ ነው።"
 }

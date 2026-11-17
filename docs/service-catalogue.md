@@ -73,6 +73,13 @@ instead (task 1.4c2, ADR-0058): DVC-14 is filed with "outside" and the name and 
 officer issues the document (15 days, a covering letter with it) and the vehicle reads transferred out, keeping its records; it is
 registered there from the document (task 1.4c3). Offered wherever DVC-01 is; not counted in the totals.
 
+**Not in the source: DVC-16, cancel a vehicle release** (የተሽከርካሪ መልቀቂያ መሰረዝ; task 1.4c2b, ADR-0059). Filed at the office that
+released the vehicle (to an office of the region, or outside it), checked by an officer and approved by a lead; the release becomes
+cancelled, final, its transfer document and covering letter read revoked, and a vehicle transferred out reads active again. For a
+release to another region the number of the transfer document handed back is entered (required while it is valid; once it has
+lapsed it may be left out, unless the region switches that off). Refused while the receiving office has filed its transfer in.
+No fee (to confirm with the zone). Offered wherever DVC-14 is; not counted in the totals.
+
 **Not in the source: MIG-01, the back-capture of a paper vehicle file** (የወረቀት ተሽከርካሪ ፋይል ምዝገባ; ADR-0054, task 1.13). The
 migration's own service, in the catalogue beside the 54 and offered wherever DVC-01 is: a vehicle with no electronic record is
 captured from its paper file and verified by a second person before any service acts on it. It is not counted in the totals.

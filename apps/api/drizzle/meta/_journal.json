@@ -617,6 +617,13 @@
       "when": 1794941383129,
       "tag": "0087_vehicle_transfer_outside",
       "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1794948283772,
+      "tag": "0088_vehicle_release_cancel",
+      "breakpoints": true
     }
   ]
 }
