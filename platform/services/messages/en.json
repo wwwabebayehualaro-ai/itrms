@@ -118,5 +118,8 @@
   "services.errors.no_fee_now": "The service charges no fee now.",
   "services.errors.version_changed": "Version {expected} was changed; read it again.",
   "services.errors.version_unusable": "The service's workflow or form is switched off, or names an effect no longer installed.",
-  "services.publish.unguarded_service": "Transition {transition} of the workflow gives the service without checking that its fee is paid: guard it on payment.settled."
+  "services.publish.unguarded_service": "Transition {transition} of the workflow gives the service without checking that its fee is paid: guard it on payment.settled.",
+  "services.publish.unknown_argument": "Transition {transition} names {effect} with \"{argument}\", which it does not take.",
+  "services.publish.argument_required": "Transition {transition} names {effect} without the argument it needs.",
+  "services.publish.required_before": "Transition {transition} runs {effect} without {required} before it on the same transition."
 }

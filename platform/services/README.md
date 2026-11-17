@@ -45,6 +45,11 @@ API: `GET /services`, `GET|POST /services/{code}/versions`, `GET /services/{code
   form's keys; publishing refuses a version whose form does not meet its effects' contracts; `ServiceFormGuard` is the
   forms slice's `FORM_PUBLISH_GUARD` (a new version of a form a service reads is checked the same way, the impact names
   the services, their open cases and effects, and the locks feed the builder).
+- **Effect arguments and prerequisites** (task 1.4b2): an effect declares the arguments it takes (`argument: { values,
+  required }`; one that declares none takes none) and the references a transition must name before it (`requiresBefore`).
+  Publishing refuses a version that names an effect with another argument (422 `unknown_argument`), without one it needs
+  (`argument_required`), or without what it requires earlier on the same transition (`required_before`): only there do they
+  run in one transaction. Versions published before keep working; the effects' own refusals stay as a second line.
 
 Screens (apps/web): `/services` (the catalogue), `/services/{code}` (its versions, publishing one, an office's
 configuration and its override), `/requests/new` (the counter). Form overlays (an extra field): 0.21d.

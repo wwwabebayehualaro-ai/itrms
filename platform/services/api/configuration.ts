@@ -151,3 +151,48 @@ export function unpaidGiving(
         return giving.length && !requiresSettled(t.guard) ? [{ index, effects: giving }] : [];
     });
 }
+
+/** An effect named with an argument it does not take, or without one it needs (task 1.4b2), by transition index. */
+export type ArgumentProblem = {
+    index: number;
+    effect: string;
+    argument?: string;
+    problem: 'unknown_argument' | 'argument_required';
+};
+
+export function argumentProblems(
+    workflow: WorkflowDefinition,
+    argumentOf: (effect: string) => { values: readonly string[]; required?: boolean } | undefined,
+    keyOf: (reference: string) => string
+): ArgumentProblem[] {
+    return workflow.transitions.flatMap((t, index) =>
+        (t.effects ?? []).flatMap((ref): ArgumentProblem[] => {
+            const effect = keyOf(ref);
+            const argument = ref.includes(':') ? ref.slice(ref.indexOf(':') + 1) : undefined;
+            const takes = argumentOf(effect);
+            if (argument !== undefined && !takes?.values.includes(argument))
+                return [{ index, effect, argument, problem: 'unknown_argument' }];
+            if (argument === undefined && takes?.required) return [{ index, effect, problem: 'argument_required' }];
+            return [];
+        })
+    );
+}
+
+/**
+ * The effects whose required references (`requiresBefore`) the same transition does not name earlier in its effects
+ * (task 1.4b2): only there do they run in the same transaction, under the same lock. By transition index.
+ */
+export function missingBefore(
+    workflow: WorkflowDefinition,
+    requiresOf: (effect: string) => readonly string[],
+    keyOf: (reference: string) => string
+): { index: number; effect: string; required: string }[] {
+    return workflow.transitions.flatMap((t, index) => {
+        const refs = t.effects ?? [];
+        return refs.flatMap((ref, at) =>
+            requiresOf(keyOf(ref))
+                .filter((required) => !refs.slice(0, at).includes(required))
+                .map((required) => ({ index, effect: keyOf(ref), required }))
+        );
+    });
+}

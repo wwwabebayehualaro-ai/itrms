@@ -75,7 +75,8 @@ async function applicationCopy(
 }
 
 @Injectable()
-@Effect(ISSUE_DOCUMENT_EFFECT)
+// the templates a case's effect may issue: only the application copy has its data built here
+@Effect(ISSUE_DOCUMENT_EFFECT, { argument: { values: ['application-copy'], required: true } })
 export class IssueDocumentEffect implements WorkflowEffect {
     constructor(
         @Inject(SettingsService) private readonly settings: SettingsService,

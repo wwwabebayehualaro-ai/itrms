@@ -1896,13 +1896,23 @@
         },
         {
           "id": "1.4b2",
-          "title": "Transfers, part 2b: publish rules and counters on enable",
+          "title": "Transfers, part 2b: publish rules",
           "status": "in progress",
           "branch": "task/1.4b2-publish-rules-counters",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split from 1.4b on 2026-11-17."
+          "notes": "Split from 1.4b on 2026-11-17. Design (architect, 2026-11-17): effects declare argument {values, required} and requiresBefore (full references, same transition, earlier in the list); configuration.ts argumentProblems and missingBefore enforced in ServicesService.publish (422 unknown_argument, argument_required, required_before); supersedeSeededVersion for DVC-13 when the seed-written version's content differs. Counters on enable split to 1.4b4."
+        },
+        {
+          "id": "1.4b4",
+          "title": "Transfers, part 2d: counters on enable",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Split from 1.4b2 on 2026-11-17 (architect: one session was borderline). Design (architect, 2026-11-17): numberSequences gain capabilities, a countersRequired map per service; ensureCounter (raw insert, on conflict do nothing, a numbering.counter_set_up event) called by OrgAdminService create/setService/resetService for all the unit's effective services; migration 0085 grants itrms_app INSERT on (id, region_id, unit_id, key, pattern) of kernel.number_counters; ADR-0056. Includes the receipt counter of a new collects_cash office."
         },
         {
           "id": "1.4c",

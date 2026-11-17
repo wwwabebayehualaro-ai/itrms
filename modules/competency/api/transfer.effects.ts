@@ -6,7 +6,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Effect, type EffectRun, type WorkflowEffect } from '@itrms/kernel/effects';
 
-import { TRANSFER_EFFECTS as X } from '../contracts';
+import { ENCUMBRANCE_EFFECTS } from '@itrms/vehicles/contracts';
+
+import { REGISTRATION_CERTIFICATE_TEMPLATE, TRANSFER_EFFECTS as X } from '../contracts';
 import type { CasePlace } from './licences.service';
 import { OwnershipTransferService, type TransferInput } from './transfer.service';
 
@@ -74,7 +76,12 @@ export class RecordTransferEvidenceEffect implements WorkflowEffect {
  * registration certificate on the template named (`vehicle-registration-certificate` when none is).
  */
 @Injectable()
-@Effect(X.transferOwnership, { givesService: true })
+// the vehicle's holds are checked in the same transaction, just before (task 1.4b2): a version without it is not published
+@Effect(X.transferOwnership, {
+    givesService: true,
+    argument: { values: [REGISTRATION_CERTIFICATE_TEMPLATE] },
+    requiresBefore: [`${ENCUMBRANCE_EFFECTS.checkEncumbrances}:ownership-transfer`]
+})
 export class TransferOwnershipEffect implements WorkflowEffect {
     constructor(@Inject(OwnershipTransferService) private readonly transfer: OwnershipTransferService) {}
 

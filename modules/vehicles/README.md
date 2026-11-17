@@ -51,7 +51,9 @@ with the conflict after the colon (`ownership-transfer`, `zone-transfer-out`, `r
 - before the payment order: the transition that creates it names the check first, so nobody pays for what will be refused;
 - before the giving effect: the step that gives the result (the new plate, the new owner) names it before that effect, so a hold
   recorded in between still stops it. A check and a recording meet on one advisory lock per vehicle: a hold either commits before
-  the check (and blocks) or after the service has given, never both.
+  the check (and blocks) or after the service has given, never both. A giving effect that needs it says so
+  (`requiresBefore`, task 1.4b2): the ownership transfer requires `vehicles.checkEncumbrances:ownership-transfer` on its giving
+  transition, and a version without it, or with a conflict the check does not take, is not published.
 
 The refusal is a 422 `not_eligible` naming the oldest hold, its holder and office, in the language of the person acting. Which
 kinds block which conflict is the setting `vehicles.encumbrance_blocks` (installation or region; shipped: transfers are blocked by

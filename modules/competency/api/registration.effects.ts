@@ -5,7 +5,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Effect, type EffectRun, type WorkflowEffect } from '@itrms/kernel/effects';
 
-import { REGISTRATION_EFFECTS as R } from '../contracts';
+import { REGISTRATION_CERTIFICATE_TEMPLATE, REGISTRATION_EFFECTS as R } from '../contracts';
 import type { CasePlace } from './licences.service';
 import { VehicleRegistrationService, type RegistrationInput } from './registration.service';
 
@@ -106,7 +106,7 @@ export class AssignRegistrationPlateEffect implements WorkflowEffect {
  * temporary libre, ADR-0050); the template `vehicle-registration-certificate` when none is named.
  */
 @Injectable()
-@Effect(R.issueLibre, { givesService: true })
+@Effect(R.issueLibre, { givesService: true, argument: { values: [REGISTRATION_CERTIFICATE_TEMPLATE] } })
 export class IssueLibreEffect implements WorkflowEffect {
     constructor(@Inject(VehicleRegistrationService) private readonly registration: VehicleRegistrationService) {}
 

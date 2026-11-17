@@ -24,12 +24,15 @@ import { importDocumentTemplates } from '@itrms/documents/seed';
 import { StationeryStock } from '@itrms/fees/api';
 import { importFeeRules, importStationeryDemo, parseFeeRules } from '@itrms/fees/seed';
 import { createDatabase, type Database, type DbContext, type Tx } from '@itrms/kernel/db';
+import { EffectRegistry } from '@itrms/kernel/effects';
 import { createSystemDatabase, type SystemDatabase } from '@itrms/kernel/db/system';
 import { contextFor, TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import type { OrgUnit } from '@itrms/kernel/org';
 import { VehicleRegistry } from '@itrms/vehicles/api';
 import { vinCheckDigit, type Vehicle } from '@itrms/vehicles/contracts';
 import { importVehicleCategories, setUpRegistrationCertificateCounters } from '@itrms/vehicles/seed';
+import { effectKeyOf } from '@itrms/schemas';
+import { argumentProblems, missingBefore } from '@itrms/services/api';
 import { CasesService } from '@itrms/workflow/api';
 import type { CaseOut } from '@itrms/workflow/contracts';
 import { sql } from 'drizzle-orm';
@@ -544,6 +547,151 @@ describe('what is seeded', () => {
             )
         });
         expect(flow.statusCode, flow.body).toBe(201);
+    });
+
+    it('refuses to publish a transfer without the hold check before it, or with a misspelt conflict (task 1.4b2)', async () => {
+        const [current] = await query<{
+            form: string;
+            fee: string;
+            definition: { transitions: { action?: string; effects?: string[] }[] };
+        }>(
+            `select v.form_version_id as form, v.fee_rule_version_id as fee, w.definition
+               from services.service_definitions d join services.service_versions v on v.id = d.current_version_id
+               join workflow.workflow_definition_versions w on w.id = v.workflow_version_id
+              where d.code = 'DVC-13'`
+        );
+        const CHECK = 'vehicles.checkEncumbrances:ownership-transfer';
+        let n = 0;
+        const publishWith = async (change: (effects: string[]) => string[]) => {
+            n += 1;
+            const definition = {
+                ...current?.definition,
+                transitions: (current?.definition.transitions ?? []).map((t) =>
+                    t.action === 'transfer' ? { ...t, effects: change(t.effects ?? []) } : t
+                )
+            };
+            const flow = await api.call('POST', '/api/v1/workflow-definitions', as.bureau, {
+                key: `unchecked-ownership-transfer-${n}`,
+                name: { am: 'ሙከራ', en: 'Trial' },
+                definition
+            });
+            expect(flow.statusCode, flow.body).toBe(201);
+            const version = await api.call('POST', `/api/v1/services/${SERVICE}/versions`, as.bureau, {
+                workflowVersionId: flow.json<{ latestVersion: { id: string } }>().latestVersion.id,
+                formVersionId: current?.form,
+                feeRuleVersionId: current?.fee,
+                defaults: { approval_unit: 'handling' },
+                overridePolicy: { approval_unit: ['region', 'unit'], sla: ['region', 'unit'] }
+            });
+            return { status: version.statusCode, errors: version.json<ProblemBody>().errors ?? [] };
+        };
+        // the transfer with no check, and with the check after it
+        for (const change of [
+            (effects: string[]) => effects.filter((e) => e !== CHECK),
+            (effects: string[]) => [...effects.filter((e) => e !== CHECK), CHECK]
+        ]) {
+            const refused = await publishWith(change);
+            expect(refused.status).toBe(422);
+            expect(refused.errors).toEqual([
+                expect.objectContaining({ path: 'workflowVersionId', code: 'required_before' })
+            ]);
+        }
+        // a misspelt conflict: neither the argument nor what the transfer needs
+        const misspelt = await publishWith((effects) =>
+            effects.map((e) => (e === CHECK ? 'vehicles.checkEncumbrances:ownership-transfr' : e))
+        );
+        expect(misspelt.status).toBe(422);
+        expect(misspelt.errors.map((e) => e.code).sort()).toEqual(['required_before', 'unknown_argument']);
+    });
+
+    it('names every seeded effect as it takes it, after what it needs', async () => {
+        const effects = api.http.get(EffectRegistry);
+        const flows = await query<{ code: string; definition: Parameters<typeof argumentProblems>[0] }>(
+            `select d.code, w.definition from services.service_definitions d
+               join services.service_versions v on v.service_id = d.id
+               join workflow.workflow_definition_versions w on w.id = v.workflow_version_id
+              where v.created_by is null`
+        );
+        expect(flows.map((f) => f.code)).toEqual(expect.arrayContaining(['DVC-01', 'DVC-12', 'DVC-13']));
+        for (const { code, definition } of flows) {
+            expect(
+                argumentProblems(definition, (e) => effects.argumentOf(e), effectKeyOf),
+                code
+            ).toEqual([]);
+            expect(
+                missingBefore(definition, (e) => effects.requiresBefore(e), effectKeyOf),
+                code
+            ).toEqual([]);
+        }
+    });
+
+    it('moves a seed-written version on DVC-13’s first flow to today’s, and leaves a bureau’s own alone (task 1.4b2)', async () => {
+        const region = await api.unit('SER', 'SER');
+        const seed = () =>
+            api.installer.scoped({}, (tx) =>
+                importOwnershipTransferService(tx, { id: region.id, regionId: region.regionId })
+            );
+        // the flow as 1.4b seeded it: no return from the papers, nothing on the timeout
+        const [flow] = await query<{ id: string }>(
+            `insert into workflow.workflow_definition_versions (id, region_id, owner_unit_id, definition_id, number, content_hash, definition)
+             select gen_random_uuid(), w.region_id, w.owner_unit_id, w.definition_id,
+                    (select max(number) + 1 from workflow.workflow_definition_versions where definition_id = w.definition_id),
+                    'first-flow',
+                    jsonb_set(w.definition, '{transitions}', (
+                        select jsonb_agg(case when t->>'on' = 'timeout' then t - 'effects' else t end)
+                          from jsonb_array_elements(w.definition->'transitions') t
+                         where not (t->>'from' = 'outside' and t->>'action' = 'return')))
+               from workflow.workflow_definitions d
+               join workflow.workflow_definition_versions w on w.id = d.latest_version_id
+              where d.key = 'vehicle-ownership-transfer'
+             returning id`
+        );
+        const onFirstFlow = async (createdBy: string | null) => {
+            const [made] = await query<{ id: string }>(
+                `insert into services.service_versions (id, region_id, service_id, number, content_hash, form_version_id,
+                        workflow_version_id, fee_rule_version_id, template_version_ids, defaults, override_policy, input_map,
+                        effective_from, created_by)
+                 select gen_random_uuid(), v.region_id, v.service_id,
+                        (select max(number) + 1 from services.service_versions where service_id = v.service_id),
+                        'first-flow-' || $2::text, v.form_version_id, $1, v.fee_rule_version_id, v.template_version_ids,
+                        v.defaults, v.override_policy, v.input_map, v.effective_from, $3::uuid
+                   from services.service_definitions d join services.service_versions v on v.id = d.current_version_id
+                  where d.code = 'DVC-13'
+                 returning id`,
+                [flow?.id, createdBy ?? 'seed', createdBy]
+            );
+            await api.owner.query(
+                `update services.service_definitions set current_version_id = $1 where code = 'DVC-13' and region_id = $2`,
+                [made?.id, region.regionId]
+            );
+        };
+        const runningFlow = async () =>
+            (
+                await query<{
+                    definition: {
+                        transitions: { from: string | string[]; action?: string; on?: string; effects?: string[] }[];
+                    };
+                }>(
+                    `select w.definition from services.service_definitions d
+                       join services.service_versions v on v.id = d.current_version_id
+                       join workflow.workflow_definition_versions w on w.id = v.workflow_version_id
+                      where d.code = 'DVC-13' and d.region_id = $1`,
+                    [region.regionId]
+                )
+            )[0]?.definition.transitions ?? [];
+
+        // a person's own version on that flow is the bureau's: left alone
+        await onFirstFlow(randomUUID());
+        expect(await seed()).toBe(0);
+        // a seed's: today's flow, once
+        await onFirstFlow(null);
+        expect(await seed()).toBe(1);
+        const transitions = await runningFlow();
+        expect(transitions).toContainEqual(
+            expect.objectContaining({ from: 'outside', to: 'letters', action: 'return' })
+        );
+        expect(transitions.find((t) => t.on === 'timeout')?.effects).toEqual(['competency.revokeTransferLetters']);
+        expect(await seed()).toBe(0);
     });
 
     it('charges the zone’s fee sheet: the name change and the new libre, in santim (demo amounts)', async () => {

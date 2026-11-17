@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { configValuesSchema, overridePolicySchema } from '../contracts';
 import {
     allowedBy,
+    argumentProblems,
     frozenConfig,
     keyProblem,
+    missingBefore,
     requiresSettled,
     resolveConfig,
     unpaidGiving,
@@ -137,5 +139,74 @@ describe('a service with a fee gives it only while the fee stands paid (ADR-0042
             keyOf
         );
         expect(found).toEqual([{ index: 2, effects: ['documents.issue'] }]);
+    });
+});
+
+describe('an effect is named as it takes it, after what it needs (task 1.4b2)', () => {
+    const keyOf = (reference: string) => reference.split(':')[0] ?? reference;
+    const workflow = (transitions: object[]) =>
+        ({ key: 'w', states: [], transitions }) as unknown as Parameters<typeof argumentProblems>[0];
+    const CHECK = 'vehicles.checkEncumbrances:ownership-transfer';
+    const takes = (e: string) =>
+        e === 'vehicles.checkEncumbrances'
+            ? { values: ['ownership-transfer', 'replacement'], required: true }
+            : e === 'competency.recordExam'
+              ? { values: ['passed', 'failed'] }
+              : undefined;
+    const requires = (e: string) => (e === 'competency.transferOwnership' ? [CHECK] : []);
+
+    it('finds an argument the effect does not take, an empty one, one given to an effect that takes none, and one missing', () => {
+        const found = argumentProblems(
+            workflow([
+                {
+                    from: 'a',
+                    to: 'b',
+                    action: 'go',
+                    effects: [CHECK, 'competency.recordExam:passed', 'competency.recordExam']
+                },
+                { from: 'b', to: 'c', action: 'go', effects: ['vehicles.checkEncumbrances:ownership-transfr'] },
+                { from: 'c', to: 'd', action: 'go', effects: ['vehicles.checkEncumbrances:', 'fees.assess:now'] },
+                { from: 'd', to: 'e', action: 'go', effects: ['vehicles.checkEncumbrances'] }
+            ]),
+            takes,
+            keyOf
+        );
+        expect(found).toEqual([
+            {
+                index: 1,
+                effect: 'vehicles.checkEncumbrances',
+                argument: 'ownership-transfr',
+                problem: 'unknown_argument'
+            },
+            { index: 2, effect: 'vehicles.checkEncumbrances', argument: '', problem: 'unknown_argument' },
+            { index: 2, effect: 'fees.assess', argument: 'now', problem: 'unknown_argument' },
+            { index: 3, effect: 'vehicles.checkEncumbrances', problem: 'argument_required' }
+        ]);
+    });
+
+    it('wants the required check earlier on the same transition: not after it, not on another, not for another conflict', () => {
+        const found = missingBefore(
+            workflow([
+                { from: 'a', to: 'b', action: 'ok', effects: [CHECK, 'competency.transferOwnership'] },
+                { from: 'b', to: 'c', action: 'after', effects: ['competency.transferOwnership', CHECK] },
+                { from: 'c', to: 'd', action: 'check', effects: [CHECK] },
+                {
+                    from: 'd',
+                    to: 'e',
+                    action: 'alone',
+                    effects: ['competency.transferOwnership:vehicle-registration-certificate']
+                },
+                {
+                    from: 'e',
+                    to: 'f',
+                    action: 'other',
+                    effects: ['vehicles.checkEncumbrances:replacement', 'competency.transferOwnership']
+                }
+            ]),
+            requires,
+            keyOf
+        );
+        expect(found.map((f) => f.index)).toEqual([1, 3, 4]);
+        expect(found[0]).toEqual({ index: 1, effect: 'competency.transferOwnership', required: CHECK });
     });
 });

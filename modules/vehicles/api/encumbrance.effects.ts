@@ -7,11 +7,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Effect, type EffectRun, type WorkflowEffect } from '@itrms/kernel/effects';
 
-import { ENCUMBRANCE_EFFECTS as X } from '../contracts';
+import { ENCUMBRANCE_CONFLICTS, ENCUMBRANCE_EFFECTS as X } from '../contracts';
 import { EncumbranceService } from './encumbrances.service';
 
 @Injectable()
-@Effect(X.checkEncumbrances, { input: { vehicle: { kind: 'ref' } } })
+@Effect(X.checkEncumbrances, {
+    input: { vehicle: { kind: 'ref' } },
+    argument: { values: ENCUMBRANCE_CONFLICTS, required: true }
+})
 export class CheckEncumbrancesEffect implements WorkflowEffect<{ vehicle: string }> {
     constructor(@Inject(EncumbranceService) private readonly encumbrances: EncumbranceService) {}
 
