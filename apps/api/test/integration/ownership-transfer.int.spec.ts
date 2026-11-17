@@ -918,6 +918,14 @@ describe('owners changed under the case, and the numbers', () => {
         expect(same.body.errors).toEqual([expect.objectContaining({ path: 'owners', code: 'same_owners' })]);
     }, 120_000);
 
+    it('refuses a buyer listed twice at the filing, not first at the transfer step after the fee is paid', async () => {
+        const vehicle = await onTheRoad(boditi);
+        const buyer = await person();
+        const twice = await tried(await file(SERVICE, answersOf(vehicle.id, [buyer, buyer])), as.officer, 'submit');
+        expect(twice.status).toBe(422);
+        expect(twice.body.errors).toEqual([expect.objectContaining({ path: 'owners', code: 'owner_listed_twice' })]);
+    }, 120_000);
+
     it('tells an office with no number series at the filing, of the transfer and of a new registration', async () => {
         const away = async (key: string, work: () => Promise<void>) => {
             await api.owner.query('update kernel.number_counters set key = key || $3 where unit_id = $1 and key = $2', [

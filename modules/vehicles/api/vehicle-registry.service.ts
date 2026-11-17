@@ -228,6 +228,10 @@ export class VehicleRegistry {
         if (vehicle.status !== 'active')
             throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.not_on_register' });
         const open = await this.openPeriod(tx, vehicleId);
+        // the buyers as the transfer step will parse them, so that a paid case is never first refused there
+        if (new Set(owners.map((o) => o.id)).size !== owners.length)
+            throw fieldError('owners', 'owner_listed_twice', 'an owner is listed twice');
+        checked(ownershipTransferSchema.pick({ owners: true }), { owners: [...owners] });
         await this.checkOwners(tx, owners, 'owners');
         const held = await tx
             .select()

@@ -107,7 +107,13 @@ describe('the ownership transfer workflow', () => {
 
     it('keeps whoever filed, checked, valued or took the papers off the approval, and the approver off the transfer', () => {
         expect(state('valuation')?.separationOfDuties).toEqual(['draft']);
-        expect(state('approval')?.separationOfDuties?.sort()).toEqual(['draft', 'outside', 'review', 'valuation']);
+        expect(state('approval')?.separationOfDuties?.sort()).toEqual([
+            'draft',
+            'letters',
+            'outside',
+            'review',
+            'valuation'
+        ]);
         expect(state('transfer')?.separationOfDuties).toEqual(['approval']);
     });
 

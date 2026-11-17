@@ -246,7 +246,7 @@ export const ownershipTransferFlow = (
             kind: 'task',
             label: text('የመጨረሻ ማጽደቅ', 'Final approval'),
             assignee: { role: 'competency.lead', unit: '${approval_unit}' },
-            separationOfDuties: ['draft', 'review', 'valuation', 'outside'],
+            separationOfDuties: ['draft', 'review', 'valuation', 'letters', 'outside'],
             sla: { businessDays: 2 }
         },
         task('transfer', text('ባለቤትነት ማስተላለፍ', 'Ownership transfer'), 'competency.officer', 1, {

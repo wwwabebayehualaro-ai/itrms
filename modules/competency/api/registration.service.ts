@@ -233,8 +233,8 @@ export class VehicleRegistrationService {
 
     /** The office's next free plate, held for the case so that a registration approved can always be completed. */
     async reservePlate(tx: Tx, place: CasePlace) {
-        // an office that cannot number the certificate finds out here, not at the registration step after the fee is taken
-        await requireCounter(tx, REGISTRATION_CERTIFICATE_COUNTER, place.handlingUnitId);
+        // no certificate counter check here: the plate exchange reserves its plate through this too and numbers no
+        // certificate; a registration's office was checked at the filing (check)
         const plate = await this.stock.reserve(tx, place.ctx, {
             holderUnitId: place.handlingUnitId,
             caseId: place.caseId,

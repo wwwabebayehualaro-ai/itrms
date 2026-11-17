@@ -146,7 +146,9 @@ export class OwnershipTransferService {
             throw error;
         }
         // a check made again (the letters step, a correction) finds the owners the filing saw: others since are a new request's
-        const saw = factObject(facts, 'transfer')?.sellerOwnershipId;
+        // a correction to another vehicle is a fresh check
+        const seen = factObject(facts, 'transfer');
+        const saw = seen?.vehicleId === vehicle.id ? seen.sellerOwnershipId : undefined;
         if (typeof saw === 'string' && saw !== checked.openPeriodId)
             throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.owners_changed' });
         // the numbers come later and are never made up on the spot: an office with no series is told now, not after the fee
