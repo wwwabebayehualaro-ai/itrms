@@ -1876,12 +1876,13 @@
         {
           "id": "1.4b3",
           "title": "Transfers, part 2c: strict transfer documents",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.4b3-strict-transfer-documents",
           "commits": [
             "567f021",
             "55100d2",
-            "7714934"
+            "7714934",
+            "ac90def"
           ],
           "evidence": [
             "CI run 44023332398 (PR #78, 7714934) → all 10 jobs green",
