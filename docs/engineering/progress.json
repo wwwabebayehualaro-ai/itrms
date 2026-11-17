@@ -1941,13 +1941,33 @@
         },
         {
           "id": "1.4c",
-          "title": "Transfers, part 3: zone transfer out/in",
+          "title": "Transfers, part 3: zone transfer within a region",
+          "status": "in progress",
+          "branch": "task/1.4c-zone-transfer",
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Split from 1.4 on 2026-11-16 (one session each). Design (architect, 2026-11-17): DVC-14 transfer out (source; fee 2,000 demo; draft-review-payment-approval-release; release writes vehicles.vehicle_handovers, valid the configured days) and DVC-15 transfer in (destination; no fee by default; optional re-inspection by setting, frozen at filing; receive calls the SECURITY DEFINER vehicles.accept_handover, which moves the vehicle's handling unit, open period and owners, current plate, libre in force, assigned stock plate with hand_over_out/in ledger rows). Closed rows, bolos, encumbrances, documents and cases stay. vehicle_in_open_case gains the transfer arms and released handovers. Settings competency.vehicle_transfer_valid_days (15) and competency.vehicle_transfer_reinspect (false, sensitive). Split: 1.4c2 the document, 1.4c3 transfer in from another region. Defaults chosen pending the zone: the fee on transfer out; a lead approval at the destination; a release lapses (no cancel action yet)."
+        },
+        {
+          "id": "1.4c2",
+          "title": "Transfers, part 3b: the transfer document",
           "status": "planned",
           "branch": null,
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split from 1.4 on 2026-11-16 (one session each)."
+          "notes": "Split from 1.4c on 2026-11-17 (architect). Template vehicle-transfer-document (dataSchema vehicle-transfer-document.v1) with the zone's sections; counter {unit}/VT/{seq:05}/{efy} (countersRequired DVC-14); verification facts; the vehicle transferred_out via setStatus; the covering-letter setting. Open: whether a transferred_out vehicle whose document lapses unused can be reactivated, and how."
+        },
+        {
+          "id": "1.4c3",
+          "title": "Transfers, part 3c: transfer in from another region",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Split from 1.4c on 2026-11-17 (architect). DVC-15 document mode (the DVC-01 vehicle and owner fields as a block, the document number and issuing region, a checked-on-the-verification-page tick); ACQUIRED_BY transfer_in (migration of vehicle_ownerships_acquired_check); the plate-exchange rule (setting competency.vehicle_transfer_plate_exchange, default on). Open: a DVC-12 required after arrival, or a plate step in the transfer-in case."
         },
         {
           "id": "1.5",
