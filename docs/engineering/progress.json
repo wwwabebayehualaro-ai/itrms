@@ -1942,12 +1942,33 @@
         {
           "id": "1.4c",
           "title": "Transfers, part 3: zone transfer within a region",
-          "status": "in progress",
+          "status": "in review",
           "branch": "task/1.4c-zone-transfer",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "a907bf2",
+            "1cfd1d5",
+            "f8559ff",
+            "16d6bc5",
+            "7d5c919",
+            "90182b0",
+            "83ebcf8",
+            "303dec7",
+            "b8f76e5",
+            "6034dd2",
+            "40a55ac",
+            "d5db0d9",
+            "8c25f99",
+            "baccfaa"
+          ],
+          "evidence": [
+            "CI run 44140715479 (PR #81, 1cfd1d5) -> 9 of 10 jobs green (integration, e2e, Semgrep, gitleaks, Trivy, performance, production profile, stories, licences); the lint job's only failure was pnpm audit on picomatch GHSA-fc5q-39xc-vjpf (published 2026-11-17, no fix), ignored with the product owner's acceptance in a907bf2, whose run 44146832542 has the lint, typecheck, unit, build and boundaries job green (69/69 tasks)",
+            "integration (real PostgreSQL 16, CI) -> 891 passed in 49 files, incl. vehicle-transfer.int.spec.ts 10 tests: Boditi to the zone with a stock plate (released, then received; the vehicle, its open period and owner, current plate, libre in force and stock plate moved, closed rows stayed; a hand_over_out and hand_over_in ledger row; both stocks and the zone's child reconciled; 9 handover_moved events); Boditi keeps its transfer out and cannot read the zone's transfer in nor write the vehicle, the zone can; the claims while on its way; the release's days from the region's setting and a lapsed release (a transfer in filed before it no longer claims); a hold recorded in transit stops the receipt; the inspection by setting; the reviewed command refusing the source, a sibling, no context, a foreign case and a direct app write; the zone down to Boditi; an office moved in the tree after a receipt; isolation 62 (the three reviewed definers listed); S3 contract suite 20",
+            "e2e (Playwright, CI on 1cfd1d5) -> 57 passed + 4, incl. competency/vehicle-transfer.spec.ts: Boditi files, checks, pays, approves and releases a demo vehicle to the zone; demo.dual files the zone's transfer in; checked, approved and received; the register shows the zone. The e2e job's limit raised to 60 minutes (the journeys take 25-34 minutes, setup ten)",
+            "unit (CI) -> 69/69 turbo tasks, 1,217 tests; lint, typecheck, boundaries, check:slices, i18n:check (am/en); migration 0086 applied from zero; pnpm openapi and the client's types regenerated; ADR-0057",
+            "architect (Opus) design and the split (1.4c2 the document, 1.4c3 transfer in from another region); reviewer (Fable) on 40a55ac -> 1 high (the handover trigger fired on the scope column: an org-unit move failed), 3 medium (the receipt checked no case; a forged row could read as received; a lapsed transfer in froze the vehicle), 3 low (tests on a parent only; audit rows without table; no cancel path): all fixed in b8f76e5 but the cancel path, moved to 1.4c2; task-verifier: every Done-when item met, the e2e then added"
+          ],
           "blockers": [],
-          "notes": "Split from 1.4 on 2026-11-16 (one session each). Design (architect, 2026-11-17): DVC-14 transfer out (source; fee 2,000 demo; draft-review-payment-approval-release; release writes vehicles.vehicle_handovers, valid the configured days) and DVC-15 transfer in (destination; no fee by default; optional re-inspection by setting, frozen at filing; receive calls the SECURITY DEFINER vehicles.accept_handover, which moves the vehicle's handling unit, open period and owners, current plate, libre in force, assigned stock plate with hand_over_out/in ledger rows). Closed rows, bolos, encumbrances, documents and cases stay. vehicle_in_open_case gains the transfer arms and released handovers. Settings competency.vehicle_transfer_valid_days (15) and competency.vehicle_transfer_reinspect (false, sensitive). Split: 1.4c2 the document, 1.4c3 transfer in from another region. Defaults chosen pending the zone: the fee on transfer out; a lead approval at the destination; a release lapses (no cancel action yet). 2026-11-17: vehicles layer written and staged, not committed (Git Bash's msys runtime fails at start on this machine: sh.exe add_item ... failed, errno 1; the pre-commit hook cannot run, hooks not skipped): vehicles.vehicle_handovers + migration 0086 (accept_handover SECURITY DEFINER moving the vehicle, open period and owners, current plate, libre in force and assigned stock plate with hand_over_out/in ledger rows; handover_transition trigger; plate machine lets an assigned plate follow its vehicle; vehicle_in_open_case claims a vehicle in transit; handover_destination lookup), VehicleHandovers service (check, release, accept with an audit event per moved row), stock summary counts handovers at both offices, am/en messages. Vehicles typecheck and unit tests pass. Next: DVC-14/DVC-15 services, settings, seeds, screens, integration and e2e tests, review."
+          "notes": "Split from 1.4 on 2026-11-16 (one session each). Design (architect, 2026-11-17): DVC-14 transfer out (source; fee 2,000 demo; draft-review-payment-approval-release; release writes vehicles.vehicle_handovers, valid the configured days) and DVC-15 transfer in (destination; no fee by default; optional re-inspection by setting, frozen at filing; receive calls the SECURITY DEFINER vehicles.accept_handover, which moves the vehicle's handling unit, open period and owners, current plate, libre in force, assigned stock plate with hand_over_out/in ledger rows). Closed rows, bolos, encumbrances, documents and cases stay. vehicle_in_open_case gains the transfer arms and released handovers. Settings competency.vehicle_transfer_valid_days (15) and competency.vehicle_transfer_reinspect (false, sensitive). Split: 1.4c2 the document, 1.4c3 transfer in from another region. Defaults chosen pending the zone: the fee on transfer out; a lead approval at the destination; a release lapses (no cancel action yet). 2026-11-17: vehicles layer written and staged, not committed (Git Bash's msys runtime fails at start on this machine: sh.exe add_item ... failed, errno 1; the pre-commit hook cannot run, hooks not skipped): vehicles.vehicle_handovers + migration 0086 (accept_handover SECURITY DEFINER moving the vehicle, open period and owners, current plate, libre in force and assigned stock plate with hand_over_out/in ledger rows; handover_transition trigger; plate machine lets an assigned plate follow its vehicle; vehicle_in_open_case claims a vehicle in transit; handover_destination lookup), VehicleHandovers service (check, release, accept with an audit event per moved row), stock summary counts handovers at both offices, am/en messages. Vehicles typecheck and unit tests pass. Next: DVC-14/DVC-15 services, settings, seeds, screens, integration and e2e tests, review. 2026-11-17: picomatch GHSA-fc5q-39xc-vjpf (high, no fix) ignored in pnpm-workspace.yaml auditConfig, accepted by the product owner (option 1); follow-up to remove it when a fix ships."
         },
         {
           "id": "1.4c2",
