@@ -101,6 +101,9 @@ describe('an office created with a type', () => {
             expect(e.actor_id).not.toBeNull();
             expect(e.request_id).toBe(created.headers['x-request-id']);
         }
+        // a cash office: its first receipt number is its own, from 1 in the fiscal year
+        const receipt = await api.installer.scoped({}, (tx) => nextNumber(tx, 'fees.receipt', id));
+        expect(receipt.number).toMatch(new RegExp(`^${code}/000001/[0-9]{4}$`));
         // a create refused (the same code again) makes no counter
         const total = async () =>
             (await api.owner.query<{ n: number }>('select count(*)::int as n from kernel.number_counters')).rows[0]?.n;
