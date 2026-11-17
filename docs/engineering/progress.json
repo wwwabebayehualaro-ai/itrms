@@ -1897,10 +1897,22 @@
         {
           "id": "1.4b2",
           "title": "Transfers, part 2b: publish rules",
-          "status": "in progress",
+          "status": "in review",
           "branch": "task/1.4b2-publish-rules-counters",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "76787c2",
+            "73bf9d8",
+            "5997b17",
+            "301aa91",
+            "63e5678"
+          ],
+          "evidence": [
+            "CI run 44056775700 (PR #79, 63e5678) → all 10 jobs green",
+            "integration (real PostgreSQL 16, CI) → 876 passed in 47 files, incl. ownership-transfer.int.spec.ts 36 tests: a DVC-13 version without the hold check before the transfer, or with it after, refused 422 required_before; a misspelt conflict refused (unknown_argument + required_before); every seed-written version passes both checks; a seed-written version on DVC-13's first flow moves to today's flow once, storing no second copy, and leaves a bureau's own version and a workflow edited since alone; worksOn's open-step (role and unit) and claimed arms; revokeLetters refused for a forged system request id, a person on the system pool, and no person outside a system request; encumbrances.int.spec 37 (an unknown conflict refused at publish); documents.int.spec 20 (documents.issue's template and its absence refused at publish); S3 contract suite 20",
+            "unit (CI) → 69/69 turbo tasks, 1,214 tests, incl. configuration.spec.ts (argumentProblems, missingBefore) and effects.spec.ts (declarations kept; startup refuses an uninstalled or wrong-argument prerequisite; a malformed mark refused); e2e (Playwright, CI) → 56 + 4 passed",
+            "lint, typecheck, boundaries, check:slices, i18n:check (am/en); no migration; Semgrep, gitleaks, Trivy clean",
+            "architect (Opus) design and the split (counters on enable → 1.4b4); reviewer (Fable) on 73bf9d8 → 1 high (the supersede stored today's flow a second time against the unique content index: reused now), 1 medium (it moved past a bureau's newer workflow version: left alone now), 2 low → follow-ups to 1.4c (a remapped input of a required check; the seeded-flow check over every seed builder); task-verifier: every Done-when item met"
+          ],
           "blockers": [],
           "notes": "Split from 1.4b on 2026-11-17. Design (architect, 2026-11-17): effects declare argument {values, required} and requiresBefore (full references, same transition, earlier in the list); configuration.ts argumentProblems and missingBefore enforced in ServicesService.publish (422 unknown_argument, argument_required, required_before); supersedeSeededVersion for DVC-13 when the seed-written version's content differs. Counters on enable split to 1.4b4."
         },
