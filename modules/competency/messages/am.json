@@ -472,5 +472,7 @@
   "competency.rule.evidenceTaxRegistration": "የኮድ 3 ተሽከርካሪ የገዢዎቹን የግብር ምዝገባ ማጣቀሻ ይጠይቃል።",
   "competency.rule.evidenceDate": "ቀኑ የወደፊት ወይም ደብዳቤዎቹ ከተሰጡበት ቀን በፊት ሊሆን አይችልም።",
   "competency.setting.transfer_letter_valid_days": "የዝውውር ደብዳቤ የሚያገለግልባቸው የቀናት ብዛት",
+  "competency.rule.evidenceLetterExpired": "በዚያ ቀን ለዚህ መሥሪያ ቤት የተጻፈው ደብዳቤ የሚያገለግልበት ጊዜ አልፎ ነበር። ደብዳቤው እንደገና እንዲሰጥ ጉዳዩን ወደ ደብዳቤዎቹ ደረጃ ይመልሱ።",
+  "competency.setting.transfer_letter_validity_enforced": "ወረቀቶቹ የዝውውር ደብዳቤው በሚያገለግልበት ጊዜ ውስጥ የተዘጋጁ መሆን አለባቸው",
   "competency.rule.transferAcquiredBy": "ገዢዎቹ ተሽከርካሪውን ያገኙበትን መንገድ ይምረጡ፦ ሽያጭ፣ ስጦታ፣ ውርስ፣ የፍርድ ቤት ትዕዛዝ ወይም ጨረታ።"
 }

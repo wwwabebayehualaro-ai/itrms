@@ -8,6 +8,7 @@
   "documents.notReady": "የዚህ ሰነድ ፒዲኤፍ ገና አልተዘጋጀም። ትንሽ ቆይተው እንደገና ይሞክሩ።",
   "documents.receipt.download": "ፒዲኤፉን አውርድ",
   "documents.setting.header": "የዚህን ጽ/ቤት ሰነዶች የሚመራው ርዕስ",
+  "documents.setting.case_readers_office_wide": "በጉዳያቸው የተገደቡ አንባቢዎች የመሥሪያ ቤታቸውን ሰነዶች በሙሉ ያነባሉ",
   "documents.state.failed": "ሊዘጋጅ አልቻለም",
   "documents.state.late": "ዘግይቷል፤ አስተዳዳሪውን ይጠይቁ",
   "documents.state.rendered": "ዝግጁ ነው",

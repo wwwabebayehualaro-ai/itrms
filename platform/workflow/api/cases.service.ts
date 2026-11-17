@@ -15,7 +15,7 @@
  *   `workflow.open_task`, which checks the case and the unit again in SQL.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import {
     actFor,
     contentHash,
@@ -409,6 +409,34 @@ export class CasesService implements FeeCasePort {
         const [row] = await tx.select({ id: cases.id }).from(cases).where(eq(cases.id, caseId));
         if (!row) throw new NotFoundError();
         return { items: await this.casePeople(tx, caseId, q ?? null, null) };
+    }
+
+    /**
+     * Whether the person works on the case (ADR-0055, the documents' DOCUMENT_CASE_ACCESS): a step of it they took or acted on, or an
+     * open step waiting for one of their roles in their active unit (what their inbox shows). Under the request's RLS.
+     */
+    async worksOn(tx: Tx, caseId: string, who: { userId: string; unitId: string; roles: readonly string[] }) {
+        const [found] = await tx
+            .select({ id: caseTasks.id })
+            .from(caseTasks)
+            .where(
+                and(
+                    eq(caseTasks.caseId, caseId),
+                    or(
+                        eq(caseTasks.claimedBy, who.userId),
+                        eq(caseTasks.actedBy, who.userId),
+                        who.roles.length > 0
+                            ? and(
+                                  eq(caseTasks.status, 'open'),
+                                  eq(caseTasks.unitId, who.unitId),
+                                  inArray(caseTasks.role, [...who.roles])
+                              )
+                            : undefined
+                    )
+                )
+            )
+            .limit(1);
+        return found !== undefined;
     }
 
     /**
@@ -1419,9 +1447,12 @@ async function namesOf(tx: Tx, ids: readonly (string | null)[]): Promise<Map<str
 const personOf = (names: ReadonlyMap<string, string>, id: string | null): PersonRef | null =>
     id ? { id, name: names.get(id) ?? '' } : null;
 
-/** Whether a transition out of a step files its form: not a reject, nor a case sent back to its start for correction. */
+/**
+ * Whether a transition out of a step files its form: not a reject, not a return (a case sent back a step, its comment says why:
+ * the transfer's papers step returned to its letters files no papers, task 1.4b3), nor a case sent back to its start.
+ */
 function needsForm(state: WorkflowState, t: WorkflowTransition, to: WorkflowState | undefined): boolean {
-    return Boolean(state.stepForm) && t.action !== 'reject' && to?.kind !== 'start';
+    return Boolean(state.stepForm) && t.action !== 'reject' && t.action !== 'return' && to?.kind !== 'start';
 }
 
 function required(value: string | undefined): string {

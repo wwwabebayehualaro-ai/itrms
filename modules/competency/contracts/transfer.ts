@@ -41,6 +41,12 @@ export const TRANSFER_LETTER_TEMPLATES = {
 export const TRANSFER_LETTER_VALID_DAYS_SETTING = 'competency.transfer_letter_valid_days';
 export const DEFAULT_TRANSFER_LETTER_DAYS = 30;
 
+/**
+ * Whether a paper that came back must be dated while the letter it answers stood (task 1.4b3): on unless the region turns it
+ * off. An office never relaxes it for itself, and a value that is not a boolean keeps it on.
+ */
+export const TRANSFER_LETTER_ENFORCED_SETTING = 'competency.transfer_letter_validity_enforced';
+
 /** The whole Birr a committee may set: a value above ten billion is a typing error, not a vehicle. */
 export const MAX_VALUATION_BIRR = 10_000_000_000;
 

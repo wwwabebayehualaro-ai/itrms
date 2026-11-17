@@ -5,7 +5,7 @@
  * registration is then completed by the zone, for the office. Any other office is refused.
  */
 import { sql } from 'drizzle-orm';
-import type { Tx } from '@itrms/kernel/db';
+import { contextOfTx, type Tx } from '@itrms/kernel/db';
 import { ForbiddenError } from '@itrms/kernel/errors';
 
 import type { CasePlace } from './licences.service';
@@ -26,6 +26,17 @@ export async function actForHandlingOffice(tx: Tx, place: CasePlace): Promise<Ca
          where h.id = ${place.handlingUnitId} and a.id = ${acting ?? null} and c.id = ${place.caseId}`);
     if (rows[0]?.above !== true) throw new ForbiddenError({ detailKey: 'competency.errors.act_from_handling_office' });
     return { ...place, ctx: { ...place.ctx, unitId: place.handlingUnitId } };
+}
+
+/**
+ * The same, or the case's place as it is when the workflow itself takes the step: a timeout run by the worker on the system pool
+ * (no person, a `system:` request), as `CasesService.deliver` does. A person's transaction always binds their user id, so a
+ * request over HTTP never takes this path. Only for a step that withdraws what the office issued (task 1.4b3).
+ */
+export async function actForCase(tx: Tx, place: CasePlace): Promise<CasePlace> {
+    const bound = contextOfTx(tx);
+    if (!place.ctx.userId && !bound.userId && bound.requestId?.startsWith('system:') === true) return place;
+    return actForHandlingOffice(tx, place);
 }
 
 /**

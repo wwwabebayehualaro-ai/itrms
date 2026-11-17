@@ -1338,6 +1338,9 @@ importers:
 
   platform/services:
     dependencies:
+      '@itrms/documents':
+        specifier: workspace:*
+        version: link:../documents
       '@itrms/fees':
         specifier: workspace:*
         version: link:../fees

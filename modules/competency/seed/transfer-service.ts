@@ -292,8 +292,11 @@ export const ownershipTransferFlow = (
             label: text('ወረቀቶቹን መዝግብ', 'Record the papers'),
             effects: [T.recordTransferEvidence, ENC, 'fees.createPaymentOrder']
         },
+        // a letter that expired before its paper came back is issued again from the letters step (task 1.4b3)
+        { from: 'outside', to: 'letters', action: 'return', label: ACTIONS.returnIt, commentRequired: true },
         { from: 'payment', to: 'approval', on: 'event:payment.settled', actor: 'system:fees', guard: PAID },
-        { from: 'payment', to: 'rejected', on: 'timeout' },
+        // a request never paid closes, and its letters no longer stand (task 1.4b3)
+        { from: 'payment', to: 'rejected', on: 'timeout', effects: [T.revokeTransferLetters] },
         {
             from: 'approval',
             to: 'transfer',

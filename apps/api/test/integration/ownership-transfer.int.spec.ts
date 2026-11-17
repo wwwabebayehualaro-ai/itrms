@@ -24,11 +24,13 @@ import { importDocumentTemplates } from '@itrms/documents/seed';
 import { StationeryStock } from '@itrms/fees/api';
 import { importFeeRules, importStationeryDemo, parseFeeRules } from '@itrms/fees/seed';
 import { createDatabase, type Database, type DbContext, type Tx } from '@itrms/kernel/db';
+import { createSystemDatabase, type SystemDatabase } from '@itrms/kernel/db/system';
 import { contextFor, TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import type { OrgUnit } from '@itrms/kernel/org';
 import { VehicleRegistry } from '@itrms/vehicles/api';
 import { vinCheckDigit, type Vehicle } from '@itrms/vehicles/contracts';
 import { importVehicleCategories, setUpRegistrationCertificateCounters } from '@itrms/vehicles/seed';
+import { CasesService } from '@itrms/workflow/api';
 import type { CaseOut } from '@itrms/workflow/contracts';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -59,6 +61,7 @@ const REGISTRATION = 'DVC-01';
 let pg: TestPostgres;
 let api: TestApi;
 let app: Database;
+let system: SystemDatabase;
 let registry: VehicleRegistry;
 let documents: DocumentsService;
 let transfers: OwnershipTransferService;
@@ -453,6 +456,7 @@ beforeAll(async () => {
         }
     ]);
     app = createDatabase(pg.url('app'), { auditKey: randomBytes(32).toString('hex'), contextKey: TEST_CONTEXT_KEY });
+    system = createSystemDatabase(pg.url('system'), { onUse: () => undefined });
     registry = api.http.get(VehicleRegistry);
     documents = api.http.get(DocumentsService);
     transfers = api.http.get(OwnershipTransferService);
@@ -495,6 +499,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
     await app?.close();
+    await system?.close();
     await api?.close();
     await pg?.stop();
 });
@@ -700,6 +705,160 @@ describe('a vehicle sold, through the booklet', () => {
             )[0]?.n
         ).toBe(1);
     }, 300_000);
+});
+
+/** Every letter of this kind the case has, superseded ones too, oldest first. */
+const everyLetterOf = (caseId: string, key: string) =>
+    query<{ number: string; valid_until: string; superseded: boolean; revoked_at: string | null }>(
+        `select d.number, d.valid_until::text, d.superseded_by is not null as superseded, d.revoked_at
+           from documents.issued_documents d join documents.document_templates t on t.id = d.template_id
+          where d.case_id = $1 and t.key = $2 order by d.created_at`,
+        [caseId, key]
+    );
+const REVENUE = 'vehicle-transfer-revenue-letter';
+const JUSTICE = 'vehicle-transfer-justice-letter';
+
+/**
+ * The case's standing letter of this kind as if it had been issued `issuedAgo` days back and stood until `untilAgo` days back:
+ * an issued document never changes, so the test lifts the guard for this one write (its own database, task 1.4b3).
+ */
+async function backdate(caseId: string, key: string, issuedAgo: number, untilAgo: number) {
+    const issuedOn = daysAfter(today(), -issuedAgo);
+    const validUntil = daysAfter(today(), -untilAgo);
+    await api.owner.query('alter table documents.issued_documents disable trigger issued_documents_once');
+    try {
+        const { rowCount } = await api.owner.query(
+            `update documents.issued_documents d
+                set data = d.data || jsonb_build_object('issuedOn', $3::text, 'validUntil', $4::text),
+                    valid_until = $4::date
+               from documents.document_templates t
+              where t.id = d.template_id and d.case_id = $1 and t.key = $2 and d.superseded_by is null`,
+            [caseId, key, issuedOn, validUntil]
+        );
+        expect(rowCount).toBe(1);
+    } finally {
+        await api.owner.query('alter table documents.issued_documents enable trigger issued_documents_once');
+    }
+    await api.owner.query(
+        'update competency.ownership_transfers set letters_issued_on = least(letters_issued_on, $2::date) where case_id = $1',
+        [caseId, issuedOn]
+    );
+}
+
+/** A setting of the region for the time of `work`. */
+async function regionSetting(key: string, value: unknown, work: () => Promise<void>) {
+    const region = await api.unit('SER', 'SER');
+    await api.owner.query(
+        `insert into kernel.settings_values (id, region_id, unit_id, key, value)
+         values (gen_random_uuid(), $1, $2, $3, $4::jsonb)`,
+        [region.regionId, region.id, key, JSON.stringify(value)]
+    );
+    try {
+        await work();
+    } finally {
+        await api.owner.query('delete from kernel.settings_values where unit_id = $1 and key = $2', [region.id, key]);
+    }
+}
+
+describe('the letters’ days bind the papers (task 1.4b3)', () => {
+    it('refuses a receipt dated after its letter expired, and takes one dated while it stood though recorded later', async () => {
+        const { c } = await drive('outside');
+        // the revenue letter went out 40 days ago and stood until 10 days ago
+        await backdate(c.id, REVENUE, 40, 10);
+        const late = await tried(c, as.officer, 'approve', evidence({ stampDutyPaidOn: daysAfter(today(), -5) }));
+        expect(late.status).toBe(422);
+        expect(late.body.errors).toEqual([
+            expect.objectContaining({ path: 'stampDutyPaidOn', code: 'letter_expired' })
+        ]);
+        expect((await caseOf(c.id)).state).toBe('outside');
+        // paid while the letter stood, brought to the office after it expired: the paper's day counts
+        const inTime = await moved(c, as.officer, 'approve', {
+            answers: evidence({ stampDutyPaidOn: daysAfter(today(), -15) })
+        });
+        expect(inTime.state).toBe('payment');
+    }, 240_000);
+
+    it('binds the authenticated contract to the justice letter, and leaves a court order’s contract date unchecked', async () => {
+        const { c } = await drive('outside');
+        await backdate(c.id, JUSTICE, 40, 10);
+        const late = await tried(
+            c,
+            as.officer,
+            'approve',
+            evidence({ contractAuthenticatedOn: daysAfter(today(), -5) })
+        );
+        expect(late.status).toBe(422);
+        expect(late.body.errors).toEqual([
+            expect.objectContaining({ path: 'contractAuthenticatedOn', code: 'letter_expired' })
+        ]);
+        // an inheritance has no justice letter: a contract date given anyway answers none
+        const { c: heirs } = await drive('outside', {
+            acquiredBy: 'inheritance',
+            letters: { revenueOffice: 'Sample Revenue Office' }
+        });
+        const taken = await moved(heirs, as.officer, 'approve', { answers: evidence({ courtReference: 'CRT-1234' }) });
+        expect(taken.state).toBe('payment');
+    }, 240_000);
+
+    it('takes the same receipt when the region turns the rule off', async () => {
+        await regionSetting('competency.transfer_letter_validity_enforced', false, async () => {
+            const { c } = await drive('outside');
+            await backdate(c.id, REVENUE, 40, 10);
+            const taken = await moved(c, as.officer, 'approve', {
+                answers: evidence({ stampDutyPaidOn: daysAfter(today(), -5) })
+            });
+            expect(taken.state).toBe('payment');
+        });
+    }, 240_000);
+
+    it('issues an expired letter again with the next number, keeps the one that stands, and supersedes the old', async () => {
+        const { c } = await drive('outside');
+        const [justiceBefore] = await everyLetterOf(c.id, JUSTICE);
+        const [revenueBefore] = await everyLetterOf(c.id, REVENUE);
+        await backdate(c.id, REVENUE, 40, 10);
+        const counter = async () =>
+            Number(
+                (
+                    await query<{ last_value: string }>(
+                        `select last_value::text from kernel.number_counters
+                          where unit_id = $1 and key = 'competency.transfer-letter'`,
+                        [boditi.id]
+                    )
+                )[0]?.last_value
+            );
+        const before = await counter();
+        let back = await moved(c, as.officer, 'return', { comment: 'The revenue letter expired' });
+        expect(back.state).toBe('letters');
+        back = await moved(back, as.officer, 'issue_letters', { answers: LETTERS });
+        expect(back.state).toBe('outside');
+        expect(await counter()).toBe(before + 1);
+        const revenue = await everyLetterOf(c.id, REVENUE);
+        expect(revenue).toHaveLength(2);
+        expect(revenue[0]).toMatchObject({ number: revenueBefore?.number, superseded: true });
+        expect(revenue[1]).toMatchObject({ superseded: false, valid_until: daysAfter(today(), 30) });
+        expect(revenue[1]?.number).not.toBe(revenueBefore?.number);
+        // the justice letter still stood: the same number and days, nothing superseded
+        expect(await everyLetterOf(c.id, JUSTICE)).toEqual([justiceBefore]);
+        // and today's receipt answers the new letter
+        expect((await moved(back, as.officer, 'approve', { answers: evidence() })).state).toBe('payment');
+    }, 240_000);
+
+    it('revokes the letters of a request closed unpaid by its timeout', async () => {
+        const { c } = await drive('outside');
+        const waiting = await moved(c, as.officer, 'approve', { answers: evidence() });
+        expect(waiting.state).toBe('payment');
+        const cases = api.http.get(CasesService);
+        await system.systemContext('test.timeout', (tx) =>
+            cases.deliver(tx, c.id, 'timeout', { kind: 'system', id: 'system:timer' }, 'am', { quiet: true })
+        );
+        expect((await caseOf(c.id)).state).toBe('rejected');
+        const letters = await lettersOf2(c.id);
+        expect(letters).toHaveLength(2);
+        for (const l of letters) {
+            expect(l.revoke_reason).toBe('transfer_case_rejected');
+            expect(l.revoked_at).not.toBeNull();
+        }
+    }, 240_000);
 });
 
 describe('the kinds of acquisition and the offices’ letters', () => {
@@ -1021,5 +1180,78 @@ describe('who sees what (class T at the handling office, class R for the registe
         // the register is the region’s: Damot, which handles none of it, still reads the new owners
         const seen = (await api.call('GET', `/api/v1/vehicles/${vehicle.id}`, as.damotHead)).json<Vehicle>();
         expect(seen.owners.map((o) => o.id)).toEqual([buyer]);
+    }, 300_000);
+});
+
+describe('the inspector reads the documents of its cases (ADR-0055, task 1.4b3)', () => {
+    const letterIds = async (caseId: string) =>
+        (
+            await query<{ id: string }>(
+                `select d.id from documents.issued_documents d join documents.document_templates t on t.id = d.template_id
+                  where d.case_id = $1 and t.key like 'vehicle-transfer-%' and d.superseded_by is null order by t.key`,
+                [caseId]
+            )
+        ).map((r) => r.id);
+    const listed = async (caseId: string | undefined, who: As) => {
+        const res = await api.call('GET', `/api/v1/issued-documents${caseId ? `?caseId=${caseId}` : ''}`, who);
+        return {
+            status: res.statusCode,
+            ids: res.statusCode === 200 ? res.json<{ items: { id: string }[] }>().items.map((i) => i.id) : []
+        };
+    };
+    const denials = async (reason: string) =>
+        (
+            await query<{ n: number }>(
+                `select count(*)::int as n from kernel.audit_log where event_type = 'access.denied' and diff->>'reason' = $1`,
+                [reason]
+            )
+        )[0]?.n ?? 0;
+
+    /** A transfer at its papers whose valuation another inspector made: this inspector never worked on it. */
+    async function valuedBySomeoneElse() {
+        const vehicle = await onTheRoad(boditi);
+        let c = await file(SERVICE, answersOf(vehicle.id, [await person()]));
+        c = await moved(c, as.officer, 'submit');
+        c = await moved(c, as.officer, 'approve');
+        c = await moved(c, as.solo, 'value', { answers: VALUATION });
+        return moved(c, as.officer, 'issue_letters', { answers: LETTERS });
+    }
+
+    it('reads the letters of a case it valued, and neither the list nor a letter of a case it did not', async () => {
+        const { c: mine } = await drive('outside');
+        expect((await listed(mine.id, as.inspector)).ids.sort()).toEqual((await letterIds(mine.id)).sort());
+        const [myLetter] = await letterIds(mine.id);
+        // its own: no refusal (the PDF may still be on its way: 409 until the worker renders it)
+        expect([200, 409]).toContain(
+            (await api.call('GET', `/api/v1/issued-documents/${myLetter}/download`, as.inspector)).statusCode
+        );
+
+        const other = await valuedBySomeoneElse();
+        expect(await letterIds(other.id)).toHaveLength(2);
+        expect(await listed(other.id, as.inspector)).toEqual({ status: 200, ids: [] });
+        const before = await denials('not_on_case');
+        const [otherLetter] = await letterIds(other.id);
+        expect(
+            (await api.call('GET', `/api/v1/issued-documents/${otherLetter}/download`, as.inspector)).statusCode
+        ).toBe(403);
+        expect(await denials('not_on_case')).toBe(before + 1);
+        // and no list without a case
+        expect((await listed(undefined, as.inspector)).status).toBe(403);
+        // the officer reads the office's, as before
+        expect((await listed(other.id, as.officer)).ids).toHaveLength(2);
+    }, 300_000);
+
+    it('reads the office’s documents when the region allows its case-bound readers to', async () => {
+        const other = await valuedBySomeoneElse();
+        await regionSetting('documents.case_readers_office_wide', true, async () => {
+            expect((await listed(other.id, as.inspector)).ids).toHaveLength(2);
+            expect((await listed(undefined, as.inspector)).status).toBe(200);
+            const [letter] = await letterIds(other.id);
+            expect([200, 409]).toContain(
+                (await api.call('GET', `/api/v1/issued-documents/${letter}/download`, as.inspector)).statusCode
+            );
+        });
+        // and only while it does
+        expect(await listed(other.id, as.inspector)).toEqual({ status: 200, ids: [] });
     }, 300_000);
 });
