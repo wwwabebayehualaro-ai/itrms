@@ -29,7 +29,8 @@ export default defineModule({
     // payment order (named on the transition into its payment step)
     effects: ['fees.assess', 'fees.createPaymentOrder'],
     // ITRMS's receipt numbers (the counter `fees.receipt`): gapless per office and fiscal year (ADR-0014)
-    numberSequences: [{ key: 'receipt', pattern: '{unit}/{seq:06}/{efy}' }],
+    // an office that collects cash numbers its receipts from its own counter, set up when it is created (task 1.4b4)
+    numberSequences: [{ key: 'receipt', pattern: '{unit}/{seq:06}/{efy}', capabilities: ['collects_cash'] }],
     events: {
         emits: [
             'payment.settled.v1',

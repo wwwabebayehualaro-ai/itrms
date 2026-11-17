@@ -188,6 +188,18 @@ export default defineModule({
             'encumbrance:read'
         ]
     },
+    // what its services number from, set up at an office when it is given the service (task 1.4b4, ADR-0056)
+    numberSequences: [
+        { key: 'licence', pattern: '{unit}/DL/{seq:06}' },
+        { key: 'temporary-bolo', pattern: '{unit}/TB/{seq:05}' },
+        { key: 'transfer-letter', pattern: '{unit}/OT/{seq:05}/{efy}' }
+    ],
+    countersRequired: {
+        'DVC-01': ['vehicles.registration-certificate'],
+        'DVC-02': ['competency.temporary-bolo'],
+        'DVC-03': ['competency.licence'],
+        'DVC-13': ['vehicles.registration-certificate', 'competency.transfer-letter']
+    },
     services: [
         'DVC-01',
         'DVC-02',

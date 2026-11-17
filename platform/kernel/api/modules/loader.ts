@@ -133,6 +133,16 @@ export function loadSlices<Module>(
             if (other) problems.push(`${m.key}: declares lookup "${lookup}", which "${other}" already declares`);
             else lookupOwner.set(lookup, m.key);
         }
+    // counters (task 1.4b4): a service's are the module's own services', each a sequence some installed module declares
+    const sequences = new Set(all.flatMap((m) => m.numberSequences.map((s) => `${m.key}.${s.key}`)));
+    for (const m of all)
+        for (const [code, keys] of Object.entries(m.countersRequired)) {
+            if (!m.services.includes(code))
+                problems.push(`${m.key}: names counters for "${code}", a service it does not serve`);
+            for (const k of keys)
+                if (!sequences.has(k))
+                    problems.push(`${m.key}: "${code}" needs the counter "${k}", which no installed module declares`);
+        }
     // settings: one declaration per key, each with its value schema and a default that fits it (ADR-0026)
     problems.push(...settingProblems([...installed.values()]));
     for (const { manifest: m, effects = [], events = {} } of enabled) {

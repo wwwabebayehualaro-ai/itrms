@@ -147,7 +147,29 @@ export const manifestSchema = z
                     .strict()
             )
             .default([]),
-        numberSequences: z.array(z.object({ key, pattern: z.string().min(1) }).strict()).default([]),
+        /**
+         * The counters the module numbers from (task 1.4b4, ADR-0056): `<module>.<key>` with its pattern (`{seq}` in it, at most
+         * 80 characters, as the table requires); an office whose type has one of `capabilities` gets it when it is created.
+         */
+        numberSequences: z
+            .array(
+                z
+                    .object({
+                        key,
+                        pattern: z
+                            .string()
+                            .min(1)
+                            .max(80)
+                            .regex(/\{seq(:0\d)?\}/, 'must contain {seq} or {seq:0N}')
+                            // an office's numbers name the office (and the database refuses request code's otherwise, 0085)
+                            .startsWith('{unit}/', 'must begin with {unit}/'),
+                        capabilities: z
+                            .array(z.string().regex(CAPABILITY, 'must be a snake_case capability'))
+                            .default([])
+                    })
+                    .strict()
+            )
+            .default([]),
         lookups: z.array(key).default([]),
         /** Menu entries (navigation-and-menus.md §3); the API computes each person's menu from them. */
         menu: z.array(menuItemSchema).default([]),
@@ -156,7 +178,9 @@ export const manifestSchema = z
         documents: z.array(key).default([]),
         capabilitiesRequired: z
             .record(service, z.array(z.string().regex(CAPABILITY, 'must be a snake_case capability')))
-            .default({})
+            .default({}),
+        /** The counters an office given one of the module's services needs, by `<module>.<sequence>` (task 1.4b4). */
+        countersRequired: z.record(service, z.array(qualified)).default({})
     })
     .strict();
 

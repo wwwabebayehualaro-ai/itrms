@@ -11,6 +11,8 @@ import type { Database } from '../db/database';
 import type { Tx } from '../db/types';
 import { ForbiddenError, NotFoundError, ValidationError } from '../errors';
 import { requestDbContext } from '../iam/access';
+import { SHELL, type Shell } from '../iam/shell';
+import { counterNeeds, ensureCounter } from '../numbering/service-counters';
 import { DATABASE } from '../observability/tokens';
 import {
     clearServiceOverride,
@@ -36,8 +38,21 @@ export const withinScope = (path: string, scope: string) => path === scope || pa
 export class OrgAdminService {
     constructor(
         @Inject(DATABASE) private readonly db: Database,
-        @Optional() @Inject(SERVICE_CATALOGUE) private readonly catalogue?: ServiceCatalogue
+        @Optional() @Inject(SERVICE_CATALOGUE) private readonly catalogue?: ServiceCatalogue,
+        @Optional() @Inject(SHELL) private readonly shell?: Shell
     ) {}
+
+    /**
+     * The counters the unit needs for its services and its type's capabilities, made where it has none (task 1.4b4,
+     * ADR-0056): all of them each time, so an office set up before this is put right too. In the caller's transaction.
+     */
+    private async setUpCounters(tx: Tx, unit: OrgUnit, because: string): Promise<void> {
+        if (!this.shell) return;
+        const { capabilities } = await describeUnit(tx, unit);
+        const needs = counterNeeds(this.shell.manifests).of(await effectiveServices(tx, unit.id), capabilities);
+        for (const need of needs)
+            await ensureCounter(tx, { ...need, unitId: unit.id, regionId: unit.regionId }, because);
+    }
 
     private run<T>(fn: (tx: Tx, scope: string) => Promise<T>): Promise<T> {
         const ctx = requestDbContext();
@@ -72,7 +87,9 @@ export class OrgAdminService {
     create(input: NewUnit) {
         return this.run(async (tx, scope) => {
             await this.visible(tx, scope, input.parentId);
-            return describeUnit(tx, await createUnit(tx, input));
+            const unit = await createUnit(tx, input);
+            await this.setUpCounters(tx, unit, 'unit_created');
+            return describeUnit(tx, unit);
         });
     }
 
@@ -129,14 +146,17 @@ export class OrgAdminService {
             const unit = await this.below(tx, scope, id);
             await this.known(tx, unit, serviceCode);
             await setServiceOverride(tx, id, serviceCode, enabled, reason, version);
+            if (enabled) await this.setUpCounters(tx, unit, `service_enabled:${serviceCode}`);
             return this.servicesOf(tx, id);
         });
     }
 
     resetService(id: string, serviceCode: string, version: number) {
         return this.run(async (tx, scope) => {
-            await this.below(tx, scope, id);
+            const unit = await this.below(tx, scope, id);
             await clearServiceOverride(tx, id, serviceCode, version);
+            // back to its type's defaults, which may give the service
+            await this.setUpCounters(tx, unit, `service_reset:${serviceCode}`);
             return this.servicesOf(tx, id);
         });
     }

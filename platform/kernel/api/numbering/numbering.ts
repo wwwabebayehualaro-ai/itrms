@@ -32,7 +32,7 @@ const hasYear = (pattern: string) => pattern.includes('{efy}');
 /**
  * Creates a unit's counter, or raises its start to `startAfter` (a migration found higher numbers). Never lowers it: a
  * number once issued is never issued again, so a counter in use cannot drop the fiscal year from its pattern either.
- * Installation work (the owner role), not request code.
+ * Installation work (the owner role): request code only makes a fresh counter (`ensureCounter`, ADR-0056).
  */
 export async function setUpCounter(tx: Tx, setup: CounterSetup): Promise<void> {
     const start = setup.startAfter ?? 0n;
@@ -63,6 +63,9 @@ export async function setUpCounter(tx: Tx, setup: CounterSetup): Promise<void> {
             set: {
                 pattern: setup.pattern,
                 lastValue: sql`greatest(${numberCounters.lastValue}, ${start})`,
+                // a counter made when its office was given the service (ADR-0056) and not used yet takes the start's year
+                period: sql`case when ${numberCounters.lastValue} = 0 and ${numberCounters.period} = ''
+                                 then ${period} else ${numberCounters.period} end`,
                 updatedAt: sql`now()`
             }
         });
