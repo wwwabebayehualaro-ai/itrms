@@ -1255,3 +1255,45 @@ describe('the inspector reads the documents of its cases (ADR-0055, task 1.4b3)'
         expect(await listed(other.id, as.inspector)).toEqual({ status: 200, ids: [] });
     }, 300_000);
 });
+
+describe('who works on a case, and who withdraws its letters (task 1.4b2, the 1.4b3 review)', () => {
+    const userOf = async (sub: string) =>
+        (await query<{ id: string }>('select id from kernel.users where keycloak_sub = $1', [sub]))[0]?.id ?? '';
+    const works = (caseId: string, who: { userId: string; unitId: string; roles: string[] }) =>
+        app.scoped(contextFor(boditi), (tx) => api.http.get(CasesService).worksOn(tx, caseId, who));
+
+    it('counts an open step waiting for one’s role in one’s unit, and a step one claimed', async () => {
+        const { c } = await drive('valuation');
+        const someone = randomUUID();
+        // the valuation waits for Boditi's inspectors: any of them works on it, nobody else
+        expect(await works(c.id, { userId: someone, unitId: boditi.id, roles: ['competency.inspector'] })).toBe(true);
+        expect(await works(c.id, { userId: someone, unitId: boditi.id, roles: ['competency.examiner'] })).toBe(false);
+        expect(await works(c.id, { userId: someone, unitId: damot.id, roles: ['competency.inspector'] })).toBe(false);
+        // the inspector who takes the step on works on it whatever unit and roles it asks from
+        const task = c.tasks.find((t) => t.status === 'open');
+        const claimed = await api.call('POST', `/api/v1/cases/${c.id}/tasks/${task?.id ?? ''}/claim`, as.inspector);
+        expect(claimed.statusCode, claimed.body).toBe(200);
+        expect(await works(c.id, { userId: await userOf(SUB.inspector), unitId: damot.id, roles: [] })).toBe(true);
+        expect(await works(c.id, { userId: someone, unitId: damot.id, roles: [] })).toBe(false);
+    }, 240_000);
+
+    it('lets only the workflow itself withdraw the letters without acting from the office', async () => {
+        const { c } = await drive('outside');
+        const place = (ctx: DbContext) => ({ caseId: c.id, regionId: boditi.regionId, handlingUnitId: boditi.id, ctx });
+        // a person bound to the transaction, even with a system-looking request id
+        await expect(
+            app.scoped({ ...contextFor(damot), requestId: 'system:forged' }, (tx) =>
+                transfers.revokeLetters(tx, place({}))
+            )
+        ).rejects.toMatchObject({ code: 'forbidden' });
+        // a person named on the step, on the system pool
+        await expect(
+            system.systemContext('test.timeout', (tx) => transfers.revokeLetters(tx, place({ userId: randomUUID() })))
+        ).rejects.toMatchObject({ code: 'forbidden' });
+        // nobody, but not the system's request
+        await expect(
+            app.scoped({ requestId: `otr-${randomUUID()}` }, (tx) => transfers.revokeLetters(tx, place({})))
+        ).rejects.toMatchObject({ code: 'forbidden' });
+        for (const l of await lettersOf2(c.id)) expect(l.revoked_at).toBeNull();
+    }, 240_000);
+});

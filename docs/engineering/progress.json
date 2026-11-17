@@ -1897,8 +1897,8 @@
         {
           "id": "1.4b2",
           "title": "Transfers, part 2b: publish rules and counters on enable",
-          "status": "ready",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/1.4b2-publish-rules-counters",
           "commits": [],
           "evidence": [],
           "blockers": [],
