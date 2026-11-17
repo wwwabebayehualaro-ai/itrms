@@ -1942,7 +1942,7 @@
         {
           "id": "1.4c",
           "title": "Transfers, part 3: zone transfer within a region",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.4c-zone-transfer",
           "commits": [
             "a907bf2",
@@ -1958,7 +1958,8 @@
             "40a55ac",
             "d5db0d9",
             "8c25f99",
-            "baccfaa"
+            "baccfaa",
+            "78f1c91"
           ],
           "evidence": [
             "CI run 44140715479 (PR #81, 1cfd1d5) -> 9 of 10 jobs green (integration, e2e, Semgrep, gitleaks, Trivy, performance, production profile, stories, licences); the lint job's only failure was pnpm audit on picomatch GHSA-fc5q-39xc-vjpf (published 2026-11-17, no fix), ignored with the product owner's acceptance in a907bf2, whose run 44146832542 has the lint, typecheck, unit, build and boundaries job green (69/69 tasks)",
