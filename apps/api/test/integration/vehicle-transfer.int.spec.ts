@@ -42,9 +42,9 @@ const FEE_RULES = join(HERE, '..', '..', '..', '..', 'modules', 'competency', 's
 
 const SUB = {
     bureau: '0199f0a0-d000-7000-8000-000000000001',
-    // the demo's own: Boditi's cashier, the zone's competency officer and Damot Gale's head
+    // the demo's own: Boditi's cashier and Damot Gale's head
     boditiCashier: '0199f0a0-d000-7000-8000-000000000303',
-    zoneOfficer: '0199f0a0-d000-7000-8000-000000000104',
+    zoneOfficer: '0199f0a0-d000-7000-8000-00000000f806',
     damotHead: '0199f0a0-d000-7000-8000-000000000201',
     officer: '0199f0a0-d000-7000-8000-00000000f801',
     lead: '0199f0a0-d000-7000-8000-00000000f802',
@@ -232,6 +232,17 @@ beforeAll(async () => {
             region: 'SER',
             home: 'WOL-BODITI',
             roles: [['WOL-BODITI', 'competency.lead']]
+        },
+        {
+            // files and acts: competency.officer acts on a case, records_officer files it (case:create)
+            username: 'test.vt.zoneofficer',
+            sub: SUB.zoneOfficer,
+            region: 'SER',
+            home: 'WOL',
+            roles: [
+                ['WOL', 'competency.officer'],
+                ['WOL', 'records_officer']
+            ]
         },
         {
             username: 'test.vt.zonelead',

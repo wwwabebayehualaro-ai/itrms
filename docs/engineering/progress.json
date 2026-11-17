@@ -3976,6 +3976,11 @@
       "foundIn": "1.4b4",
       "item": "An office that takes over a paper register now has an app-made counter at 0 as soon as it is given the service: the paper import (task 1.13) must set its start (setUpCounter startAfter/startYear) before its first number, and the migration runbook say so (reviewer, low)",
       "movedTo": "1.13"
+    },
+    {
+      "foundIn": "1.4c",
+      "item": "A standing release has no cancel path: an owner who changes their mind after DVC-14 is released waits out the release's days; give DVC-14 a revoke step, or let the source expire its own release while no DVC-15 is filed (reviewer, low)",
+      "movedTo": "1.4c2"
     }
   ]
 }
