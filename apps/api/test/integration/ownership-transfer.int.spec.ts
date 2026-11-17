@@ -50,7 +50,6 @@ const SUB = {
     lead: '0199f0a0-d000-7000-8000-00000000f703',
     // an officer who is also the office's inspector and lead: the maker-checker has to keep them off their own work
     solo: '0199f0a0-d000-7000-8000-00000000f704',
-    arekaOfficer: '0199f0a0-d000-7000-8000-00000000f705',
     otherRegionClerk: '0199f0a0-d000-7000-8000-00000000f706'
 };
 const SERVICE = 'DVC-13';
@@ -64,7 +63,6 @@ let registry: VehicleRegistry;
 let documents: DocumentsService;
 let transfers: OwnershipTransferService;
 let boditi: OrgUnit;
-let areka: OrgUnit;
 let otherRegion: OrgUnit;
 let zone: OrgUnit;
 let damot: OrgUnit;
@@ -443,16 +441,6 @@ beforeAll(async () => {
             ]
         },
         {
-            username: 'test.otr.areka',
-            sub: SUB.arekaOfficer,
-            region: 'SER',
-            home: 'WOL-AREKA',
-            roles: [
-                ['WOL-AREKA', 'competency.officer'],
-                ['WOL-AREKA', 'records_officer']
-            ]
-        },
-        {
             username: 'test.otr.other',
             sub: SUB.otherRegionClerk,
             region: 'TRX',
@@ -467,7 +455,6 @@ beforeAll(async () => {
     const region = await api.unit('SER', 'SER');
     zone = await api.unit('SER', 'WOL');
     boditi = await api.unit('SER', 'WOL-BODITI');
-    areka = await api.unit('SER', 'WOL-AREKA');
     damot = await api.unit('SER', 'WOL-DAMOT-GALE');
     otherRegion = await api.unit('TRX', 'TRX-W1');
     as.bureau = { sub: SUB.bureau, unit: region };
@@ -478,7 +465,6 @@ beforeAll(async () => {
     as.inspector = { sub: SUB.inspector, unit: boditi };
     as.lead = { sub: SUB.lead, unit: boditi };
     as.solo = { sub: SUB.solo, unit: boditi };
-    as.arekaOfficer = { sub: SUB.arekaOfficer, unit: areka };
     as.otherRegionClerk = { sub: SUB.otherRegionClerk, unit: otherRegion };
 
     const root = { id: region.id, regionId: region.regionId };
@@ -982,12 +968,14 @@ describe('who sees what (class T at the handling office, class R for the registe
     it('keeps a sibling office off the case and off a vehicle it does not handle, and shows the zone the case', async () => {
         const buyer = await person();
         const { c, vehicle } = await drive('booklet', { buyers: [buyer] });
-        // Areka, a sibling of Boditi, cannot file for Boditi’s vehicle, and cannot see Boditi’s case
-        const filed = await file(SERVICE, answersOf(vehicle.id, [await person()]), as.arekaOfficer);
-        const refused = await tried(filed, as.arekaOfficer, 'submit');
+        // Boditi cannot file for a vehicle a sibling office (Damot Gale) handles
+        const elsewhere = await onTheRoad(damot);
+        const filed = await file(SERVICE, answersOf(elsewhere.id, [await person()]));
+        const refused = await tried(filed, as.officer, 'submit');
         expect(refused.status).toBe(422);
         expect(refused.body.errors).toEqual([expect.objectContaining({ path: 'vehicle', code: 'other_office' })]);
-        expect((await api.call('GET', `/api/v1/cases/${c.id}`, as.arekaOfficer)).statusCode).toBe(404);
+        // and the sibling cannot see Boditi’s case
+        expect((await api.call('GET', `/api/v1/cases/${c.id}`, as.damotHead)).statusCode).toBe(404);
         // the zone above sees it; another region sees nothing
         expect((await api.call('GET', `/api/v1/cases/${c.id}`, as.zoneOfficer)).statusCode).toBe(200);
         expect((await api.call('GET', `/api/v1/cases/${c.id}`, as.otherRegionClerk)).statusCode).toBe(404);
@@ -1004,7 +992,6 @@ describe('who sees what (class T at the handling office, class R for the registe
             );
         expect(await rowsAt(boditi)).toBe(1);
         expect(await rowsAt(zone)).toBe(1);
-        expect(await rowsAt(areka)).toBe(0);
         expect(await rowsAt(damot)).toBe(0);
         expect(await rowsAt(otherRegion)).toBe(0);
         expect(
