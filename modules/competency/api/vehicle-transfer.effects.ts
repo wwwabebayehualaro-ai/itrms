@@ -9,7 +9,12 @@ import { ENCUMBRANCE_EFFECTS } from '@itrms/vehicles/contracts';
 
 import { VEHICLE_TRANSFER_EFFECTS as X } from '../contracts';
 import type { CasePlace } from './licences.service';
-import { VehicleTransferService, type TransferInInput, type TransferOutInput } from './vehicle-transfer.service';
+import {
+    VehicleTransferService,
+    type ReleaseCancelInput,
+    type TransferInInput,
+    type TransferOutInput
+} from './vehicle-transfer.service';
 
 const placeOf = (run: EffectRun<unknown>): CasePlace => ({
     caseId: run.caseId,
@@ -95,12 +100,38 @@ export class ReceiveVehicleEffect implements WorkflowEffect {
     }
 }
 
-/** Every effect of the two services, for the module and for the slice's `effects` list. */
+/** The cancellation's check (task 1.4c2b, ADR-0059): the release stands from this office and, outside the region, its document comes back. */
+@Injectable()
+@Effect(X.checkReleaseCancel, {
+    input: { vehicle: { kind: 'ref' }, documentNumber: { kind: 'text', required: false }, reason: { kind: 'text' } }
+})
+export class CheckReleaseCancelEffect implements WorkflowEffect<ReleaseCancelInput> {
+    constructor(@Inject(VehicleTransferService) private readonly transfers: VehicleTransferService) {}
+
+    async run(run: EffectRun<ReleaseCancelInput>) {
+        return { facts: await this.transfers.checkCancel(run.tx, placeOf(run), run.input, run.facts) };
+    }
+}
+
+/** The cancellation's giving step: the release is cancelled and its documents are revoked. */
+@Injectable()
+@Effect(X.cancelRelease, { givesService: true, requiresBefore: [X.checkReleaseCancel] })
+export class CancelReleaseEffect implements WorkflowEffect {
+    constructor(@Inject(VehicleTransferService) private readonly transfers: VehicleTransferService) {}
+
+    async run(run: EffectRun) {
+        return { facts: await this.transfers.cancelRelease(run.tx, placeOf(run), run.facts) };
+    }
+}
+
+/** Every effect of the services, for the module and for the slice's `effects` list. */
 export const VEHICLE_TRANSFER_EFFECTS_LIST = [
     CheckTransferOutEffect,
     ReleaseVehicleEffect,
     ReleaseVehicleOutEffect,
     CheckTransferInEffect,
     RecordTransferInspectionEffect,
-    ReceiveVehicleEffect
+    ReceiveVehicleEffect,
+    CheckReleaseCancelEffect,
+    CancelReleaseEffect
 ] as const;

@@ -294,5 +294,6 @@
   "vehicles.errors.handover_not_open": "ይህ ተሽከርካሪ ለዚህ መሥሪያ ቤት አልተለቀቀም፣ ወይም መልቀቁ ተቀብሎ ወይም ተተክቶ አልቋል።",
   "vehicles.errors.handover_expired": "የዚህ ተሽከርካሪ መልቀቂያ ጊዜው አልፏል፤ የሚልከው መሥሪያ ቤት እንደገና ይለቀዋል።",
   "vehicles.errors.handover_owners_changed": "ተሽከርካሪው ከተለቀቀ በኋላ ባለቤቶቹ ተቀይረዋል፤ እንደገና ይለቀቃል።",
-  "vehicles.errors.handover_not_yours": "ይህ ተሽከርካሪ ለሌላ መሥሪያ ቤት ተለቋል።"
+  "vehicles.errors.handover_not_yours": "ይህ ተሽከርካሪ ለሌላ መሥሪያ ቤት ተለቋል።",
+  "vehicles.errors.handover_not_standing": "ይህ መልቀቂያ ተረክቧል፣ ተሰርዟል ወይም ተተክቷል።"
 }

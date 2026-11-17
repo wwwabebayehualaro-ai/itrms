@@ -216,6 +216,52 @@ export class VehicleHandovers {
         return row;
     }
 
+    /**
+     * The cancellation of a release (task 1.4c2b, ADR-0059): the releasing office's own case ends it. The release stood: it is
+     * `cancelled`, final, and a vehicle released outside the region reads active again. Nothing else changes (ADR-0058: its owners,
+     * plate, libre and stock plate were kept). Run again for the same case it returns the release it cancelled.
+     */
+    async cancel(tx: Tx, ctx: DbContext, given: { handoverId: string; caseId: string; on: string }): Promise<Handover> {
+        const [made] = await tx.select().from(vehicleHandovers).where(eq(vehicleHandovers.cancelCaseId, given.caseId));
+        if (made) return made;
+        const [seen] = await tx.select().from(vehicleHandovers).where(eq(vehicleHandovers.id, given.handoverId));
+        if (!seen) throw new NotFoundError();
+        if (seen.fromUnitId !== ctx.unitId) throw new ForbiddenError({ detailKey: 'vehicles.errors.other_office' });
+        const [handover] = await tx
+            .select()
+            .from(vehicleHandovers)
+            .where(eq(vehicleHandovers.id, given.handoverId))
+            .for('update');
+        if (!handover || handover.status !== 'released')
+            throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.handover_not_standing' });
+        const outside = handover.destinationKind === 'outside';
+        let vehicle: typeof vehicles.$inferSelect | undefined;
+        if (outside) {
+            // as the release: a row-level lock needs the right to update the vehicle, so the scope is checked on a plain read first
+            const [plain] = await tx.select().from(vehicles).where(eq(vehicles.id, handover.vehicleId));
+            if (!plain) throw new NotFoundError();
+            if (!withinScope(plain.handlingOrgPath, ctx.scopePath ?? ''))
+                throw new ForbiddenError({ detailKey: 'vehicles.errors.other_office' });
+            [vehicle] = await tx.select().from(vehicles).where(eq(vehicles.id, handover.vehicleId)).for('update');
+            if (!vehicle || vehicle.status !== 'transferred_out' || vehicle.handlingUnitId !== handover.fromUnitId)
+                throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.handover_not_standing' });
+            const [open] = await tx
+                .select({ id: vehicleOwnerships.id })
+                .from(vehicleOwnerships)
+                .where(and(eq(vehicleOwnerships.vehicleId, vehicle.id), sql`${vehicleOwnerships.until} is null`));
+            if (open?.id !== handover.ownershipId)
+                throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.owners_changed' });
+        }
+        const cancelled = await updateAudited(tx, vehicleHandovers, handover.id, handover.rowVersion, {
+            status: 'cancelled',
+            cancelCaseId: given.caseId,
+            cancelledOn: given.on,
+            cancelledBy: ctx.userId ?? null
+        });
+        if (vehicle) await updateAudited(tx, vehicles, vehicle.id, vehicle.rowVersion, { status: 'active' });
+        return cancelled;
+    }
+
     /** The release a receipt by this case made, if it was received already. */
     async receivedBy(tx: Tx, caseId: string): Promise<Handover | undefined> {
         const [row] = await tx

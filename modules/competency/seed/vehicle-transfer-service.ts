@@ -13,6 +13,7 @@ import type { I18nText } from '@itrms/schemas';
 import {
     MAX_EARLIER_PLATES,
     MAX_TRANSFER_DOCUMENT_BIRR,
+    RELEASE_CANCEL_SERVICE,
     TRANSFER_IN_SERVICE,
     TRANSFER_OUT_DESTINATIONS,
     TRANSFER_OUT_SERVICE,
@@ -198,6 +199,30 @@ export const TRANSFER_DOCUMENT_FORM = {
     ]
 };
 
+/**
+ * The cancellation of a release (DVC-16, ADR-0059), filed at the office that released the vehicle: the vehicle (one with a release
+ * standing from this office), the number of the transfer document handed back (a release to another region), the reason, and the
+ * papers. No fee: to confirm with the zone.
+ */
+export const RELEASE_CANCEL_FORM = {
+    schemaVersion: 2,
+    fields: [
+        internal('vehicle', 'RegistryLookup', text('ተሽከርካሪ', 'Vehicle'), { provider: 'released-vehicle' }),
+        internal(
+            'documentNumber',
+            'InputText',
+            text(
+                'ተመላሽ የሆነው የማስተላለፊያ ሰነድ ቁጥር (ወደ ሌላ ክልል ለተሰጠ መልቀቂያ)',
+                'Number of the transfer document handed back (a release to another region)'
+            ),
+            { required: false, maxLength: 40 }
+        ),
+        internal('reason', 'InputTextarea', text('የመሰረዙ ምክንያት', 'Why the release is cancelled'), { maxLength: 500 }),
+        attachment('returnedDocument', text('ተመላሽ የሆነው ሰነድ ቅጂ', 'Copy of the document handed back'), 'internal'),
+        attachment('ownerRequest', text('የባለቤቱ ጥያቄ', "Owner's request"))
+    ]
+};
+
 /** The check that refuses the service while the vehicle is encumbered (task 1.4a), on filing and before each step that moves on. */
 const ENC = 'vehicles.checkEncumbrances:zone-transfer-out';
 
@@ -365,6 +390,44 @@ export const transferInFlow = (inspectionForm: string) => ({
     ]
 });
 
+/**
+ * DVC-16: review by an officer, then the final approval of a lead (not the filer or the checker), which cancels the release. The
+ * check runs again on every step that moves on, and again on the approval: the release may have been received, or its transfer
+ * in filed, since.
+ */
+export const releaseCancelFlow = () => ({
+    schemaVersion: 1,
+    states: [
+        DRAFT,
+        task('review', REVIEW_LABEL, 'competency.officer', 1),
+        APPROVAL,
+        { key: 'cancelled', kind: 'end', label: text('መልቀቂያው ተሰርዟል', 'Release cancelled') },
+        { key: 'rejected', kind: 'end', label: text('ውድቅ ሆኗል', 'Rejected') }
+    ],
+    transitions: [
+        { from: 'draft', to: 'review', action: 'submit', effects: [X.checkReleaseCancel] },
+        {
+            from: 'draft',
+            to: 'review',
+            action: 'correct',
+            label: ACTIONS.correct,
+            amendsRequest: true,
+            effects: [X.checkReleaseCancel]
+        },
+        { from: 'review', to: 'draft', action: 'return', label: ACTIONS.returnIt, commentRequired: true },
+        { from: 'review', to: 'approval', action: 'approve', label: ACTIONS.approve, effects: [X.checkReleaseCancel] },
+        {
+            from: 'approval',
+            to: 'cancelled',
+            action: 'approve',
+            label: text('መልቀቂያውን ሰርዝ', 'Cancel the release'),
+            effects: [X.checkReleaseCancel, X.cancelRelease]
+        },
+        WITHDRAW,
+        REJECT(['review', 'approval'])
+    ]
+});
+
 async function serviceOf(tx: Tx, regionId: string, code: string) {
     const [service] = await tx
         .select()
@@ -417,6 +480,20 @@ export async function importTransferOutService(tx: Tx, root: { id: string; regio
         formVersionId: form.versionId,
         workflowVersionId: await workflowVersion(tx, root, 'vehicle-transfer-out', name, flow),
         feeRuleVersionId: await approvedFeeRule(tx, root.regionId, 'dvc-14-transfer-out')
+    });
+    return 1;
+}
+
+/** DVC-16 at the region's root, with no fee (to confirm with the zone: a fee is a new version of the flow, configuration only). */
+export async function importReleaseCancelService(tx: Tx, root: { id: string; regionId: string }): Promise<number> {
+    const service = await serviceOf(tx, root.regionId, RELEASE_CANCEL_SERVICE);
+    if (service.currentVersionId) return 0;
+    const name = text('የተሽከርካሪ መልቀቂያ መሰረዝ', 'Cancel a vehicle release');
+    const form = await publishedForm(tx, root, 'vehicle-release-cancel', name, RELEASE_CANCEL_FORM);
+    await firstServiceVersion(tx, root, service, {
+        formVersionId: form.versionId,
+        workflowVersionId: await workflowVersion(tx, root, 'vehicle-release-cancel', name, releaseCancelFlow()),
+        feeRuleVersionId: null
     });
     return 1;
 }

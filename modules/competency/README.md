@@ -73,7 +73,20 @@ sets the vehicle to `transferred_out`, and nothing else changes (ownership, plat
 `vehicle-transfer-document` (valid `competency.vehicle_transfer_valid_days`, 15) and a `vehicle-transfer-covering-letter`, each
 numbered from that counter. For an office of the region the covering letter is the setting
 `competency.vehicle_transfer_covering_letter` (off). `setStatus` no longer sets `transferred_out`, and bolo reminders skip a
-vehicle that is not active. Deferred: undoing a release (task 1.4c2b) and the transfer in from another region (task 1.4c3).
+vehicle that is not active. Deferred: the transfer in from another region (task 1.4c3).
+
+**Cancelling a release (DVC-16, task 1.4c2b, ADR-0059).** Filed at the office that made the release (the `released-vehicle` lookup:
+vehicles with a release standing from the caller's office, of either kind and whatever its day), draft → review (officer) →
+approval (lead; not the filer or checker) → cancelled; no fee. `checkReleaseCancel` refuses a vehicle with no standing release
+from the office, a release that changed since the filing and an empty reason; for a release to another region the number of the
+transfer document handed back must match the issued one (compared trimmed, without spaces, upper-case), is required while the
+document is valid, and after it lapsed may be left out unless the region sets `competency.vehicle_release_cancel_unreturned` off
+(default on, sensitive). It also asks the reviewed definer `competency.release_in_open_case` whether the receiving office has an
+open transfer in, or another cancellation is open (not_eligible). `cancelRelease` calls `VehicleHandovers.cancel`: the handover
+becomes `cancelled` (final; migration 0088's trigger lets it only for another case of the releasing office whose facts name the
+release, today, by the caller), a vehicle `transferred_out` reads `active` again (its records were kept), and the transfer
+document and covering letter are revoked (their QR reads revoked). A vehicle transferred out before ADR-0058 has no handover and
+cannot be brought back by DVC-16.
 
 **The back-capture of a paper vehicle file (MIG-01, task 1.13, ADR-0054).** Not one of the bureau's 54 services: the migration's
 own, offered where vehicles are registered. Seeded as configuration (`seed/back-capture-service.ts`): the form

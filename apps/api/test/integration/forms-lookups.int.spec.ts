@@ -291,6 +291,8 @@ describe('the registries a form can point to', () => {
             'office',
             'organisation',
             'person',
+            // a vehicle with a release standing from the caller's office (task 1.4c2b)
+            'released-vehicle',
             'training-school',
             'vehicle'
         ]);

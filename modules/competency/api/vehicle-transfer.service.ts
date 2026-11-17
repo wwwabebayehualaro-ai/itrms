@@ -6,7 +6,7 @@
  * (nothing else changes). Each step checks what it relies on again; the register's command checks it once more, as the last word.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, inArray, isNull, ne } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { currentContext } from '@itrms/kernel/context';
 import type { Tx } from '@itrms/kernel/db';
@@ -15,7 +15,7 @@ import { nextNumber, requireCounter } from '@itrms/kernel/numbering';
 import { unitRefs } from '@itrms/kernel/org';
 import { SettingsService } from '@itrms/kernel/settings';
 import { orgUnits } from '@itrms/kernel/tables';
-import { DocumentsService, documentTemplates, issuedDocuments } from '@itrms/documents/api';
+import { DocumentsService, documentTemplates, issuedDocuments, revokeDocument } from '@itrms/documents/api';
 import { OrganisationsService } from '@itrms/parties/api';
 import {
     vehicleEncumbrances,
@@ -33,7 +33,9 @@ import {
     MAX_TRANSFER_DOCUMENT_BIRR,
     TRANSFER_IN_SERVICE,
     transferDocumentEntrySchema,
+    transferDocumentNumberKey,
     transferInspectionEntrySchema,
+    VEHICLE_RELEASE_CANCEL_UNRETURNED_SETTING,
     VEHICLE_TRANSFER_COVERING_LETTER_SETTING,
     VEHICLE_TRANSFER_COVERING_LETTER_TEMPLATE,
     VEHICLE_TRANSFER_DOCUMENT_COUNTER,
@@ -101,6 +103,8 @@ export type TransferOutInput = {
 };
 /** What the transfer in's request names. */
 export type TransferInInput = { vehicle: string };
+/** What the cancellation's request names: the vehicle, the number of the transfer document handed back, and why. */
+export type ReleaseCancelInput = { vehicle: string; documentNumber?: string; reason: string };
 
 @Injectable()
 export class VehicleTransferService {
@@ -398,6 +402,107 @@ export class VehicleTransferService {
         if (!handoverId) return refuse('vehicle', 'not_released', 'competency.rule.transferInNoRelease');
         await this.handovers.accept(tx, handoverId, place.caseId);
         return { received: { handoverId, on: addisDay() } };
+    }
+
+    // ---- the cancellation of a release (DVC-16, ADR-0059) ----
+
+    /**
+     * The vehicle has a release standing from the office the case is filed in, of either kind and whatever its day, and it is the
+     * one the filing saw. For a release to another region the number of the transfer document handed back must match the issued
+     * one: it is asked while the document is valid, and after it lapsed unless the region switched that off. No transfer in at the
+     * receiving office and no other cancellation is open for it (the register's reviewed question: the offices read each other's
+     * cases only so far).
+     */
+    async checkCancel(tx: Tx, place: CasePlace, input: ReleaseCancelInput, facts: Facts = {}) {
+        const standing = await this.handovers.standing(tx, input.vehicle);
+        if (!standing || standing.fromUnitId !== place.handlingUnitId)
+            return refuse('vehicle', 'not_released', 'competency.rule.releaseCancelNoRelease');
+        const saw = text(factObject(facts, 'cancelRelease')?.handoverId);
+        if (saw && saw !== standing.id)
+            return refuse('vehicle', 'release_changed', 'competency.rule.releaseCancelChanged');
+        if (!text(input.reason?.trim())) return refuse('reason', 'required', 'competency.rule.releaseCancelReason');
+        const outside = standing.destinationKind === 'outside';
+        const given = text(input.documentNumber?.trim());
+        let lapsed = false;
+        if (outside) {
+            const [issued] = await tx
+                .select({ number: issuedDocuments.number, validUntil: issuedDocuments.validUntil })
+                .from(issuedDocuments)
+                .innerJoin(documentTemplates, eq(documentTemplates.id, issuedDocuments.templateId))
+                .where(
+                    and(
+                        eq(documentTemplates.key, VEHICLE_TRANSFER_DOCUMENT_TEMPLATE),
+                        eq(issuedDocuments.subjectId, standing.caseId),
+                        isNull(issuedDocuments.supersededBy)
+                    )
+                );
+            lapsed = (issued?.validUntil ?? standing.validUntil) < addisDay();
+            if (given) {
+                if (!issued?.number || transferDocumentNumberKey(given) !== transferDocumentNumberKey(issued.number))
+                    return refuse('documentNumber', 'not_matching', 'competency.rule.releaseCancelDocumentNumber');
+            } else if (!lapsed) {
+                return refuse('documentNumber', 'required', 'competency.rule.releaseCancelDocumentRequired');
+            } else if (
+                (await this.settings.value<unknown>(
+                    tx,
+                    place.handlingUnitId,
+                    VEHICLE_RELEASE_CANCEL_UNRETURNED_SETTING
+                )) !== true
+            ) {
+                return refuse('documentNumber', 'required', 'competency.rule.releaseCancelUnreturnedOff');
+            }
+        }
+        await lockVehicleClaim(tx, input.vehicle);
+        const { rows } = await tx.execute<{ taken: boolean }>(
+            sql`select competency.release_in_open_case(${standing.id}::uuid, ${input.vehicle}::uuid, ${place.caseId}::uuid) as taken`
+        );
+        if (rows[0]?.taken !== false) return notEligible('competency.rule.releaseCancelInOpenCase');
+        return {
+            cancelRelease: {
+                vehicleId: input.vehicle,
+                handoverId: standing.id,
+                outside,
+                documentNumber: outside ? (given ?? null) : null,
+                documentReturned: outside && given !== undefined,
+                lapsed
+            }
+        };
+    }
+
+    /**
+     * The giving step of the cancellation: the release is cancelled, a vehicle released outside the region reads active again, and
+     * the release's documents no longer stand (their QR says revoked). Run again for the same case it changes nothing more.
+     */
+    async cancelRelease(tx: Tx, at: CasePlace, facts: Facts) {
+        const place = await actForHandlingOffice(tx, at);
+        const handoverId = text(factObject(facts, 'cancelRelease')?.handoverId);
+        if (!handoverId) return notEligible('competency.rule.releaseCancelNoRelease');
+        const on = addisDay();
+        const handover = await this.handovers.cancel(tx, place.ctx, { handoverId, caseId: place.caseId, on });
+        const standing = await tx
+            .select({ document: issuedDocuments })
+            .from(issuedDocuments)
+            .innerJoin(documentTemplates, eq(documentTemplates.id, issuedDocuments.templateId))
+            .where(
+                and(
+                    inArray(documentTemplates.key, [
+                        VEHICLE_TRANSFER_DOCUMENT_TEMPLATE,
+                        VEHICLE_TRANSFER_COVERING_LETTER_TEMPLATE
+                    ]),
+                    inArray(issuedDocuments.subjectId, [handover.caseId, handover.id]),
+                    isNull(issuedDocuments.supersededBy),
+                    isNull(issuedDocuments.revokedAt)
+                )
+            );
+        for (const { document } of standing) await revokeDocument(tx, document, 'vehicle_release_cancelled');
+        return {
+            cancelled: {
+                handoverId: handover.id,
+                on: handover.cancelledOn ?? on,
+                vehicleActive: handover.destinationKind === 'outside',
+                revoked: standing.map((r) => r.document.id)
+            }
+        };
     }
 
     private handoverOf(row: typeof vehicleHandovers.$inferSelect) {

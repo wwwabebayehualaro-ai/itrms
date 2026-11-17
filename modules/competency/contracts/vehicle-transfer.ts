@@ -14,12 +14,16 @@ export const VEHICLE_TRANSFER_EFFECTS = {
     releaseVehicleOut: 'competency.releaseVehicleOut',
     checkTransferIn: 'competency.checkTransferIn',
     recordTransferInspection: 'competency.recordTransferInspection',
-    receiveVehicle: 'competency.receiveVehicle'
+    receiveVehicle: 'competency.receiveVehicle',
+    /** the cancellation of a release (task 1.4c2b, ADR-0059): the check, and the giving step */
+    checkReleaseCancel: 'competency.checkReleaseCancel',
+    cancelRelease: 'competency.cancelRelease'
 } as const;
 
 /** The services' codes in the catalogue: not in the source list as separate codes (the zone's "leaving or entering the zone"). */
 export const TRANSFER_OUT_SERVICE = 'DVC-14';
 export const TRANSFER_IN_SERVICE = 'DVC-15';
+export const RELEASE_CANCEL_SERVICE = 'DVC-16';
 
 /** How many days a release stands for the receiving office (the zone's transfer document: 15). */
 export const VEHICLE_TRANSFER_VALID_DAYS_SETTING = 'competency.vehicle_transfer_valid_days';
@@ -30,6 +34,15 @@ export const VEHICLE_TRANSFER_REINSPECT_SETTING = 'competency.vehicle_transfer_r
 
 /** Whether an office of this region that receives the vehicle is also sent the covering letter (off: it sees the release itself). */
 export const VEHICLE_TRANSFER_COVERING_LETTER_SETTING = 'competency.vehicle_transfer_covering_letter';
+
+/**
+ * Whether a region lets a release to another region be cancelled with no transfer document handed back once the document has
+ * lapsed (ADR-0059; on until the region switches it off).
+ */
+export const VEHICLE_RELEASE_CANCEL_UNRETURNED_SETTING = 'competency.vehicle_release_cancel_unreturned';
+
+/** A transfer document's number as compared on its return: trimmed, with no spaces, in upper case. */
+export const transferDocumentNumberKey = (value: string): string => value.replace(/\s+/g, '').toUpperCase();
 
 /** Where the transfer out's request says the vehicle goes: an office of the region (the default), or outside it (ADR-0058). */
 export const TRANSFER_OUT_DESTINATIONS = ['office', 'outside'] as const;

@@ -398,6 +398,8 @@ describe('every tenant table', () => {
               AND has_function_privilege('itrms_app', p.oid, 'EXECUTE')
             ORDER BY p.oid::regprocedure::text COLLATE "C"`);
         expect(rows.map((r) => r.name)).toEqual([
+            // whether an open case of the caller's region names a release: the receiving office's transfer in, or a cancellation (task 1.4c2b)
+            'competency.release_in_open_case(uuid,uuid,uuid)',
             // whether another open case of the caller's region claims a chassis, an old plate or a vehicle: yes or no (task 1.2e)
             'competency.vehicle_in_open_case(text,text,uuid,uuid)',
             // a document's status by its token's hash, for the public endpoint: a checker's minimum (ADR-0045)

@@ -3,10 +3,11 @@
  * 1.3b), organisations of that kind. Facts under a pick are what a counter clerk needs and no more.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { LookupItem, RegistryLookupProvider } from '@itrms/forms/api';
-import type { Tx } from '@itrms/kernel/db';
+import { contextOfTx, type Tx } from '@itrms/kernel/db';
 import { organisations, OrganisationsService } from '@itrms/parties/api';
+import { vehicleHandovers, VehiclesService } from '@itrms/vehicles/api';
 
 import { GARAGE_KIND, TRANSFER_IN_SERVICE, type Licence } from '../contracts';
 import am from '../messages/am.json';
@@ -115,6 +116,146 @@ export class OfficeLookup implements RegistryLookupProvider {
             label: unit.name[language] || unit.name.am || unit.code,
             facts: [{ key: 'code', label: text('competency.lookup.fact.code', language), value: unit.code }]
         };
+    }
+}
+
+/**
+ * A vehicle with a release standing from the caller's office (task 1.4c2b, ADR-0059), for the cancellation's request: the
+ * register's vehicle lookup lists only active vehicles, and one released outside the region is not. A vehicle is offered
+ * whatever the day of its release (the document check is the cancellation's).
+ */
+@Injectable()
+export class ReleasedVehicleLookup implements RegistryLookupProvider {
+    readonly key = 'released-vehicle';
+    readonly permission = 'vehicle:read';
+    /** the most releases of an office read in one search: an office has few standing at a time */
+    private static readonly SCAN = 200;
+
+    constructor(@Inject(VehiclesService) private readonly vehicles: VehiclesService) {}
+
+    title(language: string): string {
+        return text('competency.lookup.releasedVehicle.title', language);
+    }
+
+    facts(language: string): { key: string; label: string }[] {
+        return [
+            { key: 'plate', label: text('competency.lookup.fact.plate', language) },
+            { key: 'vehicle', label: text('competency.lookup.fact.vehicle', language) },
+            { key: 'owner', label: text('competency.lookup.fact.owner', language) },
+            { key: 'releasedTo', label: text('competency.lookup.fact.releasedTo', language) },
+            { key: 'validUntil', label: text('competency.lookup.fact.validUntil', language) }
+        ];
+    }
+
+    async search(tx: Tx, q: string, limit: number, language: string): Promise<LookupItem[]> {
+        const releases = await tx
+            .select()
+            .from(vehicleHandovers)
+            .where(
+                and(
+                    eq(vehicleHandovers.status, 'released'),
+                    eq(vehicleHandovers.fromUnitId, contextOfTx(tx).unitId ?? '')
+                )
+            )
+            .orderBy(desc(vehicleHandovers.releasedOn), desc(vehicleHandovers.createdAt))
+            .limit(ReleasedVehicleLookup.SCAN);
+        const items = await this.items(tx, releases, language);
+        const wanted = q.trim().toLowerCase();
+        return items
+            .filter((i) => wanted === '' || i.search.includes(wanted))
+            .slice(0, limit)
+            .map((i) => i.item);
+    }
+
+    async resolve(tx: Tx, ids: readonly string[], language: string): Promise<LookupItem[]> {
+        if (ids.length === 0) return [];
+        const releases = await tx
+            .select()
+            .from(vehicleHandovers)
+            .where(
+                and(
+                    eq(vehicleHandovers.status, 'released'),
+                    eq(vehicleHandovers.fromUnitId, contextOfTx(tx).unitId ?? ''),
+                    inArray(vehicleHandovers.vehicleId, [...ids])
+                )
+            );
+        const standing = new Set(releases.map((r) => r.vehicleId));
+        const known = await this.items(tx, releases, language);
+        const rest = ids.filter((id) => !standing.has(id));
+        // a vehicle the caller's office does not hold a release of is no pick: it is returned inactive, so the form says so
+        const others = (await this.vehicles.summaries(tx, rest)).map<LookupItem>((v) => ({
+            id: v.id,
+            active: false,
+            label: v.currentPlate?.text ?? v.federalVehicleId ?? v.chassisNumber,
+            facts: []
+        }));
+        return [...known.map((i) => i.item), ...others];
+    }
+
+    private async items(
+        tx: Tx,
+        releases: readonly (typeof vehicleHandovers.$inferSelect)[],
+        language: string
+    ): Promise<{ item: LookupItem; search: string }[]> {
+        if (releases.length === 0) return [];
+        const byVehicle = new Map(
+            (
+                await this.vehicles.summaries(
+                    tx,
+                    releases.map((r) => r.vehicleId)
+                )
+            ).map((v) => [v.id, v])
+        );
+        const unitIds = releases.flatMap((r) => (r.toUnitId ? [r.toUnitId] : []));
+        const units = new Map<string, string>();
+        if (unitIds.length > 0) {
+            const { rows } = await tx.execute<{ id: string; code: string; name: Record<string, string> }>(
+                sql`select id, code, name from kernel.region_units(${`{${unitIds.join(',')}}`}::uuid[])`
+            );
+            for (const u of rows) units.set(u.id, u.name[language] || u.name.am || u.code);
+        }
+        return releases.flatMap((r) => {
+            const v = byVehicle.get(r.vehicleId);
+            if (!v) return [];
+            const owners = v.owners.map((o) => (language === 'en' ? o.name.en : o.name.am)).join(', ');
+            const to = r.toUnitId
+                ? (units.get(r.toUnitId) ?? '')
+                : [r.destinationName, r.destinationRegion].filter(Boolean).join(', ');
+            const plate = v.currentPlate?.text ?? null;
+            return [
+                {
+                    search: [plate, v.chassisNumber, v.federalVehicleId].filter(Boolean).join(' ').toLowerCase(),
+                    item: {
+                        id: v.id,
+                        active: true,
+                        label: plate ?? v.federalVehicleId ?? v.chassisNumber,
+                        facts: [
+                            { key: 'plate', label: text('competency.lookup.fact.plate', language), value: plate },
+                            {
+                                key: 'vehicle',
+                                label: text('competency.lookup.fact.vehicle', language),
+                                value: `${v.make} ${v.model}`
+                            },
+                            {
+                                key: 'owner',
+                                label: text('competency.lookup.fact.owner', language),
+                                value: owners || null
+                            },
+                            {
+                                key: 'releasedTo',
+                                label: text('competency.lookup.fact.releasedTo', language),
+                                value: to || null
+                            },
+                            {
+                                key: 'validUntil',
+                                label: text('competency.lookup.fact.validUntil', language),
+                                value: r.validUntil
+                            }
+                        ]
+                    }
+                }
+            ];
+        });
     }
 }
 

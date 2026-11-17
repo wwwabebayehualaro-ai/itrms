@@ -20,7 +20,7 @@ import { MigrationReportController } from './migration-report.controller';
 import { MigrationReportService } from './migration-report.service';
 import { MigrationSampleController } from './migration-sample.controller';
 import { MigrationSamplingService } from './migration-sampling.service';
-import { GarageLookup, LicenceLookup, OfficeLookup, TrainingSchoolLookup } from './lookups';
+import { GarageLookup, LicenceLookup, OfficeLookup, ReleasedVehicleLookup, TrainingSchoolLookup } from './lookups';
 import { RegisterService } from './register.service';
 import { REGISTRATION_EFFECTS } from './registration.effects';
 import { VehicleRegistrationService } from './registration.service';
@@ -61,6 +61,7 @@ import { VehicleTransferService } from './vehicle-transfer.service';
         TrainingSchoolLookup,
         GarageLookup,
         OfficeLookup,
+        ReleasedVehicleLookup,
         ...LICENCE_EFFECTS,
         ...REGISTRATION_EFFECTS,
         ...BACK_CAPTURE_EFFECTS,
@@ -77,7 +78,8 @@ export class CompetencyModule implements OnModuleInit {
         @Inject(LicenceLookup) private readonly licence: LicenceLookup,
         @Inject(TrainingSchoolLookup) private readonly school: TrainingSchoolLookup,
         @Inject(GarageLookup) private readonly garage: GarageLookup,
-        @Inject(OfficeLookup) private readonly office: OfficeLookup
+        @Inject(OfficeLookup) private readonly office: OfficeLookup,
+        @Inject(ReleasedVehicleLookup) private readonly releasedVehicle: ReleasedVehicleLookup
     ) {}
 
     onModuleInit(): void {
@@ -85,5 +87,6 @@ export class CompetencyModule implements OnModuleInit {
         this.lookups.register(this.school);
         this.lookups.register(this.garage);
         this.lookups.register(this.office);
+        this.lookups.register(this.releasedVehicle);
     }
 }

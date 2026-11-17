@@ -23,7 +23,7 @@ export default defineModule({
     layer: 'work-process',
     version: '0.0.0',
     dependsOn: ['kernel', 'integrations', 'forms', 'fees', 'documents', 'workflow', 'services', 'parties', 'vehicles'],
-    lookups: ['driver-licence', 'training-school', 'garage', 'office'],
+    lookups: ['driver-licence', 'training-school', 'garage', 'office', 'released-vehicle'],
     // what the proclamation sets no figure for (ADR-0047)
     settings: [
         {
@@ -89,6 +89,15 @@ export default defineModule({
             key: 'competency.vehicle_transfer_covering_letter',
             default: false,
             overridableAt: ['installation', 'region', 'unitType', 'unit']
+        },
+        // whether a release to another region may be cancelled without its transfer document once the document has lapsed (task
+        // 1.4c2b, ADR-0059); a region may insist on the document
+        {
+            key: 'competency.vehicle_release_cancel_unreturned',
+            default: true,
+            overridableAt: ['installation', 'region'],
+            // a change loosens or tightens a control: it needs a fresh second factor (SEC-SE-5)
+            sensitive: true
         }
     ],
     effects: [
@@ -126,6 +135,8 @@ export default defineModule({
         'competency.checkTransferIn',
         'competency.recordTransferInspection',
         'competency.receiveVehicle',
+        'competency.checkReleaseCancel',
+        'competency.cancelRelease',
         'competency.checkBolo',
         'competency.recordBoloInspection',
         'competency.issueBoloSticker',
@@ -249,6 +260,8 @@ export default defineModule({
         // a vehicle leaving one office and entering another of the region (task 1.4c, ADR-0057)
         'DVC-14',
         'DVC-15',
+        // a release cancelled by the office that made it (task 1.4c2b, ADR-0059)
+        'DVC-16',
         // the back-capture of paper vehicle files (ADR-0054): the migration's own service, beside the bureau's
         'MIG-01'
     ],
@@ -401,7 +414,7 @@ export default defineModule({
             label: 'competency.nav.vehicleTransfers',
             icon: 'arrow-left-right',
             route: '/competency/vehicle-transfers',
-            requires: { permission: 'vehicle:read', services: ['DVC-14', 'DVC-15'] },
+            requires: { permission: 'vehicle:read', services: ['DVC-14', 'DVC-15', 'DVC-16'] },
             quickActions: [
                 {
                     key: 'competency.newTransferOut',
@@ -414,6 +427,12 @@ export default defineModule({
                     label: 'competency.action.newTransferIn',
                     route: '/competency/vehicle-transfers/in/new',
                     requires: { permission: 'case:create', services: ['DVC-15'] }
+                },
+                {
+                    key: 'competency.newReleaseCancel',
+                    label: 'competency.action.newReleaseCancel',
+                    route: '/competency/vehicle-transfers/cancel/new',
+                    requires: { permission: 'case:create', services: ['DVC-16'] }
                 }
             ]
         },
