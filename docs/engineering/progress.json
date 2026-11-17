@@ -1994,12 +1994,12 @@
         {
           "id": "1.4c2b",
           "title": "Transfers, part 3b2: cancel a release",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/1.4c2b-cancel-release",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split from 1.4c2 on 2026-11-17 (architect: the workflow engine lets nobody act out of a wait and a task cannot time out, so a cancellable step after the release would need an engine change). DVC-16: filed at the releasing office, approved by a lead; handover released -> cancelled (a new status in the trigger); revokes the transfer document and its covering letter; an outside release sets the vehicle back to active; refused while a DVC-15 names an office release. To confirm with the zone: no fee; a fresh document for an owner who still moves is a new paid DVC-14."
+          "notes": "Split from 1.4c2 on 2026-11-17 (architect: the workflow engine lets nobody act out of a wait and a task cannot time out, so a cancellable step after the release would need an engine change). DVC-16: filed at the releasing office, approved by a lead; handover released -> cancelled (a new status in the trigger); revokes the transfer document and its covering letter; an outside release sets the vehicle back to active; refused while a DVC-15 names an office release. To confirm with the zone: no fee; a fresh document for an owner who still moves is a new paid DVC-14. Design (architect, 2026-11-17), decided in auto mode (ADR-0059): DVC-16 draft -> review (officer) -> approval (lead, SoD) -> cancelled, no fee (to confirm); handover released -> cancelled (migration 0088: cancel_case_id/cancelled_on/cancelled_by, trigger checks the cancelling case); outside release: the handed-back document number must match, required while valid, optional once lapsed unless competency.vehicle_release_cancel_unreturned (default true, sensitive) is off; documents revoked, vehicle back to active; refused while a DVC-15 or another DVC-16 names the release (definer competency.release_in_open_case); lookup released-vehicle."
         },
         {
           "id": "1.4c3",
