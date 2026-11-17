@@ -538,6 +538,8 @@ Object storage through the S3 API (SeaweedFS, ADR-0020).
   - Each call is one `UPDATE … SET next_value = next_value + 1 RETURNING` inside the business transaction, so numbers are
     gapless and serialised per counter. Patterns are per region (`{unitCode}/{seq:06}/{efy}`).
   - When records are migrated, each counter is seeded with `start_after` = the highest migrated number.
+  - An office created, or given a service, gets the counters the manifests say it needs in that transaction (fresh, at 0;
+    ADR-0056); the owner still sets a migrated start.
   - **Plate numbers are the federal serials** (Directive 1050/2025). **Licence numbers become the national reference** once
     the national platform issues them; until then a regional counter is used, configured per region.
   - **Case numbers** use an ordinary PostgreSQL sequence (gaps are harmless there, and it avoids contention).

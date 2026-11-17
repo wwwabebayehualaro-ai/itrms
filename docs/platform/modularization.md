@@ -71,7 +71,8 @@ export default defineModule({
   effects: ['competency.issueLicence', 'competency.renewLicence', 'competency.addToPrintBatch', …],
   events: { emits: ['licence.issued', 'licence.renewed'], consumes: ['payment.settled', 'vehicle.transferred'] },
   settings: [{ key: 'competency.exam.passMark', schema: z.number(), default: 74, overridableAt: ['region'] }],
-  numberSequences: [{ key: 'licence', pattern: '{unit}/{seq:06}/{efy}' }],
+  numberSequences: [{ key: 'licence', pattern: '{unit}/{seq:06}/{efy}' }], // capabilities: [...] for an office kind's own
+  countersRequired: { 'DVC-03': ['competency.licence'] },  // set up when an office is given the service (ADR-0056)
   lookups: ['driver-licence'],               // RegistryLookup providers for forms
   menu: [ /* see navigation-and-menus.md */ ],
   widgets: ['competency.openApplications', 'competency.printBatchStatus'],

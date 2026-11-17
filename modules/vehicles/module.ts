@@ -3,6 +3,9 @@ import { defineModule } from '@itrms/module-sdk';
 import { DEFAULT_ENCUMBRANCE_BLOCKS, ENCUMBRANCE_BLOCKS_SETTING, ENCUMBRANCE_EFFECTS } from './contracts/encumbrances';
 import { DEFAULT_LEGACY_PLATE_REGIONS } from './contracts/plate';
 
+/** The registration certificate's counter (`vehicles.registration-certificate`, ADR-0050), as contracts/index.ts names it. */
+const REGISTRATION_CERTIFICATE_PATTERN = '{unit}/RC/{seq:06}';
+
 // The vehicle register (architecture.md §6.1, task 1.1a): regional records, read across the region, changed by the unit
 // that handles the vehicle and only through a case (roles-and-permissions.md §2). The cross-cutting roles get `vehicle:read`
 // in the kernel's manifest and the work-process roles from their own modules.
@@ -30,6 +33,8 @@ export default defineModule({
     ],
     // the check a service's workflow names on filing, before its payment order and before the step that gives the result
     effects: [ENCUMBRANCE_EFFECTS.checkEncumbrances],
+    // the certificate DVC-01 and DVC-13 number (competency names them in its countersRequired, task 1.4b4)
+    numberSequences: [{ key: 'registration-certificate', pattern: REGISTRATION_CERTIFICATE_PATTERN }],
     title: { am: 'የተሽከርካሪ መዝገብ', en: 'Vehicle register' },
     permissions: {
         vehicle: ['read'],

@@ -91,8 +91,8 @@ export async function importFeeRules(
 
 /**
  * The receipt counters of a region (task 0.22b): every active office whose type collects cash numbers its receipts from
- * its own counter, gapless per fiscal year. Installation work (the owner role: the API role cannot create counters), run
- * with the seed and again when offices are added; it never lowers a counter. A pattern keeps the office, the sequence and
+ * its own counter, gapless per fiscal year. Installation work (the owner role), run with the seed; an office created later
+ * gets its counter when it is created (task 1.4b4, ADR-0056). It never lowers a counter. A pattern keeps the office, the sequence and
  * the fiscal year, so numbers never repeat across years.
  */
 export async function setUpReceiptCounters(tx: Tx, regionId: string, pattern = RECEIPT_PATTERN): Promise<number> {

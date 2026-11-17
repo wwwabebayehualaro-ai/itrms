@@ -171,6 +171,31 @@ describe('loadSlices', () => {
         ]);
     });
 
+    it('stops on counters named for a service the module does not serve, or a sequence nobody declares (task 1.4b4)', () => {
+        const owner = {
+            ...drivers,
+            manifest: {
+                ...drivers.manifest,
+                numberSequences: [{ key: 'card', pattern: '{unit}/{seq}', capabilities: [] }]
+            }
+        };
+        expect(
+            problems([
+                kernel,
+                workflow,
+                owner,
+                competency,
+                freight({
+                    services: ['FR-01'],
+                    countersRequired: { 'FR-01': ['drivers.card', 'freight.permit'], 'FR-02': ['drivers.card'] }
+                })
+            ])
+        ).toEqual([
+            'freight: "FR-01" needs the counter "freight.permit", which no installed module declares',
+            'freight: names counters for "FR-02", a service it does not serve'
+        ]);
+    });
+
     it('lets a product be switched off without stopping the others that talk to it', () => {
         // freight consumes competency's event and grants competency's permission; competency is off in this installation
         const emitting = slice(

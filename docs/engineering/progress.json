@@ -1920,8 +1920,8 @@
         {
           "id": "1.4b4",
           "title": "Transfers, part 2d: counters on enable",
-          "status": "ready",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/1.4b4-counters-on-enable",
           "commits": [],
           "evidence": [],
           "blockers": [],
