@@ -27,6 +27,27 @@ another office, already on a national plate, a use that is not the register's, a
 and released by the registration's effects; `competency.exchangePlate` records the federal id and puts the plate on the vehicle,
 the old plate retired and linked to it. A vehicle not on the register is back-captured first (MIG-01).
 
+**The ownership transfer (DVC-13, task 1.4b).** Not in the source list: the change of a vehicle's owner (ስም ዝውውር) by sale, gift,
+inheritance, court order or auction, offered wherever DVC-01 is (`holds_stationery`: it issues a libre). The sellers are the
+register's current owners; the request names the buyers. Seeded as configuration (`seed/transfer-service.ts`): the form
+`vehicle-ownership-transfer`, the step forms `vehicle-transfer-valuation`, `-letters` and `-evidence` (and the libre booklet's own),
+the workflow draft → review → valuation (a `competency.inspector`) → letters → outside (the authenticated contract and the
+receipts) → payment → approval → transfer → booklet, with `vehicles.checkEncumbrances:ownership-transfer` before each step that
+moves it on, and the demo fee rule `dvc-13-ownership-transfer` (name change 1,000 and a new libre 2,000: the zone's fee sheet, to
+confirm). `competency.checkOwnershipTransfer` refuses a vehicle not active or handled by another office, buyers who already hold
+it, an office with no number series (the certificate's and the letters'), and any other open request on the vehicle (the case's
+facts hold `transfer.vehicleId` from its submission until it closes, which `competency.vehicle_in_open_case` reads: it refuses a
+plate exchange and a second transfer; a bolo and the recording of a hold are not blocked). `recordValuation` keeps the committee's
+figures in whole Birr as santim (`competency.ownership_transfers`, class T at the handling office) and refuses a vehicle that does
+not match its paper inspection. `issueTransferLetters` writes the revenue letter (the valuation, no duty), the justice letter (a
+sale or a gift: authenticate the contract; the vehicle has no hold) and, for a code-3 vehicle, the tax letter, each numbered from
+`competency.transfer-letter` (`{unit}/OT/{seq:05}/{efy}`) and standing `competency.transfer_letter_valid_days` (30). `transferOwnership`
+ends the sellers' period, begins the buyers', cancels the old libre and revokes its certificate, issues the new libre and its
+certificate and refuses (409 `owners_changed`) a vehicle whose owners changed since the filing. Assumptions, to confirm with a
+bureau: a new booklet on every transfer, the demo fees, the 30-day letter validity, and that ITRMS never computes a tax or a duty
+(the revenue office determines the stamp duty on the value the committee set). Deferred: publish-time rules for required effects
+(task 1.4b2) and the pre-1981 chassis identity (task 1.13j).
+
 **The back-capture of a paper vehicle file (MIG-01, task 1.13, ADR-0054).** Not one of the bureau's 54 services: the migration's
 own, offered where vehicles are registered. Seeded as configuration (`seed/back-capture-service.ts`): the form
 `vehicle-back-capture` (the paper file's reference and its scan, both required; the registration's owner and vehicle fields; the

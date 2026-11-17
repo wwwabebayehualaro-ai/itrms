@@ -1,5 +1,5 @@
 /**
- * The Phase 0 templates: application copy, receipt, driver-licence card, exam result sheet, and the vehicle registration certificate (the temporary libre, ADR-0050). Their layouts stand in until a
+ * The Phase 0 templates: application copy, receipt, driver-licence card, exam result sheet, the vehicle registration certificate (the temporary libre, ADR-0050), and the three letters of an ownership transfer (task 1.4b). Their layouts stand in until a
  * bureau's forms and permission to copy them are known (docs/demo-plan.md); every word is the template's own, in Amharic and
  * English. Nothing here names a real office: that comes from the unit's header.
  */
@@ -272,6 +272,216 @@ body{font-size:6.5pt;line-height:1.25}
 {% if header.stamp %}<img class="stamp" src="{{ header.stamp }}" alt="">{% endif %}${QR}`
         }
     })),
+    {
+        key: 'vehicle-transfer-justice-letter',
+        name: t('ውል ለማረጋገጥ የሚጻፍ ደብዳቤ', 'Letter to authenticate the contract'),
+        version: {
+            paper: 'A4',
+            dataSchema: 'vehicle-transfer-letter.v1',
+            strings: {
+                to: t('ለ', 'To'),
+                number: t('ቁጥር', 'No.'),
+                issuedOn: t('ቀን', 'Date'),
+                caseNumber: t('የጉዳይ ቁጥር', 'Case number'),
+                validUntil: t('ደብዳቤው የሚያገለግለው እስከ', 'This letter stands until'),
+                subject: t('ጉዳዩ', 'Subject'),
+                reason: t('የዝውውሩ ምክንያት', 'Reason for the transfer'),
+                plate: t('የሰሌዳ ቁጥር', 'Plate'),
+                chassis: t('የሻሲ ቁጥር', 'Chassis number'),
+                engine: t('የሞተር ቁጥር', 'Engine number'),
+                makeModel: t('ሰሪና ሞዴል', 'Make and model'),
+                year: t('የተሠራበት ዓመት', 'Year made'),
+                category: t('የተሽከርካሪው ዓይነት', 'Vehicle type'),
+                use: t('አገልግሎት', 'Service'),
+                sellers: t('የአሁኑ ባለቤት (ሰጪ)', 'Current owner (transferor)'),
+                buyers: t('አዲሱ ባለቤት (ተቀባይ)', 'New owner (transferee)'),
+                signature: t('የሰጪው ባለሥልጣን ፊርማ', "Issuing officer's signature"),
+                title: t('የተሽከርካሪ ባለቤትነት ዝውውር ውል ማረጋገጫ ጥያቄ', 'Request to authenticate a vehicle transfer contract'),
+                subjectText: t(
+                    'የተሽከርካሪ ባለቤትነት (ስም) ዝውውር ውል እንዲረጋገጥ ስለመጠየቅ',
+                    'Request to authenticate the contract of a vehicle ownership transfer'
+                ),
+                ask: t(
+                    'ከላይ የተመለከተው ተሽከርካሪ የባለቤትነት ዝውውር እንዲፈጸም ጥያቄ ቀርቦልናል። ስለዚህ በአሁኑ ባለቤትና በአዲሱ ባለቤት መካከል የሚደረገውን የዝውውር ውል (ሰነድ) እንዲያረጋግጡልን እንጠይቃለን።',
+                    'A request has been made to transfer the ownership of the vehicle above. We ask you to authenticate the contract (deed) of the transfer between the current owner and the new owner.'
+                ),
+                noEncumbrance: t(
+                    'በመዝገባችን መሠረት ተሽከርካሪው ዕዳ ዕገዳ የለበትም፤ ይህ የተረጋገጠው እስከ',
+                    'According to our register the vehicle has no debt or encumbrance as of'
+                )
+            },
+            body: `${STYLE}${HEAD}<p class="title">{{ t.title }}</p>
+<div class="facts">
+<div><span class="term">{{ t.number }}:</span> <span data-number>{{ number }}</span></div>
+<div><span class="term">{{ t.issuedOn }}:</span> {{ issuedOn | ethdate }}</div>
+<div><span class="term">{{ t.caseNumber }}:</span> {{ caseNumber }}</div>
+<div><span class="term">{{ t.validUntil }}:</span> <span data-valid-until>{{ validUntil | ethdate }}</span></div>
+</div>
+<p><span class="term">{{ t.to }}:</span> {{ addressee }}</p>
+<p><span class="term">{{ t.subject }}:</span> {{ t.subjectText }}</p>
+<div class="facts">
+<div><span class="term">{{ t.plate }}:</span> {{ vehicle.plate }}</div>
+<div><span class="term">{{ t.chassis }}:</span> {{ vehicle.chassisNumber }}</div>
+{% if vehicle.engineNumber %}<div><span class="term">{{ t.engine }}:</span> {{ vehicle.engineNumber }}</div>{% endif %}
+<div><span class="term">{{ t.makeModel }}:</span> {{ vehicle.make }} {{ vehicle.model }}</div>
+<div><span class="term">{{ t.year }}:</span> {{ vehicle.modelYear }}</div>
+<div><span class="term">{{ t.category }}:</span> {{ vehicle.category | text }}</div>
+<div><span class="term">{{ t.use }}:</span> {{ vehicle.use | text }}</div>
+<div><span class="term">{{ t.reason }}:</span> {{ acquiredBy | text }}</div>
+</div>
+<table><thead><tr><th>{{ t.sellers }}</th><th>{{ t.buyers }}</th></tr></thead><tbody>
+<tr><td>{% for s in sellers %}<div data-seller>{{ s.name }}</div>{% endfor %}</td><td>{% for b in buyers %}<div data-buyer>{{ b.name }}</div>{% endfor %}</td></tr>
+</tbody></table>
+<p>{{ t.ask }}</p>
+<p data-no-encumbrance>{{ t.noEncumbrance }} {{ issuedOn | ethdate }}.</p>
+<p class="foot">{{ t.signature }}: ______________________</p>
+{% if header.stamp %}<img class="stamp" src="{{ header.stamp }}" alt="">{% endif %}${QR}`
+        }
+    },
+    {
+        key: 'vehicle-transfer-revenue-letter',
+        name: t('የተሽከርካሪ ዋጋ የሚገለጽበት ደብዳቤ', 'Letter giving the vehicle value'),
+        version: {
+            paper: 'A4',
+            dataSchema: 'vehicle-transfer-letter.v1',
+            strings: {
+                to: t('ለ', 'To'),
+                number: t('ቁጥር', 'No.'),
+                issuedOn: t('ቀን', 'Date'),
+                caseNumber: t('የጉዳይ ቁጥር', 'Case number'),
+                validUntil: t('ደብዳቤው የሚያገለግለው እስከ', 'This letter stands until'),
+                subject: t('ጉዳዩ', 'Subject'),
+                reason: t('የዝውውሩ ምክንያት', 'Reason for the transfer'),
+                plate: t('የሰሌዳ ቁጥር', 'Plate'),
+                chassis: t('የሻሲ ቁጥር', 'Chassis number'),
+                engine: t('የሞተር ቁጥር', 'Engine number'),
+                makeModel: t('ሰሪና ሞዴል', 'Make and model'),
+                year: t('የተሠራበት ዓመት', 'Year made'),
+                category: t('የተሽከርካሪው ዓይነት', 'Vehicle type'),
+                use: t('አገልግሎት', 'Service'),
+                sellers: t('የአሁኑ ባለቤት (ሰጪ)', 'Current owner (transferor)'),
+                buyers: t('አዲሱ ባለቤት (ተቀባይ)', 'New owner (transferee)'),
+                signature: t('የሰጪው ባለሥልጣን ፊርማ', "Issuing officer's signature"),
+                title: t('የተሽከርካሪ ባለቤትነት ዝውውር ዋጋ ማሳወቂያ', 'Notice of the value set for a vehicle ownership transfer'),
+                subjectText: t(
+                    'በተሽከርካሪ ባለቤትነት (ስም) ዝውውር ላይ የሚከፈለው የቴምብር ቀረጥ እንዲወሰን ስለመጠየቅ',
+                    'Request to determine the stamp duty on a vehicle ownership transfer'
+                ),
+                ask: t(
+                    'ከላይ የተመለከተው ተሽከርካሪ የባለቤትነት ዝውውር እንዲፈጸም ጥያቄ ቀርቦልናል። ተሽከርካሪው ተመርምሮ የዋጋ ግምት ኮሚቴ የወሰነውን ዋጋ ከታች እንልካለን።',
+                    'A request has been made to transfer the ownership of the vehicle above. The vehicle was inspected, and we send below the value the valuation committee set.'
+                ),
+                valuation: t('የዋጋ ግምት', 'Valuation'),
+                valuedOn: t('የተገመተበት ቀን', 'Valued on'),
+                purchasePrice: t('የግዢ ዋጋ (ብር)', 'Purchase price (Birr)'),
+                marketValue: t('የገበያ ዋጋ (ብር)', 'Market value (Birr)'),
+                contractValue: t('በውሉ የተጠቀሰ ዋጋ (ብር)', 'Value stated in the contract (Birr)'),
+                committeeValue: t('ኮሚቴው የወሰነው ዋጋ (ብር)', 'Value set by the committee (Birr)'),
+                valuers: t('የገማቾች ስም', 'Valuers'),
+                inspectionNote: t('የምርመራ ማስታወሻ', 'Inspection note'),
+                dutyNote: t(
+                    'በተወሰነው ዋጋ ላይ የቴምብር ቀረጥ ይከፈላል፤ የቀረጡን መጠን የሚወስነው የገቢዎች ጽ/ቤት ነው።',
+                    "Stamp duty is to be paid on the value set: the duty is the revenue office's to determine."
+                )
+            },
+            body: `${STYLE}${HEAD}<p class="title">{{ t.title }}</p>
+<div class="facts">
+<div><span class="term">{{ t.number }}:</span> <span data-number>{{ number }}</span></div>
+<div><span class="term">{{ t.issuedOn }}:</span> {{ issuedOn | ethdate }}</div>
+<div><span class="term">{{ t.caseNumber }}:</span> {{ caseNumber }}</div>
+<div><span class="term">{{ t.validUntil }}:</span> <span data-valid-until>{{ validUntil | ethdate }}</span></div>
+</div>
+<p><span class="term">{{ t.to }}:</span> {{ addressee }}</p>
+<p><span class="term">{{ t.subject }}:</span> {{ t.subjectText }}</p>
+<div class="facts">
+<div><span class="term">{{ t.plate }}:</span> {{ vehicle.plate }}</div>
+<div><span class="term">{{ t.chassis }}:</span> {{ vehicle.chassisNumber }}</div>
+{% if vehicle.engineNumber %}<div><span class="term">{{ t.engine }}:</span> {{ vehicle.engineNumber }}</div>{% endif %}
+<div><span class="term">{{ t.makeModel }}:</span> {{ vehicle.make }} {{ vehicle.model }}</div>
+<div><span class="term">{{ t.year }}:</span> {{ vehicle.modelYear }}</div>
+<div><span class="term">{{ t.category }}:</span> {{ vehicle.category | text }}</div>
+<div><span class="term">{{ t.use }}:</span> {{ vehicle.use | text }}</div>
+<div><span class="term">{{ t.reason }}:</span> {{ acquiredBy | text }}</div>
+</div>
+<table><thead><tr><th>{{ t.sellers }}</th><th>{{ t.buyers }}</th></tr></thead><tbody>
+<tr><td>{% for s in sellers %}<div data-seller>{{ s.name }}</div>{% endfor %}</td><td>{% for b in buyers %}<div data-buyer>{{ b.name }}</div>{% endfor %}</td></tr>
+</tbody></table>
+<p>{{ t.ask }}</p>
+{% if valuation %}<table><thead><tr><th colspan="2">{{ t.valuation }}</th></tr></thead><tbody>
+<tr><td>{{ t.valuedOn }}</td><td>{{ valuation.valuedOn | ethdate }}</td></tr>
+{% if valuation.purchasePriceSantim %}<tr><td>{{ t.purchasePrice }}</td><td class="num">{{ valuation.purchasePriceSantim | birr }}</td></tr>{% endif %}
+{% if valuation.marketValueSantim %}<tr><td>{{ t.marketValue }}</td><td class="num">{{ valuation.marketValueSantim | birr }}</td></tr>{% endif %}
+{% if valuation.contractValueSantim %}<tr><td>{{ t.contractValue }}</td><td class="num">{{ valuation.contractValueSantim | birr }}</td></tr>{% endif %}
+<tr><th>{{ t.committeeValue }}</th><th class="num" data-value>{{ valuation.committeeValueSantim | birr }}</th></tr>
+{% if valuation.valuers %}<tr><td>{{ t.valuers }}</td><td>{{ valuation.valuers }}</td></tr>{% endif %}
+{% if valuation.inspectionNote %}<tr><td>{{ t.inspectionNote }}</td><td>{{ valuation.inspectionNote }}</td></tr>{% endif %}
+</tbody></table>{% endif %}
+<p data-duty-note>{{ t.dutyNote }}</p>
+<p class="foot">{{ t.signature }}: ______________________</p>
+{% if header.stamp %}<img class="stamp" src="{{ header.stamp }}" alt="">{% endif %}${QR}`
+        }
+    },
+    {
+        key: 'vehicle-transfer-tax-letter',
+        name: t('የንግድ ግብር ከፋይ ለማስመዝገብ የሚጻፍ ደብዳቤ', 'Letter to register business taxpayers'),
+        version: {
+            paper: 'A4',
+            dataSchema: 'vehicle-transfer-letter.v1',
+            strings: {
+                to: t('ለ', 'To'),
+                number: t('ቁጥር', 'No.'),
+                issuedOn: t('ቀን', 'Date'),
+                caseNumber: t('የጉዳይ ቁጥር', 'Case number'),
+                validUntil: t('ደብዳቤው የሚያገለግለው እስከ', 'This letter stands until'),
+                subject: t('ጉዳዩ', 'Subject'),
+                reason: t('የዝውውሩ ምክንያት', 'Reason for the transfer'),
+                plate: t('የሰሌዳ ቁጥር', 'Plate'),
+                chassis: t('የሻሲ ቁጥር', 'Chassis number'),
+                engine: t('የሞተር ቁጥር', 'Engine number'),
+                makeModel: t('ሰሪና ሞዴል', 'Make and model'),
+                year: t('የተሠራበት ዓመት', 'Year made'),
+                category: t('የተሽከርካሪው ዓይነት', 'Vehicle type'),
+                use: t('አገልግሎት', 'Service'),
+                sellers: t('የአሁኑ ባለቤት (ሰጪ)', 'Current owner (transferor)'),
+                buyers: t('አዲሱ ባለቤት (ተቀባይ)', 'New owner (transferee)'),
+                signature: t('የሰጪው ባለሥልጣን ፊርማ', "Issuing officer's signature"),
+                title: t('የንግድ ግብር ከፋይ ምዝገባ ጥያቄ', 'Request to register business taxpayers'),
+                subjectText: t(
+                    'የተሽከርካሪው አዲስ ባለቤቶች በንግድ ግብር ከፋይነት እንዲመዘገቡ ስለመጠየቅ',
+                    'Request to register the vehicle’s new owners as business taxpayers'
+                ),
+                ask: t(
+                    'ከላይ የተመለከተው ተሽከርካሪ ለንግድ አገልግሎት የሚውል (ኮድ 3) ነው። የባለቤትነት ዝውውር እንዲፈጸም ጥያቄ ቀርቦልናል፤ ስለዚህ አዲሶቹ ባለቤቶች በንግድ ግብር ከፋይነት እንዲመዘገቡ እንጠይቃለን።',
+                    'The vehicle above is in commercial service (code 3). A request has been made to transfer its ownership, so we ask you to register the new owners as business taxpayers.'
+                )
+            },
+            body: `${STYLE}${HEAD}<p class="title">{{ t.title }}</p>
+<div class="facts">
+<div><span class="term">{{ t.number }}:</span> <span data-number>{{ number }}</span></div>
+<div><span class="term">{{ t.issuedOn }}:</span> {{ issuedOn | ethdate }}</div>
+<div><span class="term">{{ t.caseNumber }}:</span> {{ caseNumber }}</div>
+<div><span class="term">{{ t.validUntil }}:</span> <span data-valid-until>{{ validUntil | ethdate }}</span></div>
+</div>
+<p><span class="term">{{ t.to }}:</span> {{ addressee }}</p>
+<p><span class="term">{{ t.subject }}:</span> {{ t.subjectText }}</p>
+<div class="facts">
+<div><span class="term">{{ t.plate }}:</span> {{ vehicle.plate }}</div>
+<div><span class="term">{{ t.chassis }}:</span> {{ vehicle.chassisNumber }}</div>
+{% if vehicle.engineNumber %}<div><span class="term">{{ t.engine }}:</span> {{ vehicle.engineNumber }}</div>{% endif %}
+<div><span class="term">{{ t.makeModel }}:</span> {{ vehicle.make }} {{ vehicle.model }}</div>
+<div><span class="term">{{ t.year }}:</span> {{ vehicle.modelYear }}</div>
+<div><span class="term">{{ t.category }}:</span> {{ vehicle.category | text }}</div>
+<div><span class="term">{{ t.use }}:</span> {{ vehicle.use | text }}</div>
+<div><span class="term">{{ t.reason }}:</span> {{ acquiredBy | text }}</div>
+</div>
+<table><thead><tr><th>{{ t.sellers }}</th><th>{{ t.buyers }}</th></tr></thead><tbody>
+<tr><td>{% for s in sellers %}<div data-seller>{{ s.name }}</div>{% endfor %}</td><td>{% for b in buyers %}<div data-buyer>{{ b.name }}</div>{% endfor %}</td></tr>
+</tbody></table>
+<p data-business-taxpayer>{{ t.ask }}</p>
+<p class="foot">{{ t.signature }}: ______________________</p>
+{% if header.stamp %}<img class="stamp" src="{{ header.stamp }}" alt="">{% endif %}${QR}`
+        }
+    },
     {
         key: 'exam-result',
         name: t('የፈተና ውጤት ማሳወቂያ', 'Exam result sheet'),

@@ -18,6 +18,7 @@
  *   migration_samples      a migrated vehicle drawn for a re-check against its scan, and the re-check, class T at the capturing
  *                          office.
  *   migration_paper_counts the zone's count of paper files for an office and plate code (task 1.13h), class T at the office.
+ *   ownership_transfers    an ownership transfer's valuation, letters, papers and result (task 1.4b), class T at the handling office.
  *   campaigns              a unit's campaign over a span of days (task 1.13i), class C: the running unit and the units above it
  *                          write it and the offices below it read it, as they must to see what targets them.
  *   campaign_targets       an office's target in a campaign, class T at the office; set by a unit above it.
@@ -28,12 +29,14 @@
  */
 import { sql } from 'drizzle-orm';
 import {
+    bigint,
     boolean,
     check,
     date,
     index,
     integer,
     jsonb,
+    numeric,
     pgSchema,
     text,
     timestamp,
@@ -61,6 +64,7 @@ import {
     SAMPLE_OUTCOMES,
     SAMPLE_SOURCES,
     SAMPLE_STATES,
+    TRANSFER_ACQUIRED_BY,
     type ImportRowError
 } from '../contracts';
 
@@ -390,6 +394,84 @@ export const bolos = withRls(
         )
     ),
     'registry'
+);
+
+/**
+ * An ownership transfer of a case (task 1.4b, DVC-13), one row a case: the committee's valuation, the day the letters went out,
+ * the papers that came back and, once the owners changed in the register, what that made. Class T at the handling office: the
+ * region reads the vehicle and its owners (the registry's), not the case's working. Money is whole santim, kept as the committee
+ * set it; ITRMS works out no duty from it. The foreign keys to the case and to the register's tables are in the migration.
+ */
+export const ownershipTransfers = withRls(
+    audited(
+        competencySchema.table(
+            'ownership_transfers',
+            {
+                ...baseColumns(),
+                ...registry(),
+                caseId: uuid('case_id').notNull(),
+                vehicleId: uuid('vehicle_id').notNull(),
+                /** the period the request saw as open: the sellers' */
+                sellerOwnershipId: uuid('seller_ownership_id').notNull(),
+                acquiredBy: text('acquired_by', { enum: TRANSFER_ACQUIRED_BY }).notNull(),
+                /** a code-3 vehicle (commercial service): its buyers register with the tax office */
+                code3: boolean('code3').notNull().default(false),
+                valuedOn: date('valued_on'),
+                valuedBy: uuid('valued_by'),
+                inspectionNote: text('inspection_note'),
+                purchasePriceSantim: bigint('purchase_price_santim', { mode: 'bigint' }),
+                depreciationPercent: numeric('depreciation_percent', { precision: 5, scale: 2 }),
+                marketValueSantim: bigint('market_value_santim', { mode: 'bigint' }),
+                committeeValueSantim: bigint('committee_value_santim', { mode: 'bigint' }),
+                contractValueSantim: bigint('contract_value_santim', { mode: 'bigint' }),
+                valuers: text('valuers'),
+                lettersIssuedOn: date('letters_issued_on'),
+                contractReference: text('contract_reference'),
+                contractAuthenticatedOn: date('contract_authenticated_on'),
+                stampDutyReceipt: text('stamp_duty_receipt'),
+                stampDutyPaidOn: date('stamp_duty_paid_on'),
+                taxRegistrationReference: text('tax_registration_reference'),
+                courtReference: text('court_reference'),
+                evidenceRecordedBy: uuid('evidence_recorded_by'),
+                evidenceRecordedAt: timestamp('evidence_recorded_at', { withTimezone: true }),
+                /** what the transfer made: the buyers' ownership period, the libre it cancelled and the one it issued */
+                buyerOwnershipId: uuid('buyer_ownership_id'),
+                cancelledLibreId: uuid('cancelled_libre_id'),
+                newLibreId: uuid('new_libre_id'),
+                transferredOn: date('transferred_on'),
+                transferredBy: uuid('transferred_by')
+            },
+            (t) => [
+                uniqueIndex('ownership_transfers_case_uq').on(t.caseId),
+                index('ownership_transfers_vehicle_idx').on(t.vehicleId),
+                index('ownership_transfers_handling_org_path_gist').using('gist', t.handlingOrgPath),
+                check(
+                    'ownership_transfers_amounts_check',
+                    sql`coalesce(purchase_price_santim, 1) > 0 and coalesce(market_value_santim, 1) > 0
+                        and coalesce(committee_value_santim, 1) > 0 and coalesce(contract_value_santim, 1) > 0
+                        and coalesce(depreciation_percent, 0) between 0 and 100`
+                ),
+                check(
+                    'ownership_transfers_text_check',
+                    sql`coalesce(length(inspection_note), 1) between 1 and 500 and coalesce(length(valuers), 1) between 1 and 200
+                        and coalesce(length(contract_reference), 1) between 1 and 60
+                        and coalesce(length(stamp_duty_receipt), 1) between 1 and 60
+                        and coalesce(length(tax_registration_reference), 1) between 1 and 60
+                        and coalesce(length(court_reference), 1) between 1 and 60`
+                ),
+                check(
+                    'ownership_transfers_result_check',
+                    sql`(buyer_ownership_id is null) = (transferred_on is null) and (transferred_on is null) = (transferred_by is null)`
+                ),
+                check(
+                    'ownership_transfers_evidence_check',
+                    sql`(evidence_recorded_by is null) = (evidence_recorded_at is null)`
+                )
+            ]
+        )
+    ),
+    'transaction',
+    'handling_org_path'
 );
 
 /** A failed item of an inspection: its key, as the checklist names it, and the inspector's remark. */

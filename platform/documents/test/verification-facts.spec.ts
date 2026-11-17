@@ -23,4 +23,14 @@ describe('the masked holder', () => {
             factsOf('vehicle-registration-certificate.v1', { owners: [{ name: 'Abebe Kebede', address: null }] })
         ).toEqual({ holder: 'Abebe Kebede', validUntil: null });
     });
+
+    it("names a transfer letter's buyers, masked, and stands to its last day", () => {
+        const facts = factsOf('vehicle-transfer-letter.v1', {
+            validUntil: '2026-12-04',
+            sellers: [{ name: 'Kebede Alemu' }],
+            buyers: [{ name: 'Abebe Kebede' }, { name: 'Sara Tadesse' }]
+        });
+        expect(facts).toEqual({ holder: 'Abebe Kebede, Sara Tadesse', validUntil: '2026-12-04' });
+        expect(maskedName(facts.holder ?? '')).toBe('A**** K*****, S*** T******');
+    });
 });

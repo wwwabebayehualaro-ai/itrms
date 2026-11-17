@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-11-16",
+  "updated": "2026-11-17",
   "statuses": [
     "planned",
     "ready",
@@ -1821,6 +1821,16 @@
           "notes": "Split from 1.13g on 2026-11-15. Design (2026-11-16): competency.campaigns is RLS class config (the running unit's subtree reads it and the units above; only the subtree writes), campaign_targets class T at the office (a sibling sees the zone's campaign, never another office's target). Counts from typed tables limited by hand to kernel.ctx_scope() and the campaign's subtree (both sources are class R). Assumption: a woreda sees every campaign of the units above it, targeting it or not; the kind's service is not checked when a target is set."
         },
         {
+          "id": "1.13j",
+          "title": "Paper-record migration, part 6: chassis identity of pre-1981 vehicles",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Moved from 1.4b on 2026-11-17; needs the zone answer whether the make is enough."
+        },
+        {
           "id": "1.4a",
           "title": "Transfers, part 1: encumbrances",
           "status": "done",
@@ -1843,12 +1853,34 @@
         {
           "id": "1.4b",
           "title": "Transfers, part 2: ownership transfer",
+          "status": "in review",
+          "branch": "task/1.4b-ownership-transfer",
+          "commits": [
+            "4af8a0f",
+            "26dbd41",
+            "0cd4ad2",
+            "f6336c1"
+          ],
+          "evidence": [
+            "CI run 44011994700 (PR #77, f6336c1) → all 10 jobs green",
+            "integration (real PostgreSQL 16, CI) → 864 passed in 47 files, incl. ownership-transfer.int.spec.ts 24 tests: a sale through the booklet (the buyers hold the vehicle; the sellers' period ends; the old libre cancelled and its certificate revoked libre_ownership_transferred; the new libre and certificate for the buyers, replaces_id, booklet serial; the transfer step run twice gives one of each); audit rows in the transfer's request; the letters (justice for a sale or gift, revenue always, tax for code 3; numbered from the office counter, committee value in santim); the block of an open transfer on a plate exchange and a second transfer, and of an open exchange on a transfer; holds at filing, letters, payment and transfer; maker-checker; owners changed under the case; a buyer listed twice refused at filing; no number series refused at filing; class T isolation (own, zone, sibling, other region, no context); S3 contract suite 20 passed",
+            "goldens (platform/documents/test/render.spec.ts): the justice, revenue (no duty or percentage) and tax letters in am and en; the registration certificate of a transferred vehicle's new owners",
+            "e2e (Playwright, CI) → 55 passed + 4 passed, 1 flaky unrelated (forms/builder-publish drag, passed on retry; known follow-up to 0.26)",
+            "unit (CI) → 69/69 turbo tasks, 1,206 tests (competency transfer-service.spec.ts 11; vehicles 109; fees 77); lint, typecheck, boundaries, check:slices, i18n:check (am/en); migration 0084 applied from zero on CI; Semgrep, gitleaks, Trivy clean",
+            "architect (Opus) design; task-verifier: all three Done-when items met (it missed the libre golden, which is render.spec.ts 'registration certificate: the new owners of a transferred vehicle'); reviewer (Fable) on 26dbd41 → no high, 2 medium (a duplicated buyer refused only after payment; the plate exchange gated on the certificate counter) and 5 low: both mediums and 2 lows fixed in 0cd4ad2 (a correction to another vehicle; letters in the approval's separation of duties), 3 lows moved to follow-ups (timeout letter revocation → 1.4b2; the inspector's issued-document:read is office-wide → product owner; the letters' 30-day validity not enforced → zone question)"
+          ],
+          "blockers": [],
+          "notes": "Split from 1.4 on 2026-11-16 (one session each). Design (architect, 2026-11-17): new service DVC-13 (not in the source list) draft→review→valuation (competency.inspector, value in santim)→letters (justice for sale/gift, revenue always, tax for code 3; numbered, valid 30 days by setting)→outside (authenticated contract, stamp duty receipt, tax registration: references only, ITRMS never computes their taxes)→payment→approval→transfer (the giving step: closes the seller period, cancels the old libre and revokes its certificate, opens the buyers period, issues the new libre and certificate in one transaction)→booklet (a new federal booklet from stock). Encumbrance check on filing, letters, before payment and before the transfer. An open transfer claims the vehicle (vehicle_in_open_case arm). Follow-up 1 (libre left issued) resolved with a deferred libre_in_force trigger; follow-up 3 counter check at filing/approval here, counters on enable in 1.4b2; publish rules in 1.4b2; chassis identity to 1.13j. Assumptions to confirm: a new booklet on transfer; fees 1,000 + 2,000 Birr (demo)."
+        },
+        {
+          "id": "1.4b2",
+          "title": "Transfers, part 2b: publish rules and counters on enable",
           "status": "planned",
           "branch": null,
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split from 1.4 on 2026-11-16 (one session each)."
+          "notes": "Split from 1.4b on 2026-11-17."
         },
         {
           "id": "1.4c",
@@ -3554,7 +3586,7 @@
     {
       "foundIn": "1.2b",
       "item": "Chassis uniqueness for pre-1981 'other' numbers (vehicles_vin_uq on the folded key alone): scope it or add the make",
-      "movedTo": "1.4b"
+      "movedTo": "1.13j"
     },
     {
       "foundIn": "1.2b",
@@ -3818,12 +3850,27 @@
     {
       "foundIn": "1.4a",
       "item": "The encumbrance block exists only where a workflow names vehicles.checkEncumbrances: make ServicesService.publish refuse a version whose giving transition lacks the check (like unpaidGiving) and validate its argument against ENCUMBRANCE_CONFLICTS",
-      "movedTo": "1.4b"
+      "movedTo": "1.4b2"
     },
     {
       "foundIn": "1.4a",
       "item": "A refused release orphans its letter file (linked, never expiring, no longer downloadable): keep the refused letter reachable as history, or unlink and expire it",
       "movedTo": "1.16"
+    },
+    {
+      "foundIn": "1.4b",
+      "item": "A transfer closed by the payment timeout leaves its letters valid until they expire: name the revoke effect on the timeout and let revokeLetters run as the system actor (reviewer, low)",
+      "movedTo": "1.4b2"
+    },
+    {
+      "foundIn": "1.4b",
+      "item": "competency.inspector's issued-document:read is office-wide, not limited to the case's documents (reviewer, low): accept and document, or narrow it",
+      "movedTo": "product owner decision"
+    },
+    {
+      "foundIn": "1.4b",
+      "item": "The transfer letters' 30-day validity is printed and shown by the QR but not enforced on the contract and duty receipt dates (reviewer, low): does it bind?",
+      "movedTo": "zone question (discovery)"
     }
   ]
 }

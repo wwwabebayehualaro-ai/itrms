@@ -12,6 +12,8 @@ export { BOLO_EFFECTS } from './bolo.effects';
 export { BoloService, type BoloInput } from './bolo.service';
 export { EXCHANGE_EFFECTS } from './exchange.effects';
 export { PlateExchangeService, type ExchangeInput } from './exchange.service';
+export { TRANSFER_EFFECTS_LIST } from './transfer.effects';
+export { OwnershipTransferService, type TransferInput } from './transfer.service';
 export { REGISTRATION_EFFECTS } from './registration.effects';
 export { LicencesService } from './licences.service';
 export { VehicleRegistrationService, type RegistrationInput } from './registration.service';

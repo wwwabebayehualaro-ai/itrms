@@ -19,10 +19,16 @@ import { importDocumentTemplates } from '@itrms/documents/seed';
 import { StationeryStock } from '@itrms/fees/api';
 import { importFeeRules, importStationeryDemo, parseFeeRules } from '@itrms/fees/seed';
 import { createDatabase, type Database, type DbContext, type Tx } from '@itrms/kernel/db';
+import { setUpCounter } from '@itrms/kernel/numbering';
 import { contextFor, TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import type { OrgUnit } from '@itrms/kernel/org';
 import { PlateStock } from '@itrms/vehicles/api';
-import { nationalPlateText, vinCheckDigit } from '@itrms/vehicles/contracts';
+import {
+    nationalPlateText,
+    REGISTRATION_CERTIFICATE_COUNTER,
+    REGISTRATION_CERTIFICATE_PATTERN,
+    vinCheckDigit
+} from '@itrms/vehicles/contracts';
 import {
     importPlateStockDemo,
     importVehicleCategories,
@@ -896,6 +902,15 @@ describe('the hardening from the 1.2b review (task 1.2e)', () => {
                     .rows[0]?.n
         );
         expect(seen).toBe(0);
+        // Areka can number a certificate (the filing checks the counter first, task 1.4b), so the claim is what refuses
+        await api.installer.scoped({}, (tx) =>
+            setUpCounter(tx, {
+                key: REGISTRATION_CERTIFICATE_COUNTER,
+                unitId: areka.id,
+                regionId: areka.regionId,
+                pattern: REGISTRATION_CERTIFICATE_PATTERN
+            })
+        );
         await expect(
             inTx(areaPlace, (tx) => registration.check(tx, areaPlace, { ...claimed, owners: [{ ownerPerson: owner }] }))
         ).rejects.toMatchObject({ code: 'not_eligible' });

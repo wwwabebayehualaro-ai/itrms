@@ -105,6 +105,22 @@ rules:
             - { value: private, amount: '516100' }
             - { value: commercial, amount: '607000' }
           otherwise: '516100'
+  - key: dvc-13-ownership-transfer
+    name: { am: የባለቤትነት (ስም) ዝውውር, en: Ownership transfer }
+    document:
+      schemaVersion: 1
+      demo: true
+      basis: "the zone's fee sheet: name change 1,000 (L), new libre 2,000 (M); to confirm (R2)"
+      inputs: {}
+      lines:
+        - key: transfer
+          label: { am: የስም ዝውውር ክፍያ, en: Name transfer }
+          kind: fixed
+          amount: '100000'
+        - key: libre
+          label: { am: የአዲስ ሊብሬ ክፍያ, en: New libre }
+          kind: fixed
+          amount: '200000'
   - key: dvc-01-registration
     name: { am: አዲስ የተሽከርካሪ ምዝገባ, en: New vehicle registration }
     document:

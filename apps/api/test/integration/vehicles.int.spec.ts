@@ -687,6 +687,50 @@ describe('the ownership history', () => {
         ).rejects.toMatchObject({ status: 422 });
     });
 
+    it('cancels the libre in force with the period it was written for, and points the next at it (task 1.4b)', async () => {
+        const v = await newVehicle(units.damot, { chassisNumber: 'LIBTRANS-01' });
+        const ctx = ctxOf(units.damot);
+        await app.scoped(ctx, (tx) =>
+            registry.recordLibre(tx, ctx, v.id, { number: 'LB-TR-0001', issuedOn: '2020-03-05' })
+        );
+        const before = await app.scoped(ctx, (tx) => reads.get(tx, v.id));
+        const transfer = ctxOf(units.damot);
+        await app.scoped(transfer, (tx) =>
+            registry.transferOwnership(tx, transfer, v.id, before.version, {
+                since: '2022-05-10',
+                owners: [{ kind: 'person', id: people.bekele }],
+                acquiredBy: 'sale'
+            })
+        );
+        expect(await auditOf(transfer.requestId ?? '')).toContain('vehicles.libres:update');
+        const after = await app.scoped(ctx, (tx) => reads.get(tx, v.id));
+        expect(after.libres.map((l) => [l.number, l.status])).toEqual([['LB-TR-0001', 'cancelled']]);
+        // the next libre may name the cancelled one it replaces, and only a libre of this vehicle that is out of force
+        const cancelled = after.libres[0];
+        const other = await newVehicle(units.damot, { chassisNumber: 'LIBTRANS-02' });
+        await app.scoped(ctx, (tx) =>
+            registry.recordLibre(tx, ctx, other.id, { number: 'LB-TR-0002', issuedOn: '2020-03-05' })
+        );
+        const foreign = (await app.scoped(ctx, (tx) => reads.get(tx, other.id))).libres[0];
+        for (const replacesId of [foreign?.id ?? '', randomUUID()])
+            await expect(
+                app.scoped(ctx, (tx) => registry.recordLibre(tx, ctx, v.id, { issuedOn: '2022-05-10', replacesId }))
+            ).rejects.toMatchObject({ status: 422, errors: [{ path: 'replacesId' }] });
+        await app.scoped(ctx, (tx) =>
+            registry.recordLibre(tx, ctx, v.id, {
+                number: 'LB-TR-0003',
+                issuedOn: '2022-05-10',
+                replacesId: cancelled?.id ?? ''
+            })
+        );
+        expect(
+            (await app.scoped(ctx, (tx) => reads.get(tx, v.id))).libres.map((l) => [l.number, l.status, l.replacesId])
+        ).toEqual([
+            ['LB-TR-0003', 'issued', cancelled?.id],
+            ['LB-TR-0001', 'cancelled', null]
+        ]);
+    });
+
     /** Raw writes as the API role, the way a bug or a future code path might: the database must refuse a broken chain. */
     describe('refuses at commit', () => {
         const insertPeriod = (tx: Tx, vehicleId: string, since: string, until: string | null) =>
@@ -786,6 +830,31 @@ describe('the ownership history', () => {
                 )
             );
             expect(refused).toMatch(/vehicle_owners_one_holder_check/);
+        });
+
+        it('a libre in force left on a period that has ended (libre_in_force, task 1.4b)', async () => {
+            const v = await newVehicle(units.damot, { chassisNumber: 'LIBFORCE-01' });
+            const ctx = ctxOf(units.damot);
+            await app.scoped(ctx, (tx) =>
+                registry.recordLibre(tx, ctx, v.id, { number: 'LB-FORCE-1', issuedOn: '2020-03-05' })
+            );
+            // the owners change by raw writes, as a bug or a future code path might leave it: the old libre still issued
+            const refused = await refusal(
+                app.scoped(ctx, async (tx) => {
+                    await closeOpen(tx, v.id, '2022-01-01');
+                    await insertPeriod(tx, v.id, '2022-01-01', null);
+                    await insertHolder(tx, v.id, '2022-01-01', people.bekele);
+                })
+            );
+            expect(refused).toMatch(/libre in force .* no longer hold it/);
+            // the same raw change with the libre cancelled in the same transaction is accepted
+            const ctx2 = ctxOf(units.damot);
+            await app.scoped(ctx2, async (tx) => {
+                await closeOpen(tx, v.id, '2022-01-01');
+                await insertPeriod(tx, v.id, '2022-01-01', null);
+                await insertHolder(tx, v.id, '2022-01-01', people.bekele);
+                await tx.execute(sql`update vehicles.libres set status = 'cancelled' where vehicle_id = ${v.id}`);
+            });
         });
     });
 

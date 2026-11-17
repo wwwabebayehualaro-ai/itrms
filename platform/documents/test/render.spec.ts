@@ -146,6 +146,38 @@ const SAMPLES: Record<DocumentDataSchema, Record<string, unknown>> = {
         temporaryUntil: null,
         insurance: { certificate: '1234567', insurer: 'Sample Insurance S.C.', until: '2027-10-31' }
     },
+    'vehicle-transfer-letter.v1': {
+        number: 'WOL-BODITI/OT/00007/2019',
+        issuedOn: '2026-11-04',
+        validUntil: '2026-12-04',
+        kind: 'revenue',
+        addressee: 'የናሙና ገቢዎች ጽ/ቤት',
+        caseNumber: 21,
+        acquiredBy: { am: 'ሽያጭ', en: 'Sale' },
+        vehicle: {
+            plate: 'ETH ABC 1234',
+            chassisNumber: 'JTDKB20U093051234',
+            engineNumber: '2NZ1234567',
+            make: 'Toyota',
+            model: 'Vitz',
+            modelYear: 2018,
+            category: { am: 'አውቶሞቢል', en: 'Automobile' },
+            use: { am: 'የግል', en: 'Private' }
+        },
+        sellers: [{ name: 'አበበ በቀለ' }],
+        buyers: [{ name: 'ሰላም ታደሰ' }, { name: 'ታደሰ ወልደ' }],
+        valuation: {
+            valuedOn: '2026-11-04',
+            committeeValueSantim: '35000000',
+            purchasePriceSantim: '30000000',
+            marketValueSantim: '36000000',
+            contractValueSantim: '32000000',
+            // the committee's working: kept on the document's data, never printed
+            depreciationPercent: '12.50',
+            valuers: 'የግምት ኮሚቴ',
+            inspectionNote: null
+        }
+    },
     'exam-result.v1': {
         sessionOn: '2026-11-04',
         serviceName: { am: 'አዲስ መንጃ ፈቃድ', en: 'New driver licence' },
@@ -160,6 +192,9 @@ const SCHEMA_OF: Record<string, DocumentDataSchema> = {
     'vehicle-registration-certificate': 'vehicle-registration-certificate.v1',
     'vehicle-bolo': 'vehicle-bolo.v1',
     'vehicle-temporary-bolo': 'vehicle-bolo.v1',
+    'vehicle-transfer-justice-letter': 'vehicle-transfer-letter.v1',
+    'vehicle-transfer-revenue-letter': 'vehicle-transfer-letter.v1',
+    'vehicle-transfer-tax-letter': 'vehicle-transfer-letter.v1',
     'exam-result': 'exam-result.v1'
 };
 
@@ -391,6 +426,64 @@ describe.skipIf(!chrome)('a PDF from Chrome', () => {
         expect(temporary.text).toContain('Temporary bolo');
         expect(temporary.text.replace(/\s/g, '')).toContain('WOL-BODITI/TB/00001');
         expect(temporary.text).toContain('stands only to the day shown');
+    }, 180_000);
+
+    it('transfer letters: the justice office is asked to authenticate and told the vehicle has no hold', async () => {
+        const data = { ...SAMPLES['vehicle-transfer-letter.v1'], kind: 'justice', valuation: null };
+        const am = await pdfOf('vehicle-transfer-justice-letter', data);
+        expect(am.pages).toBe(1);
+        expect(am.text).toContain('ዕዳ ዕገዳ');
+        expect(am.text.replace(/\s/g, '')).toContain('ETHABC1234');
+        expect(am.text).toContain('JTDKB20U093051234');
+        expect(am.text).toContain('ሰላም ታደሰ');
+        // 4 November 2026 is Tikimt 25, 2019 E.C.
+        expect(am.text).toContain('ጥቅምት');
+        const en = await pdfOf('vehicle-transfer-justice-letter', data, 'en');
+        expect(en.pages).toBe(1);
+        expect(en.text).toContain('no debt or encumbrance');
+        expect(en.text).toContain('authenticate the contract');
+    }, 180_000);
+
+    it('transfer letters: the revenue office gets the value the committee set, and no duty or percentage', async () => {
+        const data = SAMPLES['vehicle-transfer-letter.v1'];
+        for (const language of ['am', 'en']) {
+            const revenue = await pdfOf('vehicle-transfer-revenue-letter', data, language);
+            expect(revenue.pages).toBe(1);
+            expect(revenue.text).toContain('350,000.00');
+            expect(revenue.text).toContain('300,000.00');
+            expect(revenue.text).toContain('320,000.00');
+            expect(revenue.text).toContain('360,000.00');
+            // the duty is the revenue office's to determine: neither a rate nor an amount of it is printed
+            expect(revenue.text).not.toContain('%');
+            expect(revenue.text).not.toContain('12.5');
+        }
+        const en = await pdfOf('vehicle-transfer-revenue-letter', data, 'en');
+        expect(en.text).toContain("the duty is the revenue office's to determine");
+        const am = await pdfOf('vehicle-transfer-revenue-letter', data);
+        expect(am.text).toContain('የቴምብር ቀረጥ');
+    }, 180_000);
+
+    it('transfer letters: the tax office is asked to register the new owners as business taxpayers', async () => {
+        const data = { ...SAMPLES['vehicle-transfer-letter.v1'], kind: 'tax', valuation: null };
+        const am = await pdfOf('vehicle-transfer-tax-letter', data);
+        expect(am.pages).toBe(1);
+        expect(am.text).toContain('ግብር ከፋይ');
+        const en = await pdfOf('vehicle-transfer-tax-letter', data, 'en');
+        expect(en.pages).toBe(1);
+        expect(en.text).toContain('business taxpayers');
+    }, 180_000);
+
+    it('registration certificate: the new owners of a transferred vehicle', async () => {
+        const { text, pages } = await pdfOf('vehicle-registration-certificate', {
+            ...SAMPLES['vehicle-registration-certificate.v1'],
+            owners: [
+                { name: 'ሰላም ታደሰ', address: null },
+                { name: 'ታደሰ ወልደ', address: null }
+            ]
+        });
+        expect(pages).toBe(1);
+        expect(text).toContain('ሰላም ታደሰ');
+        expect(text).toContain('ታደሰ ወልደ');
     }, 180_000);
 
     it('exam result sheet', async () => {

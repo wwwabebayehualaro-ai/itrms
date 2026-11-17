@@ -33,9 +33,11 @@ import {
     importDemoData,
     importLicenceGrades,
     importLicenceServices,
+    importOwnershipTransferService,
     importVehicleServices,
     setUpBoloCounters,
-    setUpLicenceCounters
+    setUpLicenceCounters,
+    setUpTransferLetterCounters
 } from '@itrms/competency/seed';
 import { FieldCrypto } from '@itrms/kernel/crypto';
 import { OrganisationsService, PersonsService } from '@itrms/parties/api';
@@ -194,6 +196,9 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
                 backCapture: await importBackCaptureService(tx, where),
                 // the plate exchange (task 1.2c), after the fee rules
                 plateExchange: await importPlateExchangeService(tx, where),
+                // the ownership transfer (task 1.4b), after the fee rules; its letters' counters
+                ownershipTransfer: await importOwnershipTransferService(tx, where),
+                transferLetterCounters: await setUpTransferLetterCounters(tx, root.regionId),
                 // the bolo inspection (task 1.3a), after the fee rules; its temporary bolos' counters
                 bolo: await importBoloService(tx, where),
                 boloCounters: await setUpBoloCounters(tx, root.regionId),

@@ -252,6 +252,9 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
             'competency.migrationSamples',
             // their bulk import (task 1.13b), with the back-capture
             'competency.vehicleImports',
+            // the ownership transfer (task 1.4b), where the office keeps stationery; it shares
+            // order 14 with the plate exchange and sorts first by key
+            'competency.ownershipTransfers',
             // the plate exchange (task 1.2c), where the office keeps plate stock
             'competency.plateExchanges',
             'competency.licences',
@@ -294,6 +297,8 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
                 'competency.migrationSamples',
                 // their bulk import (task 1.13b), with the back-capture
                 'competency.vehicleImports',
+                // the ownership transfer (task 1.4b)
+                'competency.ownershipTransfers',
                 // the plate exchange (task 1.2c), where the office keeps plate stock
                 'competency.plateExchanges',
                 // the bolo inspection (task 1.3a): not a licensing service

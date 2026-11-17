@@ -10,7 +10,8 @@ import {
     CompetencyModule,
     EXCHANGE_EFFECTS,
     LICENCE_EFFECTS,
-    REGISTRATION_EFFECTS
+    REGISTRATION_EFFECTS,
+    TRANSFER_EFFECTS_LIST
 } from '@itrms/competency/api';
 import { COMPETENCY_EVENTS, COMPETENCY_SETTINGS } from '@itrms/competency/contracts';
 import competency from '@itrms/competency/manifest';
@@ -135,6 +136,7 @@ export const SLICES: ApiSlice[] = [
             ...REGISTRATION_EFFECTS,
             ...BACK_CAPTURE_EFFECTS,
             ...EXCHANGE_EFFECTS,
+            ...TRANSFER_EFFECTS_LIST,
             ...BOLO_EFFECTS
         ]),
         events: COMPETENCY_EVENTS,
