@@ -1920,13 +1920,14 @@
         {
           "id": "1.4b4",
           "title": "Transfers, part 2d: counters on enable",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.4b4-counters-on-enable",
           "commits": [
             "0140c3b",
             "1512342",
             "7a3d00d",
-            "ca4e172"
+            "ca4e172",
+            "6b098b5"
           ],
           "evidence": [
             "CI run 44083994448 (PR #80, 7a3d00d) → all 10 jobs green; run on ca4e172 (adds the receipt assertion) → integration, unit, Semgrep, gitleaks, Trivy and the rest green",
