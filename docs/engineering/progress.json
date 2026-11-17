@@ -1876,10 +1876,20 @@
         {
           "id": "1.4b3",
           "title": "Transfers, part 2c: strict transfer documents",
-          "status": "in progress",
+          "status": "in review",
           "branch": "task/1.4b3-strict-transfer-documents",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "567f021",
+            "55100d2",
+            "7714934"
+          ],
+          "evidence": [
+            "CI run 44023332398 (PR #78, 7714934) → all 10 jobs green",
+            "integration (real PostgreSQL 16, CI) → 871 passed in 47 files, incl. ownership-transfer.int.spec.ts 31 tests: a stamp duty receipt dated after the revenue letter expired refused (422 letter_expired) and one dated while it stood taken though recorded later; the contract bound to the justice letter, an inheritance's contract date unchecked; the same receipt taken with competency.transfer_letter_validity_enforced off at the region; an expired letter issued again after a return from outside (counter +1, the old superseded, the standing justice letter unchanged); a request closed unpaid by its timeout revokes its letters (system path); the inspector lists and downloads the letters of the case it valued, gets [] and a 403 on record (not_on_case) on another case's, 403 without a case, and the office's with documents.case_readers_office_wide on; iam 18 (cashier holds read-case); documents 20; S3 contract suite 20",
+            "unit (CI) → 69/69 turbo tasks, 1,209 tests, incl. apps/api document-readers.spec.ts (every office-wide reader holds read-case; the inspector read-case only; both settings sensitive, installation/region only); e2e (Playwright, CI) → 56 + 4 passed",
+            "lint, typecheck, boundaries, check:slices, i18n:check (am/en); no migration (settings, a permission and the seed flow only); Semgrep, gitleaks, Trivy clean; ADR-0055",
+            "architect (Opus) design; reviewer (Fable) on 55100d2 → 1 high (the return from outside asked for the papers form: a return now files no step form), 2 medium (both settings now sensitive; seeded-before databases keep the old flow → follow-up to 1.4b2), 3 low (a contract date with no justice letter due no longer 409s; download always takes its reader; test gaps → follow-up), fixed in 7714934; task-verifier: every Done-when item met"
+          ],
           "blockers": [],
           "notes": "Added 2026-11-17 at the product owner's request (\"make strict and make it configurable\" for the 1.4b follow-ups on the letters' validity and the inspector's documents), done before 1.4b2. Design (architect, 2026-11-17): competency.transfer_letter_validity_enforced (default true, installation/region) checked in recordEvidence against each paper's letter window; outside -> letters return and renewal of an expired letter with a new number; the payment timeout revokes the letters (system path in actForCase only); issued-document:read-case + DOCUMENT_CASE_ACCESS port + documents.case_readers_office_wide (default false, installation/region), ADR-0055. Assumptions to confirm with the zone: strict by default; the tax letter has no dated paper to check."
         },
@@ -3871,17 +3881,20 @@
     {
       "foundIn": "1.4b",
       "item": "A transfer closed by the payment timeout leaves its letters valid until they expire: name the revoke effect on the timeout and let revokeLetters run as the system actor (reviewer, low)",
-      "movedTo": "1.4b2"
+      "movedTo": "1.4b2",
+      "closedIn": "1.4b3: strict by default, configurable (product owner, 2026-11-17)"
     },
     {
       "foundIn": "1.4b",
       "item": "competency.inspector's issued-document:read is office-wide, not limited to the case's documents (reviewer, low): accept and document, or narrow it",
-      "movedTo": "product owner decision"
+      "movedTo": "product owner decision",
+      "closedIn": "1.4b3: strict by default, configurable (product owner, 2026-11-17)"
     },
     {
       "foundIn": "1.4b",
       "item": "The transfer letters' 30-day validity is printed and shown by the QR but not enforced on the contract and duty receipt dates (reviewer, low): does it bind?",
-      "movedTo": "zone question (discovery)"
+      "movedTo": "zone question (discovery)",
+      "closedIn": "1.4b3: strict by default, configurable (product owner, 2026-11-17)"
     },
     {
       "foundIn": "1.4b3",
