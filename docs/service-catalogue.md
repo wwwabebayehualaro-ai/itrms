@@ -63,6 +63,14 @@ the justice, revenue and tax offices ask for are written, and, once the fee is p
 new libre is issued. The zone's fee sheet prices it (name change 1,000, new libre 2,000: to confirm). Offered wherever DVC-01 is;
 not counted in the totals.
 
+**Not in the source as codes: DVC-14 and DVC-15, a vehicle leaving one office and entering another** (the zone's 11.5 "leaving
+or entering the zone"; task 1.4c, ADR-0057). DVC-14, at the office that handles the vehicle, releases it to another office of the
+region once paid and approved; DVC-15, at that office, receives it, and the vehicle and its live records move there (never a
+copy). The release stands 15 days (a region's setting), the receiving office may be asked to inspect the vehicle again (a setting,
+off), and each service has its own fee rule (the demo charges the zone's 2,000 on DVC-14 and nothing on DVC-15: to confirm which
+side charges). A vehicle going to another region, or to an office without ITRMS, takes the transfer document instead (task 1.4c2)
+and is registered there from it (task 1.4c3). Offered wherever DVC-01 is; not counted in the totals.
+
 **Not in the source: MIG-01, the back-capture of a paper vehicle file** (የወረቀት ተሽከርካሪ ፋይል ምዝገባ; ADR-0054, task 1.13). The
 migration's own service, in the catalogue beside the 54 and offered wherever DVC-01 is: a vehicle with no electronic record is
 captured from its paper file and verified by a second person before any service acts on it. It is not counted in the totals.

@@ -51,6 +51,18 @@ bureau: a new booklet on every transfer, the demo fees, the 30-day letter validi
 (the revenue office determines the stamp duty on the value the committee set). Deferred: publish-time rules for required effects
 (task 1.4b2) and the pre-1981 chassis identity (task 1.13j).
 
+**The transfer of a vehicle between offices (DVC-14 and DVC-15, task 1.4c, ADR-0057).** Seeded as configuration
+(`seed/vehicle-transfer-service.ts`). DVC-14, filed where the vehicle is handled with the office it goes to (the `office` lookup:
+offices of the region given DVC-15), runs draft → review → payment → approval (lead) → release; `releaseVehicle` writes the
+register's handover (`vehicles.vehicle_handovers`), standing `competency.vehicle_transfer_valid_days` (15). DVC-15, filed at that
+office, runs draft → review → (inspection, when `competency.vehicle_transfer_reinspect` was on at the filing) → payment (no fee by
+default) → approval → receive; `receiveVehicle` calls the register's reviewed command `vehicles.accept_handover`, which moves the
+vehicle, its open ownership period and owners, its current plate, its libre in force and its assigned stock plate (a
+`hand_over_out` and a `hand_over_in` ledger row) and nothing closed; each moved row is an audited `vehicles.handover_moved` event.
+Every step that moves either case on checks the vehicle, the owners the filing saw and the other open requests on it
+(`vehicle_in_open_case` claims a vehicle on its way), and `vehicles.checkEncumbrances:zone-transfer-out` runs before both giving
+steps. Deferred: the transfer document for another region (task 1.4c2) and its transfer in (task 1.4c3).
+
 **The back-capture of a paper vehicle file (MIG-01, task 1.13, ADR-0054).** Not one of the bureau's 54 services: the migration's
 own, offered where vehicles are registered. Seeded as configuration (`seed/back-capture-service.ts`): the form
 `vehicle-back-capture` (the paper file's reference and its scan, both required; the registration's owner and vehicle fields; the
