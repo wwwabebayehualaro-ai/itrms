@@ -646,6 +646,19 @@ describe('what is seeded', () => {
               where d.key = 'vehicle-ownership-transfer'
              returning id`
         );
+        // as 1.4b left it: the first flow is the workflow's latest (today's flow is stored too, as v1 here: used again)
+        await api.owner.query(
+            `update workflow.workflow_definitions set latest_version_id = $1 where key = 'vehicle-ownership-transfer'`,
+            [flow?.id]
+        );
+        const versionsOfFlow = async () =>
+            (
+                await query<{ n: number }>(
+                    `select count(*)::int as n from workflow.workflow_definition_versions v
+                       join workflow.workflow_definitions d on d.id = v.definition_id
+                      where d.key = 'vehicle-ownership-transfer'`
+                )
+            )[0]?.n;
         const onFirstFlow = async (createdBy: string | null) => {
             const [made] = await query<{ id: string }>(
                 `insert into services.service_versions (id, region_id, service_id, number, content_hash, form_version_id,
@@ -683,15 +696,48 @@ describe('what is seeded', () => {
         // a person's own version on that flow is the bureau's: left alone
         await onFirstFlow(randomUUID());
         expect(await seed()).toBe(0);
-        // a seed's: today's flow, once
+        // a seed's: today's flow, once, with no second copy of it
         await onFirstFlow(null);
+        const stored = await versionsOfFlow();
         expect(await seed()).toBe(1);
+        expect(await versionsOfFlow()).toBe(stored);
+        const [today] = await query<{ id: string; latest: string }>(
+            `select s.current_version_id as id, w.latest_version_id as latest
+               from services.service_definitions s, workflow.workflow_definitions w
+              where s.code = 'DVC-13' and s.region_id = $1 and w.key = 'vehicle-ownership-transfer'`,
+            [region.regionId]
+        );
         const transitions = await runningFlow();
         expect(transitions).toContainEqual(
             expect.objectContaining({ from: 'outside', to: 'letters', action: 'return' })
         );
         expect(transitions.find((t) => t.on === 'timeout')?.effects).toEqual(['competency.revokeTransferLetters']);
         expect(await seed()).toBe(0);
+        // a version added to the workflow since is the bureau's to publish: the seed leaves the service alone
+        await onFirstFlow(null);
+        const [edit] = await query<{ id: string }>(
+            `insert into workflow.workflow_definition_versions (id, region_id, owner_unit_id, definition_id, number, content_hash, definition)
+             select gen_random_uuid(), region_id, owner_unit_id, definition_id,
+                    (select max(number) + 1 from workflow.workflow_definition_versions where definition_id = v.definition_id),
+                    'bureau-edit', definition
+               from workflow.workflow_definition_versions v where id = $1
+             returning id`,
+            [flow?.id]
+        );
+        await api.owner.query(
+            `update workflow.workflow_definitions set latest_version_id = $1 where key = 'vehicle-ownership-transfer'`,
+            [edit?.id]
+        );
+        expect(await seed()).toBe(0);
+        // the rest of the suite runs on today's flow again
+        await api.owner.query(
+            `update services.service_definitions set current_version_id = $1 where code = 'DVC-13' and region_id = $2`,
+            [today?.id, region.regionId]
+        );
+        await api.owner.query(
+            `update workflow.workflow_definitions set latest_version_id = $1 where key = 'vehicle-ownership-transfer'`,
+            [today?.latest]
+        );
     });
 
     it('charges the zone’s fee sheet: the name change and the new libre, in santim (demo amounts)', async () => {

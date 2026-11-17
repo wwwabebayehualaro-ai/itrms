@@ -213,23 +213,39 @@ export async function supersedeSeededVersion(
         .innerJoin(workflowDefinitions, eq(workflowDefinitions.id, workflowDefinitionVersions.definitionId))
         .where(eq(workflowDefinitionVersions.id, current.workflowVersionId));
     if (!running || running.flow.key !== workflowKey || running.flow.regionId !== root.regionId) return false;
+    // a version added to the workflow since (a bureau's edit, published or not) is theirs to publish: left alone
+    if (running.flow.latestVersionId !== running.version.id) return false;
     const parsed = workflowDefinitionSchema.parse(definition);
     const hash = contentHash(parsed);
     if (running.version.contentHash === hash) return false;
-    const [lastFlow] = await tx
-        .select({ number: workflowDefinitionVersions.number })
+    // today's flow may already be a version of the workflow: it is used again, never stored twice (as the designer does)
+    const [stored] = await tx
+        .select()
         .from(workflowDefinitionVersions)
-        .where(eq(workflowDefinitionVersions.definitionId, running.flow.id))
-        .orderBy(desc(workflowDefinitionVersions.number))
-        .limit(1);
-    const flowVersion = await insertAudited(tx, workflowDefinitionVersions, {
-        regionId: root.regionId,
-        ownerUnitId: root.id,
-        definitionId: running.flow.id,
-        number: (lastFlow?.number ?? 0) + 1,
-        contentHash: hash,
-        definition: parsed
-    });
+        .where(
+            and(
+                eq(workflowDefinitionVersions.definitionId, running.flow.id),
+                eq(workflowDefinitionVersions.contentHash, hash)
+            )
+        );
+    const flowVersion =
+        stored ??
+        (await insertAudited(tx, workflowDefinitionVersions, {
+            regionId: root.regionId,
+            ownerUnitId: root.id,
+            definitionId: running.flow.id,
+            number:
+                ((
+                    await tx
+                        .select({ number: workflowDefinitionVersions.number })
+                        .from(workflowDefinitionVersions)
+                        .where(eq(workflowDefinitionVersions.definitionId, running.flow.id))
+                        .orderBy(desc(workflowDefinitionVersions.number))
+                        .limit(1)
+                )[0]?.number ?? 0) + 1,
+            contentHash: hash,
+            definition: parsed
+        }));
     await updateAudited(tx, workflowDefinitions, running.flow.id, running.flow.rowVersion, {
         latestVersionId: flowVersion.id
     });

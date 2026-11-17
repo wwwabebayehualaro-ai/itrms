@@ -3916,6 +3916,16 @@
       "foundIn": "1.4b3",
       "item": "worksOn's open-step and claimed arms, and actForCase's three-part condition, have no test of their own (reviewer, low)",
       "movedTo": "1.4b2"
+    },
+    {
+      "foundIn": "1.4b2",
+      "item": "required_before checks the reference string only: a version whose inputMap remaps the input of a required check (vehicles.checkEncumbrances' vehicle) to another field passes publish and checks another vehicle; refuse a remapped input of an effect another requires before it (reviewer, low)",
+      "movedTo": "1.4c"
+    },
+    {
+      "foundIn": "1.4b2",
+      "item": "The seeded-flow check (argumentProblems, missingBefore) covers only the services the transfer suite seeds (DVC-01, DVC-12, DVC-13): run it over every seed builder (licence, bolo, back-capture) against the real effect declarations (reviewer, low)",
+      "movedTo": "1.4c"
     }
   ]
 }
