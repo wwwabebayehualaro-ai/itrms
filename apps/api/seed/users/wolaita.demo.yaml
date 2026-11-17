@@ -98,14 +98,6 @@ users:
       home: WOL,
       roles: [{ unit: WOL, role: plate_keeper }]
     }
-  # files the zone's own requests (case:create): a vehicle taken in from an office below, a licence (task 1.4c)
-  - {
-      username: demo.zone.records,
-      displayName: Zone Records Officer (demo),
-      keycloakSub: 0199f0a0-d000-7000-8000-000000000111,
-      home: WOL,
-      roles: [{ unit: WOL, role: records_officer }]
-    }
 
   # Damot Gale woreda (ምድብ 1): no competency roles, the office has no such positions
   - {

@@ -5,16 +5,17 @@
  *
  * On the demo's register (`pnpm demo:reset`): Boditi's records officer files the transfer out of one of its vehicles to the zone,
  * the competency officer checks it, the revenue collector takes the fee, the team leader approves and the officer releases it;
- * then the zone's records officer files the transfer in, the zone's officer checks it (no fee), its team leader approves and the
- * officer receives it. The register then shows the zone handling the vehicle.
+ * then the zone's records officer (demo.dual, at the zone's counter) files the transfer in, the zone's officer checks it (no fee),
+ * its team leader approves and the officer receives it. The register then shows the zone handling the vehicle.
  */
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { api } from '../forms/support';
 import { act, BODITI, filing, inState, payAtTheTill, person, pick, WORDS } from './support';
 
+/** The zone's people (apps/api/seed/users/wolaita.demo.yaml): demo.dual is its records officer, and Boditi's cashier too. */
 const ZONE = {
-    records: { id: '0199f0a0-d000-7000-8000-000000000111', username: 'demo.zone.records' },
+    records: { id: '0199f0a0-d000-7000-8000-000000000401', username: 'demo.dual' },
     lead: { id: '0199f0a0-d000-7000-8000-000000000103', username: 'demo.zone.lead' },
     officer: { id: '0199f0a0-d000-7000-8000-000000000104', username: 'demo.zone.officer1' }
 };
@@ -90,7 +91,11 @@ test.describe('the transfer of a vehicle between offices', () => {
         await act(boditi.officer, outId, 'release', WORD.release);
         await inState(boditi.officer, outId, 'released');
 
-        // the transfer in, at the zone: no fee, so its payment wait passes at once
+        // the transfer in, at the zone: demo.dual acts for the zone's counter today; no fee, so the payment wait passes at once
+        const switcher = zone.records.locator('[data-app-topbar] [data-active-unit]');
+        await switcher.click();
+        await zone.records.locator('[data-unit="WOL"]').click();
+        await expect(switcher).toHaveAttribute('data-active-unit', 'WOL');
         await zone.records.goto('/competency/vehicle-transfers/in/new');
         const inForm = zone.records.locator('[data-request-form="DVC-15"]');
         await expect(inForm).toBeVisible();
