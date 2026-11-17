@@ -61,7 +61,19 @@ vehicle, its open ownership period and owners, its current plate, its libre in f
 `hand_over_out` and a `hand_over_in` ledger row) and nothing closed; each moved row is an audited `vehicles.handover_moved` event.
 Every step that moves either case on checks the vehicle, the owners the filing saw and the other open requests on it
 (`vehicle_in_open_case` claims a vehicle on its way), and `vehicles.checkEncumbrances:zone-transfer-out` runs before both giving
-steps. Deferred: the transfer document for another region (task 1.4c2) and its transfer in (task 1.4c3).
+steps.
+
+**A vehicle leaving the region (DVC-14 "outside", task 1.4c2, ADR-0058).** The request's `destination` is `office` (the default,
+above) or `outside` (another region, or an office without ITRMS): then `destinationName` and `destinationRegion` replace
+`toOffice`, and the office needs the `competency.transfer-document` counter (`{unit}/VT/{seq:05}/{efy}`). After the lead's
+approval the case goes to `document` (the step form `vehicle-transfer-document`: customs declaration and tax receipt numbers, the
+purchase value and excise paid in whole Birr, earlier plates, remarks) and `issue_document` runs `releaseVehicleOut`: the register's
+`VehicleHandovers.releaseOutside` writes a standing handover of kind `outside` (no receiving office; nothing can receive it) and
+sets the vehicle to `transferred_out`, and nothing else changes (ownership, plate, libre and stock plate stay). It issues the
+`vehicle-transfer-document` (valid `competency.vehicle_transfer_valid_days`, 15) and a `vehicle-transfer-covering-letter`, each
+numbered from that counter. For an office of the region the covering letter is the setting
+`competency.vehicle_transfer_covering_letter` (off). `setStatus` no longer sets `transferred_out`, and bolo reminders skip a
+vehicle that is not active. Deferred: undoing a release (task 1.4c2b) and the transfer in from another region (task 1.4c3).
 
 **The back-capture of a paper vehicle file (MIG-01, task 1.13, ADR-0054).** Not one of the bureau's 54 services: the migration's
 own, offered where vehicles are registered. Seeded as configuration (`seed/back-capture-service.ts`): the form

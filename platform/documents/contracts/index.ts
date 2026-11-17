@@ -200,6 +200,76 @@ export const DOCUMENT_DATA_SCHEMAS = {
             })
             .nullable()
     }),
+    /**
+     * The zone's vehicle data transfer document (task 1.4c2, ADR-0058): given to the owner of a vehicle leaving for another region
+     * or an office without ITRMS. The vehicle, its owners, its plates over time, the papers the owner brought, its bolo and the
+     * holds it still carries; valid for the days the setting gives. Money as santim text; every empty value prints as a dash.
+     */
+    'vehicle-transfer-document.v1': z.object({
+        number: z.string().min(1),
+        issuedOn: dayText,
+        validUntil: dayText,
+        validDays: z.number().int(),
+        caseNumber: z.number().int(),
+        destination: z.object({ name: z.string().min(1), region: z.string().min(1).nullable() }),
+        owners: z.array(z.object({ name: z.string().min(1), address: z.string().min(1).nullable() })).min(1),
+        vehicle: z.object({
+            plate: z.string().min(1),
+            chassisNumber: z.string().min(1),
+            engineNumber: z.string().min(1).nullable(),
+            make: z.string().min(1),
+            model: z.string().min(1),
+            modelYear: z.number().int().nullable(),
+            category: i18nTextSchema,
+            use: i18nTextSchema
+        }),
+        /** the plates the vehicle carried, the current one first: the register's own, or an earlier one the owner brought */
+        plates: z.array(
+            z.object({
+                plate: z.string().min(1),
+                since: dayText.nullable(),
+                until: dayText.nullable(),
+                year: z.number().int().nullable(),
+                place: z.string().min(1).nullable()
+            })
+        ),
+        customsDeclarationNumber: z.string().min(1).nullable(),
+        taxReceiptNumber: z.string().min(1).nullable(),
+        purchaseValueSantim: santimTextSchema.nullable(),
+        excisePaidSantim: santimTextSchema.nullable(),
+        bolo: z
+            .object({ serial: z.string().min(1).nullable(), validUntil: dayText, temporary: z.boolean() })
+            .nullable(),
+        holds: z.array(
+            z.object({
+                kind: i18nTextSchema,
+                holder: z.string().min(1),
+                letterReference: z.string().min(1),
+                letterDate: dayText,
+                amountSantim: santimTextSchema.nullable()
+            })
+        ),
+        remarks: z.string().min(1).nullable(),
+        preparedBy: z.string().min(1).nullable(),
+        approvedBy: z.string().min(1).nullable()
+    }),
+    /** The letter that goes with the document to the office that receives the vehicle (task 1.4c2): always for another region. */
+    'vehicle-transfer-covering-letter.v1': z.object({
+        number: z.string().min(1),
+        issuedOn: dayText,
+        validUntil: dayText,
+        caseNumber: z.number().int(),
+        addressee: z.string().min(1),
+        /** the transfer document it accompanies: none for a vehicle going to an office of the region (its release stands instead) */
+        documentNumber: z.string().min(1).nullable(),
+        vehicle: z.object({
+            plate: z.string().min(1),
+            chassisNumber: z.string().min(1),
+            make: z.string().min(1),
+            model: z.string().min(1)
+        }),
+        owners: z.array(z.object({ name: z.string().min(1) })).min(1)
+    }),
     'exam-result.v1': z.object({
         sessionOn: dayText,
         serviceName: i18nTextSchema,

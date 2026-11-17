@@ -21,7 +21,16 @@ const placeOf = (run: EffectRun<unknown>): CasePlace => ({
 const HOLDS = `${ENCUMBRANCE_EFFECTS.checkEncumbrances}:zone-transfer-out`;
 
 @Injectable()
-@Effect(X.checkTransferOut, { input: { vehicle: { kind: 'ref' }, toOffice: { kind: 'ref' } } })
+// the office, or the name and region of the body outside the region: which of them is asked follows the destination (ADR-0058)
+@Effect(X.checkTransferOut, {
+    input: {
+        vehicle: { kind: 'ref' },
+        toOffice: { kind: 'ref', required: false },
+        destination: { kind: 'choice', required: false },
+        destinationName: { kind: 'text', required: false },
+        destinationRegion: { kind: 'text', required: false }
+    }
+})
 export class CheckTransferOutEffect implements WorkflowEffect<TransferOutInput> {
     constructor(@Inject(VehicleTransferService) private readonly transfers: VehicleTransferService) {}
 
@@ -37,7 +46,20 @@ export class ReleaseVehicleEffect implements WorkflowEffect {
     constructor(@Inject(VehicleTransferService) private readonly transfers: VehicleTransferService) {}
 
     async run(run: EffectRun) {
-        return { facts: await this.transfers.release(run.tx, placeOf(run), run.facts) };
+        return { facts: await this.transfers.release(run.tx, placeOf(run), run.facts, run.caseNumber) };
+    }
+}
+
+/** The transfer out's giving step for a vehicle leaving the region: the transfer document, and the vehicle reads transferred out. */
+@Injectable()
+@Effect(X.releaseVehicleOut, { givesService: true, requiresBefore: [HOLDS] })
+export class ReleaseVehicleOutEffect implements WorkflowEffect {
+    constructor(@Inject(VehicleTransferService) private readonly transfers: VehicleTransferService) {}
+
+    async run(run: EffectRun) {
+        return {
+            facts: await this.transfers.releaseOut(run.tx, placeOf(run), run.facts, run.input, run.caseNumber)
+        };
     }
 }
 
@@ -77,6 +99,7 @@ export class ReceiveVehicleEffect implements WorkflowEffect {
 export const VEHICLE_TRANSFER_EFFECTS_LIST = [
     CheckTransferOutEffect,
     ReleaseVehicleEffect,
+    ReleaseVehicleOutEffect,
     CheckTransferInEffect,
     RecordTransferInspectionEffect,
     ReceiveVehicleEffect

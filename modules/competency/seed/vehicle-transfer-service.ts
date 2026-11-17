@@ -4,12 +4,22 @@
  * are configuration: the fee of each service (the zone's fee sheet: 2,000 Birr; the demo charges it on the transfer out, the
  * transfer in has none), the forms, and the settings (how long a release stands, whether the vehicle is inspected again).
  */
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { Tx } from '@itrms/kernel/db';
+import { setUpCounter } from '@itrms/kernel/numbering';
 import { serviceDefinitions } from '@itrms/services/api';
 import type { I18nText } from '@itrms/schemas';
 
-import { TRANSFER_IN_SERVICE, TRANSFER_OUT_SERVICE, VEHICLE_TRANSFER_EFFECTS as X } from '../contracts';
+import {
+    MAX_EARLIER_PLATES,
+    MAX_TRANSFER_DOCUMENT_BIRR,
+    TRANSFER_IN_SERVICE,
+    TRANSFER_OUT_DESTINATIONS,
+    TRANSFER_OUT_SERVICE,
+    VEHICLE_TRANSFER_DOCUMENT_COUNTER,
+    VEHICLE_TRANSFER_DOCUMENT_PATTERN,
+    VEHICLE_TRANSFER_EFFECTS as X
+} from '../contracts';
 import {
     ACTIONS,
     approvedFeeRule,
@@ -22,6 +32,7 @@ import {
     publishedForm,
     REJECT_ROLES,
     REVIEW_LABEL,
+    supersedeSeededVersion,
     task,
     text,
     WITHDRAW,
@@ -29,15 +40,81 @@ import {
 } from './service-config';
 
 /** A fact of the transfer, internal: no person's own data. */
-const internal = (id: string, type: string, label: I18nText, props: Record<string, unknown> = {}) =>
-    field(id, type, label, props, { classification: 'internal' });
+const internal = (
+    id: string,
+    type: string,
+    label: I18nText,
+    props: Record<string, unknown> = {},
+    extra: Record<string, unknown> = {}
+) => field(id, type, label, props, { classification: 'internal', ...extra });
 
-/** The request at the office that handles the vehicle: the vehicle, the office it goes to, why, and the owner's papers. */
+/**
+ * The request at the office that handles the vehicle: the vehicle, where it goes (an office of the region, or outside it, ADR-0058:
+ * another region, or an office without ITRMS), why, and the owner's papers. The office is asked only for a vehicle that stays in
+ * the region; the name and region of the body outside only for one that leaves it. A request with no destination is for an office.
+ */
 export const TRANSFER_OUT_FORM = {
     schemaVersion: 2,
     fields: [
         internal('vehicle', 'RegistryLookup', text('ተሽከርካሪ', 'Vehicle'), { provider: 'vehicle' }),
-        internal('toOffice', 'RegistryLookup', text('የሚዛወርበት መሥሪያ ቤት', 'Office it moves to'), { provider: 'office' }),
+        internal(
+            'destination',
+            'Dropdown',
+            text('የሚዛወርበት', 'Where it moves to'),
+            { required: false },
+            {
+                data: {
+                    dataSource: {
+                        staticData: TRANSFER_OUT_DESTINATIONS.map((value) => ({
+                            label:
+                                value === 'office'
+                                    ? text('የዚህ ክልል መሥሪያ ቤት', 'an office of this region')
+                                    : text(
+                                          'ሌላ ክልል ወይም ITRMS የሌለው መሥሪያ ቤት',
+                                          'another region or an office without ITRMS'
+                                      ),
+                            value
+                        }))
+                    }
+                }
+            }
+        ),
+        internal(
+            'toOffice',
+            'RegistryLookup',
+            text('የሚዛወርበት መሥሪያ ቤት', 'Office it moves to'),
+            { provider: 'office' },
+            {
+                behavior: {
+                    validation: { supported: true },
+                    visibilityConditions: [{ field: 'destination', operator: 'neq', value: 'outside' }]
+                }
+            }
+        ),
+        internal(
+            'destinationName',
+            'InputText',
+            text('የሚዛወርበት መሥሪያ ቤት ስም', 'Name of the office it moves to'),
+            { maxLength: 200 },
+            {
+                behavior: {
+                    validation: { supported: true },
+                    visibilityConditions: [{ field: 'destination', operator: 'eq', value: 'outside' }]
+                }
+            }
+        ),
+        internal(
+            'destinationRegion',
+            'InputText',
+            text('የሚዛወርበት ክልል', 'Region it moves to'),
+            { maxLength: 100 },
+            {
+                behavior: {
+                    validation: { supported: true },
+                    visibilityConditions: [{ field: 'destination', operator: 'eq', value: 'outside' }]
+                }
+            }
+        ),
         internal('reason', 'InputText', text('የዝውውሩ ምክንያት', 'Why it moves'), { required: false, maxLength: 200 }),
         attachment('libreCopy', text('የሊብሬ ቅጂ', 'Copy of the libre'), 'internal'),
         attachment('ownerIdentity', text('የባለቤቱ መታወቂያ', "Owner's identity document")),
@@ -68,6 +145,59 @@ export const TRANSFER_INSPECTION_FORM = {
     ]
 };
 
+/** A whole-Birr figure of the document: the service checks its range again and prints it as santim. */
+const birr = (id: string, label: I18nText) =>
+    internal(id, 'InputNumber', label, { required: false, min: 1, max: MAX_TRANSFER_DOCUMENT_BIRR });
+
+/**
+ * The document step of a transfer out of the region (ADR-0058): the papers the owner brought, the plates the vehicle carried before
+ * this register's, and a remark. Everything is optional: the document prints a dash for what is not given.
+ */
+export const TRANSFER_DOCUMENT_FORM = {
+    schemaVersion: 2,
+    fields: [
+        internal('customsDeclarationNumber', 'InputText', text('የጉምሩክ ማሳወቂያ ቁጥር', 'Customs declaration number'), {
+            required: false,
+            maxLength: 40
+        }),
+        internal('taxReceiptNumber', 'InputText', text('የግብር ደረሰኝ ቁጥር', 'Tax receipt number'), {
+            required: false,
+            maxLength: 40
+        }),
+        birr('purchaseValueBirr', text('የግዢ ዋጋ (ብር)', 'Purchase value (Birr)')),
+        birr('excisePaidBirr', text('የተከፈለ ኤክሳይስ ታክስ (ብር)', 'Excise tax paid (Birr)')),
+        field(
+            'earlierPlates',
+            'FormArray',
+            text('ከዚህ በፊት የነበሩ ሰሌዳዎች', 'Earlier plates'),
+            {
+                required: false,
+                minItems: 0,
+                maxItems: MAX_EARLIER_PLATES,
+                itemLabel: text('ሰሌዳ', 'Plate'),
+                addButtonLabel: text('ሰሌዳ ጨምር', 'Add a plate')
+            },
+            { category: 'Layout', classification: 'internal', layout: { options: { isContainer: true } } }
+        ),
+        internal('plate', 'InputText', text('የሰሌዳ ቁጥር', 'Plate'), { maxLength: 40 }, { parentId: 'earlierPlates' }),
+        internal(
+            'year',
+            'InputNumber',
+            text('ዓመት (ዓ.ም)', 'Year (E.C.)'),
+            { min: 1900, max: 2100 },
+            { parentId: 'earlierPlates' }
+        ),
+        internal(
+            'place',
+            'InputText',
+            text('የተሰጠበት ቦታ', 'Where it was issued'),
+            { maxLength: 100 },
+            { parentId: 'earlierPlates' }
+        ),
+        internal('remarks', 'InputTextarea', text('ማስታወሻ', 'Remarks'), { required: false, maxLength: 500 })
+    ]
+};
+
 /** The check that refuses the service while the vehicle is encumbered (task 1.4a), on filing and before each step that moves on. */
 const ENC = 'vehicles.checkEncumbrances:zone-transfer-out';
 
@@ -90,11 +220,11 @@ const APPROVAL = {
 };
 
 /**
- * DVC-14: review, payment, final approval, then the release to the office named. Each step that moves the case on checks the
- * vehicle (still the office's, the owners the filing saw, no other request on it) and its holds again. The approver does not
- * release.
+ * DVC-14: review, payment, final approval, then the release to the office named, or, for a vehicle leaving the region
+ * (`transferOut.outside`, ADR-0058), the transfer document. Each step that moves the case on checks the vehicle (still the
+ * office's, the owners the filing saw, no other request on it) and its holds again. The approver does not release.
  */
-export const transferOutFlow = () => ({
+export const transferOutFlow = (documentForm: string) => ({
     schemaVersion: 1,
     states: [
         DRAFT,
@@ -104,7 +234,12 @@ export const transferOutFlow = () => ({
         task('release', text('ተሽከርካሪውን መልቀቅ', 'Release the vehicle'), 'competency.officer', 1, {
             separationOfDuties: ['approval']
         }),
+        task('document', text('የመረጃ ማስተላለፊያ ሰነድ መስጠት', 'Transfer document'), 'competency.officer', 1, {
+            stepForm: documentForm,
+            separationOfDuties: ['approval']
+        }),
         { key: 'released', kind: 'end', label: text('ለሌላ መሥሪያ ቤት ተለቋል', 'Released to the other office') },
+        { key: 'transferred_out', kind: 'end', label: text('ከክልሉ ወጥቷል', 'Transferred out of the region') },
         { key: 'rejected', kind: 'end', label: text('ውድቅ ሆኗል', 'Rejected') }
     ],
     transitions: [
@@ -127,6 +262,15 @@ export const transferOutFlow = () => ({
         },
         { from: 'payment', to: 'approval', on: 'event:payment.settled', actor: 'system:fees', guard: PAID },
         { from: 'payment', to: 'rejected', on: 'timeout' },
+        // the first whose guard holds is taken: a vehicle leaving the region goes to the document, any other to its release
+        {
+            from: 'approval',
+            to: 'document',
+            action: 'approve',
+            label: ACTIONS.approve,
+            guard: { all: [PAID, { fact: 'transferOut.outside', op: 'eq', value: true }] },
+            effects: [ENC]
+        },
         { from: 'approval', to: 'release', action: 'approve', label: ACTIONS.approve, guard: PAID, effects: [ENC] },
         {
             from: 'release',
@@ -136,8 +280,16 @@ export const transferOutFlow = () => ({
             guard: PAID,
             effects: [X.checkTransferOut, ENC, X.releaseVehicle]
         },
+        {
+            from: 'document',
+            to: 'transferred_out',
+            action: 'issue_document',
+            label: text('ሰነዱን ስጥ', 'Issue the transfer document'),
+            guard: PAID,
+            effects: [X.checkTransferOut, ENC, X.releaseVehicleOut]
+        },
         WITHDRAW,
-        REJECT(['review', 'approval', 'release'])
+        REJECT(['review', 'approval', 'release', 'document'])
     ]
 });
 
@@ -223,15 +375,47 @@ async function serviceOf(tx: Tx, regionId: string, code: string) {
     return service;
 }
 
-/** DVC-14 at the region's root. Needs the catalogue and the fee rules seeded first. Returns how many services changed. */
+/** The transfer document's counter at every office that offers DVC-14. Returns how many offices have it. */
+export async function setUpVehicleTransferDocumentCounters(
+    tx: Tx,
+    regionId: string,
+    pattern = VEHICLE_TRANSFER_DOCUMENT_PATTERN
+): Promise<number> {
+    const offices = await tx.execute<{ id: string }>(sql`
+        select u.id from kernel.org_units u
+          join kernel.unit_type_services s on s.unit_type_id = u.unit_type_id
+         where u.region_id = ${regionId} and u.active and s.service_code = ${TRANSFER_OUT_SERVICE}`);
+    for (const office of offices.rows)
+        await setUpCounter(tx, { key: VEHICLE_TRANSFER_DOCUMENT_COUNTER, unitId: office.id, regionId, pattern });
+    return offices.rows.length;
+}
+
+/**
+ * DVC-14 at the region's root. Needs the catalogue and the fee rules seeded first. Returns how many services changed. Seeded before
+ * 1.4c2, the seed's own version moves to today's request form and flow (the bureau's own is never touched).
+ */
 export async function importTransferOutService(tx: Tx, root: { id: string; regionId: string }): Promise<number> {
     const service = await serviceOf(tx, root.regionId, TRANSFER_OUT_SERVICE);
-    if (service.currentVersionId) return 0;
     const name = text('ተሽከርካሪ ከመሥሪያ ቤት ማዛወር', 'Vehicle transfer out');
+    const document = await publishedForm(
+        tx,
+        root,
+        'vehicle-transfer-document',
+        text('የተሽከርካሪ መረጃ ማስተላለፊያ ሰነድ', 'Vehicle data transfer document'),
+        TRANSFER_DOCUMENT_FORM
+    );
+    const flow = transferOutFlow(`vehicle-transfer-document@${document.number}`);
+    if (service.currentVersionId)
+        return (await supersedeSeededVersion(tx, root, service, 'vehicle-transfer-out', flow, {
+            key: 'vehicle-transfer-out',
+            document: TRANSFER_OUT_FORM
+        }))
+            ? 1
+            : 0;
     const form = await publishedForm(tx, root, 'vehicle-transfer-out', name, TRANSFER_OUT_FORM);
     await firstServiceVersion(tx, root, service, {
         formVersionId: form.versionId,
-        workflowVersionId: await workflowVersion(tx, root, 'vehicle-transfer-out', name, transferOutFlow()),
+        workflowVersionId: await workflowVersion(tx, root, 'vehicle-transfer-out', name, flow),
         feeRuleVersionId: await approvedFeeRule(tx, root.regionId, 'dvc-14-transfer-out')
     });
     return 1;

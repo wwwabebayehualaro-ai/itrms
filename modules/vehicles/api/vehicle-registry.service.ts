@@ -564,9 +564,9 @@ export class VehicleRegistry {
     }
 
     /**
-     * Takes a vehicle off the register: transferred out of the region or deregistered (the open ownership period, the plate
-     * and the libre end that day), or reported stolen (it stays the owners' and keeps its plate and libre; `restore` brings
-     * it back). Reactivating a transferred-out vehicle is planned for task 1.4.
+     * Takes a vehicle off the register: deregistered (the open ownership period, the plate and the libre end that day), or
+     * reported stolen (it stays the owners' and keeps its plate and libre; `restore` brings it back). A vehicle leaving for
+     * another region is not set here: a release outside the region is the only way it reads `transferred_out` (ADR-0058).
      */
     async setStatus(
         tx: Tx,
@@ -590,7 +590,7 @@ export class VehicleRegistry {
                 .from(plateAssignments)
                 .where(and(eq(plateAssignments.vehicleId, vehicleId), isNull(plateAssignments.until)));
             if (plate) {
-                const endedReason = input.status === 'transferred_out' ? 'transferred' : 'retired';
+                const endedReason = 'retired';
                 const until = input.on < plate.since ? plate.since : input.on;
                 await updateAudited(tx, plateAssignments, plate.id, plate.rowVersion, { until, endedReason });
                 if (plate.plateId)

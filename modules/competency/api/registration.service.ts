@@ -473,7 +473,7 @@ export class VehicleRegistrationService {
         // issued again, it keeps its first language: an officer reading in another language changes nothing on it
         const language = (standing?.language ?? currentContext()?.language) === 'en' ? 'en' : 'am';
         const holders = vehicle.ownerships.find((o) => o.id === libre.ownershipId)?.holders ?? [];
-        const addresses = await this.addresses(tx, holders, language);
+        const addresses = await this.ownerAddresses(tx, holders, language);
         const owners = holders.map((h) => ({
             name: h.name[language] || h.name.am,
             address: addresses.get(h.id) ?? null
@@ -531,7 +531,7 @@ export class VehicleRegistrationService {
      * Where the owners live, as the certificate prints it: the unit, the kebele and the house number on their record. Never their
      * phone: it is sensitive (read only through an audited reveal) and the certificate is shown at every checkpoint.
      */
-    private async addresses(
+    async ownerAddresses(
         tx: Tx,
         holders: readonly { kind: 'person' | 'organisation'; id: string }[],
         language: 'am' | 'en'

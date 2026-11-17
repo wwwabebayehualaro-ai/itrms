@@ -9,7 +9,9 @@ import {
     TEMPORARY_BOLO_COUNTER,
     TEMPORARY_BOLO_PATTERN,
     TRANSFER_LETTER_COUNTER,
-    TRANSFER_LETTER_PATTERN
+    TRANSFER_LETTER_PATTERN,
+    VEHICLE_TRANSFER_DOCUMENT_COUNTER,
+    VEHICLE_TRANSFER_DOCUMENT_PATTERN
 } from '@itrms/competency/contracts';
 import { RECEIPT_COUNTER, RECEIPT_PATTERN } from '@itrms/fees/contracts';
 import { counterNeeds } from '@itrms/kernel/numbering';
@@ -29,6 +31,7 @@ describe('the counters an office needs', () => {
             [LICENCE_COUNTER]: LICENCE_PATTERN,
             [TEMPORARY_BOLO_COUNTER]: TEMPORARY_BOLO_PATTERN,
             [TRANSFER_LETTER_COUNTER]: TRANSFER_LETTER_PATTERN,
+            [VEHICLE_TRANSFER_DOCUMENT_COUNTER]: VEHICLE_TRANSFER_DOCUMENT_PATTERN,
             [RECEIPT_COUNTER]: RECEIPT_PATTERN,
             [REGISTRATION_CERTIFICATE_COUNTER]: REGISTRATION_CERTIFICATE_PATTERN
         });
@@ -45,6 +48,8 @@ describe('the counters an office needs', () => {
             RECEIPT_COUNTER,
             REGISTRATION_CERTIFICATE_COUNTER
         ]);
+        // the transfer of a vehicle out of the region numbers its document (task 1.4c2)
+        expect(needs.of(['DVC-14'], []).map((n) => n.key)).toEqual([VEHICLE_TRANSFER_DOCUMENT_COUNTER]);
         expect(needs.of(['RS-01', 'LG-01'], ['prints_documents'])).toEqual([]);
     });
 });

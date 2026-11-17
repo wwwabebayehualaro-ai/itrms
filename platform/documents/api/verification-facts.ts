@@ -35,6 +35,15 @@ export function factsOf(schema: DocumentDataSchema, data: Record<string, unknown
                 .filter((n): n is string => n !== null);
             return { holder: names.length ? names.join(', ') : null, validUntil: text(data.validUntil) };
         }
+        // the document and its covering letter name the owners (the people the vehicle leaves with) and stand to their last day
+        case 'vehicle-transfer-document.v1':
+        case 'vehicle-transfer-covering-letter.v1': {
+            const owners = Array.isArray(data.owners) ? data.owners : [];
+            const names = owners
+                .map((o) => text((o as { name?: unknown } | null)?.name))
+                .filter((n): n is string => n !== null);
+            return { holder: names.length ? names.join(', ') : null, validUntil: text(data.validUntil) };
+        }
         case 'application-copy.v1':
         case 'exam-result.v1':
             return { holder: null, validUntil: null };

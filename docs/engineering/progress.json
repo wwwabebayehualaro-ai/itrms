@@ -1974,12 +1974,22 @@
         {
           "id": "1.4c2",
           "title": "Transfers, part 3b: the transfer document",
+          "status": "in progress",
+          "branch": "task/1.4c2-transfer-document",
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Split from 1.4c on 2026-11-17 (architect). Template vehicle-transfer-document (dataSchema vehicle-transfer-document.v1) with the zone's sections; counter {unit}/VT/{seq:05}/{efy} (countersRequired DVC-14); verification facts; the vehicle transferred_out via setStatus; the covering-letter setting. Open: whether a transferred_out vehicle whose document lapses unused can be reactivated, and how. Design (architect, 2026-11-17), decided in auto mode: DVC-14 form v2 with destination office|outside (toOffice, or destinationName + destinationRegion); flow v2 approval -> document (step form: customs and tax numbers, purchase value and excise in whole Birr kept as santim, earlier plates, remarks; all optional, printed '-') -> transferred_out; releaseVehicleOut issues vehicle-transfer-document.v1 numbered {unit}/VT/{seq:05}/{efy} (countersRequired DVC-14) and the covering letter (always for outside; the setting competency.vehicle_transfer_covering_letter for an ITRMS office), sets the vehicle transferred_out and writes an outside handover (migration 0087: to_unit_id nullable, destination_kind/name/region); the vehicle keeps its records (ADR-0058). Cancel and reinstate split to 1.4c2b."
+        },
+        {
+          "id": "1.4c2b",
+          "title": "Transfers, part 3b2: cancel a release",
           "status": "planned",
           "branch": null,
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split from 1.4c on 2026-11-17 (architect). Template vehicle-transfer-document (dataSchema vehicle-transfer-document.v1) with the zone's sections; counter {unit}/VT/{seq:05}/{efy} (countersRequired DVC-14); verification facts; the vehicle transferred_out via setStatus; the covering-letter setting. Open: whether a transferred_out vehicle whose document lapses unused can be reactivated, and how."
+          "notes": "Split from 1.4c2 on 2026-11-17 (architect: the workflow engine lets nobody act out of a wait and a task cannot time out, so a cancellable step after the release would need an engine change). DVC-16: filed at the releasing office, approved by a lead; handover released -> cancelled (a new status in the trigger); revokes the transfer document and its covering letter; an outside release sets the vehicle back to active; refused while a DVC-15 names an office release. To confirm with the zone: no fee; a fresh document for an owner who still moves is a new paid DVC-14."
         },
         {
           "id": "1.4c3",

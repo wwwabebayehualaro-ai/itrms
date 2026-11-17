@@ -178,6 +178,48 @@ const SAMPLES: Record<DocumentDataSchema, Record<string, unknown>> = {
             inspectionNote: null
         }
     },
+    'vehicle-transfer-document.v1': {
+        number: 'WOL-BODITI/VT/00001/2019',
+        issuedOn: '2026-11-04',
+        validUntil: '2026-11-19',
+        validDays: 15,
+        caseNumber: 22,
+        destination: { name: 'Sample Transport Bureau', region: 'Sample Region' },
+        owners: [{ name: 'አበበ በቀለ', address: 'ቦዲቲ, ቀበሌ 02' }],
+        vehicle: {
+            plate: 'ETH ABC 1234',
+            chassisNumber: 'JTDKB20U093051234',
+            engineNumber: '2NZ1234567',
+            make: 'Toyota',
+            model: 'Vitz',
+            modelYear: 2018,
+            category: { am: 'አውቶሞቢል', en: 'Automobile' },
+            use: { am: 'የግል', en: 'Private' }
+        },
+        plates: [
+            { plate: 'ETH ABC 1234', since: '2024-03-01', until: null, year: null, place: 'Sample Region' },
+            { plate: 'AA 2-12345', since: null, until: null, year: 2010, place: 'Addis Ababa' }
+        ],
+        customsDeclarationNumber: null,
+        taxReceiptNumber: 'TR-77',
+        purchaseValueSantim: '35000000',
+        excisePaidSantim: null,
+        bolo: { serial: 'P0001301', validUntil: '2027-07-07', temporary: false },
+        holds: [],
+        remarks: null,
+        preparedBy: 'ሰላም ታደሰ',
+        approvedBy: null
+    },
+    'vehicle-transfer-covering-letter.v1': {
+        number: 'WOL-BODITI/VT/00002/2019',
+        issuedOn: '2026-11-04',
+        validUntil: '2026-11-19',
+        caseNumber: 22,
+        addressee: 'Sample Transport Bureau',
+        documentNumber: 'WOL-BODITI/VT/00001/2019',
+        vehicle: { plate: 'ETH ABC 1234', chassisNumber: 'JTDKB20U093051234', make: 'Toyota', model: 'Vitz' },
+        owners: [{ name: 'አበበ በቀለ' }]
+    },
     'exam-result.v1': {
         sessionOn: '2026-11-04',
         serviceName: { am: 'አዲስ መንጃ ፈቃድ', en: 'New driver licence' },
@@ -195,6 +237,8 @@ const SCHEMA_OF: Record<string, DocumentDataSchema> = {
     'vehicle-transfer-justice-letter': 'vehicle-transfer-letter.v1',
     'vehicle-transfer-revenue-letter': 'vehicle-transfer-letter.v1',
     'vehicle-transfer-tax-letter': 'vehicle-transfer-letter.v1',
+    'vehicle-transfer-document': 'vehicle-transfer-document.v1',
+    'vehicle-transfer-covering-letter': 'vehicle-transfer-covering-letter.v1',
     'exam-result': 'exam-result.v1'
 };
 
@@ -471,6 +515,69 @@ describe.skipIf(!chrome)('a PDF from Chrome', () => {
         const en = await pdfOf('vehicle-transfer-tax-letter', data, 'en');
         expect(en.pages).toBe(1);
         expect(en.text).toContain('business taxpayers');
+    }, 180_000);
+
+    it('transfer document: the number, the last day, the destination, the plates, the value and the rules', async () => {
+        const data = SAMPLES['vehicle-transfer-document.v1'];
+        for (const language of ['am', 'en'] as const) {
+            const { text, pages } = await pdfOf('vehicle-transfer-document', data, language);
+            expect(pages).toBe(1);
+            expect(text.replace(/\s/g, '')).toContain('WOL-BODITI/VT/00001/2019');
+            // 19 November 2026 is Hidar 10, 2019 E.C.: the last day
+            expect(text).toContain(language === 'am' ? 'ኅዳር' : 'Hidar');
+            expect(text).toContain('Sample Transport Bureau');
+            expect(text.replace(/\s/g, '')).toContain('ETHABC1234');
+            expect(text.replace(/\s/g, '')).toContain('AA2-12345');
+            expect(text).toContain('350,000.00');
+            expect(text).toContain('TR-77');
+            expect(text).toContain('P0001301');
+            // no customs number was given: a dash, never a blank
+            expect(text).toContain('—');
+            expect(text).toContain(language === 'am' ? 'የለም' : 'none');
+        }
+        const en = await pdfOf('vehicle-transfer-document', data, 'en');
+        expect(en.text).toContain('Any erasure or overwriting');
+        expect(en.text).toContain('If the service is not given within that time');
+    }, 180_000);
+
+    it('transfer document: a hold still on the vehicle is a row with its amount, and the none marker is gone', async () => {
+        const data = {
+            ...SAMPLES['vehicle-transfer-document.v1'],
+            holds: [
+                {
+                    kind: { am: 'የባንክ ብድር', en: 'Bank loan' },
+                    holder: 'Sample Bank S.C.',
+                    letterReference: 'BK-2026-9',
+                    letterDate: '2026-10-01',
+                    amountSantim: '12000000'
+                }
+            ]
+        };
+        const en = await pdfOf('vehicle-transfer-document', data, 'en');
+        expect(en.text).toContain('Bank loan');
+        expect(en.text).toContain('Sample Bank S.C.');
+        expect(en.text).toContain('BK-2026-9');
+        expect(en.text).toContain('120,000.00');
+        const html = await renderHtml({
+            template: template('vehicle-transfer-document'),
+            data,
+            language: 'en',
+            office: OFFICE,
+            header: {},
+            issuedAt: ISSUED_AT
+        });
+        expect(html).not.toContain('data-holds-none');
+    }, 180_000);
+
+    it('transfer covering letter: it names the document it goes with', async () => {
+        const data = SAMPLES['vehicle-transfer-covering-letter.v1'];
+        for (const language of ['am', 'en'] as const) {
+            const { text, pages } = await pdfOf('vehicle-transfer-covering-letter', data, language);
+            expect(pages).toBe(1);
+            expect(text.replace(/\s/g, '')).toContain('WOL-BODITI/VT/00001/2019');
+            expect(text.replace(/\s/g, '')).toContain('WOL-BODITI/VT/00002/2019');
+            expect(text).toContain('Sample Transport Bureau');
+        }
     }, 180_000);
 
     it('registration certificate: the new owners of a transferred vehicle', async () => {

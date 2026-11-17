@@ -82,6 +82,13 @@ export default defineModule({
             overridableAt: ['installation', 'region'],
             // turning it off drops a control: a change needs a fresh second factor (SEC-SE-5)
             sensitive: true
+        },
+        // whether an office of this region that receives a vehicle is also sent the covering letter (task 1.4c2, ADR-0058): a
+        // vehicle leaving the region always has one
+        {
+            key: 'competency.vehicle_transfer_covering_letter',
+            default: false,
+            overridableAt: ['installation', 'region', 'unitType', 'unit']
         }
     ],
     effects: [
@@ -115,6 +122,7 @@ export default defineModule({
         'competency.revokeTransferLetters',
         'competency.checkTransferOut',
         'competency.releaseVehicle',
+        'competency.releaseVehicleOut',
         'competency.checkTransferIn',
         'competency.recordTransferInspection',
         'competency.receiveVehicle',
@@ -211,13 +219,16 @@ export default defineModule({
     numberSequences: [
         { key: 'licence', pattern: '{unit}/DL/{seq:06}' },
         { key: 'temporary-bolo', pattern: '{unit}/TB/{seq:05}' },
-        { key: 'transfer-letter', pattern: '{unit}/OT/{seq:05}/{efy}' }
+        { key: 'transfer-letter', pattern: '{unit}/OT/{seq:05}/{efy}' },
+        // the vehicle data transfer document of a vehicle leaving the region, and its covering letter (task 1.4c2)
+        { key: 'transfer-document', pattern: '{unit}/VT/{seq:05}/{efy}' }
     ],
     countersRequired: {
         'DVC-01': ['vehicles.registration-certificate'],
         'DVC-02': ['competency.temporary-bolo'],
         'DVC-03': ['competency.licence'],
-        'DVC-13': ['vehicles.registration-certificate', 'competency.transfer-letter']
+        'DVC-13': ['vehicles.registration-certificate', 'competency.transfer-letter'],
+        'DVC-14': ['competency.transfer-document']
     },
     services: [
         'DVC-01',

@@ -33,4 +33,15 @@ describe('the masked holder', () => {
         expect(facts).toEqual({ holder: 'Abebe Kebede, Sara Tadesse', validUntil: '2026-12-04' });
         expect(maskedName(facts.holder ?? '')).toBe('A**** K*****, S*** T******');
     });
+
+    it('names the owners of a transfer document and its covering letter, masked, and stands to the last day', () => {
+        for (const schema of ['vehicle-transfer-document.v1', 'vehicle-transfer-covering-letter.v1'] as const) {
+            const facts = factsOf(schema, {
+                validUntil: '2026-11-19',
+                owners: [{ name: 'Abebe Kebede', address: 'Boditi' }, { name: 'Sara Tadesse' }]
+            });
+            expect(facts).toEqual({ holder: 'Abebe Kebede, Sara Tadesse', validUntil: '2026-11-19' });
+            expect(maskedName(facts.holder ?? '')).toBe('A**** K*****, S*** T******');
+        }
+    });
 });
