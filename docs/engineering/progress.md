@@ -4,7 +4,7 @@
 > Update it with the CLI or the `/task-*` skills. Rules: [workflow.md](workflow.md). Statuses: planned, ready, in progress,
 > in review, done, blocked. Only the product owner moves a task to **done**.
 
-Last updated: 2026-11-16. Planning: done (docs/reviews/2026-10-18-design-review.md (30 findings resolved); business questionnaire sent via the Wolaita channel).
+Last updated: 2026-11-17. Planning: done (docs/reviews/2026-10-18-design-review.md (30 findings resolved); business questionnaire sent via the Wolaita channel).
 
 ## Phase 0: Core and demo — 66/67 done (99%)
 
@@ -449,3 +449,6 @@ Last updated: 2026-11-16. Planning: done (docs/reviews/2026-10-18-design-review.
 | 271 | 1.13i | campaigns.int.spec.ts reads today once at load while the service takes the Addis day per request: a run across Addis midnight can flake; inject a clock into CampaignService.progress if it does | 1.16 | open |
 | 272 | 1.4a | The encumbrance block exists only where a workflow names vehicles.checkEncumbrances: make ServicesService.publish refuse a version whose giving transition lacks the check (like unpaidGiving) and validate its argument against ENCUMBRANCE_CONFLICTS | 1.4b2 | open |
 | 273 | 1.4a | A refused release orphans its letter file (linked, never expiring, no longer downloadable): keep the refused letter reachable as history, or unlink and expire it | 1.16 | open |
+| 274 | 1.4b | A transfer closed by the payment timeout leaves its letters valid until they expire: name the revoke effect on the timeout and let revokeLetters run as the system actor (reviewer, low) | 1.4b2 | open |
+| 275 | 1.4b | competency.inspector's issued-document:read is office-wide, not limited to the case's documents (reviewer, low): accept and document, or narrow it | product owner decision | open |
+| 276 | 1.4b | The transfer letters' 30-day validity is printed and shown by the QR but not enforced on the contract and duty receipt dates (reviewer, low): does it bind? | zone question (discovery) | open |

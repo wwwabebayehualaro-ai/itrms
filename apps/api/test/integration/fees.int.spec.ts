@@ -448,7 +448,8 @@ describe('the demo fee rules', () => {
             { key: 'dvc-03-new-licence', decision: 'approved', decided_by: null },
             { key: 'dvc-04-renewal', decision: 'approved', decided_by: null },
             { key: 'dvc-06-replacement', decision: 'approved', decided_by: null },
-            { key: 'dvc-12-plate-exchange', decision: 'approved', decided_by: null }
+            { key: 'dvc-12-plate-exchange', decision: 'approved', decided_by: null },
+            { key: 'dvc-13-ownership-transfer', decision: 'approved', decided_by: null }
         ]);
     });
 });

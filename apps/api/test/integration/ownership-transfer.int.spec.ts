@@ -362,7 +362,11 @@ const documentsOfLibre = (libreId: string) =>
 const transferOf = async (caseId: string) =>
     (
         await query<Record<string, string | boolean | null>>(
-            `select * from competency.ownership_transfers where case_id = $1`,
+            // the dates as the day they are (pg gives a date column as a Date at local midnight)
+            `select t.*, t.valued_on::text as valued_on, t.letters_issued_on::text as letters_issued_on,
+                    t.contract_authenticated_on::text as contract_authenticated_on,
+                    t.stamp_duty_paid_on::text as stamp_duty_paid_on, t.transferred_on::text as transferred_on
+               from competency.ownership_transfers t where t.case_id = $1`,
             [caseId]
         )
     )[0];
