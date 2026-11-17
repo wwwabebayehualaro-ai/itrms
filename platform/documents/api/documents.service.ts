@@ -141,11 +141,11 @@ export class DocumentsService {
     }
 
     /** The stored PDF: 404 for what the person can't see, 409 until it has been made. */
-    async download(tx: Tx, store: ObjectStore, id: string, notReady: string, reader?: DocumentReader) {
+    async download(tx: Tx, store: ObjectStore, id: string, notReady: string, reader: DocumentReader) {
         const [row] = await tx.select().from(issuedDocuments).where(eq(issuedDocuments.id, id));
         if (!row) throw new NotFoundError();
         // a case-bound reader: a document of a case it works on, or a refusal on record (ADR-0055)
-        if (reader && !(await this.readsOffice(tx, reader)))
+        if (!(await this.readsOffice(tx, reader)))
             if (!row.caseId || !(await this.worksOn(tx, row.caseId, reader)))
                 throw new ForbiddenError({ audit: { reason: 'not_on_case', permission: CASE_READ } });
         if (row.state !== 'rendered' || !row.fileId)

@@ -333,7 +333,8 @@ export class OwnershipTransferService {
             if (day === undefined) continue;
             if (day > today || day < row.lettersIssuedOn)
                 refusals.push({ path, key: 'competency.rule.evidenceDate', code: 'out_of_range' });
-            else if (strict) {
+            // a contract date on an inheritance or a court order answers no letter: the justice letter is for a sale or a gift
+            else if (strict && (kind === 'revenue' || contract)) {
                 const windows = await this.letterWindows(tx, TRANSFER_LETTER_TEMPLATES[kind], place.caseId);
                 if (windows.length === 0) throw missingFact('letters');
                 if (!windows.some((w) => day >= w.issuedOn && day <= w.validUntil))

@@ -1447,9 +1447,12 @@ async function namesOf(tx: Tx, ids: readonly (string | null)[]): Promise<Map<str
 const personOf = (names: ReadonlyMap<string, string>, id: string | null): PersonRef | null =>
     id ? { id, name: names.get(id) ?? '' } : null;
 
-/** Whether a transition out of a step files its form: not a reject, nor a case sent back to its start for correction. */
+/**
+ * Whether a transition out of a step files its form: not a reject, not a return (a case sent back a step, its comment says why:
+ * the transfer's papers step returned to its letters files no papers, task 1.4b3), nor a case sent back to its start.
+ */
 function needsForm(state: WorkflowState, t: WorkflowTransition, to: WorkflowState | undefined): boolean {
-    return Boolean(state.stepForm) && t.action !== 'reject' && to?.kind !== 'start';
+    return Boolean(state.stepForm) && t.action !== 'reject' && t.action !== 'return' && to?.kind !== 'start';
 }
 
 function required(value: string | undefined): string {

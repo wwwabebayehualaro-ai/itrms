@@ -778,6 +778,28 @@ describe('the letters’ days bind the papers (task 1.4b3)', () => {
         expect(inTime.state).toBe('payment');
     }, 240_000);
 
+    it('binds the authenticated contract to the justice letter, and leaves a court order’s contract date unchecked', async () => {
+        const { c } = await drive('outside');
+        await backdate(c.id, JUSTICE, 40, 10);
+        const late = await tried(
+            c,
+            as.officer,
+            'approve',
+            evidence({ contractAuthenticatedOn: daysAfter(today(), -5) })
+        );
+        expect(late.status).toBe(422);
+        expect(late.body.errors).toEqual([
+            expect.objectContaining({ path: 'contractAuthenticatedOn', code: 'letter_expired' })
+        ]);
+        // an inheritance has no justice letter: a contract date given anyway answers none
+        const { c: heirs } = await drive('outside', {
+            acquiredBy: 'inheritance',
+            letters: { revenueOffice: 'Sample Revenue Office' }
+        });
+        const taken = await moved(heirs, as.officer, 'approve', { answers: evidence({ courtReference: 'CRT-1234' }) });
+        expect(taken.state).toBe('payment');
+    }, 240_000);
+
     it('takes the same receipt when the region turns the rule off', async () => {
         await regionSetting('competency.transfer_letter_validity_enforced', false, async () => {
             const { c } = await drive('outside');

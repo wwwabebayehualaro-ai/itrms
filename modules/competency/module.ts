@@ -65,7 +65,9 @@ export default defineModule({
         {
             key: 'competency.transfer_letter_validity_enforced',
             default: true,
-            overridableAt: ['installation', 'region']
+            overridableAt: ['installation', 'region'],
+            // turning it off relaxes a control: a change needs a fresh second factor (SEC-SE-5)
+            sensitive: true
         }
     ],
     effects: [

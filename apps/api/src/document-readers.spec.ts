@@ -22,6 +22,15 @@ describe('the readers of issued documents', () => {
         expect(without).toEqual([]);
     });
 
+    it('make the settings that loosen these controls sensitive, and never an office’s own (task 1.4b3)', () => {
+        const settings = SLICES.flatMap((s) => s.manifest.settings ?? []);
+        for (const key of ['documents.case_readers_office_wide', 'competency.transfer_letter_validity_enforced']) {
+            const setting = settings.find((s) => s.key === key);
+            expect(setting?.sensitive, key).toBe(true);
+            expect(setting?.overridableAt, key).toEqual(['installation', 'region']);
+        }
+    });
+
     it('bind the inspector to the documents of its cases', () => {
         const inspector = granted.get('competency.inspector');
         expect(inspector?.has('issued-document:read-case')).toBe(true);

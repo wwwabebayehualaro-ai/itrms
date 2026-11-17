@@ -30,7 +30,9 @@ export default defineModule({
         {
             key: 'documents.case_readers_office_wide',
             default: false,
-            overridableAt: ['installation', 'region']
+            overridableAt: ['installation', 'region'],
+            // turning it on widens what every case-bound reader reads: a change needs a fresh second factor (SEC-SE-5)
+            sensitive: true
         }
     ]
 });

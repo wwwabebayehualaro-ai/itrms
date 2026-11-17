@@ -3882,6 +3882,16 @@
       "foundIn": "1.4b",
       "item": "The transfer letters' 30-day validity is printed and shown by the QR but not enforced on the contract and duty receipt dates (reviewer, low): does it bind?",
       "movedTo": "zone question (discovery)"
+    },
+    {
+      "foundIn": "1.4b3",
+      "item": "A database seeded before 1.4b3 keeps DVC-13's first workflow version (no return from outside, no revocation on the timeout) while the letters' rule is strict: a published version must carry the return when the rule binds, or seeds ship a second version (reviewer, medium; dev databases only, the demo is reset from empty)",
+      "movedTo": "1.4b2"
+    },
+    {
+      "foundIn": "1.4b3",
+      "item": "worksOn's open-step and claimed arms, and actForCase's three-part condition, have no test of their own (reviewer, low)",
+      "movedTo": "1.4b2"
     }
   ]
 }
