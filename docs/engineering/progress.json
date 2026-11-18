@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-11-17",
+  "updated": "2026-11-18",
   "statuses": [
     "planned",
     "ready",
@@ -4054,6 +4054,11 @@
       "item": "An e2e journey for the outside transfer (DVC-14 to another region: the document step and the printed document); only the office path has one",
       "movedTo": "1.4c2b",
       "closedIn": "1.4c2b: apps/web/tests/e2e/competency/vehicle-transfer-outside.spec.ts (transfer out of the region, its document, its cancellation)"
+    },
+    {
+      "foundIn": "1.4c3",
+      "item": "A unit test for the BFF's problem() language choice (apps/web/src/bff/runtime.ts): its /^en\\b/ regex held a literal backspace since 0.26c1, so English readers got Amharic titles; fixed in 1.4c3 without a test",
+      "movedTo": "1.4c3b"
     }
   ]
 }

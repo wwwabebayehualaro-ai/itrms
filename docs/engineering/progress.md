@@ -4,7 +4,7 @@
 > Update it with the CLI or the `/task-*` skills. Rules: [workflow.md](workflow.md). Statuses: planned, ready, in progress,
 > in review, done, blocked. Only the product owner moves a task to **done**.
 
-Last updated: 2026-11-17. Planning: done (docs/reviews/2026-10-18-design-review.md (30 findings resolved); business questionnaire sent via the Wolaita channel).
+Last updated: 2026-11-18. Planning: done (docs/reviews/2026-10-18-design-review.md (30 findings resolved); business questionnaire sent via the Wolaita channel).
 
 ## Phase 0: Core and demo — 66/67 done (99%)
 
@@ -466,3 +466,4 @@ Last updated: 2026-11-17. Planning: done (docs/reviews/2026-10-18-design-review.
 | 282 | 1.4c | A standing release has no cancel path: an owner who changes their mind after DVC-14 is released waits out the release's days; give DVC-14 a revoke step, or let the source expire its own release while no DVC-15 is filed (reviewer, low) | 1.4c2 | ✔ 1.4c2b: DVC-16 cancels a standing release (ADR-0059) |
 | 283 | 1.4c | pnpm audit: picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf, ReDoS on repeated extglobs, high) has no fixed release; reached only at build, lint and dev time through eslint-config-next, next-intl's watcher and glob helpers, on the repository's own patterns. Ignored in pnpm-workspace.yaml auditConfig: remove the ignore and pin picomatch when a fix ships | watch (dependency update) | open |
 | 284 | 1.4c2 | An e2e journey for the outside transfer (DVC-14 to another region: the document step and the printed document); only the office path has one | 1.4c2b | ✔ 1.4c2b: apps/web/tests/e2e/competency/vehicle-transfer-outside.spec.ts (transfer out of the region, its document, its cancellation) |
+| 285 | 1.4c3 | A unit test for the BFF's problem() language choice (apps/web/src/bff/runtime.ts): its /^en\b/ regex held a literal backspace since 0.26c1, so English readers got Amharic titles; fixed in 1.4c3 without a test | 1.4c3b | open |

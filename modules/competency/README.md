@@ -88,17 +88,22 @@ release, today, by the caller), a vehicle `transferred_out` reads `active` again
 document and covering letter are revoked (their QR reads revoked). A vehicle transferred out before ADR-0058 has no handover and
 cannot be brought back by DVC-16.
 
-**A vehicle arriving from another region (DVC-17, task 1.4c3, ADR-0060).** Seeded as configuration (seed/vehicle-arrival-service.ts): the form
-ehicle-transfer-arrival (DVC-01's owner and vehicle fields and the transfer document's facts, its scan required), the plate step's form, and the workflow
-draft → review → [inspection when 	ransferArrival.reinspect] → payment → approval → arrival → registered, with the fee rule dvc-17-arrival (2,000 Birr and a
-plate line that follows the 	akesNationalPlate tick). TransferArrivalService.check runs on filing, correction and each step that moves on: the document
-(number, region, office; dates; valid on the day filed, frozen in 	ransferArrival.filedOn; the officer's tick and how it was checked; used once per issuing
-region), a chassis or federal id the register does not know (rrivalReturning for a vehicle of this region that left), the registration's strict checks, a
-plate no vehicle carries or carried, the plate rule (	akesNationalPlate must equal: old regional plate and the setting, frozen at filing), the libre and
-the dates (paper-records.ts, shared with the back-capture). egisterArrival registers the vehicle acquired by 	ransfer_in, records the plate it carried and the
-federal libre, and writes ehicles.vehicle_arrivals (migration 0089); with the exchange the held national plate then replaces the old plate (ended
-exchanged) through the registration's plate effects, and issueArrivalCertificate issues the registration certificate. A hold the document lists is a
-notice only. competency.vehicle_in_open_case also claims the chassis and plate of an open arrival.
+**A vehicle arriving from another region (DVC-17, task 1.4c3, ADR-0060).** Seeded as configuration (`seed/vehicle-arrival-service.ts`):
+the form `vehicle-transfer-arrival` (DVC-01's owner and vehicle fields and the transfer document's facts, its scan required), the plate
+step's form, and the workflow draft → review → [inspection when `transferArrival.reinspect`] → payment → approval → arrival →
+registered, with the fee rule `dvc-17-arrival` (2,000 Birr and a plate line that follows the `takesNationalPlate` tick).
+`TransferArrivalService.check` runs on filing, correction and each step that moves on. It checks:
+- the document: number, region and office; its dates; valid on the day filed (frozen in `transferArrival.filedOn`); the officer's
+  tick and how it was checked; used once per issuing region, also against open arrivals (`competency.arrival_in_open_case`);
+- a chassis or federal id the register does not know (`arrivalReturning` for a vehicle of this region that left);
+- the registration's strict checks, and a plate no vehicle carries or carried (under the back-capture's plate lock);
+- the plate rule: `takesNationalPlate` must equal an old regional plate and the setting, frozen at filing;
+- the libre and the dates (`paper-records.ts`, shared with the back-capture).
+
+`registerArrival` registers the vehicle acquired by `transfer_in`. It records the plate the vehicle carried and the federal libre, and
+writes `vehicles.vehicle_arrivals` (migration 0089). With the exchange, the held national plate then replaces the old plate (ended
+exchanged) through the registration's plate effects, and `issueArrivalCertificate` issues the registration certificate. A hold the
+document lists is a notice only. `competency.vehicle_in_open_case` also claims the chassis and plate of an open arrival.
 
 **The back-capture of a paper vehicle file (MIG-01, task 1.13, ADR-0054).** Not one of the bureau's 54 services: the migration's
 own, offered where vehicles are registered. Seeded as configuration (`seed/back-capture-service.ts`): the form
