@@ -87,6 +87,7 @@
   "vehicles.errors.choose_office": "ለየትኛው ጽ/ቤት እንደሚሰሩ ይምረጡ።",
   "vehicles.errors.duplicate_federal_id": "ይህ የፌዴራል ተሽከርካሪ መለያ ያለው ተሽከርካሪ ተመዝግቧል።",
   "vehicles.errors.duplicate_chassis": "ይህ የሻሲ ቁጥር ያለው ተሽከርካሪ ተመዝግቧል።",
+  "vehicles.errors.chassis_flagged": "ይህ የሻሲ ቁጥር ያለው ተሽከርካሪ የተሰረቀ ወይም ከመዝገብ የወጣ ነው፤ በማንኛውም አምራች ስም እንደገና አይመዘገብም።",
   "vehicles.errors.duplicate_plate": "ይህ ሰሌዳ በሌላ ተሽከርካሪ ላይ አለ።",
   "vehicles.errors.duplicate_libre": "ይህ ቁጥር ያለው ሊብሬ ተመዝግቧል።",
   "vehicles.errors.duplicate_arrival_document": "በዚህ ክልል በተሰጠ በዚህ ቁጥር የመረጃ ማስተላለፊያ ሰነድ ተሽከርካሪ ቀድሞ ገብቷል።",

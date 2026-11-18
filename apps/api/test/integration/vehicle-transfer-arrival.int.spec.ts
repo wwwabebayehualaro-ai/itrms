@@ -561,6 +561,19 @@ describe('the request', () => {
         expect(other.body.errors).toEqual(
             expect.arrayContaining([expect.objectContaining({ path: 'federalVehicleId', code: 'other_vehicle' })])
         );
+
+        // a stolen or deregistered Toyota's chassis is not taken again by a vehicle of another make
+        for (const status of ['stolen', 'deregistered']) {
+            // a deregistered vehicle holds no open ownership period
+            await api.owner.query(
+                `${status === 'deregistered' ? `update vehicles.vehicle_ownerships set until = since + 1 where until is null and vehicle_id = '${toyota.id}'; ` : ''}update vehicles.vehicles set status = '${status}' where id = '${toyota.id}'`
+            );
+            const flagged = await tried(await file(SERVICE, await old('Lada')), as.officer, 'submit');
+            expect(flagged.status, status).toBe(422);
+            expect(flagged.body.errors).toEqual(
+                expect.arrayContaining([expect.objectContaining({ path: 'chassisNumber', code: status })])
+            );
+        }
     }, 300_000);
 
     it('is refused a libre another vehicle holds and a plate on the register', async () => {

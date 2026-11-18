@@ -22,7 +22,7 @@ import {
 } from '@itrms/kernel/testing';
 import { importVehicleCategories, setUpRegistrationCertificateCounters } from '@itrms/vehicles/seed';
 import { VehicleRegistry, VehiclesService } from '@itrms/vehicles/api';
-import type { VehicleRegister } from '@itrms/vehicles/contracts';
+import { makeKey, type VehicleRegister } from '@itrms/vehicles/contracts';
 import { isNull, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -1279,13 +1279,88 @@ describe('the rules of the commands (review of 1.1a)', () => {
                    from vehicles.vehicles where chassis_number = 'DBGUARD0001'`
             )
         ).rejects.toThrow(/vehicles_other_chassis_uq/);
-        // the make key is there for an 'other' number only
+        // the make key is there for an 'other' number only (the identity trigger is off, to meet the check itself)
+        await api.owner.query('alter table vehicles.vehicles disable trigger check_vehicle_identity');
+        try {
+            await expect(
+                api.owner.query(`update vehicles.vehicles set make_key = null where chassis_number = 'DBGUARD0001'`)
+            ).rejects.toThrow(/vehicles_make_key_check/);
+            await expect(
+                api.owner.query(`update vehicles.vehicles set make_key = 'X' where chassis_kind = 'iso3779'`)
+            ).rejects.toThrow(/vehicles_make_key_check/);
+        } finally {
+            await api.owner.query('alter table vehicles.vehicles enable trigger check_vehicle_identity');
+        }
+    });
+
+    it("keeps a vehicle's chassis number, kind, key, make and make key as registered, whoever updates them", async () => {
+        const v = await newVehicle(units.damot, { chassisNumber: 'IDENT-0001', make: 'Fiat' });
+        const ctx = ctxOf(units.damot);
+        for (const change of ["make = 'Lada'", "chassis_number = 'IDENT0002'", "vin_key = 'IDENT0002'"]) {
+            const error: unknown = await app
+                .scoped(ctx, (tx) => tx.execute(sql.raw(`update vehicles.vehicles set ${change} where id = '${v.id}'`)))
+                .then(
+                    () => undefined,
+                    (e: unknown) => e
+                );
+            expect((error as { cause?: { constraint?: string } } | undefined)?.cause?.constraint, change).toBe(
+                'vehicle_identity'
+            );
+        }
+        // the application role has no UPDATE on the make key at all; the owner meets the trigger
         await expect(
-            api.owner.query(`update vehicles.vehicles set make_key = null where chassis_number = 'DBGUARD0001'`)
-        ).rejects.toThrow(/vehicles_make_key_check/);
-        await expect(
-            api.owner.query(`update vehicles.vehicles set make_key = 'X' where chassis_kind = 'iso3779'`)
-        ).rejects.toThrow(/vehicles_make_key_check/);
+            app.scoped(ctx, (tx) => tx.execute(sql`update vehicles.vehicles set make_key = 'LADA' where id = ${v.id}`))
+        ).rejects.toThrow();
+        for (const change of ["chassis_kind = 'iso3779'", "make_key = 'LADA'"])
+            await expect(
+                api.owner.query(`update vehicles.vehicles set ${change} where id = $1`, [v.id])
+            ).rejects.toThrow(/the chassis number and the make/);
+        // what is not identity still changes
+        await app.scoped(ctx, (tx) =>
+            tx.execute(sql`update vehicles.vehicles set colour = 'white' where id = ${v.id}`)
+        );
+    });
+
+    it("never registers a stolen or deregistered vehicle's chassis again, under any make", async () => {
+        const stolen = await newVehicle(units.damot, { chassisNumber: 'FLAG-0001', make: 'Toyota' });
+        const gone = await newVehicle(units.damot, { chassisNumber: 'FLAG-0002', make: 'Toyota' });
+        const ctx = ctxOf(units.damot);
+        await app.scoped(ctx, async (tx) => {
+            await registry.setStatus(tx, ctx, stolen.id, stolen.rowVersion, { status: 'stolen', on: '2023-01-01' });
+            await registry.setStatus(tx, ctx, gone.id, gone.rowVersion, { status: 'deregistered', on: '2023-01-01' });
+        });
+        // the same make is a duplicate as before; another make of the same text is refused for the flag
+        await expect(newVehicle(units.damot, { chassisNumber: 'FLAG-0001', make: 'toyota' })).rejects.toMatchObject({
+            status: 409
+        });
+        for (const text of ['FLAG-0001', 'FLAG-0002']) {
+            await expect(newVehicle(units.damot, { chassisNumber: text, make: 'Toyota Motor' })).rejects.toMatchObject({
+                status: 409,
+                code: 'duplicate_reference',
+                detailKey: 'vehicles.errors.chassis_flagged'
+            });
+        }
+        await expect(newVehicle(units.damot, { chassisNumber: 'FLAG-0002', make: 'Lada' })).rejects.toMatchObject({
+            detailKey: 'vehicles.errors.chassis_flagged'
+        });
+    });
+
+    it('folds a make in the migration backfill as the application does', async () => {
+        const SQL_FOLD = `left(coalesce(nullif(regexp_replace(upper(normalize(replace($1::text, 'ß', 'SS'), NFKC)), '[^[:alnum:]]', '', 'g'), ''), upper(btrim($1::text))), 120)`;
+        const makes = [
+            'Toyota',
+            'Mercedes-Benz',
+            'mercedes benz',
+            'ＴＯＹＯＴＡ',
+            'Großwagen',
+            'ቶዮታ',
+            'Fiat 124',
+            '!!!'
+        ];
+        for (const make of makes) {
+            const { rows } = await api.owner.query<{ key: string }>(`select ${SQL_FOLD} as key`, [make]);
+            expect(rows[0]?.key, make).toBe(makeKey(make));
+        }
     });
 
     it('refuses the other kind for a VIN-shaped number, one under 4 characters, and a repeat of the same make', async () => {

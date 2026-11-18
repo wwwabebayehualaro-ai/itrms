@@ -456,6 +456,18 @@ describe('the refusals at filing', () => {
         const onRegister = await refusedAt(await old('FIAT'));
         expect(onRegister.status).toBe(409);
         expect(onRegister.body.code).toBe('duplicate_reference');
+
+        // a stolen or deregistered vehicle's chassis is not captured again under a third make
+        for (const status of ['stolen', 'deregistered']) {
+            // a deregistered vehicle holds no open ownership period
+            const where = `chassis_number = '${chassisNumber.replace('-', '')}'`;
+            await api.owner.query(
+                `${status === 'deregistered' ? `update vehicles.libres set status = 'cancelled' where status = 'issued' and vehicle_id in (select id from vehicles.vehicles where ${where}); update vehicles.vehicle_ownerships set until = since + 1 where until is null and vehicle_id in (select id from vehicles.vehicles where ${where}); ` : ''}update vehicles.vehicles set status = '${status}' where ${where}`
+            );
+            const flagged = await refusedAt(await old('Moskvich'));
+            expect(flagged.status, status).toBe(409);
+            expect(JSON.stringify(flagged.body)).toMatch(/stolen|የተሰረቀ|deregistered|ከመዝገብ/);
+        }
     });
 
     it('cannot be filed without its scan', async () => {

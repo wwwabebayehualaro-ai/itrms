@@ -755,4 +755,53 @@ describe("pre-1981 chassis numbers: an 'other' text is told apart by its make (A
         await runCheck(again.id);
         expect(await batchOf(again.id)).toMatchObject({ counts: { total: 2, alreadyImported: 2, invalid: 0 } });
     }, 300_000);
+
+    it('flags a real VIN and an other number of the same key in one sheet, in either order, the same on a second check', async () => {
+        const iso = (n: number, key: string): Row & { chassis_kind: string } => ({
+            ...fileRow(400 + n, { owner_phone: `09${RUN.slice(0, 2)}92${String(n).padStart(4, '0')}` }),
+            chassis_number: key,
+            chassis_kind: ''
+        });
+        const old = (n: number, key: string) => ({ ...withKind(200 + n, 'Fiat', key), model_year: '1975' });
+        const one = vin(7001);
+        const two = vin(7002);
+        for (const [rows, name] of [
+            [[iso(0, one), old(0, one)], 'iso-first.csv'],
+            [[old(1, two), iso(1, two)], 'other-first.csv']
+        ] as const) {
+            const checked = await sendSheet([...rows], name);
+            expect(checked).toMatchObject({ state: 'checked', counts: { total: 2, valid: 1, invalid: 1 } });
+            const verdicts = async () =>
+                (await rowsOf(checked.id)).map((r) => [r.line, r.state, r.errors.map((e) => [e.column, e.code])]);
+            const first = await verdicts();
+            expect(first[1]).toEqual([3, 'invalid', [['chassis_number', 'duplicate_in_file']]]);
+            // checked again: the rows already read give the same verdicts
+            await runCheck(checked.id);
+            expect(await verdicts()).toEqual(first);
+        }
+    }, 300_000);
+
+    it('refuses the chassis of a stolen or deregistered vehicle for another make, as the register does', async () => {
+        const text = `FLAG81-${RUN}`;
+        const made = await sendSheet([withKind(50, 'Fiat', text)], 'flag-a.csv');
+        const commit = await api.call(
+            'POST',
+            `/api/v1/vehicle-imports/${made.id}/commit`,
+            as.verifier,
+            {},
+            ifMatch((await batchOf(made.id, as.verifier)).version)
+        );
+        expect(commit.statusCode, commit.body).toBe(202);
+        await runCommit(made.id);
+        for (const status of ['stolen', 'deregistered']) {
+            // a deregistered vehicle holds no open ownership period
+            const where = `chassis_number = '${text.replace('-', '')}'`;
+            await api.owner.query(
+                `${status === 'deregistered' ? `update vehicles.libres set status = 'cancelled' where status = 'issued' and vehicle_id in (select id from vehicles.vehicles where ${where}); update vehicles.vehicle_ownerships set until = since + 1 where until is null and vehicle_id in (select id from vehicles.vehicles where ${where}); ` : ''}update vehicles.vehicles set status = '${status}' where ${where}`
+            );
+            const checked = await sendSheet([withKind(51, 'Lada', text)], `flag-${status}.csv`);
+            expect(checked, status).toMatchObject({ counts: { total: 1, valid: 0, invalid: 1 } });
+            expect((await rowsOf(checked.id, 'invalid'))[0]?.errors.length, status).toBeGreaterThan(0);
+        }
+    }, 300_000);
 });

@@ -17,11 +17,14 @@ so the second vehicle is refused and the paper register cannot be migrated whole
 3. **Every path follows the same rule:** registration (DVC-01), back-capture (MIG-01), the paper-register import and the arrival
    (DVC-17). It also applies to the open-case claims, whose facts carry the make key for an 'other' chassis. A case filed before
    this rule claims on the chassis alone, which is the cautious side.
-4. **A shared chassis text is a notice, not a refusal.** When a vehicle of another make carries the same 'other' text, DVC-01 and
+4. **A stolen or deregistered vehicle's chassis is never registered again**, whatever make is typed: the make tells two live
+   vehicles apart, never a flagged vehicle from a new one.
+5. **A shared chassis text is otherwise a notice, not a refusal.** When a vehicle of another make carries the same 'other' text, DVC-01 and
    DVC-17 show it to the lead at approval. An arrival matching a vehicle that left the region but has another make is a new
    vehicle with that notice.
-5. **The make key is a written column**, computed by the application like the chassis key, so claims and lookups fold exactly as
-   the stored key does.
+6. **The make key is a written column**, computed by the application like the chassis key, so claims and lookups fold exactly as
+   the stored key does. A trigger holds a vehicle's chassis, kind, make and their keys as registered: a correction service would
+   be a decision of its own.
 
 ## Consequences
 

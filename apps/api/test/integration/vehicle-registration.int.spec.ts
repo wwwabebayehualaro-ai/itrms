@@ -847,6 +847,28 @@ describe('a request that does not meet the register', () => {
         expect(same.res.json<{ code: string }>().code).toBe('duplicate_reference');
     }, 240_000);
 
+    it("refuses the chassis of a stolen or deregistered vehicle under any make, 'other' or not", async () => {
+        const text = `PRE-${randomInt(100000, 999999)}`;
+        const old = (make: string) => request({ chassisNumber: text, chassisKind: 'other', modelYear: 1975, make });
+        let c = await moved(await filed(old('Toyota')), as.officer, 'submit');
+        c = await moved(c, as.officer, 'approve');
+        await paid(c);
+        c = await moved(await caseOf(c.id), as.lead, 'approve');
+        await moved(c, as.officer, 'register', { answers: { federalVehicleId: federalId() } });
+        for (const status of ['stolen', 'deregistered']) {
+            // a deregistered vehicle holds no open ownership period
+            const where = `chassis_number = '${text.replace('-', '')}'`;
+            await api.owner.query(
+                `${status === 'deregistered' ? `update vehicles.libres set status = 'cancelled' where status = 'issued' and vehicle_id in (select id from vehicles.vehicles where ${where}); update vehicles.vehicle_ownerships set until = since + 1 where until is null and vehicle_id in (select id from vehicles.vehicles where ${where}); ` : ''}update vehicles.vehicles set status = '${status}' where ${where}`
+            );
+            const other = await refusal(old('Toyota Motor'));
+            expect(other.res.statusCode, `${status}: ${other.res.body}`).toBe(409);
+            expect(other.res.json<{ code: string }>().code).toBe('duplicate_reference');
+            // the flagged refusal, not the duplicate one
+            expect(other.res.body).toMatch(/stolen|የተሰረቀ/);
+        }
+    }, 240_000);
+
     it('is refused when the category needs seats and none are given, at the field', async () => {
         const { res } = await refusal({ seats: undefined });
         expect(res.statusCode, res.body).toBe(422);

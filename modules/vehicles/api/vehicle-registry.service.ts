@@ -127,7 +127,7 @@ export class VehicleRegistry {
         // every row with this key: an 'other' number is told apart by its make, a real VIN conflicts with any row (ADR-0061)
         const sharing = (
             await tx
-                .select({ id: vehicles.id, makeKey: vehicles.makeKey })
+                .select({ id: vehicles.id, makeKey: vehicles.makeKey, status: vehicles.status })
                 .from(vehicles)
                 .where(and(eq(vehicles.regionId, regionId), eq(vehicles.vinKey, vin.vinKey)))
         ).filter((row) => row.id !== options.returning);
@@ -137,6 +137,9 @@ export class VehicleRegistry {
             )
         )
             throw new ConflictError('duplicate_reference', { detailKey: 'vehicles.errors.duplicate_chassis' });
+        // a stolen or deregistered vehicle's chassis is not registered again under another make either
+        if (sharing.some((row) => row.status === 'stolen' || row.status === 'deregistered'))
+            throw new ConflictError('duplicate_reference', { detailKey: 'vehicles.errors.chassis_flagged' });
         return {
             vinKey: vin.vinKey,
             chassisNumber: vin.chassisNumber,

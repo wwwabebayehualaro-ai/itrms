@@ -501,6 +501,22 @@ export class TransferArrivalService {
         );
         if (sharing.length > 1)
             refuse([{ path: 'chassisNumber', code: 'duplicate', message: say('competency.rule.arrivalOnRegister') }]);
+        // a stolen or deregistered vehicle's chassis is not taken again under another make either
+        const flagged = rows.find(
+            (r) => vinKey !== undefined && r.vinKey === vinKey && (r.status === 'stolen' || r.status === 'deregistered')
+        );
+        if (flagged && !sharing.includes(flagged))
+            refuse([
+                {
+                    path: 'chassisNumber',
+                    code: flagged.status,
+                    message: say(
+                        flagged.status === 'stolen'
+                            ? 'competency.rule.arrivalStolen'
+                            : 'competency.rule.arrivalNotReturnable'
+                    )
+                }
+            ]);
         const byChassis = sharing[0];
         const byFederal = rows.find((r) => federal !== undefined && r.federalVehicleId === federal.toUpperCase());
         if (byChassis && byFederal && byChassis.id !== byFederal.id)
