@@ -22,6 +22,7 @@ import {
 import { importDocumentTemplates } from '@itrms/documents/seed';
 import { importFeeRules, parseFeeRules } from '@itrms/fees/seed';
 import { createDatabase, type Database, type DbContext } from '@itrms/kernel/db';
+import { importUsers } from '@itrms/kernel/seed';
 import { setUpCounter } from '@itrms/kernel/numbering';
 import { contextFor, TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import type { OrgUnit } from '@itrms/kernel/org';
@@ -53,8 +54,13 @@ const SUB = {
     lead: '0199f0a0-d000-7000-8000-00000000f832',
     zoneOfficer: '0199f0a0-d000-7000-8000-00000000f833',
     zoneLead: '0199f0a0-d000-7000-8000-00000000f834',
-    zoneCashier: '0199f0a0-d000-7000-8000-00000000f835'
+    zoneCashier: '0199f0a0-d000-7000-8000-00000000f835',
+    siblingOfficer: '0199f0a0-d000-7000-8000-00000000f836',
+    siblingLead: '0199f0a0-d000-7000-8000-00000000f837',
+    siblingCashier: '0199f0a0-d000-7000-8000-00000000f838'
 };
+// the bureau's administrator: creates an office
+const BUREAU = '0199f0a0-d000-7000-8000-000000000001';
 const OUT = 'DVC-14';
 const CANCEL = 'DVC-16';
 const ARRIVAL = 'DVC-17';
@@ -86,9 +92,17 @@ interface Desk {
     lead: As;
     cashier: As;
     unit: OrgUnit;
+    /** the officer's subject: whose scans these are */
+    sub: string;
 }
 let boditiDesk: Desk;
 let zoneDesk: Desk;
+let siblingDesk: Desk;
+let sibling: OrgUnit;
+
+/** The vehicle left three days ago (see lapsed): owners took it on or after that day. */
+const OWNERS_SINCE = () => daysAfter(today(), -2);
+const LIBRE_ISSUED = () => daysAfter(today(), -1);
 
 let serial = 0;
 function vin(): string {
@@ -194,13 +208,7 @@ async function scan(desk: Desk): Promise<string> {
         `insert into kernel.files (id, region_id, unit_id, status, filename, content_type, size, sha256, object_key,
              confirmed_at, origin, created_by)
          values ($1, $2, $3, 'stored', 'transfer-document.pdf', 'application/pdf', 10, repeat('a', 64), $4, now(), 'upload', $5)`,
-        [
-            id,
-            desk.unit.regionId,
-            desk.unit.id,
-            `files/${desk.unit.regionId}/${id}`,
-            await api.userId(desk === zoneDesk ? SUB.zoneOfficer : SUB.officer)
-        ]
+        [id, desk.unit.regionId, desk.unit.id, `files/${desk.unit.regionId}/${id}`, await api.userId(desk.sub)]
     );
     return id;
 }
@@ -448,14 +456,74 @@ beforeAll(async () => {
     region = await api.unit('SER', 'SER');
     zone = await api.unit('SER', 'WOL');
     boditi = await api.unit('SER', 'WOL-BODITI');
+    // a second town office of the zone, made with the first one's type: it gets the same roles, services and counters, and it is Boditi's sibling
+    const unitType = (
+        await api.owner.query<{ id: string }>(
+            `select id from kernel.unit_types where key = 'town_unit_f1' and region_id = $1`,
+            [region.regionId]
+        )
+    ).rows[0];
+    const siblingCode = `WOL-RET-${randomUUID().slice(0, 6)}`;
+    const made = await api.call(
+        'POST',
+        '/api/v1/org-units',
+        { sub: BUREAU, unit: region },
+        {
+            parentId: zone.id,
+            kind: 'town_admin',
+            levelKey: 'town',
+            code: siblingCode,
+            name: { am: 'የመመለሻ ሙከራ ከተማ', en: 'Returns trial town' },
+            category: 'f1',
+            unitTypeId: unitType?.id
+        }
+    );
+    expect(made.statusCode, made.body).toBe(201);
+    await api.installer.scoped({}, (tx) =>
+        importUsers(tx, {
+            region: 'SER',
+            users: [
+                {
+                    username: 'test.vr.siblingofficer',
+                    sub: SUB.siblingOfficer,
+                    roles: ['competency.officer', 'records_officer']
+                },
+                { username: 'test.vr.siblinglead', sub: SUB.siblingLead, roles: ['competency.lead'] },
+                { username: 'test.vr.siblingcashier', sub: SUB.siblingCashier, roles: ['cashier'] }
+            ].map((u) => ({
+                username: u.username,
+                displayName: `${u.username} (test)`,
+                keycloakSub: u.sub,
+                home: siblingCode,
+                roles: u.roles.map((role) => ({ unit: siblingCode, role }))
+            }))
+        })
+    );
+    sibling = await api.unit('SER', siblingCode);
+    as.siblingOfficer = { sub: SUB.siblingOfficer, unit: sibling };
+    as.siblingLead = { sub: SUB.siblingLead, unit: sibling };
+    as.siblingCashier = { sub: SUB.siblingCashier, unit: sibling };
     as.boditiCashier = { sub: SUB.boditiCashier, unit: boditi };
     as.officer = { sub: SUB.officer, unit: boditi };
     as.lead = { sub: SUB.lead, unit: boditi };
     as.zoneOfficer = { sub: SUB.zoneOfficer, unit: zone };
     as.zoneLead = { sub: SUB.zoneLead, unit: zone };
     as.zoneCashier = { sub: SUB.zoneCashier, unit: zone };
-    boditiDesk = { officer: as.officer, lead: as.lead, cashier: as.boditiCashier, unit: boditi };
-    zoneDesk = { officer: as.zoneOfficer, lead: as.zoneLead, cashier: as.zoneCashier, unit: zone };
+    boditiDesk = { officer: as.officer, lead: as.lead, cashier: as.boditiCashier, unit: boditi, sub: SUB.officer };
+    zoneDesk = {
+        officer: as.zoneOfficer,
+        lead: as.zoneLead,
+        cashier: as.zoneCashier,
+        unit: zone,
+        sub: SUB.zoneOfficer
+    };
+    siblingDesk = {
+        officer: as.siblingOfficer,
+        lead: as.siblingLead,
+        cashier: as.siblingCashier,
+        unit: sibling,
+        sub: SUB.siblingOfficer
+    };
 
     const root = { id: region.id, regionId: region.regionId };
     await api.installer.scoped({}, async (tx) => {
@@ -593,9 +661,9 @@ describe('a vehicle returning to another office, with other owners and another l
             v,
             {
                 owners: [{ ownerPerson: otherOwner }],
-                ownersSince: '2024-01-01',
+                ownersSince: OWNERS_SINCE(),
                 libreNumber: libre,
-                libreIssuedOn: '2024-02-01'
+                libreIssuedOn: LIBRE_ISSUED()
             },
             zoneDesk
         );
@@ -615,11 +683,11 @@ describe('a vehicle returning to another office, with other owners and another l
         expect(await periodsOf(v.id)).toEqual([
             {
                 since: '2013-03-01',
-                until: '2024-01-01',
+                until: OWNERS_SINCE(),
                 acquired_by: 'first_registration',
                 handling_unit_id: zone.id
             },
-            { since: '2024-01-01', until: null, acquired_by: 'transfer_in', handling_unit_id: zone.id }
+            { since: OWNERS_SINCE(), until: null, acquired_by: 'transfer_in', handling_unit_id: zone.id }
         ]);
         // the libre for the former owners is cancelled, and the one brought points at it
         const libres = await librePlaces(v.id);
@@ -650,6 +718,67 @@ describe('a vehicle returning to another office, with other owners and another l
             const summary = await app.scoped(contextFor(unit), (tx) => stock.summary(tx, contextFor(unit)));
             expect(summary.unit.reconciled, unit.code).toBe(true);
         }
+    }, 300_000);
+});
+
+describe('a vehicle returning to a sibling office', () => {
+    it('is taken there by the reviewed command, with other owners and a plate of another region, though that office cannot write Boditi rows', async () => {
+        const { v, handoverId } = await gone(true);
+        const held = (await platesOf(v.id)).find((p) => p.until === null);
+        const plate = nationalPlate();
+        const answers = await answersOf(
+            v,
+            {
+                owners: [{ ownerPerson: otherOwner }],
+                ownersSince: OWNERS_SINCE(),
+                libreNumber: bookletNumber(),
+                libreIssuedOn: LIBRE_ISSUED(),
+                plate
+            },
+            siblingDesk
+        );
+        const c = await atTheArrival(answers, siblingDesk);
+        expect((await moved(c, siblingDesk.officer, 'register', { answers: {} })).state).toBe('registered');
+        expect(await vehicleRow(v.id)).toMatchObject({ status: 'active', handling_unit_id: sibling.id });
+        expect(await handoverOf(v.id)).toMatchObject({ id: handoverId, status: 'returned', in_case_id: c.id });
+        expect((await periodsOf(v.id)).map((p) => [p.acquired_by, p.until, p.handling_unit_id])).toEqual([
+            ['first_registration', OWNERS_SINCE(), sibling.id],
+            ['transfer_in', null, sibling.id]
+        ]);
+        const plates = await platesOf(v.id);
+        expect(plates).toHaveLength(3);
+        expect(plates[1]).toMatchObject({ id: held?.id, ended_reason: 'transferred', replaced_by_id: plates[2]?.id });
+        expect(plates[2]).toMatchObject({ source: 'manual', until: null, handling_unit_id: sibling.id });
+        // the stock plate left Boditi with the vehicle (a row at each office), then left the stock for good
+        expect(
+            await query(
+                'select unit_id, kind from vehicles.plate_movements where case_id = $1 and kind like $2 order by kind',
+                [c.id, 'hand_over%']
+            )
+        ).toEqual([
+            { unit_id: sibling.id, kind: 'hand_over_in' },
+            { unit_id: boditi.id, kind: 'hand_over_out' }
+        ]);
+        expect(
+            await query('select status, holder_unit_id from vehicles.plates where id = $1', [held?.plate_id])
+        ).toEqual([{ status: 'retired', holder_unit_id: sibling.id }]);
+        expect(await events(c.id)).toBe(9);
+        for (const unit of [boditi, sibling]) {
+            const summary = await app.scoped(contextFor(unit), (tx) => stock.summary(tx, contextFor(unit)));
+            expect(summary.unit.reconciled, unit.code).toBe(true);
+        }
+    }, 300_000);
+});
+
+describe('the federal id on return', () => {
+    it('is recorded from the document when the register has none', async () => {
+        const { v } = await gone(true);
+        const federal = `FED-${randomInt(100000, 999999)}`;
+        const c = await atTheArrival(await answersOf(v, { federalVehicleId: federal }));
+        await moved(c, as.officer, 'register', { answers: {} });
+        expect(await query('select federal_vehicle_id from vehicles.vehicles where id = $1', [v.id])).toEqual([
+            { federal_vehicle_id: federal }
+        ]);
     }, 300_000);
 });
 
@@ -740,6 +869,58 @@ describe('what stops a return', () => {
             as.officer
         );
         await refusedAt(noOwners, boditiDesk, 'chassisNumber', 'no_owners_on_record');
+
+        // transferred out with its owners but no release on record: nothing to come back on
+        const chassisB = vin();
+        const noRelease = await app.scoped(ctx, (tx) =>
+            registry.register(tx, ctx, {
+                chassisNumber: chassisB,
+                make: 'Toyota',
+                model: 'Corolla',
+                modelYear: 2012,
+                categoryKey: 'automobile',
+                use: 'private',
+                seats: 5,
+                firstRegisteredOn: '2013-03-01',
+                owners: [{ kind: 'person', id: owner }]
+            })
+        );
+        await api.owner.query(`update vehicles.vehicles set status = 'transferred_out' where id = $1`, [noRelease.id]);
+        await refusedAt(
+            await file(
+                ARRIVAL,
+                await answersOf({ id: noRelease.id, chassis: chassisB, legacy: legacyPlate(), libre: bookletNumber() }),
+                as.officer
+            ),
+            boditiDesk,
+            'chassisNumber',
+            'no_release'
+        );
+    }, 300_000);
+
+    it('is owners dated before the day it left, also when forced at the register step', async () => {
+        const { v } = await gone(true);
+        const answers = await answersOf(v);
+        const c = await atTheArrival(answers);
+        const facts = await factsOf(c.id);
+        // the filed owners were the register's: forced to other owners and a day before the release, the step is refused and undone
+        const forced = {
+            ...answers,
+            owners: [{ ownerPerson: otherOwner }],
+            ownersSince: daysAfter(today(), -5),
+            libreIssuedOn: LIBRE_ISSUED(),
+            libreNumber: bookletNumber()
+        };
+        const ctx: DbContext = { ...contextFor(boditi), requestId: `forced-${randomUUID()}` };
+        const place = { caseId: c.id, regionId: boditi.regionId, handlingUnitId: boditi.id, ctx };
+        await expect(
+            app.scoped(ctx, (tx) => arrivals.register(tx, place, facts, forced as unknown as TransferArrivalInput))
+        ).rejects.toMatchObject({
+            code: 'validation_failed',
+            errors: [expect.objectContaining({ path: 'since', code: 'before_departure' })]
+        });
+        expect(await vehicleRow(v.id)).toMatchObject({ status: 'transferred_out' });
+        expect(await handoverOf(v.id)).toMatchObject({ status: 'released' });
     }, 300_000);
 
     it('is other owners with no day they took it, a libre dated before it, and the libre of the former owners again', async () => {
@@ -756,9 +937,9 @@ describe('what stops a return', () => {
                 ARRIVAL,
                 await answersOf(v, {
                     ...other,
-                    ownersSince: '2024-01-01',
+                    ownersSince: OWNERS_SINCE(),
                     libreNumber: bookletNumber(),
-                    libreIssuedOn: '2023-12-01'
+                    libreIssuedOn: daysAfter(today(), -4)
                 }),
                 as.officer
             ),
@@ -766,11 +947,27 @@ describe('what stops a return', () => {
             'libreIssuedOn',
             'before_period'
         );
+        // owners who took it before the day it left: the register's owners held it until then
+        await refusedAt(
+            await file(
+                ARRIVAL,
+                await answersOf(v, {
+                    ...other,
+                    ownersSince: daysAfter(today(), -5),
+                    libreNumber: bookletNumber(),
+                    libreIssuedOn: LIBRE_ISSUED()
+                }),
+                as.officer
+            ),
+            boditiDesk,
+            'ownersSince',
+            'before_departure'
+        );
         // the libre the register holds for other owners is another vehicle's number once they change: not brought again
         await refusedAt(
             await file(
                 ARRIVAL,
-                await answersOf(v, { ...other, ownersSince: '2024-01-01', libreIssuedOn: '2024-02-01' }),
+                await answersOf(v, { ...other, ownersSince: OWNERS_SINCE(), libreIssuedOn: LIBRE_ISSUED() }),
                 as.officer
             ),
             boditiDesk,
@@ -787,18 +984,25 @@ describe('what stops a return', () => {
         const refused = await tried(cancel, as.officer, 'submit');
         expect([409, 422], JSON.stringify(refused.body)).toContain(refused.status);
         expect((await caseOf(cancel.id, as.officer)).state).toBe('draft');
-        // and the return is withdrawn: the cancellation goes through, the vehicle is active, so it is no return any more
+        // the return is withdrawn: the cancellation goes through, the release is cancelled and the vehicle is active, so it is no return any more
         const back = await moved(open, as.officer, 'return', { comment: 'Sent back' });
         await moved(back, as.officer, 'withdraw', { comment: 'Not needed' });
+        let cancelling = await moved(await caseOf(cancel.id, as.officer), as.officer, 'submit');
+        cancelling = await moved(cancelling, as.officer, 'approve');
+        cancelling = await moved(cancelling, as.lead, 'approve');
+        expect(cancelling.state).toBe('cancelled');
+        expect(await handoverOf(v.id)).toMatchObject({ status: 'cancelled' });
+        expect(await vehicleRow(v.id)).toMatchObject({ status: 'active' });
+        await refusedAt(await file(ARRIVAL, await answersOf(v), as.officer), boditiDesk, 'chassisNumber', 'active');
 
         // a cancellation open: the return is refused
         const w = await gone(true);
-        const cancelling = await moved(
+        const cancelOpen = await moved(
             await file(CANCEL, { vehicle: w.v.id, reason: 'The owner changed their mind' }, as.officer),
             as.officer,
             'submit'
         );
-        expect(cancelling.state).toBe('review');
+        expect(cancelOpen.state).toBe('review');
         const r = await tried(await file(ARRIVAL, await answersOf(w.v), as.officer), as.officer, 'submit');
         expect(r.status, JSON.stringify(r.body)).toBe(422);
         expect(r.body.code).toBe('not_eligible');
@@ -843,6 +1047,15 @@ describe('the reviewed command and the trigger', () => {
         // the vehicle did not come back through any of them
         expect(await vehicleRow(v.id)).toMatchObject({ status: 'transferred_out' });
 
+        // a case not yet paid (still at its review): refused, whoever asks
+        const early = await gone(true);
+        const unpaid = await submitted(await answersOf(early.v));
+        expect(unpaid.state).toBe('review');
+        await expect(accept(contextFor(boditi), unpaid.id)).rejects.toMatchObject({
+            cause: { code: '23514', constraint: 'handover_return_refused' }
+        });
+        expect(await vehicleRow(early.v.id)).toMatchObject({ status: 'transferred_out' });
+
         // a closed case: rejected, it names the vehicle and the release, and is refused
         const rejected = await moved(c, as.officer, 'reject', { comment: 'The document turned out to be forged' });
         expect(rejected.state).toBe('rejected');
@@ -850,6 +1063,18 @@ describe('the reviewed command and the trigger', () => {
             cause: { code: '23514', constraint: 'handover_return_refused' }
         });
         expect(await vehicleRow(v.id)).toMatchObject({ status: 'transferred_out' });
+        expect(await handoverOf(v.id)).toMatchObject({ status: 'released' });
+    }, 300_000);
+
+    it('hold a release that has not lapsed: nothing the application role writes expires it', async () => {
+        const v = await onTheRoad(false);
+        const { handoverId } = await leftTheRegion(v);
+        expect(
+            await refusedAs(
+                boditi,
+                sql`update vehicles.vehicle_handovers set status = 'expired' where id = ${handoverId}::uuid`
+            )
+        ).toMatchObject({ code: '23514', constraint: 'handover_transition' });
         expect(await handoverOf(v.id)).toMatchObject({ status: 'released' });
     }, 300_000);
 
@@ -870,7 +1095,7 @@ describe('the reviewed command and the trigger', () => {
                 boditi,
                 sql`update vehicles.vehicle_handovers set status = 'returned', in_case_id = ${c.id}::uuid where id = ${handoverId}::uuid`
             )
-        ).toBeDefined();
+        ).toMatchObject({ code: '42501' });
         expect(await handoverOf(v.id)).toMatchObject({ status: 'released' });
     }, 300_000);
 });

@@ -360,14 +360,15 @@ export class VehicleRegistry {
 
     /**
      * The owners the arrival document names, for a vehicle that came back (task 1.4c3b): the same holders change nothing; others
-     * take it by transfer in from `since`, which must be after the day the period on the register began, and the libre in force,
+     * take it by transfer in from `since`, which must be after the day the period on the register began and not before `notBefore` (the day
+     * the vehicle left), and the libre in force,
      * written for the owners who no longer hold it, is cancelled (returned, so the libre they bring points at it).
      */
     async returnOwners(
         tx: Tx,
         ctx: DbContext,
         vehicleId: string,
-        given: { owners: readonly OwnerRef[]; since: string; caseId: string; note?: string }
+        given: { owners: readonly OwnerRef[]; since: string; notBefore: string; caseId: string; note?: string }
     ): Promise<{ ownershipId: string | null; cancelled: typeof libres.$inferSelect | null }> {
         const vehicle = await this.lock(tx, ctx, vehicleId);
         const open = await this.openPeriod(tx, vehicleId);
@@ -375,6 +376,9 @@ export class VehicleRegistry {
         const heldIds = new Set(held.map((h) => h.id));
         if (given.owners.length === held.length && given.owners.every((o) => heldIds.has(o.id)))
             return { ownershipId: null, cancelled: null };
+        // the register's owners held it until the day it left: history is not rewritten before that day
+        if (given.since < given.notBefore)
+            throw fieldError('since', 'before_departure', 'is before the day the vehicle left the region');
         const { ownershipId, cancelled } = await this.moveOwnership(tx, vehicle, {
             owners: [...given.owners],
             since: given.since,

@@ -19,6 +19,7 @@ import {
     vehicles,
     VehicleArrivals,
     VehicleHandovers,
+    vehicleHandovers,
     VehicleRegistry,
     VehiclesService
 } from '@itrms/vehicles/api';
@@ -383,6 +384,7 @@ export class TransferArrivalService {
                           returning: {
                               vehicleId: known.id,
                               handoverId: returning.handoverId,
+                              releasedOn: returning.releasedOn,
                               ownersChanged: !returning.sameOwners,
                               plate: plateOnReturn
                           }
@@ -414,11 +416,22 @@ export class TransferArrivalService {
         const state = await this.registry.checkReturn(tx, known.id, owners);
         if (!state.openPeriod)
             refuse([{ path, code: 'no_owners_on_record', message: say('competency.rule.arrivalNoOwnersOnRecord') }]);
+        // ADR-0058: a vehicle transferred out has the release it left on; with none there is nothing to come back on
+        if (!standing) return refuse([{ path, code: 'no_release', message: say('competency.rule.arrivalNoRelease') }]);
         if (!state.sameOwners) {
             const since = input.ownersSince;
             if (!since || since > addisDay() || since <= (state.openPeriod?.since ?? ''))
                 refuse([
                     { path: 'ownersSince', code: 'before_period', message: say('competency.rule.arrivalOwnersSince') }
+                ]);
+            // the register's owners held it until it left: new owners cannot have taken it before that day
+            else if (since < standing.releasedOn)
+                refuse([
+                    {
+                        path: 'ownersSince',
+                        code: 'before_departure',
+                        message: say('competency.rule.arrivalOwnersBeforeDeparture')
+                    }
                 ]);
         }
         const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -430,7 +443,8 @@ export class TransferArrivalService {
         return {
             state,
             sameOwners: state.sameOwners,
-            handoverId: standing?.id ?? null,
+            handoverId: standing.id,
+            releasedOn: standing.releasedOn,
             notices: [
                 'competency.notice.arrivalReturning',
                 ...(differs ? ['competency.notice.arrivalFactsDiffer'] : []),
@@ -563,15 +577,33 @@ export class TransferArrivalService {
     ) {
         const vehicleId = returning.vehicleId;
         if (typeof vehicleId !== 'string') throw missingFact('transferArrival.returning');
-        const handoverId = typeof returning.handoverId === 'string' ? returning.handoverId : undefined;
+        const handoverId = returning.handoverId;
+        if (typeof handoverId !== 'string') throw missingFact('transferArrival.returning');
+        // the day it left is read from the release itself, not from the facts: new owners cannot have taken it before then
+        const [release] = await tx
+            .select({ releasedOn: vehicleHandovers.releasedOn })
+            .from(vehicleHandovers)
+            .where(eq(vehicleHandovers.id, handoverId));
+        if (!release) throw missingFact('transferArrival.returning');
         await this.arrivals.acceptReturn(tx, place.caseId);
         const given = this.registerInput(input, place.caseId);
         const moved = await this.registry.returnOwners(tx, place.ctx, vehicleId, {
             owners: given.owners,
             since: input.ownersSince ?? addisDay(),
+            notBefore: release.releasedOn,
             caseId: place.caseId,
             ...(given.note ? { note: given.note } : {})
         });
+        // the federal id the document gives, when the register has none: the national system's id is set once
+        const federal = input.federalVehicleId?.trim();
+        if (federal) {
+            const [row] = await tx
+                .select({ federalVehicleId: vehicles.federalVehicleId })
+                .from(vehicles)
+                .where(eq(vehicles.id, vehicleId));
+            if (row?.federalVehicleId === null)
+                await this.registry.recordFederalId(tx, place.ctx, vehicleId, federal.toUpperCase());
+        }
         if (returning.plate === 'new')
             await this.registry.recordPlate(tx, place.ctx, vehicleId, {
                 text: plate.text,
@@ -607,7 +639,7 @@ export class TransferArrivalService {
             holdsListed: input.holdsListed === true,
             ...(input.holdsListed === true && input.holdsNote?.trim() ? { holdsNote: input.holdsNote.trim() } : {}),
             returned: true,
-            ...(handoverId ? { handoverId } : {})
+            handoverId
         });
         return this.madeBy(tx, place.caseId, vehicleId, arrival.id, true);
     }

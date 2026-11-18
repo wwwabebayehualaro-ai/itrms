@@ -538,6 +538,8 @@
   "competency.rule.arrivalReleaseStanding": "This region's transfer document for the vehicle is still valid: the owner cancels it at the releasing office (DVC-16).",
   "competency.rule.arrivalOwnersSince": "These owners are not the ones on the register: give the day they took the vehicle, after the day the register's owners took it and not in the future.",
   "competency.rule.arrivalNoOwnersOnRecord": "This vehicle left the region before its owners were kept on record: its return cannot be registered on its own record.",
+  "competency.rule.arrivalOwnersBeforeDeparture": "These owners cannot have taken the vehicle before the day it left this region: give a day on or after the day its transfer document was issued here.",
+  "competency.rule.arrivalNoRelease": "No release of this vehicle outside the region is on record here: it cannot be brought back on its own record.",
   "competency.rule.arrivalPlateFromHistory": "This is a plate the vehicle carried before: it is not taken back. Give the plate it carries now.",
   "competency.rule.arrivalNotReturnable": "This vehicle was taken off the register of this region: it is not registered again as an arrival.",
   "competency.rule.arrivalStolen": "This vehicle is reported stolen in this region: it is not registered as an arrival.",

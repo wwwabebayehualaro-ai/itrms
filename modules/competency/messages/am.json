@@ -538,6 +538,8 @@
   "competency.rule.arrivalReleaseStanding": "የዚህ ክልል የተሽከርካሪው የማስተላለፊያ ሰነድ አሁንም ይሠራል፤ ባለቤቱ በለቀቀው መሥሪያ ቤት (DVC-16) ይሰርዘዋል።",
   "competency.rule.arrivalOwnersSince": "እነዚህ ባለቤቶች በመዝገቡ ላይ ያሉት አይደሉም፤ ተሽከርካሪውን የያዙበትን ቀን ያስገቡ፤ ይህም በመዝገቡ ባለቤቶች ከያዙበት ቀን በኋላ እንጂ ወደፊት መሆን የለበትም።",
   "competency.rule.arrivalNoOwnersOnRecord": "ይህ ተሽከርካሪ ባለቤቶቹ በመዝገብ ከመያዛቸው በፊት ከክልሉ ወጥቷል፤ መመለሱ በራሱ መዝገብ ላይ ሊመዘገብ አይችልም።",
+  "competency.rule.arrivalOwnersBeforeDeparture": "እነዚህ ባለቤቶች ተሽከርካሪውን ከዚህ ክልል ከወጣበት ቀን በፊት ሊይዙት አይችሉም፤ እዚህ የማስተላለፊያ ሰነዱ ከተሰጠበት ቀን ጀምሮ ያለ ቀን ያስገቡ።",
+  "competency.rule.arrivalNoRelease": "የዚህ ተሽከርካሪ ከክልሉ ውጭ የተደረገ መልቀቂያ እዚህ በመዝገብ የለም፤ በራሱ መዝገብ ላይ ሊመለስ አይችልም።",
   "competency.rule.arrivalPlateFromHistory": "ይህ ተሽከርካሪው ቀድሞ የያዘው ሰሌዳ ነው፤ ተመልሶ አይወሰድም። አሁን የያዘውን ሰሌዳ ያስገቡ።",
   "competency.rule.arrivalNotReturnable": "ይህ ተሽከርካሪ ከዚህ ክልል መዝገብ ተሰርዟል፤ እንደ ገቢ ተሽከርካሪ እንደገና አይመዘገብም።",
   "competency.rule.arrivalStolen": "ይህ ተሽከርካሪ በዚህ ክልል እንደተሰረቀ ተመዝግቧል፤ እንደ ገቢ ተሽከርካሪ አይመዘገብም።",

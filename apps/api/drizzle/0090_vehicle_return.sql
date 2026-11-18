@@ -52,6 +52,12 @@ BEGIN
             RAISE EXCEPTION 'vehicles: handover % is cancelled only by a case of its releasing office that names it, today', OLD.id
                 USING ERRCODE = 'check_violation', CONSTRAINT = 'handover_transition';
         END IF;
+    ELSIF NEW.status = 'expired' THEN
+        -- only a release that lapsed expires: no request of the office can end a standing one
+        IF OLD.valid_until >= today THEN
+            RAISE EXCEPTION 'vehicles: handover % has not lapsed', OLD.id
+                USING ERRCODE = 'check_violation', CONSTRAINT = 'handover_transition';
+        END IF;
     ELSIF NEW.status = 'returned' THEN
         IF OLD.destination_kind <> 'outside' OR OLD.valid_until >= today OR NEW.in_case_id IS NULL
             OR NEW.received_on IS DISTINCT FROM today
@@ -76,7 +82,7 @@ $$;
 -- vehicle of this region that left it. The region's class R policy lets no office move a vehicle another office handles, so this
 -- does it, for the person's own open DVC-17 case, handled within the caller's scope, whose facts (the check effect wrote them on an
 -- earlier transition) name this vehicle (by its chassis key) and the release it left on: the vehicle must read transferred_out, and
--- that release, if one stands, must be outside the region, lapsed, and the vehicle's own. It brings the vehicle back (active) to the
+-- that release must stand, outside the region, lapsed, the vehicle's own and the case's; the case must be paid. It brings the vehicle back (active) to the
 -- case's office and moves its live rows with it when that is another office (the open period and its owners, the current plate, the
 -- libre in force, the stock plate with a ledger row at each office), never a closed one, ends the release `returned`, and returns
 -- every row it wrote so the caller audits each in the same transaction. The owners, plate and libre the owner brings are the
@@ -114,6 +120,10 @@ BEGIN
     IF c.closed_at IS NOT NULL THEN
         RAISE EXCEPTION 'vehicles: case % is closed', p_case USING ERRCODE = 'check_violation', CONSTRAINT = 'handover_return_refused';
     END IF;
+    -- paid: the fact the workflow's PAID guard reads (payment.settled eq true; a case with no fee is settled when it is filed)
+    IF (c.facts #>> '{payment,settled}') IS DISTINCT FROM 'true' THEN
+        RAISE EXCEPTION 'vehicles: case % is not paid', p_case USING ERRCODE = 'check_violation', CONSTRAINT = 'handover_return_refused';
+    END IF;
     SELECT u.path INTO dest FROM kernel.org_units u
      WHERE u.id = c.handling_unit_id AND u.active AND u.region_id = kernel.ctx_region();
     -- the function's search_path leaves out public, where ltree's operators live: named in full
@@ -126,16 +136,13 @@ BEGIN
         RAISE EXCEPTION 'vehicles: case % does not return a vehicle that left the region', p_case
             USING ERRCODE = 'check_violation', CONSTRAINT = 'handover_return_refused';
     END IF;
-    -- the release outside the region the vehicle left on: still standing, never valid today, and the case names it (or none stands and none is named)
+    -- the release outside the region the vehicle left on (ADR-0058: a vehicle transferred out has one): still standing, lapsed, the
+    -- vehicle's own, and the one the case names; with none there is nothing to come back on
     SELECT * INTO h FROM vehicles.vehicle_handovers WHERE vehicle_id = v.id AND status = 'released' FOR UPDATE;
-    IF FOUND THEN
-        IF (c.facts #>> '{transferArrival,returning,handoverId}') IS DISTINCT FROM h.id::text
-            OR h.destination_kind <> 'outside' OR h.from_unit_id <> v.handling_unit_id OR h.valid_until >= today THEN
-            RAISE EXCEPTION 'vehicles: handover % is not the one the vehicle may return on', h.id
-                USING ERRCODE = 'check_violation', CONSTRAINT = 'handover_return_refused';
-        END IF;
-    ELSIF (c.facts #>> '{transferArrival,returning,handoverId}') IS NOT NULL THEN
-        RAISE EXCEPTION 'vehicles: the release the case names is not standing'
+    IF NOT FOUND
+        OR (c.facts #>> '{transferArrival,returning,handoverId}') IS DISTINCT FROM h.id::text
+        OR h.destination_kind <> 'outside' OR h.from_unit_id <> v.handling_unit_id OR h.valid_until >= today THEN
+        RAISE EXCEPTION 'vehicles: vehicle % has no lapsed release outside the region that the case names', v.id
             USING ERRCODE = 'check_violation', CONSTRAINT = 'handover_return_refused';
     END IF;
     SELECT o.id INTO open_id FROM vehicles.vehicle_ownerships o WHERE o.vehicle_id = v.id AND o.until IS NULL;
@@ -182,11 +189,9 @@ BEGIN
         END LOOP;
     END IF;
 
-    IF h.id IS NOT NULL THEN
-        UPDATE vehicles.vehicle_handovers SET status = 'returned', in_case_id = p_case, received_on = today, received_by = who,
-               updated_at = now(), updated_by = who, row_version = row_version + 1 WHERE id = h.id;
-        RETURN QUERY SELECT 'vehicles.vehicle_handovers'::text, h.id;
-    END IF;
+    UPDATE vehicles.vehicle_handovers SET status = 'returned', in_case_id = p_case, received_on = today, received_by = who,
+           updated_at = now(), updated_by = who, row_version = row_version + 1 WHERE id = h.id;
+    RETURN QUERY SELECT 'vehicles.vehicle_handovers'::text, h.id;
 END;
 $$;
 --> statement-breakpoint
