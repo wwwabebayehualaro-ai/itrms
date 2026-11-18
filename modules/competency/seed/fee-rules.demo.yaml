@@ -224,3 +224,27 @@ rules:
           kind: fixed
           amount: '150000'
           when: input.use != 'private' && input.use != 'public_transport' && input.use != 'commercial'
+  - key: dvc-17-arrival
+    name: { am: ከሌላ ክልል የመጣ ተሽከርካሪ ምዝገባ, en: Registration of a vehicle transferred from another region }
+    document:
+      schemaVersion: 1
+      demo: true
+      basis: "the zone's fee sheet: leaving or entering the zone 2,000 (M); the plate fee as the plate exchange's (DVC-12); to confirm (R2)"
+      inputs:
+        use: { kind: choice }
+        # ticked when the vehicle is given a national plate here (the server holds it to the plate rule: a fee reads answers only)
+        takesNationalPlate: { kind: boolean, required: false }
+      lines:
+        - key: arrival
+          label: { am: የዝውውር ምዝገባ ክፍያ, en: Arrival registration }
+          kind: fixed
+          amount: '200000'
+        - key: plate
+          label: { am: የሰሌዳ ክፍያ, en: Plate }
+          kind: table
+          input: use
+          rows:
+            - { value: private, amount: '516100' }
+            - { value: commercial, amount: '607000' }
+          otherwise: '516100'
+          when: input.takesNationalPlate

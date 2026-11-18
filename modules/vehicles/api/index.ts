@@ -3,6 +3,7 @@
 export { VehiclesModule } from './vehicles.module';
 export { ENCUMBRANCE_EFFECTS_LIST } from './encumbrance.effects';
 export { EncumbranceService } from './encumbrances.service';
+export { VehicleArrivals, type VehicleArrival } from './arrival.service';
 export { VehicleHandovers, type HandoverCheck } from './handover.service';
 export { PLATE_STOCK_CAPABILITY, PlateStock } from './plate-stock.service';
 export { VehicleRegistry } from './vehicle-registry.service';

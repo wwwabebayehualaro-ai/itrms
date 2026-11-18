@@ -38,7 +38,8 @@ describe('the demo fee rules', () => {
             'dvc-13-ownership-transfer',
             'dvc-14-transfer-out',
             'dvc-01-registration',
-            'dvc-02-bolo'
+            'dvc-02-bolo',
+            'dvc-17-arrival'
         ]);
         for (const r of rules) {
             expect(checkFeeRule(r.document), r.key).toEqual([]);
@@ -92,6 +93,26 @@ describe('the demo fee rules', () => {
             status: 'complete',
             total: 100000n + 50000n + 20000n,
             lines: [{ key: 'base', amount: 100000n }, { key: 'plate' }, { key: 'libre' }]
+        });
+    });
+
+    it('charge an arriving vehicle 2,000 Birr, and the plate by its use only when it takes a national plate', () => {
+        expect(
+            evaluateFee(rule('dvc-17-arrival'), {
+                answers: { use: 'private', takesNationalPlate: true },
+                asOf: '2026-01-01'
+            })
+        ).toMatchObject({ status: 'complete', total: 200000n + 516100n });
+        expect(
+            evaluateFee(rule('dvc-17-arrival'), {
+                answers: { use: 'commercial', takesNationalPlate: true },
+                asOf: '2026-01-01'
+            })
+        ).toMatchObject({ total: 200000n + 607000n });
+        expect(evaluateFee(rule('dvc-17-arrival'), { answers: { use: 'private' }, asOf: '2026-01-01' })).toMatchObject({
+            status: 'complete',
+            total: 200000n,
+            lines: [{ key: 'arrival' }]
         });
         expect(
             evaluateFee(rule('dvc-01-registration'), { answers: { categoryKey: 'unlisted' }, asOf: '2026-01-01' })

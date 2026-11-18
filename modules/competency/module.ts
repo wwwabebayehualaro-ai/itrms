@@ -98,6 +98,15 @@ export default defineModule({
             overridableAt: ['installation', 'region'],
             // a change loosens or tightens a control: it needs a fresh second factor (SEC-SE-5)
             sensitive: true
+        },
+        // whether a vehicle that arrives from another region on an old regional plate is given a national plate in the same case (task
+        // 1.4c3, ADR-0060; Directive 1050/2025): on until the region says otherwise
+        {
+            key: 'competency.vehicle_transfer_plate_exchange',
+            default: true,
+            overridableAt: ['installation', 'region'],
+            // turning it off lets an old plate stay on the register: a change needs a fresh second factor (SEC-SE-5)
+            sensitive: true
         }
     ],
     effects: [
@@ -137,6 +146,9 @@ export default defineModule({
         'competency.receiveVehicle',
         'competency.checkReleaseCancel',
         'competency.cancelRelease',
+        'competency.checkTransferArrival',
+        'competency.registerArrival',
+        'competency.issueArrivalCertificate',
         'competency.checkBolo',
         'competency.recordBoloInspection',
         'competency.issueBoloSticker',
@@ -239,7 +251,9 @@ export default defineModule({
         'DVC-02': ['competency.temporary-bolo'],
         'DVC-03': ['competency.licence'],
         'DVC-13': ['vehicles.registration-certificate', 'competency.transfer-letter'],
-        'DVC-14': ['competency.transfer-document']
+        'DVC-14': ['competency.transfer-document'],
+        // the registration certificate of the vehicle that arrives (task 1.4c3)
+        'DVC-17': ['vehicles.registration-certificate']
     },
     services: [
         'DVC-01',
@@ -262,6 +276,8 @@ export default defineModule({
         'DVC-15',
         // a release cancelled by the office that made it (task 1.4c2b, ADR-0059)
         'DVC-16',
+        // a vehicle that arrives from another region, on its transfer document (task 1.4c3, ADR-0060)
+        'DVC-17',
         // the back-capture of paper vehicle files (ADR-0054): the migration's own service, beside the bureau's
         'MIG-01'
     ],
@@ -272,7 +288,9 @@ export default defineModule({
         'DVC-12': ['holds_plate_stock'],
         'DVC-13': ['holds_stationery'],
         // the vehicle's stock plate joins the receiving office's stock (task 1.4c)
-        'DVC-15': ['holds_plate_stock']
+        'DVC-15': ['holds_plate_stock'],
+        // a vehicle on an old plate is given a national plate from the office's stock in the same case (task 1.4c3)
+        'DVC-17': ['holds_plate_stock']
     },
     menu: [
         {
@@ -414,7 +432,7 @@ export default defineModule({
             label: 'competency.nav.vehicleTransfers',
             icon: 'arrow-left-right',
             route: '/competency/vehicle-transfers',
-            requires: { permission: 'vehicle:read', services: ['DVC-14', 'DVC-15', 'DVC-16'] },
+            requires: { permission: 'vehicle:read', services: ['DVC-14', 'DVC-15', 'DVC-16', 'DVC-17'] },
             quickActions: [
                 {
                     key: 'competency.newTransferOut',
@@ -433,6 +451,12 @@ export default defineModule({
                     label: 'competency.action.newReleaseCancel',
                     route: '/competency/vehicle-transfers/cancel/new',
                     requires: { permission: 'case:create', services: ['DVC-16'] }
+                },
+                {
+                    key: 'competency.newTransferArrival',
+                    label: 'competency.action.newTransferArrival',
+                    route: '/competency/vehicle-transfers/arrival/new',
+                    requires: { permission: 'case:create', services: ['DVC-17'] }
                 }
             ]
         },

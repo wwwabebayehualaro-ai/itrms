@@ -80,6 +80,14 @@ release to another region the number of the transfer document handed back is ent
 lapsed it may be left out, unless the region switches that off). Refused while the receiving office has filed its transfer in.
 No fee (to confirm with the zone). Offered wherever DVC-14 is; not counted in the totals.
 
+**Not in the source: DVC-17, register a vehicle transferred from another region** (ከሌላ ክልል የመጣ ተሽከርካሪ ምዝገባ; task 1.4c3, ADR-0060). A vehicle
+new to this register arrives with the other region's vehicle data transfer document: the officer files the vehicle's facts as DVC-01 does and the
+document's (number, issuing region and office, dates, how it was checked, the federal libre, the plate it carries, the bolo and the holds it lists),
+reviewed, paid, approved by a lead and registered by an officer (the vehicle, its transfer-in ownership period, the libre and the registration
+certificate). A vehicle on an old regional plate is given a national plate from the office's stock in the same case when
+`competency.vehicle_transfer_plate_exchange` is on (default). The demo fee is 2,000 Birr plus the plate fee (to confirm with the zone). A chassis this
+register knows is refused; the return of a vehicle that left is task 1.4c3b. Offered wherever DVC-01 is; not counted in the totals.
+
 **Not in the source: MIG-01, the back-capture of a paper vehicle file** (የወረቀት ተሽከርካሪ ፋይል ምዝገባ; ADR-0054, task 1.13). The
 migration's own service, in the catalogue beside the 54 and offered wherever DVC-01 is: a vehicle with no electronic record is
 captured from its paper file and verified by a second person before any service acts on it. It is not counted in the totals.

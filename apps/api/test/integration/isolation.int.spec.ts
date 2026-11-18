@@ -398,6 +398,8 @@ describe('every tenant table', () => {
               AND has_function_privilege('itrms_app', p.oid, 'EXECUTE')
             ORDER BY p.oid::regprocedure::text COLLATE "C"`);
         expect(rows.map((r) => r.name)).toEqual([
+            // whether an open case of the caller's region is an arrival of this transfer document, libre or federal id: yes or no (task 1.4c3)
+            'competency.arrival_in_open_case(text,text,text,text,uuid)',
             // whether an open case of the caller's region names a release: the receiving office's transfer in, or a cancellation (task 1.4c2b)
             'competency.release_in_open_case(uuid,uuid,uuid)',
             // whether another open case of the caller's region claims a chassis, an old plate or a vehicle: yes or no (task 1.2e)

@@ -19,6 +19,7 @@ export * from './back-capture-service';
 export * from './exchange-service';
 export * from './transfer-service';
 export * from './vehicle-transfer-service';
+export * from './vehicle-arrival-service';
 export * from './bolo-service';
 export { importDemoData, type DemoCounts, type DemoDeps } from './demo';
 

@@ -24,6 +24,8 @@ import { GarageLookup, LicenceLookup, OfficeLookup, ReleasedVehicleLookup, Train
 import { RegisterService } from './register.service';
 import { REGISTRATION_EFFECTS } from './registration.effects';
 import { VehicleRegistrationService } from './registration.service';
+import { TRANSFER_ARRIVAL_EFFECTS_LIST } from './transfer-arrival.effects';
+import { TransferArrivalService } from './transfer-arrival.service';
 import { TRANSFER_EFFECTS_LIST } from './transfer.effects';
 import { OwnershipTransferService } from './transfer.service';
 import { VehicleImportController } from './vehicle-import.controller';
@@ -33,7 +35,7 @@ import { VehicleTransferService } from './vehicle-transfer.service';
 
 /**
  * Driver licences (task 0.24a): the register, its rules and the effects a licence service's workflow names; and the new vehicle
- * registration service's effects over the vehicle register (task 1.2b); the back-capture of paper vehicle files (task 1.13) and their bulk import (task 1.13b) with its sampling QA (task 1.13g); the plate exchange (task 1.2c); the ownership transfer (task 1.4b); the transfer of a vehicle between offices (task 1.4c); and the bolo inspection (tasks 1.3a, 1.3b); the campaign counters over the plate exchange and the bolo season (task 1.13i).
+ * registration service's effects over the vehicle register (task 1.2b); the back-capture of paper vehicle files (task 1.13) and their bulk import (task 1.13b) with its sampling QA (task 1.13g); the plate exchange (task 1.2c); the ownership transfer (task 1.4b); the transfer of a vehicle between offices (task 1.4c) and the registration of a vehicle arriving from another region (task 1.4c3); and the bolo inspection (tasks 1.3a, 1.3b); the campaign counters over the plate exchange and the bolo season (task 1.13i).
  */
 @Module({
     imports: [FormsModule, PartiesModule, DocumentsModule, VehiclesModule, FeesModule],
@@ -56,6 +58,7 @@ import { VehicleTransferService } from './vehicle-transfer.service';
         PlateExchangeService,
         OwnershipTransferService,
         VehicleTransferService,
+        TransferArrivalService,
         BoloService,
         LicenceLookup,
         TrainingSchoolLookup,
@@ -68,6 +71,7 @@ import { VehicleTransferService } from './vehicle-transfer.service';
         ...EXCHANGE_EFFECTS,
         ...TRANSFER_EFFECTS_LIST,
         ...VEHICLE_TRANSFER_EFFECTS_LIST,
+        ...TRANSFER_ARRIVAL_EFFECTS_LIST,
         ...BOLO_EFFECTS
     ],
     exports: [LicencesService, VehicleImportService]

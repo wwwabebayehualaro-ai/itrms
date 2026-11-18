@@ -683,7 +683,7 @@ export class VehicleRegistry {
         tx: Tx,
         vehicleId: string,
         input: Pick<z.infer<typeof ownershipTransferSchema>, 'since' | 'owners' | 'note' | 'caseId'> & {
-            acquiredBy: z.infer<typeof ownershipTransferSchema>['acquiredBy'] | 'first_registration';
+            acquiredBy: z.infer<typeof ownershipTransferSchema>['acquiredBy'] | 'first_registration' | 'transfer_in';
         }
     ): Promise<string> {
         const [vehicle] = await tx.select().from(vehicles).where(eq(vehicles.id, vehicleId));
