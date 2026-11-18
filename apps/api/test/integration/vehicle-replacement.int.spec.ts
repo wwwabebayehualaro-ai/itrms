@@ -768,7 +768,7 @@ describe('the zone acting for the office', () => {
 async function withBolo(
     unit: OrgUnit,
     vehicleId: string,
-    more: { status?: string; validUntil?: string; fiscalYear?: number } = {}
+    more: { status?: string; validUntil?: string; fiscalYear?: number; language?: 'am' | 'en' } = {}
 ) {
     const validity = boloValidity(today());
     const status = more.status ?? 'valid';
@@ -803,7 +803,7 @@ async function withBolo(
             regionId: unit.regionId,
             handlingUnitId: unit.id,
             templateKey: 'vehicle-bolo',
-            language: 'am',
+            language: more.language ?? 'am',
             number: sticker,
             subject: { table: 'competency.bolos', id },
             data: {
@@ -824,6 +824,40 @@ async function withBolo(
         })
     );
     return { id, sticker, documentId: document.id, fiscalYear, validUntil };
+}
+
+/** The temporary bolo's own document for a bolo `withBolo` made as temporary (it prints the same facts as the bolo's). */
+async function temporaryDocument(
+    unit: OrgUnit,
+    bolo: { id: string; sticker: string; validUntil: string; fiscalYear: number }
+) {
+    const ctx: DbContext = { ...contextFor(unit), requestId: `seed-${randomUUID()}` };
+    const number = `${unit.code}/TB/${randomInt(100000, 999999)}`;
+    return app.scoped(ctx, (tx) =>
+        documents.reissue(tx, {
+            regionId: unit.regionId,
+            handlingUnitId: unit.id,
+            templateKey: 'vehicle-temporary-bolo',
+            language: 'am',
+            number,
+            subject: { table: 'competency.bolos', id: bolo.id },
+            data: {
+                number,
+                plate: 'SN 2-00000',
+                chassisNumber: 'CHASSIS0000000001',
+                make: 'Toyota',
+                model: 'Corolla',
+                category: { am: 'አውቶሞቢል', en: 'Automobile' },
+                use: { am: 'የግል', en: 'Private' },
+                checklistSerial: 'LV-1',
+                inspectedOn: daysAfter(today(), -30),
+                fiscalYear: bolo.fiscalYear,
+                validUntil: bolo.validUntil,
+                temporaryUntil: bolo.validUntil,
+                insurance: { certificate: 'INS-1', insurer: 'Sample Insurance S.C.', until: bolo.validUntil }
+            }
+        })
+    );
 }
 
 const lostBolo = (vehicle: string, more: Record<string, unknown> = {}) => ({
@@ -1367,6 +1401,54 @@ describe('a lost, stolen or damaged plate', () => {
         expect((await caseOf(c.id)).state).toBe('plate');
     }, 300_000);
 
+    it('refuses a vehicle that is no longer on the register at the step, and gives the held plate back on reject', async () => {
+        const vehicle = await onTheRoad(boditi);
+        const c = await atPlate(platePlea(vehicle.id));
+        const held = await heldFor(c.id);
+        await api.owner.query(`update vehicles.vehicles set status = 'stolen' where id = $1`, [vehicle.id]);
+        const refused = await tried(c, as.officer, 'replace_plate', { answers: {} });
+        expect(refused.status).toBe(409);
+        expect((await plateRows(vehicle.id)).filter((r) => r.until === null)).toHaveLength(1);
+        expect((await plateRows(vehicle.id))[0]?.ended_reason).toBeNull();
+        expect(await rowOf(c.id)).toBeUndefined();
+        await moved(c, as.officer, 'reject', { comment: 'The vehicle was reported stolen.' });
+        expect((await stockOf(held ?? ''))?.status).toBe('in_stock');
+    }, 300_000);
+
+    it('reissues the bolo document in its own language, and a temporary bolo’s document with its number', async () => {
+        const vehicle = await onNational();
+        const bolo = await withBolo(boditi, vehicle.id, { language: 'en' });
+        await moved(await atPlate(platePlea(vehicle.id)), as.officer, 'replace_plate', { answers: {} });
+        const [, standing] = await query<{ language: string; plate: string | null; number: string | null }>(
+            `select d.language, d.data->>'plate' as plate, d.number from documents.issued_documents d
+               join documents.document_templates t on t.id = d.template_id
+              where d.subject_id = $1 and t.key = 'vehicle-bolo' order by d.created_at`,
+            [bolo.id]
+        );
+        expect(standing?.language).toBe('en');
+        expect(standing?.plate).not.toBe('SN 2-00000');
+
+        const other = await onNational();
+        const temporary = await withBolo(boditi, other.id, { status: 'temporary' });
+        const first = await temporaryDocument(boditi, temporary);
+        await moved(await atPlate(platePlea(other.id)), as.officer, 'replace_plate', { answers: {} });
+        const docs = await query<{
+            id: string;
+            number: string | null;
+            superseded_by: string | null;
+            plate: string | null;
+        }>(
+            `select d.id, d.number, d.superseded_by, d.data->>'plate' as plate from documents.issued_documents d
+               join documents.document_templates t on t.id = d.template_id
+              where d.subject_id = $1 and t.key = 'vehicle-temporary-bolo' order by d.created_at`,
+            [temporary.id]
+        );
+        expect(docs).toHaveLength(2);
+        expect(docs[0]).toMatchObject({ id: first.id, superseded_by: docs[1]?.id });
+        expect(docs[1]).toMatchObject({ number: first.number, superseded_by: null });
+        expect(docs[1]?.plate).not.toBe('SN 2-00000');
+    }, 300_000);
+
     it('supersedes the certificate another office issued, keeping its number, and leaves a bolo document of another office', async () => {
         // Damot Gale issued the certificate and the bolo; Boditi handles the vehicle now
         const vehicle = await onNational(boditi, damot);
@@ -1393,6 +1475,10 @@ describe('a lost, stolen or damaged plate', () => {
         const docs = await boloDocuments(bolo.id);
         expect(docs).toHaveLength(1);
         expect(docs[0]?.superseded_by).toBeNull();
+        // and the case says so, for the owner
+        const left = (await factsOf(c.id)).replacement as Record<string, unknown>;
+        expect(left.boloDocumentLeft).toEqual({ boloId: bolo.id, officeId: damot.id });
+        expect(left.notices).toEqual(['competency.notice.replacementBoloElsewhere']);
     }, 300_000);
 });
 
@@ -1435,11 +1521,61 @@ describe('the reviewed command that supersedes a libre’s certificate (task 1.5
         );
     }, 300_000);
 
+    it('refuses a certificate superseded by an unrelated document at commit, and the old one stays standing', async () => {
+        const vehicle = await onTheRoad(boditi, true, damot);
+        const other = await withBolo(boditi, (await onTheRoad(boditi)).id);
+        const id = randomUUID();
+        const ctx: DbContext = { ...contextFor(boditi), requestId: `sup-${randomUUID()}` };
+        const refused = await app
+            .scoped(ctx, async (tx) => {
+                await tx.execute(
+                    sql`select * from vehicles.supersede_libre_certificate(${vehicle.libreId}::uuid,
+                            'vehicle-registration-certificate', ${id}::uuid)`
+                );
+                // a bolo document under the new id: not a certificate of this libre
+                await documents.issue(tx, {
+                    id,
+                    regionId: boditi.regionId,
+                    handlingUnitId: boditi.id,
+                    templateKey: 'vehicle-bolo',
+                    language: 'am',
+                    number: 'X-1',
+                    subject: { table: 'competency.bolos', id: randomUUID() },
+                    data: {
+                        number: 'X-1',
+                        plate: 'SN 2-00000',
+                        chassisNumber: 'CHASSIS0000000001',
+                        make: 'Toyota',
+                        model: 'Corolla',
+                        category: { am: 'አውቶሞቢል', en: 'Automobile' },
+                        use: { am: 'የግል', en: 'Private' },
+                        checklistSerial: 'LV-1',
+                        inspectedOn: daysAfter(today(), -30),
+                        fiscalYear: other.fiscalYear,
+                        validUntil: other.validUntil,
+                        temporaryUntil: null,
+                        insurance: { certificate: 'INS-1', insurer: 'Sample Insurance S.C.', until: other.validUntil }
+                    }
+                });
+            })
+            .then(
+                () => '',
+                (error: unknown) => {
+                    const messages: string[] = [];
+                    for (let e: unknown = error; e; e = (e as { cause?: unknown }).cause)
+                        messages.push(String((e as Error).message));
+                    return messages.join(' | ');
+                }
+            );
+        expect(refused).toMatch(/not its successor/);
+        expect((await certificateData(vehicle.libreId))[0]?.superseded_by).toBeNull();
+    }, 300_000);
+
     it('supersedes another office’s certificate only when a document with the new id follows, else the deferred key undoes it', async () => {
         const vehicle = await onTheRoad(boditi, true, damot);
         // no document is issued with that id: the transaction cannot commit
         const result = await supersede(contextFor(boditi), { libre: vehicle.libreId, document: randomUUID() });
-        expect(result.refused).toMatch(/foreign key|superseded_by/i);
+        expect(result.refused).toMatch(/foreign key|superseded_by|not its successor/i);
         expect((await certificateData(vehicle.libreId))[0]?.superseded_by).toBeNull();
     }, 300_000);
 });

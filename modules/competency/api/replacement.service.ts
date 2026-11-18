@@ -26,6 +26,7 @@ import {
     REGISTRATION_CERTIFICATE_TEMPLATE,
     REPLACEMENT_ITEMS,
     REPLACEMENT_REASONS,
+    TEMPORARY_BOLO_TEMPLATE,
     type ReplacementItem,
     type ReplacementReason
 } from '../contracts';
@@ -450,7 +451,7 @@ export class ReplacementService {
                 .where(eq(plateAssignments.id, locked.newPlateAssignmentId));
             if (!made?.id) throw missingFact('replacement');
             const documents: Record<string, unknown> = { ...known };
-            for (const key of [REGISTRATION_CERTIFICATE_TEMPLATE, BOLO_TEMPLATE]) {
+            for (const key of [REGISTRATION_CERTIFICATE_TEMPLATE, BOLO_TEMPLATE, TEMPORARY_BOLO_TEMPLATE]) {
                 const [doc] = await tx
                     .select({ id: issuedDocuments.id })
                     .from(issuedDocuments)
@@ -460,6 +461,13 @@ export class ReplacementService {
             }
             return { plate: { id: made.id, key: made.key, text: nationalPlateText(made.key) }, documents };
         }
+        // a vehicle that left the register (or was reported stolen) while the case waited gets no plate, as for a bolo sticker
+        const [onRegister] = await tx
+            .select({ status: vehicles.status })
+            .from(vehicles)
+            .where(eq(vehicles.id, vehicleId));
+        if (onRegister?.status !== 'active')
+            throw new ConflictError('invalid_transition', { detailKey: 'competency.rule.replacementNotActive' });
         const row = locked ?? (await this.insertRow(tx, place, facts, reason));
         // the plate the request was checked with is still the one the vehicle carries: a changed one is not replaced blind
         const [current] = await tx
@@ -484,13 +492,24 @@ export class ReplacementService {
                 await this.registration.reissueCertificate(tx, place, libre, REGISTRATION_CERTIFICATE_TEMPLATE)
             ).id;
         const bolo = await this.bolo.reissueForPlate(tx, place, vehicleId);
-        if (bolo) documents[BOLO_TEMPLATE] = bolo.id;
+        if (bolo && 'documentId' in bolo) documents[bolo.template] = bolo.documentId;
         await updateAudited(tx, replacements, row.id, row.rowVersion, {
             oldPlateAssignmentId: current.id,
             newPlateAssignmentId: now.id,
             replacedOn: addisDay(),
             replacedBy: place.ctx.userId ?? null
         });
+        // a bolo document of another office still prints the old plate: said on the case, for the owner
+        if (bolo && 'left' in bolo)
+            return {
+                plate: assigned.plate,
+                documents,
+                replacement: {
+                    ...replacement,
+                    boloDocumentLeft: bolo.left,
+                    notices: ['competency.notice.replacementBoloElsewhere']
+                }
+            };
         return { plate: assigned.plate, documents };
     }
 
