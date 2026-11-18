@@ -19,8 +19,8 @@ const codes = new Set(catalogue.map((s) => s.code));
 
 describe('the service catalogue', () => {
     it('has the 54 services of the reference design, the plate exchange, the ownership transfer, the transfer out and in, the cancellation of a release and the back-capture, each code once, in Amharic and English', () => {
-        expect(catalogue).toHaveLength(60);
-        expect(codes.size).toBe(60);
+        expect(catalogue).toHaveLength(61);
+        expect(codes.size).toBe(61);
         expect(catalogue.filter((s) => s.code.startsWith('MIG-')).map((s) => s.code)).toEqual(['MIG-01']);
         for (const s of catalogue) expect(s.name.am && s.name.en).toBeTruthy();
     });

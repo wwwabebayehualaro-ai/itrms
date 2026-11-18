@@ -11,6 +11,7 @@ import {
     EXCHANGE_EFFECTS,
     LICENCE_EFFECTS,
     REGISTRATION_EFFECTS,
+    TRANSFER_ARRIVAL_EFFECTS_LIST,
     TRANSFER_EFFECTS_LIST,
     VEHICLE_TRANSFER_EFFECTS_LIST
 } from '@itrms/competency/api';
@@ -139,6 +140,7 @@ export const SLICES: ApiSlice[] = [
             ...EXCHANGE_EFFECTS,
             ...TRANSFER_EFFECTS_LIST,
             ...VEHICLE_TRANSFER_EFFECTS_LIST,
+            ...TRANSFER_ARRIVAL_EFFECTS_LIST,
             ...BOLO_EFFECTS
         ]),
         events: COMPETENCY_EVENTS,

@@ -5,6 +5,7 @@ import { PartiesModule } from '@itrms/parties/api';
 import { ENCUMBRANCE_EFFECTS_LIST } from './encumbrance.effects';
 import { EncumbrancesController } from './encumbrances.controller';
 import { EncumbranceService } from './encumbrances.service';
+import { VehicleArrivals } from './arrival.service';
 import { VehicleHandovers } from './handover.service';
 import { VehicleLookup } from './lookups';
 import { PlateStockController } from './plate-stock.controller';
@@ -28,9 +29,10 @@ import { VehiclesService } from './vehicles.service';
         PlateStock,
         EncumbranceService,
         VehicleHandovers,
+        VehicleArrivals,
         ...ENCUMBRANCE_EFFECTS_LIST
     ],
-    exports: [VehiclesService, VehicleRegistry, PlateStock, EncumbranceService, VehicleHandovers]
+    exports: [VehiclesService, VehicleRegistry, PlateStock, EncumbranceService, VehicleHandovers, VehicleArrivals]
 })
 export class VehiclesModule implements OnModuleInit {
     constructor(

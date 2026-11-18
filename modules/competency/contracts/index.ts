@@ -9,6 +9,7 @@ import { BOLO_EVENTS, BOLO_REMINDER_DAYS_SETTING, TEMPORARY_BOLO_DAYS_SETTING } 
 import { MIGRATION_SAMPLE_SETTING, sampleShareSchema } from './migration-sample';
 import { MEDICAL_MONTHS_SETTING, RENEWAL_WINDOW_SETTING } from './rules';
 import { TRANSFER_LETTER_ENFORCED_SETTING, TRANSFER_LETTER_VALID_DAYS_SETTING } from './transfer';
+import { VEHICLE_TRANSFER_PLATE_EXCHANGE_SETTING } from './vehicle-arrival';
 import {
     VEHICLE_RELEASE_CANCEL_UNRETURNED_SETTING,
     VEHICLE_TRANSFER_COVERING_LETTER_SETTING,
@@ -26,6 +27,7 @@ export * from './migration-sample';
 export * from './registration';
 export * from './rules';
 export * from './transfer';
+export * from './vehicle-arrival';
 export * from './vehicle-import';
 export * from './vehicle-transfer';
 
@@ -52,7 +54,8 @@ export const COMPETENCY_SETTINGS = {
     [VEHICLE_TRANSFER_VALID_DAYS_SETTING]: z.number().int().min(1).max(60),
     [VEHICLE_TRANSFER_REINSPECT_SETTING]: z.boolean(),
     [VEHICLE_TRANSFER_COVERING_LETTER_SETTING]: z.boolean(),
-    [VEHICLE_RELEASE_CANCEL_UNRETURNED_SETTING]: z.boolean()
+    [VEHICLE_RELEASE_CANCEL_UNRETURNED_SETTING]: z.boolean(),
+    [VEHICLE_TRANSFER_PLATE_EXCHANGE_SETTING]: z.boolean()
 } as const;
 
 /** The document a licence prints as. */

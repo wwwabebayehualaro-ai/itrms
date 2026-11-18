@@ -624,6 +624,13 @@
       "when": 1794948283772,
       "tag": "0088_vehicle_release_cancel",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1794958183217,
+      "tag": "0089_vehicle_arrivals",
+      "breakpoints": true
     }
   ]
 }

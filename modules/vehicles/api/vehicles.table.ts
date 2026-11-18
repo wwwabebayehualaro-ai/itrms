@@ -18,6 +18,8 @@
  *                        assignments, retirements and write-offs (class T of the lower unit; insert-only).
  *   vehicle_handovers    a vehicle released by its office to another of the region (class R of the releasing office, task
  *                        1.4c): received by the other office's transfer in, which moves the vehicle and its live rows.
+ *   vehicle_arrivals     the transfer document a vehicle arrived on from another region, as the officer checked it (class R of
+ *                        the handling office, task 1.4c3, ADR-0060).
  *   vehicle_encumbrances the holds on a vehicle (bank loan, court order, revenue or customs hold): recorded by an office on
  *                        the holder's letter, released by the same office on the holder's release letter and a second
  *                        person's confirmation (class R of the recording office, task 1.4a).
@@ -49,6 +51,7 @@ import type { I18nText } from '@itrms/schemas';
 
 import {
     ACQUIRED_BY,
+    ARRIVAL_VERIFIED_HOW,
     CATEGORY_FAMILIES,
     CHASSIS_KINDS,
     ENCUMBRANCE_KINDS,
@@ -685,6 +688,68 @@ export const vehicleHandovers = withRls(
     ),
     'registry',
     'from_org_path'
+);
+
+/**
+ * The vehicle data transfer document a vehicle arrived on from another region (contracts/arrival.ts, task 1.4c3, ADR-0060), as the
+ * officer checked it. Written once with the registration that made the vehicle, by the arrival case; nothing changes it after.
+ * `returned` and `handover_id` are for the return of a vehicle that once left this region (task 1.4c3b). The region and the
+ * handling office come from the vehicle (triggers in the migration), like its other child rows.
+ */
+export const vehicleArrivals = withRls(
+    audited(
+        vehiclesSchema.table(
+            'vehicle_arrivals',
+            {
+                ...baseColumns(),
+                ...handling(),
+                vehicleId: uuid('vehicle_id')
+                    .notNull()
+                    .references(() => vehicles.id),
+                /** the arrival case (no foreign key: the register does not depend on the workflow) */
+                caseId: uuid('case_id').notNull(),
+                returned: boolean('returned').notNull().default(false),
+                /** the release of this region that the vehicle returned on, when it did (task 1.4c3b) */
+                handoverId: uuid('handover_id').references(() => vehicleHandovers.id),
+                documentNumber: text('document_number').notNull(),
+                /** the number as compared: no spaces, upper case (contracts/arrival.ts) */
+                documentKey: text('document_key').notNull(),
+                issuingRegion: text('issuing_region').notNull(),
+                issuingRegionKey: text('issuing_region_key').notNull(),
+                issuingOffice: text('issuing_office').notNull(),
+                documentDate: date('document_date').notNull(),
+                validUntil: date('valid_until').notNull(),
+                verifiedHow: text('verified_how', { enum: ARRIVAL_VERIFIED_HOW }).notNull(),
+                arrivedOn: date('arrived_on').notNull(),
+                carriedPlateText: text('carried_plate_text'),
+                carriedPlateKey: text('carried_plate_key'),
+                /** the other region's bolo, a fact only: no bolo of this region is made from it */
+                boloValidUntil: date('bolo_valid_until'),
+                holdsListed: boolean('holds_listed').notNull().default(false),
+                holdsNote: text('holds_note')
+            },
+            (t) => [
+                uniqueIndex('vehicle_arrivals_case_uq').on(t.caseId),
+                // a document is used once per issuing region in this region
+                uniqueIndex('vehicle_arrivals_document_uq').on(t.regionId, t.issuingRegionKey, t.documentKey),
+                index('vehicle_arrivals_vehicle_idx').on(t.vehicleId),
+                index('vehicle_arrivals_handling_gist').using('gist', t.handlingOrgPath),
+                check('vehicle_arrivals_verified_check', sql`${t.verifiedHow} in ${oneOf(ARRIVAL_VERIFIED_HOW)}`),
+                check('vehicle_arrivals_dates_check', sql`${t.validUntil} >= ${t.documentDate}`),
+                check(
+                    'vehicle_arrivals_words_check',
+                    sql`length(${t.documentNumber}) between 1 and 60 and length(${t.documentKey}) between 1 and 60 and length(${t.issuingRegion}) between 1 and 100 and length(${t.issuingRegionKey}) between 1 and 100 and length(${t.issuingOffice}) between 1 and 200`
+                ),
+                check(
+                    'vehicle_arrivals_plate_check',
+                    sql`(${t.carriedPlateText} is null) = (${t.carriedPlateKey} is null)`
+                ),
+                check('vehicle_arrivals_holds_note_check', sql`coalesce(length(${t.holdsNote}), 1) between 1 and 500`),
+                check('vehicle_arrivals_returned_check', sql`${t.returned} or ${t.handoverId} is null`)
+            ]
+        )
+    ),
+    'registry'
 );
 
 /**

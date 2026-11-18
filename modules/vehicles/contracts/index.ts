@@ -13,6 +13,7 @@ import { CHASSIS_KINDS, VIN_CHECKS } from './vin';
 import { DEFAULT_LEGACY_PLATE_REGIONS, foldPlate, PLATE_FORMATS } from './plate';
 import { ENCUMBRANCE_BLOCKS_SETTING, encumbranceBlocksSchema, openEncumbranceSchema } from './encumbrances';
 
+export * from './arrival';
 export * from './encumbrances';
 export * from './handover';
 export * from './plate';
@@ -41,7 +42,9 @@ export const ACQUIRED_BY = [
     'gift',
     'court_order',
     'auction',
-    'back_capture'
+    'back_capture',
+    /** a vehicle that arrived from another region (ADR-0060): only the arrival service writes it */
+    'transfer_in'
 ] as const;
 export const PLATE_SOURCES = ['federal', 'legacy', 'manual'] as const;
 export const PLATE_ENDED_REASONS = ['exchanged', 'lost', 'retired', 'transferred'] as const;
@@ -333,7 +336,7 @@ export type VehicleRegister = z.infer<typeof vehicleRegisterSchema>;
 export const ownershipTransferSchema = z.strictObject({
     since: isoDate,
     owners: ownersSchema,
-    acquiredBy: z.enum(ACQUIRED_BY).exclude(['first_registration']),
+    acquiredBy: z.enum(ACQUIRED_BY).exclude(['first_registration', 'transfer_in']),
     caseId: z.uuid().optional(),
     note: z.string().trim().min(1).max(500).optional()
 });

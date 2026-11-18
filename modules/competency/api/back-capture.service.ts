@@ -9,19 +9,17 @@ import { and, eq, sql } from 'drizzle-orm';
 import { currentContext } from '@itrms/kernel/context';
 import type { Tx } from '@itrms/kernel/db';
 import { ForbiddenError, ValidationError } from '@itrms/kernel/errors';
-import { stationeryItems } from '@itrms/fees/api';
-import { parseStationeryKey } from '@itrms/fees/contracts';
-import { libres, PlateStock, plateAssignments, vehicles, VehicleRegistry, VehiclesService } from '@itrms/vehicles/api';
-import { federalVehicleIdSchema, parsePlate, parseVin, type vehicleRegisterSchema } from '@itrms/vehicles/contracts';
+import { PlateStock, vehicles, VehicleRegistry, VehiclesService } from '@itrms/vehicles/api';
+import { federalVehicleIdSchema, parseVin, type vehicleRegisterSchema } from '@itrms/vehicles/contracts';
 import { cases } from '@itrms/workflow/api';
 import { z } from 'zod';
 
-import { addisDay } from '../contracts';
 import am from '../messages/am.json';
 import en from '../messages/en.json';
 import { actForHandlingOffice, claimedElsewhere } from './handling-office';
 import type { CasePlace } from './licences.service';
 import { MigrationSamplingService } from './migration-sampling.service';
+import { checkLibreFree, checkPaperDates, checkPlateFree, libreKey, plateOf, refuse } from './paper-records';
 import { VehicleRegistrationService, type RegistrationInput } from './registration.service';
 
 type Words = keyof typeof am;
@@ -54,8 +52,6 @@ const scanFiles = z.array(z.looseObject({ file_id: z.uuid() }));
 /** The most pages a drawn sample keeps (the table's check says the same). */
 const MAX_SCAN_PAGES = 20;
 
-type Refusal = { path: string; code: string; message: string };
-
 /**
  * Where a capture is checked: a case's place, or a sheet's row (task 1.13b), which has no case of its own. The office is the
  * capturing office.
@@ -72,13 +68,6 @@ export type PaperOrigin =
  * check stands for.
  */
 export const PLACEHOLDER_ID = '00000000-0000-4000-8000-000000000000';
-
-const refuse = (errors: Refusal[]): never => {
-    throw new ValidationError('validation_failed', { errors });
-};
-
-/** A libre number as the register keeps it: a booklet serial folded (upper case, no spaces or hyphens), anything else trimmed. */
-const libreKey = (text: string): string => parseStationeryKey(text)?.key ?? text.trim();
 
 @Injectable()
 export class BackCaptureService {
@@ -117,46 +106,6 @@ export class BackCaptureService {
             : { source: 'import', importRowId: PLACEHOLDER_ID, importId: PLACEHOLDER_ID, importName: 'sheet' };
     }
 
-    /** The dates of the file, in order: none in the future, none before the first registration, the libre not before its owners. */
-    private checkDates(input: BackCaptureInput): void {
-        const today = addisDay();
-        const first = input.firstRegisteredOn;
-        const errors: Refusal[] = [];
-        const dates: [string, string | undefined][] = [
-            ['firstRegisteredOn', first],
-            ['ownersSince', input.ownersSince],
-            ['plateSince', input.plateSince],
-            ['libreIssuedOn', input.libreIssuedOn]
-        ];
-        for (const [path, day] of dates) {
-            if (day === undefined) continue;
-            if (day > today) errors.push({ path, code: 'in_future', message: say('competency.rule.notInFuture') });
-            else if (day < first)
-                errors.push({
-                    path,
-                    code: 'before_registration',
-                    message: say('competency.rule.beforeFirstRegistration')
-                });
-        }
-        const owners = input.ownersSince ?? first;
-        if (input.libreIssuedOn !== undefined && input.libreIssuedOn >= first && input.libreIssuedOn < owners)
-            errors.push({
-                path: 'libreIssuedOn',
-                code: 'before_period',
-                message: say('competency.rule.libreBeforeOwners')
-            });
-        if (input.libreNumber && input.libreIssuedOn === undefined)
-            errors.push({ path: 'libreIssuedOn', code: 'required', message: say('competency.rule.libreIssuedOn') });
-        if (errors.length > 0) refuse(errors);
-    }
-
-    /** The plate the file records, read with the region's old plate codes; refused at its field when it is no plate. */
-    private async plateOf(tx: Tx, text: string) {
-        const parsed = parsePlate(text, await this.vehicles.legacyRegions(tx));
-        if (!parsed) refuse([{ path: 'plate', code: 'invalid_plate', message: say('competency.rule.notAnyPlate') }]);
-        return parsed as NonNullable<typeof parsed>;
-    }
-
     // ---- filing ----
 
     /**
@@ -166,8 +115,8 @@ export class BackCaptureService {
      * commit will make (`ownersToBeMade`) is checked without its owner, which is not on the register yet.
      */
     async check(tx: Tx, place: CapturePlace, input: BackCaptureInput, options: { ownersToBeMade?: boolean } = {}) {
-        this.checkDates(input);
-        const plate = await this.plateOf(tx, input.plate);
+        checkPaperDates(input);
+        const plate = await plateOf(tx, this.vehicles, input.plate);
         const federal = input.federalVehicleId?.trim();
         if (federal) {
             const parsed = federalVehicleIdSchema.safeParse(federal);
@@ -201,23 +150,8 @@ export class BackCaptureService {
             }
         );
 
-        // a plate another vehicle of the register carries, or carried and gave up (an old plate is never handed out again)
-        const [carried] = await tx
-            .select({ until: plateAssignments.until })
-            .from(plateAssignments)
-            .where(and(eq(plateAssignments.regionId, place.regionId), eq(plateAssignments.plateKey, plate.key)))
-            .orderBy(sql`${plateAssignments.until} is null desc`)
-            .limit(1);
-        if (carried)
-            refuse([
-                carried.until === null
-                    ? { path: 'plate', code: 'duplicate', message: say('competency.rule.plateOnRegister') }
-                    : { path: 'plate', code: 'plate_ended', message: say('competency.rule.plateEnded') }
-            ]);
-        // a national plate still in the stock was never handed over: it is issued from the stock, not captured
-        if (plate.format === 'national' && (await this.stock.inStock(tx, place.regionId, plate.key)))
-            refuse([{ path: 'plate', code: 'in_stock', message: say('competency.rule.plateInStock') }]);
-        await this.checkLibre(tx, place, input);
+        await checkPlateFree(tx, this.stock, place.regionId, plate);
+        await checkLibreFree(tx, place.regionId, input.libreNumber);
         if (federal) {
             const [holder] = await tx
                 .select({ id: vehicles.id })
@@ -321,9 +255,9 @@ export class BackCaptureService {
 
     /** Puts the file's vehicle on the register, with the plate it carries and the libre its owners hold. */
     private async put(tx: Tx, place: CapturePlace, input: BackCaptureInput, origin: PaperOrigin) {
-        this.checkDates(input);
-        const plate = await this.plateOf(tx, input.plate);
-        await this.checkLibre(tx, place, input);
+        checkPaperDates(input);
+        const plate = await plateOf(tx, this.vehicles, input.plate);
+        await checkLibreFree(tx, place.regionId, input.libreNumber);
         // the vehicle is the capturing office's, whoever verified it: the office's own officer, or the one above it when separation
         // of duties sent the step up (SEC-AC-6)
         const ctx = { ...place.ctx, unitId: place.handlingUnitId };
@@ -354,37 +288,5 @@ export class BackCaptureService {
             throw new ForbiddenError({ detailKey: 'competency.errors.verify_own_capture' });
         await actForHandlingOffice(tx, place);
         return kase.startedBy;
-    }
-
-    /**
-     * The libre the file records: a booklet serial is kept folded, never one of the stationery's own booklets (those are issued
-     * from the stock, not captured), and no other vehicle's libre has it.
-     */
-    private async checkLibre(tx: Tx, place: CapturePlace, input: BackCaptureInput): Promise<void> {
-        const given = input.libreNumber?.trim();
-        if (!given) return;
-        const parsed = parseStationeryKey(given);
-        if (parsed) {
-            const [booklet] = await tx
-                .select({ id: stationeryItems.id })
-                .from(stationeryItems)
-                .where(
-                    and(
-                        eq(stationeryItems.regionId, place.regionId),
-                        eq(stationeryItems.kind, 'libre_booklet'),
-                        eq(stationeryItems.series, parsed.series),
-                        eq(stationeryItems.serial, parsed.serial)
-                    )
-                )
-                .limit(1);
-            if (booklet)
-                refuse([{ path: 'libreNumber', code: 'in_stock', message: say('competency.rule.libreInStock') }]);
-        }
-        const [held] = await tx
-            .select({ id: libres.id })
-            .from(libres)
-            .where(and(eq(libres.regionId, place.regionId), eq(libres.number, libreKey(given))))
-            .limit(1);
-        if (held) refuse([{ path: 'libreNumber', code: 'duplicate', message: say('competency.rule.libreOnRegister') }]);
     }
 }

@@ -182,6 +182,12 @@ services:
     name:
       am: የተሽከርካሪ መልቀቂያ መሰረዝ
       en: Cancel a vehicle release
+  - code: DVC-17
+    process: 1
+    module: competency
+    name:
+      am: ከሌላ ክልል የመጣ ተሽከርካሪ ምዝገባ
+      en: Register a vehicle transferred from another region
   # not one of the bureau's 54: the migration of its paper vehicle files (ADR-0054, task 1.13)
   - code: MIG-01
     process: 1
