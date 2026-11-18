@@ -2079,12 +2079,12 @@
         {
           "id": "1.5b",
           "title": "Replacements, part 2: a bolo sticker",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/1.5b-bolo-replacement",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split from 1.5 on 2026-11-18 (architect; ADR-0062). item gains bolo through a new form and flow version (supersedeSeededVersion with the form, the 1.4c2 precedent); replaceBoloSticker: the replacement row first, then stationery.use usedFor the replacement row (NOT the bolo: StationeryStock.use is idempotent on (kind, usedFor) and would return the old sticker), bolos.sticker_key updated, bolo.reissueDocument (public over the private document()) superseding the old one; a hold does not block; an expired bolo is refused (DVC-02). e2e: a lost bolo filed, paid, approved, sticker replaced, the verify page superseded."
+          "notes": "Split from 1.5 on 2026-11-18 (architect; ADR-0062). item gains bolo through a new form and flow version (supersedeSeededVersion with the form, the 1.4c2 precedent); replaceBoloSticker: the replacement row first, then stationery.use usedFor the replacement row (NOT the bolo: StationeryStock.use is idempotent on (kind, usedFor) and would return the old sticker), bolos.sticker_key updated, bolo.reissueDocument (public over the private document()) superseding the old one; a hold does not block; an expired bolo is refused (DVC-02). e2e: a lost bolo filed, paid, approved, sticker replaced, the verify page superseded. 2026-11-18 implemented: item bolo in a new form/flow version; replaceBoloSticker (stock item used for the replacement row, sticker swapped, vehicle-bolo document reissued so the old QR reads superseded, idempotent); holds do not block a bolo; the libre's hold check at filing moved into ReplacementService.check; a bolo of another office refused (follow-up); temporary and expired bolos refused."
         },
         {
           "id": "1.5c",
@@ -4126,6 +4126,11 @@
       "foundIn": "1.13j",
       "item": "The chassisOtherMake notice on MIG-01 back-capture and the paper-register import, where most pre-1981 vehicles come in (back-capture facts have no notices list yet)",
       "movedTo": "1.13 follow-on"
+    },
+    {
+      "foundIn": "1.5b",
+      "item": "A bolo sticker replacement at an office other than the bolo's (a vehicle moved by a transfer keeps its bolo at the first office): a reviewed cross-office command for the bolo row and its document, like vehicles.retire_libre_certificate; refused for now (bolo_other_office)",
+      "movedTo": "a later task"
     }
   ]
 }

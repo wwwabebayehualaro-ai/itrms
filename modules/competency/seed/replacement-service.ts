@@ -1,8 +1,8 @@
 /**
  * The replacement of a lost, stolen or damaged libre, bolo sticker or plate (DVC-06, task 1.5, ADR-0062) as configuration: its
- * request form, its workflow and the fee rule it names, and nothing else. Part 1 offers the libre only; the bolo sticker (1.5b) and
- * the plate (1.5c) add their choices, states and steps as a new version of the form and the flow. Like the other services it only
- * ever makes a first version, and leaves what a bureau has published alone.
+ * request form, its workflow and the fee rule it names, and nothing else. It offers the libre and, since 1.5b, the bolo sticker;
+ * the plate (1.5c) adds its choice, states and steps as a new version of the form and the flow. Like the other services it makes a
+ * first version, moves its own earlier seeded version to today's, and leaves what a bureau has published alone.
  */
 import { and, eq } from 'drizzle-orm';
 import type { Tx } from '@itrms/kernel/db';
@@ -36,6 +36,7 @@ import {
     WITHDRAW,
     workflowVersion
 } from './service-config';
+import { BOLO_STICKER_FORM } from './bolo-service';
 import { LIBRE_BOOKLET_FORM } from './vehicle-services';
 
 const words = (key: string): I18nText => ({
@@ -64,7 +65,7 @@ const choice = (id: string, label: I18nText, options: readonly { value: string; 
     );
 
 /**
- * The request, filed at the counter: the vehicle from the register, what is replaced (a libre for now) and why, the vehicle's use
+ * The request, filed at the counter: the vehicle from the register, what is replaced (a libre or a bolo sticker) and why, the vehicle's use
  * (the fee is worked out from it, and the check compares it with the register), the police letter of a lost or stolen item and the
  * newspaper notice of a lost or stolen libre. The letter, the clipping and the owner's identity are kept as attachments, not
  * required: an office with no scanner still works, and the officer who reviews a case sees the paper.
@@ -73,7 +74,10 @@ export const REPLACEMENT_FORM = {
     schemaVersion: 2,
     fields: [
         internal('vehicle', 'RegistryLookup', text('ተሽከርካሪ', 'Vehicle'), { provider: 'vehicle' }),
-        choice('item', text('የሚተካው ሰነድ', 'What is replaced'), [{ value: 'libre', label: text('ሊብሬ', 'Libre') }]),
+        choice('item', text('የሚተካው ሰነድ', 'What is replaced'), [
+            { value: 'libre', label: text('ሊብሬ', 'Libre') },
+            { value: 'bolo', label: text('የቦሎ ተለጣፊ', 'Bolo sticker') }
+        ]),
         choice('reason', text('የምትኩ ምክንያት', 'Why it is replaced'), [
             { value: 'lost', label: text('የጠፋ', 'Lost') },
             { value: 'stolen', label: text('የተሰረቀ', 'Stolen') },
@@ -106,23 +110,28 @@ export const REPLACEMENT_FORM = {
     ]
 };
 
-/** The check that refuses the service while the vehicle carries a hold that blocks a replacement (the vehicles slice's, task 1.4a). */
+/**
+ * The check that refuses the service while the vehicle carries a hold that blocks a replacement (the vehicles slice's, task 1.4a).
+ * Only a libre's steps name it: a hold is about the title, so a bolo sticker goes through (ADR-0062). The libre's filing is checked
+ * by the replacement check itself, since the filing step cannot tell the items apart.
+ */
 const ENC = 'vehicles.checkEncumbrances:replacement';
 const ITEM = (item: string) => ({ fact: 'replacement.item', op: 'eq', value: item });
 const NOTICE = { fact: 'replacement.noticeRequired', op: 'eq', value: true };
 
 /** Every state that can still be rejected: the review, the notice period, the approval and the replacement. */
-const REJECTABLE = ['review', 'notice', 'approval', 'libre'];
+const REJECTABLE = ['review', 'notice', 'approval', 'libre', 'bolo'];
 
 /**
  * DVC-06 for a libre: review (the police letter and the notice are checked on filing), a lost or stolen libre waits out its
  * newspaper notice (the officer takes the step on or after the day, which the effect checks: the workflow counts business days
  * only), payment, final approval, then the libre in force leaves force and the new libre is issued with its certificate, and the
- * booklet is written as for a new libre. A damaged libre skips the notice. Each step that moves the case on checks the vehicle for
- * a hold again. Separation of duties: nobody approves a case they filed, reviewed or released from its notice, and the approver
- * does not replace the libre.
+ * booklet is written as for a new libre. A damaged libre skips the notice. Each step of a libre that moves the case on checks the
+ * vehicle for a hold again. A bolo sticker has no notice and no hold check: after payment and approval the bolo takes a new
+ * sticker from stock. Separation of duties: nobody approves a case they filed, reviewed or released from its notice, and the
+ * approver does not replace the libre or the sticker.
  */
-export const replacementFlow = (bookletForm: string) => ({
+export const replacementFlow = (bookletForm: string, stickerForm: string) => ({
     schemaVersion: 1,
     states: [
         DRAFT,
@@ -149,18 +158,22 @@ export const replacementFlow = (bookletForm: string) => ({
         task('booklet', text('የሊብሬ ደብተር መስጠት', 'Libre booklet'), 'competency.officer', 30, {
             stepForm: bookletForm
         }),
+        task('bolo', text('የቦሎ ተለጣፊ መተካት', 'Bolo sticker replacement'), 'competency.officer', 1, {
+            stepForm: stickerForm,
+            separationOfDuties: ['approval']
+        }),
         { key: 'replaced', kind: 'end', label: text('ተተክቷል', 'Replaced') },
         { key: 'rejected', kind: 'end', label: text('ውድቅ ሆኗል', 'Rejected') }
     ],
     transitions: [
-        { from: 'draft', to: 'review', action: 'submit', effects: [X.checkReplacement, ENC] },
+        { from: 'draft', to: 'review', action: 'submit', effects: [X.checkReplacement] },
         {
             from: 'draft',
             to: 'review',
             action: 'correct',
             label: ACTIONS.correct,
             amendsRequest: true,
-            effects: ['fees.assess', X.checkReplacement, ENC]
+            effects: ['fees.assess', X.checkReplacement]
         },
         { from: 'review', to: 'draft', action: 'return', label: ACTIONS.returnIt, commentRequired: true },
         // a lost or stolen libre waits out its notice; a damaged one goes to payment
@@ -172,6 +185,15 @@ export const replacementFlow = (bookletForm: string) => ({
             label: ACTIONS.approve,
             guard: ITEM('libre'),
             effects: [ENC, 'fees.createPaymentOrder']
+        },
+        // a bolo sticker goes straight to payment: no notice, and a hold does not stop it
+        {
+            from: 'review',
+            to: 'payment',
+            action: 'approve',
+            label: ACTIONS.approve,
+            guard: ITEM('bolo'),
+            effects: ['fees.createPaymentOrder']
         },
         {
             from: 'notice',
@@ -189,6 +211,21 @@ export const replacementFlow = (bookletForm: string) => ({
             label: ACTIONS.approve,
             guard: { all: [PAID, ITEM('libre')] },
             effects: [ENC]
+        },
+        {
+            from: 'approval',
+            to: 'bolo',
+            action: 'approve',
+            label: ACTIONS.approve,
+            guard: { all: [PAID, ITEM('bolo')] }
+        },
+        {
+            from: 'bolo',
+            to: 'replaced',
+            action: 'replace_sticker',
+            label: text('ተለጣፊውን ተካ', 'Replace the sticker'),
+            guard: PAID,
+            effects: [X.replaceBoloSticker]
         },
         {
             from: 'libre',
@@ -245,7 +282,15 @@ export async function importReplacementService(tx: Tx, root: { id: string; regio
         LIBRE_BOOKLET_FORM
     );
     const form = await publishedForm(tx, root, 'vehicle-replacement', name, REPLACEMENT_FORM);
-    const flow = replacementFlow(`vehicle-libre-booklet@${booklet.number}`);
+    // the bolo's own sticker step form, shared with the inspection service
+    const sticker = await publishedForm(
+        tx,
+        root,
+        'vehicle-bolo-sticker',
+        text('የቦሎ ምልክት', 'Bolo sticker'),
+        BOLO_STICKER_FORM
+    );
+    const flow = replacementFlow(`vehicle-libre-booklet@${booklet.number}`, `vehicle-bolo-sticker@${sticker.number}`);
     // seeded by an earlier release: the seed's own version moves to today's flow and form (the bureau's own is never touched)
     if (service.currentVersionId)
         return (await supersedeSeededVersion(tx, root, service, 'vehicle-replacement', flow, {

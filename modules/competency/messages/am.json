@@ -560,7 +560,7 @@
   "competency.rule.replacementNotActive": "ሊብሬ መተካት የሚቻለው በመዝገቡ ላለ ተሽከርካሪ ብቻ ነው።",
   "competency.rule.replacementOtherOffice": "ይህን ተሽከርካሪ የሚያስተናግደው ሌላ ጽ/ቤት ነው፤ ምትኩ እዚያ ወይም ከዝውውር በኋላ እዚህ ይሰጣል።",
   "competency.rule.replacementUse": "አገልግሎቱ በመዝገቡ ካለው ተሽከርካሪ ጋር አይመሳሰልም።",
-  "competency.rule.replacementItemLater": "ለጊዜው መተካት የሚቻለው ሊብሬ ብቻ ነው፤ የቦሎ ተለጣፊና የሰሌዳ ምትክ በቀጣይ ይመጣል።",
+  "competency.rule.replacementItemLater": "ለጊዜው መተካት የሚቻለው ሊብሬና የቦሎ ተለጣፊ ብቻ ነው፤ የሰሌዳ ምትክ በቀጣይ ይመጣል።",
   "competency.rule.replacementInOpenCase": "ይህን ተሽከርካሪ የሚለውጥ ሌላ ያልተዘጋ ጥያቄ አለ፤ መጀመሪያ እሱን ይጨርሱ።",
   "competency.rule.replacementPoliceReport": "ለጠፋ ወይም ለተሰረቀ ሰነድ የፖሊስ ደብዳቤው ቁጥርና ቀን ያስፈልጋል፤ ቀኑም ወደፊት መሆን የለበትም።",
   "competency.rule.replacementHandedIn": "የተበላሸው ሰነድ መመለሱን ያረጋግጡ።",
@@ -568,5 +568,8 @@
   "competency.rule.replacementLibreNoBooklet": "በሥራ ላይ ያለው ሊብሬ ገና ደብተር አልተሰጠውም፤ መጀመሪያ ደብተሩን ይስጡ።",
   "competency.rule.replacementNotice": "ለጠፋ ወይም ለተሰረቀ ሊብሬ ጋዜጣውና ማስታወቂያው የታተመበት ቀን ያስፈልጋል።",
   "competency.rule.replacementNoticeDate": "ማስታወቂያው የታተመበት ቀን ወደፊት መሆን የለበትም።",
-  "competency.rule.replacementNoticeRunning": "የጋዜጣ ማስታወቂያው ጊዜ አላለቀም፤ ከ{endsOn} ጀምሮ ይቀጥሉ።"
+  "competency.rule.replacementNoticeRunning": "የጋዜጣ ማስታወቂያው ጊዜ አላለቀም፤ ከ{endsOn} ጀምሮ ይቀጥሉ።",
+  "competency.rule.replacementNoBolo": "ይህ ተሽከርካሪ የሚተካ በሥራ ላይ ያለ ቦሎ የለውም፤ ጊዜው ያለፈበት ከሆነ አዲስ ዓመታዊ ምርመራ ያድርጉ።",
+  "competency.rule.replacementTemporaryBolo": "የዚህ ተሽከርካሪ ቦሎ ገና ተለጣፊ አልተሰጠውም (ጊዜያዊ ቦሎ ወይም ተለጣፊ በመጠበቅ ላይ ነው)፤ መጀመሪያ ተለጣፊው ይሰጥ።",
+  "competency.rule.replacementBoloOtherOffice": "ይህን ቦሎ የሰጠው ሌላ ጽ/ቤት ነው፤ ተለጣፊው የሚተካው እዚያ ነው።"
 }

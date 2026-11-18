@@ -398,6 +398,33 @@ export class BoloService {
     }
 
     /**
+     * The bolo whose sticker a replacement (task 1.5b, ADR-0062) changes: carried on its sticker (a temporary bolo has none to
+     * replace), not past its last day, and one the case's office issued, since a registry record is written only by the office that
+     * handles it and the bolo document is that office's.
+     */
+    async replaceable(tx: Tx, place: CasePlace, boloId: string): Promise<Bolo> {
+        const [bolo] = await tx.select().from(bolos).where(eq(bolos.id, boloId));
+        if (!bolo) throw missingFact('bolo');
+        if (bolo.status !== 'valid' || bolo.validUntil < addisDay() || bolo.handlingUnitId !== place.handlingUnitId)
+            throw new ConflictError('invalid_transition', { detailKey: 'competency.rule.replacementNoBolo' });
+        return bolo;
+    }
+
+    /**
+     * The same bolo on a new sticker: it keeps its fiscal year and last day, and its document is reissued with the new sticker as
+     * its number, so the old QR reads superseded. Run again with the same sticker it changes nothing and returns the same document.
+     */
+    async replaceSticker(tx: Tx, place: CasePlace, boloId: string, stickerKey: string) {
+        const bolo = await this.replaceable(tx, place, boloId);
+        const now =
+            bolo.stickerKey === stickerKey
+                ? bolo
+                : await updateAudited(tx, bolos, bolo.id, bolo.rowVersion, { stickerKey });
+        const issued = await this.document(tx, place, now, BOLO_TEMPLATE, stickerKey);
+        return { bolo: now, document: issued };
+    }
+
+    /**
      * A temporary bolo while the office has no sticker of the vehicle's kind and year (refused while it has one): numbered from
      * the office's counter, it stands for the office's `competency.bolo_temporary_days` (30 by default), never past the bolo's own
      * last day. Issued once: run again it returns the same one; once the sticker is given it is refused.

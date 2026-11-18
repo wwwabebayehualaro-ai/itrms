@@ -560,7 +560,7 @@
   "competency.rule.replacementNotActive": "Only a vehicle on the register can have a libre replaced.",
   "competency.rule.replacementOtherOffice": "Another office handles this vehicle: the replacement is done there, or here after a transfer.",
   "competency.rule.replacementUse": "The use does not match the vehicle on the register.",
-  "competency.rule.replacementItemLater": "Only a libre can be replaced for now: bolo stickers and plates follow in later releases.",
+  "competency.rule.replacementItemLater": "Only a libre or a bolo sticker can be replaced for now: plates follow in a later release.",
   "competency.rule.replacementInOpenCase": "Another open request is already changing this vehicle: finish that first.",
   "competency.rule.replacementPoliceReport": "A lost or stolen item needs the police letter’s number and date, and the date cannot be in the future.",
   "competency.rule.replacementHandedIn": "Confirm the damaged item was handed in.",
@@ -568,5 +568,8 @@
   "competency.rule.replacementLibreNoBooklet": "The libre in force has no booklet yet: finish its booklet first.",
   "competency.rule.replacementNotice": "A lost or stolen libre needs the newspaper and the day its notice was published.",
   "competency.rule.replacementNoticeDate": "The day the notice was published cannot be in the future.",
-  "competency.rule.replacementNoticeRunning": "The newspaper notice period has not ended: carry on from {endsOn}."
+  "competency.rule.replacementNoticeRunning": "The newspaper notice period has not ended: carry on from {endsOn}.",
+  "competency.rule.replacementNoBolo": "This vehicle has no bolo in force to replace: if it has expired, the vehicle needs a new annual inspection.",
+  "competency.rule.replacementTemporaryBolo": "This vehicle’s bolo has no sticker yet (a temporary bolo, or one awaiting its sticker): the sticker must be given first.",
+  "competency.rule.replacementBoloOtherOffice": "Another office issued this bolo: its sticker is replaced there."
 }
