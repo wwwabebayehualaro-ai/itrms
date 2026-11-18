@@ -10,8 +10,15 @@ import { z } from 'zod';
 export const ARRIVAL_VERIFIED_HOW = ['verification_page', 'letter'] as const;
 export type ArrivalVerifiedHow = (typeof ARRIVAL_VERIFIED_HOW)[number];
 
-/** A document number, or the name of the region that issued it, as compared: no spaces, upper case. */
-export const arrivalKey = (value: string): string => value.replace(/\s+/g, '').toUpperCase();
+/**
+ * A document number, or the name of the region that issued it, as compared: folded like a plate (Unicode-normalised, upper case, no
+ * spaces, dots, hyphens, slashes or underscores), so `SD/TR/123/2017` and `sd-tr-123-2017` are one document.
+ */
+export const arrivalKey = (value: string): string =>
+    value
+        .normalize('NFKC')
+        .toUpperCase()
+        .replace(/[\s\-./_]/g, '');
 
 const isoDate = z.iso.date();
 

@@ -126,7 +126,7 @@ export const TRANSFER_ARRIVAL_FORM = {
         fact('holdsListed', 'Checkbox', text('ሰነዱ በተሽከርካሪው ላይ እገዳ ይዘረዝራል', 'The document lists holds on the vehicle'), {
             required: false
         }),
-        fact('holdsNote', 'InputTextarea', text('የእገዳዎቹ ዝርዝር', 'The holds it lists'), {
+        field('holdsNote', 'InputTextarea', text('የእገዳዎቹ ዝርዝር', 'The holds it lists'), {
             required: false,
             maxLength: 500
         }),

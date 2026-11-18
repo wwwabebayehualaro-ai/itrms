@@ -66,14 +66,14 @@ export class RegisterArrivalEffect implements WorkflowEffect<TransferArrivalInpu
     }
 }
 
-/** The registration certificate this office issues for the vehicle's libre. */
+/** The registration certificate this office issues for the vehicle's libre. Its input is the arrival step's answers (the plate step). */
 @Injectable()
 @Effect(A.issueArrivalCertificate, { givesService: true, requiresBefore: [A.registerArrival] })
 export class IssueArrivalCertificateEffect implements WorkflowEffect {
     constructor(@Inject(TransferArrivalService) private readonly arrivals: TransferArrivalService) {}
 
     async run(run: EffectRun) {
-        return { facts: await this.arrivals.issueCertificate(run.tx, placeOf(run), run.facts) };
+        return { facts: await this.arrivals.issueCertificate(run.tx, placeOf(run), run.facts, run.input) };
     }
 }
 

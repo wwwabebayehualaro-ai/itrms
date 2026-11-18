@@ -50,6 +50,23 @@ export async function lockVehicleClaim(tx: Tx, vehicleId: string): Promise<void>
 }
 
 /**
+ * Whether another open case of the region is an arrival that names this document of its issuing region, this libre or this federal id
+ * (task 1.4c3): through the reviewed lookup (migration 0089), as the cases of other offices are not the filer's to read. With no context
+ * (system work) it answers yes.
+ */
+export async function arrivalClaimedElsewhere(
+    tx: Tx,
+    caseId: string | null,
+    claim: { issuingRegionKey: string; documentKey: string; libreKey?: string; federalId?: string }
+): Promise<boolean> {
+    const { rows } = await tx.execute<{ claimed: boolean }>(
+        sql`select competency.arrival_in_open_case(${claim.issuingRegionKey}, ${claim.documentKey}, ${claim.libreKey ?? null},
+                                                    ${claim.federalId ?? null}, ${caseId}::uuid) as claimed`
+    );
+    return rows[0]?.claimed === true;
+}
+
+/**
  * Whether another open case of the region claims the vehicle: through the reviewed lookup (migration 0073), not the cases the
  * filer's office sees, so that two sibling offices cannot both take a fee and hold a plate for one vehicle.
  */

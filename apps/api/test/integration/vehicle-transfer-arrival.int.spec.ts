@@ -19,7 +19,7 @@ import { createDatabase, type Database } from '@itrms/kernel/db';
 import { contextFor, TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import type { OrgUnit } from '@itrms/kernel/org';
 import { PlateStock, VehicleRegistry } from '@itrms/vehicles/api';
-import { vinCheckDigit } from '@itrms/vehicles/contracts';
+import { arrivalKey, parsePlate, vinCheckDigit } from '@itrms/vehicles/contracts';
 import {
     importPlateStockDemo,
     importVehicleCategories,
@@ -516,26 +516,67 @@ describe('the request', () => {
         const c = await atTheArrival(first);
         await moved(c, as.officer, 'register', { answers: {} });
         await refused({ libreNumber: first.libreNumber }, 'libreNumber', 'duplicate');
-        const [carried] = await query<{ plate_text: string }>(
-            `select plate_text from vehicles.plate_assignments where plate_key = $1`,
-            [
-                String(first.plate)
-                    .replace(/[^A-Za-z0-9]/g, '')
-                    .toUpperCase()
-            ]
-        );
-        if (carried) await refused({ plate: carried.plate_text }, 'plate');
-        // the document is used once per issuing region
+        // the plate the vehicle carried is the register's now: it ended exchanged, and an old plate is never handed out again
+        const parsed = parsePlate(String(first.plate));
+        expect(parsed, 'a plate of the default codes').not.toBeNull();
+        await refused({ plate: String(first.plate) }, 'plate', 'plate_ended');
+        // the document is used once per issuing region, however its number and the region's name are written
         await refused(
             {
-                transferDocumentNumber: String(first.transferDocumentNumber).toLowerCase(),
-                issuingRegion: 'sample region b'
+                transferDocumentNumber: String(first.transferDocumentNumber).toLowerCase().replace('/', '-'),
+                issuingRegion: 'sample-region b'
             },
             'transferDocumentNumber',
             'duplicate'
         );
     }, 300_000);
 
+    it('folds a document number as a plate is folded', () => {
+        expect(arrivalKey('SD/TR/123/2017')).toBe(arrivalKey('sd-tr-123-2017'));
+        expect(arrivalKey(' Sample  Region_B ')).toBe('SAMPLEREGIONB');
+    });
+
+    it('refuses an arrival of a document, a libre or a federal id that another open arrival names', async () => {
+        const first = await answersOf({ federalVehicleId: `FED-${randomInt(100000, 999999)}` });
+        const a = await file(SERVICE, first);
+        await moved(a, as.officer, 'submit');
+        const notEligible = async (over: Record<string, unknown>) => {
+            const c = await file(SERVICE, await answersOf(over));
+            const r = await tried(c, as.officer, 'submit');
+            expect(r.status, JSON.stringify(r.body)).toBe(422);
+            expect(r.body.code).toBe('not_eligible');
+            expect((await caseOf(c.id)).state).toBe('draft');
+        };
+        // the same document on another chassis, written otherwise
+        await notEligible({
+            transferDocumentNumber: String(first.transferDocumentNumber).toLowerCase(),
+            issuingRegion: first.issuingRegion
+        });
+        // the same libre, and the same federal id
+        await notEligible({ libreNumber: first.libreNumber });
+        await notEligible({ federalVehicleId: first.federalVehicleId });
+        // withdrawn (closed), the first claims nothing more
+        const back = await moved(await caseOf(a.id), as.officer, 'return', { comment: 'Sent back' });
+        await moved(back, as.officer, 'withdraw', { comment: 'Not needed' });
+        const free = await file(SERVICE, await answersOf({ transferDocumentNumber: first.transferDocumentNumber }));
+        expect((await tried(free, as.officer, 'submit')).status).toBe(200);
+    }, 300_000);
+
+    it('has no claim with no context: the reviewed function answers yes', async () => {
+        const { rows } = await api.owner.query<{ claimed: boolean }>(
+            `select competency.arrival_in_open_case('X', 'Y', null, null, null) as claimed`
+        );
+        expect(rows[0]?.claimed).toBe(true);
+    });
+
+    it('refuses a plate handed over for a vehicle that keeps its plate', async () => {
+        const answers = await answersOf({ plate: nationalPlate(), takesNationalPlate: false });
+        const c = await atTheArrival(answers);
+        const r = await tried(c, as.officer, 'register', { answers: { replacementPlate: 'ETH ABC 1234' } });
+        expect(r.status, JSON.stringify(r.body)).toBe(422);
+        expect(r.body.errors).toEqual([expect.objectContaining({ path: 'replacementPlate', code: 'not_exchanged' })]);
+        expect((await caseOf(c.id)).state).toBe('arrival');
+    }, 300_000);
     it('refuses an open registration and another open arrival of the same chassis or plate, both ways', async () => {
         const first = await answersOf();
         const a = await file(SERVICE, first);

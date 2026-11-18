@@ -31,6 +31,14 @@ export const refuse = (errors: Refusal[]): never => {
 /** A libre number as the register keeps it: a booklet serial folded (upper case, no spaces or hyphens), anything else trimmed. */
 export const libreKey = (text: string): string => parseStationeryKey(text)?.key ?? text.trim();
 
+/**
+ * Two requests for one plate at the same moment: the second waits for the first's transaction, then sees its facts. The key is the
+ * back-capture's own (MIG-01), so a capture and an arrival of one plate wait for each other too.
+ */
+export async function lockPlate(tx: Tx, plateKey: string): Promise<void> {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`competency.back-capture:${plateKey}`}, 0))`);
+}
+
 /** The dates a paper gives. */
 export type PaperDates = {
     firstRegisteredOn: string;

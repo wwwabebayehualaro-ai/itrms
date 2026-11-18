@@ -26,19 +26,21 @@ import type { z } from 'zod';
 
 import {
     addisDay,
+    nationalEntrySchema,
     REGISTRATION_CERTIFICATE_TEMPLATE,
     VEHICLE_TRANSFER_PLATE_EXCHANGE_SETTING,
     VEHICLE_TRANSFER_REINSPECT_SETTING
 } from '../contracts';
 import am from '../messages/am.json';
 import en from '../messages/en.json';
-import { actForHandlingOffice, claimedElsewhere } from './handling-office';
+import { actForHandlingOffice, arrivalClaimedElsewhere, claimedElsewhere } from './handling-office';
 import type { CasePlace } from './licences.service';
 import {
     checkLibreFree,
     checkPaperDates,
     checkPlateFree,
     libreKey,
+    lockPlate,
     plateOf,
     refuse,
     type Refusal
@@ -131,6 +133,19 @@ export class TransferArrivalService {
         need('transferDocumentNumber', input.transferDocumentNumber, 'competency.rule.arrivalDocumentNumber');
         need('issuingRegion', input.issuingRegion, 'competency.rule.arrivalIssuingRegion');
         need('issuingOffice', input.issuingOffice, 'competency.rule.arrivalIssuingOffice');
+        // a number or a region of separators only folds to nothing: it names no document
+        if (input.transferDocumentNumber.trim() && !arrivalKey(input.transferDocumentNumber))
+            errors.push({
+                path: 'transferDocumentNumber',
+                code: 'required',
+                message: say('competency.rule.arrivalDocumentNumber')
+            });
+        if (input.issuingRegion.trim() && !arrivalKey(input.issuingRegion))
+            errors.push({
+                path: 'issuingRegion',
+                code: 'required',
+                message: say('competency.rule.arrivalIssuingRegion')
+            });
         if (input.documentDate > today)
             errors.push({ path: 'documentDate', code: 'in_future', message: say('competency.rule.notInFuture') });
         else if (input.documentValidUntil < input.documentDate)
@@ -207,6 +222,28 @@ export class TransferArrivalService {
             ]);
 
         const federal = input.federalVehicleId?.trim();
+        const libre = input.libreNumber?.trim() ? libreKey(input.libreNumber) : undefined;
+        // the libre and the federal id, too, name one vehicle: an open arrival with the same document, libre or federal id refuses this one
+        if (libre)
+            await tx.execute(
+                sql`select pg_advisory_xact_lock(hashtextextended(${`competency.arrival-libre:${libre}`}, 0))`
+            );
+        if (federal)
+            await tx.execute(
+                sql`select pg_advisory_xact_lock(hashtextextended(${`competency.arrival-federal:${federal.toUpperCase()}`}, 0))`
+            );
+        if (
+            await arrivalClaimedElsewhere(tx, place.caseId, {
+                issuingRegionKey,
+                documentKey,
+                ...(libre ? { libreKey: libre } : {}),
+                ...(federal ? { federalId: federal.toUpperCase() } : {})
+            })
+        )
+            throw new ValidationError('not_eligible', {
+                detail: say('competency.rule.arrivalDocumentInOpenCase'),
+                detailKey: 'competency.rule.arrivalDocumentInOpenCase'
+            });
         if (federal) {
             const parsed = federalVehicleIdSchema.safeParse(federal);
             if (!parsed.success)
@@ -218,6 +255,8 @@ export class TransferArrivalService {
 
         const checked = await this.registry.checkRegistration(tx, place.ctx, this.registerInput(input, place.caseId));
         const plate = await plateOf(tx, this.vehicleRecords, input.plate);
+        // two requests for one plate at the same moment (the back-capture takes the same lock)
+        await lockPlate(tx, plate.key);
         await checkPlateFree(tx, this.stock, place.regionId, plate);
 
         // what the region asked for when the request was filed stands for the case, whatever its settings say later
@@ -281,6 +320,8 @@ export class TransferArrivalService {
                 filedOn,
                 documentKey,
                 issuingRegionKey,
+                libreKey: libre,
+                federalId: federal?.toUpperCase() ?? null,
                 notices
             }
         };
@@ -394,8 +435,22 @@ export class TransferArrivalService {
      * The registration certificate: this office numbers it from its own counter, as the registration's temporary libre. Issued after
      * the plate, so that it names the plate the vehicle carries now. Run again it returns what it issued.
      */
-    async issueCertificate(tx: Tx, at: CasePlace, facts: Facts) {
+    async issueCertificate(tx: Tx, at: CasePlace, facts: Facts, answers: unknown = {}) {
         const place = await actForHandlingOffice(tx, at);
+        // the plate step's answer is read only when a plate is exchanged: one given for a vehicle that keeps its plate is not dropped silently
+        const given = nationalEntrySchema.safeParse(answers ?? {});
+        if (
+            factObject(facts, 'transferArrival')?.plateExchange === false &&
+            given.success &&
+            given.data.replacementPlate
+        )
+            refuse([
+                {
+                    path: 'replacementPlate',
+                    code: 'not_exchanged',
+                    message: say('competency.rule.arrivalNoPlateExchange')
+                }
+            ]);
         const libreId = factObject(facts, 'libre')?.id;
         if (typeof libreId !== 'string') throw missingFact('libre');
         const [libre] = await tx.select().from(libres).where(eq(libres.id, libreId));

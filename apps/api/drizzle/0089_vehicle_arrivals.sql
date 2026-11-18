@@ -113,3 +113,36 @@ CREATE INDEX "cases_open_transfer_arrival_vin_idx" ON "workflow"."cases" ("regio
 --> statement-breakpoint
 CREATE INDEX "cases_open_transfer_arrival_plate_idx" ON "workflow"."cases" ("region_id", ("facts" #>> '{transferArrival,plateKey}'))
     WHERE "closed_at" IS NULL AND ("facts" #>> '{transferArrival,plateKey}') IS NOT NULL;
+--> statement-breakpoint
+-- Whether an open case of the region is an arrival that names this document of its issuing region, this libre or this federal id (task
+-- 1.4c3): the arrivals of other offices are not the filer's to read, so a yes or no is answered here, nothing else of them. With no
+-- context (system work) it answers yes, as vehicle_in_open_case does.
+CREATE FUNCTION "competency"."arrival_in_open_case"(p_issuing_region_key text, p_document_key text, p_libre_key text, p_federal_id text, p_except uuid)
+    RETURNS boolean
+    LANGUAGE sql
+    STABLE
+    SECURITY DEFINER
+    SET search_path = pg_catalog, pg_temp
+AS $$
+    SELECT kernel.ctx_region() IS NULL OR EXISTS (
+        SELECT 1 FROM workflow.cases c
+         WHERE c.region_id = kernel.ctx_region() AND c.closed_at IS NULL AND c.id IS DISTINCT FROM p_except
+           AND (((c.facts #>> '{transferArrival,issuingRegionKey}') = p_issuing_region_key
+                 AND (c.facts #>> '{transferArrival,documentKey}') = p_document_key)
+                OR (p_libre_key IS NOT NULL AND (c.facts #>> '{transferArrival,libreKey}') = p_libre_key)
+                OR (p_federal_id IS NOT NULL AND (c.facts #>> '{transferArrival,federalId}') = p_federal_id))
+    );
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION "competency"."arrival_in_open_case"(text, text, text, text, uuid) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION "competency"."arrival_in_open_case"(text, text, text, text, uuid) TO itrms_app;
+--> statement-breakpoint
+CREATE INDEX "cases_open_transfer_arrival_document_idx" ON "workflow"."cases" ("region_id", ("facts" #>> '{transferArrival,documentKey}'))
+    WHERE "closed_at" IS NULL AND ("facts" #>> '{transferArrival,documentKey}') IS NOT NULL;
+--> statement-breakpoint
+CREATE INDEX "cases_open_transfer_arrival_libre_idx" ON "workflow"."cases" ("region_id", ("facts" #>> '{transferArrival,libreKey}'))
+    WHERE "closed_at" IS NULL AND ("facts" #>> '{transferArrival,libreKey}') IS NOT NULL;
+--> statement-breakpoint
+CREATE INDEX "cases_open_transfer_arrival_federal_idx" ON "workflow"."cases" ("region_id", ("facts" #>> '{transferArrival,federalId}'))
+    WHERE "closed_at" IS NULL AND ("facts" #>> '{transferArrival,federalId}') IS NOT NULL;

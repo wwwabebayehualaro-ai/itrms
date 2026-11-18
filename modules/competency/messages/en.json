@@ -539,5 +539,7 @@
   "competency.rule.arrivalNationalPlate": "The old regional plate of this vehicle is exchanged for a national plate here: tick that it takes one, so that the plate fee is charged.",
   "competency.rule.arrivalKeepsPlate": "This vehicle keeps the plate it carries (a national or special plate, or the region does not exchange): untick the national plate.",
   "competency.rule.arrivalLibreRequired": "Give the number of the libre the owners hold.",
-  "competency.rule.arrivalInOpenCase": "Another open request is for this chassis number or this plate."
+  "competency.rule.arrivalInOpenCase": "Another open request is for this chassis number or this plate.",
+  "competency.rule.arrivalDocumentInOpenCase": "Another open request is for this transfer document, this libre or this federal vehicle id: finish that first.",
+  "competency.rule.arrivalNoPlateExchange": "This vehicle keeps the plate it carries: leave the plate handed over empty."
 }

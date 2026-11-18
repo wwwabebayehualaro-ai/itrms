@@ -112,11 +112,13 @@ describe('the arrival form', () => {
             'issuingRegion',
             'issuingOffice',
             'documentVerified',
-            'holdsNote',
             'plate',
             'libreNumber'
         ])
             expect(field(id)?.classification, id).toBe('internal');
+        // free text about holds may name a person or a bank: personal, as the scan is
+        expect(field('holdsNote')?.classification).toBe('personal');
+        expect(field('transferDocumentScan')?.classification).toBe('personal');
     });
 
     it('takes the vehicle’s facts as a registration does', () => {

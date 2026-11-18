@@ -19,7 +19,7 @@ import en from '../messages/en.json';
 import { actForHandlingOffice, claimedElsewhere } from './handling-office';
 import type { CasePlace } from './licences.service';
 import { MigrationSamplingService } from './migration-sampling.service';
-import { checkLibreFree, checkPaperDates, checkPlateFree, libreKey, plateOf, refuse } from './paper-records';
+import { checkLibreFree, checkPaperDates, checkPlateFree, libreKey, lockPlate, plateOf, refuse } from './paper-records';
 import { VehicleRegistrationService, type RegistrationInput } from './registration.service';
 
 type Words = keyof typeof am;
@@ -138,9 +138,7 @@ export class BackCaptureService {
                 sql`select pg_advisory_xact_lock(hashtextextended(${`competency.vehicle-registration:${vin.vinKey}`}, 0))`
             );
         // and two captures of one plate
-        await tx.execute(
-            sql`select pg_advisory_xact_lock(hashtextextended(${`competency.back-capture:${plate.key}`}, 0))`
-        );
+        await lockPlate(tx, plate.key);
         const checked = await this.registry.checkRegistration(
             tx,
             place.ctx,
@@ -257,6 +255,9 @@ export class BackCaptureService {
     private async put(tx: Tx, place: CapturePlace, input: BackCaptureInput, origin: PaperOrigin) {
         checkPaperDates(input);
         const plate = await plateOf(tx, this.vehicles, input.plate);
+        // a plate another vehicle took or gave up since the capture was filed is refused here, at the verification
+        await lockPlate(tx, plate.key);
+        await checkPlateFree(tx, this.stock, place.regionId, plate);
         await checkLibreFree(tx, place.regionId, input.libreNumber);
         // the vehicle is the capturing office's, whoever verified it: the office's own officer, or the one above it when separation
         // of duties sent the step up (SEC-AC-6)
