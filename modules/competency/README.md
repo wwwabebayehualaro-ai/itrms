@@ -95,7 +95,7 @@ registered, with the fee rule `dvc-17-arrival` (2,000 Birr and a plate line that
 `TransferArrivalService.check` runs on filing, correction and each step that moves on. It checks:
 - the document: number, region and office; its dates; valid on the day filed (frozen in `transferArrival.filedOn`); the officer's
   tick and how it was checked; used once per issuing region, also against open arrivals (`competency.arrival_in_open_case`);
-- a chassis or federal id the register does not know (`arrivalReturning` for a vehicle of this region that left);
+- a chassis or federal id the register does not know, or the vehicle of this region that left (below);
 - the registration's strict checks, and a plate no vehicle carries or carried (under the back-capture's plate lock);
 - the plate rule: `takesNationalPlate` must equal an old regional plate and the setting, frozen at filing;
 - the libre and the dates (`paper-records.ts`, shared with the back-capture).
@@ -104,6 +104,16 @@ registered, with the fee rule `dvc-17-arrival` (2,000 Birr and a plate line that
 writes `vehicles.vehicle_arrivals` (migration 0089). With the exchange, the held national plate then replaces the old plate (ended
 exchanged) through the registration's plate effects, and `issueArrivalCertificate` issues the registration certificate. A hold the
 document lists is a notice only. `competency.vehicle_in_open_case` also claims the chassis and plate of an open arrival.
+
+**The vehicle that left the region comes back (task 1.4c3b, ADR-0060 point 8).** A chassis that names a `transferred_out` vehicle of this
+region is a return, on its own record (`facts.transferArrival.returning`). Refused while this region's release outside is valid
+(`arrivalReleaseStanding`: DVC-16 at the releasing office) and with no open ownership period (`arrivalNoOwnersOnRecord`). `registerArrival`
+calls the reviewed command `vehicles.accept_return` (migration 0090; `VehicleArrivals.acceptReturn`): the record goes active at the case's
+office with its live rows (and the stock plate, with ledger rows) when that is another office, and the release ends `returned` (final).
+Then only what differs changes the register: other owners (`VehicleRegistry.returnOwners`: transfer in from `ownersSince`, which is
+required), a plate of another region (the old one ended `transferred`; a plate of the vehicle's own past is refused), a libre other than
+the one in force. Make, model, year or use that differ, and holds still on the record, are notices. The exchange rule and the
+certificate run as for a new arrival; the arrival row has `returned` and the release. DVC-16 and DVC-17 refuse each other while one is open.
 
 **The back-capture of a paper vehicle file (MIG-01, task 1.13, ADR-0054).** Not one of the bureau's 54 services: the migration's
 own, offered where vehicles are registered. Seeded as configuration (`seed/back-capture-service.ts`): the form

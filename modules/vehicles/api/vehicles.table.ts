@@ -669,15 +669,15 @@ export const vehicleHandovers = withRls(
                     'vehicle_handovers_destination_check',
                     sql`(${t.destinationKind} = 'office' and ${t.toUnitId} is not null and ${t.destinationName} is null and ${t.destinationRegion} is null) or (${t.destinationKind} = 'outside' and ${t.toUnitId} is null and ${t.destinationName} is not null and length(${t.destinationName}) between 1 and 200 and coalesce(length(${t.destinationRegion}), 1) between 1 and 100)`
                 ),
-                // an outside release is never received: no office of this installation takes it in
+                // an outside release is never received: no office of this installation takes it in; it ends `returned` when its vehicle comes back
                 check(
                     'vehicle_handovers_outside_check',
-                    sql`${t.status} <> 'received' or ${t.destinationKind} = 'office'`
+                    sql`(${t.status} <> 'received' or ${t.destinationKind} = 'office') and (${t.status} <> 'returned' or ${t.destinationKind} = 'outside')`
                 ),
                 check('vehicle_handovers_dates_check', sql`${t.validUntil} >= ${t.releasedOn}`),
                 check(
                     'vehicle_handovers_received_check',
-                    sql`(${t.status} = 'received') = (${t.inCaseId} is not null and ${t.receivedOn} is not null and ${t.receivedBy} is not null)`
+                    sql`(${t.status} in ('received', 'returned')) = (${t.inCaseId} is not null and ${t.receivedOn} is not null and ${t.receivedBy} is not null)`
                 ),
                 check(
                     'vehicle_handovers_cancelled_check',

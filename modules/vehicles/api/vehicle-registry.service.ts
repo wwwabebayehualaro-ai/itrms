@@ -36,6 +36,7 @@ import {
     libres,
     plateAssignments,
     vehicleCategories,
+    vehicleEncumbrances,
     vehicleOwners,
     vehicleOwnerships,
     vehicles
@@ -74,8 +75,11 @@ export class VehicleRegistry {
         tx: Tx,
         ctx: DbContext,
         given: z.input<typeof vehicleRegisterSchema>,
-        /** `checkOwners: false`: the owners are not on the register yet (an import's dry run, which makes them only at the commit) */
-        options: { checkOwners?: boolean } = {}
+        /**
+         * `checkOwners: false`: the owners are not on the register yet (an import's dry run, which makes them only at the commit).
+         * `returning`: the vehicle that left the region and comes back (task 1.4c3b): its chassis is its own, not a duplicate.
+         */
+        options: { checkOwners?: boolean; returning?: string } = {}
     ): Promise<{ vinKey: string; chassisNumber: string; vinCheck: VinCheck; chassisKind: ChassisKind }> {
         const input = checked(vehicleRegisterSchema, given);
         const regionId = required(ctx.regionId);
@@ -112,7 +116,7 @@ export class VehicleRegistry {
             .select({ id: vehicles.id })
             .from(vehicles)
             .where(and(eq(vehicles.regionId, regionId), eq(vehicles.vinKey, vin.vinKey)));
-        if (onRegister)
+        if (onRegister && onRegister.id !== options.returning)
             throw new ConflictError('duplicate_reference', { detailKey: 'vehicles.errors.duplicate_chassis' });
         return {
             vinKey: vin.vinKey,
@@ -305,11 +309,110 @@ export class VehicleRegistry {
         return { vehicle: now, ownershipId, cancelled: cancelled ?? null, libre };
     }
 
+    /**
+     * What the return of a vehicle that left the region (task 1.4c3b) meets, without writing: the vehicle as the register has it, the
+     * open ownership period and whether `owners` are its holders, the plate it carries and every plate it ever carried, the libre in
+     * force, and how many holds it still carries. The vehicle may be another office's: the region reads every vehicle.
+     */
+    async checkReturn(
+        tx: Tx,
+        vehicleId: string,
+        owners: readonly OwnerRef[]
+    ): Promise<{
+        vehicle: VehicleRow;
+        openPeriod: { id: string; since: string } | null;
+        sameOwners: boolean;
+        currentPlateKey: string | null;
+        platesEver: string[];
+        libreInForce: { id: string; number: string | null } | null;
+        openHolds: number;
+    }> {
+        const [vehicle] = await tx.select().from(vehicles).where(eq(vehicles.id, vehicleId));
+        if (!vehicle) throw new NotFoundError();
+        const [open] = await tx
+            .select({ id: vehicleOwnerships.id, since: vehicleOwnerships.since })
+            .from(vehicleOwnerships)
+            .where(and(eq(vehicleOwnerships.vehicleId, vehicleId), isNull(vehicleOwnerships.until)));
+        const held = open ? await this.holdersOf(tx, open.id) : [];
+        const heldIds = new Set(held.map((h) => h.id));
+        const plateRows = await tx
+            .select({ key: plateAssignments.plateKey, until: plateAssignments.until })
+            .from(plateAssignments)
+            .where(eq(plateAssignments.vehicleId, vehicleId));
+        const [libre] = await tx
+            .select({ id: libres.id, number: libres.number })
+            .from(libres)
+            .where(and(eq(libres.vehicleId, vehicleId), eq(libres.status, 'issued')));
+        const [holds] = await tx
+            .select({ n: sql<number>`count(*)::int` })
+            .from(vehicleEncumbrances)
+            .where(and(eq(vehicleEncumbrances.vehicleId, vehicleId), sql`${vehicleEncumbrances.status} <> 'released'`));
+        return {
+            vehicle,
+            openPeriod: open ?? null,
+            sameOwners: open !== undefined && owners.length === held.length && owners.every((o) => heldIds.has(o.id)),
+            currentPlateKey: plateRows.find((p) => p.until === null)?.key ?? null,
+            platesEver: plateRows.map((p) => p.key),
+            libreInForce: libre ?? null,
+            openHolds: holds?.n ?? 0
+        };
+    }
+
+    /**
+     * The owners the arrival document names, for a vehicle that came back (task 1.4c3b): the same holders change nothing; others
+     * take it by transfer in from `since`, which must be after the day the period on the register began and not before `notBefore` (the day
+     * the vehicle left), and the libre in force,
+     * written for the owners who no longer hold it, is cancelled (returned, so the libre they bring points at it).
+     */
+    async returnOwners(
+        tx: Tx,
+        ctx: DbContext,
+        vehicleId: string,
+        given: { owners: readonly OwnerRef[]; since: string; notBefore: string; caseId: string; note?: string }
+    ): Promise<{ ownershipId: string | null; cancelled: typeof libres.$inferSelect | null }> {
+        const vehicle = await this.lock(tx, ctx, vehicleId);
+        const open = await this.openPeriod(tx, vehicleId);
+        const held = await this.holdersOf(tx, open.id);
+        const heldIds = new Set(held.map((h) => h.id));
+        if (given.owners.length === held.length && given.owners.every((o) => heldIds.has(o.id)))
+            return { ownershipId: null, cancelled: null };
+        // the register's owners held it until the day it left: history is not rewritten before that day
+        if (given.since < given.notBefore)
+            throw fieldError('since', 'before_departure', 'is before the day the vehicle left the region');
+        const { ownershipId, cancelled } = await this.moveOwnership(tx, vehicle, {
+            owners: [...given.owners],
+            since: given.since,
+            acquiredBy: 'transfer_in',
+            caseId: given.caseId,
+            ...(given.note ? { note: given.note } : {})
+        });
+        await updateAudited(tx, vehicles, vehicleId, vehicle.rowVersion, {});
+        return { ownershipId, cancelled: cancelled ?? null };
+    }
+
+    /** The holders of an ownership period, in their order. */
+    private async holdersOf(tx: Tx, ownershipId: string): Promise<OwnerRef[]> {
+        const held = await tx
+            .select()
+            .from(vehicleOwners)
+            .where(eq(vehicleOwners.ownershipId, ownershipId))
+            .orderBy(asc(vehicleOwners.ordinal));
+        return held.flatMap((h): OwnerRef[] =>
+            h.personId
+                ? [{ kind: 'person', id: h.personId }]
+                : h.organisationId
+                  ? [{ kind: 'organisation', id: h.organisationId }]
+                  : []
+        );
+    }
+
     /** The shared body of a transfer: the open period ends, the new one begins, the libre in force is out of force. */
     private async moveOwnership(
         tx: Tx,
         vehicle: VehicleRow,
-        input: z.output<typeof ownershipTransferSchema>
+        input: Omit<z.output<typeof ownershipTransferSchema>, 'acquiredBy'> & {
+            acquiredBy: z.output<typeof ownershipTransferSchema>['acquiredBy'] | 'transfer_in';
+        }
     ): Promise<{ ownershipId: string; cancelled: typeof libres.$inferSelect | undefined }> {
         if (vehicle.status !== 'active')
             throw new ConflictError('invalid_transition', {

@@ -2,7 +2,7 @@
  * A vehicle arriving from another region, DVC-17 (task 1.4c3, ADR-0060): what the request must meet, and the steps that put the
  * vehicle on the register on the vehicle data transfer document its owner brought. The register is the vehicles slice's and the
  * registration's strict checks apply (the paper facts of a back-capture are not accepted here); the document is checked by the
- * officer, never fetched. The vehicle that once left this region comes back through its own record (task 1.4c3b), so a chassis
+ * officer, never fetched. The vehicle that once left this region comes back through its own record (task 1.4c3b); any other chassis
  * this register knows is refused here. The plate step is the registration's (VehicleRegistrationService.reservePlate, assignPlate,
  * releasePlate); this adds the check, the registration and the certificate.
  */
@@ -13,7 +13,16 @@ import type { Tx } from '@itrms/kernel/db';
 import { ConflictError, ValidationError } from '@itrms/kernel/errors';
 import { requireCounter } from '@itrms/kernel/numbering';
 import { SettingsService } from '@itrms/kernel/settings';
-import { libres, PlateStock, vehicles, VehicleArrivals, VehicleRegistry, VehiclesService } from '@itrms/vehicles/api';
+import {
+    libres,
+    PlateStock,
+    vehicles,
+    VehicleArrivals,
+    VehicleHandovers,
+    vehicleHandovers,
+    VehicleRegistry,
+    VehiclesService
+} from '@itrms/vehicles/api';
 import {
     ARRIVAL_VERIFIED_HOW,
     arrivalKey,
@@ -33,7 +42,7 @@ import {
 } from '../contracts';
 import am from '../messages/am.json';
 import en from '../messages/en.json';
-import { actForHandlingOffice, arrivalClaimedElsewhere, claimedElsewhere } from './handling-office';
+import { actForHandlingOffice, arrivalClaimedElsewhere, claimedElsewhere, lockVehicleClaim } from './handling-office';
 import type { CasePlace } from './licences.service';
 import {
     checkLibreFree,
@@ -50,6 +59,8 @@ import { VehicleRegistrationService, type RegistrationInput } from './registrati
 type Words = keyof typeof am;
 type RegisterInput = z.input<typeof vehicleRegisterSchema>;
 type Facts = Readonly<Record<string, unknown>>;
+/** A vehicle of this region the chassis or the federal id names. */
+type KnownVehicle = Pick<typeof vehicles.$inferSelect, 'id' | 'status' | 'vinKey' | 'federalVehicleId'>;
 
 /** A refusal in the language of the person acting: this is what they read at the counter. */
 const say = (key: Words): string => (currentContext()?.language === 'en' ? en : am)[key];
@@ -100,6 +111,7 @@ export class TransferArrivalService {
         @Inject(VehiclesService) private readonly vehicleRecords: VehiclesService,
         @Inject(PlateStock) private readonly stock: PlateStock,
         @Inject(VehicleArrivals) private readonly arrivals: VehicleArrivals,
+        @Inject(VehicleHandovers) private readonly handovers: VehicleHandovers,
         @Inject(VehicleRegistrationService) private readonly registration: VehicleRegistrationService,
         @Inject(SettingsService) private readonly settings: SettingsService
     ) {}
@@ -178,8 +190,8 @@ export class TransferArrivalService {
     // ---- filing ----
 
     /**
-     * What makes a request acceptable, checked on the server: the document, a chassis and federal id the register does not know (a
-     * vehicle of this region that left comes back by another path), the registration's strict checks, a plate no vehicle carries
+     * What makes a request acceptable, checked on the server: the document, a chassis and federal id the register does not know (or
+     * the vehicle of this region that left, which comes back on its own record), the registration's strict checks, a plate no vehicle carries
      * that the region's plate rule agrees with, the libre, the dates, and no other open request for the same chassis or plate.
      * Nothing is written. What the case's facts froze at the filing (the day, the region's settings) is kept as it was.
      */
@@ -251,13 +263,35 @@ export class TransferArrivalService {
                     parsed.error.issues.map((i) => ({ path: 'federalVehicleId', code: 'invalid', message: i.message }))
                 );
         }
-        await this.checkNotKnown(tx, place.regionId, vin.ok ? vin.vinKey : undefined, federal);
+        const known = await this.checkNotKnown(tx, place.regionId, vin.ok ? vin.vinKey : undefined, federal);
+        if (known) await lockVehicleClaim(tx, known.id);
+        const given = this.registerInput(input, place.caseId);
+        const returning = known ? await this.checkReturning(tx, known, given.owners, input, federal) : undefined;
 
-        const checked = await this.registry.checkRegistration(tx, place.ctx, this.registerInput(input, place.caseId));
+        const checked = await this.registry.checkRegistration(
+            tx,
+            place.ctx,
+            given,
+            known ? { returning: known.id } : {}
+        );
         const plate = await plateOf(tx, this.vehicleRecords, input.plate);
         // two requests for one plate at the same moment (the back-capture takes the same lock)
         await lockPlate(tx, plate.key);
-        await checkPlateFree(tx, this.stock, place.regionId, plate);
+        // the plate the vehicle left with changes nothing; another region's is recorded; one of its own past is not taken back
+        let plateOnReturn: 'same' | 'new' | undefined;
+        if (returning) {
+            if (plate.key === returning.state.currentPlateKey) plateOnReturn = 'same';
+            else if (returning.state.platesEver.includes(plate.key))
+                refuse([
+                    {
+                        path: 'plate',
+                        code: 'plate_history',
+                        message: say('competency.rule.arrivalPlateFromHistory')
+                    }
+                ]);
+            else plateOnReturn = 'new';
+        }
+        if (plateOnReturn !== 'same') await checkPlateFree(tx, this.stock, place.regionId, plate);
 
         // what the region asked for when the request was filed stands for the case, whatever its settings say later
         const exchangeSetting =
@@ -294,10 +328,31 @@ export class TransferArrivalService {
 
         if (!input.libreNumber?.trim())
             refuse([{ path: 'libreNumber', code: 'required', message: say('competency.rule.arrivalLibreRequired') }]);
-        await checkLibreFree(tx, place.regionId, input.libreNumber);
+        // the libre the owner brings is the one in force already when it is the same booklet for the same owners: nothing to record
+        const sameLibre = returning?.state.libreInForce?.number === libreKey(input.libreNumber);
+        if (!(returning && sameLibre && returning.sameOwners))
+            await checkLibreFree(tx, place.regionId, input.libreNumber);
         checkPaperDates(input);
+        if (returning && !(sameLibre && returning.sameOwners)) {
+            // the libre is for the owners of the period it is recorded in: the one on the register, or the one this arrival opens
+            const from = returning.sameOwners ? returning.state.openPeriod?.since : input.ownersSince;
+            if (from !== undefined && input.libreIssuedOn < from)
+                refuse([
+                    {
+                        path: 'libreIssuedOn',
+                        code: 'before_period',
+                        message: say('competency.rule.libreBeforeOwners')
+                    }
+                ]);
+        }
 
-        if (await claimedElsewhere(tx, place.caseId, { vinKey: checked.vinKey, plateKey: plate.key }))
+        if (
+            await claimedElsewhere(tx, place.caseId, {
+                vinKey: checked.vinKey,
+                plateKey: plate.key,
+                ...(known ? { vehicleId: known.id } : {})
+            })
+        )
             throw new ValidationError('not_eligible', {
                 detail: say('competency.rule.arrivalInOpenCase'),
                 detailKey: 'competency.rule.arrivalInOpenCase'
@@ -305,7 +360,8 @@ export class TransferArrivalService {
         const notices = [
             ...(checked.vinCheck === 'mismatch' ? ['competency.notice.chassisMismatch'] : []),
             // a hold is recorded on its holder's letter, through the encumbrance service: the officer is told, nothing is made
-            ...(input.holdsListed === true ? ['competency.notice.arrivalHoldsListed'] : [])
+            ...(input.holdsListed === true ? ['competency.notice.arrivalHoldsListed'] : []),
+            ...(returning ? returning.notices : [])
         ];
         return {
             transferArrival: {
@@ -322,17 +378,93 @@ export class TransferArrivalService {
                 issuingRegionKey,
                 libreKey: libre,
                 federalId: federal?.toUpperCase() ?? null,
+                ...(known && returning && plateOnReturn
+                    ? {
+                          // the vehicle that left this region comes back on its own record (task 1.4c3b)
+                          returning: {
+                              vehicleId: known.id,
+                              handoverId: returning.handoverId,
+                              releasedOn: returning.releasedOn,
+                              ownersChanged: !returning.sameOwners,
+                              plate: plateOnReturn
+                          }
+                      }
+                    : {}),
                 notices
             }
         };
     }
 
     /**
-     * The chassis or the federal id is one the register already knows. An active vehicle is on the register; one transferred out is
-     * a vehicle of this region that comes back (task 1.4c3b); one taken off or reported stolen is not registered again here.
+     * The vehicle of this region that left it and comes back (task 1.4c3b, ADR-0060). Refused while this region's own release outside
+     * still stands (its owner cancels it at the releasing office, DVC-16) and when no owners are on record for it (it left before
+     * ADR-0058 kept them); owners other than the register's need the day they took it, after the day the register's began. What the
+     * document says of the vehicle that differs from the register, and a hold the register still carries, are notices: nothing of the
+     * register is changed by the document.
      */
-    private async checkNotKnown(tx: Tx, regionId: string, vinKey: string | undefined, federal: string | undefined) {
-        if (vinKey === undefined && federal === undefined) return;
+    private async checkReturning(
+        tx: Tx,
+        known: KnownVehicle,
+        owners: RegisterInput['owners'],
+        input: TransferArrivalInput,
+        federal: string | undefined
+    ) {
+        const path = federal && known.federalVehicleId === federal.toUpperCase() ? 'federalVehicleId' : 'chassisNumber';
+        const standing = await this.handovers.standing(tx, known.id);
+        if (standing && standing.validUntil >= addisDay())
+            refuse([{ path, code: 'release_standing', message: say('competency.rule.arrivalReleaseStanding') }]);
+        const state = await this.registry.checkReturn(tx, known.id, owners);
+        if (!state.openPeriod)
+            refuse([{ path, code: 'no_owners_on_record', message: say('competency.rule.arrivalNoOwnersOnRecord') }]);
+        // ADR-0058: a vehicle transferred out has the release it left on; with none there is nothing to come back on
+        if (!standing) return refuse([{ path, code: 'no_release', message: say('competency.rule.arrivalNoRelease') }]);
+        if (!state.sameOwners) {
+            const since = input.ownersSince;
+            if (!since || since > addisDay() || since <= (state.openPeriod?.since ?? ''))
+                refuse([
+                    { path: 'ownersSince', code: 'before_period', message: say('competency.rule.arrivalOwnersSince') }
+                ]);
+            // the register's owners held it until it left: new owners cannot have taken it before that day
+            else if (since < standing.releasedOn)
+                refuse([
+                    {
+                        path: 'ownersSince',
+                        code: 'before_departure',
+                        message: say('competency.rule.arrivalOwnersBeforeDeparture')
+                    }
+                ]);
+        }
+        const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+        const differs =
+            !same(state.vehicle.make, input.make) ||
+            !same(state.vehicle.model, input.model) ||
+            state.vehicle.modelYear !== input.modelYear ||
+            state.vehicle.use !== input.use;
+        return {
+            state,
+            sameOwners: state.sameOwners,
+            handoverId: standing.id,
+            releasedOn: standing.releasedOn,
+            notices: [
+                'competency.notice.arrivalReturning',
+                ...(differs ? ['competency.notice.arrivalFactsDiffer'] : []),
+                ...(state.openHolds > 0 ? ['competency.notice.arrivalReturningHolds'] : [])
+            ]
+        };
+    }
+
+    /**
+     * The chassis or the federal id is one the register already knows. An active vehicle is on the register; one taken off or reported
+     * stolen is not registered again here; one transferred out is a vehicle of this region that comes back (task 1.4c3b): it is
+     * returned, and it must be the vehicle both the chassis and the federal id name.
+     */
+    private async checkNotKnown(
+        tx: Tx,
+        regionId: string,
+        vinKey: string | undefined,
+        federal: string | undefined
+    ): Promise<KnownVehicle | undefined> {
+        if (vinKey === undefined && federal === undefined) return undefined;
         const rows = await tx
             .select({
                 id: vehicles.id,
@@ -361,15 +493,26 @@ export class TransferArrivalService {
                 }
             ]);
         const known = byChassis ?? byFederal;
-        if (!known) return;
+        if (!known) return undefined;
         const path = byChassis ? 'chassisNumber' : 'federalVehicleId';
+        if (known.status === 'transferred_out') {
+            // the federal id alone names it, or the chassis names a vehicle with another federal id: not the vehicle the document says
+            if (!byChassis || (federal !== undefined && known.federalVehicleId !== null && !byFederal))
+                refuse([
+                    {
+                        path: 'federalVehicleId',
+                        code: 'other_vehicle',
+                        message: say('competency.rule.arrivalFederalIdOther')
+                    }
+                ]);
+            return known;
+        }
         const KEYS = {
             active: 'competency.rule.arrivalOnRegister',
-            transferred_out: 'competency.rule.arrivalReturning',
             deregistered: 'competency.rule.arrivalNotReturnable',
             stolen: 'competency.rule.arrivalStolen'
         } as const satisfies Record<string, Words>;
-        refuse([{ path, code: known.status, message: say(KEYS[known.status]) }]);
+        return refuse([{ path, code: known.status, message: say(KEYS[known.status]) }]);
     }
 
     // ---- the registration ----
@@ -383,10 +526,12 @@ export class TransferArrivalService {
         // the register records the acting unit as the vehicle's handling office: the office, or the one above it the step was sent up to
         const place = await actForHandlingOffice(tx, at);
         const made = await this.arrivals.ofCase(tx, place.caseId);
-        if (made) return this.madeBy(tx, place.caseId, made.vehicleId, made.id);
+        if (made) return this.madeBy(tx, place.caseId, made.vehicleId, made.id, made.returned);
         const frozen = factObject(facts, 'transferArrival');
         if (typeof frozen?.filedOn !== 'string') throw missingFact('transferArrival');
         const plate = await plateOf(tx, this.vehicleRecords, input.plate);
+        const returning = factObject(frozen, 'returning');
+        if (returning) return this.registerReturn(tx, place, returning, plate, input);
         const vehicle = await this.registry.register(tx, place.ctx, this.registerInput(input, place.caseId));
         await this.registry.recordPlate(tx, place.ctx, vehicle.id, {
             text: plate.text,
@@ -414,15 +559,99 @@ export class TransferArrivalService {
             holdsListed: input.holdsListed === true,
             ...(input.holdsListed === true && input.holdsNote?.trim() ? { holdsNote: input.holdsNote.trim() } : {})
         });
-        return this.madeBy(tx, place.caseId, vehicle.id, arrival.id);
+        return this.madeBy(tx, place.caseId, vehicle.id, arrival.id, false);
     }
 
-    /** What the case made, as facts: the vehicle, its libre and the arrival's record. */
-    private async madeBy(tx: Tx, caseId: string, vehicleId: string, arrivalId: string) {
+    /**
+     * The vehicle of this region that left it comes back on its own record (task 1.4c3b): the reviewed command brings it to the
+     * case's office, then what the document says changes the register only where it must: other owners, another region's plate and
+     * a libre other than the one in force are recorded, the same ones change nothing. The record is the vehicle's, so the arrival
+     * is written for it with the release it came back on.
+     */
+    private async registerReturn(
+        tx: Tx,
+        place: CasePlace,
+        returning: Record<string, unknown>,
+        plate: Awaited<ReturnType<typeof plateOf>>,
+        input: TransferArrivalInput
+    ) {
+        const vehicleId = returning.vehicleId;
+        if (typeof vehicleId !== 'string') throw missingFact('transferArrival.returning');
+        const handoverId = returning.handoverId;
+        if (typeof handoverId !== 'string') throw missingFact('transferArrival.returning');
+        // the day it left is read from the release itself, not from the facts: new owners cannot have taken it before then
+        const [release] = await tx
+            .select({ releasedOn: vehicleHandovers.releasedOn })
+            .from(vehicleHandovers)
+            .where(eq(vehicleHandovers.id, handoverId));
+        if (!release) throw missingFact('transferArrival.returning');
+        await this.arrivals.acceptReturn(tx, place.caseId);
+        const given = this.registerInput(input, place.caseId);
+        const moved = await this.registry.returnOwners(tx, place.ctx, vehicleId, {
+            owners: given.owners,
+            since: input.ownersSince ?? addisDay(),
+            notBefore: release.releasedOn,
+            caseId: place.caseId,
+            ...(given.note ? { note: given.note } : {})
+        });
+        // the federal id the document gives, when the register has none: the national system's id is set once
+        const federal = input.federalVehicleId?.trim();
+        if (federal) {
+            const [row] = await tx
+                .select({ federalVehicleId: vehicles.federalVehicleId })
+                .from(vehicles)
+                .where(eq(vehicles.id, vehicleId));
+            if (row?.federalVehicleId === null)
+                await this.registry.recordFederalId(tx, place.ctx, vehicleId, federal.toUpperCase());
+        }
+        if (returning.plate === 'new')
+            await this.registry.recordPlate(tx, place.ctx, vehicleId, {
+                text: plate.text,
+                source: plate.format === 'legacy' ? 'legacy' : 'manual',
+                since: addisDay(),
+                endedReason: 'transferred'
+            });
+        const number = libreKey(input.libreNumber);
+        const [inForce] = await tx
+            .select({ number: libres.number })
+            .from(libres)
+            .where(and(eq(libres.vehicleId, vehicleId), eq(libres.status, 'issued')));
+        if (inForce?.number !== number)
+            await this.registry.recordLibre(tx, place.ctx, vehicleId, {
+                number,
+                issuedOn: input.libreIssuedOn,
+                caseId: place.caseId,
+                ...(moved.cancelled ? { replacesId: moved.cancelled.id } : {})
+            });
+        const arrival = await this.arrivals.record(tx, place.ctx, {
+            vehicleId,
+            caseId: place.caseId,
+            documentNumber: input.transferDocumentNumber,
+            issuingRegion: input.issuingRegion,
+            issuingOffice: input.issuingOffice,
+            documentDate: input.documentDate,
+            validUntil: input.documentValidUntil,
+            verifiedHow: input.verifiedHow as (typeof ARRIVAL_VERIFIED_HOW)[number],
+            arrivedOn: addisDay(),
+            carriedPlateText: plate.text,
+            carriedPlateKey: plate.key,
+            ...(input.boloValidUntil ? { boloValidUntil: input.boloValidUntil } : {}),
+            holdsListed: input.holdsListed === true,
+            ...(input.holdsListed === true && input.holdsNote?.trim() ? { holdsNote: input.holdsNote.trim() } : {}),
+            returned: true,
+            handoverId
+        });
+        return this.madeBy(tx, place.caseId, vehicleId, arrival.id, true);
+    }
+
+    /** What the case made, as facts: the vehicle, its libre (a returning vehicle's, the one in force) and the arrival's record. */
+    private async madeBy(tx: Tx, caseId: string, vehicleId: string, arrivalId: string, returned: boolean) {
         const [libre] = await tx
             .select({ id: libres.id, number: libres.number })
             .from(libres)
-            .where(and(eq(libres.vehicleId, vehicleId), eq(libres.caseId, caseId)));
+            .where(
+                and(eq(libres.vehicleId, vehicleId), returned ? eq(libres.status, 'issued') : eq(libres.caseId, caseId))
+            );
         if (!libre) throw missingFact('libre');
         return {
             vehicle: { id: vehicleId },

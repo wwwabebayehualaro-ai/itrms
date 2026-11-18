@@ -297,5 +297,6 @@
   "vehicles.errors.handover_expired": "The release of this vehicle has lapsed: the sending office releases it again.",
   "vehicles.errors.handover_owners_changed": "The owners of the vehicle changed after its release: it is released again.",
   "vehicles.errors.handover_not_yours": "This vehicle is released to another office.",
-  "vehicles.errors.handover_not_standing": "This release was received, cancelled or replaced."
+  "vehicles.errors.handover_not_standing": "This release was received, cancelled or replaced.",
+  "vehicles.errors.handover_return_refused": "This vehicle cannot be brought back on this request: its release is not the lapsed one the request names, or the vehicle is no longer one that left the region."
 }

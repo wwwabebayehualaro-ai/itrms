@@ -631,6 +631,13 @@
       "when": 1794958183217,
       "tag": "0089_vehicle_arrivals",
       "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1794972267675,
+      "tag": "0090_vehicle_return",
+      "breakpoints": true
     }
   ]
 }

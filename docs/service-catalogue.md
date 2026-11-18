@@ -86,7 +86,8 @@ document's (number, issuing region and office, dates, how it was checked, the fe
 reviewed, paid, approved by a lead and registered by an officer (the vehicle, its transfer-in ownership period, the libre and the registration
 certificate). A vehicle on an old regional plate is given a national plate from the office's stock in the same case when
 `competency.vehicle_transfer_plate_exchange` is on (default). The demo fee is 2,000 Birr plus the plate fee (to confirm with the zone). A chassis this
-register knows is refused; the return of a vehicle that left is task 1.4c3b. Offered wherever DVC-01 is; not counted in the totals.
+register knows is refused, except the vehicle of this region that left (its release outside lapsed): it comes back on its own record, to the office the
+request is filed at, with the owners, plate and libre changed only where the document differs (task 1.4c3b). Offered wherever DVC-01 is; not counted in the totals.
 
 **Not in the source: MIG-01, the back-capture of a paper vehicle file** (የወረቀት ተሽከርካሪ ፋይል ምዝገባ; ADR-0054, task 1.13). The
 migration's own service, in the catalogue beside the 54 and offered wherever DVC-01 is: a vehicle with no electronic record is
