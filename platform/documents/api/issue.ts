@@ -159,9 +159,12 @@ export async function supersedeDocument(
     tx: Tx,
     settings: Pick<SettingsService, 'value'>,
     oldId: string,
-    /** what it should say: its template and the record it documents are the old one's, and so are its case and office unless named */
+    /**
+     * what it should say: its template is the old one's, and so are its record, case and office unless named (a replacement
+     * documents the record that replaced the old one, task 1.5)
+     */
     correction: Pick<IssueInput, 'data' | 'language' | 'number'> &
-        Partial<Pick<IssueInput, 'caseId' | 'handlingUnitId'>>
+        Partial<Pick<IssueInput, 'caseId' | 'handlingUnitId' | 'subject'>>
 ): Promise<IssuedRow> {
     const [old] = await tx.select().from(issuedDocuments).where(eq(issuedDocuments.id, oldId)).for('update');
     if (!old) throw new ConflictError('invalid_transition', { detailKey: 'documents.errors.no_document_to_correct' });
@@ -184,6 +187,10 @@ export async function supersedeDocument(
         regionId: old.regionId,
         handlingUnitId: correction.handlingUnitId ?? old.handlingUnitId,
         ...(correction.caseId || old.caseId ? { caseId: correction.caseId ?? old.caseId ?? undefined } : {}),
-        ...(old.subjectTable && old.subjectId ? { subject: { table: old.subjectTable, id: old.subjectId } } : {})
+        ...(correction.subject
+            ? { subject: correction.subject }
+            : old.subjectTable && old.subjectId
+              ? { subject: { table: old.subjectTable, id: old.subjectId } }
+              : {})
     });
 }

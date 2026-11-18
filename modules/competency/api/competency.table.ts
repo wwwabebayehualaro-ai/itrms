@@ -19,6 +19,7 @@
  *                          office.
  *   migration_paper_counts the zone's count of paper files for an office and plate code (task 1.13h), class T at the office.
  *   ownership_transfers    an ownership transfer's valuation, letters, papers and result (task 1.4b), class T at the handling office.
+ *   replacements           a replacement of a lost, stolen or damaged libre, bolo sticker or plate (task 1.5), class T at the handling office.
  *   campaigns              a unit's campaign over a span of days (task 1.13i), class C: the running unit and the units above it
  *                          write it and the offices below it read it, as they must to see what targets them.
  *   campaign_targets       an office's target in a campaign, class T at the office; set by a unit above it.
@@ -60,6 +61,8 @@ import {
     LICENCE_KINDS,
     LICENCE_STATUSES,
     PAPER_PLATE_CODES,
+    REPLACEMENT_ITEMS,
+    REPLACEMENT_REASONS,
     SAMPLE_FIELDS,
     SAMPLE_OUTCOMES,
     SAMPLE_SOURCES,
@@ -467,6 +470,61 @@ export const ownershipTransfers = withRls(
                     'ownership_transfers_evidence_check',
                     sql`(evidence_recorded_by is null) = (evidence_recorded_at is null)`
                 )
+            ]
+        )
+    ),
+    'transaction',
+    'handling_org_path'
+);
+
+/**
+ * A replacement of a lost, stolen or damaged libre, bolo sticker or plate (task 1.5, DVC-06, ADR-0062), one row a case: the police
+ * letter and newspaper notice the request relied on and, once the register changed, what it made. Class T at the handling office.
+ * The bolo and plate columns are for tasks 1.5b and 1.5c. The foreign keys to the case and to the register's tables are in the
+ * migration.
+ */
+export const replacements = withRls(
+    audited(
+        competencySchema.table(
+            'replacements',
+            {
+                ...baseColumns(),
+                ...registry(),
+                caseId: uuid('case_id').notNull(),
+                vehicleId: uuid('vehicle_id').notNull(),
+                item: text('item', { enum: REPLACEMENT_ITEMS }).notNull(),
+                reason: text('reason', { enum: REPLACEMENT_REASONS }).notNull(),
+                policeReportReference: text('police_report_reference'),
+                policeReportOn: date('police_report_on'),
+                noticeNewspaper: text('notice_newspaper'),
+                noticePublishedOn: date('notice_published_on'),
+                /** the first day the libre may be replaced, as the setting stood when the case moved on */
+                noticeEndsOn: date('notice_ends_on'),
+                oldLibreId: uuid('old_libre_id'),
+                newLibreId: uuid('new_libre_id'),
+                boloId: uuid('bolo_id'),
+                oldStickerKey: text('old_sticker_key'),
+                newStickerKey: text('new_sticker_key'),
+                oldPlateAssignmentId: uuid('old_plate_assignment_id'),
+                newPlateAssignmentId: uuid('new_plate_assignment_id'),
+                replacedOn: date('replaced_on'),
+                replacedBy: uuid('replaced_by')
+            },
+            (t) => [
+                uniqueIndex('replacements_case_uq').on(t.caseId),
+                index('replacements_vehicle_idx').on(t.vehicleId),
+                index('replacements_handling_org_path_gist').using('gist', t.handlingOrgPath),
+                check('replacements_item_check', sql`item in ('libre', 'bolo', 'plate')`),
+                check('replacements_reason_check', sql`reason in ('lost', 'stolen', 'damaged')`),
+                check(
+                    'replacements_police_check',
+                    sql`reason = 'damaged' or (police_report_reference is not null and police_report_on is not null)`
+                ),
+                check(
+                    'replacements_notice_check',
+                    sql`item <> 'libre' or reason = 'damaged' or notice_published_on is not null`
+                ),
+                check('replacements_result_check', sql`(replaced_on is null) = (replaced_by is null)`)
             ]
         )
     ),

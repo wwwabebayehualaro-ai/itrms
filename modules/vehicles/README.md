@@ -26,6 +26,11 @@ national reference when given. The office counter `vehicles.registration-certifi
 `vehicles.libre` in migration 0070) numbers the registration certificate. The register also keeps the temporary libre's other
 facts: made in, engine HP, cylinders, length, width and height (mm), tyre size and count, net weight.
 
+**Libre replacement (task 1.5, ADR-0062).** `replaceLibre` takes the libre in force out of force as `lost` (a lost or stolen one) or
+`replaced` (a damaged one) and issues the same owners' new libre, pointing at it, with no number until its booklet. The libre in
+force must have its booklet (`vehicles.errors.libre_without_booklet`); a case that asks again gets the libre it made. A plate period
+may now also end `stolen` or `damaged` (migration 0092; the plate replacement is task 1.5c).
+
 **Plate exchange (task 1.2c).** A plate period that ends for another points at the period that replaced it
 (`plate_assignments.replaced_by_id`, a deferred key on the same vehicle in migration 0072, backfilled for the plates already
 exchanged), so an old regional plate is linked to the national plate that replaced it. `recordFederalId` sets the federal

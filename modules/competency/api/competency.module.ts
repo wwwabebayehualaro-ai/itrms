@@ -16,6 +16,8 @@ import { EXCHANGE_EFFECTS } from './exchange.effects';
 import { PlateExchangeService } from './exchange.service';
 import { LICENCE_EFFECTS } from './licence.effects';
 import { LicencesService } from './licences.service';
+import { REPLACEMENT_EFFECTS_LIST } from './replacement.effects';
+import { ReplacementService } from './replacement.service';
 import { MigrationReportController } from './migration-report.controller';
 import { MigrationReportService } from './migration-report.service';
 import { MigrationSampleController } from './migration-sample.controller';
@@ -57,6 +59,7 @@ import { VehicleTransferService } from './vehicle-transfer.service';
         VehicleImportService,
         PlateExchangeService,
         OwnershipTransferService,
+        ReplacementService,
         VehicleTransferService,
         TransferArrivalService,
         BoloService,
@@ -72,6 +75,7 @@ import { VehicleTransferService } from './vehicle-transfer.service';
         ...TRANSFER_EFFECTS_LIST,
         ...VEHICLE_TRANSFER_EFFECTS_LIST,
         ...TRANSFER_ARRIVAL_EFFECTS_LIST,
+        ...REPLACEMENT_EFFECTS_LIST,
         ...BOLO_EFFECTS
     ],
     exports: [LicencesService, VehicleImportService]

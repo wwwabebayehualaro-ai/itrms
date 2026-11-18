@@ -14,6 +14,8 @@ export { EXCHANGE_EFFECTS } from './exchange.effects';
 export { PlateExchangeService, type ExchangeInput } from './exchange.service';
 export { TRANSFER_EFFECTS_LIST } from './transfer.effects';
 export { OwnershipTransferService, type TransferInput } from './transfer.service';
+export { REPLACEMENT_EFFECTS_LIST } from './replacement.effects';
+export { ReplacementService, type ReplacementInput } from './replacement.service';
 export { VEHICLE_TRANSFER_EFFECTS_LIST } from './vehicle-transfer.effects';
 export { VehicleTransferService } from './vehicle-transfer.service';
 export { TRANSFER_ARRIVAL_EFFECTS_LIST } from './transfer-arrival.effects';

@@ -2059,13 +2059,33 @@
         },
         {
           "id": "1.5",
-          "title": "Replacements",
+          "title": "Replacements, part 1: the frame and a lost libre",
+          "status": "in progress",
+          "branch": "task/1.5-replacements",
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Design (architect, 2026-11-18), decided in auto mode (ADR-0062): one service DVC-06 branching on replacement.item; police letter for lost or stolen, the item handed in for damaged; the newspaper notice for a lost or stolen libre checked by date in effects (competency.libre_notice_days, 15 calendar days, sensitive; Z); a new libre replaces the old (lost or replaced), its booklet from stock; the old certificate superseded by the new libre's (documents supersede with the new record as subject); holds block a libre or plate replacement; one replacement per vehicle at a time (vehicle_in_open_case arm); fee rule dvc-06-replacement by item plus the plate price (demo). Split: 1.5 frame + libre, 1.5b bolo, 1.5c plate. 2026-11-18: implemented and pushed (8606834, PR #87). Review (Fable): 1 high + 2 medium + 3 low being fixed: the old certificate issued by another office (vehicle moved by a transfer-in) stayed valid — a reviewed region-scoped definer supersedes (or, for an ownership transfer, revokes) it, named by the replacing libre (ADR-0062 point 7); the new certificate filed under the replacing office; the notice refusal's end day in the Ethiopian calendar; holds checked at filing and before the booklet; scans stay optional (ADR point 2, Z). Verifier: all Done-when met."
+        },
+        {
+          "id": "1.5b",
+          "title": "Replacements, part 2: a bolo sticker",
           "status": "planned",
           "branch": null,
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Split from 1.5 on 2026-11-18 (architect; ADR-0062). item gains bolo through a new form and flow version (supersedeSeededVersion with the form, the 1.4c2 precedent); replaceBoloSticker: the replacement row first, then stationery.use usedFor the replacement row (NOT the bolo: StationeryStock.use is idempotent on (kind, usedFor) and would return the old sticker), bolos.sticker_key updated, bolo.reissueDocument (public over the private document()) superseding the old one; a hold does not block; an expired bolo is refused (DVC-02). e2e: a lost bolo filed, paid, approved, sticker replaced, the verify page superseded."
+        },
+        {
+          "id": "1.5c",
+          "title": "Replacements, part 3: a plate",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Split from 1.5 on 2026-11-18 (architect; ADR-0062). item gains plate (form and flow version); approval reserves a stock plate (reserveRegistrationPlate); replacePlate: registration.assignPlate with endedReason lost|stolen|damaged (registry.assignStockPlate accepts it), openPlate maps lost|stolen to stock lost and damaged to retired; a pair replaced together; the certificate of the libre in force and the current bolo document reissued with the new plate; a legacy plate takes a national plate. Z: MoTL reissuing the same number (default no)."
         },
         {
           "id": "1.12",

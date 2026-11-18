@@ -47,7 +47,7 @@ export const ACQUIRED_BY = [
     'transfer_in'
 ] as const;
 export const PLATE_SOURCES = ['federal', 'legacy', 'manual'] as const;
-export const PLATE_ENDED_REASONS = ['exchanged', 'lost', 'retired', 'transferred'] as const;
+export const PLATE_ENDED_REASONS = ['exchanged', 'lost', 'retired', 'transferred', 'stolen', 'damaged'] as const;
 export const LIBRE_STATUSES = ['issued', 'replaced', 'lost', 'cancelled'] as const;
 /** How a vehicle on paper came onto the register (ADR-0054): back-captured through a case, or imported in a batch (1.13b). */
 export const MIGRATION_SOURCES = ['back_capture', 'import'] as const;

@@ -6,7 +6,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { currentContext } from '@itrms/kernel/context';
-import type { Tx } from '@itrms/kernel/db';
+import { recordEvent, type Tx } from '@itrms/kernel/db';
 import { ConflictError, ValidationError } from '@itrms/kernel/errors';
 import { DocumentsService, documentTemplates, issuedDocuments } from '@itrms/documents/api';
 import { StationeryStock } from '@itrms/fees/api';
@@ -475,9 +475,80 @@ export class VehicleRegistrationService {
             );
         const number =
             standing?.number ?? (await nextNumber(tx, REGISTRATION_CERTIFICATE_COUNTER, place.handlingUnitId)).number;
-        const vehicle = await this.vehicles.get(tx, libre.vehicleId);
         // issued again, it keeps its first language: an officer reading in another language changes nothing on it
         const language = (standing?.language ?? currentContext()?.language) === 'en' ? 'en' : 'am';
+        return this.documents.reissue(tx, {
+            regionId: place.regionId,
+            handlingUnitId: place.handlingUnitId,
+            templateKey,
+            language,
+            number,
+            caseId: place.caseId,
+            subject: { table: 'vehicles.libres', id: libre.id },
+            data: await this.certificateData(tx, libre, number, language)
+        });
+    }
+
+    /**
+     * The certificate of a libre that replaces another (task 1.5, ADR-0062): a new one, numbered from the replacing office's
+     * counter and issued under it, documents the new libre, and the old libre's standing certificate says superseded. The old one
+     * may be another office's (a vehicle moved by a transfer keeps the certificate its first office issued), so it is retired
+     * through the reviewed `vehicles.retire_libre_certificate`, which finds it whoever issued it. Run again it returns the one the
+     * new libre has.
+     */
+    async supersedeCertificate(tx: Tx, place: CasePlace, newLibre: typeof libres.$inferSelect, templateKey: string) {
+        const [made] = await tx
+            .select({ document: issuedDocuments })
+            .from(issuedDocuments)
+            .innerJoin(documentTemplates, eq(documentTemplates.id, issuedDocuments.templateId))
+            .where(
+                and(
+                    eq(documentTemplates.key, templateKey),
+                    eq(issuedDocuments.subjectId, newLibre.id),
+                    isNull(issuedDocuments.supersededBy),
+                    isNull(issuedDocuments.revokedAt)
+                )
+            );
+        if (made) return made.document;
+        const issued = await this.issueCertificate(tx, place, newLibre, templateKey);
+        await this.retireCertificate(tx, place, newLibre.id, templateKey, { supersededBy: issued.id });
+        return issued;
+    }
+
+    /**
+     * Retires the certificate of the libre `newLibreId` replaces, wherever it was issued: superseded by `supersededBy`, or revoked
+     * with `revokedFor`. The reviewed command checks the caller's scope; the change is audited here, in the same transaction.
+     */
+    async retireCertificate(
+        tx: Tx,
+        place: CasePlace,
+        newLibreId: string,
+        templateKey: string,
+        how: { supersededBy: string } | { revokedFor: string }
+    ): Promise<void> {
+        const { rows } = await tx.execute<{ id: string | null }>(
+            sql`select vehicles.retire_libre_certificate(${newLibreId}::uuid, ${templateKey}, ${
+                'supersededBy' in how ? how.supersededBy : null
+            }::uuid, ${'revokedFor' in how ? how.revokedFor : null}) as id`
+        );
+        const old = rows[0]?.id;
+        if (!old) return;
+        await recordEvent(tx, {
+            type: 'supersededBy' in how ? 'documents.superseded_across' : 'documents.revoked_across',
+            table: issuedDocuments,
+            rowId: old,
+            data: { libreId: newLibreId, caseId: place.caseId, ...how }
+        });
+    }
+
+    /** What the registration certificate prints, as the vehicle and the libre now stand. */
+    private async certificateData(
+        tx: Tx,
+        libre: typeof libres.$inferSelect,
+        number: string,
+        language: 'am' | 'en'
+    ): Promise<Record<string, unknown>> {
+        const vehicle = await this.vehicles.get(tx, libre.vehicleId);
         const holders = vehicle.ownerships.find((o) => o.id === libre.ownershipId)?.holders ?? [];
         const addresses = await this.ownerAddresses(tx, holders, language);
         const owners = holders.map((h) => ({
@@ -488,49 +559,40 @@ export class VehicleRegistrationService {
             am: (vehiclesAm as Record<string, string>)[key] ?? key,
             en: (vehiclesEn as Record<string, string>)[key] ?? key
         });
-        return this.documents.reissue(tx, {
-            regionId: place.regionId,
-            handlingUnitId: place.handlingUnitId,
-            templateKey,
-            language,
+        return {
             number,
-            caseId: place.caseId,
-            subject: { table: 'vehicles.libres', id: libre.id },
-            data: {
-                number,
-                issuedOn: libre.issuedOn,
-                firstRegisteredOn: vehicle.firstRegisteredOn,
-                plate: vehicle.currentPlate?.text ?? '',
-                federalVehicleId: vehicle.federalVehicleId,
-                owners,
-                category: { am: vehicle.category.name.am ?? '', en: vehicle.category.name.en ?? '' },
-                make: vehicle.make,
-                model: vehicle.model,
-                modelYear: vehicle.modelYear,
-                madeIn: vehicle.madeIn,
-                chassisNumber: vehicle.chassisNumber,
-                engineNumber: vehicle.engineNumber,
-                engineCc: vehicle.engineCc,
-                engineHp: vehicle.engineHp,
-                cylinders: vehicle.cylinders,
-                fuel: vehicle.fuel ? words(`vehicles.fuel.${vehicle.fuel}`) : null,
-                colour: vehicle.colour,
-                lengthMm: vehicle.lengthMm,
-                widthMm: vehicle.widthMm,
-                heightMm: vehicle.heightMm,
-                tyreSize: vehicle.tyreSize,
-                tyres: vehicle.tyres,
-                grossWeightKg: vehicle.grossWeightKg,
-                netWeightKg: vehicle.netWeightKg,
-                seats: vehicle.seats,
-                loadCapacityKg: vehicle.loadCapacityKg,
-                use: words(`vehicles.use.${vehicle.use}`),
-                // the bolo comes with task 1.3
-                boloNumber: null,
-                bookletSerial: libre.number,
-                nationalReference: libre.nationalReference
-            }
-        });
+            issuedOn: libre.issuedOn,
+            firstRegisteredOn: vehicle.firstRegisteredOn,
+            plate: vehicle.currentPlate?.text ?? '',
+            federalVehicleId: vehicle.federalVehicleId,
+            owners,
+            category: { am: vehicle.category.name.am ?? '', en: vehicle.category.name.en ?? '' },
+            make: vehicle.make,
+            model: vehicle.model,
+            modelYear: vehicle.modelYear,
+            madeIn: vehicle.madeIn,
+            chassisNumber: vehicle.chassisNumber,
+            engineNumber: vehicle.engineNumber,
+            engineCc: vehicle.engineCc,
+            engineHp: vehicle.engineHp,
+            cylinders: vehicle.cylinders,
+            fuel: vehicle.fuel ? words(`vehicles.fuel.${vehicle.fuel}`) : null,
+            colour: vehicle.colour,
+            lengthMm: vehicle.lengthMm,
+            widthMm: vehicle.widthMm,
+            heightMm: vehicle.heightMm,
+            tyreSize: vehicle.tyreSize,
+            tyres: vehicle.tyres,
+            grossWeightKg: vehicle.grossWeightKg,
+            netWeightKg: vehicle.netWeightKg,
+            seats: vehicle.seats,
+            loadCapacityKg: vehicle.loadCapacityKg,
+            use: words(`vehicles.use.${vehicle.use}`),
+            // the bolo comes with task 1.3
+            boloNumber: null,
+            bookletSerial: libre.number,
+            nationalReference: libre.nationalReference
+        };
     }
 
     /**

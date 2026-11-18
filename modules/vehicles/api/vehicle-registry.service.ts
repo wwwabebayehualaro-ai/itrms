@@ -589,6 +589,18 @@ export class VehicleRegistry {
         given: z.input<typeof libreRecordSchema>,
         version?: number
     ): Promise<void> {
+        await this.putLibre(tx, ctx, vehicleId, given, 'replaced', version);
+    }
+
+    /** `recordLibre`, with the status the libre leaving force takes: replaced, or lost (a lost or stolen one, task 1.5). */
+    private async putLibre(
+        tx: Tx,
+        ctx: DbContext,
+        vehicleId: string,
+        given: z.input<typeof libreRecordSchema>,
+        outgoing: 'replaced' | 'lost',
+        version?: number
+    ): Promise<void> {
         const input = checked(libreRecordSchema, given);
         const vehicle = await this.lock(tx, ctx, vehicleId, version);
         if (vehicle.status !== 'active')
@@ -614,7 +626,7 @@ export class VehicleRegistry {
             .select()
             .from(libres)
             .where(and(eq(libres.vehicleId, vehicleId), eq(libres.status, 'issued')));
-        if (current) await updateAudited(tx, libres, current.id, current.rowVersion, { status: 'replaced' });
+        if (current) await updateAudited(tx, libres, current.id, current.rowVersion, { status: outgoing });
         await guardUnique(
             () =>
                 insertAudited(tx, libres, {
@@ -656,6 +668,43 @@ export class VehicleRegistry {
             .where(and(eq(libres.vehicleId, vehicleId), eq(libres.caseId, given.caseId)));
         if (!libre) throw new NotFoundError();
         return libre;
+    }
+
+    /**
+     * A lost, stolen or damaged libre replaced (task 1.5, ADR-0062): the libre in force, which must have its booklet, leaves force
+     * as `lost` (lost or stolen) or `replaced` (damaged), and the same owners' new libre is issued, with no number until its
+     * booklet, pointing at it. Asked again for the same case it returns what the case made: one new libre.
+     */
+    async replaceLibre(
+        tx: Tx,
+        ctx: DbContext,
+        vehicleId: string,
+        given: { issuedOn: string; caseId: string; outgoing: 'replaced' | 'lost' }
+    ): Promise<{ old: typeof libres.$inferSelect; libre: typeof libres.$inferSelect }> {
+        await this.lock(tx, ctx, vehicleId);
+        const [made] = await tx
+            .select()
+            .from(libres)
+            .where(and(eq(libres.vehicleId, vehicleId), eq(libres.caseId, given.caseId)));
+        if (made) {
+            const [old] = made.replacesId ? await tx.select().from(libres).where(eq(libres.id, made.replacesId)) : [];
+            if (!old) throw new NotFoundError();
+            return { old, libre: made };
+        }
+        const [current] = await tx
+            .select()
+            .from(libres)
+            .where(and(eq(libres.vehicleId, vehicleId), eq(libres.status, 'issued')));
+        if (!current || current.number === null)
+            throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.libre_without_booklet' });
+        await this.putLibre(tx, ctx, vehicleId, { issuedOn: given.issuedOn, caseId: given.caseId }, given.outgoing);
+        const [libre] = await tx
+            .select()
+            .from(libres)
+            .where(and(eq(libres.vehicleId, vehicleId), eq(libres.caseId, given.caseId)));
+        const [old] = await tx.select().from(libres).where(eq(libres.id, current.id));
+        if (!libre || !old) throw new NotFoundError();
+        return { old, libre };
     }
 
     /**

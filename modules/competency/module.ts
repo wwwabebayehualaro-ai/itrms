@@ -107,6 +107,14 @@ export default defineModule({
             overridableAt: ['installation', 'region'],
             // turning it off lets an old plate stay on the register: a change needs a fresh second factor (SEC-SE-5)
             sensitive: true
+        },
+        // the days a lost or stolen libre waits after its newspaper notice before it is replaced (task 1.5, ADR-0062: 15, the zone's
+        // written answer); shortening it relaxes a control, so a change needs a fresh second factor (SEC-SE-5)
+        {
+            key: 'competency.libre_notice_days',
+            default: 15,
+            overridableAt: ['installation', 'region'],
+            sensitive: true
         }
     ],
     effects: [
@@ -154,7 +162,11 @@ export default defineModule({
         'competency.issueBoloSticker',
         'competency.issueTemporaryBolo',
         'competency.voidBolo',
-        'competency.recordBoloRepair'
+        'competency.recordBoloRepair',
+        // the replacement of a lost, stolen or damaged libre (task 1.5): the bolo sticker's and the plate's come with 1.5b, 1.5c
+        'competency.checkReplacement',
+        'competency.checkReplacementNotice',
+        'competency.replaceLibre'
     ],
     title: { am: 'የአሽከርካሪና ተሽከርካሪ ብቃት ማረጋገጫ', en: 'Driver and vehicle competency' },
     workProcess: 1,
@@ -250,6 +262,8 @@ export default defineModule({
         'DVC-01': ['vehicles.registration-certificate'],
         'DVC-02': ['competency.temporary-bolo'],
         'DVC-03': ['competency.licence'],
+        // the new libre's registration certificate (task 1.5)
+        'DVC-06': ['vehicles.registration-certificate'],
         'DVC-13': ['vehicles.registration-certificate', 'competency.transfer-letter'],
         'DVC-14': ['competency.transfer-document'],
         // the registration certificate of the vehicle that arrives (task 1.4c3)
@@ -285,6 +299,8 @@ export default defineModule({
     // the transfer issues a libre, from the office's stationery (booklets)
     capabilitiesRequired: {
         'DVC-01': ['holds_plate_stock'],
+        // a new libre is written in a booklet from the office's stationery (the plate replacement adds holds_plate_stock, 1.5c)
+        'DVC-06': ['holds_stationery'],
         'DVC-12': ['holds_plate_stock'],
         'DVC-13': ['holds_stationery'],
         // the vehicle's stock plate joins the receiving office's stock (task 1.4c)
@@ -422,6 +438,23 @@ export default defineModule({
                     label: 'competency.action.newOwnershipTransfer',
                     route: '/competency/ownership-transfers/new',
                     requires: { permission: 'case:create', services: ['DVC-13'] }
+                }
+            ]
+        },
+        {
+            key: 'competency.replacements',
+            group: 'work-process',
+            order: 14,
+            label: 'competency.nav.replacements',
+            icon: 'file-warning',
+            route: '/competency/replacements',
+            requires: { permission: 'vehicle:read', services: ['DVC-06'] },
+            quickActions: [
+                {
+                    key: 'competency.newReplacement',
+                    label: 'competency.action.newReplacement',
+                    route: '/competency/replacements/new',
+                    requires: { permission: 'case:create', services: ['DVC-06'] }
                 }
             ]
         },

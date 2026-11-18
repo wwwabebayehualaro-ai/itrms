@@ -81,9 +81,14 @@ describe('the demo fee rules', () => {
         expect(
             evaluateFee(rule('dvc-03-new-licence'), { answers: { grade: 'heavy-truck' }, asOf: '2026-01-01' })
         ).toMatchObject({ status: 'complete', total: 50000n + 15000n + 10000n });
-        expect(
-            evaluateFee(rule('dvc-06-replacement'), { answers: { item: 'plate' }, asOf: '2026-01-01' })
-        ).toMatchObject({ status: 'complete', total: 35000n });
+        const replacement = (item: string, use: string) =>
+            evaluateFee(rule('dvc-06-replacement'), { answers: { item, use }, asOf: '2026-01-01' });
+        // the item's own fee; the plate's price only when a plate is handed over (ADR-0062)
+        expect(replacement('libre', 'private')).toMatchObject({ status: 'complete', total: 150000n });
+        expect(replacement('bolo', 'commercial')).toMatchObject({ status: 'complete', total: 150000n });
+        expect(replacement('plate', 'private')).toMatchObject({ status: 'complete', total: 616100n });
+        expect(replacement('plate', 'commercial')).toMatchObject({ status: 'complete', total: 707000n });
+        expect(replacement('plate', 'government')).toMatchObject({ status: 'complete', total: 616100n });
     });
 
     it('charge a new registration by the vehicle category, with the plate and the libre', () => {

@@ -110,11 +110,16 @@ async function person(who: As = as.officer): Promise<string> {
  * A vehicle of `unit` on an old regional plate with its libre in force and the certificate that goes with it, registered straight
  * in the register as a seed would.
  */
-async function onTheRoad(unit: OrgUnit, use: 'private' | 'commercial' = 'private', ownerId = seller) {
+async function onTheRoad(
+    unit: OrgUnit,
+    use: 'private' | 'commercial' = 'private',
+    ownerId = seller,
+    certUnit: OrgUnit = unit
+) {
     const ctx: DbContext = { ...contextFor(unit), requestId: `seed-${randomUUID()}` };
     const plate = `SN 2-${String(randomInt(10000, 99999))}`;
     const chassis = vin();
-    return app.scoped(ctx, async (tx) => {
+    const made = await app.scoped(ctx, async (tx) => {
         const vehicle = await registry.register(tx, ctx, {
             chassisNumber: chassis,
             make: 'Toyota',
@@ -131,15 +136,20 @@ async function onTheRoad(unit: OrgUnit, use: 'private' | 'commercial' = 'private
         const [libre] = (
             await tx.execute<{ id: string }>(sql`select id from vehicles.libres where vehicle_id = ${vehicle.id}`)
         ).rows;
-        const certificate = await documents.reissue(tx, {
-            regionId: unit.regionId,
-            handlingUnitId: unit.id,
+        return { id: vehicle.id, libreId: libre?.id ?? '' };
+    });
+    // the certificate belongs to the office that issued it, which may not be the one that handles the vehicle now
+    const certCtx: DbContext = { ...contextFor(certUnit), requestId: `seed-${randomUUID()}` };
+    const certificate = await app.scoped(certCtx, (tx) =>
+        documents.reissue(tx, {
+            regionId: certUnit.regionId,
+            handlingUnitId: certUnit.id,
             templateKey: 'vehicle-registration-certificate',
             language: 'am',
-            number: `${unit.code}/RC/9${String(randomInt(10000, 99999))}`,
-            subject: { table: 'vehicles.libres', id: libre?.id ?? '' },
+            number: `${certUnit.code}/RC/9${String(randomInt(10000, 99999))}`,
+            subject: { table: 'vehicles.libres', id: made.libreId },
             data: {
-                number: `${unit.code}/RC/9${String(randomInt(10000, 99999))}`,
+                number: `${certUnit.code}/RC/9${String(randomInt(10000, 99999))}`,
                 issuedOn: '2011-03-01',
                 firstRegisteredOn: '2011-03-01',
                 plate,
@@ -171,9 +181,9 @@ async function onTheRoad(unit: OrgUnit, use: 'private' | 'commercial' = 'private
                 bookletSerial: null,
                 nationalReference: null
             }
-        });
-        return { id: vehicle.id, plate, chassis, libreId: libre?.id ?? '', certificateId: certificate.id };
-    });
+        })
+    );
+    return { id: made.id, plate, chassis, libreId: made.libreId, certificateId: certificate.id };
 }
 
 // ---- cases
@@ -1315,6 +1325,23 @@ describe('owners changed under the case, and the numbers', () => {
         expect((await moved(transfer, as.officer, 'submit')).state).toBe('review');
         expect((await moved(registration, as.officer, 'submit')).state).toBe('review');
     }, 240_000);
+});
+
+describe('a certificate another office issued (a vehicle moved here by a transfer)', () => {
+    it('is revoked by the transfer although the office handling the vehicle cannot see it', async () => {
+        // the first office (Damot Gale) issued the certificate; Boditi handles the vehicle now
+        const vehicle = await onTheRoad(boditi, 'private', seller, damot);
+        const { c } = await drive('booklet', { vehicle });
+        expect(c.state).toBe('booklet');
+        const [old] = await documentsOfLibre(vehicle.libreId);
+        expect(old?.revoke_reason).toBe('libre_ownership_transferred');
+        expect(old?.revoked_at).not.toBeNull();
+        const events = await query<{ n: number }>(
+            `select count(*)::int as n from kernel.audit_log where event_type = 'documents.revoked_across' and row_id = $1`,
+            [old?.id]
+        );
+        expect(events[0]?.n).toBe(1);
+    }, 300_000);
 });
 
 describe('who sees what (class T at the handling office, class R for the register)', () => {
