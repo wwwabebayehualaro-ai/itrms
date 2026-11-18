@@ -1,7 +1,8 @@
 /**
  * The effects the replacement's workflow names (task 1.5, DVC-06). Each runs inside the transition's transaction; one that fails
  * undoes the step. The rules are in ReplacementService; whether the vehicle is encumbered is the vehicles slice's check
- * (`vehicles.checkEncumbrances:replacement`), named beside these. The bolo sticker's and the plate's effects come with 1.5b, 1.5c.
+ * (`vehicles.checkEncumbrances:replacement`), named beside the libre's steps and checked at filing by the service for a libre. The
+ * plate's effect comes with 1.5c.
  */
 import { Inject, Injectable } from '@nestjs/common';
 import { Effect, type EffectRun, type WorkflowEffect } from '@itrms/kernel/effects';
@@ -71,9 +72,24 @@ export class ReplaceLibreEffect implements WorkflowEffect {
     }
 }
 
+/**
+ * The bolo takes a new sticker from the office's stationery and its document is reissued: the service is given. It reads the
+ * step's own answers (the serial of the sticker handed over, if not the office's next one), as the bolo's sticker step does.
+ */
+@Injectable()
+@Effect(X.replaceBoloSticker, { givesService: true })
+export class ReplaceBoloStickerEffect implements WorkflowEffect {
+    constructor(@Inject(ReplacementService) private readonly replacement: ReplacementService) {}
+
+    async run(run: EffectRun) {
+        return { facts: await this.replacement.replaceBoloSticker(run.tx, placeOf(run), run.facts, run.input) };
+    }
+}
+
 /** Every effect of the service, for the module and for the slice's `effects` list. */
 export const REPLACEMENT_EFFECTS_LIST = [
     CheckReplacementEffect,
     CheckReplacementNoticeEffect,
-    ReplaceLibreEffect
+    ReplaceLibreEffect,
+    ReplaceBoloStickerEffect
 ] as const;

@@ -14,6 +14,9 @@ export default defineConfig({
     fullyParallel: false,
     workers: 1,
     retries: process.env.CI ? 1 : 0,
+    // on CI the suite stops itself before the job's limit (75 minutes, the stack and the demo included), so a slow run still
+    // reports which journey failed instead of being cancelled with no log
+    ...(process.env.CI ? { globalTimeout: 62 * 60_000 } : {}),
     reporter: process.env.CI ? 'github' : 'list',
     // the browser keeps Ethiopian time, as its users' do: a journey's 'this month' is the bureau's, not the runner's
     use: {

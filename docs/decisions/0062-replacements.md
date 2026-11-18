@@ -22,7 +22,10 @@ document must read superseded.
 4. **The register.**
    - **Libre:** a new libre replaces the old one, which reads lost (lost or stolen) or replaced (damaged). Its booklet comes from
      stock as for a new libre.
-   - **Bolo:** the same bolo keeps its year and last day; a new sticker comes from stock.
+   - **Bolo:** the same bolo keeps its year and last day; a new sticker comes from stock. The old sticker stays recorded as
+     used, its key kept on the replacement. A vehicle that moved offices since its bolo was given cannot have its sticker
+     replaced until a cross-office command exists (follow-up): the owner takes a new annual inspection instead. A temporary or expired bolo is refused (a new
+     inspection instead).
    - **Plate:** a new national plate comes from the office's stock, with a new number (Z), and the old one ends lost, stolen or
      damaged.
 5. **Documents.** The registration certificate is superseded by one for the new libre or the new plate. The bolo document is

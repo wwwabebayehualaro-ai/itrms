@@ -5,18 +5,22 @@
  * nothing, and run again it returns what it made. The libre's booklet is the registration's own step (`issueLibreBooklet`).
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq, gte, ne } from 'drizzle-orm';
 import { formatEthiopianLong, toEthiopian } from '@itrms/ethiopian-calendar';
 import { currentContext } from '@itrms/kernel/context';
 import { insertAudited, updateAudited, type Tx } from '@itrms/kernel/db';
 import { ConflictError, ValidationError } from '@itrms/kernel/errors';
 import { requireCounter } from '@itrms/kernel/numbering';
 import { SettingsService } from '@itrms/kernel/settings';
-import { libres, vehicles, VehicleRegistry } from '@itrms/vehicles/api';
+import { documentTemplates, issuedDocuments } from '@itrms/documents/api';
+import { StationeryStock } from '@itrms/fees/api';
+import { EncumbranceService, libres, vehicles, VehicleRegistry } from '@itrms/vehicles/api';
 import { REGISTRATION_CERTIFICATE_COUNTER } from '@itrms/vehicles/contracts';
 
 import {
     addisDay,
+    BOLO_REPLACEMENT_MIN_DAYS,
+    BOLO_TEMPLATE,
     DEFAULT_LIBRE_NOTICE_DAYS,
     LIBRE_NOTICE_DAYS_SETTING,
     REGISTRATION_CERTIFICATE_TEMPLATE,
@@ -28,7 +32,8 @@ import {
 import am from '../messages/am.json';
 import en from '../messages/en.json';
 import { daysAfter } from './bolo-validity';
-import { replacements } from './competency.table';
+import { BoloService } from './bolo.service';
+import { bolos, replacements } from './competency.table';
 import { actForHandlingOffice, claimedElsewhere, lockVehicleClaim } from './handling-office';
 import type { CasePlace } from './licences.service';
 import { VehicleRegistrationService } from './registration.service';
@@ -96,7 +101,10 @@ export class ReplacementService {
     constructor(
         @Inject(VehicleRegistry) private readonly registry: VehicleRegistry,
         @Inject(VehicleRegistrationService) private readonly registration: VehicleRegistrationService,
-        @Inject(SettingsService) private readonly settings: SettingsService
+        @Inject(SettingsService) private readonly settings: SettingsService,
+        @Inject(EncumbranceService) private readonly encumbrances: EncumbranceService,
+        @Inject(BoloService) private readonly bolo: BoloService,
+        @Inject(StationeryStock) private readonly stationery: StationeryStock
     ) {}
 
     // ---- filing ----
@@ -105,8 +113,8 @@ export class ReplacementService {
      * What makes a replacement acceptable, checked on the server: the vehicle is on the register and handled by the office the case
      * is in, its use is the register's, a lost or stolen item has its police letter and a damaged one is handed in, a libre in force
      * with its booklet is there to replace, a lost or stolen libre has its newspaper notice, the office can number the new
-     * certificate, and no other open request claims the vehicle. Nothing is written. Whether the vehicle is encumbered is the
-     * encumbrance check's (`vehicles.checkEncumbrances:replacement`), named beside this effect.
+     * certificate, and no other open request claims the vehicle. A bolo sticker needs a bolo in force on its sticker, issued by this
+     * office. Nothing is written. A libre's holds are checked here too (the encumbrance check, `replacement`), a bolo's are not.
      */
     async check(tx: Tx, place: CasePlace, input: ReplacementInput) {
         const [vehicle] = await tx.select().from(vehicles).where(eq(vehicles.id, input.vehicle));
@@ -115,8 +123,9 @@ export class ReplacementService {
         if (vehicle.handlingUnitId !== place.handlingUnitId)
             return refuse('vehicle', 'other_office', 'competency.rule.replacementOtherOffice');
         if (input.use !== vehicle.use) return refuse('use', 'mismatch', 'competency.rule.replacementUse');
-        // the bolo sticker and the plate come with tasks 1.5b and 1.5c
-        if (input.item !== 'libre' || !isItem(input.item))
+        // the plate comes with task 1.5c
+        const item = input.item;
+        if (item !== 'libre' && item !== 'bolo')
             return refuse('item', 'not_yet', 'competency.rule.replacementItemLater');
         if (!isReason(input.reason)) return refuse('reason', 'invalid', 'competency.rule.replacementPoliceReport');
         const today = addisDay();
@@ -132,6 +141,11 @@ export class ReplacementService {
                 'competency.rule.replacementPoliceReport'
             );
         }
+        if (item === 'bolo')
+            return this.checkBolo(tx, place, vehicle.id, input.reason, {
+                policeReportReference,
+                policeReportOn
+            });
         const [libre] = await tx
             .select()
             .from(libres)
@@ -160,6 +174,8 @@ export class ReplacementService {
                 detail: say('competency.rule.replacementInOpenCase'),
                 detailKey: 'competency.rule.replacementInOpenCase'
             });
+        // a hold blocks a libre, not a bolo sticker (ADR-0062): checked here, since the filing step cannot tell the two apart
+        await this.encumbrances.assertClear(tx, vehicle.id, 'replacement', place.handlingUnitId);
         const noticeEndsOn =
             noticeRequired && noticePublishedOn
                 ? daysAfter(noticePublishedOn, await this.noticeDays(tx, place.handlingUnitId))
@@ -168,7 +184,7 @@ export class ReplacementService {
             vehicle: { id: vehicle.id },
             replacement: {
                 vehicleId: vehicle.id,
-                item: input.item,
+                item,
                 reason: input.reason,
                 noticeRequired,
                 libreId: libre.id,
@@ -177,6 +193,51 @@ export class ReplacementService {
                 ...(noticeNewspaper ? { noticeNewspaper } : {}),
                 ...(noticePublishedOn ? { noticePublishedOn } : {}),
                 ...(noticeEndsOn ? { noticeEndsOn } : {})
+            }
+        };
+    }
+
+    /**
+     * The bolo of a vehicle whose sticker is replaced: one in force (an expired bolo needs a new inspection, DVC-02) carried on its
+     * sticker and issued by this office. No newspaper notice and no hold check: a hold is about the title, a bolo about roadworthiness.
+     */
+    private async checkBolo(
+        tx: Tx,
+        place: CasePlace,
+        vehicleId: string,
+        reason: ReplacementReason,
+        police: { policeReportReference: string | undefined; policeReportOn: string | undefined }
+    ) {
+        const [bolo] = await tx
+            .select()
+            .from(bolos)
+            .where(and(eq(bolos.vehicleId, vehicleId), ne(bolos.status, 'void'), gte(bolos.validUntil, addisDay())))
+            .orderBy(desc(bolos.validUntil))
+            .limit(1);
+        if (!bolo) return refuse('vehicle', 'no_bolo', 'competency.rule.replacementNoBolo');
+        if (bolo.status !== 'valid' || bolo.stickerKey === null)
+            return refuse('vehicle', 'no_sticker', 'competency.rule.replacementTemporaryBolo');
+        if (bolo.handlingUnitId !== place.handlingUnitId)
+            return refuse('vehicle', 'bolo_other_office', 'competency.rule.replacementBoloOtherOffice');
+        if (bolo.validUntil <= daysAfter(addisDay(), BOLO_REPLACEMENT_MIN_DAYS))
+            return refuse('vehicle', 'bolo_expiring', 'competency.rule.replacementBoloExpiring');
+        await lockVehicleClaim(tx, vehicleId);
+        if (await claimedElsewhere(tx, place.caseId, { vehicleId }))
+            throw new ValidationError('not_eligible', {
+                detail: say('competency.rule.replacementInOpenCase'),
+                detailKey: 'competency.rule.replacementInOpenCase'
+            });
+        return {
+            vehicle: { id: vehicleId },
+            replacement: {
+                vehicleId,
+                item: 'bolo',
+                reason,
+                noticeRequired: false,
+                boloId: bolo.id,
+                oldStickerKey: bolo.stickerKey,
+                ...(police.policeReportReference ? { policeReportReference: police.policeReportReference } : {}),
+                ...(police.policeReportOn ? { policeReportOn: police.policeReportOn } : {})
             }
         };
     }
@@ -215,7 +276,8 @@ export class ReplacementService {
         const vehicleId = factText(facts, 'vehicle', 'id');
         const replacement = factObject(facts, 'replacement');
         const reason = factText(facts, 'replacement', 'reason');
-        if (!vehicleId || !replacement || !isReason(reason)) throw missingFact('replacement');
+        if (!vehicleId || !replacement || !isReason(reason) || replacement.item !== 'libre')
+            throw missingFact('replacement');
         const known = factObject(facts, 'documents') ?? {};
         const [locked] = await tx
             .select()
@@ -250,6 +312,67 @@ export class ReplacementService {
             libre: { id: made.libre.id, number: made.libre.number, template: templateKey },
             documents: { ...known, [templateKey]: certificate.id }
         };
+    }
+
+    /**
+     * The bolo takes a new sticker from the office's stationery (the one the officer names, or the next one): the same bolo keeps
+     * its year and last day, the old sticker's serial is kept on the replacement, and the bolo document is reissued with the new
+     * sticker so the old QR reads superseded. With no sticker in stock the step is refused and the case waits. The stock item is
+     * used for the replacement, not for the bolo, which would hand back the old sticker. Run again it returns what it made.
+     */
+    async replaceBoloSticker(tx: Tx, at: CasePlace, facts: Facts, answers: unknown) {
+        const place = await actForHandlingOffice(tx, at);
+        const boloId = factText(facts, 'replacement', 'boloId');
+        const reason = factText(facts, 'replacement', 'reason');
+        if (!boloId || !isReason(reason) || factText(facts, 'replacement', 'item') !== 'bolo')
+            throw missingFact('replacement');
+        const known = factObject(facts, 'documents') ?? {};
+        const [locked] = await tx
+            .select()
+            .from(replacements)
+            .where(eq(replacements.caseId, place.caseId))
+            .for('update');
+        const result = (sticker: string, document: string) => ({
+            bolo: { id: boloId, sticker },
+            documents: { ...known, [BOLO_TEMPLATE]: document }
+        });
+        if (locked?.replacedOn && locked.newStickerKey) {
+            // only a read: a later replacement of the same bolo has moved it on, and this case's result stands as it was made
+            const [made] = await tx
+                .select({ id: issuedDocuments.id })
+                .from(issuedDocuments)
+                .innerJoin(documentTemplates, eq(documentTemplates.id, issuedDocuments.templateId))
+                .where(
+                    and(
+                        eq(documentTemplates.key, BOLO_TEMPLATE),
+                        eq(issuedDocuments.subjectId, boloId),
+                        eq(issuedDocuments.caseId, place.caseId)
+                    )
+                );
+            if (!made) throw missingFact('replacement');
+            return result(locked.newStickerKey, made.id);
+        }
+        const row = locked ?? (await this.insertRow(tx, place, facts, reason));
+        const current = await this.bolo.replaceable(tx, place, boloId);
+        const serial = factObject({ answers }, 'answers')?.stickerSerial;
+        const named = typeof serial === 'string' ? serial.trim() : '';
+        const item = await this.stationery.use(tx, place.ctx, {
+            kind: 'bolo_sticker',
+            ...(named ? { key: named } : {}),
+            variant: current.use,
+            validEfy: current.fiscalYear,
+            usedFor: { table: 'competency.replacements', id: row.id },
+            caseId: place.caseId
+        });
+        const made = await this.bolo.replaceSticker(tx, place, boloId, item.itemKey);
+        await updateAudited(tx, replacements, row.id, row.rowVersion, {
+            boloId,
+            oldStickerKey: current.stickerKey,
+            newStickerKey: item.itemKey,
+            replacedOn: addisDay(),
+            replacedBy: place.ctx.userId ?? null
+        });
+        return result(item.itemKey, made.document.id);
     }
 
     // ---- helpers ----

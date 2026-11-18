@@ -40,6 +40,20 @@ if damaged), issues the same owners' new libre pointing at it, supersedes the ol
 booklet is the registration's own step. The case's facts hold `replacement.vehicleId`, which `competency.vehicle_in_open_case`
 reads. Offered where DVC-01..17 are, with `holds_stationery`.
 
+**The bolo sticker (DVC-06, task 1.5b).** The request's `item` now offers `bolo` as well (a new version of the form and the flow;
+a seeded service moves to it on re-seed, a bureau's own version is left alone). A bolo goes review → payment → approval → `bolo`
+(step form `vehicle-bolo-sticker`) → replaced: no notice, and **no hold check**, since a hold is about the title, not roadworthiness.
+So that a hold still stops a libre at filing, `ReplacementService.check` calls the encumbrance check for a libre itself (the filing
+transitions no longer name `vehicles.checkEncumbrances:replacement`, which cannot tell the items apart). Filing needs a bolo in
+force on its sticker (`valid`, last day not past; an expired bolo goes to a new inspection, DVC-02; a temporary bolo or one awaiting
+its sticker is refused) that the case's office issued: a registry record is written only by its handling office, and the bolo document
+is that office's, so a vehicle that moved since is refused (`bolo_other_office`) and replaced where the bolo was issued. A damaged
+sticker is handed in, a lost or stolen one has the police letter. `competency.replaceBoloSticker` takes the next sticker of the
+bolo's use and year from the office's stationery (used for the replacement row, not for the bolo, so the old sticker is not handed
+back; no stock refuses the step and the case waits), sets `bolos.sticker_key` (same fiscal year and last day), keeps the old and new
+keys on `competency.replacements`, and reissues the `vehicle-bolo` document with the new sticker as its number, so the old QR reads
+superseded. The old sticker's stock item stays `used` (the stock has no status to move a used item to).
+
 **The ownership transfer (DVC-13, task 1.4b).** Not in the source list: the change of a vehicle's owner (ስም ዝውውር) by sale, gift,
 inheritance, court order or auction, offered wherever DVC-01 is (`holds_stationery`: it issues a libre). The sellers are the
 register's current owners; the request names the buyers. Seeded as configuration (`seed/transfer-service.ts`): the form

@@ -25,5 +25,11 @@ export type ReplacementReason = (typeof REPLACEMENT_REASONS)[number];
  * How many calendar days a lost or stolen libre waits after its newspaper notice before it is replaced (the zone's written
  * answers: 15; a region's setting, sensitive).
  */
+/**
+ * A bolo whose last day is this near is not given a new sticker: the owner takes the annual inspection instead (placeholder, to
+ * confirm with the zone), so a case does not wait out the bolo it replaces.
+ */
+export const BOLO_REPLACEMENT_MIN_DAYS = 7;
+
 export const LIBRE_NOTICE_DAYS_SETTING = 'competency.libre_notice_days';
 export const DEFAULT_LIBRE_NOTICE_DAYS = 15;

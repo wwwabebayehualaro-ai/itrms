@@ -163,10 +163,11 @@ export default defineModule({
         'competency.issueTemporaryBolo',
         'competency.voidBolo',
         'competency.recordBoloRepair',
-        // the replacement of a lost, stolen or damaged libre (task 1.5): the bolo sticker's and the plate's come with 1.5b, 1.5c
+        // the replacement of a lost, stolen or damaged libre (task 1.5) and bolo sticker (task 1.5b): the plate's comes with 1.5c
         'competency.checkReplacement',
         'competency.checkReplacementNotice',
-        'competency.replaceLibre'
+        'competency.replaceLibre',
+        'competency.replaceBoloSticker'
     ],
     title: { am: 'የአሽከርካሪና ተሽከርካሪ ብቃት ማረጋገጫ', en: 'Driver and vehicle competency' },
     workProcess: 1,
