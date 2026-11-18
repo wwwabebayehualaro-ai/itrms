@@ -30,6 +30,7 @@ import {
     importBackCaptureService,
     importBoloService,
     importPlateExchangeService,
+    importReplacementService,
     importDemoData,
     importLicenceGrades,
     importLicenceServices,
@@ -201,6 +202,8 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
                 backCapture: await importBackCaptureService(tx, where),
                 // the plate exchange (task 1.2c), after the fee rules
                 plateExchange: await importPlateExchangeService(tx, where),
+                // the replacement of a lost, stolen or damaged libre (task 1.5), after the fee rules
+                replacement: await importReplacementService(tx, where),
                 // the ownership transfer (task 1.4b), after the fee rules; its letters' counters
                 ownershipTransfer: await importOwnershipTransferService(tx, where),
                 transferLetterCounters: await setUpTransferLetterCounters(tx, root.regionId),

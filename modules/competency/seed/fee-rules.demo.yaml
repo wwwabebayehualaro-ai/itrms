@@ -76,18 +76,28 @@ rules:
     document:
       schemaVersion: 1
       demo: true
-      basis: placeholder until the regional schedule
+      basis: 'placeholder until the regional schedule (ADR-0062 - a replacement fee by item, plus the plate price when a plate is handed over)'
       inputs:
         item: { kind: choice }
+        use: { kind: choice }
       lines:
         - key: item
           label: { am: የምትክ ክፍያ, en: Replacement }
           kind: table
           input: item
           rows:
-            - { value: libre, amount: '25000' }
-            - { value: bolo, amount: '10000' }
-            - { value: plate, amount: '35000' }
+            - { value: libre, amount: '150000' }
+            - { value: bolo, amount: '150000' }
+            - { value: plate, amount: '100000' }
+        - key: plate
+          label: { am: የሰሌዳ ክፍያ, en: Plate }
+          kind: table
+          input: use
+          rows:
+            - { value: private, amount: '516100' }
+            - { value: commercial, amount: '607000' }
+          otherwise: '516100'
+          when: input.item == 'plate'
   - key: dvc-12-plate-exchange
     name: { am: የሰሌዳ ቅያሪ, en: Plate exchange }
     document:

@@ -27,6 +27,19 @@ another office, already on a national plate, a use that is not the register's, a
 and released by the registration's effects; `competency.exchangePlate` records the federal id and puts the plate on the vehicle,
 the old plate retired and linked to it. A vehicle not on the register is back-captured first (MIG-01).
 
+**The replacement of a lost, stolen or damaged libre (DVC-06, task 1.5, ADR-0062).** Part 1 of three: the frame and the libre
+(the bolo sticker is 1.5b, the plate 1.5c; the request's `item` offers only `libre` until then). Seeded as configuration
+(`seed/replacement-service.ts`): the form `vehicle-replacement`, the workflow draft → review → notice (a lost or stolen libre only)
+→ payment → approval → libre → booklet, with `vehicles.checkEncumbrances:replacement` before each step that moves it on, and the
+demo fee rule `dvc-06-replacement` (libre 1,500, bolo 1,500, plate 1,000 plus the plate's own price: placeholders). A lost or
+stolen libre needs the police letter's number and date and a newspaper notice; the notice step is left by the officer no earlier
+than the publication day plus `competency.libre_notice_days` (15, sensitive), which `competency.checkReplacementNotice` and
+`competency.replaceLibre` check (the workflow counts business days only). `replaceLibre` makes the libre in force `lost` (`replaced`
+if damaged), issues the same owners' new libre pointing at it, supersedes the old certificate by one for the new libre
+(`documents.supersede` with the new libre as its subject) and writes `competency.replacements` (migration 0092, class T); the
+booklet is the registration's own step. The case's facts hold `replacement.vehicleId`, which `competency.vehicle_in_open_case`
+reads. Offered where DVC-01..17 are, with `holds_stationery`.
+
 **The ownership transfer (DVC-13, task 1.4b).** Not in the source list: the change of a vehicle's owner (ስም ዝውውር) by sale, gift,
 inheritance, court order or auction, offered wherever DVC-01 is (`holds_stationery`: it issues a libre). The sellers are the
 register's current owners; the request names the buyers. Seeded as configuration (`seed/transfer-service.ts`): the form

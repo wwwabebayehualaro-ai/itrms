@@ -17,6 +17,7 @@ export * from './licence-services';
 export * from './vehicle-services';
 export * from './back-capture-service';
 export * from './exchange-service';
+export * from './replacement-service';
 export * from './transfer-service';
 export * from './vehicle-transfer-service';
 export * from './vehicle-arrival-service';

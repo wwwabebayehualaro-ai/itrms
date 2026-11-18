@@ -43,6 +43,7 @@ describe('the counters an office needs', () => {
             TRANSFER_LETTER_COUNTER,
             REGISTRATION_CERTIFICATE_COUNTER
         ]);
+        expect(needs.of(['DVC-06'], []).map((n) => n.key)).toEqual([REGISTRATION_CERTIFICATE_COUNTER]);
         expect(needs.of(['DVC-01', 'DVC-13'], ['collects_cash']).map((n) => n.key)).toEqual([
             TRANSFER_LETTER_COUNTER,
             RECEIPT_COUNTER,
