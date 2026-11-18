@@ -554,7 +554,8 @@ export class VehicleRegistry {
             });
             if (current.plateId)
                 await this.stock.closeAssigned(tx, ctx, current.plateId, {
-                    status: input.endedReason === 'lost' ? 'lost' : 'retired',
+                    // a lost or stolen plate may turn up elsewhere: it reads lost; a damaged one is handed in, retired
+                    status: input.endedReason === 'lost' || input.endedReason === 'stolen' ? 'lost' : 'retired',
                     endReason: input.endedReason,
                     on: input.since
                 });

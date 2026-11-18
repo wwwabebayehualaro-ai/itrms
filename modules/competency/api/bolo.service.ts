@@ -7,7 +7,7 @@
  * sticker is given, the owners' reminder is scheduled for a set number of days before the bolo's last day.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, isNull, ne } from 'drizzle-orm';
+import { and, desc, eq, gte, isNull, ne } from 'drizzle-orm';
 import { currentContext } from '@itrms/kernel/context';
 import { insertAudited, type Tx, updateAudited } from '@itrms/kernel/db';
 import { ConflictError, ValidationError } from '@itrms/kernel/errors';
@@ -430,6 +430,22 @@ export class BoloService {
                 : await updateAudited(tx, bolos, bolo.id, bolo.rowVersion, { stickerKey });
         const issued = await this.document(tx, place, now, BOLO_TEMPLATE, stickerKey);
         return { bolo: now, document: issued };
+    }
+
+    /**
+     * The vehicle's bolo document, issued again because the plate it prints changed (task 1.5c, ADR-0062). Only a bolo in force on
+     * its sticker that this office issued: another office's document is not this office's to reissue (as for a sticker, until a
+     * cross-office command exists), so it is left and nothing is returned.
+     */
+    async reissueForPlate(tx: Tx, place: CasePlace, vehicleId: string) {
+        const [bolo] = await tx
+            .select()
+            .from(bolos)
+            .where(and(eq(bolos.vehicleId, vehicleId), eq(bolos.status, 'valid'), gte(bolos.validUntil, addisDay())))
+            .orderBy(desc(bolos.validUntil))
+            .limit(1);
+        if (!bolo || bolo.stickerKey === null || bolo.handlingUnitId !== place.handlingUnitId) return undefined;
+        return this.document(tx, place, bolo, BOLO_TEMPLATE, bolo.stickerKey);
     }
 
     /**

@@ -20,7 +20,7 @@ interface State {
     stepForm?: string;
 }
 
-const flow = replacementFlow('vehicle-libre-booklet@1', 'vehicle-bolo-sticker@1');
+const flow = replacementFlow('vehicle-libre-booklet@1', 'vehicle-bolo-sticker@1', 'vehicle-plate-handover@1');
 const steps = flow.transitions as readonly Step[];
 const state = (key: string) => flow.states.find((s) => s.key === key) as State | undefined;
 const ENC = 'vehicles.checkEncumbrances:replacement';
@@ -43,7 +43,7 @@ describe('the replacement workflow', () => {
 
     it('reaches the notice state only when a notice is required, and checks its end before payment', () => {
         const approvals = steps.filter((t) => t.from === 'review' && t.action === 'approve');
-        expect(approvals.map((t) => t.to)).toEqual(['notice', 'payment', 'payment']);
+        expect(approvals.map((t) => t.to)).toEqual(['notice', 'payment', 'payment', 'payment']);
         expect(approvals[0]?.guard).toEqual({ fact: 'replacement.noticeRequired', op: 'eq', value: true });
         expect(steps.find((t) => t.from === 'notice' && t.action === 'notice_over')?.effects).toEqual([
             X.checkReplacementNotice,
@@ -109,6 +109,42 @@ describe('the bolo sticker branch', () => {
     });
 });
 
+describe('the plate branch', () => {
+    const plate = (t: Step) => JSON.stringify(t.guard).includes('"plate"');
+
+    it('checks the holds before payment, with no notice, and is reached after the notice guard (first match)', () => {
+        const approvals = steps.filter((t) => t.from === 'review' && t.action === 'approve');
+        const toPayment = approvals.find((t) => plate(t));
+        expect(toPayment).toMatchObject({ to: 'payment', effects: [ENC, 'fees.createPaymentOrder'] });
+        expect(approvals.indexOf(toPayment as Step)).toBeGreaterThan(0);
+        expect(approvals[0]?.to).toBe('notice');
+    });
+
+    it('holds a stock plate on approval, hands it over on the plate form and checks the holds again', () => {
+        const approved = steps.find((t) => t.from === 'approval' && t.to === 'plate');
+        expect(approved?.guard).toEqual({
+            all: [
+                { fact: 'payment.settled', op: 'eq', value: true },
+                { fact: 'replacement.item', op: 'eq', value: 'plate' }
+            ]
+        });
+        expect(approved?.effects).toEqual([ENC, R.reserveRegistrationPlate]);
+        expect(steps.find((t) => t.action === 'replace_plate')).toMatchObject({
+            from: 'plate',
+            to: 'replaced',
+            effects: [ENC, X.replacePlate]
+        });
+        expect(state('plate')?.stepForm).toBe('vehicle-plate-handover@1');
+        expect(state('plate')?.separationOfDuties).toEqual(['approval']);
+    });
+
+    it('gives the held plate back when the plate step is rejected', () => {
+        const rejects = steps.filter((t) => t.action === 'reject' && t.from === 'plate');
+        expect(rejects).toHaveLength(1);
+        expect(rejects[0]?.effects).toEqual([R.releaseRegistrationPlate]);
+    });
+});
+
 type Field = { id: string; type: string; props?: { required?: boolean; provider?: string } };
 
 describe('the replacement form', () => {
@@ -134,10 +170,10 @@ describe('the replacement form', () => {
         expect(field('fee')?.type).toBe('Fee');
     });
 
-    it('offers the libre and the bolo sticker for now', () => {
+    it('offers the libre, the bolo sticker and the plate', () => {
         const offered = (
             field('item') as unknown as { data: { dataSource: { staticData: { value: string }[] } } }
         ).data.dataSource.staticData.map((o) => o.value);
-        expect(offered).toEqual(['libre', 'bolo']);
+        expect(offered).toEqual(['libre', 'bolo', 'plate']);
     });
 });

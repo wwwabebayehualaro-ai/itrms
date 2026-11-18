@@ -5,7 +5,7 @@
  * nothing, and run again it returns what it made. The libre's booklet is the registration's own step (`issueLibreBooklet`).
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, gte, ne } from 'drizzle-orm';
+import { and, desc, eq, gte, isNull, ne } from 'drizzle-orm';
 import { formatEthiopianLong, toEthiopian } from '@itrms/ethiopian-calendar';
 import { currentContext } from '@itrms/kernel/context';
 import { insertAudited, updateAudited, type Tx } from '@itrms/kernel/db';
@@ -14,8 +14,8 @@ import { requireCounter } from '@itrms/kernel/numbering';
 import { SettingsService } from '@itrms/kernel/settings';
 import { documentTemplates, issuedDocuments } from '@itrms/documents/api';
 import { StationeryStock } from '@itrms/fees/api';
-import { EncumbranceService, libres, vehicles, VehicleRegistry } from '@itrms/vehicles/api';
-import { REGISTRATION_CERTIFICATE_COUNTER } from '@itrms/vehicles/contracts';
+import { EncumbranceService, libres, plateAssignments, vehicles, VehicleRegistry } from '@itrms/vehicles/api';
+import { nationalPlateText, REGISTRATION_CERTIFICATE_COUNTER } from '@itrms/vehicles/contracts';
 
 import {
     addisDay,
@@ -114,7 +114,8 @@ export class ReplacementService {
      * is in, its use is the register's, a lost or stolen item has its police letter and a damaged one is handed in, a libre in force
      * with its booklet is there to replace, a lost or stolen libre has its newspaper notice, the office can number the new
      * certificate, and no other open request claims the vehicle. A bolo sticker needs a bolo in force on its sticker, issued by this
-     * office. Nothing is written. A libre's holds are checked here too (the encumbrance check, `replacement`), a bolo's are not.
+     * office. A plate needs a plate the vehicle carries now. Nothing is written. A libre's and a plate's holds are checked here
+     * too (the encumbrance check, `replacement`), a bolo's are not.
      */
     async check(tx: Tx, place: CasePlace, input: ReplacementInput) {
         const [vehicle] = await tx.select().from(vehicles).where(eq(vehicles.id, input.vehicle));
@@ -123,10 +124,8 @@ export class ReplacementService {
         if (vehicle.handlingUnitId !== place.handlingUnitId)
             return refuse('vehicle', 'other_office', 'competency.rule.replacementOtherOffice');
         if (input.use !== vehicle.use) return refuse('use', 'mismatch', 'competency.rule.replacementUse');
-        // the plate comes with task 1.5c
         const item = input.item;
-        if (item !== 'libre' && item !== 'bolo')
-            return refuse('item', 'not_yet', 'competency.rule.replacementItemLater');
+        if (!isItem(item)) return refuse('item', 'invalid', 'competency.rule.replacementItem');
         if (!isReason(input.reason)) return refuse('reason', 'invalid', 'competency.rule.replacementPoliceReport');
         const today = addisDay();
         const policeReportReference = given(input.policeReportReference);
@@ -143,6 +142,11 @@ export class ReplacementService {
         }
         if (item === 'bolo')
             return this.checkBolo(tx, place, vehicle.id, input.reason, {
+                policeReportReference,
+                policeReportOn
+            });
+        if (item === 'plate')
+            return this.checkPlate(tx, place, vehicle.id, input.reason, {
                 policeReportReference,
                 policeReportOn
             });
@@ -174,7 +178,7 @@ export class ReplacementService {
                 detail: say('competency.rule.replacementInOpenCase'),
                 detailKey: 'competency.rule.replacementInOpenCase'
             });
-        // a hold blocks a libre, not a bolo sticker (ADR-0062): checked here, since the filing step cannot tell the two apart
+        // a hold blocks a libre and a plate, not a bolo sticker (ADR-0062): checked here, since the filing step cannot tell them apart
         await this.encumbrances.assertClear(tx, vehicle.id, 'replacement', place.handlingUnitId);
         const noticeEndsOn =
             noticeRequired && noticePublishedOn
@@ -236,6 +240,49 @@ export class ReplacementService {
                 noticeRequired: false,
                 boloId: bolo.id,
                 oldStickerKey: bolo.stickerKey,
+                ...(police.policeReportReference ? { policeReportReference: police.policeReportReference } : {}),
+                ...(police.policeReportOn ? { policeReportOn: police.policeReportOn } : {})
+            }
+        };
+    }
+
+    /**
+     * The plate of a vehicle that carries one now, national or an old regional one (a lost old plate is replaced by a national
+     * plate, Directive 1050/2025). The special plates (diplomatic, police, defence, machinery) are not the zone's to replace. A hold
+     * blocks it, as for a libre. No newspaper notice. A plate key is one pair (vehicles README): losing one plate of a pair
+     * replaces the whole plate number, so the replacement is a new number for the vehicle.
+     */
+    private async checkPlate(
+        tx: Tx,
+        place: CasePlace,
+        vehicleId: string,
+        reason: ReplacementReason,
+        police: { policeReportReference: string | undefined; policeReportOn: string | undefined }
+    ) {
+        const [current] = await tx
+            .select()
+            .from(plateAssignments)
+            .where(and(eq(plateAssignments.vehicleId, vehicleId), isNull(plateAssignments.until)));
+        if (!current) return refuse('vehicle', 'no_plate', 'competency.rule.replacementNoPlate');
+        if (current.format === 'special')
+            return refuse('vehicle', 'special_plate', 'competency.rule.replacementSpecialPlate');
+        await lockVehicleClaim(tx, vehicleId);
+        if (await claimedElsewhere(tx, place.caseId, { vehicleId }))
+            throw new ValidationError('not_eligible', {
+                detail: say('competency.rule.replacementInOpenCase'),
+                detailKey: 'competency.rule.replacementInOpenCase'
+            });
+        await this.encumbrances.assertClear(tx, vehicleId, 'replacement', place.handlingUnitId);
+        return {
+            vehicle: { id: vehicleId },
+            replacement: {
+                vehicleId,
+                item: 'plate',
+                reason,
+                noticeRequired: false,
+                oldPlateAssignmentId: current.id,
+                oldPlateKey: current.plateKey,
+                legacy: current.format === 'legacy',
                 ...(police.policeReportReference ? { policeReportReference: police.policeReportReference } : {}),
                 ...(police.policeReportOn ? { policeReportOn: police.policeReportOn } : {})
             }
@@ -373,6 +420,78 @@ export class ReplacementService {
             replacedBy: place.ctx.userId ?? null
         });
         return result(item.itemKey, made.document.id);
+    }
+
+    /**
+     * The vehicle takes a new national plate from the office's stock (the one held for the case, or the one the officer names) and
+     * the plate it carried ends lost, stolen or damaged: in the stock a lost or stolen plate reads lost, a damaged one retired
+     * (handed in); an old regional plate has no stock row. Then the registration certificate of the libre in force and the bolo
+     * document, which print the plate, are issued again; a bolo document of another office is left (see BoloService). The vehicle
+     * must still carry the plate the request was checked with. Run again it only reads what the case made.
+     */
+    async replacePlate(tx: Tx, at: CasePlace, facts: Facts, answers: unknown) {
+        const place = await actForHandlingOffice(tx, at);
+        const vehicleId = factText(facts, 'vehicle', 'id');
+        const replacement = factObject(facts, 'replacement');
+        const reason = factText(facts, 'replacement', 'reason');
+        if (!vehicleId || !replacement || !isReason(reason) || replacement.item !== 'plate')
+            throw missingFact('replacement');
+        const known = factObject(facts, 'documents') ?? {};
+        const [locked] = await tx
+            .select()
+            .from(replacements)
+            .where(eq(replacements.caseId, place.caseId))
+            .for('update');
+        if (locked?.replacedOn && locked.newPlateAssignmentId) {
+            // only a read: a later change of the vehicle's plate has moved it on, and this case's result stands as it was made
+            const [made] = await tx
+                .select({ id: plateAssignments.plateId, key: plateAssignments.plateKey })
+                .from(plateAssignments)
+                .where(eq(plateAssignments.id, locked.newPlateAssignmentId));
+            if (!made?.id) throw missingFact('replacement');
+            const documents: Record<string, unknown> = { ...known };
+            for (const key of [REGISTRATION_CERTIFICATE_TEMPLATE, BOLO_TEMPLATE]) {
+                const [doc] = await tx
+                    .select({ id: issuedDocuments.id })
+                    .from(issuedDocuments)
+                    .innerJoin(documentTemplates, eq(documentTemplates.id, issuedDocuments.templateId))
+                    .where(and(eq(documentTemplates.key, key), eq(issuedDocuments.caseId, place.caseId)));
+                if (doc) documents[key] = doc.id;
+            }
+            return { plate: { id: made.id, key: made.key, text: nationalPlateText(made.key) }, documents };
+        }
+        const row = locked ?? (await this.insertRow(tx, place, facts, reason));
+        // the plate the request was checked with is still the one the vehicle carries: a changed one is not replaced blind
+        const [current] = await tx
+            .select({ id: plateAssignments.id, key: plateAssignments.plateKey })
+            .from(plateAssignments)
+            .where(and(eq(plateAssignments.vehicleId, vehicleId), isNull(plateAssignments.until)));
+        if (!current || current.key !== factText(facts, 'replacement', 'oldPlateKey'))
+            throw new ConflictError('invalid_transition', { detailKey: 'competency.rule.replacementPlateChanged' });
+        const assigned = await this.registration.assignPlate(tx, place, facts, answers, { endedReason: reason });
+        const [now] = await tx
+            .select({ id: plateAssignments.id })
+            .from(plateAssignments)
+            .where(and(eq(plateAssignments.vehicleId, vehicleId), isNull(plateAssignments.until)));
+        if (!now) throw missingFact('plate');
+        const documents: Record<string, unknown> = { ...known };
+        const [libre] = await tx
+            .select()
+            .from(libres)
+            .where(and(eq(libres.vehicleId, vehicleId), eq(libres.status, 'issued')));
+        if (libre)
+            documents[REGISTRATION_CERTIFICATE_TEMPLATE] = (
+                await this.registration.reissueCertificate(tx, place, libre, REGISTRATION_CERTIFICATE_TEMPLATE)
+            ).id;
+        const bolo = await this.bolo.reissueForPlate(tx, place, vehicleId);
+        if (bolo) documents[BOLO_TEMPLATE] = bolo.id;
+        await updateAudited(tx, replacements, row.id, row.rowVersion, {
+            oldPlateAssignmentId: current.id,
+            newPlateAssignmentId: now.id,
+            replacedOn: addisDay(),
+            replacedBy: place.ctx.userId ?? null
+        });
+        return { plate: assigned.plate, documents };
     }
 
     // ---- helpers ----

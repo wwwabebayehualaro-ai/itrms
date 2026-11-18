@@ -2097,8 +2097,8 @@
         {
           "id": "1.5c",
           "title": "Replacements, part 3: a plate",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/1.5c-plate-replacement",
           "commits": [],
           "evidence": [],
           "blockers": [],
@@ -4143,7 +4143,13 @@
     {
       "foundIn": "1.5b",
       "item": "The production-profile CI job's egress container sometimes fails to become healthy within compose --wait (runs 44250858359 and 44361394650; passed on re-run): make its healthcheck reliable",
-      "movedTo": "the CI sharding task"
+      "movedTo": "the CI sharding task",
+      "closedIn": "not fixed by the CI sharding (PR #89, which split the e2e only): moved to its own follow-up"
+    },
+    {
+      "foundIn": "1.5c",
+      "item": "The production-profile CI job's egress container sometimes fails compose --wait (passed on re-run twice): make its healthcheck reliable",
+      "movedTo": "a CI chore"
     }
   ]
 }

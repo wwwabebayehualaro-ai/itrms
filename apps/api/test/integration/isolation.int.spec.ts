@@ -450,6 +450,9 @@ describe('every tenant table', () => {
             // the vehicle register's ranked search by federal id, chassis number, plate and engine number, with the status and
             // owner filters; ids only (tasks 1.1a, 1.2e)
             'vehicles.search_vehicles(text,text,integer,text,uuid)',
+            // the standing certificate of the caller's own libre in force, superseded across the issuing office's scope by a
+            // new document id the caller then issues: only for a person (task 1.5c)
+            'vehicles.supersede_libre_certificate(uuid,text,uuid)',
             // who works on a case the caller sees (whom a comment may mention): ids and display names only (task 0.20b)
             'workflow.case_people(uuid,text,uuid[],text[])',
             // the step a transition leads to, in a unit above the caller's scope, for a case they see (task 0.19b)
