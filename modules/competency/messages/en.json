@@ -121,6 +121,7 @@
   "competency.rule.notAPlate": "This is not a national plate.",
   "competency.errors.act_from_handling_office": "A registration is completed by the office that handles the case, or by an office above it.",
   "competency.notice.chassisMismatch": "The chassis number's check digit does not match; the officer checked the chassis plate and confirmed it.",
+  "competency.notice.chassisOtherMake": "A vehicle of another make has this chassis number on the register: check that it is not this vehicle.",
   "competency.errors.registration_missing_fact": "The case has no {key} to continue with.",
   "competency.batches.firstCard": "First card serial",
   "competency.batches.printed": "Record printed",

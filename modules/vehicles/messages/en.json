@@ -87,6 +87,7 @@
   "vehicles.errors.choose_office": "Choose the office you act for.",
   "vehicles.errors.duplicate_federal_id": "A vehicle with this federal vehicle id is registered.",
   "vehicles.errors.duplicate_chassis": "A vehicle with this chassis number is registered.",
+  "vehicles.errors.chassis_flagged": "A stolen or deregistered vehicle has this chassis number: it is not registered again, under any make.",
   "vehicles.errors.duplicate_plate": "This plate is on another vehicle.",
   "vehicles.errors.duplicate_libre": "A libre with this number is registered.",
   "vehicles.errors.duplicate_arrival_document": "A vehicle already arrived on a transfer document with this number from this region.",

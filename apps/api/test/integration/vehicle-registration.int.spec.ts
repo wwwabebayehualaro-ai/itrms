@@ -792,6 +792,83 @@ describe('a request that does not meet the register', () => {
         expect(closed.state).toBe('rejected');
     }, 240_000);
 
+    it("claims an 'other' chassis by its make: two makes are both filed, one make twice is not, a real VIN meets any (ADR-0061)", async () => {
+        const text = `PRE-${randomInt(100000, 999999)}`;
+        const old = (make: string, chassisNumber = text) =>
+            request({ chassisNumber, chassisKind: 'other', modelYear: 1975, make });
+        const fiat = await moved(await filed(old('Fiat')), as.officer, 'submit');
+        expect(fiat.state).toBe('review');
+        expect((await factsOf(fiat.id)).registration).toMatchObject({ vinKey: text.replace('-', ''), makeKey: 'FIAT' });
+        const lada = await moved(await filed(old('Lada')), as.officer, 'submit');
+        expect(lada.state).toBe('review');
+        const again = await refusal(old('fiat '));
+        expect(again.res.statusCode, again.res.body).toBe(422);
+        expect(again.res.json<{ code: string }>().code).toBe('not_eligible');
+
+        // what another request's claim on the vehicle asks the reviewed lookup: a Toyota of the same text is not held by the open
+        // Fiat and Lada requests, a Fiat is, and so is a claim that names no make (a real VIN)
+        const claimed = (makeKey: string | null) =>
+            inTx(place(randomUUID()), async (tx) => {
+                const { rows } = await tx.execute<{ claimed: boolean }>(
+                    sql`select competency.vehicle_in_open_case(${text.replace('-', '')}, ${makeKey}, null, null::uuid, null::uuid) as claimed`
+                );
+                return rows[0]?.claimed;
+            });
+        expect(await claimed('TOYOTA')).toBe(false);
+        expect(await claimed('FIAT')).toBe(true);
+        expect(await claimed(null)).toBe(true);
+
+        // a real VIN against an open request for an 'other' number of the same key, whatever its make
+        const shaped = vin();
+        await moved(await filed(old('Fiat', shaped)), as.officer, 'submit');
+        const iso = await refusal({ chassisNumber: shaped });
+        expect(iso.res.statusCode, iso.res.body).toBe(422);
+        expect(iso.res.json<{ code: string }>().code).toBe('not_eligible');
+        // and an ISO request carries no make key
+        const plain = await moved(await filed(request()), as.officer, 'submit');
+        expect(((await factsOf(plain.id)).registration as Record<string, unknown>).makeKey).toBeUndefined();
+    }, 240_000);
+
+    it("tells the lead of a registered vehicle of another make with the same 'other' chassis text", async () => {
+        const text = `OLD-${randomInt(100000, 999999)}`;
+        const old = (make: string) => request({ chassisNumber: text, chassisKind: 'other', modelYear: 1975, make });
+        let c = await moved(await filed(old('Fiat')), as.officer, 'submit');
+        expect(c.notices).toEqual([]);
+        c = await moved(c, as.officer, 'approve');
+        await paid(c);
+        c = await moved(await caseOf(c.id), as.lead, 'approve');
+        await moved(c, as.officer, 'register', { answers: { federalVehicleId: federalId() } });
+        // the same text of another make is filed, with the notice; the same make is the register's
+        const lada = await moved(await filed(old('Lada')), as.officer, 'submit');
+        expect(lada.state).toBe('review');
+        expect((await caseOf(lada.id, as.lead)).notices).toEqual(['competency.notice.chassisOtherMake']);
+        const same = await refusal(old('FIAT'));
+        expect(same.res.statusCode, same.res.body).toBe(409);
+        expect(same.res.json<{ code: string }>().code).toBe('duplicate_reference');
+    }, 240_000);
+
+    it("refuses the chassis of a stolen or deregistered vehicle under any make, 'other' or not", async () => {
+        const text = `PRE-${randomInt(100000, 999999)}`;
+        const old = (make: string) => request({ chassisNumber: text, chassisKind: 'other', modelYear: 1975, make });
+        let c = await moved(await filed(old('Toyota')), as.officer, 'submit');
+        c = await moved(c, as.officer, 'approve');
+        await paid(c);
+        c = await moved(await caseOf(c.id), as.lead, 'approve');
+        await moved(c, as.officer, 'register', { answers: { federalVehicleId: federalId() } });
+        for (const status of ['stolen', 'deregistered']) {
+            // a deregistered vehicle holds no open ownership period
+            const where = `chassis_number = '${text.replace('-', '')}'`;
+            await api.owner.query(
+                `${status === 'deregistered' ? `update vehicles.libres set status = 'cancelled' where status = 'issued' and vehicle_id in (select id from vehicles.vehicles where ${where}); update vehicles.vehicle_ownerships set until = since + 1 where until is null and vehicle_id in (select id from vehicles.vehicles where ${where}); ` : ''}update vehicles.vehicles set status = '${status}' where ${where}`
+            );
+            const other = await refusal(old('Toyota Motor'));
+            expect(other.res.statusCode, `${status}: ${other.res.body}`).toBe(409);
+            expect(other.res.json<{ code: string }>().code).toBe('duplicate_reference');
+            // the flagged refusal, not the duplicate one
+            expect(other.res.body).toMatch(/stolen|የተሰረቀ/);
+        }
+    }, 240_000);
+
     it('is refused when the category needs seats and none are given, at the field', async () => {
         const { res } = await refusal({ seats: undefined });
         expect(res.statusCode, res.body).toBe(422);

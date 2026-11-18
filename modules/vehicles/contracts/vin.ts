@@ -54,6 +54,36 @@ export function vehicleSearchKey(value: string): string {
         .replace(/[OQ]/g, '0');
 }
 
+/**
+ * The make in its comparison form: NFKC, upper case, letters and digits of any script only ("Mercedes-Benz" and "mercedes benz"
+ * are one make). A make with none of those is compared as typed, trimmed and upper case.
+ */
+export function makeKey(make: string): string {
+    const folded = make
+        .normalize('NFKC')
+        .toUpperCase()
+        .replace(/[^\p{L}\p{N}]/gu, '');
+    return (folded === '' ? make.trim().toUpperCase() : folded).slice(0, 120);
+}
+
+/** The make key a vehicle's chassis carries: only an 'other' chassis number is told apart by its make (ADR-0061). */
+export function chassisMakeKey(kind: ChassisKind, make: string): string | null {
+    return kind === 'other' ? makeKey(make) : null;
+}
+
+/** Whether two chassis numbers are one: the same key, and, when both are 'other' numbers, the same make. */
+export function sameChassis(
+    a: { vinKey: string; makeKey: string | null },
+    b: { vinKey: string; makeKey: string | null }
+): boolean {
+    return a.vinKey === b.vinKey && (a.makeKey === null || b.makeKey === null || a.makeKey === b.makeKey);
+}
+
+/** The key a chassis is told apart by within one sheet: the chassis key, with the make key for an 'other' number. */
+export function chassisIdentity(vinKey: string, makeKeyValue: string | null): string {
+    return makeKeyValue === null ? vinKey : `${vinKey}~${makeKeyValue}`;
+}
+
 /** What a person typed into a search box, made into the two keys the search function takes. */
 export function searchKeys(q: string): { key: string; plateKey: string } {
     // the federal vehicle id may hold hyphens; everything else is letters and digits

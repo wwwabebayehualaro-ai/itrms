@@ -17,6 +17,7 @@ import { OrganisationsService, PersonsService } from '@itrms/parties/api';
 import type { z } from 'zod';
 
 import {
+    chassisMakeKey,
     federalVehicleIdSchema,
     libreBookletSchema,
     parsePlate,
@@ -25,6 +26,7 @@ import {
     libreRecordSchema,
     ownershipTransferSchema,
     plateRecordSchema,
+    sameChassis,
     statusChangeSchema,
     vehicleRegisterSchema,
     type ChassisKind,
@@ -50,6 +52,7 @@ type OwnerRef = z.infer<typeof ownershipTransferSchema>['owners'][number];
 const DUPLICATES = {
     vehicles_federal_id_uq: 'vehicles.errors.duplicate_federal_id',
     vehicles_vin_uq: 'vehicles.errors.duplicate_chassis',
+    vehicles_other_chassis_uq: 'vehicles.errors.duplicate_chassis',
     plate_assignments_open_plate_uq: 'vehicles.errors.duplicate_plate',
     libres_number_uq: 'vehicles.errors.duplicate_libre'
 };
@@ -80,7 +83,15 @@ export class VehicleRegistry {
          * `returning`: the vehicle that left the region and comes back (task 1.4c3b): its chassis is its own, not a duplicate.
          */
         options: { checkOwners?: boolean; returning?: string } = {}
-    ): Promise<{ vinKey: string; chassisNumber: string; vinCheck: VinCheck; chassisKind: ChassisKind }> {
+    ): Promise<{
+        vinKey: string;
+        chassisNumber: string;
+        vinCheck: VinCheck;
+        chassisKind: ChassisKind;
+        makeKey: string | null;
+        /** a vehicle of another make carries the same 'other' chassis text: a notice for the lead, not a refusal (ADR-0061) */
+        otherMake: boolean;
+    }> {
         const input = checked(vehicleRegisterSchema, given);
         const regionId = required(ctx.regionId);
         const [category] = await tx
@@ -112,17 +123,30 @@ export class VehicleRegistry {
         if (since < input.firstRegisteredOn)
             throw fieldError('since', 'before_registration', 'is before the first registration');
         if (options.checkOwners !== false) await this.checkOwners(tx, input.owners, 'owners');
-        const [onRegister] = await tx
-            .select({ id: vehicles.id })
-            .from(vehicles)
-            .where(and(eq(vehicles.regionId, regionId), eq(vehicles.vinKey, vin.vinKey)));
-        if (onRegister && onRegister.id !== options.returning)
+        const makeKey = chassisMakeKey(vin.chassisKind, input.make);
+        // every row with this key: an 'other' number is told apart by its make, a real VIN conflicts with any row (ADR-0061)
+        const sharing = (
+            await tx
+                .select({ id: vehicles.id, makeKey: vehicles.makeKey, status: vehicles.status })
+                .from(vehicles)
+                .where(and(eq(vehicles.regionId, regionId), eq(vehicles.vinKey, vin.vinKey)))
+        ).filter((row) => row.id !== options.returning);
+        if (
+            sharing.some((row) =>
+                sameChassis({ vinKey: vin.vinKey, makeKey }, { vinKey: vin.vinKey, makeKey: row.makeKey })
+            )
+        )
             throw new ConflictError('duplicate_reference', { detailKey: 'vehicles.errors.duplicate_chassis' });
+        // a stolen or deregistered vehicle's chassis is not registered again under another make either
+        if (sharing.some((row) => row.status === 'stolen' || row.status === 'deregistered'))
+            throw new ConflictError('duplicate_reference', { detailKey: 'vehicles.errors.chassis_flagged' });
         return {
             vinKey: vin.vinKey,
             chassisNumber: vin.chassisNumber,
             vinCheck: vin.vinCheck,
-            chassisKind: vin.chassisKind
+            chassisKind: vin.chassisKind,
+            makeKey,
+            otherMake: sharing.length > 0
         };
     }
 
@@ -131,7 +155,7 @@ export class VehicleRegistry {
         const input = checked(vehicleRegisterSchema, given);
         const regionId = required(ctx.regionId);
         const unitId = required(ctx.unitId);
-        const { vinKey, chassisNumber, vinCheck, chassisKind } = await this.checkRegistration(tx, ctx, given);
+        const { vinKey, chassisNumber, vinCheck, chassisKind, makeKey } = await this.checkRegistration(tx, ctx, given);
         const [category] = await tx
             .select()
             .from(vehicleCategories)
@@ -151,6 +175,7 @@ export class VehicleRegistry {
                 chassisKind,
                 vinKey,
                 vinCheck,
+                makeKey,
                 engineNumber: input.engineNumber ?? null,
                 engineKey: input.engineNumber ? vehicleSearchKey(input.engineNumber) : null,
                 make: input.make,
@@ -224,7 +249,7 @@ export class VehicleRegistry {
         ctx: DbContext,
         vehicleId: string,
         owners: readonly OwnerRef[]
-    ): Promise<{ openPeriodId: string; sellers: OwnerRef[]; vinKey: string }> {
+    ): Promise<{ openPeriodId: string; sellers: OwnerRef[]; vinKey: string; makeKey: string | null }> {
         const [vehicle] = await tx.select().from(vehicles).where(eq(vehicles.id, vehicleId));
         if (!vehicle) throw new NotFoundError();
         if (!withinScope(vehicle.handlingOrgPath, ctx.scopePath ?? ''))
@@ -252,7 +277,7 @@ export class VehicleRegistry {
         const ids = new Set(sellers.map((s) => s.id));
         if (owners.length === sellers.length && owners.every((o) => ids.has(o.id)))
             throw fieldError('owners', 'same_owners', 'are the owners the vehicle already has');
-        return { openPeriodId: open.id, sellers, vinKey: vehicle.vinKey };
+        return { openPeriodId: open.id, sellers, vinKey: vehicle.vinKey, makeKey: vehicle.makeKey };
     }
 
     /**

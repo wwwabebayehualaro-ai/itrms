@@ -164,7 +164,13 @@ export class BackCaptureService {
         }
         // the vehicle is made only when the capture is verified: an open registration or capture of the same chassis or plate,
         // anywhere in the region (task 1.2e), would otherwise both get there
-        if (await claimedElsewhere(tx, place.caseId, { vinKey: checked.vinKey, plateKey: plate.key }))
+        if (
+            await claimedElsewhere(tx, place.caseId, {
+                vinKey: checked.vinKey,
+                makeKey: checked.makeKey,
+                plateKey: plate.key
+            })
+        )
             throw new ValidationError('not_eligible', {
                 detail: say('competency.rule.captureInOpenCase'),
                 detailKey: 'competency.rule.captureInOpenCase'
@@ -172,6 +178,7 @@ export class BackCaptureService {
         return {
             backCapture: {
                 vinKey: checked.vinKey,
+                ...(checked.makeKey !== null ? { makeKey: checked.makeKey } : {}),
                 chassisNumber: checked.chassisNumber,
                 vinCheck: checked.vinCheck,
                 plateKey: plate.key,

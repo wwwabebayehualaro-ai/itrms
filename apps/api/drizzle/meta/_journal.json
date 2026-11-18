@@ -638,6 +638,13 @@
       "when": 1794972267675,
       "tag": "0090_vehicle_return",
       "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1794979783556,
+      "tag": "0091_chassis_make_key",
+      "breakpoints": true
     }
   ]
 }

@@ -65,5 +65,6 @@ one, write a new ADR that supersedes it. Format: context, decision, consequences
 | [0058](0058-vehicle-transferred-out.md) | A vehicle transferred out of the region keeps its records and only reads transferred out; a lapsed transfer document is undone only by a case at the sending office | accepted (2026-11-17) |
 | [0059](0059-cancel-a-vehicle-release.md) | A vehicle release is cancelled only by its own case (DVC-16) at the releasing office, approved by a lead: the handed-back document's number is checked, its documents are revoked and a vehicle transferred out reads active again | accepted (2026-11-17) |
 | [0060](0060-vehicle-arriving-from-another-region.md) | A vehicle arriving from another region is registered by its own service (DVC-17) from that region's transfer document, its national plate given in the same case; a returning vehicle gets its own record back | accepted (2026-11-18) |
+| [0061](0061-other-chassis-identity-by-make.md) | An 'other' chassis number is unique with its make, a real VIN on its key alone; a shared chassis text of another make is a notice (placeholder, to confirm with the zone) | accepted (2026-11-18) |
 
 All tool choices and the answers to the technical open questions: [`../tech-stack.md`](../tech-stack.md).

@@ -213,7 +213,7 @@ export class VehicleRegistrationService {
         const checked = await this.registry.checkRegistration(tx, place.ctx, given);
         // the vehicle itself is made only when the request is registered, so two could otherwise both get there: an open
         // registration, or an open back-capture of a paper file (task 1.13), of the same chassis anywhere in the region (task 1.2e)
-        if (await claimedElsewhere(tx, place.caseId, { vinKey: checked.vinKey }))
+        if (await claimedElsewhere(tx, place.caseId, { vinKey: checked.vinKey, makeKey: checked.makeKey }))
             throw new ValidationError('not_eligible', {
                 detail: say('competency.rule.chassisInOpenCase'),
                 detailKey: 'competency.rule.chassisInOpenCase'
@@ -221,10 +221,16 @@ export class VehicleRegistrationService {
         return {
             registration: {
                 vinKey: checked.vinKey,
+                // only an 'other' chassis number is told apart by its make: what the open-case claim compares (ADR-0061)
+                ...(checked.makeKey !== null ? { makeKey: checked.makeKey } : {}),
                 chassisNumber: checked.chassisNumber,
                 vinCheck: checked.vinCheck,
-                // a check digit the officer confirmed does not match: shown on the case to the lead who approves it
-                notices: checked.vinCheck === 'mismatch' ? ['competency.notice.chassisMismatch'] : []
+                // a check digit the officer confirmed does not match, and another make's vehicle with the same 'other' chassis
+                // text: shown on the case to the lead who approves it
+                notices: [
+                    ...(checked.vinCheck === 'mismatch' ? ['competency.notice.chassisMismatch'] : []),
+                    ...(checked.otherMake ? ['competency.notice.chassisOtherMake'] : [])
+                ]
             }
         };
     }

@@ -234,7 +234,11 @@ its stationery) stay the office's; any other office is refused (`competency.erro
 open request claims the vehicle (a registration's or back-capture's chassis, a back-capture's old plate, an exchange's vehicle)
 is asked of the reviewed `competency.vehicle_in_open_case` over the whole region (migration 0073), not of the cases the filer's
 office sees, so two sibling offices cannot both take a fee for one vehicle. A chassis check digit the officer confirmed does not
-match is a notice on the case (`competency.notice.chassisMismatch`), shown to the lead who approves it.
+match is a notice on the case (`competency.notice.chassisMismatch`), shown to the lead who approves it. The claims carry the make
+key of an 'other' chassis number (`makeKey` in the case facts and in the lookup's second argument, migration 0091, ADR-0061): the
+lock stays on the chassis key, and a case of another make with the same text does not claim it; a claim with no make key (a real
+VIN, or a case filed before 0091) claims on the chassis alone. A registration or arrival that finds another make's vehicle with
+the same text carries the notice `competency.notice.chassisOtherMake`.
 
 Layer: work-process. Shape, public entries and rules: [code-structure.md](../../docs/platform/code-structure.md) §4.
 

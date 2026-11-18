@@ -26,9 +26,11 @@ import {
 import {
     ARRIVAL_VERIFIED_HOW,
     arrivalKey,
+    chassisMakeKey,
     federalVehicleIdSchema,
     parseVin,
     REGISTRATION_CERTIFICATE_COUNTER,
+    sameChassis,
     type vehicleRegisterSchema
 } from '@itrms/vehicles/contracts';
 import type { z } from 'zod';
@@ -60,7 +62,7 @@ type Words = keyof typeof am;
 type RegisterInput = z.input<typeof vehicleRegisterSchema>;
 type Facts = Readonly<Record<string, unknown>>;
 /** A vehicle of this region the chassis or the federal id names. */
-type KnownVehicle = Pick<typeof vehicles.$inferSelect, 'id' | 'status' | 'vinKey' | 'federalVehicleId'>;
+type KnownVehicle = Pick<typeof vehicles.$inferSelect, 'id' | 'status' | 'vinKey' | 'makeKey' | 'federalVehicleId'>;
 
 /** A refusal in the language of the person acting: this is what they read at the counter. */
 const say = (key: Words): string => (currentContext()?.language === 'en' ? en : am)[key];
@@ -263,7 +265,13 @@ export class TransferArrivalService {
                     parsed.error.issues.map((i) => ({ path: 'federalVehicleId', code: 'invalid', message: i.message }))
                 );
         }
-        const known = await this.checkNotKnown(tx, place.regionId, vin.ok ? vin.vinKey : undefined, federal);
+        const known = await this.checkNotKnown(
+            tx,
+            place.regionId,
+            vin.ok ? vin.vinKey : undefined,
+            vin.ok ? chassisMakeKey(vin.chassisKind, input.make) : null,
+            federal
+        );
         if (known) await lockVehicleClaim(tx, known.id);
         const given = this.registerInput(input, place.caseId);
         const returning = known ? await this.checkReturning(tx, known, given.owners, input, federal) : undefined;
@@ -349,6 +357,7 @@ export class TransferArrivalService {
         if (
             await claimedElsewhere(tx, place.caseId, {
                 vinKey: checked.vinKey,
+                makeKey: checked.makeKey,
                 plateKey: plate.key,
                 ...(known ? { vehicleId: known.id } : {})
             })
@@ -359,6 +368,7 @@ export class TransferArrivalService {
             });
         const notices = [
             ...(checked.vinCheck === 'mismatch' ? ['competency.notice.chassisMismatch'] : []),
+            ...(checked.otherMake ? ['competency.notice.chassisOtherMake'] : []),
             // a hold is recorded on its holder's letter, through the encumbrance service: the officer is told, nothing is made
             ...(input.holdsListed === true ? ['competency.notice.arrivalHoldsListed'] : []),
             ...(returning ? returning.notices : [])
@@ -366,6 +376,7 @@ export class TransferArrivalService {
         return {
             transferArrival: {
                 vinKey: checked.vinKey,
+                ...(checked.makeKey !== null ? { makeKey: checked.makeKey } : {}),
                 chassisNumber: checked.chassisNumber,
                 vinCheck: checked.vinCheck,
                 plateKey: plate.key,
@@ -462,6 +473,7 @@ export class TransferArrivalService {
         tx: Tx,
         regionId: string,
         vinKey: string | undefined,
+        makeKey: string | null,
         federal: string | undefined
     ): Promise<KnownVehicle | undefined> {
         if (vinKey === undefined && federal === undefined) return undefined;
@@ -470,6 +482,7 @@ export class TransferArrivalService {
                 id: vehicles.id,
                 status: vehicles.status,
                 vinKey: vehicles.vinKey,
+                makeKey: vehicles.makeKey,
                 federalVehicleId: vehicles.federalVehicleId
             })
             .from(vehicles)
@@ -482,7 +495,29 @@ export class TransferArrivalService {
                     )
                 )
             );
-        const byChassis = rows.find((r) => vinKey !== undefined && r.vinKey === vinKey);
+        // an 'other' chassis text is told apart by its make: a vehicle of another make with the same text is not this one (ADR-0061)
+        const sharing = rows.filter(
+            (r) => vinKey !== undefined && sameChassis({ vinKey, makeKey }, { vinKey: r.vinKey, makeKey: r.makeKey })
+        );
+        if (sharing.length > 1)
+            refuse([{ path: 'chassisNumber', code: 'duplicate', message: say('competency.rule.arrivalOnRegister') }]);
+        // a stolen or deregistered vehicle's chassis is not taken again under another make either
+        const flagged = rows.find(
+            (r) => vinKey !== undefined && r.vinKey === vinKey && (r.status === 'stolen' || r.status === 'deregistered')
+        );
+        if (flagged && !sharing.includes(flagged))
+            refuse([
+                {
+                    path: 'chassisNumber',
+                    code: flagged.status,
+                    message: say(
+                        flagged.status === 'stolen'
+                            ? 'competency.rule.arrivalStolen'
+                            : 'competency.rule.arrivalNotReturnable'
+                    )
+                }
+            ]);
+        const byChassis = sharing[0];
         const byFederal = rows.find((r) => federal !== undefined && r.federalVehicleId === federal.toUpperCase());
         if (byChassis && byFederal && byChassis.id !== byFederal.id)
             refuse([
