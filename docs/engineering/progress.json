@@ -1823,10 +1823,19 @@
         {
           "id": "1.13j",
           "title": "Paper-record migration, part 6: chassis identity of pre-1981 vehicles",
-          "status": "in progress",
+          "status": "done",
           "branch": "task/1.13j-pre-1981-chassis",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "2c86349",
+            "2c86349"
+          ],
+          "evidence": [
+            "CI PR #86 run 44250858359: success, all 10 jobs (production profile passed on re-run after an egress container start flake; e2e passed on the second re-run after a 60-min cancel and a runner shutdown, neither from this change)",
+            "local integration (Docker): vehicles, vehicle-registration, back-capture, vehicle-imports, vehicle-transfer-arrival, vehicle-return, isolation, demo, plate-exchange, ownership-transfer 297/297 (two 'other' vehicles of different makes and one chassis text both register; the same make refused; a real VIN and an 'other' number of one key conflict both ways; a stolen or deregistered chassis refused under any make on DVC-01, MIG-01, the import and DVC-17; claims by chassis and make; import in-sheet rules across kinds and makes; the identity trigger; backfill fold parity with makeKey); earlier vehicle-transfer, vehicle-transfer-outside, vehicle-release-cancel passed",
+            "turbo typecheck/lint/test competency, vehicles, api, web 12/12; i18n:check complete am/en; boundaries (1513 modules) and check:slices clean; openapi no diff",
+            "migration 0091 reviewed: make_key backfilled (fold parity tested), vehicles_vin_uq partial on real VINs, vehicles_other_chassis_uq, the identity trigger, vehicle_in_open_case with the make key (old overload dropped) on the isolation allow-list",
+            "reviewer (Fable): 1 medium + 3 low fixed (flagged chassis refused under any make, identity columns held and the make_key grant dropped, backfill fold matched, cross-kind import tests); task-verifier: all items met; the make-is-enough rule is a placeholder to confirm with the zone (ADR-0061)"
+          ],
           "blockers": [],
           "notes": "Moved from 1.4b on 2026-11-17; needs the zone answer whether the make is enough. 2026-11-18, auto mode: the zone's answer is not in; the make is taken as enough (placeholder, to confirm with the zone), as the row describes. Design (architect, 2026-11-18), decided in auto mode (ADR-0061): make_key written by the application for an 'other' chassis; vehicles_vin_uq partial on iso3779, vehicles_other_chassis_uq on (region, vin_key, make_key); an ISO VIN conflicts with any row of its key; the chassis lock stays on vin_key; claims carry makeKey (vehicle_in_open_case gains p_make_key); a shared text of another make is the notice chassisOtherMake on DVC-01 and DVC-17; an arrival matching a departed vehicle of another make is a new vehicle with the notice. 2026-11-18 review (Fable): no duplicate path under the ADR's rule; 1 medium + 3 low being fixed: a stolen or deregistered chassis is refused whatever the make (ADR-0061 point 4 added), a trigger holds the chassis identity columns and the make_key grant is dropped, the backfill fold matched to makeKey with a parity test, the import's cross-kind in-sheet tests. Verifier: all items met. CI run 44247526267 on c60f12b: all jobs green but e2e (still running) before the fixes."
         },
