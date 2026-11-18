@@ -35,6 +35,7 @@ interface Found {
     id: string;
     use: string;
     handlingUnit: { code: string };
+    currentPlate: { format: string } | null;
 }
 
 interface IssuedList {
@@ -71,7 +72,14 @@ function verificationUrl(pdf: Buffer): string {
 /** A private Boditi vehicle of the demo inspected and given its bolo sticker: the case of the inspection, and the vehicle. */
 async function givenItsBolo({ records, cashier, officer }: People): Promise<{ vehicle: string; inspection: string }> {
     const found = await api(officer).get<{ items: Found[] }>('v1/vehicles?status=active&limit=100');
-    const candidates = found.items.filter((v) => v.use === 'private' && v.handlingUnit.code === 'WOL-BODITI');
+    // never one on an old regional plate: the transfer and plate-exchange journeys take those, and a case of this journey left open
+    // would claim their vehicle
+    const candidates = found.items.filter(
+        (v) =>
+            v.use === 'private' &&
+            v.handlingUnit.code === 'WOL-BODITI' &&
+            (v.currentPlate?.format ?? 'legacy') !== 'legacy'
+    );
     expect(candidates.length, 'private Boditi vehicles in the demo').toBeGreaterThan(0);
     // the demo is shared with other journeys and earlier runs: the server refuses the check of a vehicle that already holds this
     // fiscal year's bolo or is in an open case, so the next candidate is tried until one is accepted
