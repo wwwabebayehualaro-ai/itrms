@@ -125,8 +125,9 @@ jobs:
     # the BFF, against the dev stack with the reference design seeded; Playwright starts the API and the web app
     name: e2e journeys (Playwright, BFF sign-in)
     runs-on: ubuntu-24.04
-    # the journeys alone took 34 minutes with the transfer's (task 1.4c), and setting up the stack and the demo takes ten
-    timeout-minutes: 60
+    # the journeys took 41 minutes with the transfers' (tasks 1.4c-1.4c3), setting up the stack and the demo ten more; a slow
+    # runner passed 60 (task 1.13j)
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: pnpm/action-setup@v6.1.0
