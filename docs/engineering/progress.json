@@ -2013,10 +2013,19 @@
         {
           "id": "1.4c3",
           "title": "Transfers, part 3c: a vehicle from another region",
-          "status": "in progress",
+          "status": "done",
           "branch": "task/1.4c3-transfer-in-region",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "4606c92",
+            "4606c92"
+          ],
+          "evidence": [
+            "CI PR #84 run 44211781736: success, all 10 jobs (lint/typecheck/test/build/boundaries, dev stack + integration, e2e incl. the new DVC-17 arrival journey with a national plate exchange, Semgrep, gitleaks, Trivy, stories/axe, performance, production profile)",
+            "local integration (Docker): vehicle-transfer-arrival 12+ (legacy plate exchanged for a stock national plate, national plate kept, rule off frozen at filing, every refusal with its path, document/libre/federal id claimed by an open arrival, MIG-01/DVC-01 claims both ways, rejection returns the plate, inspection by setting, re-run writes nothing, no RC counter refused, holds a notice only, audit rows); with back-capture, vehicle-registration, isolation, vehicle-release-cancel: 123 passed; earlier vehicle-transfer, vehicle-transfer-outside, services, fees, service-counters, demo, plate-exchange passed",
+            "turbo typecheck/lint/test competency, vehicles, fees, api, web green; i18n:check complete am/en; boundaries and check:slices clean; openapi no diff",
+            "migration 0089 reviewed: vehicles.vehicle_arrivals (registry class, SELECT/INSERT only), transfer_in acquisition, vehicle_in_open_case arrival arms, definer competency.arrival_in_open_case on the isolation allow-list",
+            "reviewer (Fable): 2 medium + 4 low fixed (plate lock shared with back-capture and its re-check at verify, open-case claims for document/libre/federal id, folded document keys, a plate typed without exchange refused, holds note personal, a test that never asserted); task-verifier: ready, README control characters fixed; also fixed the BFF problem() regex (a literal backspace since 0.26c1)"
+          ],
           "blockers": [],
           "notes": "Split from 1.4c on 2026-11-17 (architect). DVC-15 document mode (the DVC-01 vehicle and owner fields as a block, the document number and issuing region, a checked-on-the-verification-page tick); ACQUIRED_BY transfer_in (migration of vehicle_ownerships_acquired_check); the plate-exchange rule (setting competency.vehicle_transfer_plate_exchange, default on). Open: a DVC-12 required after arrival, or a plate step in the transfer-in case. Design (architect, 2026-11-18), decided in auto mode (ADR-0060): DVC-17 a service of its own (not a DVC-15 mode: required contract inputs cannot be hidden, and DVC-15's submit needs a registered vehicle); strict DVC-01 checks, acquired by transfer_in; the document in vehicles.vehicle_arrivals (migration 0089, class registry); checked by the officer, valid on the frozen filing day, used once per issuing region; the national plate reserved at approval and assigned at the arrival step when competency.vehicle_transfer_plate_exchange is on (default, frozen at filing); federal libre required and recorded (to confirm); registration certificate issued; bolo and holds kept as facts; fee placeholder 2,000 Birr + the plate fee when a national plate is given (to confirm). A transferred_out match is refused until 1.4c3b (split on 2026-11-18)."
         },
