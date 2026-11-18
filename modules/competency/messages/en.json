@@ -558,7 +558,7 @@
   "competency.replacements.fileNew": "New replacement request",
   "competency.setting.libre_notice_days": "Days to wait after the newspaper notice before a lost libre is replaced",
   "competency.rule.replacementNotActive": "Only a vehicle on the register can have a libre replaced.",
-  "competency.rule.replacementOtherOffice": "Another office handles this vehicle: the replacement is done there, or here after a transfer.",
+  "competency.rule.replacementOtherOffice": "Another office handles this vehicle: the request is filed there.",
   "competency.rule.replacementUse": "The use does not match the vehicle on the register.",
   "competency.rule.replacementItemLater": "Only a libre or a bolo sticker can be replaced for now: plates follow in a later release.",
   "competency.rule.replacementInOpenCase": "Another open request is already changing this vehicle: finish that first.",
@@ -571,5 +571,7 @@
   "competency.rule.replacementNoticeRunning": "The newspaper notice period has not ended: carry on from {endsOn}.",
   "competency.rule.replacementNoBolo": "This vehicle has no bolo in force to replace: if it has expired, the vehicle needs a new annual inspection.",
   "competency.rule.replacementTemporaryBolo": "This vehicle’s bolo has no sticker yet (a temporary bolo, or one awaiting its sticker): the sticker must be given first.",
-  "competency.rule.replacementBoloOtherOffice": "Another office issued this bolo: its sticker is replaced there."
+  "competency.rule.replacementBoloOtherOffice": "The sticker cannot be replaced here: another office gave this bolo before the vehicle moved. The owner takes a new annual inspection (DVC-02) instead.",
+  "competency.rule.replacementBoloExpiredOnStep": "This bolo ended while the case waited: reject the case (the fee follows the bureau’s refund rules). The vehicle needs a new annual inspection.",
+  "competency.rule.replacementBoloExpiring": "The bolo ends within a week: take the annual inspection instead."
 }

@@ -73,26 +73,42 @@ async function givenItsBolo({ records, cashier, officer }: People): Promise<{ ve
     const found = await api(officer).get<{ items: Found[] }>('v1/vehicles?status=active&limit=100');
     const candidates = found.items.filter((v) => v.use === 'private' && v.handlingUnit.code === 'WOL-BODITI');
     expect(candidates.length, 'private Boditi vehicles in the demo').toBeGreaterThan(0);
-    const vehicle = candidates[randomInt(candidates.length)]?.id ?? '';
-    const answers = {
-        vehicle,
-        use: 'private',
-        insuranceCertificate: String(randomInt(1_000_000, 9_999_999)),
-        insurer: 'Sample Insurance S.C.',
-        insuredFrom: day(-30),
-        insuredUntil: day(330)
-    };
-    const fee = await api(records).post<{ feeRuleVersionId: string; totalSantim: string }>('v1/fees/preview', {
-        serviceCode: 'DVC-02',
-        answers
-    });
-    const filed = await api(records).post<{ id: string }>('v1/service-requests', {
-        serviceCode: 'DVC-02',
-        answers,
-        fee: { ruleVersionId: fee.feeRuleVersionId, totalSantim: fee.totalSantim }
-    });
-    const caseId = filed.id;
-    await act(records, caseId, 'submit', 'submit');
+    // the demo is shared with other journeys and earlier runs: the server refuses the check of a vehicle that already holds this
+    // fiscal year's bolo or is in an open case, so the next candidate is tried until one is accepted
+    const staff = api(records);
+    const start = randomInt(candidates.length);
+    const order = [...candidates.slice(start), ...candidates.slice(0, start)];
+    let vehicle = '';
+    let caseId = '';
+    for (const candidate of order) {
+        const answers = {
+            vehicle: candidate.id,
+            use: 'private',
+            insuranceCertificate: String(randomInt(1_000_000, 9_999_999)),
+            insurer: 'Sample Insurance S.C.',
+            insuredFrom: day(-30),
+            insuredUntil: day(330)
+        };
+        const fee = await staff.post<{ feeRuleVersionId: string; totalSantim: string }>('v1/fees/preview', {
+            serviceCode: 'DVC-02',
+            answers
+        });
+        const filed = await staff.post<{ id: string; version: number }>('v1/service-requests', {
+            serviceCode: 'DVC-02',
+            answers,
+            fee: { ruleVersionId: fee.feeRuleVersionId, totalSantim: fee.totalSantim }
+        });
+        const transitions = `v1/cases/${filed.id}/transitions`;
+        const status = await staff.status('POST', transitions, { action: 'submit' }, filed.version);
+        if (status === 200) {
+            vehicle = candidate.id;
+            caseId = filed.id;
+            break;
+        }
+        // refused: the draft is withdrawn so it is not left open
+        await staff.status('POST', transitions, { action: 'withdraw' }, filed.version);
+    }
+    expect(vehicle, 'a Boditi vehicle with no bolo this fiscal year and no open case').not.toBe('');
     await inState(records, caseId, 'review');
     await act(officer, caseId, 'approve', WORD.approve);
     await inState(officer, caseId, 'payment');
@@ -155,7 +171,7 @@ test.describe('the replacement of a lost bolo sticker', () => {
                 .status;
         expect(await status()).toBe('valid');
 
-        // the sticker is reported lost, with the police letter: a hold would not stop it
+        // the sticker is reported lost, with the police letter
         const answers = {
             vehicle,
             item: 'bolo',

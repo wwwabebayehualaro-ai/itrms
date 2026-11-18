@@ -766,7 +766,9 @@ async function withBolo(
 ) {
     const validity = boloValidity(today());
     const status = more.status ?? 'valid';
-    const validUntil = more.validUntil ?? validity.validUntil;
+    // well ahead of the 7-day margin a replacement needs, whatever the day of the fiscal year (the year stays the real one:
+    // the stock's stickers are printed for it)
+    const validUntil = more.validUntil ?? daysAfter(today(), 60);
     const fiscalYear = more.fiscalYear ?? validity.fiscalYear;
     const sticker = `OLD-${randomInt(100000, 999999)}`;
     const id = randomUUID();
@@ -996,5 +998,100 @@ describe('a lost bolo sticker', () => {
             'submit'
         );
         expect(notHandedIn.body.errors).toEqual([expect.objectContaining({ path: 'oldItemHandedIn' })]);
+    }, 300_000);
+});
+
+describe('a bolo sticker replacement, after review', () => {
+    const factsOf = async (caseId: string) =>
+        (await query<{ facts: Record<string, unknown> }>('select facts from workflow.cases where id = $1', [caseId]))[0]
+            ?.facts ?? {};
+    const placeOf = (caseId: string) => {
+        const ctx: DbContext = { ...contextFor(boditi), requestId: `rpl-${randomUUID()}` };
+        return { ctx, place: { caseId, regionId: boditi.regionId, handlingUnitId: boditi.id, ctx } };
+    };
+    const stickersInStock = async () =>
+        (
+            await query<{ n: number }>(
+                `select count(*)::int as n from fees.stationery_items
+                  where holder_unit_id = $1 and kind = 'bolo_sticker' and status = 'in_stock'`,
+                [boditi.id]
+            )
+        )[0]?.n;
+
+    it('is refused once the vehicle has left the register, and no sticker leaves the stock', async () => {
+        const vehicle = await onTheRoad(boditi);
+        await withBolo(boditi, vehicle.id);
+        const c = await atBolo(lostBolo(vehicle.id));
+        const before = await stickersInStock();
+        await query(`update vehicles.vehicles set status = 'stolen' where id = $1`, [vehicle.id]);
+        const refused = await tried(c, as.officer, 'replace_sticker', { answers: {} });
+        expect(refused.status).toBe(409);
+        expect((await caseOf(c.id)).state).toBe('bolo');
+        expect(await stickersInStock()).toBe(before);
+        expect(await rowOf(c.id)).toBeUndefined();
+    }, 300_000);
+
+    it('says the case is to be rejected when the bolo ended while it waited', async () => {
+        const vehicle = await onTheRoad(boditi);
+        const bolo = await withBolo(boditi, vehicle.id, { validUntil: daysAfter(today(), 8) });
+        const c = await atBolo(lostBolo(vehicle.id));
+        await query(`update competency.bolos set valid_until = $2 where id = $1`, [bolo.id, daysAfter(today(), -1)]);
+        const refused = await tried(c, as.officer, 'replace_sticker', { answers: {} });
+        expect(refused.status).toBe(409);
+        expect(refused.res.body).toMatch(/replacementBoloExpiredOnStep|reject|ውድቅ/);
+        expect((await caseOf(c.id)).state).toBe('bolo');
+    }, 300_000);
+
+    it('refuses at filing a bolo that ends within a week', async () => {
+        const vehicle = await onTheRoad(boditi);
+        await withBolo(boditi, vehicle.id, { validUntil: daysAfter(today(), 3) });
+        const refused = await tried(await file(SERVICE, lostBolo(vehicle.id)), as.officer, 'submit');
+        expect(refused.status).toBe(422);
+        expect(refused.body.errors).toEqual([expect.objectContaining({ path: 'vehicle', code: 'bolo_expiring' })]);
+    }, 300_000);
+
+    it('only reads when a finished case’s step is run again: a later replacement of the bolo stays', async () => {
+        const vehicle = await onTheRoad(boditi);
+        const bolo = await withBolo(boditi, vehicle.id);
+        const a = await atBolo(lostBolo(vehicle.id));
+        await moved(a, as.officer, 'replace_sticker', { answers: {} });
+        const first = (await boloRow(bolo.id))?.sticker_key;
+        const b = await atBolo(lostBolo(vehicle.id));
+        await moved(b, as.officer, 'replace_sticker', { answers: {} });
+        const second = (await boloRow(bolo.id))?.sticker_key;
+        expect(second).not.toBe(first);
+
+        const { ctx, place } = placeOf(a.id);
+        const again = await app.scoped(ctx, async (tx) =>
+            replacement.replaceBoloSticker(tx, place, await factsOf(a.id), {})
+        );
+        expect(again.bolo.sticker).toBe(first);
+        expect((await boloRow(bolo.id))?.sticker_key).toBe(second);
+        const standing = (await boloDocuments(bolo.id)).filter((d) => d.superseded_by === null);
+        expect(standing).toHaveLength(1);
+        expect(standing[0]?.number).toBe(second);
+    }, 300_000);
+
+    it('keeps the libre step off a bolo case and the sticker step off a libre case', async () => {
+        const vehicle = await onTheRoad(boditi);
+        await withBolo(boditi, vehicle.id);
+        const bolo = await atBolo(lostBolo(vehicle.id));
+        const onBolo = placeOf(bolo.id);
+        await expect(
+            app.scoped(onBolo.ctx, async (tx) =>
+                replacement.replaceLibre(tx, onBolo.place, await factsOf(bolo.id), undefined)
+            )
+        ).rejects.toThrow();
+
+        const other = await onTheRoad(boditi);
+        const libre = await atLibre(damaged(other.id));
+        const onLibre = placeOf(libre.id);
+        await expect(
+            app.scoped(onLibre.ctx, async (tx) =>
+                replacement.replaceBoloSticker(tx, onLibre.place, await factsOf(libre.id), {})
+            )
+        ).rejects.toThrow();
+        expect(await libresOf(other.id)).toHaveLength(1);
+        expect(await rowOf(libre.id)).toBeUndefined();
     }, 300_000);
 });

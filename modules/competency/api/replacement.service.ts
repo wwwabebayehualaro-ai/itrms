@@ -12,12 +12,14 @@ import { insertAudited, updateAudited, type Tx } from '@itrms/kernel/db';
 import { ConflictError, ValidationError } from '@itrms/kernel/errors';
 import { requireCounter } from '@itrms/kernel/numbering';
 import { SettingsService } from '@itrms/kernel/settings';
+import { documentTemplates, issuedDocuments } from '@itrms/documents/api';
 import { StationeryStock } from '@itrms/fees/api';
 import { EncumbranceService, libres, vehicles, VehicleRegistry } from '@itrms/vehicles/api';
 import { REGISTRATION_CERTIFICATE_COUNTER } from '@itrms/vehicles/contracts';
 
 import {
     addisDay,
+    BOLO_REPLACEMENT_MIN_DAYS,
     BOLO_TEMPLATE,
     DEFAULT_LIBRE_NOTICE_DAYS,
     LIBRE_NOTICE_DAYS_SETTING,
@@ -217,6 +219,8 @@ export class ReplacementService {
             return refuse('vehicle', 'no_sticker', 'competency.rule.replacementTemporaryBolo');
         if (bolo.handlingUnitId !== place.handlingUnitId)
             return refuse('vehicle', 'bolo_other_office', 'competency.rule.replacementBoloOtherOffice');
+        if (bolo.validUntil <= daysAfter(addisDay(), BOLO_REPLACEMENT_MIN_DAYS))
+            return refuse('vehicle', 'bolo_expiring', 'competency.rule.replacementBoloExpiring');
         await lockVehicleClaim(tx, vehicleId);
         if (await claimedElsewhere(tx, place.caseId, { vehicleId }))
             throw new ValidationError('not_eligible', {
@@ -272,7 +276,8 @@ export class ReplacementService {
         const vehicleId = factText(facts, 'vehicle', 'id');
         const replacement = factObject(facts, 'replacement');
         const reason = factText(facts, 'replacement', 'reason');
-        if (!vehicleId || !replacement || !isReason(reason)) throw missingFact('replacement');
+        if (!vehicleId || !replacement || !isReason(reason) || replacement.item !== 'libre')
+            throw missingFact('replacement');
         const known = factObject(facts, 'documents') ?? {};
         const [locked] = await tx
             .select()
@@ -319,7 +324,8 @@ export class ReplacementService {
         const place = await actForHandlingOffice(tx, at);
         const boloId = factText(facts, 'replacement', 'boloId');
         const reason = factText(facts, 'replacement', 'reason');
-        if (!boloId || !isReason(reason)) throw missingFact('replacement');
+        if (!boloId || !isReason(reason) || factText(facts, 'replacement', 'item') !== 'bolo')
+            throw missingFact('replacement');
         const known = factObject(facts, 'documents') ?? {};
         const [locked] = await tx
             .select()
@@ -331,8 +337,20 @@ export class ReplacementService {
             documents: { ...known, [BOLO_TEMPLATE]: document }
         });
         if (locked?.replacedOn && locked.newStickerKey) {
-            const done = await this.bolo.replaceSticker(tx, place, boloId, locked.newStickerKey);
-            return result(locked.newStickerKey, done.document.id);
+            // only a read: a later replacement of the same bolo has moved it on, and this case's result stands as it was made
+            const [made] = await tx
+                .select({ id: issuedDocuments.id })
+                .from(issuedDocuments)
+                .innerJoin(documentTemplates, eq(documentTemplates.id, issuedDocuments.templateId))
+                .where(
+                    and(
+                        eq(documentTemplates.key, BOLO_TEMPLATE),
+                        eq(issuedDocuments.subjectId, boloId),
+                        eq(issuedDocuments.caseId, place.caseId)
+                    )
+                );
+            if (!made) throw missingFact('replacement');
+            return result(locked.newStickerKey, made.id);
         }
         const row = locked ?? (await this.insertRow(tx, place, facts, reason));
         const current = await this.bolo.replaceable(tx, place, boloId);

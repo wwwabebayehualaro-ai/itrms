@@ -400,12 +400,20 @@ export class BoloService {
     /**
      * The bolo whose sticker a replacement (task 1.5b, ADR-0062) changes: carried on its sticker (a temporary bolo has none to
      * replace), not past its last day, and one the case's office issued, since a registry record is written only by the office that
-     * handles it and the bolo document is that office's.
+     * handles it and the bolo document is that office's. A bolo that ended while the case waited says the case is to be rejected;
+     * a vehicle that left the register since is refused as for any sticker (ADR-0058).
      */
     async replaceable(tx: Tx, place: CasePlace, boloId: string): Promise<Bolo> {
         const [bolo] = await tx.select().from(bolos).where(eq(bolos.id, boloId));
         if (!bolo) throw missingFact('bolo');
-        if (bolo.status !== 'valid' || bolo.validUntil < addisDay() || bolo.handlingUnitId !== place.handlingUnitId)
+        await this.stillOnTheRegister(tx, bolo.vehicleId);
+        if (bolo.handlingUnitId !== place.handlingUnitId)
+            throw new ConflictError('invalid_transition', { detailKey: 'competency.rule.replacementBoloOtherOffice' });
+        if (bolo.status === 'valid' && bolo.validUntil < addisDay())
+            throw new ConflictError('invalid_transition', {
+                detailKey: 'competency.rule.replacementBoloExpiredOnStep'
+            });
+        if (bolo.status !== 'valid')
             throw new ConflictError('invalid_transition', { detailKey: 'competency.rule.replacementNoBolo' });
         return bolo;
     }
