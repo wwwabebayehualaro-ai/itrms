@@ -431,6 +431,33 @@ describe('the refusals at filing', () => {
         expect(twice.body.code).toBe('not_eligible');
     });
 
+    it("takes two vehicles of different makes with the same 'other' chassis text, and refuses one make twice (ADR-0061)", async () => {
+        const chassisNumber = `PRE81-${randomInt(100000, 999999)}`;
+        const old = (make: string) => capture({ chassisNumber, chassisKind: 'other', modelYear: 1975, make });
+        const fiat = await submitted(await old('Fiat'));
+        expect((await factsOf(fiat.id)).backCapture).toMatchObject({ makeKey: 'FIAT' });
+        // another make is its own claim; the same make, typed another way, is the same claim
+        const lada = await submitted(await old('Lada'));
+        const twice = await refusedAt(await old('fiat'));
+        expect(twice.status).toBe(422);
+        expect(twice.body.code).toBe('not_eligible');
+        // a real VIN of that text meets every make
+        const iso = await refusedAt(await capture({ chassisNumber }));
+        expect(iso.status).toBe(422);
+
+        await moved(fiat, as.verifier, 'verify');
+        await moved(lada, as.verifier, 'verify');
+        const { rows } = await api.owner.query<{ make_key: string }>(
+            `select make_key from vehicles.vehicles where chassis_number = $1 order by make_key`,
+            [chassisNumber.replace('-', '')]
+        );
+        expect(rows.map((r) => r.make_key)).toEqual(['FIAT', 'LADA']);
+        // on the register, the same make is a duplicate and another make is not
+        const onRegister = await refusedAt(await old('FIAT'));
+        expect(onRegister.status).toBe(409);
+        expect(onRegister.body.code).toBe('duplicate_reference');
+    });
+
     it('cannot be filed without its scan', async () => {
         const answers = await capture();
         delete answers.paperFileScan;

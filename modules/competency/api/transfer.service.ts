@@ -157,7 +157,13 @@ export class OwnershipTransferService {
         await requireCounter(tx, TRANSFER_LETTER_COUNTER, place.handlingUnitId);
         // two requests for one vehicle filed at the same moment: the second waits for the first's transaction, then sees its facts
         await lockVehicleClaim(tx, vehicle.id);
-        if (await claimedElsewhere(tx, place.caseId, { vehicleId: vehicle.id, vinKey: checked.vinKey }))
+        if (
+            await claimedElsewhere(tx, place.caseId, {
+                vehicleId: vehicle.id,
+                vinKey: checked.vinKey,
+                makeKey: checked.makeKey
+            })
+        )
             throw new ValidationError('not_eligible', {
                 detail: say('competency.rule.transferInOpenCase'),
                 detailKey: 'competency.rule.transferInOpenCase'

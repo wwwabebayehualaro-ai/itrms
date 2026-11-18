@@ -42,7 +42,7 @@ import { users } from '@itrms/kernel/tables';
 import { effectiveServices, unitRefs } from '@itrms/kernel/org';
 import { nameKeyOf, organisations, PersonsService } from '@itrms/parties/api';
 import { vehicleCategories, vehicles, VehiclesService } from '@itrms/vehicles/api';
-import { parsePlate, parseVin } from '@itrms/vehicles/contracts';
+import { chassisIdentity, chassisMakeKey, makeKey, parsePlate, parseVin, sameChassis } from '@itrms/vehicles/contracts';
 import vehiclesAm from '@itrms/vehicles/messages/am';
 import vehiclesEn from '@itrms/vehicles/messages/en';
 import partiesAm from '@itrms/parties/messages/am';
@@ -167,6 +167,8 @@ interface Verdict {
     sensitive: ImportSensitive;
     ownerKey?: string;
     vinKey?: string;
+    /** the make folded, for an 'other' chassis number only: it is told apart by it (ADR-0061) */
+    makeKey?: string | null;
     plateKey?: string;
     libreKey?: string;
     scanFileId?: string;
@@ -716,7 +718,12 @@ export class VehicleImportService {
         for (const row of rows) {
             const values = row.values as Partial<ImportValues> & { owner?: ImportOwner; ownerKey?: string };
             if (row.paperReference) setFirst(maps.paper, fold(row.paperReference), row.line);
-            if (row.vinKey) setFirst(maps.vin, row.vinKey, row.line);
+            if (row.vinKey)
+                for (const slot of chassisSlots(
+                    row.vinKey,
+                    values.chassisKind === 'other' && values.make ? makeKey(values.make) : null
+                ))
+                    setFirst(maps.vin, slot, row.line);
             if (row.plateKey) setFirst(maps.plate, row.plateKey, row.line);
             if (values.libreNumber) setFirst(maps.libre, fold(values.libreNumber), row.line);
             if (row.scanFileId) setFirst(maps.scan, row.scanFileId, row.line);
@@ -799,7 +806,8 @@ export class VehicleImportService {
         });
         if (vin.ok) {
             verdict.vinKey = vin.vinKey;
-            const first = seen.vin.get(vin.vinKey);
+            verdict.makeKey = chassisMakeKey(vin.chassisKind, values.make);
+            const first = firstOfChassis(seen.vin, vin.vinKey, verdict.makeKey);
             if (first !== undefined)
                 errors.push({ column: 'chassis_number', code: 'duplicate_in_file', params: line(first) });
         }
@@ -828,10 +836,22 @@ export class VehicleImportService {
         // after a fix comes without the scans the first batch took)
         const blocking = errors.filter((e) => e.code !== 'scan_missing' && e.code !== 'scan_twice');
         if (vin.ok && blocking.length === 0) {
-            const [onRegister] = await tx
-                .select({ id: vehicles.id, source: vehicles.migrationSource, reference: vehicles.paperReference })
-                .from(vehicles)
-                .where(and(eq(vehicles.regionId, batch.regionId), eq(vehicles.vinKey, vin.vinKey)));
+            const onRegister = (
+                await tx
+                    .select({
+                        id: vehicles.id,
+                        source: vehicles.migrationSource,
+                        reference: vehicles.paperReference,
+                        makeKey: vehicles.makeKey
+                    })
+                    .from(vehicles)
+                    .where(and(eq(vehicles.regionId, batch.regionId), eq(vehicles.vinKey, vin.vinKey)))
+            ).find((row) =>
+                sameChassis(
+                    { vinKey: vin.vinKey, makeKey: verdict.makeKey ?? null },
+                    { vinKey: vin.vinKey, makeKey: row.makeKey }
+                )
+            );
             if (onRegister?.source === 'import' && fold(onRegister.reference ?? '') === fold(values.paperReference)) {
                 this.remember(seen, verdict, record.line, ownerText(owner), batch.regionId);
                 return { ...verdict, state: 'already_imported', vehicleId: onRegister.id };
@@ -864,7 +884,8 @@ export class VehicleImportService {
     /** The row as the first of its file, chassis, plate, libre, scan and owner, for the rows after it. */
     private remember(seen: Seen, verdict: Verdict, line: number, owner: string | null, regionId: string): void {
         if (verdict.paperReference) setFirst(seen.paper, fold(verdict.paperReference), line);
-        if (verdict.vinKey) setFirst(seen.vin, verdict.vinKey, line);
+        if (verdict.vinKey)
+            for (const slot of chassisSlots(verdict.vinKey, verdict.makeKey ?? null)) setFirst(seen.vin, slot, line);
         if (verdict.plateKey) setFirst(seen.plate, verdict.plateKey, line);
         if (verdict.libreKey) setFirst(seen.libre, verdict.libreKey, line);
         if (verdict.scanFileId) setFirst(seen.scan, verdict.scanFileId, line);
@@ -1210,6 +1231,25 @@ function partialValues(cells: Readonly<Record<string, string>>): Record<string, 
 
 function setFirst<K>(map: Map<K, number>, key: K, line: number): void {
     if (!map.has(key)) map.set(key, line);
+}
+
+/**
+ * The places a chassis takes in the sheet's map (ADR-0061): a real VIN by its key, an 'other' number by its key and make, and also
+ * under "any 'other' number of this key", which a real VIN of the same key meets.
+ */
+function chassisSlots(vinKey: string, makeKeyValue: string | null): string[] {
+    return makeKeyValue === null ? [vinKey] : [chassisIdentity(vinKey, makeKeyValue), `${vinKey}~`];
+}
+
+/** The line of the first row of the sheet this chassis conflicts with: the same key, and the same make when both are 'other' numbers. */
+function firstOfChassis(
+    map: ReadonlyMap<string, number>,
+    vinKey: string,
+    makeKeyValue: string | null
+): number | undefined {
+    return makeKeyValue === null
+        ? (map.get(vinKey) ?? map.get(`${vinKey}~`))
+        : (map.get(chassisIdentity(vinKey, makeKeyValue)) ?? map.get(vinKey));
 }
 
 /** The owner as the report names them: a person's Amharic name, an organisation's TIN. */

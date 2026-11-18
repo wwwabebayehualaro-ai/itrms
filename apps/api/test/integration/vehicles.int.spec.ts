@@ -1231,7 +1231,64 @@ describe('the rules of the commands (review of 1.1a)', () => {
         expect((await find(as.damot(), 'or 3 b 54321')).map((x) => [x.id, x.matched])).toEqual([[v.id, 'plate']]);
     });
 
-    it('refuses the other kind for a VIN-shaped number, one under 4 characters, and a repeat of any kind', async () => {
+    it("tells an 'other' chassis number apart by its make, and a real VIN by its key alone (ADR-0061)", async () => {
+        const fiat = await newVehicle(units.damot, { chassisNumber: 'SHARED-0001', make: 'Fiat' });
+        const lada = await newVehicle(units.damot, { chassisNumber: 'shared 0001', make: 'Lada' });
+        expect(fiat.makeKey).toBe('FIAT');
+        expect(lada.makeKey).toBe('LADA');
+        // the same make typed another way is the same make
+        await expect(newVehicle(units.damot, { chassisNumber: 'SHARED-0001', make: 'fiat ' })).rejects.toMatchObject({
+            status: 409,
+            code: 'duplicate_reference'
+        });
+        // a search by the shared text finds both
+        expect((await find(as.damot(), 'SHARED0001')).map((v) => v.id).sort()).toEqual([fiat.id, lada.id].sort());
+
+        // a real VIN conflicts with an 'other' number of the same key, whatever its make, and the other way round
+        const iso = {
+            chassisNumber: 'JTDKB20U093123456',
+            chassisKind: 'iso3779' as const,
+            modelYear: 2020,
+            acceptVinMismatch: true
+        };
+        const old = {
+            chassisNumber: 'JTDKB20U093123456',
+            chassisKind: 'other' as const,
+            modelYear: 1975,
+            make: 'Fiat'
+        };
+        const first = await newVehicle(units.damot, iso);
+        expect(first.makeKey).toBeNull();
+        await expect(newVehicle(units.damot, old)).rejects.toMatchObject({ status: 409, code: 'duplicate_reference' });
+        await newVehicle(units.damot, { ...old, chassisNumber: 'JTDKB20U093123457' });
+        await expect(newVehicle(units.damot, { ...iso, chassisNumber: 'JTDKB20U093123457' })).rejects.toMatchObject({
+            status: 409,
+            code: 'duplicate_reference'
+        });
+    });
+
+    it('holds an other chassis number to its make in the database too, and refuses a stray make key', async () => {
+        await newVehicle(units.damot, { chassisNumber: 'DBGUARD-0001', make: 'Fiat' });
+        // a write that skipped the application's check meets the unique index
+        await expect(
+            api.owner.query(
+                `insert into vehicles.vehicles (id, region_id, handling_unit_id, chassis_number, chassis_kind, vin_key, vin_check,
+                        make_key, make, model, model_year, category_id, use, first_registered_on)
+                 select gen_random_uuid(), region_id, handling_unit_id, chassis_number, chassis_kind, vin_key, vin_check,
+                        make_key, make, model, model_year, category_id, use, first_registered_on
+                   from vehicles.vehicles where chassis_number = 'DBGUARD0001'`
+            )
+        ).rejects.toThrow(/vehicles_other_chassis_uq/);
+        // the make key is there for an 'other' number only
+        await expect(
+            api.owner.query(`update vehicles.vehicles set make_key = null where chassis_number = 'DBGUARD0001'`)
+        ).rejects.toThrow(/vehicles_make_key_check/);
+        await expect(
+            api.owner.query(`update vehicles.vehicles set make_key = 'X' where chassis_kind = 'iso3779'`)
+        ).rejects.toThrow(/vehicles_make_key_check/);
+    });
+
+    it('refuses the other kind for a VIN-shaped number, one under 4 characters, and a repeat of the same make', async () => {
         await expect(
             newVehicle(units.damot, { chassisNumber: '2HGFA16509H000001', chassisKind: 'other' })
         ).rejects.toMatchObject({ status: 422, errors: [{ path: 'chassisNumber', code: 'invalid_vin' }] });

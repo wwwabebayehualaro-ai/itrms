@@ -133,7 +133,7 @@ export class VehicleTransferService {
             return refuse('vehicle', 'not_active', 'competency.rule.transferOutNotActive');
         if (vehicle.handlingUnitId !== place.handlingUnitId)
             return refuse('vehicle', 'other_office', 'competency.rule.transferOutOtherOffice');
-        let seen: { openPeriodId: string; vinKey: string };
+        let seen: { openPeriodId: string; vinKey: string; makeKey: string | null };
         let destination: { name: string; region: string } | undefined;
         if (outside) {
             const name = text(input.destinationName?.trim());
@@ -176,7 +176,13 @@ export class VehicleTransferService {
         if (saw && factObject(facts, 'transferOut')?.vehicleId === vehicle.id && saw !== seen.openPeriodId)
             return refuse('vehicle', 'owners_changed', 'competency.rule.transferOutOwnersChanged');
         await lockVehicleClaim(tx, vehicle.id);
-        if (await claimedElsewhere(tx, place.caseId, { vehicleId: vehicle.id, vinKey: seen.vinKey }))
+        if (
+            await claimedElsewhere(tx, place.caseId, {
+                vehicleId: vehicle.id,
+                vinKey: seen.vinKey,
+                makeKey: seen.makeKey
+            })
+        )
             return notEligible('competency.rule.transferOutInOpenCase');
         return {
             // the vehicle's id here is what the register's open-case lookup claims it by (migration 0086)
@@ -363,7 +369,13 @@ export class VehicleTransferService {
         if (standing.validUntil < addisDay())
             return refuse('vehicle', 'release_lapsed', 'competency.rule.transferInExpired');
         await lockVehicleClaim(tx, vehicle.id);
-        if (await claimedElsewhere(tx, place.caseId, { vehicleId: vehicle.id, vinKey: vehicle.vinKey }))
+        if (
+            await claimedElsewhere(tx, place.caseId, {
+                vehicleId: vehicle.id,
+                vinKey: vehicle.vinKey,
+                makeKey: vehicle.makeKey
+            })
+        )
             return notEligible('competency.rule.transferInInOpenCase');
         const earlier = factObject(facts, 'transferIn')?.reinspect;
         const reinspect =

@@ -11,7 +11,7 @@ import { ForbiddenError } from '@itrms/kernel/errors';
 import type { CasePlace } from './licences.service';
 
 /** Two vehicle requests open at once claim one vehicle: by its chassis key, an old plate's key, or the vehicle on the register. */
-export type VehicleClaim = { vinKey?: string; plateKey?: string; vehicleId?: string };
+export type VehicleClaim = { vinKey?: string; makeKey?: string | null; plateKey?: string; vehicleId?: string };
 
 /**
  * The case's place with the handling office as the acting unit, when the person acts from it or from an office above it. A case
@@ -72,7 +72,7 @@ export async function arrivalClaimedElsewhere(
  */
 export async function claimedElsewhere(tx: Tx, caseId: string | null, claim: VehicleClaim): Promise<boolean> {
     const { rows } = await tx.execute<{ claimed: boolean }>(
-        sql`select competency.vehicle_in_open_case(${claim.vinKey ?? null}, ${claim.plateKey ?? null},
+        sql`select competency.vehicle_in_open_case(${claim.vinKey ?? null}, ${claim.makeKey ?? null}, ${claim.plateKey ?? null},
                                                    ${claim.vehicleId ?? null}::uuid, ${caseId}::uuid) as claimed`
     );
     return rows[0]?.claimed === true;

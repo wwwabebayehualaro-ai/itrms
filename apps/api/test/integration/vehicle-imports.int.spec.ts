@@ -688,3 +688,71 @@ describe('a sheet that cannot be read, a workbook, and another office', () => {
         expect(refused.statusCode).toBe(403);
     });
 });
+
+describe("pre-1981 chassis numbers: an 'other' text is told apart by its make (ADR-0061)", () => {
+    const TEXT = `PRE81-${RUN}`;
+    const withKind = (n: number, make: string, chassisNumber = TEXT): Row & { chassis_kind: string } => ({
+        ...fileRow(300 + n, { owner_phone: `09${RUN.slice(0, 2)}91${String(n).padStart(4, '0')}` }),
+        chassis_number: chassisNumber,
+        chassis_kind: 'other',
+        model_year: '1975',
+        make
+    });
+    const sheetOf = (rows: (Row & { chassis_kind: string })[]) =>
+        [
+            [...COLUMNS, 'chassis_kind'].join(','),
+            ...rows.map((r) => [...COLUMNS.map((c) => r[c]), r.chassis_kind].join(','))
+        ].join('\r\n');
+    const sendSheet = async (rows: (Row & { chassis_kind: string })[], filename: string) => {
+        const batch = await send(as.clerk, {
+            filename,
+            format: 'csv',
+            content: sheetOf(rows),
+            scanFileIds: await scans(rows.map((r) => r.paper_reference))
+        });
+        await runCheck(batch.id);
+        return batchOf(batch.id);
+    };
+
+    it('takes two makes with the same text, flags one make twice, and finds each already imported when the sheet is sent again', async () => {
+        const rows = [withKind(0, 'Fiat'), withKind(1, 'Lada'), withKind(2, 'fiat ')];
+        const checked = await sendSheet(rows, 'pre81.csv');
+        expect(checked).toMatchObject({ state: 'checked', counts: { total: 3, valid: 2, invalid: 1 } });
+        const [twice] = await rowsOf(checked.id, 'invalid');
+        expect(twice?.line).toBe(4);
+        expect(twice?.errors.map((e) => [e.column, e.code])).toEqual([['chassis_number', 'duplicate_in_file']]);
+
+        const commit = await api.call(
+            'POST',
+            `/api/v1/vehicle-imports/${checked.id}/commit`,
+            as.verifier,
+            {},
+            ifMatch((await batchOf(checked.id, as.verifier)).version)
+        );
+        expect(commit.statusCode, commit.body).toBe(202);
+        await runCommit(checked.id);
+        expect(await batchOf(checked.id)).toMatchObject({ state: 'committed', counts: { imported: 2, invalid: 1 } });
+        const made = await api.owner.query<{ make_key: string }>(
+            `select make_key from vehicles.vehicles where chassis_number = $1 order by make_key`,
+            [TEXT.replace('-', '')]
+        );
+        expect(made.rows.map((r) => r.make_key)).toEqual(['FIAT', 'LADA']);
+
+        // sent again, each row finds its own vehicle, not the other make's
+        const again = await sendSheet(rows.slice(0, 2), 'pre81-again.csv');
+        expect(again).toMatchObject({ counts: { total: 2, alreadyImported: 2, invalid: 0 } });
+        const found = await rowsOf(again.id, 'already_imported');
+        const makes = await api.owner.query<{ id: string; make: string }>(
+            `select id, make from vehicles.vehicles where chassis_number = $1`,
+            [TEXT.replace('-', '')]
+        );
+        const makeOf = (id: string | null) => makes.rows.find((m) => m.id === id)?.make;
+        expect(found.map((r) => [r.line, makeOf(r.vehicleId)])).toEqual([
+            [2, 'Fiat'],
+            [3, 'Lada']
+        ]);
+        // a retried check reads the same verdicts
+        await runCheck(again.id);
+        expect(await batchOf(again.id)).toMatchObject({ counts: { total: 2, alreadyImported: 2, invalid: 0 } });
+    }, 300_000);
+});

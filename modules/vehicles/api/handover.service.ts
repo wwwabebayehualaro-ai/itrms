@@ -42,6 +42,7 @@ export const TABLES: Record<string, PgTable | undefined> = {
 export interface HandoverCheck {
     openPeriodId: string;
     vinKey: string;
+    makeKey: string | null;
     toUnitId: string;
 }
 
@@ -81,16 +82,20 @@ export class VehicleHandovers {
         );
         if (rows[0]?.ok !== true)
             throw new ConflictError('invalid_transition', { detailKey: 'vehicles.errors.handover_not_offered' });
-        return { openPeriodId, vinKey: vehicle.vinKey, toUnitId };
+        return { openPeriodId, vinKey: vehicle.vinKey, makeKey: vehicle.makeKey, toUnitId };
     }
 
     /**
      * Whether the caller's office may release the vehicle outside the region (ADR-0058): the vehicle part of `check`, with no
      * destination to look up. Nothing is written.
      */
-    async checkOutside(tx: Tx, ctx: DbContext, vehicleId: string): Promise<{ openPeriodId: string; vinKey: string }> {
+    async checkOutside(
+        tx: Tx,
+        ctx: DbContext,
+        vehicleId: string
+    ): Promise<{ openPeriodId: string; vinKey: string; makeKey: string | null }> {
         const { vehicle, openPeriodId } = await this.checkVehicle(tx, ctx, vehicleId);
-        return { openPeriodId, vinKey: vehicle.vinKey };
+        return { openPeriodId, vinKey: vehicle.vinKey, makeKey: vehicle.makeKey };
     }
 
     /**

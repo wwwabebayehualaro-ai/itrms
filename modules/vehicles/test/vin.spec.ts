@@ -1,7 +1,16 @@
 /** The chassis number: its normal form and the ISO 3779 check digit (binding only in North America and China). */
 import { describe, expect, it } from 'vitest';
 
-import { parseVin, searchKeys, vehicleSearchKey, vinCheckDigit } from '../contracts/vin';
+import {
+    chassisIdentity,
+    chassisMakeKey,
+    makeKey,
+    parseVin,
+    sameChassis,
+    searchKeys,
+    vehicleSearchKey,
+    vinCheckDigit
+} from '../contracts/vin';
 
 describe('parseVin', () => {
     it('accepts a valid ISO 3779 VIN, typed in lower case with spaces or hyphens', () => {
@@ -94,6 +103,46 @@ describe('the other kind of chassis number', () => {
 
     it('is refused when its search key is shorter than 4 characters', () => {
         expect(parseVin('A./B', { chassisKind: 'other' })).toMatchObject({ ok: false, problem: 'invalid_other' });
+    });
+});
+
+describe('the make key of an other chassis number (ADR-0061)', () => {
+    it('folds the make: width, case, spaces and punctuation', () => {
+        expect(makeKey('ＴＯＹＯＴＡ')).toBe('TOYOTA');
+        expect(makeKey('Mercedes-Benz')).toBe('MERCEDESBENZ');
+        expect(makeKey('mercedes benz')).toBe('MERCEDESBENZ');
+        expect(makeKey(' fiat ')).toBe(makeKey('FIAT'));
+    });
+
+    it('keeps Ethiopic letters and digits', () => {
+        expect(makeKey('ቶዮታ 2')).toBe('ቶዮታ2');
+    });
+
+    it('falls back to the make as typed when nothing is a letter or a digit, and is cut to 120', () => {
+        expect(makeKey(' -/ ')).toBe('-/');
+        expect(makeKey('A'.repeat(200))).toHaveLength(120);
+    });
+
+    it('is only for an other chassis number', () => {
+        expect(chassisMakeKey('iso3779', 'Toyota')).toBeNull();
+        expect(chassisMakeKey('other', 'Toyota')).toBe('TOYOTA');
+    });
+
+    it('tells chassis numbers apart: a real VIN conflicts with any make, other numbers by make', () => {
+        const iso = { vinKey: 'K1', makeKey: null };
+        const toyota = { vinKey: 'K1', makeKey: 'TOYOTA' };
+        const fiat = { vinKey: 'K1', makeKey: 'FIAT' };
+        expect(sameChassis(iso, iso)).toBe(true);
+        expect(sameChassis(iso, toyota)).toBe(true);
+        expect(sameChassis(toyota, iso)).toBe(true);
+        expect(sameChassis(toyota, toyota)).toBe(true);
+        expect(sameChassis(toyota, fiat)).toBe(false);
+        expect(sameChassis(toyota, { vinKey: 'K2', makeKey: 'TOYOTA' })).toBe(false);
+    });
+
+    it('keys a chassis in a sheet by its make only when it is an other number', () => {
+        expect(chassisIdentity('K1', null)).toBe('K1');
+        expect(chassisIdentity('K1', 'FIAT')).toBe('K1~FIAT');
     });
 });
 

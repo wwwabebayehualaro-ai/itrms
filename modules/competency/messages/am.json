@@ -121,6 +121,7 @@
   "competency.rule.notAPlate": "ይህ ብሔራዊ ሰሌዳ አይደለም።",
   "competency.errors.act_from_handling_office": "ምዝገባውን የሚያጠናቅቀው ጉዳዩን የሚይዘው ጽ/ቤት ወይም ከእሱ በላይ ያለ ጽ/ቤት ነው።",
   "competency.notice.chassisMismatch": "የሻሲ ቁጥሩ የማረጋገጫ አሃዝ አይገጥምም፤ ባለሙያው የሻሲ ሰሌዳውን አይቶ አረጋግጧል።",
+  "competency.notice.chassisOtherMake": "ይህ የሻሲ ቁጥር በመዝገቡ ላይ የሌላ አምራች ተሽከርካሪ ነው፤ ይህ ተሽከርካሪ አለመሆኑን ያረጋግጡ።",
   "competency.errors.registration_missing_fact": "ጉዳዩ የሚቀጥልበት {key} የለውም።",
   "competency.batches.firstCard": "የመጀመሪያው ካርድ ቁጥር",
   "competency.batches.printed": "መታተሙን መዝግብ",

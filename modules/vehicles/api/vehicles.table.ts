@@ -140,6 +140,8 @@ export const vehicles = withRls(
                 /** the chassis number in its search form (upper case, letters and digits, I as 1, O and Q as 0) */
                 vinKey: text('vin_key').notNull(),
                 vinCheck: text('vin_check', { enum: VIN_CHECKS }).notNull(),
+                /** the make folded (contracts/vin.ts makeKey), only for an 'other' chassis number: it is told apart by it (ADR-0061) */
+                makeKey: text('make_key'),
                 engineNumber: text('engine_number'),
                 engineKey: text('engine_key'),
                 make: text('make').notNull(),
@@ -191,7 +193,14 @@ export const vehicles = withRls(
                 uniqueIndex('vehicles_federal_id_uq')
                     .on(t.regionId, t.federalVehicleId)
                     .where(sql`${t.federalVehicleId} is not null`),
-                uniqueIndex('vehicles_vin_uq').on(t.regionId, t.vinKey),
+                // a real VIN is unique on its key; an 'other' number on its key and make (ADR-0061); the rule between the two is the
+                // application's, under the chassis lock
+                uniqueIndex('vehicles_vin_uq')
+                    .on(t.regionId, t.vinKey)
+                    .where(sql`${t.chassisKind} = 'iso3779'`),
+                uniqueIndex('vehicles_other_chassis_uq')
+                    .on(t.regionId, t.vinKey, t.makeKey)
+                    .where(sql`${t.chassisKind} = 'other'`),
                 // one vehicle per capture case: what a verification run again finds (task 1.13)
                 uniqueIndex('vehicles_migration_case_uq')
                     .on(t.migrationCaseId)
@@ -213,6 +222,10 @@ export const vehicles = withRls(
                 check(
                     'vehicles_chassis_check',
                     sql`length(${t.chassisNumber}) between 4 and 30 and length(${t.vinKey}) >= 4`
+                ),
+                check(
+                    'vehicles_make_key_check',
+                    sql`(${t.chassisKind} = 'other') = (${t.makeKey} is not null) and coalesce(length(${t.makeKey}), 1) between 1 and 120`
                 ),
                 check('vehicles_model_year_check', sql`${t.modelYear} between 1900 and 2100`),
                 check('vehicles_use_check', sql`${t.use} in ${oneOf(VEHICLE_USES)}`),

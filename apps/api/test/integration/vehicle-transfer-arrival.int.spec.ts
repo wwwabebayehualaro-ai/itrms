@@ -516,6 +516,53 @@ describe('the request', () => {
         );
     }, 300_000);
 
+    it("tells an 'other' chassis text apart by its make: another make is filed with a notice, the same make is on the register (ADR-0061)", async () => {
+        const ctx = { ...contextFor(boditi), requestId: `seed-${randomUUID()}` };
+        const text = `OLD-${randomInt(100000, 999999)}`;
+        const federal = `FED-${randomInt(100000, 999999)}`;
+        const old = (make: string, over: Record<string, unknown> = {}) =>
+            answersOf({ chassisNumber: text, chassisKind: 'other', modelYear: 1975, make, ...over });
+        const toyota = await app.scoped(ctx, (tx) =>
+            registry.register(tx, ctx, {
+                chassisNumber: text,
+                chassisKind: 'other',
+                federalVehicleId: federal,
+                federalIdSource: 'manual',
+                make: 'Toyota',
+                model: 'Land Cruiser',
+                modelYear: 1975,
+                categoryKey: 'automobile',
+                use: 'private',
+                seats: 5,
+                firstRegisteredOn: '1976-03-01',
+                owners: [{ kind: 'person', id: owner }]
+            })
+        );
+        // the same make is the vehicle the register has
+        const same = await file(SERVICE, await old('toyota'));
+        const refusal = await tried(same, as.officer, 'submit');
+        expect(refusal.status, JSON.stringify(refusal.body)).toBe(422);
+        expect(refusal.body.errors).toEqual(
+            expect.arrayContaining([expect.objectContaining({ path: 'chassisNumber', code: 'active' })])
+        );
+        // another make is a vehicle of its own: filed, with the notice for the lead
+        const fiat = await moved(await file(SERVICE, await old('Fiat')), as.officer, 'submit');
+        expect(fiat.state).toBe('review');
+        expect((await caseOf(fiat.id, as.lead)).notices).toEqual(['competency.notice.chassisOtherMake']);
+
+        // the Toyota leaves the region: a document that names its federal id for a Fiat of the same text is not the Toyota
+        await api.owner.query(`update vehicles.vehicles set status = 'transferred_out' where id = $1`, [toyota.id]);
+        const other = await tried(
+            await file(SERVICE, await old('Fiat', { federalVehicleId: federal })),
+            as.officer,
+            'submit'
+        );
+        expect(other.status).toBe(422);
+        expect(other.body.errors).toEqual(
+            expect.arrayContaining([expect.objectContaining({ path: 'federalVehicleId', code: 'other_vehicle' })])
+        );
+    }, 300_000);
+
     it('is refused a libre another vehicle holds and a plate on the register', async () => {
         const first = await answersOf();
         const c = await atTheArrival(first);

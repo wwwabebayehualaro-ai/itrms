@@ -13,6 +13,13 @@ For new registration (task 1.2b): `PlateStock.reserve` / `release` hold one plat
 register or in another open case, the check digit where it is binding; `acceptVinMismatch` takes a failure the officer
 confirmed, recorded as a mismatch) and `issueLibre` (the libre of a case, with no number of ours).
 
+**Chassis uniqueness (task 1.13j, ADR-0061).** A real VIN (`chassis_kind = 'iso3779'`) is unique per region on `vin_key` alone
+(`vehicles_vin_uq`, partial). An 'other' chassis number (declared by the officer: before 1981, or not VIN-shaped) is unique per
+region on `vin_key` plus `make_key`, the make folded by `makeKey` in `contracts/vin.ts` (`vehicles_other_chassis_uq`, partial;
+`make_key` is set exactly for an 'other' number). A real VIN and an 'other' number of the same key still conflict, whatever the
+make: that rule is the application's (`checkRegistration`, `sameChassis`), under the chassis lock every filing takes.
+`vehicles.search_vehicles` is unchanged and returns every vehicle with the key.
+
 **The federal booklet (task 1.2d, ADR-0050).** The libre is the ministry's booklet: `recordBooklet` writes its serial as
 the libre's number once (the same serial again is nothing to do; another is refused, a new booklet being a replacement), and the
 national reference when given. The office counter `vehicles.registration-certificate` (`{unit}/RC/{seq:06}`, renamed from

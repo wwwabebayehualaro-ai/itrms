@@ -30,7 +30,8 @@ import { PlateStock, VehicleRegistry } from '@itrms/vehicles/api';
 import {
     REGISTRATION_CERTIFICATE_COUNTER,
     REGISTRATION_CERTIFICATE_PATTERN,
-    vinCheckDigit
+    vinCheckDigit,
+    type VehicleRegister
 } from '@itrms/vehicles/contracts';
 import {
     importPlateStockDemo,
@@ -134,9 +135,9 @@ interface OnTheRoad {
  * A vehicle of Boditi with its owner, an old regional plate and a numbered libre in force; with `stockPlate`, a national plate from
  * the office's stock is on it (the old one ended exchanged).
  */
-async function onTheRoad(stockPlate: boolean): Promise<OnTheRoad> {
+async function onTheRoad(stockPlate: boolean, over: Partial<VehicleRegister> = {}): Promise<OnTheRoad> {
     const ctx: DbContext = { ...contextFor(boditi), requestId: `seed-${randomUUID()}` };
-    const chassis = vin();
+    const chassis = over.chassisNumber ?? vin();
     const legacy = legacyPlate();
     const libre = bookletNumber();
     return app.scoped(ctx, async (tx) => {
@@ -149,7 +150,8 @@ async function onTheRoad(stockPlate: boolean): Promise<OnTheRoad> {
             use: 'private',
             seats: 5,
             firstRegisteredOn: '2013-03-01',
-            owners: [{ kind: 'person', id: owner }]
+            owners: [{ kind: 'person', id: owner }],
+            ...over
         });
         await registry.recordPlate(tx, ctx, vehicle.id, { text: legacy, source: 'legacy', since: '2013-03-01' });
         await registry.recordLibre(tx, ctx, vehicle.id, { number: libre, issuedOn: '2013-03-01' });
@@ -650,6 +652,44 @@ describe('a vehicle returning to the office it left from', () => {
         c = await moved(await caseOf(c.id, as.officer), as.lead, 'approve');
         await moved(c, as.officer, 'register', { answers: {} });
         expect(await vehicleRow(v.id)).toMatchObject({ status: 'active', make: 'Toyota', model: 'Corolla' });
+    }, 300_000);
+});
+
+describe("a vehicle with an 'other' chassis number returning (ADR-0061)", () => {
+    it('returns on its own record as its own make, and another make of the same text is a new vehicle with a notice', async () => {
+        const text = `OLD-${randomInt(100000, 999999)}`;
+        const old = { chassisNumber: text, chassisKind: 'other', modelYear: 1975, make: 'Fiat' } as const;
+        const v = await onTheRoad(true, old);
+        const left = await leftTheRegion(v);
+        await lapsed(v.id, left.out.id);
+        const platesBefore = await platesOf(v.id);
+
+        // the same make: the vehicle that left, with no notice of another make
+        const own = await submitted(await answersOf(v, { chassisKind: 'other', modelYear: 1975, make: 'FIAT' }));
+        expect((await factsOf(own.id)).transferArrival).toMatchObject({
+            makeKey: 'FIAT',
+            returning: { vehicleId: v.id, handoverId: left.handoverId },
+            notices: ['competency.notice.arrivalReturning']
+        });
+
+        // another make with the same text is not that vehicle: a new one, with the notice for the lead
+        const lada = await submitted(
+            await answersOf(v, {
+                chassisKind: 'other',
+                modelYear: 1975,
+                make: 'Lada',
+                plate: legacyPlate(),
+                takesNationalPlate: true,
+                libreNumber: bookletNumber()
+            })
+        );
+        const facts = (await factsOf(lada.id)).transferArrival as Record<string, unknown>;
+        expect(facts.returning).toBeUndefined();
+        expect(facts.makeKey).toBe('LADA');
+        expect(facts.notices).toEqual(['competency.notice.chassisOtherMake']);
+        // nothing of the vehicle that left changed
+        expect(await vehicleRow(v.id)).toMatchObject({ status: 'transferred_out' });
+        expect(await platesOf(v.id)).toEqual(platesBefore);
     }, 300_000);
 });
 
