@@ -123,11 +123,19 @@ jobs:
   e2e:
     # the browser journeys (task 0.16f): sign-in, the shell, the registry and the form engine on the forms API, through
     # the BFF, against the dev stack with the reference design seeded; Playwright starts the API and the web app
-    name: e2e journeys (Playwright, BFF sign-in)
+    name: e2e journeys (Playwright, BFF sign-in) ${{ matrix.shard }}/3
     runs-on: ubuntu-24.04
-    # the journeys took 41 minutes with the transfers' (tasks 1.4c-1.4c3), setting up the stack and the demo ten more; a slow
-    # runner passed 60 (task 1.13j)
-    timeout-minutes: 75
+    # the journeys took 44 minutes in one runner (task 1.5b), the stack and the demo ten more: three shards run in parallel, each
+    # with its own stack and demo, a third of the journey files each (Playwright splits by file; the journeys share one demo
+    # within a shard, never across)
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    timeout-minutes: 40
+    env:
+      # the suite stops itself before the job's limit, so a slow shard still reports which journey failed
+      E2E_GLOBAL_TIMEOUT_MINUTES: '30'
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: pnpm/action-setup@v6.1.0
@@ -144,8 +152,9 @@ jobs:
         run: |
           pnpm --filter @itrms/api build
           pnpm demo:reset
-          # again on the same stack, as anyone rehearsing a demo does: Keycloak still holds the first run's groups
-          pnpm demo:reset
+          # again on the same stack, as anyone rehearsing a demo does: Keycloak still holds the first run's groups (one shard
+          # proves it; the others start from the first reset)
+          if [ "${{ matrix.shard }}" = "1" ]; then pnpm demo:reset; fi
       - name: Start the worker (outbox relay, the forms' value fill and exports)
         run: nohup pnpm --filter @itrms/api dev:worker > worker.log 2>&1 &
       - name: Start the PDF worker (with the runner's Chrome)
@@ -160,15 +169,16 @@ jobs:
             || { echo "::warning::apt dependencies not installed (mirror unreachable); installing the browser only"; \
                  pnpm --filter @itrms/web exec playwright install chromium; }
       - name: The verifier in flight mode (the built app, under its own CSP)
+        if: matrix.shard == 1
         run: |
           pnpm turbo run build --filter=@itrms/verify
           pnpm --filter @itrms/verify e2e
       - name: Journeys
-        run: pnpm --filter @itrms/web e2e
+        run: pnpm --filter @itrms/web e2e --shard=${{ matrix.shard }}/3
       - if: failure()
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: e2e-results
+          name: e2e-results-${{ matrix.shard }}
           path: |
             apps/web/test-results
             apps/verify/test-results

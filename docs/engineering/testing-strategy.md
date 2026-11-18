@@ -34,5 +34,7 @@ What is tested where, with which data, and what blocks a merge. It refines ADR-0
 
 ## 3. CI pipeline (per PR)
 install (pnpm cache) → lint + typecheck + dependency-cruiser → unit + component → integration + isolation matrix
-(Testcontainers) → migrations from zero → contract tests → build → e2e smoke → security scans (gitleaks, Trivy, Semgrep) →
-i18n check → licence report (artefact). The full e2e, load and upgrade tests run nightly and on release candidates.
+(Testcontainers) → migrations from zero → contract tests → build → e2e journeys → security scans (gitleaks, Trivy, Semgrep) →
+i18n check → licence report (artefact). Every e2e journey runs on every PR, in three parallel shards: each shard has its own dev
+stack and demo, and runs a third of the journey files (Playwright splits by file), so a journey never depends on another file's
+data. Load and upgrade tests run nightly and on release candidates.
