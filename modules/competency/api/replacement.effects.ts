@@ -1,8 +1,8 @@
 /**
  * The effects the replacement's workflow names (task 1.5, DVC-06). Each runs inside the transition's transaction; one that fails
  * undoes the step. The rules are in ReplacementService; whether the vehicle is encumbered is the vehicles slice's check
- * (`vehicles.checkEncumbrances:replacement`), named beside the libre's steps and checked at filing by the service for a libre. The
- * plate's effect comes with 1.5c.
+ * (`vehicles.checkEncumbrances:replacement`), named beside the libre's and the plate's steps and checked at filing by the service
+ * for those two.
  */
 import { Inject, Injectable } from '@nestjs/common';
 import { Effect, type EffectRun, type WorkflowEffect } from '@itrms/kernel/effects';
@@ -86,10 +86,29 @@ export class ReplaceBoloStickerEffect implements WorkflowEffect {
     }
 }
 
+/**
+ * The vehicle takes a new national plate and the old one ends lost, stolen or damaged; the documents that print the plate are
+ * issued again. It reads the step's own answers (the plate handed over, if not the one held for the case), as the exchange does.
+ */
+@Injectable()
+// the vehicle's holds are checked in the same transaction, just before: a version without it is not published
+@Effect(X.replacePlate, {
+    givesService: true,
+    requiresBefore: [`${ENCUMBRANCE_EFFECTS.checkEncumbrances}:replacement`]
+})
+export class ReplacePlateEffect implements WorkflowEffect {
+    constructor(@Inject(ReplacementService) private readonly replacement: ReplacementService) {}
+
+    async run(run: EffectRun) {
+        return { facts: await this.replacement.replacePlate(run.tx, placeOf(run), run.facts, run.input) };
+    }
+}
+
 /** Every effect of the service, for the module and for the slice's `effects` list. */
 export const REPLACEMENT_EFFECTS_LIST = [
     CheckReplacementEffect,
     CheckReplacementNoticeEffect,
     ReplaceLibreEffect,
-    ReplaceBoloStickerEffect
+    ReplaceBoloStickerEffect,
+    ReplacePlateEffect
 ] as const;

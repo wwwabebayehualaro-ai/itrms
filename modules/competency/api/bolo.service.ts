@@ -7,7 +7,7 @@
  * sticker is given, the owners' reminder is scheduled for a set number of days before the bolo's last day.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, isNull, ne } from 'drizzle-orm';
+import { and, desc, eq, gte, isNull, ne } from 'drizzle-orm';
 import { currentContext } from '@itrms/kernel/context';
 import { insertAudited, type Tx, updateAudited } from '@itrms/kernel/db';
 import { ConflictError, ValidationError } from '@itrms/kernel/errors';
@@ -433,6 +433,55 @@ export class BoloService {
     }
 
     /**
+     * The vehicle's bolo document (its sticker's, or a temporary bolo's while it stands), issued again because the plate it prints
+     * changed (task 1.5c, ADR-0062). Another office's document is not this office's to reissue (as for a sticker, until a
+     * cross-office command exists): it is left, and named so that the case can tell the owner where to have it reprinted.
+     */
+    async reissueForPlate(
+        tx: Tx,
+        place: CasePlace,
+        vehicleId: string
+    ): Promise<{ template: string; documentId: string } | { left: { boloId: string; officeId: string } } | undefined> {
+        const today = addisDay();
+        const inForce = await tx
+            .select()
+            .from(bolos)
+            .where(and(eq(bolos.vehicleId, vehicleId), ne(bolos.status, 'void'), gte(bolos.validUntil, today)))
+            .orderBy(desc(bolos.validUntil));
+        const bolo = inForce.find(
+            (b) =>
+                (b.status === 'valid' && b.stickerKey !== null) ||
+                (b.status === 'temporary' && (b.temporaryUntil ?? '') >= today)
+        );
+        if (!bolo) return undefined;
+        if (bolo.handlingUnitId !== place.handlingUnitId)
+            return { left: { boloId: bolo.id, officeId: bolo.handlingUnitId } };
+        if (bolo.status === 'valid' && bolo.stickerKey !== null)
+            return {
+                template: BOLO_TEMPLATE,
+                documentId: (await this.document(tx, place, bolo, BOLO_TEMPLATE, bolo.stickerKey)).id
+            };
+        // a temporary bolo keeps the number it was given
+        const [standing] = await tx
+            .select({ number: issuedDocuments.number })
+            .from(issuedDocuments)
+            .innerJoin(documentTemplates, eq(documentTemplates.id, issuedDocuments.templateId))
+            .where(
+                and(
+                    eq(documentTemplates.key, TEMPORARY_BOLO_TEMPLATE),
+                    eq(issuedDocuments.subjectId, bolo.id),
+                    isNull(issuedDocuments.supersededBy),
+                    isNull(issuedDocuments.revokedAt)
+                )
+            );
+        if (!standing?.number) return undefined;
+        return {
+            template: TEMPORARY_BOLO_TEMPLATE,
+            documentId: (await this.document(tx, place, bolo, TEMPORARY_BOLO_TEMPLATE, standing.number)).id
+        };
+    }
+
+    /**
      * A temporary bolo while the office has no sticker of the vehicle's kind and year (refused while it has one): numbered from
      * the office's counter, it stands for the office's `competency.bolo_temporary_days` (30 by default), never past the bolo's own
      * last day. Issued once: run again it returns the same one; once the sticker is given it is refused.
@@ -577,7 +626,19 @@ export class BoloService {
     /** The bolo document (or the temporary one) as the bolo and the vehicle now stand. */
     private async document(tx: Tx, place: CasePlace, bolo: Bolo, templateKey: string, number: string) {
         const vehicle = await this.vehicles.get(tx, bolo.vehicleId);
-        const language = currentContext()?.language === 'en' ? 'en' : 'am';
+        // issued again, it keeps its first language: an officer reading in another language changes nothing on it
+        const [standing] = await tx
+            .select({ language: issuedDocuments.language })
+            .from(issuedDocuments)
+            .innerJoin(documentTemplates, eq(documentTemplates.id, issuedDocuments.templateId))
+            .where(
+                and(
+                    eq(documentTemplates.key, templateKey),
+                    eq(issuedDocuments.subjectId, bolo.id),
+                    isNull(issuedDocuments.supersededBy)
+                )
+            );
+        const language = (standing?.language ?? currentContext()?.language) === 'en' ? 'en' : 'am';
         return this.documents.reissue(tx, {
             regionId: place.regionId,
             handlingUnitId: place.handlingUnitId,

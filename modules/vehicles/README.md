@@ -29,7 +29,11 @@ facts: made in, engine HP, cylinders, length, width and height (mm), tyre size a
 **Libre replacement (task 1.5, ADR-0062).** `replaceLibre` takes the libre in force out of force as `lost` (a lost or stolen one) or
 `replaced` (a damaged one) and issues the same owners' new libre, pointing at it, with no number until its booklet. The libre in
 force must have its booklet (`vehicles.errors.libre_without_booklet`); a case that asks again gets the libre it made. A plate period
-may now also end `stolen` or `damaged` (migration 0092; the plate replacement is task 1.5c).
+may now also end `stolen` or `damaged` (migration 0092). Task 1.5c uses them for a plate replacement: the plate's stock row reads
+`lost` for an assignment ended `lost` or `stolen`, `retired` for `damaged` (handed in) and for the other reasons; an old regional
+plate has no stock row. `vehicles.supersede_libre_certificate(libre, template, new_document)` (migration 0093) supersedes the
+standing certificate of the caller's own libre in force across the issuing office's scope, only for a person and only to a document
+id not yet used, which the caller issues in the same transaction.
 
 **Plate exchange (task 1.2c).** A plate period that ends for another points at the period that replaced it
 (`plate_assignments.replaced_by_id`, a deferred key on the same vehicle in migration 0072, backfilled for the plates already

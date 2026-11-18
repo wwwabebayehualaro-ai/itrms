@@ -4,7 +4,7 @@
  * notice, the case waits out the notice period (15 days), is paid, approved and replaced: the old libre reads lost, the new one
  * points at it and is written in a booklet from the office's stock, and the old certificate reads superseded. A damaged libre skips
  * the notice. The refusals, the holds, the claim against other requests for the vehicle, a step run twice and who sees the row.
- * Names, chassis numbers and plates are generated.
+ * Names, chassis numbers and plates are generated. A plate (task 1.5c) is replaced by a new national plate from the stock.
  */
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -27,9 +27,13 @@ import { importFeeRules, importStationeryDemo, parseFeeRules } from '@itrms/fees
 import { createDatabase, type Database, type DbContext } from '@itrms/kernel/db';
 import { contextFor, TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import type { OrgUnit } from '@itrms/kernel/org';
-import { VehicleRegistry } from '@itrms/vehicles/api';
-import { vinCheckDigit } from '@itrms/vehicles/contracts';
-import { importVehicleCategories, setUpRegistrationCertificateCounters } from '@itrms/vehicles/seed';
+import { PlateStock, VehicleRegistry } from '@itrms/vehicles/api';
+import { nationalPlateText, vinCheckDigit } from '@itrms/vehicles/contracts';
+import {
+    importPlateStockDemo,
+    importVehicleCategories,
+    setUpRegistrationCertificateCounters
+} from '@itrms/vehicles/seed';
 import type { CaseOut } from '@itrms/workflow/contracts';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -340,6 +344,8 @@ beforeAll(async () => {
     });
     // Boditi holds libre booklets handed down from the zone (the demo's stationery)
     expect(await importStationeryDemo(api.installer, 'SER', api.http.get(StationeryStock), today())).not.toBeNull();
+    // and national plates (the demo's plate stock), which a replaced plate is given from
+    expect(await importPlateStockDemo(api.installer, 'SER', api.http.get(PlateStock), today())).not.toBeNull();
     const person = await api.call('POST', '/api/v1/persons', as.officer, {
         nameAm: { given: 'ባለቤት', father: 'ምትክ', grandfather: 'ታደሰ' },
         nameEn: { given: 'Sample', father: 'Replacement', grandfather: 'Person' },
@@ -762,7 +768,7 @@ describe('the zone acting for the office', () => {
 async function withBolo(
     unit: OrgUnit,
     vehicleId: string,
-    more: { status?: string; validUntil?: string; fiscalYear?: number } = {}
+    more: { status?: string; validUntil?: string; fiscalYear?: number; language?: 'am' | 'en' } = {}
 ) {
     const validity = boloValidity(today());
     const status = more.status ?? 'valid';
@@ -797,7 +803,7 @@ async function withBolo(
             regionId: unit.regionId,
             handlingUnitId: unit.id,
             templateKey: 'vehicle-bolo',
-            language: 'am',
+            language: more.language ?? 'am',
             number: sticker,
             subject: { table: 'competency.bolos', id },
             data: {
@@ -818,6 +824,40 @@ async function withBolo(
         })
     );
     return { id, sticker, documentId: document.id, fiscalYear, validUntil };
+}
+
+/** The temporary bolo's own document for a bolo `withBolo` made as temporary (it prints the same facts as the bolo's). */
+async function temporaryDocument(
+    unit: OrgUnit,
+    bolo: { id: string; sticker: string; validUntil: string; fiscalYear: number }
+) {
+    const ctx: DbContext = { ...contextFor(unit), requestId: `seed-${randomUUID()}` };
+    const number = `${unit.code}/TB/${randomInt(100000, 999999)}`;
+    return app.scoped(ctx, (tx) =>
+        documents.reissue(tx, {
+            regionId: unit.regionId,
+            handlingUnitId: unit.id,
+            templateKey: 'vehicle-temporary-bolo',
+            language: 'am',
+            number,
+            subject: { table: 'competency.bolos', id: bolo.id },
+            data: {
+                number,
+                plate: 'SN 2-00000',
+                chassisNumber: 'CHASSIS0000000001',
+                make: 'Toyota',
+                model: 'Corolla',
+                category: { am: 'አውቶሞቢል', en: 'Automobile' },
+                use: { am: 'የግል', en: 'Private' },
+                checklistSerial: 'LV-1',
+                inspectedOn: daysAfter(today(), -30),
+                fiscalYear: bolo.fiscalYear,
+                validUntil: bolo.validUntil,
+                temporaryUntil: bolo.validUntil,
+                insurance: { certificate: 'INS-1', insurer: 'Sample Insurance S.C.', until: bolo.validUntil }
+            }
+        })
+    );
 }
 
 const lostBolo = (vehicle: string, more: Record<string, unknown> = {}) => ({
@@ -1093,5 +1133,449 @@ describe('a bolo sticker replacement, after review', () => {
         ).rejects.toThrow();
         expect(await libresOf(other.id)).toHaveLength(1);
         expect(await rowOf(libre.id)).toBeUndefined();
+    }, 300_000);
+});
+
+// ---- the plate (task 1.5c)
+
+const policeLetter = () => ({
+    policeReportReference: `PL-${randomInt(1000, 9999)}`,
+    policeReportOn: daysAfter(today(), -3)
+});
+const platePlea = (
+    vehicle: string,
+    reason: 'lost' | 'stolen' | 'damaged' = 'lost',
+    more: Record<string, unknown> = {}
+) => ({
+    vehicle,
+    item: 'plate',
+    reason,
+    use: 'private',
+    ...(reason === 'damaged' ? { oldItemHandedIn: true } : policeLetter()),
+    ...more
+});
+
+/** Filed, checked, paid and approved: a plate of the office's stock is held and the officer hands it over next. */
+async function atPlate(answers: Record<string, unknown>): Promise<CaseOut> {
+    let c = await moved(await file(SERVICE, answers), as.officer, 'submit');
+    c = await moved(c, as.officer, 'approve');
+    expect(c.state).toBe('payment');
+    await paid(c);
+    c = await caseOf(c.id);
+    expect(c.state).toBe('approval');
+    c = await moved(c, as.lead, 'approve');
+    expect(c.state).toBe('plate');
+    return c;
+}
+
+/** A vehicle of Boditi already on a national plate from the stock, as a registration would have left it. */
+async function onNational(unit: OrgUnit = boditi, certUnit: OrgUnit = unit) {
+    const vehicle = await onTheRoad(unit, true, certUnit);
+    const ctx: DbContext = { ...contextFor(unit), requestId: `seed-${randomUUID()}` };
+    const given = await app.scoped(ctx, (tx) => registry.assignStockPlate(tx, ctx, vehicle.id, { since: today() }));
+    return { ...vehicle, plateKey: given.key };
+}
+
+const plateRows = (vehicleId: string) =>
+    query<{
+        id: string;
+        plate_key: string;
+        format: string;
+        ended_reason: string | null;
+        until: string | null;
+        plate_id: string | null;
+        replaced_by_id: string | null;
+    }>(
+        `select id, plate_key, format, ended_reason, until::text as until, plate_id, replaced_by_id
+           from vehicles.plate_assignments where vehicle_id = $1 order by created_at`,
+        [vehicleId]
+    );
+const stockOf = async (key: string) =>
+    (
+        await query<{ status: string; end_reason: string | null; vehicle_id: string | null; case_id: string | null }>(
+            'select status, end_reason, vehicle_id, case_id from vehicles.plates where plate_key = $1',
+            [key]
+        )
+    )[0];
+const heldFor = async (caseId: string) =>
+    (await query<{ plate_key: string }>('select plate_key from vehicles.plates where case_id = $1', [caseId]))[0]
+        ?.plate_key;
+const certificateData = (libreId: string) =>
+    query<{ id: string; number: string | null; superseded_by: string | null; plate: string | null }>(
+        `select d.id, d.number, d.superseded_by, d.data->>'plate' as plate from documents.issued_documents d
+           join documents.document_templates t on t.id = d.template_id
+          where d.subject_id = $1 and t.key = 'vehicle-registration-certificate' order by d.created_at`,
+        [libreId]
+    );
+
+describe('a lost, stolen or damaged plate', () => {
+    const factsOf = async (caseId: string) =>
+        (await query<{ facts: Record<string, unknown> }>('select facts from workflow.cases where id = $1', [caseId]))[0]
+            ?.facts ?? {};
+    const placeOf = (caseId: string) => {
+        const ctx: DbContext = { ...contextFor(boditi), requestId: `rpl-${randomUUID()}` };
+        return { ctx, place: { caseId, regionId: boditi.regionId, handlingUnitId: boditi.id, ctx } };
+    };
+
+    it('charges the replacement fee and the plate’s own price (demo amounts)', async () => {
+        const shown = await api.call('POST', '/api/v1/fees/preview', as.officer, {
+            serviceCode: SERVICE,
+            answers: { item: 'plate', use: 'private' }
+        });
+        expect(shown.statusCode, shown.body).toBe(200);
+        expect(shown.json<{ totalSantim: string }>().totalSantim).toBe('616100');
+    });
+
+    it('gives a new national plate from the stock for a lost one: the old ends lost and reads lost in the stock, documents reissued', async () => {
+        const vehicle = await onNational();
+        const bolo = await withBolo(boditi, vehicle.id);
+        const c = await atPlate(platePlea(vehicle.id));
+        const held = await heldFor(c.id);
+        expect(held).toBeTruthy();
+        const replacing = await step(c, as.officer, { action: 'replace_plate', answers: {} });
+        expect(replacing.statusCode, replacing.body).toBe(200);
+        expect(replacing.json<CaseOut>().state).toBe('replaced');
+
+        const rows = await plateRows(vehicle.id);
+        const old = rows.find((r) => r.plate_key === vehicle.plateKey);
+        const fresh = rows.find((r) => r.until === null);
+        expect(fresh?.plate_key).toBe(held);
+        expect(fresh?.plate_key).not.toBe(vehicle.plateKey);
+        expect(old).toMatchObject({ ended_reason: 'lost', until: today(), replaced_by_id: fresh?.id });
+        expect(await stockOf(vehicle.plateKey)).toMatchObject({ status: 'lost', end_reason: 'lost' });
+        expect(await stockOf(held ?? '')).toMatchObject({ status: 'assigned', vehicle_id: vehicle.id });
+
+        const row = await rowOf(c.id);
+        expect(row).toMatchObject({
+            item: 'plate',
+            reason: 'lost',
+            old_plate_assignment_id: old?.id,
+            new_plate_assignment_id: fresh?.id,
+            replaced_on: today()
+        });
+        const text = nationalPlateText(held ?? '');
+        const [oldCert, standing] = await certificateData(vehicle.libreId);
+        expect(oldCert?.superseded_by).toBe(standing?.id);
+        expect(standing).toMatchObject({ number: oldCert?.number, plate: text, superseded_by: null });
+        const [oldBolo, standingBolo] = await boloDocuments(bolo.id);
+        expect(oldBolo?.superseded_by).toBe(standingBolo?.id);
+        expect(standingBolo?.number).toBe(bolo.sticker);
+        expect(await auditOf(requestIdOf(replacing))).toMatchObject({
+            'vehicles.plate_assignments:insert': 1,
+            'vehicles.plate_assignments:update': 1,
+            // the old plate closes and the new one is taken
+            'vehicles.plates:update': 2,
+            'competency.replacements:insert': 1,
+            'competency.replacements:update': 1
+        });
+    }, 300_000);
+
+    it('ends a stolen plate stolen (lost in the stock) and a damaged one damaged (retired in the stock, handed in)', async () => {
+        const stolen = await onNational();
+        const a = await atPlate(platePlea(stolen.id, 'stolen'));
+        await moved(a, as.officer, 'replace_plate', { answers: {} });
+        expect((await plateRows(stolen.id)).find((r) => r.plate_key === stolen.plateKey)?.ended_reason).toBe('stolen');
+        expect(await stockOf(stolen.plateKey)).toMatchObject({ status: 'lost', end_reason: 'stolen' });
+
+        const broken = await onNational();
+        const b = await atPlate(platePlea(broken.id, 'damaged'));
+        await moved(b, as.officer, 'replace_plate', { answers: {} });
+        expect((await plateRows(broken.id)).find((r) => r.plate_key === broken.plateKey)?.ended_reason).toBe('damaged');
+        expect(await stockOf(broken.plateKey)).toMatchObject({ status: 'retired', end_reason: 'damaged' });
+    }, 300_000);
+
+    it('gives a national plate for a lost old regional plate, which has no stock row', async () => {
+        const vehicle = await onTheRoad(boditi);
+        const c = await atPlate(platePlea(vehicle.id));
+        await moved(c, as.officer, 'replace_plate', { answers: {} });
+        const rows = await plateRows(vehicle.id);
+        const old = rows.find((r) => r.format === 'legacy');
+        const fresh = rows.find((r) => r.until === null);
+        expect(old).toMatchObject({ ended_reason: 'lost', plate_id: null, replaced_by_id: fresh?.id });
+        expect(fresh?.format).toBe('national');
+        expect(await stockOf(old?.plate_key ?? '')).toBeUndefined();
+    }, 300_000);
+
+    it('is refused for a special plate, and for a request without the police letter', async () => {
+        const vehicle = await onTheRoad(boditi);
+        const ctx: DbContext = { ...contextFor(boditi), requestId: `seed-${randomUUID()}` };
+        await app.scoped(ctx, (tx) =>
+            registry.recordPlate(tx, ctx, vehicle.id, {
+                text: `CD ${randomInt(1000, 9999)}`,
+                source: 'legacy',
+                since: today()
+            })
+        );
+        const special = await tried(await file(SERVICE, platePlea(vehicle.id)), as.officer, 'submit');
+        expect(special.status).toBe(422);
+        expect(special.body.errors?.[0]).toMatchObject({ path: 'vehicle', code: 'special_plate' });
+
+        const other = await onTheRoad(boditi);
+        const noLetter = await tried(
+            await file(SERVICE, platePlea(other.id, 'lost', { policeReportReference: '' })),
+            as.officer,
+            'submit'
+        );
+        expect(noLetter.status).toBe(422);
+        expect(noLetter.body.errors?.[0]).toMatchObject({ code: 'police_report' });
+    }, 300_000);
+
+    it('is stopped by a hold at filing and at the step, and the plate stays', async () => {
+        const held = await onTheRoad(boditi);
+        expect((await hold(held.id)).statusCode).toBe(201);
+        const refused = await tried(await file(SERVICE, platePlea(held.id)), as.officer, 'submit');
+        expect(refused.status).toBe(422);
+        expect(refused.body.errors?.[0]).toMatchObject({ path: 'vehicle', code: 'encumbered' });
+
+        const vehicle = await onTheRoad(boditi);
+        const c = await atPlate(platePlea(vehicle.id));
+        expect((await hold(vehicle.id)).statusCode).toBe(201);
+        const stopped = await tried(c, as.officer, 'replace_plate', { answers: {} });
+        expect(stopped.status).toBe(422);
+        expect(stopped.body.errors?.[0]).toMatchObject({ path: 'vehicle', code: 'encumbered' });
+        expect((await caseOf(c.id)).state).toBe('plate');
+        expect((await plateRows(vehicle.id)).filter((r) => r.until === null)).toHaveLength(1);
+        expect((await plateRows(vehicle.id))[0]?.ended_reason).toBeNull();
+    }, 300_000);
+
+    it('gives the held plate back to the stock when it is rejected after approval', async () => {
+        const vehicle = await onTheRoad(boditi);
+        const c = await atPlate(platePlea(vehicle.id));
+        const held = await heldFor(c.id);
+        await moved(c, as.officer, 'reject', { comment: 'The owner did not bring the police letter.' });
+        expect(await stockOf(held ?? '')).toEqual({
+            status: 'in_stock',
+            end_reason: null,
+            vehicle_id: null,
+            case_id: null
+        });
+    }, 300_000);
+
+    it('only reads when the step is run again, and keeps the plate the case gave', async () => {
+        const vehicle = await onNational();
+        const c = await atPlate(platePlea(vehicle.id));
+        await moved(c, as.officer, 'replace_plate', { answers: {} });
+        const before = await plateRows(vehicle.id);
+        const certs = await certificateData(vehicle.libreId);
+        const { ctx, place } = placeOf(c.id);
+        const again = await app.scoped(ctx, async (tx) => replacement.replacePlate(tx, place, await factsOf(c.id), {}));
+        expect(again.plate.key).toBe(before.find((r) => r.until === null)?.plate_key);
+        expect(await plateRows(vehicle.id)).toEqual(before);
+        expect(await certificateData(vehicle.libreId)).toEqual(certs);
+    }, 300_000);
+
+    it('keeps the plate step off a libre case and the libre step off a plate case', async () => {
+        const vehicle = await onTheRoad(boditi);
+        const plate = await atPlate(platePlea(vehicle.id));
+        const onPlate = placeOf(plate.id);
+        await expect(
+            app.scoped(onPlate.ctx, async (tx) =>
+                replacement.replaceLibre(tx, onPlate.place, await factsOf(plate.id), undefined)
+            )
+        ).rejects.toThrow();
+        const other = await onTheRoad(boditi);
+        const libre = await atLibre(damaged(other.id));
+        const onLibre = placeOf(libre.id);
+        await expect(
+            app.scoped(onLibre.ctx, async (tx) =>
+                replacement.replacePlate(tx, onLibre.place, await factsOf(libre.id), {})
+            )
+        ).rejects.toThrow();
+        expect((await plateRows(other.id)).filter((r) => r.until === null)).toHaveLength(1);
+        expect(await rowOf(libre.id)).toBeUndefined();
+    }, 300_000);
+
+    it('does not replace a plate that changed since the request was checked', async () => {
+        const vehicle = await onTheRoad(boditi);
+        const c = await atPlate(platePlea(vehicle.id));
+        const ctx: DbContext = { ...contextFor(boditi), requestId: `seed-${randomUUID()}` };
+        await app.scoped(ctx, (tx) =>
+            registry.recordPlate(tx, ctx, vehicle.id, {
+                text: `SN 2-${randomInt(10000, 99999)}`,
+                source: 'legacy',
+                since: today()
+            })
+        );
+        const refused = await tried(c, as.officer, 'replace_plate', { answers: {} });
+        expect(refused.status).toBe(409);
+        expect((await caseOf(c.id)).state).toBe('plate');
+    }, 300_000);
+
+    it('refuses a vehicle that is no longer on the register at the step, and gives the held plate back on reject', async () => {
+        const vehicle = await onTheRoad(boditi);
+        const c = await atPlate(platePlea(vehicle.id));
+        const held = await heldFor(c.id);
+        await api.owner.query(`update vehicles.vehicles set status = 'stolen' where id = $1`, [vehicle.id]);
+        const refused = await tried(c, as.officer, 'replace_plate', { answers: {} });
+        expect(refused.status).toBe(409);
+        expect((await plateRows(vehicle.id)).filter((r) => r.until === null)).toHaveLength(1);
+        expect((await plateRows(vehicle.id))[0]?.ended_reason).toBeNull();
+        expect(await rowOf(c.id)).toBeUndefined();
+        await moved(c, as.officer, 'reject', { comment: 'The vehicle was reported stolen.' });
+        expect((await stockOf(held ?? ''))?.status).toBe('in_stock');
+    }, 300_000);
+
+    it('reissues the bolo document in its own language, and a temporary bolo’s document with its number', async () => {
+        const vehicle = await onNational();
+        const bolo = await withBolo(boditi, vehicle.id, { language: 'en' });
+        await moved(await atPlate(platePlea(vehicle.id)), as.officer, 'replace_plate', { answers: {} });
+        const [, standing] = await query<{ language: string; plate: string | null; number: string | null }>(
+            `select d.language, d.data->>'plate' as plate, d.number from documents.issued_documents d
+               join documents.document_templates t on t.id = d.template_id
+              where d.subject_id = $1 and t.key = 'vehicle-bolo' order by d.created_at`,
+            [bolo.id]
+        );
+        expect(standing?.language).toBe('en');
+        expect(standing?.plate).not.toBe('SN 2-00000');
+
+        const other = await onNational();
+        const temporary = await withBolo(boditi, other.id, { status: 'temporary' });
+        const first = await temporaryDocument(boditi, temporary);
+        await moved(await atPlate(platePlea(other.id)), as.officer, 'replace_plate', { answers: {} });
+        const docs = await query<{
+            id: string;
+            number: string | null;
+            superseded_by: string | null;
+            plate: string | null;
+        }>(
+            `select d.id, d.number, d.superseded_by, d.data->>'plate' as plate from documents.issued_documents d
+               join documents.document_templates t on t.id = d.template_id
+              where d.subject_id = $1 and t.key = 'vehicle-temporary-bolo' order by d.created_at`,
+            [temporary.id]
+        );
+        expect(docs).toHaveLength(2);
+        expect(docs[0]).toMatchObject({ id: first.id, superseded_by: docs[1]?.id });
+        expect(docs[1]).toMatchObject({ number: first.number, superseded_by: null });
+        expect(docs[1]?.plate).not.toBe('SN 2-00000');
+    }, 300_000);
+
+    it('supersedes the certificate another office issued, keeping its number, and leaves a bolo document of another office', async () => {
+        // Damot Gale issued the certificate and the bolo; Boditi handles the vehicle now
+        const vehicle = await onNational(boditi, damot);
+        const bolo = await withBolo(damot, vehicle.id);
+        const [first] = await certificateData(vehicle.libreId);
+        const c = await atPlate(platePlea(vehicle.id));
+        await moved(c, as.officer, 'replace_plate', { answers: {} });
+        const [old, standing] = await certificateData(vehicle.libreId);
+        expect(old?.id).toBe(first?.id);
+        expect(old?.superseded_by).toBe(standing?.id);
+        expect(standing).toMatchObject({ number: first?.number, superseded_by: null });
+        expect(standing?.plate).toBe(
+            nationalPlateText((await plateRows(vehicle.id)).find((r) => r.until === null)?.plate_key ?? '')
+        );
+        expect(
+            (
+                await query<{ n: number }>(
+                    `select count(*)::int as n from kernel.audit_log where event_type = 'documents.superseded_across' and row_id = $1`,
+                    [old?.id]
+                )
+            )[0]?.n
+        ).toBe(1);
+        // the bolo document is Damot Gale's: left as it was, still standing
+        const docs = await boloDocuments(bolo.id);
+        expect(docs).toHaveLength(1);
+        expect(docs[0]?.superseded_by).toBeNull();
+        // and the case says so, for the owner
+        const left = (await factsOf(c.id)).replacement as Record<string, unknown>;
+        expect(left.boloDocumentLeft).toEqual({ boloId: bolo.id, officeId: damot.id });
+        expect(left.notices).toEqual(['competency.notice.replacementBoloElsewhere']);
+    }, 300_000);
+});
+
+/** What the reviewed command answers, or why it refused (the database's message, down the cause chain). */
+async function supersede(ctx: DbContext, args: { libre: string; document: string }) {
+    try {
+        const rows = await app.scoped({ ...ctx, requestId: `sup-${randomUUID()}` }, async (tx) =>
+            tx.execute<{ o_document: string | null }>(
+                sql`select * from vehicles.supersede_libre_certificate(${args.libre}::uuid,
+                        'vehicle-registration-certificate', ${args.document}::uuid)`
+            )
+        );
+        return { id: rows.rows[0]?.o_document ?? null, refused: '' };
+    } catch (error) {
+        const messages: string[] = [];
+        for (let e: unknown = error; e; e = (e as { cause?: unknown }).cause)
+            messages.push(String((e as Error).message));
+        return { id: null, refused: messages.join(' | ') };
+    }
+}
+
+describe('the reviewed command that supersedes a libre’s certificate (task 1.5c)', () => {
+    it('is refused with no context, for a libre out of reach, a libre not in force and an id already used', async () => {
+        const vehicle = await onTheRoad(boditi);
+        const boditiCtx = contextFor(boditi);
+        expect((await supersede({}, { libre: vehicle.libreId, document: randomUUID() })).refused).toMatch(
+            /superseded by a person/
+        );
+        expect(
+            (await supersede(contextFor(damot), { libre: vehicle.libreId, document: randomUUID() })).refused
+        ).toMatch(/not one of an office of the caller/);
+        expect(
+            (await supersede(boditiCtx, { libre: vehicle.libreId, document: vehicle.certificateId })).refused
+        ).toMatch(/takes an id not used before/);
+        // a libre replaced is out of force
+        const done = await moved(await atLibre(damaged(vehicle.id)), as.officer, 'replace_libre');
+        expect(done.state).toBe('booklet');
+        expect((await supersede(boditiCtx, { libre: vehicle.libreId, document: randomUUID() })).refused).toMatch(
+            /is not in force/
+        );
+    }, 300_000);
+
+    it('refuses a certificate superseded by an unrelated document at commit, and the old one stays standing', async () => {
+        const vehicle = await onTheRoad(boditi, true, damot);
+        const other = await withBolo(boditi, (await onTheRoad(boditi)).id);
+        const id = randomUUID();
+        const ctx: DbContext = { ...contextFor(boditi), requestId: `sup-${randomUUID()}` };
+        const refused = await app
+            .scoped(ctx, async (tx) => {
+                await tx.execute(
+                    sql`select * from vehicles.supersede_libre_certificate(${vehicle.libreId}::uuid,
+                            'vehicle-registration-certificate', ${id}::uuid)`
+                );
+                // a bolo document under the new id: not a certificate of this libre
+                await documents.issue(tx, {
+                    id,
+                    regionId: boditi.regionId,
+                    handlingUnitId: boditi.id,
+                    templateKey: 'vehicle-bolo',
+                    language: 'am',
+                    number: 'X-1',
+                    subject: { table: 'competency.bolos', id: randomUUID() },
+                    data: {
+                        number: 'X-1',
+                        plate: 'SN 2-00000',
+                        chassisNumber: 'CHASSIS0000000001',
+                        make: 'Toyota',
+                        model: 'Corolla',
+                        category: { am: 'አውቶሞቢል', en: 'Automobile' },
+                        use: { am: 'የግል', en: 'Private' },
+                        checklistSerial: 'LV-1',
+                        inspectedOn: daysAfter(today(), -30),
+                        fiscalYear: other.fiscalYear,
+                        validUntil: other.validUntil,
+                        temporaryUntil: null,
+                        insurance: { certificate: 'INS-1', insurer: 'Sample Insurance S.C.', until: other.validUntil }
+                    }
+                });
+            })
+            .then(
+                () => '',
+                (error: unknown) => {
+                    const messages: string[] = [];
+                    for (let e: unknown = error; e; e = (e as { cause?: unknown }).cause)
+                        messages.push(String((e as Error).message));
+                    return messages.join(' | ');
+                }
+            );
+        expect(refused).toMatch(/not its successor/);
+        expect((await certificateData(vehicle.libreId))[0]?.superseded_by).toBeNull();
+    }, 300_000);
+
+    it('supersedes another office’s certificate only when a document with the new id follows, else the deferred key undoes it', async () => {
+        const vehicle = await onTheRoad(boditi, true, damot);
+        // no document is issued with that id: the transaction cannot commit
+        const result = await supersede(contextFor(boditi), { libre: vehicle.libreId, document: randomUUID() });
+        expect(result.refused).toMatch(/foreign key|superseded_by|not its successor/i);
+        expect((await certificateData(vehicle.libreId))[0]?.superseded_by).toBeNull();
     }, 300_000);
 });

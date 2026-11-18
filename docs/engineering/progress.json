@@ -2097,12 +2097,12 @@
         {
           "id": "1.5c",
           "title": "Replacements, part 3: a plate",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/1.5c-plate-replacement",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": "Split from 1.5 on 2026-11-18 (architect; ADR-0062). item gains plate (form and flow version); approval reserves a stock plate (reserveRegistrationPlate); replacePlate: registration.assignPlate with endedReason lost|stolen|damaged (registry.assignStockPlate accepts it), openPlate maps lost|stolen to stock lost and damaged to retired; a pair replaced together; the certificate of the libre in force and the current bolo document reissued with the new plate; a legacy plate takes a national plate. Z: MoTL reissuing the same number (default no)."
+          "notes": "Split from 1.5 on 2026-11-18 (architect; ADR-0062). item gains plate (form and flow version); approval reserves a stock plate (reserveRegistrationPlate); replacePlate: registration.assignPlate with endedReason lost|stolen|damaged (registry.assignStockPlate accepts it), openPlate maps lost|stolen to stock lost and damaged to retired; a pair replaced together; the certificate of the libre in force and the current bolo document reissued with the new plate; a legacy plate takes a national plate. Z: MoTL reissuing the same number (default no). 2026-11-19: implemented and pushed (cfd264b, PR #90): plate from stock, old assignment ended lost|stolen|damaged (stock lost|retired), certificate reissued keeping its number, another office's certificate superseded through the reviewed vehicles.supersede_libre_certificate (0093). Verifier: all Done-when met. Review (Fable): no critical/high; being fixed: a deferred constraint trigger checks that a superseded libre certificate's successor is the same libre's (or its replacing libre's) certificate of the same template, audit in the command; the plate step re-checks the vehicle is active; a same-office temporary bolo document reissued, another office's bolo document left with a case notice; the bolo document keeps its language; item-neutral messages."
         },
         {
           "id": "1.12",
@@ -4143,7 +4143,13 @@
     {
       "foundIn": "1.5b",
       "item": "The production-profile CI job's egress container sometimes fails to become healthy within compose --wait (runs 44250858359 and 44361394650; passed on re-run): make its healthcheck reliable",
-      "movedTo": "the CI sharding task"
+      "movedTo": "the CI sharding task",
+      "closedIn": "not fixed by the CI sharding (PR #89, which split the e2e only): moved to its own follow-up"
+    },
+    {
+      "foundIn": "1.5c",
+      "item": "The production-profile CI job's egress container sometimes fails compose --wait (passed on re-run twice): make its healthcheck reliable",
+      "movedTo": "a CI chore"
     }
   ]
 }

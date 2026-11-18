@@ -6,7 +6,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { currentContext } from '@itrms/kernel/context';
-import { recordEvent, type Tx } from '@itrms/kernel/db';
+import { newId, recordEvent, type Tx } from '@itrms/kernel/db';
 import { ConflictError, ValidationError } from '@itrms/kernel/errors';
 import { DocumentsService, documentTemplates, issuedDocuments } from '@itrms/documents/api';
 import { StationeryStock } from '@itrms/fees/api';
@@ -314,7 +314,14 @@ export class VehicleRegistrationService {
      * The reserved plate goes on the vehicle; or, when the counter had to hand over another plate of the office's stock (the
      * reserved one is not at hand), the plate the officer named. The plate not used is free again.
      */
-    async assignPlate(tx: Tx, at: CasePlace, facts: Facts, answers: unknown) {
+    async assignPlate(
+        tx: Tx,
+        at: CasePlace,
+        facts: Facts,
+        answers: unknown,
+        // a replacement ends the plate it replaces as lost, stolen or damaged; an exchange as exchanged
+        opts: { endedReason?: 'lost' | 'stolen' | 'damaged' } = {}
+    ) {
         const place = await actForHandlingOffice(tx, at);
         const vehicleId = factId(facts, 'vehicle');
         const today = addisDay();
@@ -352,7 +359,8 @@ export class VehicleRegistrationService {
         const assigned = await this.registry.assignStockPlate(tx, place.ctx, vehicleId, {
             key,
             caseId: place.caseId,
-            since: today
+            since: today,
+            ...(opts.endedReason ? { endedReason: opts.endedReason } : {})
         });
         return { plate: { id: assigned.plateId, key: assigned.key, text: nationalPlateText(assigned.key) } };
     }
@@ -512,6 +520,55 @@ export class VehicleRegistrationService {
         if (made) return made.document;
         const issued = await this.issueCertificate(tx, place, newLibre, templateKey);
         await this.retireCertificate(tx, place, newLibre.id, templateKey, { supersededBy: issued.id });
+        return issued;
+    }
+
+    /**
+     * The certificate of the libre in force, issued again because the plate it prints changed (task 1.5c). When the standing one
+     * is this office's it is reissued as ever. When it is another office's (the vehicle moved since), this office cannot see it nor
+     * issue a second for the same libre, so the reviewed `vehicles.supersede_libre_certificate` supersedes it by the id of the new
+     * one, which keeps the old number and language, and is issued here under the replacing office.
+     */
+    async reissueCertificate(tx: Tx, place: CasePlace, libre: typeof libres.$inferSelect, templateKey: string) {
+        const [visible] = await tx
+            .select({ id: issuedDocuments.id })
+            .from(issuedDocuments)
+            .innerJoin(documentTemplates, eq(documentTemplates.id, issuedDocuments.templateId))
+            .where(
+                and(
+                    eq(documentTemplates.key, templateKey),
+                    eq(issuedDocuments.subjectId, libre.id),
+                    isNull(issuedDocuments.supersededBy)
+                )
+            );
+        if (visible) return this.issueCertificate(tx, place, libre, templateKey);
+        const id = newId();
+        const { rows } = await tx.execute<{ o_document: string; o_number: string | null; o_language: string }>(
+            sql`select * from vehicles.supersede_libre_certificate(${libre.id}::uuid, ${templateKey}, ${id}::uuid)`
+        );
+        const old = rows[0];
+        // none stands at all: issued as for a first time
+        if (!old) return this.issueCertificate(tx, place, libre, templateKey);
+        const language = old.o_language === 'en' ? 'en' : 'am';
+        const number =
+            old.o_number ?? (await nextNumber(tx, REGISTRATION_CERTIFICATE_COUNTER, place.handlingUnitId)).number;
+        const issued = await this.documents.issue(tx, {
+            id,
+            regionId: place.regionId,
+            handlingUnitId: place.handlingUnitId,
+            templateKey,
+            language,
+            number,
+            caseId: place.caseId,
+            subject: { table: 'vehicles.libres', id: libre.id },
+            data: await this.certificateData(tx, libre, number, language)
+        });
+        await recordEvent(tx, {
+            type: 'documents.superseded_across',
+            table: issuedDocuments,
+            rowId: old.o_document,
+            data: { libreId: libre.id, caseId: place.caseId, supersededBy: issued.id }
+        });
         return issued;
     }
 

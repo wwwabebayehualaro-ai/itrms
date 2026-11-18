@@ -54,6 +54,22 @@ back; no stock refuses the step and the case waits), sets `bolos.sticker_key` (s
 keys on `competency.replacements`, and reissues the `vehicle-bolo` document with the new sticker as its number, so the old QR reads
 superseded. The old sticker's stock item stays `used` (the stock has no status to move a used item to).
 
+**The plate (DVC-06, task 1.5c).** `item` offers `plate` (a new version of the form and the flow). Review → payment (holds checked,
+no notice) → approval (`competency.reserveRegistrationPlate` holds a plate of the office's stock, so the service needs
+`holds_plate_stock`) → `plate` (step form `vehicle-plate-handover`, as DVC-01 and DVC-12) → replaced; a rejection from `plate`
+releases the held plate. Filing needs a plate the vehicle carries now (national or an old regional one; a special plate is
+refused), the police letter (lost, stolen) or the old plate handed in (damaged), and a vehicle with no hold. `competency.replacePlate`
+gives a NEW national plate with a NEW number from the stock (a lost old regional plate also gets a national plate, Directive
+1050/2025) through `VehicleRegistrationService.assignPlate` with `endedReason`: the old assignment ends `lost`, `stolen` or
+`damaged`; in the stock a lost or stolen plate reads `lost`, a damaged one `retired` (handed in); an old regional plate has no stock
+row. A plate key is one pair, so the pair is replaced as a whole and the register holds one number. The vehicle must still carry
+the plate the request was checked with. Then the registration certificate of the libre in force and the bolo document (both print
+the plate) are issued again; run again the step only reads. If the standing certificate was issued by another office (the vehicle
+moved since), the replacing office cannot see it, and cannot issue a second for the same libre (one document of a record stands
+at a time): the reviewed `vehicles.supersede_libre_certificate` (migration 0093) supersedes it by the id of the new one, which keeps
+the old number and language and is issued at once under the replacing office, the change audited as `documents.superseded_across`.
+A bolo document another office issued is left as it was (no cross-office command for it, as for the sticker).
+
 **The ownership transfer (DVC-13, task 1.4b).** Not in the source list: the change of a vehicle's owner (ስም ዝውውር) by sale, gift,
 inheritance, court order or auction, offered wherever DVC-01 is (`holds_stationery`: it issues a libre). The sellers are the
 register's current owners; the request names the buyers. Seeded as configuration (`seed/transfer-service.ts`): the form

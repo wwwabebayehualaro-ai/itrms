@@ -163,11 +163,12 @@ export default defineModule({
         'competency.issueTemporaryBolo',
         'competency.voidBolo',
         'competency.recordBoloRepair',
-        // the replacement of a lost, stolen or damaged libre (task 1.5) and bolo sticker (task 1.5b): the plate's comes with 1.5c
+        // the replacement of a lost, stolen or damaged libre (task 1.5), bolo sticker (task 1.5b) and plate (task 1.5c)
         'competency.checkReplacement',
         'competency.checkReplacementNotice',
         'competency.replaceLibre',
-        'competency.replaceBoloSticker'
+        'competency.replaceBoloSticker',
+        'competency.replacePlate'
     ],
     title: { am: 'የአሽከርካሪና ተሽከርካሪ ብቃት ማረጋገጫ', en: 'Driver and vehicle competency' },
     workProcess: 1,
@@ -300,8 +301,8 @@ export default defineModule({
     // the transfer issues a libre, from the office's stationery (booklets)
     capabilitiesRequired: {
         'DVC-01': ['holds_plate_stock'],
-        // a new libre is written in a booklet from the office's stationery (the plate replacement adds holds_plate_stock, 1.5c)
-        'DVC-06': ['holds_stationery'],
+        // a new libre is written in a booklet and a bolo takes a sticker from the office's stationery; a new plate comes from its plate stock
+        'DVC-06': ['holds_stationery', 'holds_plate_stock'],
         'DVC-12': ['holds_plate_stock'],
         'DVC-13': ['holds_stationery'],
         // the vehicle's stock plate joins the receiving office's stock (task 1.4c)
