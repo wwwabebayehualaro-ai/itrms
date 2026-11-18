@@ -151,7 +151,9 @@ test.describe('the replacement of a lost bolo sticker', () => {
     test('is paid, approved and replaced from the stock: the old bolo document reads superseded', async ({
         request
     }) => {
-        test.setTimeout(900_000);
+        // two journeys (the inspection that gives the bolo, then its replacement): five minutes is ample; a failure must be reported
+        // within the suite's limit, not run it out with its retry
+        test.setTimeout(300_000);
         const { records, cashier, officer, lead } = people;
         const { vehicle, inspection } = await givenItsBolo(people);
 
