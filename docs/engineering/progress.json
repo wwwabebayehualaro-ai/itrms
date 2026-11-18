@@ -2097,10 +2097,19 @@
         {
           "id": "1.5c",
           "title": "Replacements, part 3: a plate",
-          "status": "in progress",
+          "status": "done",
           "branch": "task/1.5c-plate-replacement",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "0428623",
+            "0428623"
+          ],
+          "evidence": [
+            "CI PR #90 run 44386715571: success, all jobs incl. the three e2e shards",
+            "local integration (Docker): vehicle-replacement 43/43 (a lost national plate replaced from stock with a new number, the old assignment ended lost and its stock row lost; stolen and damaged (retired); a lost old regional plate takes a national one; holds refused at filing and at the step; a vehicle stolen after approval refused at replace_plate and reject returns the held plate; a plate changed since filing refused; the certificate reissued keeping its number, one another office issued superseded through vehicles.supersede_libre_certificate, a successor that is not the libre's certificate refused at commit by documents.check_certificate_successor; this office's valid and temporary bolo documents reissued keeping their language, another office's named with a notice; re-run reads only; audit rows), ownership-transfer 37/37, vehicle-registration 20/20, isolation 62/62, bolo 16/16, plate-exchange 10/10, demo 22/22",
+            "turbo typecheck/lint/test competency, vehicles, documents, fees, api, web 18/18; i18n:check complete am/en; boundaries clean; drizzle no drift",
+            "migration 0093 reviewed: SECURITY DEFINER vehicles.supersede_libre_certificate (person, region, scope, libre in force, new id unused; on the isolation allow-list) and the deferred constraint trigger documents.check_certificate_successor",
+            "reviewer (Fable): no critical/high; 2 medium + 3 low fixed; task-verifier: all items met"
+          ],
           "blockers": [],
           "notes": "Split from 1.5 on 2026-11-18 (architect; ADR-0062). item gains plate (form and flow version); approval reserves a stock plate (reserveRegistrationPlate); replacePlate: registration.assignPlate with endedReason lost|stolen|damaged (registry.assignStockPlate accepts it), openPlate maps lost|stolen to stock lost and damaged to retired; a pair replaced together; the certificate of the libre in force and the current bolo document reissued with the new plate; a legacy plate takes a national plate. Z: MoTL reissuing the same number (default no). 2026-11-19: implemented and pushed (cfd264b, PR #90): plate from stock, old assignment ended lost|stolen|damaged (stock lost|retired), certificate reissued keeping its number, another office's certificate superseded through the reviewed vehicles.supersede_libre_certificate (0093). Verifier: all Done-when met. Review (Fable): no critical/high; being fixed: a deferred constraint trigger checks that a superseded libre certificate's successor is the same libre's (or its replacing libre's) certificate of the same template, audit in the command; the plate step re-checks the vehicle is active; a same-office temporary bolo document reissued, another office's bolo document left with a case notice; the bolo document keeps its language; item-neutral messages."
         },
