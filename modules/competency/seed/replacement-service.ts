@@ -153,14 +153,14 @@ export const replacementFlow = (bookletForm: string) => ({
         { key: 'rejected', kind: 'end', label: text('ውድቅ ሆኗል', 'Rejected') }
     ],
     transitions: [
-        { from: 'draft', to: 'review', action: 'submit', effects: [X.checkReplacement] },
+        { from: 'draft', to: 'review', action: 'submit', effects: [X.checkReplacement, ENC] },
         {
             from: 'draft',
             to: 'review',
             action: 'correct',
             label: ACTIONS.correct,
             amendsRequest: true,
-            effects: ['fees.assess', X.checkReplacement]
+            effects: ['fees.assess', X.checkReplacement, ENC]
         },
         { from: 'review', to: 'draft', action: 'return', label: ACTIONS.returnIt, commentRequired: true },
         // a lost or stolen libre waits out its notice; a damaged one goes to payment
@@ -204,7 +204,7 @@ export const replacementFlow = (bookletForm: string) => ({
             action: 'issue_booklet',
             label: text('ደብተሩን ስጥ', 'Issue the booklet'),
             guard: PAID,
-            effects: [R.issueLibreBooklet]
+            effects: [ENC, R.issueLibreBooklet]
         },
         // the vehicle left the register or took another libre while the case waited: closed with the reason, no booklet
         {

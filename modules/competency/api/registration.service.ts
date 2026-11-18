@@ -6,7 +6,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { currentContext } from '@itrms/kernel/context';
-import type { Tx } from '@itrms/kernel/db';
+import { recordEvent, type Tx } from '@itrms/kernel/db';
 import { ConflictError, ValidationError } from '@itrms/kernel/errors';
 import { DocumentsService, documentTemplates, issuedDocuments } from '@itrms/documents/api';
 import { StationeryStock } from '@itrms/fees/api';
@@ -490,44 +490,54 @@ export class VehicleRegistrationService {
     }
 
     /**
-     * The certificate of a libre that replaces another (task 1.5, ADR-0062): the old libre's standing certificate says superseded
-     * and a new one, with a number of its own, documents the new libre. An old libre with none standing (a back-captured one, say)
-     * leaves the new libre's to be issued. Run again it returns the one the new libre has.
+     * The certificate of a libre that replaces another (task 1.5, ADR-0062): a new one, numbered from the replacing office's
+     * counter and issued under it, documents the new libre, and the old libre's standing certificate says superseded. The old one
+     * may be another office's (a vehicle moved by a transfer keeps the certificate its first office issued), so it is retired
+     * through the reviewed `vehicles.retire_libre_certificate`, which finds it whoever issued it. Run again it returns the one the
+     * new libre has.
      */
-    async supersedeCertificate(
+    async supersedeCertificate(tx: Tx, place: CasePlace, newLibre: typeof libres.$inferSelect, templateKey: string) {
+        const [made] = await tx
+            .select({ document: issuedDocuments })
+            .from(issuedDocuments)
+            .innerJoin(documentTemplates, eq(documentTemplates.id, issuedDocuments.templateId))
+            .where(
+                and(
+                    eq(documentTemplates.key, templateKey),
+                    eq(issuedDocuments.subjectId, newLibre.id),
+                    isNull(issuedDocuments.supersededBy),
+                    isNull(issuedDocuments.revokedAt)
+                )
+            );
+        if (made) return made.document;
+        const issued = await this.issueCertificate(tx, place, newLibre, templateKey);
+        await this.retireCertificate(tx, place, newLibre.id, templateKey, { supersededBy: issued.id });
+        return issued;
+    }
+
+    /**
+     * Retires the certificate of the libre `newLibreId` replaces, wherever it was issued: superseded by `supersededBy`, or revoked
+     * with `revokedFor`. The reviewed command checks the caller's scope; the change is audited here, in the same transaction.
+     */
+    async retireCertificate(
         tx: Tx,
         place: CasePlace,
-        oldLibreId: string,
-        newLibre: typeof libres.$inferSelect,
-        templateKey: string
-    ) {
-        const standingOf = async (libreId: string) =>
-            (
-                await tx
-                    .select({ document: issuedDocuments })
-                    .from(issuedDocuments)
-                    .innerJoin(documentTemplates, eq(documentTemplates.id, issuedDocuments.templateId))
-                    .where(
-                        and(
-                            eq(documentTemplates.key, templateKey),
-                            eq(issuedDocuments.subjectId, libreId),
-                            isNull(issuedDocuments.supersededBy),
-                            isNull(issuedDocuments.revokedAt)
-                        )
-                    )
-            )[0]?.document;
-        const made = await standingOf(newLibre.id);
-        if (made) return made;
-        const old = await standingOf(oldLibreId);
-        if (!old) return this.issueCertificate(tx, place, newLibre, templateKey);
-        const number = (await nextNumber(tx, REGISTRATION_CERTIFICATE_COUNTER, place.handlingUnitId)).number;
-        const language = old.language === 'en' ? 'en' : 'am';
-        return this.documents.supersede(tx, old.id, {
-            data: await this.certificateData(tx, newLibre, number, language),
-            language,
-            number,
-            caseId: place.caseId,
-            subject: { table: 'vehicles.libres', id: newLibre.id }
+        newLibreId: string,
+        templateKey: string,
+        how: { supersededBy: string } | { revokedFor: string }
+    ): Promise<void> {
+        const { rows } = await tx.execute<{ id: string | null }>(
+            sql`select vehicles.retire_libre_certificate(${newLibreId}::uuid, ${templateKey}, ${
+                'supersededBy' in how ? how.supersededBy : null
+            }::uuid, ${'revokedFor' in how ? how.revokedFor : null}) as id`
+        );
+        const old = rows[0]?.id;
+        if (!old) return;
+        await recordEvent(tx, {
+            type: 'supersededBy' in how ? 'documents.superseded_across' : 'documents.revoked_across',
+            table: issuedDocuments,
+            rowId: old,
+            data: { libreId: newLibreId, caseId: place.caseId, ...how }
         });
     }
 

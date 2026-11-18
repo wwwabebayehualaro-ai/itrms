@@ -130,3 +130,71 @@ GRANT EXECUTE ON FUNCTION "competency"."vehicle_in_open_case"(text, text, text, 
 --> statement-breakpoint
 CREATE INDEX "cases_open_replacement_vehicle_idx" ON "workflow"."cases" ("region_id", ("facts" #>> '{replacement,vehicleId}'))
     WHERE "closed_at" IS NULL AND ("facts" #>> '{replacement,vehicleId}') IS NOT NULL;
+--> statement-breakpoint
+-- The certificate of a libre that a new libre replaces, retired by the office that replaced it. A vehicle moved to another office
+-- keeps the certificate its first office issued, and documents.issued_documents is class T on the issuing office's path: the office
+-- replacing the libre cannot see it, so its QR would keep reading valid. This is the one narrow way across: only for a person, only
+-- for a new libre of the caller's own scope that replaces an earlier libre of the same vehicle, and only that earlier libre's
+-- standing certificate of the template named. With a new document (issued by the caller just now, for the new libre) the old one
+-- reads superseded by it; without one it is revoked, with the reason. It writes the columns supersedeDocument / revokeDocument
+-- write (documents/api/issue.ts) and returns the old document's id (null when none stands), which the caller audits.
+CREATE FUNCTION "vehicles"."retire_libre_certificate"(p_new_libre uuid, p_template text, p_new_document uuid, p_reason text)
+    RETURNS uuid
+    LANGUAGE plpgsql
+    SECURITY DEFINER
+    SET search_path = pg_catalog, pg_temp
+AS $$
+DECLARE
+    who uuid := kernel.ctx_user();
+    n vehicles.libres%ROWTYPE;
+    nd documents.issued_documents%ROWTYPE;
+    tpl uuid;
+    old_doc uuid;
+BEGIN
+    IF kernel.ctx_region() IS NULL OR who IS NULL OR kernel.ctx_scope() IS NULL THEN
+        RAISE EXCEPTION 'vehicles: a certificate is retired by a person' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    SELECT * INTO n FROM vehicles.libres WHERE id = p_new_libre;
+    -- the function's search_path leaves out public, where ltree's operators live: named in full
+    IF NOT FOUND OR n.region_id <> kernel.ctx_region() OR NOT (n.handling_org_path OPERATOR(public.<@) kernel.ctx_scope()) THEN
+        RAISE EXCEPTION 'vehicles: the new libre is not one of an office of the caller' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    IF n.replaces_id IS NULL OR NOT EXISTS (SELECT 1 FROM vehicles.libres o WHERE o.id = n.replaces_id AND o.vehicle_id = n.vehicle_id) THEN
+        RAISE EXCEPTION 'vehicles: libre % replaces no libre of its vehicle', n.id
+            USING ERRCODE = 'check_violation', CONSTRAINT = 'libre_replaces_nothing';
+    END IF;
+    SELECT t.id INTO tpl FROM documents.document_templates t WHERE t.region_id = n.region_id AND t.key = p_template;
+    IF tpl IS NULL THEN
+        RETURN NULL;
+    END IF;
+    SELECT d.id INTO old_doc FROM documents.issued_documents d
+     WHERE d.region_id = n.region_id AND d.template_id = tpl AND d.subject_id = n.replaces_id
+       AND d.superseded_by IS NULL AND d.revoked_at IS NULL
+       FOR UPDATE;
+    IF NOT FOUND THEN
+        RETURN NULL;
+    END IF;
+    IF p_new_document IS NOT NULL THEN
+        SELECT * INTO nd FROM documents.issued_documents WHERE id = p_new_document;
+        IF NOT FOUND OR nd.region_id <> n.region_id OR nd.template_id <> tpl OR nd.subject_id IS DISTINCT FROM n.id
+           OR NOT (nd.org_path OPERATOR(public.<@) kernel.ctx_scope()) THEN
+            RAISE EXCEPTION 'vehicles: document % is not the certificate of libre %', p_new_document, n.id
+                USING ERRCODE = 'check_violation', CONSTRAINT = 'certificate_not_of_libre';
+        END IF;
+        UPDATE documents.issued_documents SET superseded_by = p_new_document, updated_at = now(), updated_by = who,
+               row_version = row_version + 1 WHERE id = old_doc;
+    ELSE
+        IF p_reason IS NULL OR length(p_reason) NOT BETWEEN 1 AND 200 THEN
+            RAISE EXCEPTION 'vehicles: a certificate is revoked with a reason' USING ERRCODE = 'check_violation',
+                CONSTRAINT = 'certificate_reason';
+        END IF;
+        UPDATE documents.issued_documents SET revoked_at = now(), revoke_reason = p_reason, updated_at = now(), updated_by = who,
+               row_version = row_version + 1 WHERE id = old_doc;
+    END IF;
+    RETURN old_doc;
+END;
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION "vehicles"."retire_libre_certificate"(uuid, text, uuid, text) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION "vehicles"."retire_libre_certificate"(uuid, text, uuid, text) TO itrms_app;

@@ -444,6 +444,9 @@ describe('every tenant table', () => {
             // whether an office of the caller's region takes vehicles in, and which do: yes or no, ids, codes and names
             'vehicles.handover_destination(uuid,text)',
             'vehicles.handover_destinations(text,text,integer)',
+            // the certificate of a libre that a new libre of the caller's office replaces, superseded or revoked across the
+            // issuing office's scope: only for a person, the caller's own new libre and that libre's earlier one (task 1.5)
+            'vehicles.retire_libre_certificate(uuid,text,uuid,text)',
             // the vehicle register's ranked search by federal id, chassis number, plate and engine number, with the status and
             // owner filters; ids only (tasks 1.1a, 1.2e)
             'vehicles.search_vehicles(text,text,integer,text,uuid)',

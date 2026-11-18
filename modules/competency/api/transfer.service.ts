@@ -401,9 +401,14 @@ export class OwnershipTransferService {
             { ownershipId: locked.sellerOwnershipId }
         );
         // what the old owners held no longer holds: the QR of their libre's certificate says so
-        if (moved.cancelled)
+        if (moved.cancelled) {
             for (const document of await this.standingOf(tx, moved.cancelled.id))
                 await revokeDocument(tx, document, 'libre_ownership_transferred');
+            // the certificate another office issued (the vehicle moved here by a transfer) is not one this office sees
+            await this.registration.retireCertificate(tx, place, moved.libre.id, templateKey, {
+                revokedFor: 'libre_ownership_transferred'
+            });
+        }
         const certificate = await this.registration.issueCertificate(tx, place, moved.libre, templateKey);
         await updateAudited(tx, ownershipTransfers, locked.id, locked.rowVersion, {
             buyerOwnershipId: moved.ownershipId,

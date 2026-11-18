@@ -34,7 +34,7 @@ describe('the replacement workflow', () => {
     it('checks the request when it is filed and when it is corrected', () => {
         const filing = steps.filter((t) => t.from === 'draft' && t.to === 'review');
         expect(filing.map((t) => t.action).sort()).toEqual(['correct', 'submit']);
-        for (const t of filing) expect(t.effects).toContain(X.checkReplacement);
+        for (const t of filing) expect(t.effects).toEqual(expect.arrayContaining([X.checkReplacement, ENC]));
     });
 
     it('reaches the notice state only when a notice is required, and checks its end before payment', () => {
@@ -54,7 +54,7 @@ describe('the replacement workflow', () => {
             to: 'booklet',
             effects: [ENC, `${X.replaceLibre}:vehicle-registration-certificate`]
         });
-        expect(steps.find((t) => t.action === 'issue_booklet')?.effects).toEqual([R.issueLibreBooklet]);
+        expect(steps.find((t) => t.action === 'issue_booklet')?.effects).toEqual([ENC, R.issueLibreBooklet]);
         expect(state('booklet')?.stepForm).toBe('vehicle-libre-booklet@1');
     });
 

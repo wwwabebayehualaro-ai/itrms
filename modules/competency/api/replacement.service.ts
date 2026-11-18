@@ -6,6 +6,7 @@
  */
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
+import { formatEthiopianLong, toEthiopian } from '@itrms/ethiopian-calendar';
 import { currentContext } from '@itrms/kernel/context';
 import { insertAudited, updateAudited, type Tx } from '@itrms/kernel/db';
 import { ConflictError, ValidationError } from '@itrms/kernel/errors';
@@ -68,6 +69,14 @@ const factObject = (facts: Facts, key: string): Record<string, unknown> | undefi
 const factText = (facts: Facts, key: string, field: string): string | undefined => {
     const value = factObject(facts, key)?.[field];
     return typeof value === 'string' && value !== '' ? value : undefined;
+};
+
+/** A stored day as the person reads it: Ethiopian, long form, in the language of the request. */
+const ethiopianDay = (iso: string): string => {
+    const [year = 0, month = 1, day = 1] = iso.split('-').map(Number);
+    return formatEthiopianLong(toEthiopian({ year, month, day }), {
+        language: currentContext()?.language === 'en' ? 'en' : 'am'
+    });
 };
 
 const missingFact = (key: string) =>
@@ -188,7 +197,7 @@ export class ReplacementService {
         if (addisDay() < endsOn)
             throw new ConflictError('invalid_transition', {
                 detailKey: 'competency.rule.replacementNoticeRunning',
-                params: { endsOn }
+                params: { endsOn: ethiopianDay(endsOn) }
             });
         return { replacement: { ...replacement, noticeEndsOn: endsOn } };
     }
@@ -216,13 +225,7 @@ export class ReplacementService {
         if (locked?.replacedOn && locked.newLibreId) {
             const [libre] = await tx.select().from(libres).where(eq(libres.id, locked.newLibreId));
             if (!libre || !locked.oldLibreId) throw missingFact('replacement');
-            const certificate = await this.registration.supersedeCertificate(
-                tx,
-                place,
-                locked.oldLibreId,
-                libre,
-                templateKey
-            );
+            const certificate = await this.registration.supersedeCertificate(tx, place, libre, templateKey);
             return {
                 libre: { id: libre.id, number: libre.number, template: templateKey },
                 documents: { ...known, [templateKey]: certificate.id }
@@ -236,13 +239,7 @@ export class ReplacementService {
             caseId: place.caseId,
             outgoing: reason === 'damaged' ? 'replaced' : 'lost'
         });
-        const certificate = await this.registration.supersedeCertificate(
-            tx,
-            place,
-            made.old.id,
-            made.libre,
-            templateKey
-        );
+        const certificate = await this.registration.supersedeCertificate(tx, place, made.libre, templateKey);
         await updateAudited(tx, replacements, row.id, row.rowVersion, {
             oldLibreId: made.old.id,
             newLibreId: made.libre.id,

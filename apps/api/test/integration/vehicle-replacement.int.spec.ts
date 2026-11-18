@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { daysAfter, ReplacementService } from '@itrms/competency/api';
+import { daysAfter, ReplacementService, VehicleRegistrationService } from '@itrms/competency/api';
 import {
     importOwnershipTransferService,
     importPlateExchangeService,
@@ -19,6 +19,7 @@ import {
     importVehicleServices,
     setUpTransferLetterCounters
 } from '@itrms/competency/seed';
+import { formatEthiopianLong, toEthiopian } from '@itrms/ethiopian-calendar';
 import { DocumentsService } from '@itrms/documents/api';
 import { importDocumentTemplates } from '@itrms/documents/seed';
 import { StationeryStock } from '@itrms/fees/api';
@@ -77,12 +78,12 @@ const query = async <T extends Record<string, unknown>>(text: string, params: un
     (await api.owner.query<T>(text, params)).rows;
 
 /** A vehicle of `unit` on an old regional plate with its libre in force, booklet and certificate, as a seed would register it. */
-async function onTheRoad(unit: OrgUnit, withBooklet = true) {
+async function onTheRoad(unit: OrgUnit, withBooklet = true, certUnit: OrgUnit = unit) {
     const ctx: DbContext = { ...contextFor(unit), requestId: `seed-${randomUUID()}` };
     const plate = `SN 2-${String(randomInt(10000, 99999))}`;
     const chassis = vin();
     const booklet = `OLD-${randomInt(100000, 999999)}`;
-    return app.scoped(ctx, async (tx) => {
+    const made = await app.scoped(ctx, async (tx) => {
         const vehicle = await registry.register(tx, ctx, {
             chassisNumber: chassis,
             make: 'Toyota',
@@ -102,14 +103,19 @@ async function onTheRoad(unit: OrgUnit, withBooklet = true) {
         const [libre] = (
             await tx.execute<{ id: string }>(sql`select id from vehicles.libres where vehicle_id = ${vehicle.id}`)
         ).rows;
-        const number = `${unit.code}/RC/9${String(randomInt(10000, 99999))}`;
-        const certificate = await documents.reissue(tx, {
-            regionId: unit.regionId,
-            handlingUnitId: unit.id,
+        return { id: vehicle.id, libreId: libre?.id ?? '' };
+    });
+    // the certificate belongs to the office that issued it, which may not be the one that handles the vehicle now
+    const certCtx: DbContext = { ...contextFor(certUnit), requestId: `seed-${randomUUID()}` };
+    const certificate = await app.scoped(certCtx, (tx) => {
+        const number = `${certUnit.code}/RC/9${String(randomInt(10000, 99999))}`;
+        return documents.reissue(tx, {
+            regionId: certUnit.regionId,
+            handlingUnitId: certUnit.id,
             templateKey: 'vehicle-registration-certificate',
             language: 'am',
             number,
-            subject: { table: 'vehicles.libres', id: libre?.id ?? '' },
+            subject: { table: 'vehicles.libres', id: made.libreId },
             data: {
                 number,
                 issuedOn: '2011-03-01',
@@ -144,8 +150,8 @@ async function onTheRoad(unit: OrgUnit, withBooklet = true) {
                 nationalReference: null
             }
         });
-        return { id: vehicle.id, plate, libreId: libre?.id ?? '', certificateId: certificate.id };
     });
+    return { id: made.id, plate, libreId: made.libreId, certificateId: certificate.id };
 }
 
 // ---- cases
@@ -423,7 +429,7 @@ describe('a lost libre', () => {
             'competency.replacements:insert': 1,
             'competency.replacements:update': 1,
             'documents.issued_documents:insert': 1,
-            'documents.issued_documents:update': 1
+            'documents.issued_documents:event': 1
         });
 
         // the booklet: the office's next one is written on the new libre
@@ -464,7 +470,13 @@ describe('a lost libre', () => {
         const refused = await tried(early, as.officer, 'notice_over');
         expect(refused.status).toBe(409);
         expect(refused.body.code).toBe('invalid_transition');
-        expect(refused.body.detail).toContain(daysAfter(today(), 1));
+        // the end day as the person reads it: Ethiopian, in the request's language (never the stored ISO day)
+        const [y = 0, m = 1, d = 1] = daysAfter(today(), 1).split('-').map(Number);
+        const ethiopian = ['am', 'en'].map((language) =>
+            formatEthiopianLong(toEthiopian({ year: y, month: m, day: d }), { language: language as 'am' | 'en' })
+        );
+        expect(ethiopian.some((text) => refused.body.detail?.includes(text))).toBe(true);
+        expect(refused.body.detail).not.toContain(daysAfter(today(), 1));
         expect((await caseOf(early.id)).state).toBe('notice');
 
         const other = await onTheRoad(boditi);
@@ -604,5 +616,142 @@ describe('who sees what (class T at the handling office)', () => {
             )
         ).toBe(0);
         expect((await api.call('GET', `/api/v1/cases/${c.id}`, as.zoneOfficer)).statusCode).toBe(200);
+    }, 300_000);
+});
+
+const hold = (vehicleId: string) =>
+    api.call('POST', '/api/v1/encumbrances', as.officer, {
+        vehicleId,
+        kind: 'bank_loan',
+        holderOrganisationId: bank.id,
+        letterReference: `LTR-${randomInt(100000, 999999)}`,
+        letterDate: '2026-10-01'
+    });
+
+describe('holds at filing and before the booklet', () => {
+    it('refuses a vehicle with a bank-loan hold at filing', async () => {
+        const vehicle = await onTheRoad(boditi);
+        expect((await hold(vehicle.id)).statusCode).toBe(201);
+        const refused = await tried(await file(SERVICE, damaged(vehicle.id)), as.officer, 'submit');
+        expect(refused.status).toBe(422);
+        expect(refused.body.errors?.[0]).toMatchObject({ path: 'vehicle', code: 'encumbered' });
+    }, 300_000);
+
+    it('stops the booklet when a hold is recorded after the libre was replaced', async () => {
+        const vehicle = await onTheRoad(boditi);
+        const booklet = await moved(await atLibre(damaged(vehicle.id)), as.officer, 'replace_libre');
+        expect(booklet.state).toBe('booklet');
+        expect((await hold(vehicle.id)).statusCode).toBe(201);
+        const refused = await tried(booklet, as.officer, 'issue_booklet', { answers: {} });
+        expect(refused.status).toBe(422);
+        expect(refused.body.errors?.[0]).toMatchObject({ path: 'vehicle', code: 'encumbered' });
+        expect((await caseOf(booklet.id)).state).toBe('booklet');
+    }, 300_000);
+});
+
+/** What the reviewed command answers, or why it refused (the database's message, down the cause chain). */
+async function retire(ctx: DbContext, args: { libre: string; document: string | null; reason?: string | null }) {
+    try {
+        const rows = await app.scoped({ ...ctx, requestId: `rtr-${randomUUID()}` }, async (tx) =>
+            tx.execute<{ id: string | null }>(
+                sql`select vehicles.retire_libre_certificate(${args.libre}::uuid, 'vehicle-registration-certificate',
+                        ${args.document}::uuid, ${args.reason ?? null}) as id`
+            )
+        );
+        return { id: rows.rows[0]?.id ?? null, refused: '' };
+    } catch (error) {
+        const messages: string[] = [];
+        for (let e: unknown = error; e; e = (e as { cause?: unknown }).cause)
+            messages.push(String((e as Error).message));
+        return { id: null, refused: messages.join(' | ') };
+    }
+}
+
+describe('a certificate another office issued (a vehicle moved to the replacing office by a transfer)', () => {
+    it('is superseded by the new certificate although the replacing office cannot see it, and the change is audited', async () => {
+        // the first office (Damot Gale) issued the certificate; Boditi handles the vehicle now
+        const vehicle = await onTheRoad(boditi, true, damot);
+        const c = await atLibre(damaged(vehicle.id));
+        await moved(c, as.officer, 'replace_libre');
+        const fresh = (await libresOf(vehicle.id)).find((l) => l.id !== vehicle.libreId);
+        const [old] = await certificatesOf(vehicle.libreId);
+        const [standing] = await certificatesOf(fresh?.id ?? '');
+        expect(standing).toBeDefined();
+        expect(old?.superseded_by).toBe(standing?.id);
+        expect(standing?.superseded_by).toBeNull();
+        expect(
+            (
+                await query<{ n: number }>(
+                    `select count(*)::int as n from kernel.audit_log where event_type = 'documents.superseded_across' and row_id = $1`,
+                    [old?.id]
+                )
+            )[0]?.n
+        ).toBe(1);
+    }, 300_000);
+
+    it('is refused by the command with no context, for a new libre out of reach, one that replaces nothing, and another libre’s document', async () => {
+        const vehicle = await onTheRoad(boditi);
+        const done = await moved(await atLibre(damaged(vehicle.id)), as.officer, 'replace_libre');
+        expect(done.state).toBe('booklet');
+        const fresh = (await libresOf(vehicle.id)).find((l) => l.id !== vehicle.libreId);
+        const boditiCtx = contextFor(boditi);
+
+        expect((await retire({}, { libre: fresh?.id ?? '', document: null, reason: 'x' })).refused).toMatch(
+            /retired by a person/
+        );
+        expect(
+            (await retire(contextFor(damot), { libre: fresh?.id ?? '', document: null, reason: 'x' })).refused
+        ).toMatch(/not one of an office of the caller/);
+        const alone = await onTheRoad(boditi);
+        expect((await retire(boditiCtx, { libre: alone.libreId, document: null, reason: 'x' })).refused).toMatch(
+            /replaces no libre/
+        );
+
+        // a new libre made straight in the register, its predecessor's certificate still standing: another libre's document is refused
+        const other = await onTheRoad(boditi);
+        const handmade = await onTheRoad(boditi);
+        const ctx: DbContext = { ...boditiCtx, requestId: `rtr-${randomUUID()}` };
+        const successor = await app.scoped(ctx, async (tx) => {
+            const made = await registry.replaceLibre(tx, ctx, handmade.id, {
+                issuedOn: today(),
+                caseId: done.id,
+                outgoing: 'lost'
+            });
+            return made.libre;
+        });
+        const refusedDoc = await retire(boditiCtx, { libre: successor.id, document: other.certificateId });
+        expect(refusedDoc.refused).toMatch(/is not the certificate of libre/);
+    }, 300_000);
+});
+
+describe('the zone acting for the office', () => {
+    it('files the new certificate under the case’s office, which then takes the booklet', async () => {
+        const vehicle = await onTheRoad(boditi);
+        const c = await atLibre(damaged(vehicle.id));
+        const facts =
+            (
+                await query<{ facts: Record<string, unknown> }>('select facts from workflow.cases where id = $1', [
+                    c.id
+                ])
+            )[0]?.facts ?? {};
+        const zoneCtx: DbContext = { ...contextFor(zone), requestId: `rpl-${randomUUID()}` };
+        const place = { caseId: c.id, regionId: boditi.regionId, handlingUnitId: boditi.id };
+        const made = await app.scoped(zoneCtx, (tx) =>
+            replacement.replaceLibre(tx, { ...place, ctx: zoneCtx }, facts, undefined)
+        );
+        const fresh = (await libresOf(vehicle.id)).find((l) => l.id !== vehicle.libreId);
+        const [standing] = await query<{ handling_unit_id: string }>(
+            `select handling_unit_id from documents.issued_documents where subject_id = $1 and superseded_by is null`,
+            [fresh?.id]
+        );
+        expect(standing?.handling_unit_id).toBe(boditi.id);
+        // the office’s own officer takes the booklet: nothing is "already issued" under another office
+        const officerCtx: DbContext = { ...contextFor(boditi), requestId: `rpl-${randomUUID()}` };
+        const booklet = await app.scoped(officerCtx, (tx) =>
+            api.http
+                .get(VehicleRegistrationService)
+                .issueBooklet(tx, { ...place, ctx: officerCtx }, { ...facts, ...made }, {})
+        );
+        expect(booklet.libre.booklet).toBeTruthy();
     }, 300_000);
 });
