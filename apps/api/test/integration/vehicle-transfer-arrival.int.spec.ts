@@ -575,6 +575,28 @@ describe('the request', () => {
         expect((await tried(arrival, as.officer, 'submit')).status).toBe(422);
     }, 300_000);
 
+    it('is refused at filing by an office with no registration-certificate counter', async () => {
+        const c = await file(SERVICE, await answersOf());
+        const key = 'vehicles.registration-certificate';
+        await api.owner.query(`update kernel.number_counters set key = $3 where unit_id = $1 and key = $2`, [
+            boditi.id,
+            key,
+            `${key}.off`
+        ]);
+        try {
+            const r = await tried(c, as.officer, 'submit');
+            expect(r.status, JSON.stringify(r.body)).toBe(409);
+            expect(r.body.code).toBe('not_configured');
+        } finally {
+            await api.owner.query(`update kernel.number_counters set key = $2 where unit_id = $1 and key = $3`, [
+                boditi.id,
+                key,
+                `${key}.off`
+            ]);
+        }
+        expect((await caseOf(c.id)).state).toBe('draft');
+    }, 300_000);
+
     it('notes the holds the document lists and records none', async () => {
         const answers = await answersOf({ holdsListed: true, holdsNote: 'A bank loan is listed' });
         let c = await file(SERVICE, answers);
