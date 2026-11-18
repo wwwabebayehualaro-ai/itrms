@@ -2079,10 +2079,18 @@
         {
           "id": "1.5b",
           "title": "Replacements, part 2: a bolo sticker",
-          "status": "in progress",
+          "status": "done",
           "branch": "task/1.5b-bolo-replacement",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "7a4908e",
+            "7a4908e"
+          ],
+          "evidence": [
+            "CI PR #88 run 44361394650: success, all 10 jobs (e2e 43.8 min incl. the new bolo replacement journey; production profile passed on re-run after the egress container start flake, recorded as a follow-up); two earlier runs were cancelled at the 75-minute limit while the new journey could take the transfer journeys' vehicles, now fixed",
+            "local integration (Docker): vehicle-replacement 27/27 (a lost sticker replaced from stock: same year and last day, the old key kept, bolos.sticker_key changed, the old bolo document superseded, audit rows; a re-run only reads; empty stock refuses and the case waits; a hold does not block; temporary, expired, ending-within-7-days and other-office bolos refused; a vehicle off the register refused at the step; each giving step refuses the other item; the libre hold at filing still refused), bolo 16/16, ownership-transfer 37/37, vehicle-transfer 10/10, isolation 62/62, demo 22/22, services 9/9",
+            "turbo typecheck/lint/test competency, vehicles, documents, fees, api, web 18/18; i18n:check complete am/en; boundaries and check:slices clean",
+            "reviewer (Fable): no critical/high/medium; 6 low fixed; task-verifier: all items met; the e2e suite now stops itself at 62 minutes on CI (globalTimeout) so a slow run reports instead of being cancelled"
+          ],
           "blockers": [],
           "notes": "Split from 1.5 on 2026-11-18 (architect; ADR-0062). item gains bolo through a new form and flow version (supersedeSeededVersion with the form, the 1.4c2 precedent); replaceBoloSticker: the replacement row first, then stationery.use usedFor the replacement row (NOT the bolo: StationeryStock.use is idempotent on (kind, usedFor) and would return the old sticker), bolos.sticker_key updated, bolo.reissueDocument (public over the private document()) superseding the old one; a hold does not block; an expired bolo is refused (DVC-02). e2e: a lost bolo filed, paid, approved, sticker replaced, the verify page superseded. 2026-11-18 implemented: item bolo in a new form/flow version; replaceBoloSticker (stock item used for the replacement row, sticker swapped, vehicle-bolo document reissued so the old QR reads superseded, idempotent); holds do not block a bolo; the libre's hold check at filing moved into ReplacementService.check; a bolo of another office refused (follow-up); temporary and expired bolos refused. 2026-11-19: pushed (c83329c, PR #88). Verifier: all Done-when met (e2e on CI). Review (Fable): no critical/high/medium; 6 low being fixed: the vehicle still on the register at the sticker step, the done branch only reads (no reviving an old sticker), the other-office message points to a new inspection (ADR-0062 updated), each giving step checks its item, a bolo ending within 7 days refused at filing (placeholder) and a clear refusal if it lapses during the case, a robust e2e vehicle pick."
         },
@@ -4131,6 +4139,11 @@
       "foundIn": "1.5b",
       "item": "A bolo sticker replacement at an office other than the bolo's (a vehicle moved by a transfer keeps its bolo at the first office): a reviewed cross-office command for the bolo row and its document, like vehicles.retire_libre_certificate; refused for now (bolo_other_office)",
       "movedTo": "a later task"
+    },
+    {
+      "foundIn": "1.5b",
+      "item": "The production-profile CI job's egress container sometimes fails to become healthy within compose --wait (runs 44250858359 and 44361394650; passed on re-run): make its healthcheck reliable",
+      "movedTo": "the CI sharding task"
     }
   ]
 }
