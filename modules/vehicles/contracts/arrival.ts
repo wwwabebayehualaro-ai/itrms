@@ -42,6 +42,9 @@ export const arrivalRecordSchema = z.strictObject({
     /** the other region's bolo, as a fact only: no bolo of this region is made from it */
     boloValidUntil: isoDate.optional(),
     holdsListed: z.boolean().default(false),
-    holdsNote: z.string().trim().min(1).max(500).optional()
+    holdsNote: z.string().trim().min(1).max(500).optional(),
+    /** the vehicle once left this region and comes back on its own record (task 1.4c3b); `handoverId` is its standing release, if any */
+    returned: z.boolean().default(false),
+    handoverId: z.uuid().optional()
 });
 export type ArrivalRecord = z.input<typeof arrivalRecordSchema>;

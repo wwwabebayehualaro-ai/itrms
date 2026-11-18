@@ -438,6 +438,9 @@ describe('every tenant table', () => {
             // the receipt of a vehicle released to the caller's office: moves it and its live records, only for the
             // receiving office's open transfer in of a release a transfer out made (task 1.4c)
             'vehicles.accept_handover(uuid,uuid)',
+            // the return of a vehicle that left the region: brings it back with its live records, only for the caller's own
+            // open DVC-17 case that names it and the lapsed release it left on (task 1.4c3b)
+            'vehicles.accept_return(uuid)',
             // whether an office of the caller's region takes vehicles in, and which do: yes or no, ids, codes and names
             'vehicles.handover_destination(uuid,text)',
             'vehicles.handover_destinations(text,text,integer)',

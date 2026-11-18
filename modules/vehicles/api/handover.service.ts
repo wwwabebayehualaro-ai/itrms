@@ -27,7 +27,7 @@ import { withinScope } from './support';
 type Handover = typeof vehicleHandovers.$inferSelect;
 
 /** The tables the reviewed command moves rows of, by the name it returns: each move is audited against its own table. */
-const TABLES: Record<string, PgTable | undefined> = {
+export const TABLES: Record<string, PgTable | undefined> = {
     'vehicles.vehicles': vehicles,
     'vehicles.vehicle_ownerships': vehicleOwnerships,
     'vehicles.vehicle_owners': vehicleOwners,

@@ -4,6 +4,7 @@
 import { randomBytes } from 'node:crypto';
 
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type JWTPayload } from 'jose';
+import { NextRequest } from 'next/server';
 import { describe, expect, it } from 'vitest';
 
 import { loadBffConfig } from '@/bff/config';
@@ -11,8 +12,11 @@ import { isBackgroundRead, sameOrigin, tokenMatches } from '@/bff/csrf';
 import { apiRequestHeaders, apiTarget, browserResponseHeaders } from '@/bff/forward';
 import { verifyLogoutToken } from '@/bff/logout-token';
 import { signInLocales } from '@/bff/oidc';
+import { problem } from '@/bff/runtime';
 import { open, parseKeyring, seal } from '@/bff/seal';
 import { ABSOLUTE_SECONDS, IDLE_SECONDS, SessionStore, type KeyValue, type SessionRecord } from '@/bff/session-store';
+import am from '../../messages/am.json';
+import en from '../../messages/en.json';
 import { contentSecurityPolicy, SECURITY_HEADERS } from '../../proxy';
 
 const keyText = () => randomBytes(32).toString('base64');
@@ -316,5 +320,36 @@ describe('the sign-in screen’s language', () => {
         expect(signInLocales('')).toBe('am');
         expect(signInLocales('xx')).toBe('am');
         expect(signInLocales('om')).toBe('am');
+    });
+});
+
+describe('the BFF’s own refusals', () => {
+    const refusal = async (acceptLanguage?: string) => {
+        const request = new NextRequest('http://localhost/api/v1/x', {
+            headers: acceptLanguage === undefined ? {} : { 'accept-language': acceptLanguage }
+        });
+        const response = problem(request, 401, 'unauthenticated');
+        return { response, body: (await response.json()) as { title: string; code: string; status: number } };
+    };
+
+    it('is in English for an English browser, in Amharic for Amharic or none', async () => {
+        const english = await refusal('en-US,en;q=0.9');
+        expect(english.body).toMatchObject({
+            title: en['shell.errors.unauthenticated'],
+            code: 'unauthenticated',
+            status: 401
+        });
+        expect((await refusal('en')).body.title).toBe(en['shell.errors.unauthenticated']);
+        expect((await refusal('am')).body.title).toBe(am['shell.errors.unauthenticated']);
+        expect((await refusal()).body.title).toBe(am['shell.errors.unauthenticated']);
+        // a language that only starts with the letters is not English
+        expect((await refusal('eng-x')).body.title).toBe(am['shell.errors.unauthenticated']);
+    });
+
+    it('is a problem+json answer that is never stored', async () => {
+        const { response } = await refusal('en');
+        expect(response.status).toBe(401);
+        expect(response.headers.get('content-type')).toBe('application/problem+json');
+        expect(response.headers.get('cache-control')).toBe('no-store');
     });
 });

@@ -500,9 +500,14 @@ describe('the request', () => {
         const federal = `FED-${randomInt(100000, 999999)}`;
         const out = await known(federal);
         await api.owner.query(`update vehicles.vehicles set status = 'transferred_out' where id = $1`, [out.id]);
-        // the vehicle of this region that left comes back by its own path (task 1.4c3b): refused here
-        await refused({ chassisNumber: out.chassis }, 'chassisNumber', 'transferred_out');
-        await refused({ federalVehicleId: federal }, 'federalVehicleId', 'transferred_out');
+        // the vehicle of this region that left comes back on its own record (task 1.4c3b, vehicle-return.int.spec.ts): the federal id
+        // alone, or a federal id other than its own, is not that vehicle
+        await refused({ federalVehicleId: federal }, 'federalVehicleId', 'other_vehicle');
+        await refused(
+            { chassisNumber: out.chassis, federalVehicleId: `FED-${randomInt(100000, 999999)}` },
+            'federalVehicleId',
+            'other_vehicle'
+        );
         // a chassis and a federal id of two vehicles
         await refused(
             { chassisNumber: active.chassis, federalVehicleId: federal },

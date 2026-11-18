@@ -2,11 +2,12 @@
  * A vehicle handed from one office to another of the region (task 1.4c, ADR-0057): the source's transfer out releases it to the
  * destination, which receives it with its transfer in; on receipt the vehicle's handling unit and its live rows move, never a
  * copy. A release stands until its day (`validUntil`); one not received by then is expired by the next release. A release is
- * cancelled by its own case at the releasing office (task 1.4c2b, ADR-0059): `cancelled` is final.
+ * cancelled by its own case at the releasing office (task 1.4c2b, ADR-0059): `cancelled` is final. A release outside the region that
+ * lapsed ends `returned` when the vehicle comes back through DVC-17 (task 1.4c3b, ADR-0060); that is final too.
  */
 import { z } from 'zod';
 
-export const HANDOVER_STATUSES = ['released', 'received', 'expired', 'cancelled'] as const;
+export const HANDOVER_STATUSES = ['released', 'received', 'expired', 'cancelled', 'returned'] as const;
 export type HandoverStatus = (typeof HANDOVER_STATUSES)[number];
 
 /** Where a release goes: an office of the region (it receives it), or outside it (ADR-0058: another region, or an office without ITRMS). */

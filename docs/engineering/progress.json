@@ -2032,8 +2032,8 @@
         {
           "id": "1.4c3b",
           "title": "Transfers, part 3d: a vehicle returning to the region",
-          "status": "planned",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/1.4c3b-returning-vehicle",
           "commits": [],
           "evidence": [],
           "blockers": [],
