@@ -2171,7 +2171,97 @@
         },
         {
           "id": "1.6",
-          "title": "Driver licence family",
+          "title": "Driver licence family, part 1: numbers, card serial and blood group",
+          "status": "in progress",
+          "branch": "task/1.6-licence-numbers",
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Product owner decisions 2026-11-19 (ADR-0064): one licence per person (enforced from 1.6f, with the upgrade); the blood group as an encrypted register record, revealed only by the competency lead of the handling subtree with reason + second factor, never on the ITRMS card document; a cancellation revokes the card document, a suspension does not (live status on the QR page is a follow-up). Split into 1.6 and 1.6a-1.6i from the architect's design."
+        },
+        {
+          "id": "1.6a",
+          "title": "Driver licence family, part 2: renewal with the medical referral and report",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.6b",
+          "title": "Driver licence family, part 3: paper licence back-capture (MIG-02)",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.6c",
+          "title": "Driver licence family, part 4: suspension and cancellation record (DVC-21)",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.6d",
+          "title": "Driver licence family, part 5: the temporary driving permit",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.6e",
+          "title": "Driver licence family, part 6: licence replacement (DVC-19)",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.6f",
+          "title": "Driver licence family, part 7: grade upgrade (DVC-18) and one licence per person",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.6g",
+          "title": "Driver licence family, part 8: the verification letter (DVC-20)",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.6h",
+          "title": "Driver licence family, part 9: the international licence (DVC-08)",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.6i",
+          "title": "Driver licence family, part 10: a licence file from another region (DVC-22)",
           "status": "planned",
           "branch": null,
           "commits": [],
@@ -4235,6 +4325,11 @@
       "foundIn": "1.12e",
       "item": "Flaky integration tests: 9 vehicle specs make legacy plates as 'SN 2-' + randomInt(10000,99999) (and 'CD ' + 4 digits) on the shared CI database, so two specs can collide (vehicle-replacement 'who sees what' failed with duplicate_plate on PR #93, run 44588484289); give the specs a collision-free plate helper in the test kit",
       "movedTo": "a test-kit hardening task"
+    },
+    {
+      "foundIn": "1.6",
+      "item": "Show a licence suspension on the public verification page (needs a live subject status in the documents slice)",
+      "movedTo": "documents follow-up after 1.6c"
     }
   ]
 }
