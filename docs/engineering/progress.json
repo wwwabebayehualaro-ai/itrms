@@ -2134,17 +2134,26 @@
         {
           "id": "1.12d",
           "title": "Cashier operations, part 2: the remittance",
-          "status": "in progress",
+          "status": "done",
           "branch": "task/1.12d-remittance",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "4749da9",
+            "3ec5f69",
+            "0386d7e"
+          ],
+          "evidence": [
+            "PR #92 CI run 44538816236 on 3ec5f69: all 12 jobs pass; e2e shards 40 + 5 + 20 passed, 0 failed, 0 skipped (incl. fees/cashier-day.spec.ts with the remittance step: prepare, list, detail, deposit, document)",
+            "integration: remittances.int.spec.ts 28/28 (total = receipts less late reversals, bank slips, shortage, late reversal waits for its receipt, second prepare, two prepares at once, counter gapless, app-role tampering incl. a swapped receipt and parts added later, deposit rules incl. region-unique reference and customer slip refused, settled, audit, isolation matrix on the 3 tables); cashier-sessions 26/26, payments 13/13, external-payments 24/24, iam 18/18, isolation 62/62, service-counters 5/5, documents.int 20/20",
+            "unit: fees 89 (remittance.spec.ts golden 7), kernel 102, api 20, web 79, documents 79 (remittance am/en text goldens); boundaries no violations; check:slices 11 OK; i18n:check am+en complete; drizzle generate no drift; openapi regenerated",
+            "reviewer (Fable 5.2): no high/critical; 2 medium + 4 low fixed in 3ec5f69; task-verifier: ready, every Done-when item tied to a named test or DB check"
+          ],
           "blockers": [],
           "notes": "Design from the 1.12 architect report (ADR-0063 §5): office remits all its closed sessions up to a day; receipt lines = the receipts in the frozen session figures; approved after_till_closed reversals become negative lines once their receipt is remitted; deposit_due = sum(counted - float), not reduced by reversals (Z); fees.accounts setting with demo placeholder codes (Z); counter {unit}/RM/{seq:05}/{efy}; deferred invariant trigger. Implementation delegated to the implementer."
         },
         {
           "id": "1.12e",
           "title": "Cashier operations, part 3: pad receipts from stock",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
