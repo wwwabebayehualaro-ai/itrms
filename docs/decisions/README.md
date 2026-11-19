@@ -67,5 +67,6 @@ one, write a new ADR that supersedes it. Format: context, decision, consequences
 | [0060](0060-vehicle-arriving-from-another-region.md) | A vehicle arriving from another region is registered by its own service (DVC-17) from that region's transfer document, its national plate given in the same case; a returning vehicle gets its own record back | accepted (2026-11-18) |
 | [0061](0061-other-chassis-identity-by-make.md) | An 'other' chassis number is unique with its make, a real VIN on its key alone; a shared chassis text of another make is a notice (placeholder, to confirm with the zone) | accepted (2026-11-18) |
 | [0062](0062-replacements.md) | Replacing a lost, stolen or damaged libre, bolo sticker or plate: one service (DVC-06), the police letter, the newspaper notice period for a libre, the old item read lost and its document superseded | accepted (2026-11-18) |
+| [0063](0063-cashier-sessions-and-remittance.md) | Cashier sessions per cashier, office and day; a closing count whose difference needs a note and another person's approval; the remittance by the finance bureau's account codes; pad receipts from stationery stock | accepted (2026-11-19) |
 
 All tool choices and the answers to the technical open questions: [`../tech-stack.md`](../tech-stack.md).

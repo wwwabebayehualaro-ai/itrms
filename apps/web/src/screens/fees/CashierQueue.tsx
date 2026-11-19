@@ -26,6 +26,7 @@ import { getApiErrorMessage } from '@/lib/api/errors';
 import { useCashierQueue, type PaymentOrderOut } from '@/lib/fees';
 import { formatDay, formatMoney } from '@/lib/format';
 import { usePreferences, useText } from '@/lib/preferences';
+import { CashierSessionBar } from './CashierSessionBar';
 
 /** The office's open orders: the till's, or those paid elsewhere (the counter enters their references). */
 export function CashierQueue({ collection = 'cashier' }: { collection?: 'cashier' | 'elsewhere' }) {
@@ -48,6 +49,7 @@ export function CashierQueue({ collection = 'cashier' }: { collection?: 'cashier
                 title={t(elsewhere ? 'fees.elsewhere.title' : 'fees.cashier.title')}
                 description={t(elsewhere ? 'fees.elsewhere.intro' : 'fees.cashier.intro')}
             />
+            {!elsewhere && <CashierSessionBar />}
             <form
                 role="search"
                 className="flex items-end gap-2"

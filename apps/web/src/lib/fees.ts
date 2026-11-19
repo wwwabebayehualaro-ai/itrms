@@ -7,6 +7,8 @@
  */
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+    CashierSessionDetail,
+    CashierSessionOut,
     ExternalIssuer,
     ExternalRefInput,
     ExternalRefOut,
@@ -14,6 +16,7 @@ import type {
     PaymentOrderOut,
     ReceiptOut,
     ReversalOut,
+    SessionCountInput,
     StatementImport,
     StatementLineOut,
     StatementOut
@@ -24,6 +27,8 @@ import { useAuthStore } from './auth/authStore';
 import { caseKeys } from './workflow';
 
 export type {
+    CashierSessionDetail,
+    CashierSessionOut,
     ExternalIssuer,
     ExternalRefInput,
     ExternalRefOut,
@@ -31,6 +36,7 @@ export type {
     PaymentOrderOut,
     ReceiptOut,
     ReversalOut,
+    SessionCountInput,
     StatementImport,
     StatementLineOut,
     StatementOut
@@ -55,6 +61,10 @@ export const feeKeys = {
     order: (id: string) => ['fees', 'order', id] as const,
     receipt: (id: string) => ['fees', 'receipt', id] as const,
     reversals: () => ['fees', 'reversals'] as const,
+    sessionCurrent: () => ['fees', 'session', 'current'] as const,
+    session: (id: string) => ['fees', 'session', id] as const,
+    closings: () => ['fees', 'session', 'closings'] as const,
+    overdue: () => ['fees', 'session', 'overdue'] as const,
     casePayment: (caseId: string) => ['fees', 'case-payment', caseId] as const,
     externalRefs: () => ['fees', 'external-refs'] as const,
     issuers: () => ['fees', 'issuers'] as const,
@@ -286,4 +296,84 @@ export function useBanks(): Bank[] | null {
         return typeof code === 'string' && name && typeof name === 'object' ? [{ code, name: name as Text }] : [];
     });
     return banks.length > 0 ? banks : null;
+}
+
+// ---- the cashier's session and the daily closing (task 1.12, ADR-0063) ----
+
+export interface CurrentSessions {
+    businessDay: string;
+    today: CashierSessionOut[];
+    overdue: CashierSessionOut[];
+}
+
+/** The person's sessions of today and the earlier days' ones not yet closed. */
+export function useCurrentSessions() {
+    return useQuery({
+        queryKey: feeKeys.sessionCurrent(),
+        queryFn: async ({ signal }) =>
+            (await client.get<CurrentSessions>('v1/cashier-sessions/current', { signal })).data
+    });
+}
+
+export function useSession(id: string) {
+    return useQuery({
+        queryKey: feeKeys.session(id),
+        queryFn: async ({ signal }) =>
+            (await client.get<CashierSessionDetail>(`v1/cashier-sessions/${id}`, { signal })).data
+    });
+}
+
+export function useOpenSession() {
+    const invalidate = useInvalidate();
+    return useMutation({
+        mutationFn: async (input: { openingFloatSantim: string }) =>
+            (await client.post<CashierSessionOut>('v1/cashier-sessions', input)).data,
+        onSuccess: invalidate
+    });
+}
+
+export function useCountSession(id: string) {
+    const invalidate = useInvalidate();
+    return useMutation({
+        mutationFn: async (input: SessionCountInput) =>
+            (await client.post<CashierSessionDetail>(`v1/cashier-sessions/${id}/counts`, input)).data,
+        onSuccess: invalidate
+    });
+}
+
+/** The counts with a difference waiting for a decision (the sessions in `pending_approval`). */
+export function useClosingInbox() {
+    return useQuery({
+        queryKey: feeKeys.closings(),
+        queryFn: async ({ signal }) =>
+            (
+                await client.get<{ items: CashierSessionOut[] }>('v1/cashier-sessions', {
+                    params: { state: 'pending_approval' },
+                    signal
+                })
+            ).data
+    });
+}
+
+/** Earlier days' tills still open or to be counted again, in the person's subtree (read only). */
+export function useOverdueSessions() {
+    return useQuery({
+        queryKey: feeKeys.overdue(),
+        queryFn: async ({ signal }) =>
+            (
+                await client.get<{ items: CashierSessionOut[] }>('v1/cashier-sessions', {
+                    params: { overdue: 'true' },
+                    signal
+                })
+            ).data
+    });
+}
+
+export function useDecideCount() {
+    const invalidate = useInvalidate();
+    return useMutation({
+        mutationFn: async ({ id, ...body }: { id: string; decision: 'approve' | 'reject'; note?: string }) =>
+            (await client.post<CashierSessionDetail>(`v1/cashier-session-counts/${id}/decision`, body)).data,
+        onSuccess: invalidate
+    });
 }

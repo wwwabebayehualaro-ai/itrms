@@ -284,6 +284,11 @@ export const payments = withRls(
                 slipDate: date('slip_date'),
                 receivedFrom: text('received_from').notNull(),
                 receivedBy: uuid('received_by').notNull(),
+                /**
+                 * the cashier's session it was taken in (task 1.12, ADR-0063; the key and the insert trigger are in migration
+                 * 0094). Null only for a payment made before the sessions
+                 */
+                sessionId: uuid('session_id'),
                 voidedAt: timestamp('voided_at', { withTimezone: true }),
                 /** the reversal that voided it (the key is in the migration) */
                 voidedByReversalId: uuid('voided_by_reversal_id')
@@ -373,7 +378,9 @@ export const receiptReversals = withRls(
                 state: text('state').$type<'requested' | 'approved' | 'rejected'>().notNull().default('requested'),
                 decidedBy: uuid('decided_by'),
                 decidedAt: timestamp('decided_at', { withTimezone: true }),
-                note: text('note')
+                note: text('note'),
+                /** decided after the payment's cashier session was counted: a negative line on the next remittance (ADR-0063) */
+                afterTillClosed: boolean('after_till_closed').notNull().default(false)
             },
             (t) => [
                 uniqueIndex('receipt_reversals_live_uq')

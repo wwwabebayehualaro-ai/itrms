@@ -360,11 +360,14 @@ describe('a person in two units', () => {
         expect(atZone.activeUnit.code).toBe('WOL');
         // a cashier reads the org, the register, the forms and their submissions, acts on cases' steps (0.19b: the
         // engine decides which) and comments on them (0.20b), records payments and asks for reversals (0.22b), enters references paid elsewhere (0.22c),
-        // reads the office's stationery (1.12a); nothing more
+        // reads the office's stationery (1.12a), opens, reads and counts their own till (1.12); nothing more
         expect(atBoditi.permissions).toEqual([
             'case:act',
             'case:comment',
             'case:read',
+            'cashier-session:close',
+            'cashier-session:open',
+            'cashier-session:read',
             'external-payment:enter',
             'external-payment:read',
             'file:read',

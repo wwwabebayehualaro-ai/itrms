@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-11-18",
+  "updated": "2026-11-19",
   "statuses": [
     "planned",
     "ready",
@@ -2115,7 +2115,27 @@
         },
         {
           "id": "1.12",
-          "title": "Cashier operations",
+          "title": "Cashier operations, part 1: sessions and the daily closing",
+          "status": "in progress",
+          "branch": "task/1.12-cashier-operations",
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": "Split on 2026-11-19 (architect design): 1.12 sessions and closing, 1.12d remittance, 1.12e pad receipts from stock. Owner-default decisions (Z, to confirm with the zone): a session opens on the first payment or explicitly with a float; an earlier day's open session is flagged overdue and blocks nothing; the office remits for all its cashiers; a reversal after the till closed is negative revenue on the remittance and Finance refunds. ADR-0063. 2026-11-19: implementation in progress (implementer, restarted after an API connection error): migration 0094, cashier-sessions table/service/controller/contracts, payments join a session, permissions and roles, session bar and page written; inbox, i18n, tests and docs still to come. Not yet tested."
+        },
+        {
+          "id": "1.12d",
+          "title": "Cashier operations, part 2: the remittance",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.12e",
+          "title": "Cashier operations, part 3: pad receipts from stock",
           "status": "planned",
           "branch": null,
           "commits": [],

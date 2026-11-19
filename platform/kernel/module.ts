@@ -131,7 +131,10 @@ export default defineModule({
             // a region may name the office's head among those who decide a reversal (fees.reversals.approverRoles)
             ...PAYMENTS_READ,
             'receipt-reversal:decide',
-            'external-payment:verify'
+            'external-payment:verify',
+            // a region may name the office's head among those who decide a count with a difference (fees.sessions.approverRoles)
+            'cashier-session:read',
+            'cashier-session:approve'
         ],
         // at intake: checks the identity of the person in front of them
         records_officer: [
@@ -161,8 +164,12 @@ export default defineModule({
             'payment:record',
             'receipt-reversal:request',
             'external-payment:enter',
-            // the office's stationery, read (task 1.12a); the keeper counts it, and 1.12 brings the cashier's closing
-            'stationery:read'
+            // the office's stationery, read (task 1.12a); the keeper counts it
+            'stationery:read',
+            // the cashier's own session: opens it with a float and counts the till (task 1.12, ADR-0063)
+            'cashier-session:read',
+            'cashier-session:open',
+            'cashier-session:close'
         ],
         finance_officer: [
             ...READ_ORG,
@@ -177,7 +184,9 @@ export default defineModule({
             'external-payment:verify',
             'external-statement:read',
             'external-statement:import',
-            'stationery:read'
+            'stationery:read',
+            'cashier-session:read',
+            'cashier-session:approve'
         ],
         auditor: [
             ...READ_ORG,
@@ -191,6 +200,7 @@ export default defineModule({
             'fee-rule:read',
             ...PAYMENTS_READ,
             'external-statement:read',
+            'cashier-session:read',
             'submission:read',
             'submission:export',
             ...CASE_READ
