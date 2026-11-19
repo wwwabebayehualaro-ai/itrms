@@ -11,7 +11,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
-import { unitRefs } from '@itrms/kernel/org';
+import { describeUnit, getUnit, unitRefs } from '@itrms/kernel/org';
 import { SettingsService } from '@itrms/kernel/settings';
 import { santimText } from '@itrms/schemas';
 
@@ -122,6 +122,13 @@ export class CashierSessionsService {
         const regionId = ctx.regionId ?? '';
         const userId = ctx.userId ?? '';
         const day = addisToday();
+        // the till is the office's: only an office that collects cash has sessions (as a payment is taken)
+        const unit = await describeUnit(tx, await getUnit(tx, unitId));
+        if (!unit.capabilities.includes('collects_cash'))
+            throw new ForbiddenError({
+                detailKey: 'fees.payment.noTill',
+                audit: { reason: 'no_till', session: 'open' }
+            });
         await this.serialise(tx, unitId, userId, day);
         if (await this.openToday(tx, unitId, userId, day, 'update'))
             throw new ConflictError('invalid_transition', { detailKey: 'fees.errors.session_already_open' });
@@ -160,8 +167,13 @@ export class CashierSessionsService {
                 audit: { reason: 'session_not_own_till', session: sessionId }
             });
         const counted = BigInt(input.countedSantim);
-        if (input.denominations && denominationTotal(input.denominations) !== counted)
-            throw fieldError('denominations', 'sum_mismatch', 'does not add up to the counted total');
+        if (input.denominations) {
+            const known = await this.settings.value<number[]>(tx, seen.handlingUnitId, DENOMINATIONS_SETTING);
+            if (input.denominations.some((d) => !known.includes(d.valueSantim)))
+                throw fieldError('denominations', 'unknown_denomination', 'is not a denomination of this region');
+            if (denominationTotal(input.denominations) !== counted)
+                throw fieldError('denominations', 'sum_mismatch', 'does not add up to the counted total');
+        }
         const [session] = await tx
             .select()
             .from(cashierSessions)
@@ -378,11 +390,17 @@ export class CashierSessionsService {
         tx: Tx,
         ctx: DbContext,
         scope: 'own' | 'all',
-        query: { state?: SessionState; after?: string; limit: number }
+        query: { state?: SessionState; overdue?: 'true'; after?: string; limit: number }
     ) {
         const conditions = [];
         if (scope === 'own') conditions.push(eq(cashierSessions.cashierId, ctx.userId ?? ''));
         if (query.state) conditions.push(eq(cashierSessions.state, query.state));
+        // an earlier day's till not counted yet: open, or to be counted again after a rejection
+        if (query.overdue)
+            conditions.push(
+                lt(cashierSessions.businessDay, addisToday()),
+                inArray(cashierSessions.state, ['open', 'counting'] satisfies SessionState[])
+            );
         if (query.after) {
             const [cursor] = await tx.select().from(cashierSessions).where(eq(cashierSessions.id, query.after));
             if (cursor)

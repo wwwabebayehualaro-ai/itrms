@@ -16,8 +16,14 @@ class SessionCountDto extends createZodDto(sessionCountSchema) {}
 class CountDecisionDto extends createZodDto(countDecisionSchema) {}
 class SessionQueryDto extends createZodDto(sessionQuerySchema) {}
 
-/** Whoever may approve sees the sessions of the office and below; a cashier sees their own. */
-const scopeOf = (): 'own' | 'all' => (currentPrincipal().permissions.has('cashier-session:approve') ? 'all' : 'own');
+/**
+ * A cashier (who counts a till and does not decide counts) sees their own; whoever else may read (the approvers, the
+ * auditor) sees the office's and below (RLS).
+ */
+const scopeOf = (): 'own' | 'all' => {
+    const { permissions } = currentPrincipal();
+    return permissions.has('cashier-session:close') && !permissions.has('cashier-session:approve') ? 'own' : 'all';
+};
 
 @Controller('api/v1')
 export class CashierSessionsController {

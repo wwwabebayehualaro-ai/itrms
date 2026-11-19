@@ -460,5 +460,8 @@
   "fees.errors.session_not_yours": "Only the cashier of this till counts it.",
   "fees.errors.session_own_decision": "You cannot decide a count you made yourself.",
   "fees.errors.session_not_approver": "Your role does not decide till counts in this region.",
-  "fees.errors.count_already_decided": "This count has been decided already."
+  "fees.errors.count_already_decided": "This count has been decided already.",
+  "fees.closing.overdue.title": "Tills not counted",
+  "fees.closing.overdue.intro": "These tills are from an earlier day and are not closed. The cashier counts them; nothing is blocked meanwhile.",
+  "fees.closing.overdue.cashier": "Cashier"
 }

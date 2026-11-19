@@ -6885,6 +6885,17 @@
           },
           {
             "in": "query",
+            "name": "overdue",
+            "required": false,
+            "schema": {
+              "enum": [
+                "true"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
             "name": "after",
             "required": false,
             "schema": {

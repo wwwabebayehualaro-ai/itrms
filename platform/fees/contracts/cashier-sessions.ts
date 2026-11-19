@@ -52,6 +52,8 @@ export const countDecisionSchema = z.strictObject({
 
 export const sessionQuerySchema = z.object({
     state: z.enum(SESSION_STATES).optional(),
+    /** an earlier business day's session still open or to be counted again */
+    overdue: z.enum(['true']).optional(),
     /** keyset: the last session's id (newest business day first) */
     after: z.uuid().optional(),
     limit: z.coerce.number().int().min(1).max(100).default(50)

@@ -460,5 +460,8 @@
   "fees.errors.session_not_yours": "ይህን መሳቢያ የሚቆጥረው የራሱ ገንዘብ ተቀባይ ብቻ ነው።",
   "fees.errors.session_own_decision": "ራስዎ ያደረጉትን ቆጠራ መወሰን አይችሉም።",
   "fees.errors.session_not_approver": "ሚናዎ በዚህ ክልል የመሳቢያ ቆጠራዎችን አይወስንም።",
-  "fees.errors.count_already_decided": "ይህ ቆጠራ ቀድሞ ተወስኗል።"
+  "fees.errors.count_already_decided": "ይህ ቆጠራ ቀድሞ ተወስኗል።",
+  "fees.closing.overdue.title": "ያልተቆጠሩ መሳቢያዎች",
+  "fees.closing.overdue.intro": "እነዚህ የቀደመ ቀን መሳቢያዎች ገና አልተዘጉም። ቆጠራውን ገንዘብ ተቀባዩ ያደርጋል፤ እስከዚያ ምንም አይታገድም።",
+  "fees.closing.overdue.cashier": "ገንዘብ ተቀባይ"
 }

@@ -395,7 +395,7 @@ export class PaymentsService {
             decidedAt: new Date(),
             note: input.note ?? null,
             // the till was counted already: the refund is a line of the next remittance, the closed session is not touched
-            afterTillClosed: session !== undefined && session.state !== 'open'
+            afterTillClosed: input.decision === 'approved' && session !== undefined && session.state !== 'open'
         });
         let now = order;
         if (input.decision === 'approved') {

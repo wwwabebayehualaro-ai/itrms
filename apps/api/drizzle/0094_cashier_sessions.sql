@@ -130,6 +130,26 @@ ALTER TABLE "fees"."payments"
 --> statement-breakpoint
 CREATE INDEX "payments_session_idx" ON "fees"."payments" ("session_id") WHERE "session_id" IS NOT NULL;
 --> statement-breakpoint
+-- A session is opened open, today (Africa/Addis_Ababa), with nothing frozen and nothing closed.
+CREATE FUNCTION "fees"."session_opens_open"() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path = pg_catalog, public
+AS $$
+BEGIN
+    IF NEW.state <> 'open' OR NEW.till_closed_at IS NOT NULL OR NEW.cash_receipts_santim IS NOT NULL
+       OR NEW.bank_slip_santim IS NOT NULL OR NEW.receipt_count IS NOT NULL OR NEW.expected_cash_santim IS NOT NULL
+       OR NEW.closing_count_id IS NOT NULL OR NEW.closed_at IS NOT NULL
+       OR NEW.business_day <> (now() AT TIME ZONE 'Africa/Addis_Ababa')::date THEN
+        RAISE EXCEPTION 'fees.cashier_sessions: a session is opened open, today, with nothing frozen'
+            USING ERRCODE = 'check_violation', CONSTRAINT = 'cashier_sessions_opens_open';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+--> statement-breakpoint
+CREATE TRIGGER "cashier_sessions_opens_open" BEFORE INSERT ON "fees"."cashier_sessions"
+    FOR EACH ROW EXECUTE FUNCTION "fees"."session_opens_open"();
+--> statement-breakpoint
 -- A session moves open → pending_approval or closed, pending_approval → closed or counting, counting → pending_approval or
 -- closed; closed is final. What the first count froze never changes, nor who and where; a closed session is closed by one of
 -- its own counts that balanced or was approved. Rows are never removed.
@@ -138,7 +158,10 @@ CREATE FUNCTION "fees"."session_transition"() RETURNS trigger
     SET search_path = pg_catalog, public
 AS $$
 DECLARE
-    named text;
+    latest fees.cashier_session_counts%ROWTYPE;
+    live_cash bigint;
+    live_slip bigint;
+    live_n integer;
 BEGIN
     IF TG_OP = 'UPDATE' THEN
         IF (to_jsonb(NEW) - 'org_path') = (to_jsonb(OLD) - 'org_path') THEN
@@ -147,6 +170,7 @@ BEGIN
         IF OLD.state = 'closed' THEN
             RAISE EXCEPTION 'fees.cashier_sessions: a closed session never changes' USING ERRCODE = 'insufficient_privilege';
         END IF;
+        -- who, where, which day and the float never change (org_path follows the unit through its own trigger)
         IF (to_jsonb(NEW) - ARRAY['org_path', 'state', 'till_closed_at', 'cash_receipts_santim', 'bank_slip_santim',
                 'receipt_count', 'expected_cash_santim', 'closing_count_id', 'closed_at', 'updated_at', 'updated_by',
                 'row_version']) <> (to_jsonb(OLD) - ARRAY['org_path', 'state', 'till_closed_at', 'cash_receipts_santim',
@@ -169,11 +193,42 @@ BEGIN
             RAISE EXCEPTION 'fees.cashier_sessions: % to % is not allowed', OLD.state, NEW.state
                 USING ERRCODE = 'insufficient_privilege';
         END IF;
-        IF NEW.state = 'closed' THEN
-            SELECT c.state INTO named FROM fees.cashier_session_counts c WHERE c.id = NEW.closing_count_id;
-            IF named IS NULL OR named NOT IN ('balanced', 'approved') THEN
-                RAISE EXCEPTION 'fees.cashier_sessions: a session is closed by a balanced or an approved count'
-                    USING ERRCODE = 'insufficient_privilege';
+        -- the freeze: what the first count froze is what the session's payments, not voided, are
+        IF OLD.state = 'open' AND NEW.state <> 'open' THEN
+            SELECT coalesce(sum(p.amount_santim) FILTER (WHERE p.method = 'cash'), 0),
+                   coalesce(sum(p.amount_santim) FILTER (WHERE p.method = 'bank_slip'), 0),
+                   count(*)::integer
+              INTO live_cash, live_slip, live_n
+              FROM fees.payments p WHERE p.session_id = NEW.id AND p.voided_at IS NULL;
+            IF NEW.cash_receipts_santim IS DISTINCT FROM live_cash OR NEW.bank_slip_santim IS DISTINCT FROM live_slip
+               OR NEW.receipt_count IS DISTINCT FROM live_n THEN
+                RAISE EXCEPTION 'fees.cashier_sessions: the frozen figures are those of its payments'
+                    USING ERRCODE = 'check_violation', CONSTRAINT = 'cashier_sessions_frozen_live';
+            END IF;
+        END IF;
+        -- a move is made by the session's latest count
+        IF NEW.state <> OLD.state THEN
+            SELECT c.* INTO latest FROM fees.cashier_session_counts c WHERE c.session_id = NEW.id
+             ORDER BY c.attempt DESC LIMIT 1;
+            IF NEW.state IN ('pending_approval', 'closed') THEN
+                IF latest.id IS NULL OR latest.expected_santim IS DISTINCT FROM NEW.expected_cash_santim THEN
+                    RAISE EXCEPTION 'fees.cashier_sessions: the latest count was made against another figure'
+                        USING ERRCODE = 'check_violation', CONSTRAINT = 'cashier_sessions_latest_count';
+                END IF;
+            END IF;
+            IF NEW.state = 'pending_approval' AND latest.state <> 'pending' THEN
+                RAISE EXCEPTION 'fees.cashier_sessions: a session waits for a decision on a pending count'
+                    USING ERRCODE = 'check_violation', CONSTRAINT = 'cashier_sessions_latest_count';
+            END IF;
+            IF NEW.state = 'closed' AND (NEW.closing_count_id IS DISTINCT FROM latest.id
+                OR latest.state NOT IN ('balanced', 'approved')
+                OR (OLD.state = 'pending_approval' AND latest.state <> 'approved')) THEN
+                RAISE EXCEPTION 'fees.cashier_sessions: a session is closed by its latest count, balanced or approved'
+                    USING ERRCODE = 'check_violation', CONSTRAINT = 'cashier_sessions_latest_count';
+            END IF;
+            IF NEW.state = 'counting' AND (latest.id IS NULL OR latest.state <> 'rejected') THEN
+                RAISE EXCEPTION 'fees.cashier_sessions: a session is counted again after a rejected count'
+                    USING ERRCODE = 'check_violation', CONSTRAINT = 'cashier_sessions_latest_count';
             END IF;
         END IF;
         RETURN NEW;
@@ -222,12 +277,33 @@ CREATE FUNCTION "fees"."count_session_state"() RETURNS trigger
     SET search_path = pg_catalog, public
 AS $$
 DECLARE
-    now_state text;
+    s fees.cashier_sessions%ROWTYPE;
+    last_attempt smallint;
+    live_cash bigint;
 BEGIN
-    SELECT s.state INTO now_state FROM fees.cashier_sessions s WHERE s.id = NEW.session_id;
-    IF now_state IS NULL OR now_state NOT IN ('open', 'counting') OR NEW.state NOT IN ('balanced', 'pending') THEN
+    SELECT * INTO s FROM fees.cashier_sessions x WHERE x.id = NEW.session_id;
+    IF s.id IS NULL OR s.state NOT IN ('open', 'counting') OR NEW.state NOT IN ('balanced', 'pending') THEN
         RAISE EXCEPTION 'fees.cashier_session_counts: a count is made while the session is open or counted again'
             USING ERRCODE = 'check_violation', CONSTRAINT = 'cashier_session_counts_session_state';
+    END IF;
+    SELECT coalesce(max(c.attempt), 0) INTO last_attempt FROM fees.cashier_session_counts c WHERE c.session_id = NEW.session_id;
+    IF NEW.attempt <> last_attempt + 1 THEN
+        RAISE EXCEPTION 'fees.cashier_session_counts: the attempts follow one another'
+            USING ERRCODE = 'check_violation', CONSTRAINT = 'cashier_session_counts_attempt_next';
+    END IF;
+    -- the figure expected: the one the first count froze, or, for the first count, the float and the cash taken
+    IF s.state = 'counting' THEN
+        IF NEW.expected_santim IS DISTINCT FROM s.expected_cash_santim THEN
+            RAISE EXCEPTION 'fees.cashier_session_counts: a new count is made against the figure frozen'
+                USING ERRCODE = 'check_violation', CONSTRAINT = 'cashier_session_counts_expected';
+        END IF;
+    ELSE
+        SELECT coalesce(sum(p.amount_santim) FILTER (WHERE p.method = 'cash'), 0) INTO live_cash
+          FROM fees.payments p WHERE p.session_id = s.id AND p.voided_at IS NULL;
+        IF NEW.expected_santim <> s.opening_float_santim + live_cash THEN
+            RAISE EXCEPTION 'fees.cashier_session_counts: the first count is made against the float and the cash taken'
+                USING ERRCODE = 'check_violation', CONSTRAINT = 'cashier_session_counts_expected';
+        END IF;
     END IF;
     RETURN NEW;
 END;
@@ -244,10 +320,11 @@ CREATE FUNCTION "fees"."payment_session_required"() RETURNS trigger
 AS $$
 DECLARE
     now_state text;
+    its_day date;
 BEGIN
-    SELECT s.state INTO now_state FROM fees.cashier_sessions s WHERE s.id = NEW.session_id;
-    IF now_state IS DISTINCT FROM 'open' THEN
-        RAISE EXCEPTION 'fees.payments: a payment is taken in an open cashier session'
+    SELECT s.state, s.business_day INTO now_state, its_day FROM fees.cashier_sessions s WHERE s.id = NEW.session_id;
+    IF now_state IS DISTINCT FROM 'open' OR its_day IS DISTINCT FROM (now() AT TIME ZONE 'Africa/Addis_Ababa')::date THEN
+        RAISE EXCEPTION 'fees.payments: a payment is taken in an open cashier session of today'
             USING ERRCODE = 'check_violation', CONSTRAINT = 'payments_session_required';
     END IF;
     RETURN NEW;
@@ -286,6 +363,9 @@ GRANT UPDATE ("state", "till_closed_at", "cash_receipts_santim", "bank_slip_sant
 --> statement-breakpoint
 GRANT UPDATE ("state", "decided_by", "decided_at", "decision_note", "updated_at", "updated_by", "row_version")
     ON "fees"."cashier_session_counts" TO itrms_app;
+--> statement-breakpoint
+ALTER TABLE "fees"."receipt_reversals"
+    ADD CONSTRAINT "receipt_reversals_after_till_check" CHECK (NOT "after_till_closed" OR "state" = 'approved');
 --> statement-breakpoint
 GRANT UPDATE ("after_till_closed") ON "fees"."receipt_reversals" TO itrms_app;
 --> statement-breakpoint

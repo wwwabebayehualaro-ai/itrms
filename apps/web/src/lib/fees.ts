@@ -64,6 +64,7 @@ export const feeKeys = {
     sessionCurrent: () => ['fees', 'session', 'current'] as const,
     session: (id: string) => ['fees', 'session', id] as const,
     closings: () => ['fees', 'session', 'closings'] as const,
+    overdue: () => ['fees', 'session', 'overdue'] as const,
     casePayment: (caseId: string) => ['fees', 'case-payment', caseId] as const,
     externalRefs: () => ['fees', 'external-refs'] as const,
     issuers: () => ['fees', 'issuers'] as const,
@@ -348,6 +349,20 @@ export function useClosingInbox() {
             (
                 await client.get<{ items: CashierSessionOut[] }>('v1/cashier-sessions', {
                     params: { state: 'pending_approval' },
+                    signal
+                })
+            ).data
+    });
+}
+
+/** Earlier days' tills still open or to be counted again, in the person's subtree (read only). */
+export function useOverdueSessions() {
+    return useQuery({
+        queryKey: feeKeys.overdue(),
+        queryFn: async ({ signal }) =>
+            (
+                await client.get<{ items: CashierSessionOut[] }>('v1/cashier-sessions', {
+                    params: { overdue: 'true' },
                     signal
                 })
             ).data

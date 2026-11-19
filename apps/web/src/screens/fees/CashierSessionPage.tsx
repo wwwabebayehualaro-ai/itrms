@@ -153,7 +153,13 @@ export function CashierSessionPage({ id }: { id: string }) {
     );
 }
 
-const AMOUNT = /^(0|[1-9]\d{0,16})$/;
+/** A whole number of santim, without a sign or leading zeros (checked by characters, not a regex on user input). */
+function isAmount(s: string): boolean {
+    if (s.length === 0 || s.length > 17) return false;
+    if (s.length > 1 && s.startsWith('0')) return false;
+    for (const ch of s) if (ch < '0' || ch > '9') return false;
+    return true;
+}
 
 function CountForm({ session }: { session: CashierSessionDetail }) {
     const { t, language } = useText();
@@ -162,21 +168,23 @@ function CountForm({ session }: { session: CashierSessionDetail }) {
     const count = useCountSession(session.id);
     // a count by denomination: the server adds it up and must find the total
     const [pieces, setPieces] = useState<Record<number, string>>({});
+    // a difference without a note is not sent; the message shows at once, whether or not the note was touched
+    const [noteMissing, setNoteMissing] = useState(false);
     const expected = BigInt(session.expectedCashSantim);
     const sum = session.denominations.reduce((acc, v) => acc + BigInt(v) * BigInt(Number(pieces[v]) || 0), 0n);
     const byDenomination = Object.values(pieces).some((n) => n !== '');
 
-    const schema = z
-        .object({ countedSantim: z.string().regex(AMOUNT, t('fees.session.invalidTotal')), note: z.string() })
-        .superRefine((v, ctx) => {
-            if (!AMOUNT.test(v.countedSantim)) return;
-            if (BigInt(v.countedSantim) !== expected && v.note.trim().length < 10)
-                ctx.addIssue({ code: 'custom', path: ['note'], message: t('fees.session.noteRequired') });
-        });
+    const schema = z.object({
+        countedSantim: z.string().refine(isAmount, t('fees.session.invalidTotal')),
+        note: z.string()
+    });
     const form = useZodForm({
         schema,
         defaultValues: { countedSantim: '', note: '' },
         onSubmit: async (v) => {
+            const short = BigInt(v.countedSantim) !== expected && v.note.trim().length < 10;
+            setNoteMissing(short);
+            if (short) return;
             const denominations = byDenomination
                 ? session.denominations
                       .filter((value) => Number(pieces[value]) > 0)
@@ -252,6 +260,11 @@ function CountForm({ session }: { session: CashierSessionDetail }) {
                         />
                     )}
                 </form.AppField>
+                {noteMissing && (
+                    <p className="text-destructive text-sm" role="alert" data-note-missing>
+                        {t('fees.session.noteRequired')}
+                    </p>
+                )}
                 {count.error && (
                     <p className="text-destructive text-sm" role="alert">
                         {getApiErrorMessage(count.error)}

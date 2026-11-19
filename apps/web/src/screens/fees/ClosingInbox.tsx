@@ -30,7 +30,7 @@ import {
 } from '@itrms/ui';
 
 import { getApiErrorMessage } from '@/lib/api/errors';
-import { useClosingInbox, useDecideCount, type CashierSessionOut } from '@/lib/fees';
+import { useClosingInbox, useDecideCount, useOverdueSessions, type CashierSessionOut } from '@/lib/fees';
 import { formatDay, formatMoney } from '@/lib/format';
 import { usePreferences, useText } from '@/lib/preferences';
 
@@ -78,8 +78,49 @@ export function ClosingInbox() {
                     </TableBody>
                 </Table>
             )}
+            <OverdueTills />
             {deciding && <DecisionDialog {...deciding} onClose={() => setDeciding(null)} />}
         </div>
+    );
+}
+
+/** The tills of earlier days nobody has counted: finance sees them, and counts nothing for the cashier. */
+function OverdueTills() {
+    const { t, language } = useText();
+    const calendar = usePreferences((p) => p.calendar);
+    const overdue = useOverdueSessions();
+    if (overdue.isPending || overdue.error || overdue.data.items.length === 0) return null;
+    return (
+        <section className="flex flex-col gap-2" data-overdue-tills>
+            <h2 className="font-medium">{t('fees.closing.overdue.title')}</h2>
+            <p className="text-muted-foreground text-sm">{t('fees.closing.overdue.intro')}</p>
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>{t('fees.closing.col.day')}</TableHead>
+                        <TableHead>{t('fees.closing.col.office')}</TableHead>
+                        <TableHead>{t('fees.closing.overdue.cashier')}</TableHead>
+                        <TableHead className="text-right">{t('fees.closing.col.expected')}</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {overdue.data.items.map((s) => (
+                        <TableRow key={s.id} data-overdue-till={s.id}>
+                            <TableCell>
+                                <Link href={`/cashier/sessions/${s.id}`} className="text-primary hover:underline">
+                                    {formatDay(s.businessDay, { language, calendar })}
+                                </Link>
+                            </TableCell>
+                            <TableCell>{s.unit.code}</TableCell>
+                            <TableCell className="font-mono text-xs">{s.cashierId}</TableCell>
+                            <TableCell className="text-right tabular-nums">
+                                {formatMoney(s.expectedCashSantim, language)}
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </section>
     );
 }
 
