@@ -52,7 +52,6 @@ import { usePreferences, useText } from '@/lib/preferences';
 import { ExternalRefForm, ExternalRefList } from './ExternalRefSection';
 import { ErrorsOf, todayInAddis } from './form-bits';
 import { ReversalDialog } from './ReversalDialog';
-import { SpoilLeafDialog } from './SpoilLeafDialog';
 
 const ORDER_TONE: Record<PaymentOrderOut['state'], Tone> = { open: 'progress', settled: 'success', cancelled: 'muted' };
 
@@ -184,7 +183,6 @@ function PaymentForm({ order }: { order: PaymentOrderOut }) {
     const banks = useBanks();
     const pad = order.receiptSource === 'pad';
     const nextLeaf = useNextReceiptLeaf(pad);
-    const [spoiling, setSpoiling] = useState(false);
 
     const schema = z
         .object({
@@ -265,19 +263,15 @@ function PaymentForm({ order }: { order: PaymentOrderOut }) {
         }
     });
 
-    // the form offers the office's next free leaf; what the cashier typed over is left alone
-    const offered = useRef({ series: '', serial: '' });
+    // the form offers the next leaf once, when the page loads: a later refetch never overwrites what is in the fields
+    const offered = useRef(false);
     const leaf = nextLeaf.data?.leaf;
     useEffect(() => {
-        if (!leaf) return;
-        const typed = form.state.values;
-        const untouched =
-            (typed.padSeries === '' && typed.padSerial === '') ||
-            (typed.padSeries === offered.current.series && typed.padSerial === offered.current.serial);
-        if (!untouched) return;
+        if (!leaf || offered.current) return;
+        offered.current = true;
+        if (form.state.values.padSeries !== '' || form.state.values.padSerial !== '') return;
         form.setFieldValue('padSeries', leaf.series);
         form.setFieldValue('padSerial', leaf.serial);
-        offered.current = leaf;
     }, [leaf, form]);
 
     return (
@@ -402,23 +396,17 @@ function PaymentForm({ order }: { order: PaymentOrderOut }) {
                         </form.AppField>
                     </div>
                 )}
-                <div className="flex justify-end gap-2">
-                    {pad && (
-                        <Button
-                            type="button"
-                            variant="outline"
-                            data-action="spoil-leaf-open"
-                            onClick={() => setSpoiling(true)}
-                        >
-                            {t('fees.leaf.spoil')}
-                        </Button>
-                    )}
+                {pad && (
+                    <p className="text-muted-foreground text-xs" data-pad-hint>
+                        {t('fees.payment.padCheck')} {t('fees.payment.padSpoiled')}
+                    </p>
+                )}
+                <div className="flex justify-end">
                     <form.AppForm>
                         <form.SubmitButton data-action="record-payment">{t('fees.payment.submit')}</form.SubmitButton>
                     </form.AppForm>
                 </div>
             </ZodForm>
-            {spoiling && <SpoilLeafDialog onClose={() => setSpoiling(false)} />}
         </section>
     );
 }

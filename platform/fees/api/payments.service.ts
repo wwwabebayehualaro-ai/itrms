@@ -2,9 +2,11 @@
  * Payments, receipts and reversals at the cashier (task 0.22b, ADR-0042). A payment is the whole total of an order, at the
  * till of the case's handling office (an office whose type collects cash), by cash or a bank deposit slip; its receipt is
  * numbered in the same transaction by the office's counter (gapless per office and fiscal year: a rollback gives the number
- * back) or by the leaf of a pre-printed pad, as the office's setting says. One lock order everywhere: the case, then the
- * order, then the cashier's session (task 1.12, ADR-0063), then the payment, then the pad's stationery item (task 1.12e),
- * then the counter or the receipt. A reversal is asked for with a reason and decided once by another person, in a role the region's
+ * back) or by the leaf of a pre-printed pad, as the office's setting says. One lock order everywhere (ADR-0063 §3): case,
+ * order, cashier session, counter, payment, stationery item, receipt, reversal. Here the pad path follows it (session,
+ * payment, item, receipt). The ITRMS-numbered path takes the counter after the payment insert, which departs from the
+ * written order but is harmless: no other path takes the receipt counter, and the new payment is not yet visible to
+ * anyone, so nothing can wait on it in the other direction. A reversal is asked for with a reason and decided once by another person, in a role the region's
  * setting names, never the person who asked nor the cashier who took the money; approved, it voids the payment and opens
  * the order again, and the receipt keeps its number (ADR-0014). Every write is audited in its transaction.
  */

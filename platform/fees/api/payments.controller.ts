@@ -15,7 +15,6 @@ import {
     paymentInputSchema,
     paymentOrderQuerySchema,
     type PaymentOrderOut,
-    receiptLeafSpoilSchema,
     REVERSAL_STATES,
     reversalDecisionSchema,
     reversalRequestSchema
@@ -26,7 +25,6 @@ import { StationeryStock } from './stationery.service';
 
 class PaymentDto extends createZodDto(paymentInputSchema) {}
 class OrderQueryDto extends createZodDto(paymentOrderQuerySchema) {}
-class LeafSpoilDto extends createZodDto(receiptLeafSpoilSchema) {}
 class ReversalRequestDto extends createZodDto(reversalRequestSchema) {}
 class ReversalDecisionDto extends createZodDto(reversalDecisionSchema) {}
 class ReversalQueryDto extends createZodDto(z.object({ state: z.enum(REVERSAL_STATES).default('requested') })) {}
@@ -81,23 +79,12 @@ export class PaymentsController {
         return this.db.scoped(ctx, (tx) => this.payments.record(tx, ctx, id, body, language()));
     }
 
-    /** The pad leaf the cashier writes on next: the office's lowest held, unused one (nothing is locked). */
+    /** The pad leaf the cashier writes on next: the one after their last, else the office's lowest free one (unlocked). */
     @Get('receipt-leaves/next')
     @Require('payment:record')
     nextLeaf() {
         const ctx = requestDbContext();
         return this.db.scoped(ctx, async (tx) => ({ leaf: await this.stock.nextFree(tx, ctx, 'receipt_leaf') }));
-    }
-
-    /** A leaf of the office's pad that is misprinted or torn: kept on record, never used. */
-    @Post('receipt-leaves/spoiled')
-    @Require('payment:record')
-    spoilLeaf(@Body() body: LeafSpoilDto) {
-        const ctx = requestDbContext();
-        return this.db.scoped(ctx, async (tx) => {
-            const item = await this.stock.spoil(tx, ctx, { kind: 'receipt_leaf', key: body.key, reason: body.reason });
-            return { key: item.itemKey, status: item.status };
-        });
     }
 
     @Get('receipts/:id')

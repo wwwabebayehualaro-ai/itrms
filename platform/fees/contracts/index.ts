@@ -247,15 +247,7 @@ export const paymentInputSchema = z
     });
 export type PaymentInput = z.infer<typeof paymentInputSchema>;
 
-/** `POST /receipt-leaves/spoiled`: a leaf of the office's pad that is misprinted or torn, kept on record, never used. */
-export const receiptLeafSpoilSchema = z.strictObject({
-    /** the series and the serial (`ለ000123`) */
-    key: z.string().trim().min(2).max(20),
-    reason: z.string().trim().min(10).max(500)
-});
-export type ReceiptLeafSpoil = z.infer<typeof receiptLeafSpoilSchema>;
-
-/** `GET /receipt-leaves/next`: the office's lowest held, unused leaf, for the payment form; null when none is held. */
+/** `GET /receipt-leaves/next`: the leaf to write on next (after the person's last, else the lowest free); null when none. */
 export const nextReceiptLeafSchema = z.object({
     leaf: z.object({ series: z.string(), serial: z.string() }).nullable()
 });

@@ -15,7 +15,6 @@ import type {
     NextReceiptLeaf,
     PaymentInput,
     PaymentOrderOut,
-    ReceiptLeafSpoil,
     ReceiptOut,
     RemittanceDepositInput,
     RemittanceDetail,
@@ -183,21 +182,12 @@ export function useRecordPayment(orderId: string) {
     });
 }
 
-/** The pad leaf the till writes on next (the office's lowest held, unused one), for the payment form; null when none. */
+/** The pad leaf the till writes on next, offered once by the payment form; null when none. staleTime keeps it from refetching. */
 export function useNextReceiptLeaf(enabled: boolean) {
     return useQuery({
         queryKey: feeKeys.nextLeaf(),
         enabled,
         queryFn: async ({ signal }) => (await client.get<NextReceiptLeaf>('v1/receipt-leaves/next', { signal })).data
-    });
-}
-
-export function useSpoilReceiptLeaf() {
-    const invalidate = useInvalidate();
-    return useMutation({
-        mutationFn: async (input: ReceiptLeafSpoil) =>
-            (await client.post<{ key: string; status: string }>('v1/receipt-leaves/spoiled', input)).data,
-        onSuccess: invalidate
     });
 }
 

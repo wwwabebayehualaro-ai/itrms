@@ -28,9 +28,13 @@ stationery (else 409 `not_configured`, `fees.errors.pad_needs_stock`). After the
 the lock order payment, stationery item, receipt, `StationeryStock.use` takes the `receipt_leaf` the office holds and
 names `fees.payments` and the payment id as what used it. A leaf the office does not hold, one already used or spoiled, is
 409 and the payment rolls back with it. The receipt keeps the item's series and its serial at the item's width
-(`ለ/000123`), so `123` and `000123` are one leaf; a serial is unique within its series letter (rule R11). A cashier spoils a
-leaf with `POST /api/v1/receipt-leaves/spoiled` (`payment:record`, a reason of 10 to 500 characters) and the form is offered
-the lowest free one by `GET /api/v1/receipt-leaves/next`. The remittance and the closing treat a pad receipt like any other;
+(`ለ/000123`), so `123` and `000123` are one leaf; a serial is unique within its series letter (rule R11). A cashier does not write
+off stock: a spoiled or torn leaf goes to the stationery keeper, who records it with the 1.12a write-off
+(`POST /api/v1/stationery/write-offs`, `stationery:write-off`, a reason, audited; the leaf is then `void`). The form is
+offered a leaf once, when it loads, by `GET /api/v1/receipt-leaves/next` (`payment:record`, the office's own stock): the
+leaf after the cashier's last one when held and free, else the lowest free one. Pad serials are stored canonical (padded
+to the stock's width) from 1.12e: an installation with older, unpadded pad receipts must backfill them before rollout
+(none is deployed). The remittance and the closing treat a pad receipt like any other;
 the stationery summary counts the leaf as used or spoiled.
 
 **The remittance (task 1.12d, ADR-0063 §5).** The office's deposit of its closed sessions up to a day (`RemittancesService`,
