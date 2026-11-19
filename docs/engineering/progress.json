@@ -2153,10 +2153,19 @@
         {
           "id": "1.12e",
           "title": "Cashier operations, part 3: pad receipts from stock",
-          "status": "in progress",
+          "status": "done",
           "branch": "task/1.12e-pad-receipts",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "aa8338e",
+            "c62d8bf",
+            "c577fa4"
+          ],
+          "evidence": [
+            "PR #93 CI run 44588484289 on c62d8bf: all 12 jobs pass (attempt 2; attempt 1 failed only vehicle-replacement.int.spec.ts 'who sees what' with duplicate_plate, a random-plate collision on the shared CI database, unrelated, follow-up logged)",
+            "integration: payments.int.spec.ts 24/24 (pad: a held leaf used in the payment's transaction, movement names fees.payments, 7 = 000007, not held / used / void / another office's leaf refused with nothing written, office without holds_stationery 409, two cashiers race one leaf, payment races a keeper write-off, reversed pad receipt keeps its leaf, the use audited, keeper write-off with reason and the cashier 403, next leaf after the cashier's own); stationery 29/29 (reconciliation counts used and written-off leaves), cashier-sessions 26/26, remittances 28/28, iam 18/18, isolation 62/62",
+            "unit fees 89, kernel 102, web 79; boundaries no violations; check:slices 11 OK; i18n:check am+en complete; no migration (drizzle no drift); openapi regenerated",
+            "reviewer (Fable 5.2): no high/critical; 1 medium (cashier spoil = unilateral write-off; now the keeper's write-off) + 4 low fixed in c62d8bf; task-verifier: ready, every Done-when item tied to a named test"
+          ],
           "blockers": [],
           "notes": "A pad payment at an office without holds_stationery is a 409 not_configured (configuration, not an access denial), so it has no access.denied audit row; no existing e2e journey covers the pad path, the integration suite does. Review: a spoiled leaf is recorded by the stationery keeper through the 1.12a write-off (stationery:write-off, reason, audit; status void), not by the cashier, so whoever takes the cash cannot write off the leaf (separation of duties)."
         },
@@ -4221,6 +4230,11 @@
       "foundIn": "1.12d",
       "item": "A customer bank slip recorded after a remittance deposit is not checked against deposit references (only deposit-vs-slip is checked); add the reverse check to slip_in_use",
       "movedTo": "1.12e or a fees hardening task"
+    },
+    {
+      "foundIn": "1.12e",
+      "item": "Flaky integration tests: 9 vehicle specs make legacy plates as 'SN 2-' + randomInt(10000,99999) (and 'CD ' + 4 digits) on the shared CI database, so two specs can collide (vehicle-replacement 'who sees what' failed with duplicate_plate on PR #93, run 44588484289); give the specs a collision-free plate helper in the test kit",
+      "movedTo": "a test-kit hardening task"
     }
   ]
 }
