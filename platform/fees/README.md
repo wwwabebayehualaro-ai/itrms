@@ -16,6 +16,12 @@ libre booklets, licence card blanks, bolo stickers (per category and fiscal year
 - **What enforces it:** a trigger checks the item's machine, and the counts reconcile with the ledger (`summary`).
 - **Its first consumer:** a licence print batch back from the printer takes one card blank per licence.
 
+**Cashier sessions and the daily closing (task 1.12, ADR-0063).** One cashier at one office on one business day: the first
+payment opens the session (or the cashier opens it with a float); the cashier counts the till; a difference needs a note and
+another person's decision (`fees.sessions.approverRoles`); a closed session never changes. A payment holds its session in
+share mode, a count exclusively (`CashierSessionsService`). A reversal decided after the till was counted is marked
+`after_till_closed`. The remittance (1.12d) and pad receipts from stock (1.12e) follow.
+
 Layer: platform. Shape, public entries and rules: [code-structure.md](../../docs/platform/code-structure.md) §4.
 
 | Entry | Holds |

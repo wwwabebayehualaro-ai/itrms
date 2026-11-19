@@ -3,7 +3,7 @@
  * till of the case's handling office (an office whose type collects cash), by cash or a bank deposit slip; its receipt is
  * numbered in the same transaction by the office's counter (gapless per office and fiscal year: a rollback gives the number
  * back) or by the leaf of a pre-printed pad, as the office's setting says. One lock order everywhere: the case, then the
- * order, then the counter. A reversal is asked for with a reason and decided once by another person, in a role the region's
+ * order, then the cashier's session (task 1.12, ADR-0063), then the counter. A reversal is asked for with a reason and decided once by another person, in a role the region's
  * setting names, never the person who asked nor the cashier who took the money; approved, it voids the payment and opens
  * the order again, and the receipt keeps its number (ADR-0014). Every write is audited in its transaction.
  */
@@ -26,6 +26,7 @@ import {
     type ReceiptOut,
     type ReversalOut
 } from '../contracts';
+import { CashierSessionsService } from './cashier-sessions.service';
 import { FEE_CASE_PORT, type FeeCasePort } from './case-port';
 import { externalReferenceKey, fiscalYearOfDay, normalisedReference } from './external-refs';
 import { addisToday } from './fees.service';
@@ -52,6 +53,7 @@ export class PaymentsService {
     constructor(
         @Inject(PaymentOrdersService) private readonly orders: PaymentOrdersService,
         @Inject(SettingsService) private readonly settings: SettingsService,
+        @Inject(CashierSessionsService) private readonly sessions: CashierSessionsService,
         @Optional() @Inject(FEE_CASE_PORT) private readonly cases?: FeeCasePort
     ) {}
 
@@ -131,6 +133,8 @@ export class PaymentsService {
                 throw new ConflictError('duplicate_reference', { detail: say(language, 'fees.payment.slipUsed') });
         }
 
+        // the cashier's session of today at this office, held in share mode (opened by the first payment of the day)
+        const sessionId = await this.sessions.joinToday(tx, order.regionId, order.handlingUnitId, userId);
         let payment: typeof payments.$inferSelect;
         try {
             payment = await insertAudited(tx, payments, {
@@ -145,7 +149,8 @@ export class PaymentsService {
                 slipReferenceNorm: slip ? normalisedReference(slip.reference) : null,
                 slipDate: slip?.paidOn ?? null,
                 receivedFrom: input.receivedFrom,
-                receivedBy: userId
+                receivedBy: userId,
+                sessionId
             });
         } catch (error) {
             if (isUniqueViolation(error, 'payments_slip_live_uq'))
@@ -364,7 +369,7 @@ export class PaymentsService {
                 detail: say(language, 'fees.reversal.notApprover'),
                 audit: { reason: 'reversal_not_approver', reversal: id }
             });
-        // one lock order: the case, the order, the payment, the reversal. A closed case's payment is not reversed here: its
+        // one lock order: the case, the order, the cashier session, the payment, the reversal. A closed case's payment is not reversed here: its
         // service was given (a licence issued); a reversal then is a person's decision outside this flow
         if (this.cases) {
             const kase = await this.cases.lock(tx, seen.caseId);
@@ -373,6 +378,12 @@ export class PaymentsService {
                 throw new ConflictError('invalid_transition', { detail: say(language, 'fees.reversal.caseClosed') });
         }
         const [order] = await tx.select().from(paymentOrders).where(eq(paymentOrders.id, seen.orderId)).for('update');
+        // the payment's session never changes: read it, lock the session (share), then the payment
+        const [taken] = await tx
+            .select({ sessionId: payments.sessionId })
+            .from(payments)
+            .where(eq(payments.id, seen.paymentId));
+        const session = await this.sessions.sessionLockedShared(tx, taken?.sessionId ?? null);
         const [payment] = await tx.select().from(payments).where(eq(payments.id, seen.paymentId)).for('update');
         const [reversal] = await tx.select().from(receiptReversals).where(eq(receiptReversals.id, id)).for('update');
         if (!order || !payment || !reversal) throw new NotFoundError();
@@ -382,7 +393,9 @@ export class PaymentsService {
             state: input.decision,
             decidedBy: userId,
             decidedAt: new Date(),
-            note: input.note ?? null
+            note: input.note ?? null,
+            // the till was counted already: the refund is a line of the next remittance, the closed session is not touched
+            afterTillClosed: session !== undefined && session.state !== 'open'
         });
         let now = order;
         if (input.decision === 'approved') {

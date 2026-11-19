@@ -6,6 +6,13 @@ import { answersSchema } from '@itrms/forms/contracts';
 import { feeRuleSchema, i18nTextSchema, santimTextSchema } from '@itrms/schemas';
 import { z } from 'zod';
 
+import {
+    DENOMINATIONS_SETTING,
+    denominationsSettingSchema,
+    SESSION_APPROVER_ROLES_SETTING,
+    sessionApproverRolesSchema
+} from './cashier-sessions';
+
 /** A fee rule's key: `dvc-04-renewal`. */
 export const FEE_RULE_KEY = /^[a-z][a-z0-9-]{1,62}$/;
 
@@ -170,7 +177,9 @@ export const FEES_SETTINGS = {
     [REVERSAL_APPROVER_ROLES_SETTING]: roleList,
     [BANKS_SETTING]: z.array(bankSchema).min(1).max(100),
     [EXTERNAL_VERIFIER_ROLES_SETTING]: roleList,
-    [EXTERNAL_ISSUERS_SETTING]: z.array(issuerSchema).min(1).max(100)
+    [EXTERNAL_ISSUERS_SETTING]: z.array(issuerSchema).min(1).max(100),
+    [SESSION_APPROVER_ROLES_SETTING]: sessionApproverRolesSchema,
+    [DENOMINATIONS_SETTING]: denominationsSettingSchema
 } as const;
 
 /**
@@ -478,3 +487,4 @@ export const FEES_EVENTS = {
     'receipt.reversed.v1': z.object({ receiptId: z.uuid(), caseId: z.uuid(), reversalId: z.uuid() })
 } as const;
 export * from './stationery';
+export * from './cashier-sessions';

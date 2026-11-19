@@ -326,6 +326,26 @@
         ],
         "type": "object"
       },
+      "CountDecisionDto": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 500,
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "type": "object"
+      },
       "CreateUnitDto": {
         "additionalProperties": false,
         "properties": {
@@ -5007,6 +5027,58 @@
         ],
         "type": "object"
       },
+      "SessionCountDto": {
+        "additionalProperties": false,
+        "properties": {
+          "countedSantim": {
+            "pattern": "^(0|[1-9]\\d{0,16})$",
+            "type": "string"
+          },
+          "denominations": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "count": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "valueSantim": {
+                  "maximum": 100000000,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "valueSantim",
+                "count"
+              ],
+              "type": "object"
+            },
+            "maxItems": 30,
+            "type": "array"
+          },
+          "note": {
+            "maxLength": 500,
+            "type": "string"
+          }
+        },
+        "required": [
+          "countedSantim"
+        ],
+        "type": "object"
+      },
+      "SessionOpenDto": {
+        "additionalProperties": false,
+        "properties": {
+          "openingFloatSantim": {
+            "default": "0",
+            "pattern": "^(0|[1-9]\\d{0,16})$",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "SettingDto": {
         "additionalProperties": false,
         "properties": {
@@ -6757,6 +6829,181 @@
         },
         "tags": [
           "Cases"
+        ]
+      }
+    },
+    "/api/v1/cashier-session-counts/{id}/decision": {
+      "post": {
+        "operationId": "CashierSessionsController_decide",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CountDecisionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "CashierSessions"
+        ]
+      }
+    },
+    "/api/v1/cashier-sessions": {
+      "get": {
+        "operationId": "CashierSessionsController_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "enum": [
+                "open",
+                "pending_approval",
+                "counting",
+                "closed"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "CashierSessions"
+        ]
+      },
+      "post": {
+        "operationId": "CashierSessionsController_open",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionOpenDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "CashierSessions"
+        ]
+      }
+    },
+    "/api/v1/cashier-sessions/current": {
+      "get": {
+        "operationId": "CashierSessionsController_current",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "CashierSessions"
+        ]
+      }
+    },
+    "/api/v1/cashier-sessions/{id}": {
+      "get": {
+        "operationId": "CashierSessionsController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "CashierSessions"
+        ]
+      }
+    },
+    "/api/v1/cashier-sessions/{id}/counts": {
+      "post": {
+        "operationId": "CashierSessionsController_count",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionCountDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "CashierSessions"
         ]
       }
     },

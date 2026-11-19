@@ -91,6 +91,7 @@ In code a permission is `resource:action` with the resource in kebab-case, as th
 | `payment_order` | R | — | R | R | C R | R | C R | R | — | R |
 | `payment`, `receipt` | R | — | R | R | C R | R | R | R | — | R |
 | `receipt_reversal` | — | — | D | — | C (request) | D | — | — | — | R |
+| `cashier_session` (task 1.12) | — | — | D (if named) | — | C R (own: open, count) | D R (decide a count) | — | — | — | R |
 | `external_payment_ref` (paid elsewhere) | — | — | D (if named) | C R | C R | D | — | — | — | R |
 | `external_statement` | — | — | — | — | — | C R | — | — | — | R |
 | `driver_licence` (registry) | R | — | R | R | — | — | R (via effects only) | R | R | R |
@@ -128,6 +129,7 @@ change only through the workflow effects of a case (architecture §8).
 3. **Separation of duties:**
    - The actor of a step listed in `separationOfDuties` cannot act on the later step (e.g. the reviewer cannot approve).
    - A cashier cannot approve their own reversal.
+   - A cashier cannot decide the count of their own till (the database checks it too); the roles that decide are the region's `fees.sessions.approverRoles` (the finance officer by default).
    - `reject` is allowed only to the roles listed by the workflow (`rejectRoles`), from non-final states.
    - **Small offices:** when separation of duties leaves nobody eligible in the unit, the task goes to the parent unit
      automatically, and this is recorded.

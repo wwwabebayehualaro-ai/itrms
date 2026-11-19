@@ -23,7 +23,10 @@ export default defineModule({
         'external-statement': ['read', 'import'],
         // controlled stationery (task 1.12a, ADR-0050): a keeper receives, hands down, accepts and writes off; an office
         // closes its count; using an item has no permission of its own (the printing or issuing command's)
-        stationery: ['read', 'receive', 'allocate', 'write-off', 'close']
+        stationery: ['read', 'receive', 'allocate', 'write-off', 'close'],
+        // the cashier's session and the daily closing (task 1.12, ADR-0063): the cashier opens it with a float and counts the
+        // till; another person decides a count with a difference
+        'cashier-session': ['read', 'open', 'close', 'approve']
     },
     // a corrected request's fee worked out again (named on the workflow's amending transitions); a case's fee as a
     // payment order (named on the transition into its payment step)
@@ -84,6 +87,17 @@ export default defineModule({
             overridableAt: ['installation', 'region']
         },
         {
+            key: 'fees.sessions.approverRoles',
+            default: ['finance_officer'],
+            overridableAt: ['installation', 'region']
+        },
+        // the denominations of the till, in santim (Birr notes and coins; a region's list: assumption, to confirm with the zone)
+        {
+            key: 'fees.sessions.denominations',
+            default: [20000, 10000, 5000, 1000, 500, 100, 50, 25, 10, 5],
+            overridableAt: ['installation', 'region']
+        },
+        {
             key: 'fees.external.issuers',
             default: [
                 {
@@ -120,6 +134,15 @@ export default defineModule({
             icon: 'undo-2',
             route: '/finance/reversals',
             requires: { permission: 'receipt-reversal:decide' }
+        },
+        {
+            key: 'fees.closings',
+            group: 'my-work',
+            order: 41,
+            label: 'fees.nav.closings',
+            icon: 'calculator',
+            route: '/finance/closings',
+            requires: { permission: 'cashier-session:approve' }
         },
         {
             key: 'fees.elsewhere',

@@ -659,6 +659,13 @@
       "when": 1795028896720,
       "tag": "0093_plate_replacement",
       "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1795076920153,
+      "tag": "0094_cashier_sessions",
+      "breakpoints": true
     }
   ]
 }

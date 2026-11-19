@@ -255,7 +255,7 @@ records are **deactivated**, never deleted); `timestamptz` stored in UTC, busine
 | Logistics | `machinery`, `machinery_rentals` (contract, rates, hours), `job_records`, `tree_planting_records` |
 | HR and payroll list | `staff` (person, position, grade, step, unit, employment dates, bank account for Finance), `positions` (Form 15: title, job code, grade, unit, count), `leave_requests`, `leave_balances`, `benefit_records`, `retirements`; payroll list: `salary_scales` (grade × step → santim, versioned with effective date), `pay_components` (allowances and deductions: kind, taxable, pensionable, formula), `tax_tables` and `pension_rates` (versioned), `payroll_periods` (Ethiopian month, state draft/approved/sent/locked), `payroll_lines` (per staff: basic, allowances, attendance/leave deductions, tax, pension, other deductions, net; computed and frozen at approval), `payroll_adjustments` (arrears, corrections carried to a later month) |
 | Planning | `budgets` (+ lines, per Ethiopian fiscal year), `procurement_plans` (+ lines), `performance_reports` (quarterly), `project_progress` |
-| Money | `fee_rules` (versioned), `payment_orders` (+ lines), `payments`, `receipts`, `receipt_reversals`, `cashier_sessions` (daily closing), **`external_payment_refs`** (issuer, reference, fiscal year, amount, status pending_verification/verified/rejected; unique per issuer + reference + year), `controlled_stock` (serial ranges of licence card blanks, bolo stickers, receipt pads: issued to unit, used, spoiled, reconciled) |
+| Money | `fee_rules` (versioned), `payment_orders` (+ lines), `payments`, `receipts`, `receipt_reversals`, `cashier_sessions` (one cashier at one office on one business day; its frozen figures and state) and `cashier_session_counts` (every count of the till and its decision; ADR-0063, task 1.12), **`external_payment_refs`** (issuer, reference, fiscal year, amount, status pending_verification/verified/rejected; unique per issuer + reference + year), `controlled_stock` (serial ranges of licence card blanks, bolo stickers, receipt pads: issued to unit, used, spoiled, reconciled) |
 | Documents and files | `document_templates` (versioned), `issued_documents` (number, type, subject, case, verification token hash, file, status), `files` (object key, sha256, type, size, scan status) |
 
 ### 6.2 Service, form and case tables (configuration + JSONB answers)
@@ -422,9 +422,26 @@ Definition (Zod schema `workflowDefinitionSchema` in `packages/schemas`; stored 
      settlement.
 - Corrections are reversals with a reason and a second person's approval (a role the region names, never the requester
   nor the cashier who took the money), never edits: the receipt keeps its number.
-- **Daily cashier closing:** expected vs. counted cash, unmatched external references, and **controlled stationery**
-  (libre booklets from MoTL (ADR-0050), receipt pads, licence blanks, bolo stickers) reconciled by serial range. Remittance report to the revenue office
-  (Phase 1).
+- **Cashier sessions and the daily closing (task 1.12, ADR-0063):**
+  - A session is one cashier's, at one office, on one business day (Africa/Addis_Ababa). The first payment of the day opens
+    it with a float of zero; `POST /api/v1/cashier-sessions` opens it with a float. Every payment names an open session of
+    its own cashier and office (`payments.session_id`: a composite key and an insert trigger). A payment never joins an
+    earlier day's session; one still open is **overdue**, shown and not blocking. Payments made before the sessions have none.
+  - The cashier **counts** the till (`POST /cashier-sessions/:id/counts`): a total, optionally by denomination (added up
+    in whole santim; the region's list is `fees.sessions.denominations`). The first count freezes what the session
+    expects: the float plus its cash not voided (bank slips are listed, not cash). A count that equals it closes the
+    session; a difference needs a note (10 to 500 characters) and a decision by another person in a role
+    `fees.sessions.approverRoles` names (the finance officer by default), at the office or above, never the cashier
+    (`POST /cashier-session-counts/:id/decision`). Approved, it closes; rejected, the cashier counts again against the
+    frozen figure. A trigger allows only these moves and never changes a closed session.
+  - The lock order is the case, the order, the cashier session, the counter, the payment, the receipt, the reversal. A
+    payment and a reversal's decision hold the session in share mode; a count and a count's decision exclusively. A
+    reversal decided after the till was counted is marked `after_till_closed` and leaves the closed session untouched (it
+    becomes a negative line on the next remittance, task 1.12d).
+  - The closing screen also shows, read only, the receipts by method, the reversed ones, the reversals and the references
+    paid elsewhere still waiting, and the office's latest receipt-leaf counts. Unmatched external references and
+    **controlled stationery** (libre booklets from MoTL (ADR-0050), receipt pads, licence blanks, bolo stickers) are
+    reconciled by serial range. The remittance to the revenue office follows in task 1.12d.
 - Online payments (any NBE-licensed provider, MoF Directive 1069/2025; Phase 3) go through one `PaymentProvider` adapter
   interface with webhooks, signature checks, idempotent settlement and a daily reconciliation job.
 
