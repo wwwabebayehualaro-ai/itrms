@@ -2,6 +2,24 @@
 
 Driver and vehicle competency: driver licences, bolo inspections and the competency services.
 
+**Licence numbers, the card serial and the blood group (task 1.6, ADR-0051, ADR-0052, ADR-0064).** A licence is numbered when the
+national platform accepts it, in the worker's system transaction (`competency.activateLicence`, `api/licence-numbers.ts`): the
+platform's number when it gives one (no counter moves), else the next value of the region's one counter `competency.licence` on its
+root unit, pattern `<region code>-{seq:05}` ("06-00001"). The region setting `competency.licence_number` (`{ scope, regionCode,
+firstNumber }`, installation or region, sensitive; default scope `region`) decides; scope `unit` keeps each office's
+`{unit}/DL/{seq:06}`. The counter is set up by `seed competency` (`setUpLicenceCounters`, as the owner) after the first number minus
+one, and that step refuses a region in scope `region` without its code and first number; set the setting first (`seed settings`),
+and run `seed competency` again after changing it (a counter is never lowered, a number never renumbered). Filing a new licence
+(`competency.checkApplication`) asks the reviewed definer `kernel.regional_counter_ready('competency.licence')` (only that key,
+only the caller's region) and refuses with 409 `not_configured` while the counter is missing. The serial printed on the card is kept
+on `driver_licences.card_serial` when a printed batch is recorded, in the same transaction (`RegisterService.recordPrinted`),
+unique in the region (409 `competency.errors.card_serial_taken`), and filters the register (`GET /competency/licences?cardSerial=`).
+The blood group (`competency.licence_health`, class R, field-encrypted, never in the audit log) is recorded by `POST
+/competency/licences/:id/health` (`licence-health:record`: officer and lead; 409 while `competency.card_shows_blood_group` is off)
+and read in clear only by `POST /competency/licences/:id/health/reveal` (`licence-health:reveal`: the lead; a reason, a second
+factor in the last five minutes, rate-limited, never replayed; the `licence.health_revealed` event is recorded before the read; a
+licence outside the lead's subtree is 404). Views, lists, the lookup and the card document carry only `bloodGroupOnRecord`.
+
 **New vehicle registration (DVC-01, task 1.2b).** Seeded as configuration (`seed/vehicle-services.ts`): the request form
 `vehicle-registration` (owners, the vehicle's facts, documents, the fee), the step form `vehicle-national-entry` (the federal
 vehicle id, keyed in by staff until a national interface exists), the workflow draft → review → payment → approval →

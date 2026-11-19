@@ -26,6 +26,8 @@ describe('POSTs kept out of the idempotency records (@NotReplayable)', () => {
         // the slices are loaded by the import of SLICES above; each entry here is reviewed with its handler
         expect(SLICES.length).toBeGreaterThan(0);
         expect(notReplayableHandlers()).toEqual([
+            // a licence's blood group in clear (task 1.6, ADR-0052): each reveal is on record, its answer never kept
+            'CompetencyController.revealHealth',
             // a hold's letter (task 1.4a): a short-lived link (each download is on record)
             'EncumbrancesController.file',
             // a background export's download link: short-lived, never kept for a replay (each download is on record)

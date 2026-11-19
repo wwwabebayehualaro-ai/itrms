@@ -5,3 +5,11 @@ settings:
     am: ናሙና የክልል ትራንስፖርት ቢሮ
     en: Sample Regional Transport Bureau
   i18n.languages: [am, en, wal-Latn]
+  # the region's licence numbers (task 1.6, ADR-0051): its code and the first number of the range it reserves for ITRMS.
+  # Placeholders until the zone answers (Z): 06 is South Ethiopia's code in the zone's answers
+  competency.licence_number:
+    scope: region
+    regionCode: '06'
+    firstNumber: 1
+  # the demo collects the blood group for the card (ADR-0052; off by default, Z), so a lead can show its reveal
+  competency.card_shows_blood_group: true

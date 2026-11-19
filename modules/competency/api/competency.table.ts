@@ -4,6 +4,7 @@
  *   licence_grade_types    the catalogue of grades (Art. 12 of Proclamation 1074/2018): class C at the region's root.
  *   driver_licences        a person's licence, class R: the region reads it, the handling unit's subtree writes it.
  *   licence_grades         the grades a licence carries, class R, with the licence's handling unit.
+ *   licence_health         a licence's blood group (task 1.6, ADR-0052), class R, field-encrypted; read only through reveal.
  *   medical_certificates   the medical examination a case relied on, class T.
  *   training_enrolments    a school's list of who finished training, entered by the handling unit, class T.
  *   exam_sessions, exam_results   what an examiner recorded, class T.
@@ -142,6 +143,8 @@ export const driverLicences = withRls(
                 validUntil: date('valid_until'),
                 /** the national platform's reference: its record, never a competing copy */
                 nationalReference: text('national_reference'),
+                /** the serial printed on its card (task 1.6): set when a printed batch comes back, unique in the region */
+                cardSerial: text('card_serial'),
                 /** the case that made it */
                 caseId: uuid('case_id'),
                 voidReason: text('void_reason')
@@ -151,6 +154,9 @@ export const driverLicences = withRls(
                     .on(t.regionId, t.number)
                     .where(sql`number IS NOT NULL`),
                 // a case makes one licence at a time; one the national platform refused leaves room for the next attempt
+                uniqueIndex('driver_licences_card_serial_uq')
+                    .on(t.regionId, t.cardSerial)
+                    .where(sql`card_serial IS NOT NULL`),
                 uniqueIndex('driver_licences_case_uq')
                     .on(t.caseId)
                     .where(sql`case_id IS NOT NULL AND status <> 'voided'`),
@@ -165,6 +171,32 @@ export const driverLicences = withRls(
                 )
             ]
         )
+    ),
+    'registry'
+);
+
+/**
+ * A licence's health facts (task 1.6, ADR-0052), class R like its licence: one row per licence, the blood group encrypted with
+ * the region's data key and bound to its row. Read in clear only through the audited reveal; the audit log never holds it.
+ */
+export const licenceHealth = withRls(
+    audited(
+        competencySchema.table(
+            'licence_health',
+            {
+                ...baseColumns(),
+                ...registry(),
+                licenceId: uuid('licence_id')
+                    .notNull()
+                    .references(() => driverLicences.id),
+                bloodGroupCt: bytea('blood_group_ct').notNull()
+            },
+            (t) => [
+                uniqueIndex('licence_health_licence_uq').on(t.licenceId),
+                index('licence_health_handling_org_path_gist').using('gist', t.handlingOrgPath)
+            ]
+        ),
+        { omit: ['bloodGroupCt'] }
     ),
     'registry'
 );

@@ -429,6 +429,8 @@ describe('every tenant table', () => {
             'kernel.record_context_free_event(text,jsonb)',
             // ids, codes and names of units of the caller's region only (task 0.14)
             'kernel.region_units(uuid[])',
+            // whether the caller's region has its regional licence counter, for the licence counter's key only: yes or no (task 1.6)
+            'kernel.regional_counter_ready(text)',
             // the caller's roles for the unit asked, by the context's subject
             'kernel.resolve_principal(uuid)',
             'kernel.set_context(text)',

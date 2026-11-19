@@ -14,9 +14,12 @@ export type { Logger } from 'pino';
 
 const CENSOR = '[redacted]';
 
-/** Keys whose values are never logged, whatever their case or depth (`Authorization`, `body.user.password`). */
+/**
+ * Keys whose values are never logged, whatever their case or depth (`Authorization`, `body.user.password`); a licence's blood
+ * group is a health fact (task 1.6, ADR-0052), never logged whatever logs a body.
+ */
 const SECRET_KEY =
-    /^(password|passwd|pwd|secret|token|access_?token|refresh_?token|id_?token|api_?key|authorization|cookie|set-cookie|client_?secret|private_?key|signing_?key)$/i;
+    /^(password|passwd|pwd|secret|token|access_?token|refresh_?token|id_?token|api_?key|authorization|cookie|set-cookie|client_?secret|private_?key|signing_?key|blood_?group)$/i;
 
 /** Header paths the request/response serializers produce (pino's own redaction; the walk below covers the rest). */
 export const REDACTED_PATHS = [

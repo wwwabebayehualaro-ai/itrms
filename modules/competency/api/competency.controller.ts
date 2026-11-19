@@ -1,36 +1,48 @@
 /**
  * The register's API (task 0.24a): licences to read, the training schools' lists, the catalogue of grades, and the print batches. A
- * licence itself changes only through a case's workflow.
+ * licence itself changes only through a case's workflow; its blood group (task 1.6, ADR-0052) is recorded by a register command and
+ * read in clear only through the audited reveal, which needs a second factor in the last five minutes (SEC-SE-5) and is never kept
+ * for replay.
  */
-import { Body, Controller, Get, Headers, Inject, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Inject, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { createZodDto } from 'nestjs-zod';
-import { DATABASE } from '@itrms/kernel/api';
+import { DATABASE, NotReplayable } from '@itrms/kernel/api';
 import type { Database } from '@itrms/kernel/db';
 import { versionFrom } from '@itrms/kernel/errors';
 import { Require, requestDbContext } from '@itrms/kernel/iam';
+import { RateLimit } from '@itrms/kernel/limits';
 
 import {
     enrolmentCompleteSchema,
     enrolmentCreateSchema,
     enrolmentQuerySchema,
+    licenceHealthRecordSchema,
+    licenceHealthRevealSchema,
     licenceQuerySchema,
     printBatchPrintedSchema
 } from '../contracts';
+import { LicenceHealthService } from './licence-health.service';
 import { LicencesService } from './licences.service';
 import { RegisterService } from './register.service';
+
+/** How recently the lead entered their second factor to read a health fact (SEC-SE-5, as a person's record). */
+const REVEAL_RECENT_AUTH = 300;
 
 class LicenceQueryDto extends createZodDto(licenceQuerySchema) {}
 class EnrolmentCreateDto extends createZodDto(enrolmentCreateSchema) {}
 class EnrolmentCompleteDto extends createZodDto(enrolmentCompleteSchema) {}
 class EnrolmentQueryDto extends createZodDto(enrolmentQuerySchema) {}
 class PrintedDto extends createZodDto(printBatchPrintedSchema) {}
+class HealthRecordDto extends createZodDto(licenceHealthRecordSchema) {}
+class HealthRevealDto extends createZodDto(licenceHealthRevealSchema) {}
 
 @Controller('api/v1/competency')
 export class CompetencyController {
     constructor(
         @Inject(DATABASE) private readonly db: Database,
         @Inject(LicencesService) private readonly licences: LicencesService,
-        @Inject(RegisterService) private readonly register: RegisterService
+        @Inject(RegisterService) private readonly register: RegisterService,
+        @Inject(LicenceHealthService) private readonly health: LicenceHealthService
     ) {}
 
     @Get('grades')
@@ -49,6 +61,27 @@ export class CompetencyController {
     @Require('licence:read')
     get(@Param('id', ParseUUIDPipe) id: string) {
         return this.db.scoped(requestDbContext(), (tx) => this.licences.get(tx, id));
+    }
+
+    /** The holder's blood group, for the card (task 1.6): only while the region collects it. The answer says only that it is on record. */
+    @Post('licences/:id/health')
+    @HttpCode(200)
+    @Require('licence-health:record')
+    recordHealth(@Param('id', ParseUUIDPipe) id: string, @Body() body: HealthRecordDto) {
+        const ctx = requestDbContext();
+        return this.db.scoped(ctx, async (tx) => {
+            await this.health.record(tx, ctx, id, body.bloodGroup);
+            return this.licences.get(tx, id);
+        });
+    }
+
+    @Post('licences/:id/health/reveal')
+    @RateLimit('reveal')
+    @HttpCode(200)
+    @NotReplayable()
+    @Require('licence-health:reveal', { recentAuth: REVEAL_RECENT_AUTH })
+    revealHealth(@Param('id', ParseUUIDPipe) id: string, @Body() body: HealthRevealDto) {
+        return this.health.revealed(requestDbContext(), id, body.reason);
     }
 
     @Get('training-enrolments')

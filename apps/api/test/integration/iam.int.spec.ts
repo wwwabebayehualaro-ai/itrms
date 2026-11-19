@@ -394,6 +394,22 @@ describe('a person in two units', () => {
         ]);
     });
 
+    it('reads a blood group in clear only as the competency lead; officers record it (task 1.6, ADR-0052)', async () => {
+        const boditi = await unitAt('WOL-BODITI');
+        const permissionsOf = async (sub: string) =>
+            (await call('GET', '/api/v1/me/workspace', { token: await token(sub), unit: boditi.id })).json<{
+                permissions: string[];
+            }>().permissions;
+        const lead = await permissionsOf('0199f0a0-d000-7000-8000-000000000304');
+        expect(lead).toEqual(expect.arrayContaining(['licence-health:record', 'licence-health:reveal']));
+        const officer = await permissionsOf(SUB.boditiOfficer);
+        expect(officer).toContain('licence-health:record');
+        expect(officer).not.toContain('licence-health:reveal');
+        // a records officer or a cashier neither records nor reads one
+        const cashier = await permissionsOf('0199f0a0-d000-7000-8000-000000000303');
+        expect(cashier.filter((p) => p.startsWith('licence-health:'))).toEqual([]);
+    });
+
     it('is refused a unit they hold no role in, and the refusal is on record', async () => {
         const since = await mark();
         const damotGale = await unitAt('WOL-DAMOT-GALE');

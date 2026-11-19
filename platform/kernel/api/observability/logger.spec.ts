@@ -40,6 +40,12 @@ describe('logs', () => {
         expect(text()).not.toMatch(/deep-1|deep-2|deep-3/);
     });
 
+    it('never hold a licence holder’s blood group, whatever logs it (task 1.6, ADR-0052)', () => {
+        const { logger, text } = capture();
+        logger.info({ body: { bloodGroup: 'AB-' }, row: { blood_group: 'O+' } });
+        expect(text()).not.toMatch(/AB-|O\+/);
+    });
+
     it('mask credentials in connection strings: messages, fields, errors and their properties', () => {
         expect(maskSecrets('connect postgres://itrms_app:pa:ss@db:5432/x and redis://:v@lkey@cache')).toBe(
             'connect postgres://***@db:5432/x and redis://***@cache'

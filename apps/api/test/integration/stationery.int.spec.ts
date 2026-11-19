@@ -484,6 +484,93 @@ describe('a licence print batch back from the printer', () => {
         expect((await printed({ firstCardKey: 'PC5' }, 2)).statusCode).toBe(409);
     });
 
+    it('keeps each card’s serial beside its licence, in the transaction that records the blank (task 1.6)', async () => {
+        const { rows } = await api.owner.query<{ card_serial: string; card_key: string; same_tx: boolean }>(
+            `select l.card_serial, i.card_key, l.xmin::text = i.xmin::text as same_tx
+               from competency.driver_licences l join competency.licence_print_batch_items i on i.licence_id = l.id
+              where i.batch_id = $1 order by l.card_serial`,
+            [batchId]
+        );
+        expect(rows).toEqual([
+            { card_serial: 'PC01', card_key: 'PC01', same_tx: true },
+            { card_serial: 'PC03', card_key: 'PC03', same_tx: true },
+            { card_serial: 'PC04', card_key: 'PC04', same_tx: true }
+        ]);
+        // on record, and searchable in the register (any case, the start of it)
+        const audit = await api.owner.query<{ diff: { after: Record<string, unknown> } }>(
+            `select diff from kernel.audit_log where table_name = 'competency.driver_licences' and row_id = $1
+              and action = 'update'`,
+            [licences[1]]
+        );
+        expect(audit.rows.map((r) => r.diff.after)).toContainEqual({ cardSerial: 'PC03' });
+        const found = await api.call('GET', '/api/v1/competency/licences?cardSerial=pc03', {
+            sub: SUB.lead,
+            unit: units.boditi
+        });
+        expect(found.statusCode, found.body).toBe(200);
+        expect(found.json<{ items: { id: string; cardSerial: string }[] }>().items).toEqual([
+            expect.objectContaining({ id: licences[1], cardSerial: 'PC03' })
+        ]);
+        const bad = await api.call('GET', '/api/v1/competency/licences?cardSerial=PC%25', {
+            sub: SUB.lead,
+            unit: units.boditi
+        });
+        expect(bad.statusCode).toBe(422);
+    });
+
+    it('refuses a serial another licence of the region carries, and takes nothing (task 1.6)', async () => {
+        const { rows } = await api.owner.query<{ id: string }>(
+            `insert into competency.licence_print_batches (id, region_id, handling_unit_id, status)
+             values (gen_random_uuid(), $1, $2, 'sent') returning id`,
+            [units.boditi.regionId, units.boditi.id]
+        );
+        const second = rows[0]?.id ?? '';
+        const lic = await api.owner.query<{ id: string }>(
+            `insert into competency.driver_licences (id, region_id, handling_unit_id, person_id)
+             values (gen_random_uuid(), $1, $2, $3) returning id`,
+            [units.boditi.regionId, units.boditi.id, person]
+        );
+        const licenceId = lic.rows[0]?.id ?? '';
+        await api.owner.query(
+            `insert into competency.licence_print_batch_items (id, region_id, handling_unit_id, batch_id, licence_id)
+             values (gen_random_uuid(), $1, $2, $3, $4)`,
+            [units.boditi.regionId, units.boditi.id, second, licenceId]
+        );
+        // a paper card of another office came in with this serial (a back-capture, task 1.6b)
+        await api.owner.query(`update competency.driver_licences set card_serial = 'PC06' where id = $1`, [
+            licences[0]
+        ]);
+        const before = await countsOf(units.boditi, 'licence_blank');
+        try {
+            const res = await api.call(
+                'POST',
+                `/api/v1/competency/print-batches/${second}/printing`,
+                { sub: SUB.lead, unit: units.boditi },
+                { firstCardKey: 'PC06' },
+                { 'if-match': '"1"' }
+            );
+            expect(res.statusCode, res.body).toBe(409);
+            expect(res.json()).toMatchObject({ code: 'duplicate_reference' });
+            // all or nothing: the blank stays in stock, the batch is still sent, the licence has no serial
+            expect(await countsOf(units.boditi, 'licence_blank')).toMatchObject({ inStock: before.inStock });
+            const after = await api.owner.query<{ status: string; card_serial: string | null }>(
+                `select b.status, l.card_serial from competency.licence_print_batches b, competency.driver_licences l
+                  where b.id = $1 and l.id = $2`,
+                [second, licenceId]
+            );
+            expect(after.rows).toEqual([{ status: 'sent', card_serial: null }]);
+        } finally {
+            await api.owner.query(`update competency.driver_licences set card_serial = 'PC01' where id = $1`, [
+                licences[0]
+            ]);
+        }
+        // the database refuses a second licence on one serial whatever writes it
+        const twice = api.owner.query(`update competency.driver_licences set card_serial = 'PC03' where id = $1`, [
+            licenceId
+        ]);
+        await expect(twice).rejects.toThrow(/driver_licences_card_serial_uq/);
+    });
+
     it('refuses one who may not print, at the permission', async () => {
         const res = await api.call(
             'POST',

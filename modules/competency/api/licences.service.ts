@@ -8,7 +8,6 @@ import { and, asc, eq, gte, inArray, isNull, like, ne, or, sql, type SQL } from 
 import { currentContext } from '@itrms/kernel/context';
 import { insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { ConflictError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
-import { nextNumber } from '@itrms/kernel/numbering';
 import { emit } from '@itrms/kernel/outbox';
 import { orgUnits } from '@itrms/kernel/tables';
 import { DocumentsService } from '@itrms/documents/api';
@@ -20,11 +19,11 @@ import type { z } from 'zod';
 
 import {
     addisDay,
+    CARD_SHOWS_BLOOD_GROUP_SETTING,
     eligibilityProblems,
     enrolmentCreateSchema,
     examAnswersSchema,
     LICENCE_CARD_TEMPLATE,
-    LICENCE_COUNTER,
     licenceSchema,
     licenceGradeSchema,
     medicalIsCurrent,
@@ -46,11 +45,13 @@ import {
     examSessions,
     licenceGrades,
     licenceGradeTypes,
+    licenceHealth,
     licencePrintBatches,
     licencePrintBatchItems,
     medicalCertificates,
     trainingEnrolments
 } from './competency.table';
+import { licenceNumbering, requireLicenceSeries, takeLicenceNumber } from './licence-numbers';
 
 /** A case's place, as an effect is given it, and who is acting (nobody, for the worker's system transactions). */
 export interface CasePlace {
@@ -228,6 +229,12 @@ export class LicencesService {
         if (school?.kind !== 'training_school' || trained?.status !== 'completed')
             problems.push(say('competency.rule.training'));
         if (problems.length) throw notEligible(problems.join(' '));
+        // a request the region could not number when the platform accepts it is refused now, not in the worker (ADR-0064 §2)
+        await requireLicenceSeries(
+            tx,
+            await licenceNumbering(this.settings, tx, place.handlingUnitId),
+            place.handlingUnitId
+        );
         await this.recordMedical(tx, place, input.person, input.medicalFacility, input.medicalExaminedOn);
         return { personId: input.person, application: { grade: grade.key } };
     }
@@ -383,8 +390,12 @@ export class LicencesService {
         const licence = await this.row(tx, this.licenceIdOf(facts, 'licence'));
         if (licence.status === 'active') return { licence: { id: licence.id, number: licence.number } };
         const issuedOn = addisDay();
-        // the national platform's number when it issues one; the region's counter until it does (architecture.md §15)
-        const number = given.licenceNumber ?? (await nextNumber(tx, LICENCE_COUNTER, place.handlingUnitId)).number;
+        // the national platform's number when it issues one, and then no counter moves; the region's until it does (ADR-0051):
+        // its one sequence on the root unit, or the office's own in scope `unit`
+        const number =
+            given.licenceNumber ??
+            (await takeLicenceNumber(tx, await licenceNumbering(this.settings, tx, place.handlingUnitId), place))
+                .number;
         await updateAudited(tx, driverLicences, licence.id, licence.rowVersion, {
             status: 'active',
             number,
@@ -602,6 +613,19 @@ export class LicencesService {
                     rows.map((r) => r.personId)
                 )
             );
+        // that a blood group is on record, never what it is (ADR-0052): the value is read only through reveal
+        const health = new Set(
+            (
+                await tx
+                    .select({ licenceId: licenceHealth.licenceId })
+                    .from(licenceHealth)
+                    .where(inArray(licenceHealth.licenceId, ids))
+            ).map((h) => h.licenceId)
+        );
+        const first = rows[0];
+        const collected = first
+            ? await this.settings.value<boolean>(tx, first.handlingUnitId, CARD_SHOWS_BLOOD_GROUP_SETTING)
+            : false;
         const units = await tx
             .select({ id: orgUnits.id, code: orgUnits.code, name: orgUnits.name })
             .from(orgUnits)
@@ -647,14 +671,22 @@ export class LicencesService {
                 issuedOn: r.issuedOn,
                 validUntil: r.validUntil,
                 nationalReference: r.nationalReference,
+                cardSerial: r.cardSerial,
+                bloodGroupOnRecord: health.has(r.id),
+                bloodGroupCollected: collected === true,
                 caseId: r.caseId,
                 version: r.rowVersion
             });
         });
     }
 
-    async list(tx: Tx, query: { personId?: string; status?: LicenceRow['status']; number?: string; limit: number }) {
+    async list(
+        tx: Tx,
+        query: { personId?: string; status?: LicenceRow['status']; number?: string; cardSerial?: string; limit: number }
+    ) {
         const where: SQL[] = [];
+        // a serial is letters, digits and '-' only (the contract checks it): nothing in it is a LIKE wildcard
+        if (query.cardSerial) where.push(like(driverLicences.cardSerial, `${query.cardSerial}%`));
         if (query.personId) where.push(eq(driverLicences.personId, query.personId));
         if (query.status) where.push(eq(driverLicences.status, query.status));
         if (query.number) where.push(like(driverLicences.number, `${query.number.replace(/[%_\\]/g, '\\$&')}%`));

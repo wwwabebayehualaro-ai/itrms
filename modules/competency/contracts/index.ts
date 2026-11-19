@@ -7,6 +7,12 @@ import { z } from 'zod';
 
 import { BOLO_EVENTS, BOLO_REMINDER_DAYS_SETTING, TEMPORARY_BOLO_DAYS_SETTING } from './bolo';
 import { MIGRATION_SAMPLE_SETTING, sampleShareSchema } from './migration-sample';
+import {
+    CARD_SHOWS_BLOOD_GROUP_SETTING,
+    cardSerialQuery,
+    LICENCE_NUMBER_SETTING,
+    licenceNumberingSchema
+} from './licence-family';
 import { LIBRE_NOTICE_DAYS_SETTING } from './replacement';
 import { MEDICAL_MONTHS_SETTING, RENEWAL_WINDOW_SETTING } from './rules';
 import { TRANSFER_LETTER_ENFORCED_SETTING, TRANSFER_LETTER_VALID_DAYS_SETTING } from './transfer';
@@ -23,6 +29,7 @@ export * from './back-capture';
 export * from './bolo';
 export * from './campaign';
 export * from './exchange';
+export * from './licence-family';
 export * from './migration-report';
 export * from './migration-sample';
 export * from './registration';
@@ -58,7 +65,9 @@ export const COMPETENCY_SETTINGS = {
     [VEHICLE_TRANSFER_COVERING_LETTER_SETTING]: z.boolean(),
     [VEHICLE_RELEASE_CANCEL_UNRETURNED_SETTING]: z.boolean(),
     [VEHICLE_TRANSFER_PLATE_EXCHANGE_SETTING]: z.boolean(),
-    [LIBRE_NOTICE_DAYS_SETTING]: z.number().int().min(1).max(365)
+    [LIBRE_NOTICE_DAYS_SETTING]: z.number().int().min(1).max(365),
+    [LICENCE_NUMBER_SETTING]: licenceNumberingSchema,
+    [CARD_SHOWS_BLOOD_GROUP_SETTING]: z.boolean()
 } as const;
 
 /** The document a licence prints as. */
@@ -129,6 +138,12 @@ export const licenceSchema = z.object({
     issuedOn: z.iso.date().nullable(),
     validUntil: z.iso.date().nullable(),
     nationalReference: z.string().nullable(),
+    /** the serial printed on the card, once a printed batch came back (task 1.6) */
+    cardSerial: z.string().nullable(),
+    /** whether a blood group is on record: never the value, which only the audited reveal reads (ADR-0052) */
+    bloodGroupOnRecord: z.boolean(),
+    /** whether the region collects the blood group (`competency.card_shows_blood_group`) */
+    bloodGroupCollected: z.boolean(),
     caseId: z.uuid().nullable(),
     version: z.number().int()
 });
@@ -140,6 +155,8 @@ export const licenceQuerySchema = z.strictObject({
     status: z.enum(LICENCE_STATUSES).optional(),
     /** the start of a licence number */
     number: z.string().trim().min(1).max(60).optional(),
+    /** the start of the serial printed on the card (task 1.6) */
+    cardSerial: cardSerialQuery.optional(),
     limit: z.coerce.number().int().min(1).max(100).default(50)
 });
 

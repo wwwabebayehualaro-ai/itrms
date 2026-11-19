@@ -27,6 +27,7 @@ import type { CaseOut } from '@itrms/workflow/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { startApi, type As, type TestApi } from './support/api';
+import { setLicenceNumbering } from './support/licences';
 import { startPostgres, type TestPostgres } from './support/postgres';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -269,6 +270,8 @@ beforeAll(async () => {
     as.damotHead = { sub: SUB.damotHead, unit: await api.unit('SER', 'WOL-DAMOT-GALE') };
 
     const root = { id: region.id, regionId: region.regionId };
+    // the region numbers its licences (task 1.6): its code and range, then its counter
+    await setLicenceNumbering(api, root);
     await api.installer.scoped({}, async (tx) => {
         await importFeeRules(tx, root, parseFeeRules(readFileSync(FEE_RULES, 'utf8')));
         await importLicenceGrades(tx, root);

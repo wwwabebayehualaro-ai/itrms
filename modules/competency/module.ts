@@ -115,6 +115,22 @@ export default defineModule({
             default: 15,
             overridableAt: ['installation', 'region'],
             sensitive: true
+        },
+        // how the region numbers its licences (task 1.6, ADR-0051): one regional sequence from its code and the first number of
+        // the range it reserves for ITRMS (Z), or per office. A change moves the numbers people carry: a fresh second factor
+        {
+            key: 'competency.licence_number',
+            default: { scope: 'region' },
+            overridableAt: ['installation', 'region'],
+            sensitive: true
+        },
+        // whether the region collects the blood group for the card (task 1.6, ADR-0052): off until it says so (Z); turning it on
+        // collects a health fact, so a change needs a fresh second factor
+        {
+            key: 'competency.card_shows_blood_group',
+            default: false,
+            overridableAt: ['installation', 'region'],
+            sensitive: true
         }
     ],
     effects: [
@@ -175,6 +191,8 @@ export default defineModule({
     entitlement: 'itrms.licensing',
     permissions: {
         licence: ['read', 'issue', 'print'],
+        // a licence's health facts (task 1.6, ADR-0052): the blood group recorded, and read in clear only through the audited reveal
+        'licence-health': ['record', 'reveal'],
         exam: ['read', 'record'],
         training: ['read', 'record'],
         // the bulk import of paper vehicle files (task 1.13b): a sheet sent, and committed by a second person
@@ -189,6 +207,7 @@ export default defineModule({
     roles: {
         'competency.officer': [
             'licence:read',
+            'licence-health:record',
             'exam:read',
             'training:read',
             'training:record',
@@ -221,6 +240,9 @@ export default defineModule({
             'licence:read',
             'licence:issue',
             'licence:print',
+            // the lead alone reads a blood group in clear, for licences its subtree handles (ADR-0064 §4)
+            'licence-health:record',
+            'licence-health:reveal',
             'exam:read',
             'training:read',
             ...REGISTER_READ,

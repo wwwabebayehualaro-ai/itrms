@@ -49,6 +49,7 @@ import { FieldCrypto } from '@itrms/kernel/crypto';
 import { OrganisationsService, PersonsService } from '@itrms/parties/api';
 import { PlateStock, VehicleRegistry } from '@itrms/vehicles/api';
 import { StationeryStock } from '@itrms/fees/api';
+import { LICENCE_NUMBER_SETTING } from '@itrms/competency/contracts';
 import { DEFAULT_LEGACY_PLATE_REGIONS } from '@itrms/vehicles/contracts';
 import {
     importPlateStockDemo,
@@ -194,7 +195,10 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
             const where = { id: root.id, regionId: root.regionId };
             return {
                 grades: await importLicenceGrades(tx, where),
-                counters: await setUpLicenceCounters(tx, root.regionId),
+                // the region's licence counter from its code and first number (task 1.6), and the offices' own
+                counters: await setUpLicenceCounters(tx, root.regionId, {
+                    installation: config.INSTALLATION_SETTINGS[LICENCE_NUMBER_SETTING]
+                }),
                 // after the catalogue and the fee rules (task 0.24b)
                 services: await importLicenceServices(tx, where),
                 vehicleServices: await importVehicleServices(tx, where),

@@ -3,17 +3,16 @@
  * (ethiopia-context.md §3.1: the schedule itself was not in the published text, so check these against the Negarit Gazette), and the
  * licence counter of each office that handles licences. Run again, both stay as they are unless the table here changed.
  */
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { Tx } from '@itrms/kernel/db';
 import { insertAudited, updateAudited } from '@itrms/kernel/db';
-import { setUpCounter } from '@itrms/kernel/numbering';
 
-import { LICENCE_COUNTER, LICENCE_PATTERN } from '../contracts';
 import { licenceGradeTypes } from '../api/competency.table';
 import { LICENCE_GRADES, type GradeSeed } from './grades';
 
 export { LICENCE_GRADES, type GradeSeed } from './grades';
 export * from './licence-services';
+export { licenceNumberingOf, setUpLicenceCounters } from './licence-numbers';
 export * from './vehicle-services';
 export * from './back-capture-service';
 export * from './exchange-service';
@@ -69,15 +68,4 @@ export async function importLicenceGrades(
         }
     }
     return changed;
-}
-
-/** A counter for each office whose type offers licences. It never lowers one. */
-export async function setUpLicenceCounters(tx: Tx, regionId: string, pattern = LICENCE_PATTERN): Promise<number> {
-    const offices = await tx.execute<{ id: string }>(sql`
-        select u.id from kernel.org_units u
-          join kernel.unit_type_services s on s.unit_type_id = u.unit_type_id
-         where u.region_id = ${regionId} and u.active and s.service_code = 'DVC-03'`);
-    for (const office of offices.rows)
-        await setUpCounter(tx, { key: LICENCE_COUNTER, unitId: office.id, regionId, pattern });
-    return offices.rows.length;
 }

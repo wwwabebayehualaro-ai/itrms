@@ -6,7 +6,6 @@
 import { and, eq, inArray, isNull, like } from 'drizzle-orm';
 import { ethiopianHolidays } from '@itrms/ethiopian-calendar';
 import { insertAudited, type Database, type DbContext } from '@itrms/kernel/db';
-import { nextNumber } from '@itrms/kernel/numbering';
 import { orgUnits } from '@itrms/kernel/tables';
 import type { OrganisationsService, PersonsService } from '@itrms/parties/api';
 import { serviceDefinitions, serviceOverrides } from '@itrms/services/api';
@@ -19,16 +18,17 @@ import {
     licenceGradeTypes,
     trainingEnrolments
 } from '../api/competency.table';
+import { takeLicenceNumber } from '../api/licence-numbers';
 import {
     addisDay,
     addMonths,
     addYears,
     ageOn,
-    LICENCE_COUNTER,
     RENEWAL_YEARS,
     RENEWAL_YEARS_OVER_55,
     temporaryValidUntil
 } from '../contracts';
+import { licenceNumberingOf } from './licence-numbers';
 
 export interface DemoDeps {
     persons: Pick<PersonsService, 'create'>;
@@ -285,6 +285,8 @@ export async function importDemoData(
                     .where(eq(licenceGradeTypes.regionId, regionId))
             ).map((g) => [g.key, g.id])
         );
+        // numbered as the region numbers them (ADR-0051): its one sequence, or each office's own
+        const numbering = await licenceNumberingOf(tx, regionId);
         const taken = new Set<string>();
         const takeFrom = (fits: (person: Person) => boolean): Person => {
             const person = random.of(people.filter((p) => p.unit !== 'damot' && !taken.has(p.id) && fits(p)));
@@ -299,7 +301,7 @@ export async function importDemoData(
         ) => {
             const holder = takeFrom((p) => fits(p) && ageOn(p.birthDate, term.issuedOn) >= 18);
             const unit = offices[holder.unit];
-            const { number } = await nextNumber(tx, LICENCE_COUNTER, unit.id);
+            const { number } = await takeLicenceNumber(tx, numbering, { regionId, handlingUnitId: unit.id });
             const licence = await insertAudited(tx, driverLicences, {
                 regionId,
                 handlingUnitId: unit.id,

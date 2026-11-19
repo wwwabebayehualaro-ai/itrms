@@ -15,6 +15,7 @@ import { CompetencyController } from './competency.controller';
 import { EXCHANGE_EFFECTS } from './exchange.effects';
 import { PlateExchangeService } from './exchange.service';
 import { LICENCE_EFFECTS } from './licence.effects';
+import { LicenceHealthService } from './licence-health.service';
 import { LicencesService } from './licences.service';
 import { REPLACEMENT_EFFECTS_LIST } from './replacement.effects';
 import { ReplacementService } from './replacement.service';
@@ -50,6 +51,7 @@ import { VehicleTransferService } from './vehicle-transfer.service';
     ],
     providers: [
         LicencesService,
+        LicenceHealthService,
         RegisterService,
         VehicleRegistrationService,
         BackCaptureService,
