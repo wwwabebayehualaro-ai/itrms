@@ -666,6 +666,13 @@
       "when": 1795076920153,
       "tag": "0094_cashier_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1795095693474,
+      "tag": "0095_remittances",
+      "breakpoints": true
     }
   ]
 }

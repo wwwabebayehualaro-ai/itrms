@@ -255,7 +255,7 @@ records are **deactivated**, never deleted); `timestamptz` stored in UTC, busine
 | Logistics | `machinery`, `machinery_rentals` (contract, rates, hours), `job_records`, `tree_planting_records` |
 | HR and payroll list | `staff` (person, position, grade, step, unit, employment dates, bank account for Finance), `positions` (Form 15: title, job code, grade, unit, count), `leave_requests`, `leave_balances`, `benefit_records`, `retirements`; payroll list: `salary_scales` (grade × step → santim, versioned with effective date), `pay_components` (allowances and deductions: kind, taxable, pensionable, formula), `tax_tables` and `pension_rates` (versioned), `payroll_periods` (Ethiopian month, state draft/approved/sent/locked), `payroll_lines` (per staff: basic, allowances, attendance/leave deductions, tax, pension, other deductions, net; computed and frozen at approval), `payroll_adjustments` (arrears, corrections carried to a later month) |
 | Planning | `budgets` (+ lines, per Ethiopian fiscal year), `procurement_plans` (+ lines), `performance_reports` (quarterly), `project_progress` |
-| Money | `fee_rules` (versioned), `payment_orders` (+ lines), `payments`, `receipts`, `receipt_reversals`, `cashier_sessions` (one cashier at one office on one business day; its frozen figures and state) and `cashier_session_counts` (every count of the till and its decision; ADR-0063, task 1.12), **`external_payment_refs`** (issuer, reference, fiscal year, amount, status pending_verification/verified/rejected; unique per issuer + reference + year), `controlled_stock` (serial ranges of licence card blanks, bolo stickers, receipt pads: issued to unit, used, spoiled, reconciled) |
+| Money | `fee_rules` (versioned), `payment_orders` (+ lines), `payments`, `receipts`, `receipt_reversals`, `cashier_sessions` (one cashier at one office on one business day; its frozen figures and state) and `cashier_session_counts` (every count of the till and its decision; ADR-0063, task 1.12), `remittances` (+ `remittance_sessions`, `remittance_lines`: the office's deposit of its closed sessions, frozen lines by finance account, the bank deposit slip; class T; ADR-0063 §5, task 1.12d), **`external_payment_refs`** (issuer, reference, fiscal year, amount, status pending_verification/verified/rejected; unique per issuer + reference + year), `controlled_stock` (serial ranges of licence card blanks, bolo stickers, receipt pads: issued to unit, used, spoiled, reconciled) |
 | Documents and files | `document_templates` (versioned), `issued_documents` (number, type, subject, case, verification token hash, file, status), `files` (object key, sha256, type, size, scan status) |
 
 ### 6.2 Service, form and case tables (configuration + JSONB answers)
@@ -437,11 +437,27 @@ Definition (Zod schema `workflowDefinitionSchema` in `packages/schemas`; stored 
   - The lock order is the case, the order, the cashier session, the counter, the payment, the receipt, the reversal. A
     payment and a reversal's decision hold the session in share mode; a count and a count's decision exclusively. A
     reversal decided after the till was counted is marked `after_till_closed` and leaves the closed session untouched (it
-    becomes a negative line on the next remittance, task 1.12d).
+    becomes a negative line on the next remittance, 1.12d, below).
   - The closing screen also shows, read only, the receipts by method, the reversed ones, the reversals and the references
     paid elsewhere still waiting, and the office's latest receipt-leaf counts. Unmatched external references and
     **controlled stationery** (libre booklets from MoTL (ADR-0050), receipt pads, licence blanks, bolo stickers) are
-    reconciled by serial range. The remittance to the revenue office follows in task 1.12d.
+    reconciled by serial range.
+  - **The remittance** (task 1.12d, ADR-0063 §5; `/finance/remittances`) is the office's, for all its cashiers.
+    `GET /remittances/preview?through=` (nothing stored) and `POST /remittances {through}` cover every **closed** session of
+    the acting office, not yet remitted, up to a day; open, counting and pending sessions are listed as not yet closed and
+    left out. Its lines are the receipts in the figures the first count froze (the session's payments not voided at the
+    count, plus those voided later by a reversal marked `after_till_closed`), one line per order line, under the finance
+    bureau's account code and budget category from the region setting `fees.accounts` (`{demo, default, lines}`; a line
+    only the default took is flagged `mapped_by_default`, on screen and on the document); every approved reversal marked
+    `after_till_closed`, not yet on a remittance, whose receipt is on this remittance or an earlier one is a negative line
+    under the account that receipt was booked to. Total = receipts less those reversals; **deposit due** = counted cash
+    less the opening floats (the reversals do not reduce it: Finance refunds them); bank slips are listed, not due. The
+    number comes from the office's counter `fees.remittance` (`{unit}/RM/{seq:05}/{efy}`) in the prepare transaction.
+    Lock order: the office's advisory lock, the sessions `FOR UPDATE` in id order, the counter, the inserts; a unique key
+    on the session is the backstop. `POST /remittances/:id/deposit` records the bank slip once, for exactly the amount due
+    (409 `amount_mismatch`), its reference unique per office. Permission `remittance: read | prepare | deposit`. The
+    document (`remittance`, am/en, QR) is issued from `remittance.prepared.v1`. A deferred database check keeps the sums
+    true at commit (migration 0095).
 - Online payments (any NBE-licensed provider, MoF Directive 1069/2025; Phase 3) go through one `PaymentProvider` adapter
   interface with webhooks, signature checks, idempotent settlement and a daily reconciliation job.
 

@@ -9,7 +9,7 @@ import { LicencesService, VehicleImportService } from '@itrms/competency/api';
 import { boloHandlers, competencyHandlers, vehicleImportHandlers } from '@itrms/competency/api/worker';
 import { documentsHandlers } from '@itrms/documents/api/worker';
 import { DOCUMENTS_ROUTES } from '@itrms/documents/contracts';
-import { PaymentsService } from '@itrms/fees/api';
+import { PaymentsService, RemittancesService } from '@itrms/fees/api';
 import { feesHandlers } from '@itrms/fees/api/worker';
 import { formsHandlers } from '@itrms/forms/api/worker';
 import { CasesService } from '@itrms/workflow/api';
@@ -79,6 +79,7 @@ async function main() {
                 // a receipt's document (task 0.23a); its PDF is the worker-documents process's
                 ...documentsHandlers(system, {
                     receipt: (tx, id) => app.get(PaymentsService).receipt(tx, id),
+                    remittance: (tx, id) => app.get(RemittancesService).detail(tx, id),
                     settings: app.get(SettingsService)
                 }),
                 // the national driver platform, a fake until an interface exists (task 0.24a)

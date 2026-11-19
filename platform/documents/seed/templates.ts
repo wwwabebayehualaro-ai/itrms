@@ -1,5 +1,5 @@
 /**
- * The Phase 0 templates: application copy, receipt, driver-licence card, exam result sheet, the vehicle registration certificate (the temporary libre, ADR-0050), the three letters of an ownership transfer (task 1.4b), and the vehicle data transfer document with its covering letter (task 1.4c2). Their layouts stand in until a
+ * The Phase 0 templates: application copy, receipt, driver-licence card, exam result sheet, the vehicle registration certificate (the temporary libre, ADR-0050), the three letters of an ownership transfer (task 1.4b), and the vehicle data transfer document with its covering letter (task 1.4c2), and the office's remittance (task 1.12d). Their layouts stand in until a
  * bureau's forms and permission to copy them are known (docs/demo-plan.md); every word is the template's own, in Amharic and
  * English. Nothing here names a real office: that comes from the unit's header.
  */
@@ -665,6 +665,75 @@ body{font-size:6.5pt;line-height:1.25}
 {% for c in candidates %}<tr><td>{{ c.name }}</td><td>{{ c.grade }}</td><td class="num">{{ c.theory }}</td><td class="num">{{ c.practical }}</td><td>{% if c.passed %}{{ t.passed }}{% else %}{{ t.failed }}{% endif %}</td></tr>{% endfor %}
 </tbody></table>
 <p class="foot">{{ t.examiner }}: ______________________</p>${QR}`
+        }
+    },
+    {
+        key: 'remittance',
+        name: t('የገቢ ማስገቢያ ሪፖርት', 'Remittance'),
+        version: {
+            paper: 'A4',
+            dataSchema: 'remittance.v1',
+            strings: {
+                title: t('የገቢ ማስገቢያ ሪፖርት', 'Remittance of revenue'),
+                number: t('ቁጥር', 'Number'),
+                preparedOn: t('የተዘጋጀበት ቀን', 'Prepared on'),
+                period: t('ጊዜ', 'Period'),
+                to: t('እስከ', 'to'),
+                account: t('የሂሳብ ኮድ', 'Account code'),
+                category: t('የበጀት ዓይነት', 'Budget category'),
+                name: t('የሂሳብ ስም', 'Account name'),
+                receipts: t('ደረሰኞች (ብር)', 'Receipts (Birr)'),
+                reversals: t('ተመላሽ (ብር)', 'Reversals (Birr)'),
+                net: t('ልዩነት (ብር)', 'Net (Birr)'),
+                byDefault: t('በነባሪ ሂሳብ የተመዘገበ፤ ይመርመር', 'Booked to the default account: to be reviewed'),
+                total: t('ጠቅላላ ገቢ', 'Total revenue'),
+                cash: t('ጥሬ ገንዘብ', 'Cash'),
+                bankSlip: t('የባንክ ማስያዣ (ቀድሞ ባንክ ያለ)', 'Bank deposit slips (already in the bank)'),
+                reversalTotal: t(
+                    'ከቆጠራ በኋላ የተሰረዙ ደረሰኞች (ፋይናንስ ይመልሳል)',
+                    'Reversed after the till was counted (Finance refunds)'
+                ),
+                depositDue: t('ወደ ባንክ የሚገባ', 'To deposit at the bank'),
+                difference: t('የቆጠራ ልዩነት', 'Counting difference'),
+                sessions: t('የተሸፈኑ የገንዘብ ተቀባይ ቀናት', 'Cashier days covered'),
+                day: t('ቀን', 'Day'),
+                float: t('መነሻ ገንዘብ', 'Opening float'),
+                expected: t('የሚጠበቅ', 'Expected'),
+                counted: t('የተቆጠረ', 'Counted'),
+                lines: t('የደረሰኝ መስመሮች', 'Receipt lines'),
+                receipt: t('ደረሰኝ', 'Receipt'),
+                item: t('ዝርዝር', 'Item'),
+                amount: t('መጠን (ብር)', 'Amount (Birr)'),
+                reversalLine: t('ተሰርዟል', 'Reversed'),
+                demo: t('የማሳያ ሰነድ፤ የሂሳብ ኮዶች ጊዜያዊ ናቸው', 'Demo document: the account codes are placeholders')
+            },
+            body: `${STYLE}${HEAD}<p class="title">{{ t.title }}</p>
+<div class="facts">
+<div><span class="term">{{ t.number }}:</span> <span data-number>{{ number }}</span></div>
+<div><span class="term">{{ t.preparedOn }}:</span> {{ preparedOn | ethdate }}</div>
+<div><span class="term">{{ t.period }}:</span> {{ periodFrom | ethdate }} {{ t.to }} {{ periodTo | ethdate }}</div>
+</div>
+<table><thead><tr><th>{{ t.account }}</th><th>{{ t.category }}</th><th>{{ t.name }}</th><th class="num">{{ t.receipts }}</th><th class="num">{{ t.reversals }}</th><th class="num">{{ t.net }}</th></tr></thead><tbody>
+{% for g in groups %}<tr><td>{{ g.accountCode }}</td><td>{{ g.budgetCategory }}</td><td>{{ g.accountName | text }}{% if g.mappedByDefault %} <span data-by-default>({{ t.byDefault }})</span>{% endif %}</td><td class="num">{{ g.receiptSantim | birr }}</td><td class="num">{{ g.reversalSantim | birr }}</td><td class="num">{{ g.totalSantim | birr }}</td></tr>{% endfor %}
+<tr><th colspan="5">{{ t.total }}</th><th class="num">{{ revenueTotalSantim | birr }}</th></tr>
+</tbody></table>
+<div class="facts">
+<div><span class="term">{{ t.cash }}:</span> {{ cashSantim | birr }}</div>
+<div><span class="term">{{ t.bankSlip }}:</span> {{ bankSlipSantim | birr }}</div>
+<div><span class="term">{{ t.reversalTotal }}:</span> {{ reversalSantim | birr }}</div>
+<div><span class="term">{{ t.difference }}:</span> {{ differenceSantim | birr }}</div>
+<div><span class="term">{{ t.depositDue }}:</span> <span data-deposit-due>{{ depositDueSantim | birr }}</span></div>
+</div>
+<p class="term">{{ t.sessions }}</p>
+<table><thead><tr><th>{{ t.day }}</th><th class="num">{{ t.float }}</th><th class="num">{{ t.expected }}</th><th class="num">{{ t.counted }}</th></tr></thead><tbody>
+{% for s in sessions %}<tr><td>{{ s.businessDay | ethdate }}</td><td class="num">{{ s.openingFloatSantim | birr }}</td><td class="num">{{ s.expectedCashSantim | birr }}</td><td class="num">{{ s.countedSantim | birr }}</td></tr>{% endfor %}
+</tbody></table>
+<p class="term">{{ t.lines }}</p>
+<table><thead><tr><th>{{ t.receipt }}</th><th>{{ t.item }}</th><th>{{ t.account }}</th><th class="num">{{ t.amount }}</th></tr></thead><tbody>
+{% for l in lines %}<tr><td>{{ l.receiptNumber }}{% if l.kind == "reversal" %} ({{ t.reversalLine }}){% endif %}</td><td>{{ l.lineKey }}</td><td>{{ l.accountCode }}{% if l.mappedByDefault %} *{% endif %}</td><td class="num">{{ l.amountSantim | birr }}</td></tr>{% endfor %}
+</tbody></table>
+{% if header.stamp %}<img class="stamp" src="{{ header.stamp }}" alt="">{% endif %}
+{% if demo %}<p class="foot"><span class="demo">{{ t.demo }}</span></p>{% endif %}${QR}`
         }
     }
 ];

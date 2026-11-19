@@ -45,6 +45,7 @@ export function factsOf(schema: DocumentDataSchema, data: Record<string, unknown
             return { holder: names.length ? names.join(', ') : null, validUntil: text(data.validUntil) };
         }
         case 'application-copy.v1':
+        case 'remittance.v1':
         case 'exam-result.v1':
             return { holder: null, validUntil: null };
     }

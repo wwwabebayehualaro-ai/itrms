@@ -49,6 +49,7 @@ export const officialHeaderSchema = z.object({
 export type OfficialHeader = z.infer<typeof officialHeaderSchema>;
 
 const dayText = z.iso.date();
+const signedSantim = z.string().regex(/^-?\d+$/);
 const line = z.object({
     label: i18nTextSchema,
     quantity: z.number().int().nullable(),
@@ -66,6 +67,50 @@ export const DOCUMENT_DATA_SCHEMAS = {
         method: z.enum(['cash', 'bank_slip']),
         amountSantim: santimTextSchema,
         lines: z.array(line),
+        demo: z.boolean()
+    }),
+    /** An office's remittance (task 1.12d): grouped by account, with the reversals after the till closed as negative lines. */
+    'remittance.v1': z.object({
+        number: z.string().min(1),
+        preparedOn: dayText,
+        periodFrom: dayText,
+        periodTo: dayText,
+        revenueTotalSantim: signedSantim,
+        cashSantim: santimTextSchema,
+        bankSlipSantim: santimTextSchema,
+        reversalSantim: signedSantim,
+        depositDueSantim: santimTextSchema,
+        differenceSantim: signedSantim,
+        groups: z.array(
+            z.object({
+                accountCode: z.string(),
+                budgetCategory: z.string(),
+                accountName: i18nTextSchema,
+                mappedByDefault: z.boolean(),
+                receiptSantim: signedSantim,
+                reversalSantim: signedSantim,
+                totalSantim: signedSantim
+            })
+        ),
+        lines: z.array(
+            z.object({
+                kind: z.enum(['receipt', 'reversal']),
+                receiptNumber: z.string(),
+                lineKey: z.string(),
+                accountCode: z.string(),
+                mappedByDefault: z.boolean(),
+                amountSantim: signedSantim
+            })
+        ),
+        sessions: z.array(
+            z.object({
+                businessDay: dayText,
+                openingFloatSantim: santimTextSchema,
+                expectedCashSantim: santimTextSchema,
+                countedSantim: santimTextSchema,
+                differenceSantim: signedSantim
+            })
+        ),
         demo: z.boolean()
     }),
     'application-copy.v1': z.object({

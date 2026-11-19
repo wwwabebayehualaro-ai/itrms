@@ -17,10 +17,10 @@ Role keys are `<process>.<function>` for work-process roles, and plain names for
 |---|---|---|---|
 | `bureau_admin` | bureau ICT / process owner [A] | region | Configure services (publish service versions), fee rules, templates, languages, org levels; never decides cases |
 | `unit_admin` | ICT or HR officer of the unit [A] | zone, woreda, town | Manage users and role assignments **in its subtree** (through Keycloak), unit settings, allowed overrides |
-| `unit_head` | department head (መምሪያ ኃላፊ), office head (ጽ/ቤት ኃላፊ) [D] | zone, woreda, town | Read everything in the subtree, final approval steps that name it, dashboards, reports |
+| `unit_head` | department head (መምሪያ ኃላፊ), office head (ጽ/ቤት ኃላፊ) [D] | zone, woreda, town | Read everything in the subtree (remittances included: `remittance:read`), final approval steps that name it, dashboards, reports |
 | `records_officer` | records / secretary (ሪከርድ፣ ጸሐፊ) [D] | every unit | Intake: create cases for applicants, register persons/organisations, scan papers, back-capture (Phase 1) |
-| `cashier` | cashier / finance staff (ገንዘብ ያዥ፣ ሂሳብ ሠራተኛ) [D] | every unit with a till | Record payments, issue receipts, request reversals, close the cashier session |
-| `finance_officer` | accountant (ሂሳብ ሠራተኛ) [D] | zone, woreda, town | Approve receipt reversals, cashier-session differences; revenue reports |
+| `cashier` | cashier / finance staff (ገንዘብ ያዥ፣ ሂሳብ ሠራተኛ) [D] | every unit with a till | Record payments, issue receipts, request reversals, close the cashier session, prepare and deposit the office's remittance (`remittance:prepare`, `remittance:deposit`) |
+| `finance_officer` | accountant (ሂሳብ ሠራተኛ) [D] | zone, woreda, town | Approve receipt reversals, cashier-session differences; prepare and deposit remittances; revenue reports |
 | `auditor` | internal audit [A] | any | Read-only on everything in the subtree, including the audit log and exports; cannot reveal masked data without `pii:reveal` |
 | `viewer` | — | any | Read-only dashboards and registries: names and addresses, never a sensitive field (no FIN, phone or birth date; no lookup by them, no reveal) |
 | `plate_keeper` | — | bureau, zone, ፈርጅ-1 town (units with `holds_plate_stock`) | The office's plate stock (task 1.2a): receives federal deliveries, hands plates to the unit directly below and accepts what it is sent, recalls and writes off with a reason; reads the register. Assumed role: confirm with a bureau who keeps the plates (a storekeeper or competency staff) |

@@ -94,10 +94,11 @@ describe('an office created with a type', () => {
             { key: 'competency.transfer-document', pattern: '{unit}/VT/{seq:05}/{efy}', last_value: '0', period: '' },
             { key: 'competency.transfer-letter', pattern: '{unit}/OT/{seq:05}/{efy}', last_value: '0', period: '' },
             { key: 'fees.receipt', pattern: '{unit}/{seq:06}/{efy}', last_value: '0', period: '' },
+            { key: 'fees.remittance', pattern: '{unit}/RM/{seq:05}/{efy}', last_value: '0', period: '' },
             { key: 'vehicles.registration-certificate', pattern: '{unit}/RC/{seq:06}', last_value: '0', period: '' }
         ]);
         const events = await setUpEvents(id);
-        expect(events).toHaveLength(6);
+        expect(events).toHaveLength(7);
         for (const e of events) {
             expect(e.because).toBe('unit_created');
             expect(e.actor_id).not.toBeNull();

@@ -134,7 +134,8 @@ export default defineModule({
             'external-payment:verify',
             // a region may name the office's head among those who decide a count with a difference (fees.sessions.approverRoles)
             'cashier-session:read',
-            'cashier-session:approve'
+            'cashier-session:approve',
+            'remittance:read'
         ],
         // at intake: checks the identity of the person in front of them
         records_officer: [
@@ -169,7 +170,10 @@ export default defineModule({
             // the cashier's own session: opens it with a float and counts the till (task 1.12, ADR-0063)
             'cashier-session:read',
             'cashier-session:open',
-            'cashier-session:close'
+            'cashier-session:close',
+            'remittance:read',
+            'remittance:prepare',
+            'remittance:deposit'
         ],
         finance_officer: [
             ...READ_ORG,
@@ -186,7 +190,10 @@ export default defineModule({
             'external-statement:import',
             'stationery:read',
             'cashier-session:read',
-            'cashier-session:approve'
+            'cashier-session:approve',
+            'remittance:read',
+            'remittance:prepare',
+            'remittance:deposit'
         ],
         auditor: [
             ...READ_ORG,
@@ -201,6 +208,7 @@ export default defineModule({
             ...PAYMENTS_READ,
             'external-statement:read',
             'cashier-session:read',
+            'remittance:read',
             'submission:read',
             'submission:export',
             ...CASE_READ

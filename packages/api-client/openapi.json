@@ -429,6 +429,36 @@
         ],
         "type": "object"
       },
+      "DepositDto": {
+        "additionalProperties": false,
+        "properties": {
+          "amountSantim": {
+            "pattern": "^(0|[1-9]\\d{0,16})$",
+            "type": "string"
+          },
+          "bank": {
+            "pattern": "^[A-Z0-9]{2,12}$",
+            "type": "string"
+          },
+          "depositedOn": {
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+            "type": "string"
+          },
+          "reference": {
+            "maxLength": 40,
+            "minLength": 3,
+            "type": "string"
+          }
+        },
+        "required": [
+          "bank",
+          "reference",
+          "depositedOn",
+          "amountSantim"
+        ],
+        "type": "object"
+      },
       "DraftCreateDto": {
         "additionalProperties": false,
         "properties": {
@@ -3586,6 +3616,20 @@
             "type": "array"
           }
         },
+        "type": "object"
+      },
+      "PrepareDto": {
+        "additionalProperties": false,
+        "properties": {
+          "through": {
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "through"
+        ],
         "type": "object"
       },
       "PrintedDto": {
@@ -11310,6 +11354,158 @@
         },
         "tags": [
           "RegistryLookups"
+        ]
+      }
+    },
+    "/api/v1/remittances": {
+      "get": {
+        "operationId": "RemittancesController_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "enum": [
+                "prepared",
+                "deposited",
+                "settled"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Remittances"
+        ]
+      },
+      "post": {
+        "operationId": "RemittancesController_prepare",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrepareDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Remittances"
+        ]
+      }
+    },
+    "/api/v1/remittances/preview": {
+      "get": {
+        "operationId": "RemittancesController_preview",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "through",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Remittances"
+        ]
+      }
+    },
+    "/api/v1/remittances/{id}": {
+      "get": {
+        "operationId": "RemittancesController_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Remittances"
+        ]
+      }
+    },
+    "/api/v1/remittances/{id}/deposit": {
+      "post": {
+        "operationId": "RemittancesController_deposit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DepositDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Remittances"
         ]
       }
     },

@@ -7,3 +7,4 @@ export {
     revokeReceiptDocument,
     type ReceiptSource
 } from './handlers/receipts';
+export { issueRemittanceDocument, type RemittanceSource } from './handlers/remittances';

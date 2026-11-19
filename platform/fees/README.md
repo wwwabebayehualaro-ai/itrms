@@ -20,7 +20,13 @@ libre booklets, licence card blanks, bolo stickers (per category and fiscal year
 payment opens the session (or the cashier opens it with a float); the cashier counts the till; a difference needs a note and
 another person's decision (`fees.sessions.approverRoles`); a closed session never changes. A payment holds its session in
 share mode, a count exclusively (`CashierSessionsService`). A reversal decided after the till was counted is marked
-`after_till_closed`. The remittance (1.12d) and pad receipts from stock (1.12e) follow.
+`after_till_closed`. Pad receipts from stock (1.12e) follow.
+
+**The remittance (task 1.12d, ADR-0063 §5).** The office's deposit of its closed sessions up to a day (`RemittancesService`,
+`remittance-build.ts` for the arithmetic): lines by finance account from the region setting `fees.accounts`, the reversals
+after the till closed as negative lines under the receipt's frozen account, the deposit due (counted cash less the floats),
+a number from the counter `fees.remittance`, and the bank deposit slip recorded once. Permission `remittance:
+read | prepare | deposit`; event `remittance.prepared.v1` (the documents slice issues the `remittance` document).
 
 Layer: platform. Shape, public entries and rules: [code-structure.md](../../docs/platform/code-structure.md) §4.
 

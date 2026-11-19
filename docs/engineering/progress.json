@@ -2134,12 +2134,12 @@
         {
           "id": "1.12d",
           "title": "Cashier operations, part 2: the remittance",
-          "status": "ready",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/1.12d-remittance",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Design from the 1.12 architect report (ADR-0063 §5): office remits all its closed sessions up to a day; receipt lines = the receipts in the frozen session figures; approved after_till_closed reversals become negative lines once their receipt is remitted; deposit_due = sum(counted - float), not reduced by reversals (Z); fees.accounts setting with demo placeholder codes (Z); counter {unit}/RM/{seq:05}/{efy}; deferred invariant trigger. Implementation delegated to the implementer."
         },
         {
           "id": "1.12e",
@@ -4202,6 +4202,16 @@
       "foundIn": "1.12",
       "item": "R11 (zone): a receipt voucher's serial restarts with each printing of a series, or is unique within the letter; today unique within the letter",
       "movedTo": "1.12e"
+    },
+    {
+      "foundIn": "1.12d",
+      "item": "A remittance whose deposit due would be negative (a till short by more than its cash) is refused at prepare, which blocks the office's later remittances; decide how such a session is remitted (Z)",
+      "movedTo": "1.12d follow-up / zone"
+    },
+    {
+      "foundIn": "1.12d",
+      "item": "A customer bank slip recorded after a remittance deposit is not checked against deposit references (only deposit-vs-slip is checked); add the reverse check to slip_in_use",
+      "movedTo": "1.12e or a fees hardening task"
     }
   ]
 }

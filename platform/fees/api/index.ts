@@ -10,8 +10,10 @@ export { FEE_CASE_PORT, type FeeCasePort, type PaymentChange } from './case-port
 export { PaymentOrdersService } from './payment-orders.service';
 export { PaymentsService } from './payments.service';
 export { CashierSessionsService } from './cashier-sessions.service';
+export { RemittancesService } from './remittances.service';
 export { ExternalPaymentsService } from './external-payments.service';
 export { StationeryStock, STATIONERY_CAPABILITY } from './stationery.service';
 export * from './fees.table';
 export * from './stationery.table';
 export * from './cashier-sessions.table';
+export * from './remittances.table';

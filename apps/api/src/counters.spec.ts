@@ -13,7 +13,7 @@ import {
     VEHICLE_TRANSFER_DOCUMENT_COUNTER,
     VEHICLE_TRANSFER_DOCUMENT_PATTERN
 } from '@itrms/competency/contracts';
-import { RECEIPT_COUNTER, RECEIPT_PATTERN } from '@itrms/fees/contracts';
+import { RECEIPT_COUNTER, RECEIPT_PATTERN, REMITTANCE_COUNTER, REMITTANCE_PATTERN } from '@itrms/fees/contracts';
 import { counterNeeds } from '@itrms/kernel/numbering';
 import { REGISTRATION_CERTIFICATE_COUNTER, REGISTRATION_CERTIFICATE_PATTERN } from '@itrms/vehicles/contracts';
 import { describe, expect, it } from 'vitest';
@@ -33,6 +33,7 @@ describe('the counters an office needs', () => {
             [TRANSFER_LETTER_COUNTER]: TRANSFER_LETTER_PATTERN,
             [VEHICLE_TRANSFER_DOCUMENT_COUNTER]: VEHICLE_TRANSFER_DOCUMENT_PATTERN,
             [RECEIPT_COUNTER]: RECEIPT_PATTERN,
+            [REMITTANCE_COUNTER]: REMITTANCE_PATTERN,
             [REGISTRATION_CERTIFICATE_COUNTER]: REGISTRATION_CERTIFICATE_PATTERN
         });
     });
@@ -47,6 +48,7 @@ describe('the counters an office needs', () => {
         expect(needs.of(['DVC-01', 'DVC-13'], ['collects_cash']).map((n) => n.key)).toEqual([
             TRANSFER_LETTER_COUNTER,
             RECEIPT_COUNTER,
+            REMITTANCE_COUNTER,
             REGISTRATION_CERTIFICATE_COUNTER
         ]);
         // the transfer of a vehicle out of the region numbers its document (task 1.4c2)

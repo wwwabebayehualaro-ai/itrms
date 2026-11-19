@@ -410,6 +410,8 @@ describe('every tenant table', () => {
             'documents.verification_document_names()',
             'documents.verification_keys()',
             // one deposit pays once, as a slip at a till or a reference elsewhere: yes or no for the caller's region (ADR-0043)
+            // a bank deposit slip cited once in the region, and never a customer's payment slip (task 1.12d, ADR-0063): yes or no
+            'fees.deposit_reference_in_use(text,text,uuid)',
             'fees.external_reference_in_use(text,text,integer)',
             'fees.slip_in_use(text,text,date,date)',
             // which of the form versions the caller reads a second person approved (task 0.19b)

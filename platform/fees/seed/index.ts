@@ -12,7 +12,7 @@ import { feeRuleSchema, i18nTextSchema } from '@itrms/schemas';
 import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 
-import { FEE_RULE_KEY, RECEIPT_COUNTER, RECEIPT_PATTERN } from '../contracts';
+import { FEE_RULE_KEY, RECEIPT_COUNTER, RECEIPT_PATTERN, REMITTANCE_COUNTER, REMITTANCE_PATTERN } from '../contracts';
 import { feeRuleProblems } from '../api/fee-rules.service';
 import { feeRuleApprovals, feeRules, feeRuleVersions } from '../api/fees.table';
 
@@ -101,8 +101,11 @@ export async function setUpReceiptCounters(tx: Tx, regionId: string, pattern = R
     const offices = await tx.execute<{ id: string }>(sql`
         select u.id from kernel.org_units u join kernel.unit_types t on t.id = u.unit_type_id
          where u.region_id = ${regionId} and u.active and 'collects_cash' = any(t.capabilities)`);
-    for (const office of offices.rows)
+    for (const office of offices.rows) {
         await setUpCounter(tx, { key: RECEIPT_COUNTER, unitId: office.id, regionId, pattern });
+        // and its remittance counter (task 1.12d)
+        await setUpCounter(tx, { key: REMITTANCE_COUNTER, unitId: office.id, regionId, pattern: REMITTANCE_PATTERN });
+    }
     return offices.rows.length;
 }
 
