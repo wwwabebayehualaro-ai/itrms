@@ -42,10 +42,22 @@ describe('a payment', () => {
     it('is an amount in santim digits, never a decimal, and a pad leaf of digits', () => {
         expect(paymentInputSchema.safeParse({ ...cash, amountSantim: '400.00' }).success).toBe(false);
         expect(paymentInputSchema.safeParse({ ...cash, amountSantim: '-1' }).success).toBe(false);
-        expect(paymentInputSchema.safeParse({ ...cash, pad: { series: 'WB-07', serial: '12a' } }).success).toBe(false);
-        // one leaf, one value: no leading zeros
-        expect(paymentInputSchema.safeParse({ ...cash, pad: { series: 'WB-07', serial: '0123' } }).success).toBe(false);
-        expect(paymentInputSchema.safeParse({ ...cash, pad: { series: 'WB-07', serial: '123' } }).success).toBe(true);
+        const leaf = (series: string, serial: string) =>
+            paymentInputSchema.safeParse({ ...cash, pad: { series, serial } });
+        expect(leaf('ለ', '12a').success).toBe(false);
+        // a leaf of the stock: a series of letters (up to six) and one to eight digits, not zero
+        expect(leaf('WB-07', '123').success).toBe(false);
+        expect(leaf('', '123').success).toBe(false);
+        expect(leaf('ABCDEFG', '123').success).toBe(false);
+        expect(leaf('ለ', '').success).toBe(false);
+        expect(leaf('ለ', '000000').success).toBe(false);
+        expect(leaf('ለ', '123456789').success).toBe(false);
+        expect(leaf('ለ', '123').success).toBe(true);
+        // `123` and `000123` name one leaf of the stock: both are accepted as typed
+        expect(leaf('ለ', '000123').success).toBe(true);
+        // a series as typed in lower case or with a space is the stock's series
+        const typed = leaf(' ab ', '5');
+        expect(typed.success && typed.data.pad?.series).toBe('AB');
     });
 
     it("takes its office's receipt source and the region's banks from settings of their own shape", () => {

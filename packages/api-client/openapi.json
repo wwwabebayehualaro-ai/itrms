@@ -3213,11 +3213,9 @@
             "additionalProperties": false,
             "properties": {
               "serial": {
-                "pattern": "^[1-9]\\d{0,9}$",
                 "type": "string"
               },
               "series": {
-                "pattern": "^[A-Z0-9-]{1,16}$",
                 "type": "string"
               }
             },
@@ -11126,6 +11124,20 @@
         },
         "tags": [
           "Verification"
+        ]
+      }
+    },
+    "/api/v1/receipt-leaves/next": {
+      "get": {
+        "operationId": "PaymentsController_nextLeaf",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payments"
         ]
       }
     },

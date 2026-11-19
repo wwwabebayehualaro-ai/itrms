@@ -2,8 +2,11 @@
  * Payments, receipts and reversals at the cashier (task 0.22b, ADR-0042). A payment is the whole total of an order, at the
  * till of the case's handling office (an office whose type collects cash), by cash or a bank deposit slip; its receipt is
  * numbered in the same transaction by the office's counter (gapless per office and fiscal year: a rollback gives the number
- * back) or by the leaf of a pre-printed pad, as the office's setting says. One lock order everywhere: the case, then the
- * order, then the cashier's session (task 1.12, ADR-0063), then the counter. A reversal is asked for with a reason and decided once by another person, in a role the region's
+ * back) or by the leaf of a pre-printed pad, as the office's setting says. One lock order everywhere (ADR-0063 §3): case,
+ * order, cashier session, counter, payment, stationery item, receipt, reversal. Here the pad path follows it (session,
+ * payment, item, receipt). The ITRMS-numbered path takes the counter after the payment insert, which departs from the
+ * written order but is harmless: no other path takes the receipt counter, and the new payment is not yet visible to
+ * anyone, so nothing can wait on it in the other direction. A reversal is asked for with a reason and decided once by another person, in a role the region's
  * setting names, never the person who asked nor the cashier who took the money; approved, it voids the payment and opens
  * the order again, and the receipt keeps its number (ADR-0014). Every write is audited in its transaction.
  */
@@ -32,6 +35,7 @@ import { externalReferenceKey, fiscalYearOfDay, normalisedReference } from './ex
 import { addisToday } from './fees.service';
 import { paymentOrderLines, paymentOrders, payments, receiptReversals, receipts } from './fees.table';
 import { factsOf, PaymentOrdersService, say } from './payment-orders.service';
+import { STATIONERY_CAPABILITY, StationeryStock } from './stationery.service';
 
 type ReceiptRow = typeof receipts.$inferSelect;
 type ReversalRow = typeof receiptReversals.$inferSelect;
@@ -54,6 +58,7 @@ export class PaymentsService {
         @Inject(PaymentOrdersService) private readonly orders: PaymentOrdersService,
         @Inject(SettingsService) private readonly settings: SettingsService,
         @Inject(CashierSessionsService) private readonly sessions: CashierSessionsService,
+        @Inject(StationeryStock) private readonly stock: StationeryStock,
         @Optional() @Inject(FEE_CASE_PORT) private readonly cases?: FeeCasePort
     ) {}
 
@@ -112,6 +117,9 @@ export class PaymentsService {
                 detail: say(language, 'fees.payment.amountMismatch')
             });
         const source = await this.orders.receiptSource(tx, order.handlingUnitId);
+        // a pad receipt is a leaf of the office's own stock (task 1.12e, ADR-0063 §6)
+        if (source === 'pad' && !unit.capabilities.includes(STATIONERY_CAPABILITY))
+            throw new ConflictError('not_configured', { detailKey: 'fees.errors.pad_needs_stock' });
         if (source === 'pad' && !input.pad)
             throw fieldError('pad', 'required', say(language, 'fees.payment.padRequired'));
         if (source === 'itrms' && input.pad)
@@ -185,6 +193,16 @@ export class PaymentsService {
                 });
             } else {
                 const pad = input.pad ?? { series: '', serial: '' };
+                // the lock order: the payment, then the stationery item, then the receipt. A leaf not held by this office,
+                // used or spoiled is refused (409) and the payment rolls back with it. `123` and `000123` are one leaf; the
+                // item's own width is the number printed on the receipt.
+                const leaf = await this.stock.use(tx, ctx, {
+                    kind: 'receipt_leaf',
+                    key: `${pad.series}${pad.serial}`,
+                    usedFor: { table: 'fees.payments', id: payment.id },
+                    caseId: order.caseId
+                });
+                const serialText = String(leaf.serial).padStart(leaf.width, '0');
                 receipt = await insertAudited(tx, receipts, {
                     regionId: order.regionId,
                     handlingUnitId: order.handlingUnitId,
@@ -192,9 +210,9 @@ export class PaymentsService {
                     orderId: order.id,
                     caseId: order.caseId,
                     source,
-                    number: `${pad.series}/${pad.serial}`,
-                    padSeries: pad.series,
-                    padSerial: pad.serial,
+                    number: `${leaf.series}/${serialText}`,
+                    padSeries: leaf.series,
+                    padSerial: serialText,
                     amountSantim: order.totalSantim,
                     issuedBy: userId
                 });

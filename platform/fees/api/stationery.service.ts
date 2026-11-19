@@ -398,6 +398,71 @@ export class StationeryStock {
     }
 
     /**
+     * The item the acting person writes on next, as printed: the one after their own last `use` at this office when it is
+     * held and free, else the office's lowest held free item (by series, then serial). Nothing is locked.
+     */
+    async nextFree(tx: Tx, ctx: DbContext, kind: StationeryKind): Promise<{ series: string; serial: string } | null> {
+        const regionId = required(ctx.regionId);
+        const unitId = required(ctx.unitId);
+        const printed = (r: { series: string; serial: number; width: number }) => ({
+            series: r.series,
+            serial: String(r.serial).padStart(r.width, '0')
+        });
+        // the leaf after the one this person used last at this office, when it is held and free: pads are written in order
+        const [last] = ctx.userId
+            ? await tx
+                  .select({ lastKey: stationeryMovements.lastKey })
+                  .from(stationeryMovements)
+                  .where(
+                      and(
+                          eq(stationeryMovements.regionId, regionId),
+                          eq(stationeryMovements.unitId, unitId),
+                          eq(stationeryMovements.kind, kind),
+                          eq(stationeryMovements.movement, 'use'),
+                          eq(stationeryMovements.createdBy, ctx.userId)
+                      )
+                  )
+                  .orderBy(desc(stationeryMovements.createdAt), desc(stationeryMovements.id))
+                  .limit(1)
+            : [];
+        const parsed = last ? parseStationeryKey(last.lastKey) : null;
+        if (parsed) {
+            const [following] = await tx
+                .select({
+                    series: stationeryItems.series,
+                    serial: stationeryItems.serial,
+                    width: stationeryItems.width
+                })
+                .from(stationeryItems)
+                .where(
+                    and(
+                        eq(stationeryItems.regionId, regionId),
+                        eq(stationeryItems.holderUnitId, unitId),
+                        eq(stationeryItems.kind, kind),
+                        eq(stationeryItems.status, 'in_stock'),
+                        eq(stationeryItems.series, parsed.series),
+                        eq(stationeryItems.serial, parsed.serial + 1)
+                    )
+                );
+            if (following) return printed(following);
+        }
+        const [item] = await tx
+            .select({ series: stationeryItems.series, serial: stationeryItems.serial, width: stationeryItems.width })
+            .from(stationeryItems)
+            .where(
+                and(
+                    eq(stationeryItems.regionId, regionId),
+                    eq(stationeryItems.holderUnitId, unitId),
+                    eq(stationeryItems.kind, kind),
+                    eq(stationeryItems.status, 'in_stock')
+                )
+            )
+            .orderBy(asc(stationeryItems.series), asc(stationeryItems.serial))
+            .limit(1);
+        return item ? printed(item) : null;
+    }
+
+    /**
      * Locks the named items of a kind in series and serial order, the order every command locks in, so a caller that then
      * uses or spoils several of them in another order cannot deadlock with a keeper's command over the same run. Items
      * not in the region's stock are left to the command that names them.

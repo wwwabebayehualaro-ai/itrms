@@ -13,6 +13,18 @@ import {
     sessionApproverRolesSchema
 } from './cashier-sessions';
 import { ACCOUNTS_SETTING, accountsSettingSchema } from './remittances';
+import { stationerySeriesSchema } from './stationery';
+
+/** One to eight digits and not all zeros, checked by character (no regular expression on typed input). */
+export function isLeafSerial(text: string): boolean {
+    if (text.length < 1 || text.length > 8) return false;
+    let nonZero = false;
+    for (const ch of text) {
+        if (ch < '0' || ch > '9') return false;
+        if (ch !== '0') nonZero = true;
+    }
+    return nonZero;
+}
 
 /** A fee rule's key: `dvc-04-renewal`. */
 export const FEE_RULE_KEY = /^[a-z][a-z0-9-]{1,62}$/;
@@ -214,12 +226,14 @@ export const paymentInputSchema = z
                 paidOn: z.iso.date()
             })
             .optional(),
-        /** the leaf of a pre-printed receipt pad, at an office that issues pad receipts */
+        /**
+         * the leaf of a pre-printed receipt pad, at an office that issues pad receipts: a leaf of the office's stationery
+         * stock (task 1.12e, ADR-0063 §6). `123` and `000123` are one leaf; the stock's own width is the canonical one.
+         */
         pad: z
             .strictObject({
-                series: z.string().regex(/^[A-Z0-9-]{1,16}$/),
-                // no leading zeros: `012` and `12` are one leaf of the pad
-                serial: z.string().regex(/^[1-9]\d{0,9}$/, 'is a serial without leading zeros')
+                series: stationerySeriesSchema.refine((s) => s.length > 0, 'is a series of letters'),
+                serial: z.string().refine(isLeafSerial, 'is a serial of one to eight digits, not zero')
             })
             .optional()
     })
@@ -232,6 +246,12 @@ export const paymentInputSchema = z
             });
     });
 export type PaymentInput = z.infer<typeof paymentInputSchema>;
+
+/** `GET /receipt-leaves/next`: the leaf to write on next (after the person's last, else the lowest free); null when none. */
+export const nextReceiptLeafSchema = z.object({
+    leaf: z.object({ series: z.string(), serial: z.string() }).nullable()
+});
+export type NextReceiptLeaf = z.infer<typeof nextReceiptLeafSchema>;
 
 export const reversalRequestSchema = z.strictObject({ reason: z.string().trim().min(10).max(500) });
 export const reversalDecisionSchema = z.strictObject({

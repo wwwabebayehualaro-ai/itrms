@@ -21,6 +21,7 @@ import {
 } from '../contracts';
 import { PaymentOrdersService } from './payment-orders.service';
 import { PaymentsService } from './payments.service';
+import { StationeryStock } from './stationery.service';
 
 class PaymentDto extends createZodDto(paymentInputSchema) {}
 class OrderQueryDto extends createZodDto(paymentOrderQuerySchema) {}
@@ -51,7 +52,8 @@ export class PaymentsController {
     constructor(
         @Inject(DATABASE) private readonly db: Database,
         private readonly orders: PaymentOrdersService,
-        private readonly payments: PaymentsService
+        private readonly payments: PaymentsService,
+        @Inject(StationeryStock) private readonly stock: StationeryStock
     ) {}
 
     /** The cashier's queue: the orders of the person's office paid at its till. */
@@ -75,6 +77,14 @@ export class PaymentsController {
     record(@Param('id', ParseUUIDPipe) id: string, @Body() body: PaymentDto) {
         const ctx = requestDbContext();
         return this.db.scoped(ctx, (tx) => this.payments.record(tx, ctx, id, body, language()));
+    }
+
+    /** The pad leaf the cashier writes on next: the one after their last, else the office's lowest free one (unlocked). */
+    @Get('receipt-leaves/next')
+    @Require('payment:record')
+    nextLeaf() {
+        const ctx = requestDbContext();
+        return this.db.scoped(ctx, async (tx) => ({ leaf: await this.stock.nextFree(tx, ctx, 'receipt_leaf') }));
     }
 
     @Get('receipts/:id')

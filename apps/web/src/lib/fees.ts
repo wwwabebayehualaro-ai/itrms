@@ -12,6 +12,7 @@ import type {
     ExternalIssuer,
     ExternalRefInput,
     ExternalRefOut,
+    NextReceiptLeaf,
     PaymentInput,
     PaymentOrderOut,
     ReceiptOut,
@@ -69,6 +70,7 @@ export const feeKeys = {
     order: (id: string) => ['fees', 'order', id] as const,
     receipt: (id: string) => ['fees', 'receipt', id] as const,
     reversals: () => ['fees', 'reversals'] as const,
+    nextLeaf: () => ['fees', 'next-leaf'] as const,
     sessionCurrent: () => ['fees', 'session', 'current'] as const,
     session: (id: string) => ['fees', 'session', id] as const,
     closings: () => ['fees', 'session', 'closings'] as const,
@@ -177,6 +179,15 @@ export function useRecordPayment(orderId: string) {
                 )
             ).data,
         onSuccess: invalidate
+    });
+}
+
+/** The pad leaf the till writes on next, offered once by the payment form; null when none. staleTime keeps it from refetching. */
+export function useNextReceiptLeaf(enabled: boolean) {
+    return useQuery({
+        queryKey: feeKeys.nextLeaf(),
+        enabled,
+        queryFn: async ({ signal }) => (await client.get<NextReceiptLeaf>('v1/receipt-leaves/next', { signal })).data
     });
 }
 

@@ -7,12 +7,16 @@
  * region names; it keeps the receipt's number and shows on the case. A case waiting on its payment moves on when paid;
  * one guarded on it may move on only then. Every write is audited; what is kept never changes.
  */
-import { randomInt, randomUUID } from 'node:crypto';
+import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 
+import { StationeryStock } from '@itrms/fees/api';
 import { cancelClosedCaseOrder } from '@itrms/fees/api/worker';
 import { importFeeRules } from '@itrms/fees/seed';
 import { feeRuleSchema } from '@itrms/schemas';
+import { createDatabase, type Database, type DbContext, type Tx } from '@itrms/kernel/db';
 import { createSystemDatabase, type SystemDatabase } from '@itrms/kernel/db/system';
+import type { OrgUnit } from '@itrms/kernel/org';
+import { contextFor, TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import { efy } from '@itrms/ethiopian-calendar';
 import type { CaseOut } from '@itrms/workflow/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -31,7 +35,9 @@ const SUB = {
     // a licensing expert: reads the case, not its payment
     boditiOfficer: '0199f0a0-d000-7000-8000-000000000305',
     // a Boditi cashier who is also its finance officer: never decides a reversal of a receipt they took
-    cashFinance: '0199f0a0-d000-7000-8000-00000000c302'
+    cashFinance: '0199f0a0-d000-7000-8000-00000000c302',
+    // Boditi's store keeper: writes off a spoiled receipt leaf (never the cashier)
+    keeper: '0199f0a0-d000-7000-8000-00000000c303'
 };
 const GUARDED = 'RS-05';
 const WAITING = 'RS-06';
@@ -258,6 +264,13 @@ beforeAll(async () => {
                 ['WOL-BODITI', 'cashier'],
                 ['WOL-BODITI', 'finance_officer']
             ]
+        },
+        {
+            username: 'test.boditi.keeper',
+            sub: SUB.keeper,
+            region: 'SER',
+            home: 'WOL-BODITI',
+            roles: [['WOL-BODITI', 'plate_keeper']]
         }
     ]);
     system = createSystemDatabase(pg.url('system'), { onUse: () => undefined });
@@ -273,6 +286,7 @@ beforeAll(async () => {
     as.boditiCashier = { sub: SUB.boditiCashier, unit: boditi };
     as.boditiOfficer = { sub: SUB.boditiOfficer, unit: boditi };
     as.cashFinance = { sub: SUB.cashFinance, unit: boditi };
+    as.keeper = { sub: SUB.keeper, unit: boditi };
 
     await api.installer.scoped({}, (tx) =>
         importFeeRules(tx, { id: region.id, regionId: region.regionId }, [
@@ -546,39 +560,9 @@ describe('a payment at the cashier', () => {
         expect(reasonOf(await caseOf(c.id, as.boditiOfficer))).toBeNull();
     });
 
-    it('records the leaf of a pre-printed pad at an office that issues pad receipts', async () => {
-        const boditi = as.boditiCashier.unit;
-        const head = { sub: SUB.bureau, unit: as.bureau.unit };
-        const set = await api.call(
-            'PUT',
-            `/api/v1/org-units/${boditi.id}/settings/fees.receipts.source`,
-            head,
-            { value: 'pad' },
-            ifMatch(0)
-        );
-        expect(set.statusCode, set.body).toBe(200);
-        try {
-            const c = await filed(GUARDED);
-            const order = await orderOf(c.id);
-            expect((await pay(order.id)).statusCode).toBe(422);
-            const paid = await pay(order.id, { pad: { series: 'WB-07', serial: '123' } });
-            expect(paid.statusCode, paid.body).toBe(201);
-            expect(paid.json()).toMatchObject({ receipt: { source: 'pad', number: 'WB-07/123' } });
-            const other = await orderOf((await filed(GUARDED)).id);
-            const used = await pay(other.id, { pad: { series: 'WB-07', serial: '123' } });
-            expect(used.json()).toMatchObject({ code: 'duplicate_reference' });
-            // `0123` is the leaf `123` written with a leading zero: refused
-            expect((await pay(other.id, { pad: { series: 'WB-07', serial: '0123' } })).statusCode).toBe(422);
-        } finally {
-            const reset = await api.call(
-                'DELETE',
-                `/api/v1/org-units/${boditi.id}/settings/fees.receipts.source`,
-                head,
-                undefined,
-                ifMatch(set.json<{ version: number }>().version)
-            );
-            expect(reset.statusCode).toBeLessThan(300);
-        }
+    it('refuses a pad payment without a leaf, and the pad fields at an office that numbers by ITRMS', async () => {
+        const order = await orderOf((await filed(GUARDED)).id);
+        expect((await pay(order.id, { pad: { series: 'ለ', serial: '1' } })).statusCode).toBe(422);
     });
 });
 
@@ -748,5 +732,353 @@ describe('a case', () => {
             ).rows[0]
         ).toEqual({ state: 'cancelled', cancel_reason: 'case_closed' });
         expect((await pay(order.id)).statusCode).toBe(409);
+    });
+});
+
+/** A pad receipt is a leaf of the office's own stock (task 1.12e, ADR-0063 §6). */
+describe('a pad receipt', () => {
+    const SERIES = 'ለ';
+    const head = () => ({ sub: SUB.bureau, unit: as.bureau.unit });
+    let setting: { version: number };
+    let app: Database;
+    let stock: StationeryStock;
+
+    const ctxOf = (unit: OrgUnit): DbContext => ({ ...contextFor(unit), requestId: `pad-${randomUUID()}` });
+    const run = <T>(unit: OrgUnit, work: (ctx: DbContext) => (tx: Tx) => Promise<T>) => {
+        const ctx = ctxOf(unit);
+        return app.scoped(ctx, work(ctx));
+    };
+    const range = { series: SERIES, from: 1, to: 30 };
+    const leaf = (serial: string, series = SERIES) => ({ pad: { series, serial } });
+    const ZONE_SERIES = 'ሐ';
+    const itemOf = async (serial: number, series = SERIES) =>
+        (
+            await api.owner.query<{
+                id: string;
+                status: string;
+                holder_unit_id: string;
+                used_for_table: string | null;
+                used_for_id: string | null;
+            }>(
+                `select id, status, holder_unit_id, used_for_table, used_for_id from fees.stationery_items
+                  where kind = 'receipt_leaf' and series = $1 and serial = $2`,
+                [series, serial]
+            )
+        ).rows[0];
+    const written = async (orderId: string) => ({
+        payments: await count('select count(*)::int as n from fees.payments where order_id = $1', [orderId]),
+        receipts: await count('select count(*)::int as n from fees.receipts where order_id = $1', [orderId]),
+        sessions: await count('select count(*)::int as n from fees.cashier_sessions'),
+        movements: await count("select count(*)::int as n from fees.stationery_movements where kind = 'receipt_leaf'")
+    });
+    // a spoiled or torn leaf goes to the keeper, who writes it off (the 1.12a path): never the cashier
+    const writeOff = (key: string, who: As = as.keeper, reason = 'misprinted at the print shop') =>
+        api.call(
+            'POST',
+            '/api/v1/stationery/write-offs',
+            who,
+            { kind: 'receipt_leaf', status: 'void', items: { keys: [key] }, endReason: 'damaged', reason },
+            { 'idempotency-key': randomUUID() }
+        );
+    const newOrder = async () => (await orderOf((await filed(GUARDED)).id)).id;
+
+    beforeAll(async () => {
+        const boditi = as.boditiCashier.unit;
+        const set = await api.call(
+            'PUT',
+            `/api/v1/org-units/${boditi.id}/settings/fees.receipts.source`,
+            head(),
+            { value: 'pad' },
+            ifMatch(0)
+        );
+        expect(set.statusCode, set.body).toBe(200);
+        setting = set.json<{ version: number }>();
+        app = createDatabase(pg.url('app'), {
+            auditKey: randomBytes(32).toString('hex'),
+            contextKey: TEST_CONTEXT_KEY
+        });
+        stock = api.http.get(StationeryStock);
+        const bureau = as.bureau.unit;
+        const zone = await api.unit('SER', 'WOL');
+        const received = await run(
+            bureau,
+            (ctx) => (tx) =>
+                stock.receive(tx, ctx, {
+                    kind: 'receipt_leaf',
+                    source: 'finance_bureau',
+                    reference: `PAD-${randomUUID().slice(0, 8)}`,
+                    receivedOn: new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Addis_Ababa' }).format(new Date()),
+                    range,
+                    width: 6
+                })
+        );
+        expect(received.quantity).toBe(30);
+        const down = async (from: OrgUnit, to: OrgUnit) => {
+            const sent = await run(
+                from,
+                (ctx) => (tx) => stock.allocate(tx, ctx, { kind: 'receipt_leaf', toUnitId: to.id, items: range })
+            );
+            await run(to, (ctx) => (tx) => stock.accept(tx, ctx, sent.id, {}));
+        };
+        await down(bureau, zone);
+        await down(zone, boditi);
+        // leaves the zone's store keeps: in stock, but not at Boditi's till
+        await run(
+            bureau,
+            (ctx) => (tx) =>
+                stock.receive(tx, ctx, {
+                    kind: 'receipt_leaf',
+                    source: 'finance_bureau',
+                    reference: `PAD-${randomUUID().slice(0, 8)}`,
+                    receivedOn: new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Addis_Ababa' }).format(new Date()),
+                    range: { series: ZONE_SERIES, from: 1, to: 5 },
+                    width: 6
+                })
+        );
+        const sent = await run(
+            bureau,
+            (ctx) => (tx) =>
+                stock.allocate(tx, ctx, {
+                    kind: 'receipt_leaf',
+                    toUnitId: zone.id,
+                    items: { series: ZONE_SERIES, from: 1, to: 5 }
+                })
+        );
+        await run(zone, (ctx) => (tx) => stock.accept(tx, ctx, sent.id, {}));
+    }, 120_000);
+
+    afterAll(async () => {
+        await app?.close();
+        const reset = await api.call(
+            'DELETE',
+            `/api/v1/org-units/${as.boditiCashier.unit.id}/settings/fees.receipts.source`,
+            head(),
+            undefined,
+            ifMatch(setting.version)
+        );
+        expect(reset.statusCode).toBeLessThan(300);
+    });
+
+    it("is refused without a leaf (422), and offers the office's lowest free one", async () => {
+        const orderId = await newOrder();
+        expect((await pay(orderId)).statusCode).toBe(422);
+        const next = await api.call('GET', '/api/v1/receipt-leaves/next', as.boditiCashier);
+        expect(next.statusCode, next.body).toBe(200);
+        expect(next.json()).toEqual({ leaf: { series: SERIES, serial: '000001' } });
+        // a records officer has no till
+        expect((await api.call('GET', '/api/v1/receipt-leaves/next', as.boditiRecords)).statusCode).toBe(403);
+    });
+
+    it("uses one held leaf in the payment's transaction: the stock names the payment, `7` and `000007` are one leaf", async () => {
+        const orderId = await newOrder();
+        const paid = await pay(orderId, leaf('7'));
+        expect(paid.statusCode, paid.body).toBe(201);
+        const body = paid.json<{ receipt: { source: string; number: string }; order: Order }>();
+        expect(body.receipt).toMatchObject({ source: 'pad', number: `${SERIES}/000007` });
+        const paymentId = body.order.payments[0]?.id;
+        expect(await itemOf(7)).toMatchObject({
+            status: 'used',
+            used_for_table: 'fees.payments',
+            used_for_id: paymentId
+        });
+        expect(
+            (
+                await api.owner.query<{ pad_series: string; pad_serial: string; number: string }>(
+                    'select pad_series, pad_serial, number from fees.receipts where order_id = $1',
+                    [orderId]
+                )
+            ).rows[0]
+        ).toEqual({ pad_series: SERIES, pad_serial: '000007', number: `${SERIES}/000007` });
+        expect(
+            await count(
+                `select count(*)::int as n from fees.stationery_movements
+                  where kind = 'receipt_leaf' and movement = 'use' and first_key = $1`,
+                [`${SERIES}000007`]
+            )
+        ).toBe(1);
+        // the form offers the leaf after the person's own last one; someone who used none gets the lowest free one
+        const nextFor = async (who: As) =>
+            (await api.call('GET', '/api/v1/receipt-leaves/next', who)).json<{ leaf: { serial: string } }>().leaf;
+        expect(await nextFor(as.boditiCashier)).toEqual({ series: SERIES, serial: '000008' });
+        expect(await nextFor(as.cashFinance)).toEqual({ series: SERIES, serial: '000001' });
+        // the same leaf written with its zeros, for another order: used already
+        const other = await newOrder();
+        const again = await pay(other, leaf('000007'));
+        expect(again.statusCode).toBe(409);
+        expect(await written(other)).toMatchObject({ payments: 0, receipts: 0 });
+    });
+
+    it('refuses a leaf not held, used or spoiled (409) and writes nothing', async () => {
+        const orderId = await newOrder();
+        expect((await writeOff(`${SERIES}000009`)).statusCode).toBe(201);
+        const before = await written(orderId);
+        for (const serial of ['999', '000007', '9']) {
+            const res = await pay(orderId, leaf(serial));
+            expect(res.statusCode, `${serial}: ${res.body}`).toBe(409);
+            expect(await written(orderId)).toEqual(before);
+        }
+        // a series the office does not hold
+        expect((await pay(orderId, leaf('9', 'ሐ'))).statusCode).toBe(409);
+        expect(await written(orderId)).toEqual(before);
+        expect(
+            await count('select count(*)::int as n from fees.payment_orders where id = $1 and state = $2', [
+                orderId,
+                'open'
+            ])
+        ).toBe(1);
+    });
+
+    it("refuses a leaf in stock but held by another office of the region (the zone's store) and writes nothing", async () => {
+        const orderId = await newOrder();
+        const before = await written(orderId);
+        const res = await pay(orderId, leaf('3', ZONE_SERIES));
+        expect(res.statusCode, res.body).toBe(409);
+        expect(await written(orderId)).toEqual(before);
+        const zone = await api.unit('SER', 'WOL');
+        expect(await itemOf(3, ZONE_SERIES)).toMatchObject({ status: 'in_stock', holder_unit_id: zone.id });
+    });
+
+    it('is refused at an office that does not hold stationery (409 not_configured)', async () => {
+        const regionId = as.boditiCashier.unit.regionId;
+        const set = (sql: string) =>
+            api.owner.query(
+                `update kernel.unit_types set capabilities = ${sql} where key = 'town_unit_f1' and region_id = $1`,
+                [regionId]
+            );
+        const orderId = await newOrder();
+        await set("array_remove(capabilities, 'holds_stationery')");
+        try {
+            const res = await pay(orderId, leaf('11'));
+            expect(res.statusCode, res.body).toBe(409);
+            expect(res.json()).toMatchObject({ code: 'not_configured' });
+            expect(await written(orderId)).toMatchObject({ payments: 0, receipts: 0 });
+        } finally {
+            await set("array_append(capabilities, 'holds_stationery')");
+        }
+        expect((await pay(orderId, leaf('11'))).statusCode).toBe(201);
+    });
+
+    it('lets two cashiers race for one leaf: exactly one wins, the other leaves nothing', async () => {
+        const [a, b] = [await newOrder(), await newOrder()];
+        const results = await Promise.all([
+            pay(a, leaf('13'), as.boditiCashier),
+            pay(b, leaf('000013'), as.cashFinance)
+        ]);
+        expect(results.map((r) => r.statusCode).sort()).toEqual([201, 409]);
+        const winner = results[0]?.statusCode === 201 ? a : b;
+        const loser = winner === a ? b : a;
+        expect(await written(loser)).toMatchObject({ payments: 0, receipts: 0 });
+        expect((await written(winner)).receipts).toBe(1);
+        expect(await itemOf(13)).toMatchObject({ status: 'used' });
+    });
+
+    it("takes the leaf's use into the payment's own transaction: one audit row on the item beside the payment's", async () => {
+        const orderId = await newOrder();
+        const paid = await pay(orderId, leaf('14'));
+        expect(paid.statusCode, paid.body).toBe(201);
+        const paymentId = paid.json<{ order: Order }>().order.payments[0]?.id;
+        const item = await itemOf(14);
+        expect(
+            await count(
+                `select count(*)::int as n from kernel.audit_log u
+                   join kernel.audit_log p on p.request_id = u.request_id
+                  where u.table_name = 'fees.stationery_items' and u.row_id = $1 and u.action = 'update'
+                    and p.table_name = 'fees.payments' and p.row_id = $2 and p.action = 'insert'`,
+                [item?.id, paymentId]
+            )
+        ).toBe(1);
+    });
+
+    it('keeps the leaf used when its receipt is reversed: the reopened order needs a new leaf', async () => {
+        const orderId = await newOrder();
+        const paid = await pay(orderId, leaf('17'));
+        expect(paid.statusCode, paid.body).toBe(201);
+        const { receipt } = paid.json<{ receipt: { id: string } }>();
+        const asked = await api.call('POST', `/api/v1/receipts/${receipt.id}/reversals`, as.cashFinance, {
+            reason: 'the applicant paid at the wrong office'
+        });
+        expect(asked.statusCode, asked.body).toBe(201);
+        const decided = await api.call(
+            'POST',
+            `/api/v1/receipt-reversals/${asked.json<{ id: string }>().id}/decision`,
+            as.zoneFinance,
+            { decision: 'approved' }
+        );
+        expect(decided.statusCode, decided.body).toBe(200);
+        expect(await itemOf(17)).toMatchObject({ status: 'used' });
+        // the order is open again: the old leaf is refused, a new one takes the payment
+        expect((await pay(orderId, leaf('17'))).statusCode).toBe(409);
+        expect((await pay(orderId, leaf('18'))).statusCode).toBe(201);
+    });
+
+    it('lets a payment and the keeper write off the same leaf race: one wins, the other is refused, consistently', async () => {
+        const orderId = await newOrder();
+        const [paid, off] = await Promise.all([pay(orderId, leaf('20')), writeOff(`${SERIES}000020`)]);
+        const codes = [paid.statusCode, off.statusCode].sort();
+        expect(codes[1], `${paid.body} ${off.body}`).toBe(409);
+        expect(codes[0]).toBeLessThan(300);
+        const item = await itemOf(20);
+        const receipts = (await written(orderId)).receipts;
+        if (paid.statusCode === 201) expect([item?.status, receipts]).toEqual(['used', 1]);
+        else expect([item?.status, receipts]).toEqual(['void', 0]);
+    });
+
+    it('is written off by the keeper with a reason, on record and audited; never by the cashier', async () => {
+        const res = await writeOff(`${SERIES}000015`);
+        expect(res.statusCode, res.body).toBe(201);
+        const item = await itemOf(15);
+        expect(item?.status).toBe('void');
+        expect(
+            await count(
+                `select count(*)::int as n from kernel.audit_log
+                  where table_name = 'fees.stationery_items' and row_id = $1 and action = 'update'`,
+                [item?.id]
+            )
+        ).toBeGreaterThanOrEqual(1);
+        expect(
+            await count(
+                `select count(*)::int as n from fees.stationery_movements
+                  where kind = 'receipt_leaf' and movement = 'write_off' and first_key = $1 and reason is not null`,
+                [`${SERIES}000015`]
+            )
+        ).toBe(1);
+        // already written off, used, or not held: refused
+        expect((await writeOff(`${SERIES}000015`)).statusCode).toBe(409);
+        expect((await writeOff(`${SERIES}000007`)).statusCode).toBe(409);
+        expect((await writeOff(`${SERIES}000999`)).statusCode).toBe(409);
+        // a reason is 10 to 500 characters; the cashier and the records officer have no right to write off stock
+        expect((await writeOff(`${SERIES}000016`, as.keeper, 'too short')).statusCode).toBe(422);
+        expect((await writeOff(`${SERIES}000016`, as.boditiCashier)).statusCode).toBe(403);
+        expect((await writeOff(`${SERIES}000016`, as.boditiRecords)).statusCode).toBe(403);
+        expect(await itemOf(16)).toMatchObject({ status: 'in_stock' });
+        // the receipt-leaves API has no spoil path for the cashier
+        expect(
+            (
+                await api.call('POST', '/api/v1/receipt-leaves/spoiled', as.boditiCashier, {
+                    key: `${SERIES}000016`,
+                    reason: 'misprinted at the print shop'
+                })
+            ).statusCode
+        ).toBe(404);
+        // a written-off leaf is not written on
+        const orderId = await newOrder();
+        expect((await pay(orderId, leaf('15'))).statusCode).toBe(409);
+    });
+
+    it('shows as used and written-off leaves in the stationery reconciliation of the office', async () => {
+        const boditi = as.boditiCashier.unit;
+        const summary = await run(boditi, (ctx) => (tx) => stock.summary(tx, ctx, 'receipt_leaf'));
+        const used = await count(
+            "select count(*)::int as n from fees.stationery_items where kind = 'receipt_leaf' and status = 'used' and holder_unit_id = $1",
+            [boditi.id]
+        );
+        const voided = await count(
+            "select count(*)::int as n from fees.stationery_items where kind = 'receipt_leaf' and status = 'void' and holder_unit_id = $1",
+            [boditi.id]
+        );
+        expect(used).toBeGreaterThanOrEqual(5);
+        expect(voided).toBeGreaterThanOrEqual(2);
+        expect(summary.unit).toMatchObject({ used, void: voided, reconciled: true });
+        expect(summary.unit.inStock).toBe(30 - used - voided);
     });
 });
