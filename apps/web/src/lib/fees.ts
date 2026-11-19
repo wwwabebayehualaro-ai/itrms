@@ -15,6 +15,10 @@ import type {
     PaymentInput,
     PaymentOrderOut,
     ReceiptOut,
+    RemittanceDepositInput,
+    RemittanceDetail,
+    RemittanceOut,
+    RemittancePreview,
     ReversalOut,
     SessionCountInput,
     StatementImport,
@@ -35,6 +39,10 @@ export type {
     PaymentInput,
     PaymentOrderOut,
     ReceiptOut,
+    RemittanceDepositInput,
+    RemittanceDetail,
+    RemittanceOut,
+    RemittancePreview,
     ReversalOut,
     SessionCountInput,
     StatementImport,
@@ -65,6 +73,9 @@ export const feeKeys = {
     session: (id: string) => ['fees', 'session', id] as const,
     closings: () => ['fees', 'session', 'closings'] as const,
     overdue: () => ['fees', 'session', 'overdue'] as const,
+    remittances: () => ['fees', 'remittances'] as const,
+    remittance: (id: string) => ['fees', 'remittances', id] as const,
+    remittancePreview: (through: string) => ['fees', 'remittances', 'preview', through] as const,
     casePayment: (caseId: string) => ['fees', 'case-payment', caseId] as const,
     externalRefs: () => ['fees', 'external-refs'] as const,
     issuers: () => ['fees', 'issuers'] as const,
@@ -374,6 +385,52 @@ export function useDecideCount() {
     return useMutation({
         mutationFn: async ({ id, ...body }: { id: string; decision: 'approve' | 'reject'; note?: string }) =>
             (await client.post<CashierSessionDetail>(`v1/cashier-session-counts/${id}/decision`, body)).data,
+        onSuccess: invalidate
+    });
+}
+
+// ---- the remittance (task 1.12d, ADR-0063 §5) ----
+
+/** The office's remittances, newest first. */
+export function useRemittances() {
+    return useQuery({
+        queryKey: feeKeys.remittances(),
+        queryFn: async ({ signal }) =>
+            (await client.get<{ items: RemittanceOut[] }>('v1/remittances', { params: { limit: 50 }, signal })).data
+    });
+}
+
+/** What a prepare up to a day would give (nothing stored); asked only once a day is chosen. */
+export function useRemittancePreview(through: string | null) {
+    return useQuery({
+        queryKey: feeKeys.remittancePreview(through ?? ''),
+        enabled: through !== null && through !== '',
+        queryFn: async ({ signal }) =>
+            (await client.get<RemittancePreview>('v1/remittances/preview', { params: { through }, signal })).data
+    });
+}
+
+export function useRemittance(id: string) {
+    return useQuery({
+        queryKey: feeKeys.remittance(id),
+        queryFn: async ({ signal }) => (await client.get<RemittanceDetail>(`v1/remittances/${id}`, { signal })).data
+    });
+}
+
+export function usePrepareRemittance() {
+    const invalidate = useInvalidate();
+    return useMutation({
+        mutationFn: async (input: { through: string }) =>
+            (await client.post<RemittanceDetail>('v1/remittances', input)).data,
+        onSuccess: invalidate
+    });
+}
+
+export function useDepositRemittance(id: string) {
+    const invalidate = useInvalidate();
+    return useMutation({
+        mutationFn: async (input: RemittanceDepositInput) =>
+            (await client.post<RemittanceDetail>(`v1/remittances/${id}/deposit`, input)).data,
         onSuccess: invalidate
     });
 }

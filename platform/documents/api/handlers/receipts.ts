@@ -16,6 +16,7 @@ import { FEES_EVENTS } from '@itrms/fees/contracts';
 
 import { issuedDocuments } from '../documents.table';
 import { addisDay, issueDocument, revokeDocument } from '../issue';
+import { remittanceHandlers, type RemittanceSource } from './remittances';
 
 export interface ReceiptSource {
     /** the receipt as the fees slice tells it */
@@ -86,8 +87,12 @@ export async function revokeReceiptDocument(system: SystemDatabase, receiptId: s
     });
 }
 
-export function documentsHandlers(system: SystemDatabase, deps: ReceiptSource): Record<string, OutboxHandler> {
+export function documentsHandlers(
+    system: SystemDatabase,
+    deps: ReceiptSource & RemittanceSource
+): Record<string, OutboxHandler> {
     return {
+        ...remittanceHandlers(system, deps),
         'receipt.issued.v1': async (job) => {
             await issueReceiptDocument(system, deps, FEES_EVENTS['receipt.issued.v1'].parse(job.payload).receiptId);
         },

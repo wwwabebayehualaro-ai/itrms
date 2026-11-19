@@ -64,6 +64,57 @@ const SAMPLES: Record<DocumentDataSchema, Record<string, unknown>> = {
         ],
         demo: true
     },
+    'remittance.v1': {
+        number: 'WOL-BODITI/RM/00007/2019',
+        preparedOn: '2026-11-18',
+        periodFrom: '2026-11-16',
+        periodTo: '2026-11-18',
+        revenueTotalSantim: '210000',
+        cashSantim: '160000',
+        bankSlipSantim: '60000',
+        reversalSantim: '-10000',
+        depositDueSantim: '155000',
+        differenceSantim: '-500',
+        groups: [
+            {
+                accountCode: '0000',
+                budgetCategory: 'PLACEHOLDER',
+                accountName: { am: 'ጊዜያዊ የሂሳብ ኮድ (ማሳያ)', en: 'Placeholder account code (demo)' },
+                mappedByDefault: true,
+                receiptSantim: '220000',
+                reversalSantim: '-10000',
+                totalSantim: '210000'
+            }
+        ],
+        lines: [
+            {
+                kind: 'receipt',
+                receiptNumber: 'WOL-BODITI/000123/2019',
+                lineKey: 'base',
+                accountCode: '0000',
+                mappedByDefault: true,
+                amountSantim: '220000'
+            },
+            {
+                kind: 'reversal',
+                receiptNumber: 'WOL-BODITI/000120/2019',
+                lineKey: 'base',
+                accountCode: '0000',
+                mappedByDefault: true,
+                amountSantim: '-10000'
+            }
+        ],
+        sessions: [
+            {
+                businessDay: '2026-11-16',
+                openingFloatSantim: '5000',
+                expectedCashSantim: '165500',
+                countedSantim: '160000',
+                differenceSantim: '-5500'
+            }
+        ],
+        demo: true
+    },
     'application-copy.v1': {
         caseNumber: 18,
         serviceName: 'የመንጃ ፈቃድ እድሳት',
@@ -229,6 +280,7 @@ const SAMPLES: Record<DocumentDataSchema, Record<string, unknown>> = {
 
 const SCHEMA_OF: Record<string, DocumentDataSchema> = {
     receipt: 'receipt.v1',
+    remittance: 'remittance.v1',
     'application-copy': 'application-copy.v1',
     'licence-card': 'licence-card.v1',
     'vehicle-registration-certificate': 'vehicle-registration-certificate.v1',
@@ -415,6 +467,26 @@ describe.skipIf(!chrome)('a PDF from Chrome', () => {
         expect(text).toContain('Sample Town Administration');
         expect(text).toContain('Tikimt');
         expect(text).toContain('New driver licence');
+    }, 180_000);
+
+    it('remittance: grouped by account, the late reversal negative, the default flagged, the demo marker', async () => {
+        const { text, pages } = await pdfOf('remittance', SAMPLES['remittance.v1']);
+        expect(pages).toBe(1);
+        expect(text).toContain('የገቢ ማስገቢያ ሪፖርት');
+        expect(text.replace(/\s/g, '')).toContain('WOL-BODITI/RM/00007/2019');
+        expect(text).toContain('PLACEHOLDER');
+        expect(text).toContain('-100.00');
+        expect(text).toContain('1,550.00');
+        expect(text).toContain('በነባሪ ሂሳብ የተመዘገበ');
+        expect(text).toContain('የማሳያ ሰነድ');
+    }, 180_000);
+
+    it('remittance in English', async () => {
+        const { text } = await pdfOf('remittance', SAMPLES['remittance.v1'], 'en');
+        expect(text).toContain('Remittance of revenue');
+        expect(text).toContain('Booked to the default account');
+        expect(text).toContain('To deposit at the bank');
+        expect(text).toContain('-100.00');
     }, 180_000);
 
     it('application copy', async () => {

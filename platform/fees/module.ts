@@ -26,21 +26,27 @@ export default defineModule({
         stationery: ['read', 'receive', 'allocate', 'write-off', 'close'],
         // the cashier's session and the daily closing (task 1.12, ADR-0063): the cashier opens it with a float and counts the
         // till; another person decides a count with a difference
-        'cashier-session': ['read', 'open', 'close', 'approve']
+        'cashier-session': ['read', 'open', 'close', 'approve'],
+        // the office's remittance of the closed sessions (task 1.12d, ADR-0063 §5): prepared and deposited by the cashier or finance
+        remittance: ['read', 'prepare', 'deposit']
     },
     // a corrected request's fee worked out again (named on the workflow's amending transitions); a case's fee as a
     // payment order (named on the transition into its payment step)
     effects: ['fees.assess', 'fees.createPaymentOrder'],
     // ITRMS's receipt numbers (the counter `fees.receipt`): gapless per office and fiscal year (ADR-0014)
     // an office that collects cash numbers its receipts from its own counter, set up when it is created (task 1.4b4)
-    numberSequences: [{ key: 'receipt', pattern: '{unit}/{seq:06}/{efy}', capabilities: ['collects_cash'] }],
+    numberSequences: [
+        { key: 'receipt', pattern: '{unit}/{seq:06}/{efy}', capabilities: ['collects_cash'] },
+        { key: 'remittance', pattern: '{unit}/RM/{seq:05}/{efy}', capabilities: ['collects_cash'] }
+    ],
     events: {
         emits: [
             'payment.settled.v1',
             'receipt.issued.v1',
             'receipt.reversed.v1',
             'external-payment.entered.v1',
-            'external-statement.received.v1'
+            'external-statement.received.v1',
+            'remittance.prepared.v1'
         ],
         // a closed case's open order is cancelled; a reference and a statement are matched
         consumes: ['case.transitioned.v1', 'external-payment.entered.v1', 'external-statement.received.v1']
@@ -97,6 +103,20 @@ export default defineModule({
             default: [20000, 10000, 5000, 1000, 500, 100, 50, 25, 10, 5],
             overridableAt: ['installation', 'region']
         },
+        // the finance bureau's accounts the fee lines are booked to on a remittance; the default is a placeholder (Z)
+        {
+            key: 'fees.accounts',
+            default: {
+                demo: true,
+                default: {
+                    code: '0000',
+                    budgetCategory: 'PLACEHOLDER',
+                    name: { am: 'ጊዜያዊ የሂሳብ ኮድ (ማሳያ)', en: 'Placeholder account code (demo)' }
+                },
+                lines: {}
+            },
+            overridableAt: ['installation', 'region']
+        },
         {
             key: 'fees.external.issuers',
             default: [
@@ -125,6 +145,15 @@ export default defineModule({
             icon: 'banknote',
             route: '/cashier',
             requires: { permission: 'payment:record', capabilities: ['collects_cash'] }
+        },
+        {
+            key: 'fees.remittances',
+            group: 'my-work',
+            order: 42,
+            label: 'fees.nav.remittances',
+            icon: 'landmark',
+            route: '/finance/remittances',
+            requires: { permission: 'remittance:read' }
         },
         {
             key: 'fees.reversals',

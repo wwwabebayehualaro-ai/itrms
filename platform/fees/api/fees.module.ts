@@ -3,6 +3,8 @@ import { Module } from '@nestjs/common';
 import { AssessFeeEffect } from './assess.effect';
 import { CashierSessionsController } from './cashier-sessions.controller';
 import { CashierSessionsService } from './cashier-sessions.service';
+import { RemittancesController } from './remittances.controller';
+import { RemittancesService } from './remittances.service';
 import { ExternalPaymentsController } from './external-payments.controller';
 import { ExternalPaymentsService } from './external-payments.service';
 import { CreatePaymentOrderEffect } from './payment-order.effect';
@@ -28,7 +30,8 @@ import { StationeryStock } from './stationery.service';
         PaymentsController,
         ExternalPaymentsController,
         StationeryController,
-        CashierSessionsController
+        CashierSessionsController,
+        RemittancesController
     ],
     providers: [
         FeeRulesService,
@@ -36,6 +39,7 @@ import { StationeryStock } from './stationery.service';
         PaymentOrdersService,
         PaymentsService,
         CashierSessionsService,
+        RemittancesService,
         ExternalPaymentsService,
         AssessFeeEffect,
         CreatePaymentOrderEffect,
@@ -47,6 +51,7 @@ import { StationeryStock } from './stationery.service';
         PaymentOrdersService,
         PaymentsService,
         CashierSessionsService,
+        RemittancesService,
         StationeryStock
     ]
 })

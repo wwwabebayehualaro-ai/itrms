@@ -12,6 +12,7 @@ import {
     SESSION_APPROVER_ROLES_SETTING,
     sessionApproverRolesSchema
 } from './cashier-sessions';
+import { ACCOUNTS_SETTING, accountsSettingSchema } from './remittances';
 
 /** A fee rule's key: `dvc-04-renewal`. */
 export const FEE_RULE_KEY = /^[a-z][a-z0-9-]{1,62}$/;
@@ -179,7 +180,8 @@ export const FEES_SETTINGS = {
     [EXTERNAL_VERIFIER_ROLES_SETTING]: roleList,
     [EXTERNAL_ISSUERS_SETTING]: z.array(issuerSchema).min(1).max(100),
     [SESSION_APPROVER_ROLES_SETTING]: sessionApproverRolesSchema,
-    [DENOMINATIONS_SETTING]: denominationsSettingSchema
+    [DENOMINATIONS_SETTING]: denominationsSettingSchema,
+    [ACCOUNTS_SETTING]: accountsSettingSchema
 } as const;
 
 /**
@@ -484,7 +486,10 @@ export const FEES_EVENTS = {
     'external-payment.entered.v1': z.object({ refId: z.uuid() }),
     'external-statement.received.v1': z.object({ statementId: z.uuid() }),
     'receipt.issued.v1': z.object({ receiptId: z.uuid(), caseId: z.uuid() }),
-    'receipt.reversed.v1': z.object({ receiptId: z.uuid(), caseId: z.uuid(), reversalId: z.uuid() })
+    'receipt.reversed.v1': z.object({ receiptId: z.uuid(), caseId: z.uuid(), reversalId: z.uuid() }),
+    // a remittance prepared (the documents slice issues its document)
+    'remittance.prepared.v1': z.object({ remittanceId: z.uuid() })
 } as const;
 export * from './stationery';
 export * from './cashier-sessions';
+export * from './remittances';

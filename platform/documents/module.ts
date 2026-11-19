@@ -17,7 +17,7 @@ export default defineModule({
     events: {
         emits: ['document.render.v1'],
         // a receipt's document, revoked when it is reversed; a document's PDF (in the worker-documents process)
-        consumes: ['receipt.issued.v1', 'receipt.reversed.v1', 'document.render.v1']
+        consumes: ['receipt.issued.v1', 'receipt.reversed.v1', 'remittance.prepared.v1', 'document.render.v1']
     },
     settings: [
         {

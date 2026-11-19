@@ -183,4 +183,38 @@ test('the cashier counts the till one Birr short, the finance officer approves, 
     // closed
     await cashier.reload();
     await expect(cashier.locator('[data-screen="cashier-session"]')).toHaveAttribute('data-state', 'closed');
+
+    // the remittance (task 1.12d): the office takes the closed days to the bank. It covers every closed day of the office, those
+    // of the other shards' journeys too, so the figures are read from the screen, not assumed
+    const till = api(cashier);
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Addis_Ababa' });
+    const made = await till.post<{ id: string; number: string; depositDueSantim: string }>('v1/remittances', {
+        through: today
+    });
+    await cashier.goto('/finance/remittances');
+    await expect(cashier.locator(`[data-remittances] [data-remittance="${made.id}"]`)).toBeVisible();
+    await cashier.goto(`/finance/remittances/${made.id}`);
+    const page = cashier.locator('[data-screen="remittance"]');
+    await expect(page).toHaveAttribute('data-state', 'prepared');
+    await expect(cashier.locator('[data-remittance-groups]')).toBeVisible();
+    await expect(cashier.locator('[data-deposit-form]')).toBeVisible();
+    // its document is issued by the worker from the outbox event
+    await expect
+        .poll(
+            async () => (await till.get<{ items: unknown[] }>(`v1/issued-documents?subjectId=${made.id}`)).items.length,
+            {
+                timeout: 60_000
+            }
+        )
+        .toBeGreaterThan(0);
+    // the deposit slip is recorded once, for the amount due
+    await till.post(`v1/remittances/${made.id}/deposit`, {
+        bank: 'CBE',
+        reference: `FT${randomUUID().slice(0, 8).toUpperCase()}`,
+        depositedOn: today,
+        amountSantim: made.depositDueSantim
+    });
+    await cashier.reload();
+    await expect(page).toHaveAttribute('data-state', 'deposited');
+    await expect(cashier.locator('[data-deposit]')).toBeVisible();
 });

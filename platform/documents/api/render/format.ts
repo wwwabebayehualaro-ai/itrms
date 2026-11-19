@@ -26,8 +26,10 @@ export function ethiopianDay(day: unknown, language: string): string {
 export function birrText(santim: unknown): string {
     const text = typeof santim === 'bigint' ? santim.toString() : typeof santim === 'string' ? santim : '';
     // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- anchored, one digit run (linear time), and an amount is bounded
-    if (!/^\d+$/.test(text)) return '';
-    const digits = text.padStart(3, '0');
+    if (!/^-?\d+$/.test(text)) return '';
+    // a reversal on a remittance is a negative amount
+    const sign = text.startsWith('-') ? '-' : '';
+    const digits = text.replace('-', '').padStart(3, '0');
     const whole = digits.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    return `${whole}.${digits.slice(-2)}`;
+    return `${sign}${whole}.${digits.slice(-2)}`;
 }
