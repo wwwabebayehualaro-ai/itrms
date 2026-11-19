@@ -142,10 +142,15 @@ function PrepareRemittance() {
                             </ul>
                         </div>
                     )}
+                    {p.blocked && (
+                        <p className="text-destructive text-sm" role="alert" data-blocked={p.blocked}>
+                            {t(`fees.remittance.blocked.${p.blocked}`)}
+                        </p>
+                    )}
                     {p.sessions.length > 0 && (
                         <div className="flex justify-end">
                             <Button
-                                disabled={prepare.isPending}
+                                disabled={prepare.isPending || p.blocked !== null}
                                 data-action="prepare-remittance"
                                 onClick={() =>
                                     through &&
@@ -215,7 +220,7 @@ function RemittanceTable({ items }: { items: RemittanceOut[] }) {
                         <TableCell>
                             <StatusBadge
                                 value={r.state}
-                                tone={r.state === 'deposited' ? 'success' : 'progress'}
+                                tone={r.state === 'prepared' ? 'progress' : 'success'}
                                 label={t(`fees.remittance.state.${r.state}`)}
                             />
                         </TableCell>

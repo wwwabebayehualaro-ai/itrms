@@ -1,5 +1,5 @@
 {
-  "id": "18c11527-beb6-490a-9559-fb7591002a91",
+  "id": "37cc5c5d-d905-461b-8277-e163a6095e5a",
   "prevId": "dce2efc0-623f-4b06-95fc-2b56b2bbb45d",
   "version": "7",
   "dialect": "postgresql",
@@ -4883,7 +4883,13 @@
           "name": "remittances_deposit_reference_uq",
           "columns": [
             {
-              "expression": "handling_unit_id",
+              "expression": "region_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "deposit_bank",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

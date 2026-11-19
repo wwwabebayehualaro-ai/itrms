@@ -4207,6 +4207,11 @@
       "foundIn": "1.12d",
       "item": "A remittance whose deposit due would be negative (a till short by more than its cash) is refused at prepare, which blocks the office's later remittances; decide how such a session is remitted (Z)",
       "movedTo": "1.12d follow-up / zone"
+    },
+    {
+      "foundIn": "1.12d",
+      "item": "A customer bank slip recorded after a remittance deposit is not checked against deposit references (only deposit-vs-slip is checked); add the reverse check to slip_in_use",
+      "movedTo": "1.12e or a fees hardening task"
     }
   ]
 }

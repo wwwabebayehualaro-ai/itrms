@@ -533,5 +533,10 @@
   "fees.remittance.deposit.invalid.reference": "የማስያዣ ቁጥር 3 እስከ 40 ቁምፊ ነው።",
   "fees.remittance.deposit.invalid.depositedOn": "ቀን ይምረጡ።",
   "fees.remittance.deposit.invalid.amount": "መጠን ያስገቡ።",
-  "fees.setting.accounts": "የገቢ ማስገቢያ የሂሳብ ኮዶች (የፋይናንስ ቢሮ)"
+  "fees.setting.accounts": "የገቢ ማስገቢያ የሂሳብ ኮዶች (የፋይናንስ ቢሮ)",
+  "fees.errors.deposit_is_payment_slip": "ይህ የማስያዣ ቁጥር የደንበኛ ክፍያ ማስያዣ ነው፤ ለማስገቢያ መጠቀም አይቻልም።",
+  "fees.errors.remittance_settled": "ለዚህ ማስገቢያ የሚገባ ገንዘብ የለም።",
+  "fees.remittance.state.settled": "የሚገባ ገንዘብ የለም",
+  "fees.remittance.nothingToDeposit": "ለዚህ ማስገቢያ ወደ ባንክ የሚገባ ገንዘብ የለም (ባንክ ያሉ ማስያዣዎች ብቻ)።",
+  "fees.remittance.blocked.negative_due": "ወደ ባንክ የሚገባው መጠን ከዜሮ በታች ነው፤ መጀመሪያ የቆጠራ ልዩነቶችን ይመልከቱ፤ አሁን ማዘጋጀት አይቻልም።"
 }

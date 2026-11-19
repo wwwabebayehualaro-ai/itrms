@@ -69,7 +69,7 @@ export const remittances = withRls(
                 preparedAt: timestamp('prepared_at', { withTimezone: true }).notNull().defaultNow(),
                 depositBank: text('deposit_bank'),
                 depositReference: text('deposit_reference'),
-                /** the reference compared: upper case, without spaces */
+                /** the reference compared as a payment slip's is: capitals, letters and digits only, no leading zeros */
                 depositReferenceNorm: text('deposit_reference_norm'),
                 depositedOn: date('deposited_on'),
                 depositedAmountSantim: bigint('deposited_amount_santim', { mode: 'bigint' }),
@@ -82,8 +82,9 @@ export const remittances = withRls(
                 unique('remittances_id_unit_uq').on(t.id, t.handlingUnitId),
                 uniqueIndex('remittances_sequence_uq').on(t.handlingUnitId, t.fiscalYear, t.sequence),
                 uniqueIndex('remittances_number_uq').on(t.handlingUnitId, t.number),
+                // a deposit slip cited once in the region, per bank (the same number at another bank is another slip)
                 uniqueIndex('remittances_deposit_reference_uq')
-                    .on(t.handlingUnitId, t.depositReferenceNorm)
+                    .on(t.regionId, t.depositBank, t.depositReferenceNorm)
                     .where(sql`deposit_reference_norm IS NOT NULL`),
                 index('remittances_unit_idx').on(t.handlingUnitId, t.state, t.createdAt),
                 index('remittances_org_path_gist').using('gist', t.orgPath)

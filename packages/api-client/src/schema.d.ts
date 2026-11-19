@@ -7859,7 +7859,7 @@ export interface operations {
     RemittancesController_list: {
         parameters: {
             query?: {
-                state?: "prepared" | "deposited";
+                state?: "prepared" | "deposited" | "settled";
                 after?: string;
                 limit?: number;
             };

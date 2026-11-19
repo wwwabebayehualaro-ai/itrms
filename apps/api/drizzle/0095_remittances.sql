@@ -86,7 +86,7 @@ CREATE INDEX "remittance_sessions_remittance_idx" ON "fees"."remittance_sessions
 CREATE INDEX "remittance_sessions_org_path_gist" ON "fees"."remittance_sessions" USING gist ("org_path");--> statement-breakpoint
 CREATE UNIQUE INDEX "remittances_sequence_uq" ON "fees"."remittances" USING btree ("handling_unit_id","fiscal_year","sequence");--> statement-breakpoint
 CREATE UNIQUE INDEX "remittances_number_uq" ON "fees"."remittances" USING btree ("handling_unit_id","number");--> statement-breakpoint
-CREATE UNIQUE INDEX "remittances_deposit_reference_uq" ON "fees"."remittances" USING btree ("handling_unit_id","deposit_reference_norm") WHERE deposit_reference_norm IS NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "remittances_deposit_reference_uq" ON "fees"."remittances" USING btree ("region_id","deposit_bank","deposit_reference_norm") WHERE deposit_reference_norm IS NOT NULL;--> statement-breakpoint
 CREATE INDEX "remittances_unit_idx" ON "fees"."remittances" USING btree ("handling_unit_id","state","created_at");--> statement-breakpoint
 CREATE INDEX "remittances_org_path_gist" ON "fees"."remittances" USING gist ("org_path");
 --> statement-breakpoint
@@ -104,7 +104,7 @@ CREATE TRIGGER "set_org_path" BEFORE INSERT OR UPDATE ON "fees"."remittance_line
     FOR EACH ROW EXECUTE FUNCTION "kernel"."set_org_path"('handling_unit_id');
 --> statement-breakpoint
 ALTER TABLE "fees"."remittances"
-    ADD CONSTRAINT "remittances_state_check" CHECK ("state" IN ('prepared', 'deposited')),
+    ADD CONSTRAINT "remittances_state_check" CHECK ("state" IN ('prepared', 'deposited', 'settled')),
     ADD CONSTRAINT "remittances_sequence_check" CHECK ("sequence" >= 1 AND "fiscal_year" >= 1),
     ADD CONSTRAINT "remittances_period_check" CHECK ("period_from" <= "period_to"),
     ADD CONSTRAINT "remittances_figures_check" CHECK (
@@ -120,10 +120,17 @@ ALTER TABLE "fees"."remittances"
         AND ("deposited_at" IS NULL) = ("deposited_amount_santim" IS NULL)
         AND ("deposited_at" IS NULL) = ("deposited_by" IS NULL)
         AND ("deposited_amount_santim" IS NULL OR "deposited_amount_santim" = "deposit_due_santim")),
+    -- nothing to deposit (only bank-slip money, counted equal to the floats) is settled at once, and only that is
+    ADD CONSTRAINT "remittances_settled_check" CHECK (("state" = 'settled') = ("deposit_due_santim" = 0)),
+    -- the slip is dated on or after the last day covered (not in the future: the trigger below)
+    ADD CONSTRAINT "remittances_deposited_on_check" CHECK ("deposited_on" IS NULL OR "deposited_on" >= "period_to"),
+    -- the bank is one of the payment slips' vocabulary; the reference as a slip's is compared (capitals, letters and digits, no
+    -- leading zeros)
+    ADD CONSTRAINT "remittances_deposit_bank_check" CHECK ("deposit_bank" IS NULL OR "deposit_bank" ~ '^[A-Z0-9]{2,12}$'),
     ADD CONSTRAINT "remittances_deposit_reference_check" CHECK (
         "deposit_reference_norm" IS NULL
-        OR (length("deposit_reference_norm") BETWEEN 3 AND 40 AND "deposit_reference_norm" = upper("deposit_reference_norm")
-            AND position(' ' IN "deposit_reference_norm") = 0));
+        OR (length("deposit_reference_norm") BETWEEN 1 AND 40 AND position(' ' IN "deposit_reference_norm") = 0
+            AND ("deposit_reference_norm" = '0' OR "deposit_reference_norm" NOT LIKE '0%')));
 --> statement-breakpoint
 ALTER TABLE "fees"."remittance_lines"
     ADD CONSTRAINT "remittance_lines_kind_check" CHECK ("kind" IN ('receipt', 'reversal')),
@@ -143,6 +150,38 @@ ALTER TABLE "fees"."remittance_lines"
     ADD CONSTRAINT "remittance_lines_remittance_fk" FOREIGN KEY ("remittance_id", "handling_unit_id")
         REFERENCES "fees"."remittances" ("id", "handling_unit_id");
 --> statement-breakpoint
+-- Whether a deposit slip (bank, reference as a payment slip's is compared: no leading zeros) is already cited in the caller's
+-- region: as a customer's bank-slip payment ('payment_slip') or on another remittance ('remittance'), whatever the office. Other
+-- offices' rows are past the request's RLS, so this narrow function answers for the region only (the pattern of slip_in_use,
+-- 0062); it takes the same lock on the reference, so a payment and a deposit can't both pass at the same moment.
+CREATE FUNCTION "fees"."deposit_reference_in_use"(p_bank text, p_norm text, p_self uuid) RETURNS text
+    LANGUAGE plpgsql
+    SECURITY DEFINER
+    SET search_path = pg_catalog, pg_temp
+AS $$
+DECLARE
+    v_region constant uuid := kernel.ctx_region();
+BEGIN
+    PERFORM pg_advisory_xact_lock(hashtextextended(v_region::text || '|' || p_bank || '|' || p_norm, 0));
+    IF EXISTS (
+        SELECT 1 FROM fees.payments p
+         WHERE p.region_id = v_region AND p.method = 'bank_slip' AND p.voided_at IS NULL
+           AND p.bank_code = p_bank AND ltrim(p.slip_reference_norm, '0') = ltrim(p_norm, '0')) THEN
+        RETURN 'payment_slip';
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM fees.remittances r
+         WHERE r.region_id = v_region AND r.id <> p_self AND r.deposit_bank = p_bank AND r.deposit_reference_norm = p_norm) THEN
+        RETURN 'remittance';
+    END IF;
+    RETURN NULL;
+END;
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION "fees"."deposit_reference_in_use"(text, text, uuid) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION "fees"."deposit_reference_in_use"(text, text, uuid) TO itrms_app;
+--> statement-breakpoint
 -- A remittance is prepared, stamped with this transaction's time; only the deposit changes later, once, for the amount due.
 CREATE FUNCTION "fees"."remittance_changes"() RETURNS trigger
     LANGUAGE plpgsql
@@ -150,7 +189,7 @@ CREATE FUNCTION "fees"."remittance_changes"() RETURNS trigger
 AS $$
 BEGIN
     IF TG_OP = 'INSERT' THEN
-        IF NEW.state <> 'prepared' THEN
+        IF NEW.state NOT IN ('prepared', 'settled') THEN
             RAISE EXCEPTION 'fees.remittances: a remittance is prepared first'
                 USING ERRCODE = 'check_violation', CONSTRAINT = 'remittances_opens_prepared';
         END IF;
@@ -168,6 +207,19 @@ BEGIN
                 'row_version']) = (to_jsonb(OLD) - ARRAY['org_path', 'state', 'deposit_bank', 'deposit_reference',
                 'deposit_reference_norm', 'deposited_on', 'deposited_amount_santim', 'deposited_by', 'deposited_at',
                 'updated_at', 'updated_by', 'row_version']) THEN
+            IF NEW.deposited_on > (now() AT TIME ZONE 'Africa/Addis_Ababa')::date THEN
+                RAISE EXCEPTION 'fees.remittances: the deposit slip is not dated after today'
+                    USING ERRCODE = 'check_violation', CONSTRAINT = 'remittances_deposited_on_future';
+            END IF;
+            CASE fees.deposit_reference_in_use(NEW.deposit_bank, NEW.deposit_reference_norm, NEW.id)
+                WHEN 'payment_slip' THEN
+                    RAISE EXCEPTION 'fees.remittances: this slip is a customer payment''s'
+                        USING ERRCODE = 'check_violation', CONSTRAINT = 'remittances_deposit_is_payment_slip';
+                WHEN 'remittance' THEN
+                    RAISE EXCEPTION 'fees.remittances: this slip is cited on another remittance'
+                        USING ERRCODE = 'unique_violation', CONSTRAINT = 'remittances_deposit_reference_uq';
+                ELSE NULL;
+            END CASE;
             RETURN NEW;
         END IF;
     END IF;
@@ -205,7 +257,7 @@ DECLARE
     s fees.cashier_sessions%ROWTYPE;
 BEGIN
     SELECT * INTO r FROM fees.remittances x WHERE x.id = NEW.remittance_id;
-    IF r.id IS NULL OR r.state <> 'prepared' OR r.prepared_at <> now() THEN
+    IF r.id IS NULL OR r.state NOT IN ('prepared', 'settled') OR r.prepared_at <> now() THEN
         RAISE EXCEPTION 'fees.%: a part is written with its remittance, never after', TG_TABLE_NAME
             USING ERRCODE = 'check_violation', CONSTRAINT = 'remittance_parts_with_remittance';
     END IF;
@@ -229,14 +281,15 @@ CREATE TRIGGER "remittance_lines_guard" BEFORE INSERT ON "fees"."remittance_line
 -- The remittance holds to its sums at commit (deferred: the parts are written after it). Total = the receipts of the sessions it
 -- covers, less the reversals decided after a till was counted; every receipt line is a line of the order of a payment taken in a
 -- covered session, and a session's lines add up to what its first count froze; every reversal line is of an approved reversal
--- marked after the till closed, whose receipt is on this remittance or an earlier one, under the account that receipt was booked
--- to; what is due at the bank is the counted cash less the floats; the difference is counted less expected.
+-- marked after the till closed, whose receipt is on this remittance or a committed one (a receipt is on one remittance only), under
+-- the account that receipt was booked to; what is due at the bank is the counted cash less the floats; the difference is counted less expected.
 CREATE FUNCTION "fees"."check_remittance"() RETURNS trigger
     LANGUAGE plpgsql
     SET search_path = pg_catalog, public
 AS $$
 DECLARE
     r fees.remittances%ROWTYPE;
+    remittance_id uuid;
     total bigint;
     cash bigint;
     slip bigint;
@@ -248,7 +301,12 @@ DECLARE
     n_sessions integer;
     bad integer;
 BEGIN
-    SELECT * INTO r FROM fees.remittances x WHERE x.id = NEW.id;
+    IF TG_TABLE_NAME = 'remittances' THEN
+        remittance_id := NEW.id;
+    ELSE
+        remittance_id := to_jsonb(NEW) ->> 'remittance_id';
+    END IF;
+    SELECT * INTO r FROM fees.remittances x WHERE x.id = remittance_id;
     SELECT coalesce(sum(l.amount_santim), 0),
            coalesce(sum(l.amount_santim) FILTER (WHERE l.kind = 'receipt' AND l.payment_method = 'cash'), 0),
            coalesce(sum(l.amount_santim) FILTER (WHERE l.kind = 'receipt' AND l.payment_method = 'bank_slip'), 0),
@@ -286,6 +344,9 @@ BEGIN
      WHERE l.remittance_id = r.id AND l.kind = 'receipt'
        AND (p.id IS NULL OR o.id IS NULL OR rc.handling_unit_id <> l.handling_unit_id OR l.payment_method <> p.method
             OR l.amount_santim <> o.amount_santim OR l.line_key <> o.key
+            -- in the frozen set: not voided, or voided after the till was counted
+            OR (p.voided_at IS NOT NULL AND NOT EXISTS (
+                SELECT 1 FROM fees.receipt_reversals w WHERE w.id = p.voided_by_reversal_id AND w.after_till_closed))
             OR NOT EXISTS (SELECT 1 FROM fees.remittance_sessions s WHERE s.remittance_id = r.id AND s.session_id = p.session_id));
     IF bad > 0 THEN
         RAISE EXCEPTION 'fees.remittance_lines: a receipt line is of a payment of a covered session'
@@ -321,9 +382,7 @@ BEGIN
             OR v.handling_unit_id <> l.handling_unit_id
             OR NOT EXISTS (
                 SELECT 1 FROM fees.remittance_lines q
-                  JOIN fees.remittances m ON m.id = q.remittance_id
                  WHERE q.kind = 'receipt' AND q.receipt_id = l.receipt_id AND q.order_line_position = l.order_line_position
-                   AND (m.id = r.id OR m.prepared_at < r.prepared_at)
                    AND q.amount_santim = -l.amount_santim AND q.line_key = l.line_key AND q.payment_method = l.payment_method
                    AND q.account_code = l.account_code AND q.budget_category = l.budget_category
                    AND q.account_name = l.account_name AND q.mapped_by_default = l.mapped_by_default));
@@ -348,6 +407,13 @@ $$;
 REVOKE ALL ON FUNCTION "fees"."check_remittance"() FROM PUBLIC;
 --> statement-breakpoint
 CREATE CONSTRAINT TRIGGER "remittances_sums" AFTER INSERT ON "fees"."remittances"
+    DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION "fees"."check_remittance"();
+--> statement-breakpoint
+-- and on every part: it may run more than once in a transaction, the check is set-based and reads the whole remittance
+CREATE CONSTRAINT TRIGGER "remittance_sessions_sums" AFTER INSERT ON "fees"."remittance_sessions"
+    DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION "fees"."check_remittance"();
+--> statement-breakpoint
+CREATE CONSTRAINT TRIGGER "remittance_lines_sums" AFTER INSERT ON "fees"."remittance_lines"
     DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION "fees"."check_remittance"();
 --> statement-breakpoint
 GRANT SELECT, INSERT ON "fees"."remittances", "fees"."remittance_sessions", "fees"."remittance_lines" TO itrms_app;

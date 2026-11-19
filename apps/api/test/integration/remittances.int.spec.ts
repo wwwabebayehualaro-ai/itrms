@@ -36,6 +36,7 @@ const SUB = {
     cashD: '0199f0a0-d000-7000-8000-00000000c514',
     cashE: '0199f0a0-d000-7000-8000-00000000c515',
     cashF: '0199f0a0-d000-7000-8000-00000000c516',
+    cashG: '0199f0a0-d000-7000-8000-00000000c519',
     cashH: '0199f0a0-d000-7000-8000-00000000c517',
     cashI: '0199f0a0-d000-7000-8000-00000000c518'
 };
@@ -239,6 +240,7 @@ interface Remittance {
     lines: { kind: string; receiptId: string; amountSantim: string; accountCode: string; mappedByDefault: boolean }[];
 }
 interface Preview {
+    blocked: string | null;
     lineCount: number;
     revenueTotalSantim: string;
     depositDueSantim: string;
@@ -268,18 +270,20 @@ let yesterday = '';
 let r1 = {} as Remittance;
 let r2 = {} as Remittance;
 let r3 = {} as Remittance;
-const sessionOf = {} as Record<'A' | 'C' | 'H', string>;
-const receiptOf = {} as Record<'A1' | 'A2' | 'H', string>;
+const sessionOf = {} as Record<'A' | 'C' | 'G' | 'H', string>;
+const receiptOf = {} as Record<'A1' | 'A2' | 'G1' | 'G2' | 'H', string>;
 
 beforeAll(async () => {
     pg = await startPostgres();
-    const cashiers = (['cashA', 'cashB', 'cashC', 'cashD', 'cashE', 'cashF', 'cashH', 'cashI'] as const).map((k) => ({
-        username: `test.remit.${k.toLowerCase()}`,
-        sub: SUB[k],
-        region: 'SER' as const,
-        home: 'WOL-BODITI',
-        roles: [['WOL-BODITI', 'cashier']] as [string, string][]
-    }));
+    const cashiers = (['cashA', 'cashB', 'cashC', 'cashD', 'cashE', 'cashF', 'cashG', 'cashH', 'cashI'] as const).map(
+        (k) => ({
+            username: `test.remit.${k.toLowerCase()}`,
+            sub: SUB[k],
+            region: 'SER' as const,
+            home: 'WOL-BODITI',
+            roles: [['WOL-BODITI', 'cashier']] as [string, string][]
+        })
+    );
     api = await startApi(pg, [
         {
             username: 'test.bureau.fifth',
@@ -543,6 +547,24 @@ describe('what the database holds to, as the application role', () => {
         // H: a closed till not yet remitted, to tamper with
         receiptOf.H = await paid(as.cashH);
         sessionOf.H = await closeTill(as.cashH, '40000');
+        // G: two receipts of one amount, one reversed before the till was counted (it is not in the frozen figures)
+        receiptOf.G1 = await paid(as.cashG);
+        receiptOf.G2 = await paid(as.cashG);
+        await reverse(receiptOf.G2, as.cashG);
+        sessionOf.G = await closeTill(as.cashG, '40000');
+    });
+
+    it('refuses a receipt reversed before the count swapped in for a valid one of the same amount', async () => {
+        const id = randomUUID();
+        expect(
+            await refusal(
+                asApp(async (tx) => {
+                    await tx.execute(remittanceRow(id, 20));
+                    await tx.execute(sessionRow(id, sessionOf.G));
+                    await tx.execute(lineRow(id, receiptOf.G2, 40000));
+                })
+            )
+        ).toMatch(/receipt line is of a payment|remittance_lines_receipt_of_session/);
     });
 
     it('refuses a line with a wrong amount, though the totals follow it', async () => {
@@ -580,7 +602,7 @@ describe('what the database holds to, as the application role', () => {
             )
         ).toMatch(/deposit due|remittances_deposit_due/);
         expect(
-            await refusal(asApp((tx) => tx.execute(remittanceRow(randomUUID(), 4, { cash: 0, revenue: 0, due: 0 }))))
+            await refusal(asApp((tx) => tx.execute(remittanceRow(randomUUID(), 4, { cash: 0, revenue: 0, due: 1 }))))
         ).toMatch(/covers closed sessions|remittances_sessions/);
     });
 
@@ -675,7 +697,8 @@ describe('two prepares at once', () => {
         expect([a.statusCode, b.statusCode].sort(), `${a.body} ${b.body}`).toEqual([201, 409]);
         const won = a.statusCode === 201 ? a : b;
         r3 = won.json<Remittance>();
-        expect(r3.sessions.map((s) => s.id)).toEqual([sessionOf.H]);
+        expect(r3.sessions.map((s) => s.id).sort()).toEqual([sessionOf.G, sessionOf.H].sort());
+        expect(r3.depositDueSantim).toBe('80000');
         expect(r3.number).toMatch(/^WOL-BODITI\/RM\/00003\/\d{4}$/);
         const seq = await rows<{ sequence: string }>(
             'select sequence::text from fees.remittances where handling_unit_id = $1 order by sequence',
@@ -687,6 +710,116 @@ describe('two prepares at once', () => {
             [sessionOf.H]
         );
         expect(per[0]?.n).toBe(1);
+    });
+});
+
+describe('the deposit reference', () => {
+    const cite = (id: string, over: Record<string, string>) =>
+        api.call('POST', `/api/v1/remittances/${id}/deposit`, as.cashA, {
+            bank: 'CBE',
+            reference: 'FT0099',
+            depositedOn: today,
+            amountSantim: '80000',
+            ...over
+        });
+    const cited = (unit: OrgUnit, bank: string, norm: string) =>
+        asUnit(
+            app,
+            unit,
+            async (tx) =>
+                (
+                    await tx.execute<{ c: string | null }>(
+                        sql`select fees.deposit_reference_in_use(${bank}, ${norm}, gen_random_uuid()) as c`
+                    )
+                ).rows[0]?.c
+        );
+
+    it('is compared as a payment slip is: 00123 is 123, and cited once at a bank in the whole region', async () => {
+        const first = await cite(r3.id, { reference: '00123', amountSantim: r3.depositDueSantim });
+        expect(first.statusCode, first.body).toBe(200);
+        const [norm] = await rows<{ n: string }>(
+            'select deposit_reference_norm as n from fees.remittances where id = $1',
+            [r3.id]
+        );
+        expect(norm?.n).toBe('123');
+        const again = await cite(r2.id, { reference: ' 123 ' });
+        expect(again.statusCode, again.body).toBe(409);
+        expect(again.json<{ code: string }>().code).toBe('duplicate_reference');
+        // another office of the region cannot cite the one slip either: the zone sees what Boditi's request cannot
+        expect(await cited(units.zone, 'CBE', '123')).toBe('remittance');
+        expect(await cited(units.zone, 'CBE', 'FT123456')).toBe('remittance');
+        // the same number at another bank is another slip
+        expect(await cited(units.zone, 'AWASH', 'FT123456')).toBeNull();
+        expect(await cited(units.trx, 'CBE', '123')).toBeNull();
+    });
+
+    it("is refused when another office's remittance cites it", async () => {
+        // a deposit of the zone's own, written as the table's owner (the zone's checks of sessions and lines are not the point)
+        await api.owner.query('begin');
+        try {
+            await api.owner.query('alter table fees.remittances disable trigger remittances_sums');
+            const id = randomUUID();
+            await api.owner.query(
+                `insert into fees.remittances (id, region_id, handling_unit_id, number, fiscal_year, sequence, period_from, period_to,
+                    revenue_total_santim, cash_santim, bank_slip_santim, reversal_santim, difference_santim, deposit_due_santim, prepared_by, demo)
+                 values ($1, $2, $3, 'ZONE/RM/1', 2019, 777, $4, $4, 1000, 1000, 0, 0, 0, 1000, gen_random_uuid(), true)`,
+                [id, units.zone.regionId, units.zone.id, today]
+            );
+            await api.owner.query(
+                `update fees.remittances set state = 'deposited', deposit_bank = 'CBE', deposit_reference = 'ZN-555',
+                    deposit_reference_norm = 'ZN555', deposited_on = $2, deposited_amount_santim = 1000,
+                    deposited_by = gen_random_uuid(), deposited_at = now() where id = $1`,
+                [id, today]
+            );
+            await api.owner.query('alter table fees.remittances enable trigger remittances_sums');
+            await api.owner.query('commit');
+        } catch (error) {
+            await api.owner.query('rollback');
+            throw error;
+        }
+        const taken = await cite(r2.id, { reference: 'zn 555' });
+        expect(taken.statusCode, taken.body).toBe(409);
+        expect(taken.json<{ code: string }>().code).toBe('duplicate_reference');
+        // the database says it too, whatever the service does
+        const sql1 = sql`update fees.remittances set state = 'deposited', deposit_bank = 'CBE', deposit_reference = 'ZN 555',
+            deposit_reference_norm = 'ZN555', deposited_on = ${today}::date, deposited_amount_santim = deposit_due_santim,
+            deposited_by = gen_random_uuid(), deposited_at = now() where id = ${r2.id}`;
+        expect(await refusal(asApp((tx) => tx.execute(sql1)))).toMatch(
+            /cited on another remittance|deposit_reference_uq/
+        );
+    });
+
+    it("is refused when it is a customer's payment slip, in the service and in the database", async () => {
+        const slip = await pay(await order(), as.cashI, 'bank_slip');
+        expect(slip.statusCode, slip.body).toBe(201);
+        const [row] = await rows<{ r: string }>(
+            `select slip_reference_norm as r from fees.payments where method = 'bank_slip' order by created_at desc limit 1`
+        );
+        expect(row?.r).toBeTruthy();
+        const refused = await cite(r2.id, { reference: `00${row?.r?.toLowerCase()}` });
+        expect(refused.statusCode, refused.body).toBe(409);
+        expect(refused.json<{ code: string }>().code).toBe('duplicate_reference');
+        expect(await cited(units.boditi, 'CBE', row?.r ?? '')).toBe('payment_slip');
+        const sql2 = sql`update fees.remittances set state = 'deposited', deposit_bank = 'CBE', deposit_reference = ${row?.r},
+            deposit_reference_norm = ${row?.r}, deposited_on = ${today}::date, deposited_amount_santim = deposit_due_santim,
+            deposited_by = gen_random_uuid(), deposited_at = now() where id = ${r2.id}`;
+        expect(await refusal(asApp((tx) => tx.execute(sql2)))).toMatch(/customer payment|deposit_is_payment_slip/);
+    });
+
+    it('is dated on or after the last day covered, and not after today', async () => {
+        const before = await cite(r2.id, { reference: 'FT0098', depositedOn: yesterday });
+        expect(before.statusCode, before.body).toBe(422);
+        expect(before.json<{ errors: { path: string }[] }>().errors[0]?.path).toBe('depositedOn');
+        const sql3 = sql`update fees.remittances set state = 'deposited', deposit_bank = 'CBE', deposit_reference = 'FT0098',
+            deposit_reference_norm = 'FT0098', deposited_on = ${yesterday}::date, deposited_amount_santim = deposit_due_santim,
+            deposited_by = gen_random_uuid(), deposited_at = now() where id = ${r2.id}`;
+        expect(await refusal(asApp((tx) => tx.execute(sql3)))).toMatch(
+            /remittances_deposited_on_check|deposited_on_check/
+        );
+        const sql4 = sql`update fees.remittances set state = 'deposited', deposit_bank = 'CBE', deposit_reference = 'FT0097',
+            deposit_reference_norm = 'FT0097', deposited_on = (${today}::date + 1), deposited_amount_santim = deposit_due_santim,
+            deposited_by = gen_random_uuid(), deposited_at = now() where id = ${r2.id}`;
+        expect(await refusal(asApp((tx) => tx.execute(sql4)))).toMatch(/not dated after today|deposited_on_future/);
     });
 });
 
@@ -712,7 +845,7 @@ describe('who reads, prepares and deposits', () => {
         const listed = (await api.call('GET', '/api/v1/remittances?state=deposited', as.cashA)).json<{
             items: Remittance[];
         }>();
-        expect(listed.items.map((r) => r.id)).toEqual([r1.id]);
+        expect(listed.items.map((r) => r.id).sort()).toEqual([r1.id, r3.id].sort());
         const done = await api.call('POST', `/api/v1/remittances/${r2.id}/deposit`, as.zoneFinance, {
             bank: 'CBE',
             reference: 'FT777888',
@@ -721,13 +854,83 @@ describe('who reads, prepares and deposits', () => {
         });
         // the zone's finance officer acts for the zone, not for the office whose remittance this is
         expect(done.statusCode).toBe(403);
+        // the number the first remittance cited at CBE is another slip at another bank
         const own = await api.call('POST', `/api/v1/remittances/${r2.id}/deposit`, as.cashA, {
-            bank: 'CBE',
-            reference: 'FT777888',
+            bank: 'AWASH',
+            reference: 'FT123456',
             depositedOn: today,
             amountSantim: '80000'
         });
         expect(own.statusCode, own.body).toBe(200);
+    });
+});
+
+describe('nothing to deposit, and an amount below zero', () => {
+    it('settles at once a remittance of bank-slip money only: no deposit is recorded for it', async () => {
+        const opened = await api.call('POST', '/api/v1/cashier-sessions', as.cashF, { openingFloatSantim: '5000' });
+        expect(opened.statusCode, opened.body).toBe(201);
+        await paid(as.cashF, 'bank_slip');
+        await closeTill(as.cashF, '5000');
+        const looked = (await preview(as.cashF, today)).json<Preview>();
+        expect(looked).toMatchObject({ depositDueSantim: '0', blocked: null });
+        const made = await prepare(as.cashF, today);
+        expect(made.statusCode, made.body).toBe(201);
+        const settled = made.json<Remittance>();
+        expect(settled).toMatchObject({
+            state: 'settled',
+            depositDueSantim: '0',
+            cashSantim: '0',
+            bankSlipSantim: '40000'
+        });
+        expect(settled.number).toMatch(/^WOL-BODITI\/RM\/00004\/\d{4}$/);
+        const deposit = await api.call('POST', `/api/v1/remittances/${settled.id}/deposit`, as.cashF, {
+            bank: 'CBE',
+            reference: 'FT555111',
+            depositedOn: today,
+            amountSantim: '0'
+        });
+        expect(deposit.statusCode, deposit.body).toBe(409);
+        expect(deposit.json<{ code: string }>().code).toBe('invalid_transition');
+        // the database: no move out of settled, and settled is exactly a zero amount due
+        expect(
+            await refusal(
+                asApp((tx) =>
+                    tx.execute(sql`update fees.remittances set state = 'deposited', deposit_bank = 'CBE', deposit_reference = 'FT555111',
+                        deposit_reference_norm = 'FT555111', deposited_on = ${today}::date, deposited_amount_santim = 0,
+                        deposited_by = gen_random_uuid(), deposited_at = now() where id = ${settled.id}`)
+                )
+            )
+        ).toMatch(/only the deposit is recorded|settled_check|deposit_check/);
+        const insert = (n: number, state: string, due: number) =>
+            sql`insert into fees.remittances (id, region_id, handling_unit_id, number, fiscal_year, sequence, period_from, period_to, state,
+                    revenue_total_santim, cash_santim, bank_slip_santim, reversal_santim, difference_santim, deposit_due_santim, prepared_by, demo)
+                values (gen_random_uuid(), ${units.boditi.regionId}, ${units.boditi.id}, ${`SETTLED/${n}`}, 2019, ${800 + n}, ${today}::date, ${today}::date,
+                    ${state}, ${due}::bigint, ${due}::bigint, 0, 0, 0, ${due}::bigint, gen_random_uuid(), true)`;
+        expect(await refusal(asApp((tx) => tx.execute(insert(1, 'settled', 1000))))).toMatch(
+            /remittances_settled_check|settled_check/
+        );
+        expect(await refusal(asApp((tx) => tx.execute(insert(2, 'prepared', 0))))).toMatch(
+            /remittances_settled_check|settled_check/
+        );
+    });
+
+    it('blocks a prepare whose amount to deposit is below zero, and says so in the preview', async () => {
+        // a float of 50 Birr, bank-slip money only, counted nothing: counted less the float is -50 Birr
+        const opened = await api.call('POST', '/api/v1/cashier-sessions', as.cashE, { openingFloatSantim: '5000' });
+        expect(opened.statusCode, opened.body).toBe(201);
+        await paid(as.cashE, 'bank_slip');
+        const s = await todaySession(as.cashE);
+        const short = await count(s?.id ?? '', as.cashE, { countedSantim: '0', note: NOTE });
+        expect(short.statusCode, short.body).toBe(201);
+        const approved = await decideCount(short.json<Session>().counts[0]?.id ?? '', as.zoneFinance, {
+            decision: 'approve'
+        });
+        expect(approved.statusCode, approved.body).toBe(200);
+        const looked = (await preview(as.cashE, today)).json<Preview>();
+        expect(looked).toMatchObject({ depositDueSantim: '-5000', blocked: 'negative_due' });
+        const refused = await prepare(as.cashE, today);
+        expect(refused.statusCode, refused.body).toBe(409);
+        expect(refused.json<{ code: string }>().code).toBe('invalid_transition');
     });
 });
 
@@ -776,6 +979,8 @@ describe('the isolation matrix (class T)', () => {
             await api.owner.query('alter table fees.remittances disable trigger remittances_sums');
             await api.owner.query('alter table fees.remittance_sessions disable trigger remittance_sessions_guard');
             await api.owner.query('alter table fees.remittance_lines disable trigger remittance_lines_guard');
+            await api.owner.query('alter table fees.remittance_lines disable trigger remittance_lines_sums');
+            await api.owner.query('alter table fees.remittance_sessions disable trigger remittance_sessions_sums');
             let position = 0;
             for (const c of ISOLATION_CASES) {
                 position += 1;
@@ -789,8 +994,8 @@ describe('the isolation matrix (class T)', () => {
                 );
                 await api.owner.query(
                     `insert into fees.remittances (id, region_id, handling_unit_id, number, fiscal_year, sequence, period_from, period_to,
-                        revenue_total_santim, cash_santim, bank_slip_santim, reversal_santim, difference_santim, deposit_due_santim, prepared_by, demo)
-                     values ($1, $2, $3, $4, 2019, $5, '2026-01-01', '2026-01-01', 0, 0, 0, 0, 0, 0, gen_random_uuid(), true)`,
+                        revenue_total_santim, cash_santim, bank_slip_santim, reversal_santim, difference_santim, deposit_due_santim, prepared_by, demo, state)
+                     values ($1, $2, $3, $4, 2019, $5, '2026-01-01', '2026-01-01', 0, 0, 0, 0, 0, 0, gen_random_uuid(), true, 'settled')`,
                     [remittance, unit.regionId, unit.id, numberOf(c), 500 + position]
                 );
                 await api.owner.query(
@@ -806,6 +1011,8 @@ describe('the isolation matrix (class T)', () => {
                 );
             }
             await api.owner.query('alter table fees.remittance_lines enable trigger remittance_lines_guard');
+            await api.owner.query('alter table fees.remittance_lines enable trigger remittance_lines_sums');
+            await api.owner.query('alter table fees.remittance_sessions enable trigger remittance_sessions_sums');
             await api.owner.query('alter table fees.remittance_sessions enable trigger remittance_sessions_guard');
             await api.owner.query('alter table fees.remittances enable trigger remittances_sums');
             await api.owner.query('alter table fees.cashier_sessions enable trigger cashier_sessions_opens_open');

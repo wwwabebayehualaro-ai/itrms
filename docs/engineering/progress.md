@@ -480,3 +480,4 @@ Last updated: 2026-11-19. Planning: done (docs/reviews/2026-10-18-design-review.
 | 292 | 1.12 | An overdue session never counted (absent cashier): a lead's forced count of the till | 1.12d | open |
 | 293 | 1.12 | R11 (zone): a receipt voucher's serial restarts with each printing of a series, or is unique within the letter; today unique within the letter | 1.12e | open |
 | 294 | 1.12d | A remittance whose deposit due would be negative (a till short by more than its cash) is refused at prepare, which blocks the office's later remittances; decide how such a session is remitted (Z) | 1.12d follow-up / zone | open |
+| 295 | 1.12d | A customer bank slip recorded after a remittance deposit is not checked against deposit references (only deposit-vs-slip is checked); add the reverse check to slip_in_use | 1.12e or a fees hardening task | open |

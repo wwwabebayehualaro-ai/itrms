@@ -32,6 +32,7 @@ import {
     type RemittanceState
 } from '../contracts';
 import { cashierSessionCounts, cashierSessions } from './cashier-sessions.table';
+import { externalReferenceKey, normalisedReference } from './external-refs';
 import { addisToday } from './fees.service';
 import { paymentOrderLines, payments, receiptReversals, receipts } from './fees.table';
 import {
@@ -60,9 +61,8 @@ const isUniqueViolation = (error: unknown, constraint: string): boolean => {
     return false;
 };
 
-/** A reference compared: trimmed, in capitals, without spaces. */
-export const normalisedDepositReference = (reference: string): string =>
-    reference.trim().toUpperCase().replace(/\s+/g, '');
+/** Of a reference, what must be left to compare (the payment slips' floor). */
+const MIN_REFERENCE = 3;
 
 /** What a prepare would write, from the rows (the preview stores none of it). */
 interface Gathered {
@@ -320,7 +320,9 @@ export class RemittancesService {
             bankSlipSantim: santimText(g.totals.bankSlip),
             reversalSantim: g.totals.reversal.toString(),
             differenceSantim: g.difference.toString(),
-            depositDueSantim: g.depositDue < 0n ? '0' : santimText(g.depositDue),
+            // signed: a negative amount blocks the prepare (the screen says why)
+            depositDueSantim: g.depositDue.toString(),
+            blocked: g.depositDue < 0n ? 'negative_due' : null,
             demo: g.accounts.demo,
             sessions: this.sessionOuts(g),
             groups: this.groupOuts(groupLines(g.lines)),
@@ -367,6 +369,8 @@ export class RemittancesService {
                 reversalSantim: g.totals.reversal,
                 differenceSantim: g.difference,
                 depositDueSantim: g.depositDue,
+                // nothing to deposit (only bank-slip money, the counts equal to the floats): settled at once
+                state: g.depositDue === 0n ? 'settled' : 'prepared',
                 preparedBy: ctx.userId ?? '',
                 demo: g.accounts.demo
             });
@@ -427,12 +431,18 @@ export class RemittancesService {
         const banks = await this.settings.value<{ code: string }[]>(tx, seen.handlingUnitId, BANKS_SETTING);
         if (!banks.some((b) => b.code === input.bank))
             throw fieldError('bank', 'invalid', 'is not a bank of this region');
-        const reference = normalisedDepositReference(input.reference);
-        if (reference.length < 3) throw fieldError('reference', 'invalid', 'is too short to compare');
+        // compared as a payment slip's is: capitals, letters and digits, without leading zeros
+        if (normalisedReference(input.reference).length < MIN_REFERENCE)
+            throw fieldError('reference', 'invalid', 'is too short to compare');
+        const reference = externalReferenceKey(input.reference);
         if (input.depositedOn > addisToday())
             throw fieldError('depositedOn', 'invalid', 'is a day that has not come yet');
+        if (input.depositedOn < seen.periodTo)
+            throw fieldError('depositedOn', 'invalid', 'is before the last day the remittance covers');
         const [row] = await tx.select().from(remittances).where(eq(remittances.id, id)).for('update');
         if (!row) throw new NotFoundError();
+        if (row.state === 'settled')
+            throw new ConflictError('invalid_transition', { detailKey: 'fees.errors.remittance_settled' });
         if (row.state !== 'prepared')
             throw new ConflictError('invalid_transition', { detailKey: 'fees.errors.deposit_recorded' });
         if (BigInt(input.amountSantim) !== row.depositDueSantim)
@@ -440,6 +450,15 @@ export class RemittancesService {
                 detailKey: 'fees.errors.remittance_amount_mismatch',
                 params: { due: santimText(row.depositDueSantim) }
             });
+        // cited once in the region at a bank, and never a customer's payment slip (other offices' rows are past RLS: a
+        // narrow function answers; the database checks it again)
+        const cited = await tx.execute<{ cited: string | null }>(
+            sql`select fees.deposit_reference_in_use(${input.bank}, ${reference}, ${row.id}) as cited`
+        );
+        if (cited.rows[0]?.cited === 'payment_slip')
+            throw new ConflictError('duplicate_reference', { detailKey: 'fees.errors.deposit_is_payment_slip' });
+        if (cited.rows[0]?.cited === 'remittance')
+            throw new ConflictError('duplicate_reference', { detailKey: 'fees.errors.deposit_reference_taken' });
         try {
             await updateAudited(tx, remittances, row.id, row.rowVersion, {
                 state: 'deposited',

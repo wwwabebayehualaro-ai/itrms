@@ -74,7 +74,7 @@ export function RemittancePage({ id }: { id: string }) {
                     <div className="flex items-center gap-2">
                         <StatusBadge
                             value={r.state}
-                            tone={r.state === 'deposited' ? 'success' : 'progress'}
+                            tone={r.state === 'prepared' ? 'progress' : 'success'}
                             label={t(`fees.remittance.state.${r.state}`)}
                         />
                         {pdf?.state === 'rendered' && (
@@ -195,6 +195,10 @@ export function RemittancePage({ id }: { id: string }) {
                         {formatMoment(r.deposit.depositedAt, { language, calendar })}
                     </p>
                 </section>
+            ) : r.state === 'settled' ? (
+                <p className="text-muted-foreground text-sm" data-nothing-to-deposit>
+                    {t('fees.remittance.nothingToDeposit')}
+                </p>
             ) : (
                 mayDeposit && r.unit.id === activeUnit && <DepositForm remittance={r} />
             )}

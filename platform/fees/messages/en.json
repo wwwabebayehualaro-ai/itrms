@@ -533,5 +533,10 @@
   "fees.remittance.deposit.invalid.reference": "The reference is 3 to 40 characters.",
   "fees.remittance.deposit.invalid.depositedOn": "Pick a date.",
   "fees.remittance.deposit.invalid.amount": "Enter the amount.",
-  "fees.setting.accounts": "Finance bureau account codes for the remittance"
+  "fees.setting.accounts": "Finance bureau account codes for the remittance",
+  "fees.errors.deposit_is_payment_slip": "This slip is a customer's payment slip: it cannot be cited for a remittance.",
+  "fees.errors.remittance_settled": "There is nothing to deposit for this remittance.",
+  "fees.remittance.state.settled": "Nothing to deposit",
+  "fees.remittance.nothingToDeposit": "Nothing to deposit at the bank for this remittance (bank slips only).",
+  "fees.remittance.blocked.negative_due": "The amount to deposit is below zero, so the remittance cannot be prepared now: look at the counting differences first."
 }

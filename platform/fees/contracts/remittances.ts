@@ -13,7 +13,8 @@ export const ACCOUNTS_SETTING = 'fees.accounts';
 export const REMITTANCE_COUNTER = 'fees.remittance';
 export const REMITTANCE_PATTERN = '{unit}/RM/{seq:05}/{efy}';
 
-export const REMITTANCE_STATES = ['prepared', 'deposited'] as const;
+/** settled: nothing to deposit (only bank-slip money, counted equal to the floats); a terminal state */
+export const REMITTANCE_STATES = ['prepared', 'deposited', 'settled'] as const;
 export type RemittanceState = (typeof REMITTANCE_STATES)[number];
 export const REMITTANCE_LINE_KINDS = ['receipt', 'reversal'] as const;
 export type RemittanceLineKind = (typeof REMITTANCE_LINE_KINDS)[number];
@@ -140,6 +141,9 @@ export const remittancePreviewSchema = z.object({
     through: z.iso.date(),
     periodFrom: z.iso.date().nullable(),
     ...figures,
+    /** signed here: a negative amount to deposit cannot be prepared */
+    depositDueSantim: signed,
+    blocked: z.enum(['negative_due']).nullable(),
     demo: z.boolean(),
     sessions: z.array(remittanceSessionOutSchema),
     groups: z.array(remittanceGroupOutSchema),

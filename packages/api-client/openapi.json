@@ -11368,7 +11368,8 @@
             "schema": {
               "enum": [
                 "prepared",
-                "deposited"
+                "deposited",
+                "settled"
               ],
               "type": "string"
             }
