@@ -2681,6 +2681,26 @@
         ],
         "type": "object"
       },
+      "LeafSpoilDto": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "maxLength": 20,
+            "minLength": 2,
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 10,
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "reason"
+        ],
+        "type": "object"
+      },
       "LookupItemsOut_Output": {
         "additionalProperties": false,
         "properties": {
@@ -3213,11 +3233,9 @@
             "additionalProperties": false,
             "properties": {
               "serial": {
-                "pattern": "^[1-9]\\d{0,9}$",
                 "type": "string"
               },
               "series": {
-                "pattern": "^[A-Z0-9-]{1,16}$",
                 "type": "string"
               }
             },
@@ -11126,6 +11144,44 @@
         },
         "tags": [
           "Verification"
+        ]
+      }
+    },
+    "/api/v1/receipt-leaves/next": {
+      "get": {
+        "operationId": "PaymentsController_nextLeaf",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/api/v1/receipt-leaves/spoiled": {
+      "post": {
+        "operationId": "PaymentsController_spoilLeaf",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeafSpoilDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payments"
         ]
       }
     },

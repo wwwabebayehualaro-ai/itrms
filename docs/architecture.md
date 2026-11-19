@@ -409,7 +409,8 @@ Definition (Zod schema `workflowDefinitionSchema` in `packages/schemas`; stored 
   due date; one live order per case, ADR-0042). There are three ways to settle it:
   1. **At the office cashier** (the case's handling office, whose type collects cash): the whole total, by cash or a bank
      deposit slip. A **receipt** is issued in the same transaction: a gapless number from the office's counter (per
-     fiscal year), or the leaf of a controlled pre-printed pad where the office's setting says so; a QR code with 0.23.
+     fiscal year), or the leaf of a controlled pre-printed pad where the office's setting says so (a leaf of the office's own `receipt_leaf`
+     stock, used in the payment's transaction, task 1.12e); a QR code with 0.23.
      The workflow's case port (in the payment's transaction) sets the case's fact `payment` and moves a case waiting on
      `event:payment.settled`.
   2. **Paid elsewhere** (revenue office, bank): the officer enters the external reference. It is stored in

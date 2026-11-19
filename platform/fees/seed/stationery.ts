@@ -11,7 +11,7 @@ import type { Database, DbContext } from '@itrms/kernel/db';
 import { orgUnits } from '@itrms/kernel/tables';
 import { fiscalYearOf, toEthiopian } from '@itrms/ethiopian-calendar';
 
-import type { StationeryKind, StationeryReceive } from '../contracts';
+import type { StationeryKind, StationeryReceive, StationerySource } from '../contracts';
 import type { StationeryStock } from '../api/stationery.service';
 import { stationeryBatches, stationeryItems } from '../api/stationery.table';
 
@@ -26,6 +26,8 @@ interface Delivery {
     validEfy?: number | 'current';
     /** santim, from the bureau's price list as the zone sent it (demo) */
     unitCostSantim?: string;
+    /** where it comes from; the regional bureau by default */
+    source?: StationerySource;
 }
 
 /**
@@ -47,7 +49,8 @@ const DELIVERIES: readonly Delivery[] = [
     { kind: 'bolo_sticker', series: 'G', from: 251, to: 350, width: 7, variant: 'government', validEfy: 'current' },
     { kind: 'bolo_sticker', series: 'P', from: 1301, to: 1400, width: 7, variant: 'private', validEfy: 'current' },
     { kind: 'bolo_sticker', series: 'C', from: 1, to: 100, width: 7, variant: 'commercial', validEfy: 'current' },
-    { kind: 'receipt_leaf', series: 'R', from: 1, to: 500, width: 6 }
+    // the regional finance bureau's receipt vouchers (series `ለ`), the leaves of a pad office's receipts (task 1.12e)
+    { kind: 'receipt_leaf', series: 'ለ', from: 1, to: 500, width: 6, source: 'finance_bureau' }
 ];
 
 /** The Ethiopian fiscal year of a Gregorian day (YYYY-MM-DD). */
@@ -146,7 +149,7 @@ export async function importStationeryDemo(
         let from = as(root);
         const receive: StationeryReceive = {
             kind: d.kind,
-            source: 'regional_bureau',
+            source: d.source ?? 'regional_bureau',
             reference: referenceOf(i),
             receivedOn: today,
             range: { series: d.series, from: d.from, to: d.to },

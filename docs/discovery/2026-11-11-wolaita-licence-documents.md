@@ -94,7 +94,9 @@
       **budget category and account code**, debit and credit.
     - → **Task 1.12a (done in this task):** receipt leaves are received from the **finance bureau** as a source, in an
       **Ethiopic series**. → **Task 1.12:** the pad receipt entry takes the same series (the payment's pad-series field is
-      Latin-only today), and the cashier's remittance lists the account code.
+      Latin-only today), and the cashier's remittance lists the account code. → **Task 1.12e (done):** the pad series is the
+      stationery series (Ethiopic letters allowed) and a leaf is taken from the office's stock; **R11 (Z):** a serial is
+      unique within its series letter.
 11. **The old regional libre booklet** (annex): vehicle description, the plates (office code and code-number), owner,
     possessor, a declaration under a **5-Birr revenue stamp**, and **a renewals table**: date, annual sticker (bolo)
     number, the registration officer and the **receipt number**, one row per year.

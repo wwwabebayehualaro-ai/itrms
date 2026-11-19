@@ -15,15 +15,18 @@ import {
     paymentInputSchema,
     paymentOrderQuerySchema,
     type PaymentOrderOut,
+    receiptLeafSpoilSchema,
     REVERSAL_STATES,
     reversalDecisionSchema,
     reversalRequestSchema
 } from '../contracts';
 import { PaymentOrdersService } from './payment-orders.service';
 import { PaymentsService } from './payments.service';
+import { StationeryStock } from './stationery.service';
 
 class PaymentDto extends createZodDto(paymentInputSchema) {}
 class OrderQueryDto extends createZodDto(paymentOrderQuerySchema) {}
+class LeafSpoilDto extends createZodDto(receiptLeafSpoilSchema) {}
 class ReversalRequestDto extends createZodDto(reversalRequestSchema) {}
 class ReversalDecisionDto extends createZodDto(reversalDecisionSchema) {}
 class ReversalQueryDto extends createZodDto(z.object({ state: z.enum(REVERSAL_STATES).default('requested') })) {}
@@ -51,7 +54,8 @@ export class PaymentsController {
     constructor(
         @Inject(DATABASE) private readonly db: Database,
         private readonly orders: PaymentOrdersService,
-        private readonly payments: PaymentsService
+        private readonly payments: PaymentsService,
+        @Inject(StationeryStock) private readonly stock: StationeryStock
     ) {}
 
     /** The cashier's queue: the orders of the person's office paid at its till. */
@@ -75,6 +79,25 @@ export class PaymentsController {
     record(@Param('id', ParseUUIDPipe) id: string, @Body() body: PaymentDto) {
         const ctx = requestDbContext();
         return this.db.scoped(ctx, (tx) => this.payments.record(tx, ctx, id, body, language()));
+    }
+
+    /** The pad leaf the cashier writes on next: the office's lowest held, unused one (nothing is locked). */
+    @Get('receipt-leaves/next')
+    @Require('payment:record')
+    nextLeaf() {
+        const ctx = requestDbContext();
+        return this.db.scoped(ctx, async (tx) => ({ leaf: await this.stock.nextFree(tx, ctx, 'receipt_leaf') }));
+    }
+
+    /** A leaf of the office's pad that is misprinted or torn: kept on record, never used. */
+    @Post('receipt-leaves/spoiled')
+    @Require('payment:record')
+    spoilLeaf(@Body() body: LeafSpoilDto) {
+        const ctx = requestDbContext();
+        return this.db.scoped(ctx, async (tx) => {
+            const item = await this.stock.spoil(tx, ctx, { kind: 'receipt_leaf', key: body.key, reason: body.reason });
+            return { key: item.itemKey, status: item.status };
+        });
     }
 
     @Get('receipts/:id')

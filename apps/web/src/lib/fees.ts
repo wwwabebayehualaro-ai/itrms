@@ -12,8 +12,10 @@ import type {
     ExternalIssuer,
     ExternalRefInput,
     ExternalRefOut,
+    NextReceiptLeaf,
     PaymentInput,
     PaymentOrderOut,
+    ReceiptLeafSpoil,
     ReceiptOut,
     RemittanceDepositInput,
     RemittanceDetail,
@@ -69,6 +71,7 @@ export const feeKeys = {
     order: (id: string) => ['fees', 'order', id] as const,
     receipt: (id: string) => ['fees', 'receipt', id] as const,
     reversals: () => ['fees', 'reversals'] as const,
+    nextLeaf: () => ['fees', 'next-leaf'] as const,
     sessionCurrent: () => ['fees', 'session', 'current'] as const,
     session: (id: string) => ['fees', 'session', id] as const,
     closings: () => ['fees', 'session', 'closings'] as const,
@@ -176,6 +179,24 @@ export function useRecordPayment(orderId: string) {
                     input
                 )
             ).data,
+        onSuccess: invalidate
+    });
+}
+
+/** The pad leaf the till writes on next (the office's lowest held, unused one), for the payment form; null when none. */
+export function useNextReceiptLeaf(enabled: boolean) {
+    return useQuery({
+        queryKey: feeKeys.nextLeaf(),
+        enabled,
+        queryFn: async ({ signal }) => (await client.get<NextReceiptLeaf>('v1/receipt-leaves/next', { signal })).data
+    });
+}
+
+export function useSpoilReceiptLeaf() {
+    const invalidate = useInvalidate();
+    return useMutation({
+        mutationFn: async (input: ReceiptLeafSpoil) =>
+            (await client.post<{ key: string; status: string }>('v1/receipt-leaves/spoiled', input)).data,
         onSuccess: invalidate
     });
 }

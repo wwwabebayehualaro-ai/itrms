@@ -96,6 +96,8 @@ const series = z
     .trim()
     .transform((s) => s.toUpperCase().replace(/[\s-]/g, ''))
     .pipe(z.string().regex(SERIES_PATTERN, 'up to six letters'));
+/** The series of a receipt pad's leaf (task 1.12e): the stationery series, as typed (`ለ`). */
+export const stationerySeriesSchema = series;
 const serial = z.number().int().min(1).max(MAX_SERIAL);
 
 /** An item's key: its series and its serial, zero-padded to the width it is printed with (`AB0001234`). */

@@ -7,7 +7,8 @@
  */
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { isLeafSerial, stationerySeriesSchema } from '@itrms/fees/contracts';
 import { ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
 import {
@@ -39,6 +40,7 @@ import { useCan } from '@/lib/auth/authHooks';
 import { useAuthStore } from '@/lib/auth/authStore';
 import {
     useBanks,
+    useNextReceiptLeaf,
     usePaymentOrder,
     useRecordPayment,
     type FeeLine,
@@ -50,6 +52,7 @@ import { usePreferences, useText } from '@/lib/preferences';
 import { ExternalRefForm, ExternalRefList } from './ExternalRefSection';
 import { ErrorsOf, todayInAddis } from './form-bits';
 import { ReversalDialog } from './ReversalDialog';
+import { SpoilLeafDialog } from './SpoilLeafDialog';
 
 const ORDER_TONE: Record<PaymentOrderOut['state'], Tone> = { open: 'progress', settled: 'success', cancelled: 'muted' };
 
@@ -180,6 +183,8 @@ function PaymentForm({ order }: { order: PaymentOrderOut }) {
     const record = useRecordPayment(order.id);
     const banks = useBanks();
     const pad = order.receiptSource === 'pad';
+    const nextLeaf = useNextReceiptLeaf(pad);
+    const [spoiling, setSpoiling] = useState(false);
 
     const schema = z
         .object({
@@ -213,16 +218,10 @@ function PaymentForm({ order }: { order: PaymentOrderOut }) {
                 need('paidOn', v.paidOn <= todayInAddis(), t('fees.payment.slipFuture'));
             }
             if (pad) {
-                need(
-                    'padSeries',
-                    // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- anchored, one bounded character class (linear time)
-                    /^[A-Z0-9-]{1,16}$/.test(v.padSeries.trim().toUpperCase()),
-                    t('fees.payment.invalid.padSeries')
-                );
-                // leading zeros are dropped when it is sent, so at most ten digits from the first that is not zero; all
-                // zeros is no leaf
-                // nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- anchored; '0*' cannot match the [1-9] after it (linear time)
-                need('padSerial', /^0*[1-9]\d{0,9}$/.test(v.padSerial.trim()), t('fees.payment.invalid.padSerial'));
+                const series = stationerySeriesSchema.safeParse(v.padSeries);
+                need('padSeries', series.success && series.data.length > 0, t('fees.payment.invalid.padSeries'));
+                // `123` and `000123` are one leaf: the server finds it in the office's stock
+                need('padSerial', isLeafSerial(v.padSerial.trim()), t('fees.payment.invalid.padSerial'));
             }
         });
 
@@ -255,8 +254,8 @@ function PaymentForm({ order }: { order: PaymentOrderOut }) {
                 ...(pad
                     ? {
                           pad: {
-                              series: v.padSeries.trim().toUpperCase(),
-                              serial: v.padSerial.trim().replace(/^0+(?=\d)/, '')
+                              series: v.padSeries.trim(),
+                              serial: v.padSerial.trim()
                           }
                       }
                     : {})
@@ -265,6 +264,21 @@ function PaymentForm({ order }: { order: PaymentOrderOut }) {
             router.push(`/receipts/${done.receipt.id}`);
         }
     });
+
+    // the form offers the office's next free leaf; what the cashier typed over is left alone
+    const offered = useRef({ series: '', serial: '' });
+    const leaf = nextLeaf.data?.leaf;
+    useEffect(() => {
+        if (!leaf) return;
+        const typed = form.state.values;
+        const untouched =
+            (typed.padSeries === '' && typed.padSerial === '') ||
+            (typed.padSeries === offered.current.series && typed.padSerial === offered.current.serial);
+        if (!untouched) return;
+        form.setFieldValue('padSeries', leaf.series);
+        form.setFieldValue('padSerial', leaf.serial);
+        offered.current = leaf;
+    }, [leaf, form]);
 
     return (
         <section className="flex flex-col gap-3 rounded-md border p-4" data-payment-form>
@@ -377,23 +391,34 @@ function PaymentForm({ order }: { order: PaymentOrderOut }) {
                                 <f.TextField
                                     label={t('fees.payment.padSeries')}
                                     description={t('fees.payment.padHint')}
-                                    maxLength={16}
+                                    maxLength={6}
                                 />
                             )}
                         </form.AppField>
                         <form.AppField name="padSerial">
                             {(f) => (
-                                <f.TextField label={t('fees.payment.padSerial')} inputMode="numeric" maxLength={10} />
+                                <f.TextField label={t('fees.payment.padSerial')} inputMode="numeric" maxLength={8} />
                             )}
                         </form.AppField>
                     </div>
                 )}
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-2">
+                    {pad && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            data-action="spoil-leaf-open"
+                            onClick={() => setSpoiling(true)}
+                        >
+                            {t('fees.leaf.spoil')}
+                        </Button>
+                    )}
                     <form.AppForm>
                         <form.SubmitButton data-action="record-payment">{t('fees.payment.submit')}</form.SubmitButton>
                     </form.AppForm>
                 </div>
             </ZodForm>
+            {spoiling && <SpoilLeafDialog onClose={() => setSpoiling(false)} />}
         </section>
     );
 }

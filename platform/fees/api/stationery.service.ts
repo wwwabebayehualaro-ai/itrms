@@ -398,6 +398,27 @@ export class StationeryStock {
     }
 
     /**
+     * The acting office's lowest held free item of a kind (by series, then serial), as printed: for a form that offers it
+     * as the next one to write on. Nothing is locked.
+     */
+    async nextFree(tx: Tx, ctx: DbContext, kind: StationeryKind): Promise<{ series: string; serial: string } | null> {
+        const [item] = await tx
+            .select({ series: stationeryItems.series, serial: stationeryItems.serial, width: stationeryItems.width })
+            .from(stationeryItems)
+            .where(
+                and(
+                    eq(stationeryItems.regionId, required(ctx.regionId)),
+                    eq(stationeryItems.holderUnitId, required(ctx.unitId)),
+                    eq(stationeryItems.kind, kind),
+                    eq(stationeryItems.status, 'in_stock')
+                )
+            )
+            .orderBy(asc(stationeryItems.series), asc(stationeryItems.serial))
+            .limit(1);
+        return item ? { series: item.series, serial: String(item.serial).padStart(item.width, '0') } : null;
+    }
+
+    /**
      * Locks the named items of a kind in series and serial order, the order every command locks in, so a caller that then
      * uses or spoils several of them in another order cannot deadlock with a keeper's command over the same run. Items
      * not in the region's stock are left to the command that names them.
