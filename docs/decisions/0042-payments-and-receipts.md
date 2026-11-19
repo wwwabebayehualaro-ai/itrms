@@ -1,7 +1,8 @@
 # ADR 0042: Payments and receipts
 
 * Status: accepted (2026-11-01, task 0.22b). It refines ADR-0014 (money and numbering) and ADR-0041 (fee rules), and
-  replaces, for payments, the asynchronous event of modularization.md §5 with an in-transaction port.
+  replaces, for payments, the asynchronous event of modularization.md §5 with an in-transaction port. Refined by ADR-0063
+  (cashier sessions, the lock order with the session, reversals after the till closed, pad receipts from stock).
 
 ## Context
 * A case's fee (ADR-0041) must be paid before its workflow goes on (`payment.settled`), and a payment must give a receipt
