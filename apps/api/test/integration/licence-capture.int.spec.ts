@@ -145,39 +145,46 @@ const counter = async () =>
 
 beforeAll(async () => {
     pg = await startPostgres();
-    api = await startApi(pg, [
+    api = await startApi(
+        pg,
+        [
+            {
+                username: 'test.mig2.clerk',
+                sub: SUB.clerk,
+                region: 'SER',
+                home: 'WOL-BODITI',
+                roles: [
+                    ['WOL-BODITI', 'competency.officer'],
+                    ['WOL-BODITI', 'records_officer']
+                ]
+            },
+            {
+                username: 'test.mig2.verifier',
+                sub: SUB.verifier,
+                region: 'SER',
+                home: 'WOL-BODITI',
+                roles: [['WOL-BODITI', 'competency.officer']]
+            },
+            {
+                username: 'test.mig2.zone.lead',
+                sub: SUB.zoneLead,
+                region: 'SER',
+                home: 'WOL',
+                roles: [['WOL', 'competency.lead']]
+            },
+            {
+                username: 'test.mig2.damot',
+                sub: SUB.damot,
+                region: 'SER',
+                home: 'WOL-DAMOT-GALE',
+                roles: [['WOL-DAMOT-GALE', 'competency.officer']]
+            }
+        ],
         {
-            username: 'test.mig2.clerk',
-            sub: SUB.clerk,
-            region: 'SER',
-            home: 'WOL-BODITI',
-            roles: [
-                ['WOL-BODITI', 'competency.officer'],
-                ['WOL-BODITI', 'records_officer']
-            ]
-        },
-        {
-            username: 'test.mig2.verifier',
-            sub: SUB.verifier,
-            region: 'SER',
-            home: 'WOL-BODITI',
-            roles: [['WOL-BODITI', 'competency.officer']]
-        },
-        {
-            username: 'test.mig2.zone.lead',
-            sub: SUB.zoneLead,
-            region: 'SER',
-            home: 'WOL',
-            roles: [['WOL', 'competency.lead']]
-        },
-        {
-            username: 'test.mig2.damot',
-            sub: SUB.damot,
-            region: 'SER',
-            home: 'WOL-DAMOT-GALE',
-            roles: [['WOL-DAMOT-GALE', 'competency.officer']]
+            // the zone's only seeded licensing office is Boditi: a woreda officer stands in for another office of the zone
+            unitTypeRoles: [{ unitType: 'woreda_office_m1', role: 'competency.officer' }]
         }
-    ]);
+    );
     const region = await api.unit('SER', 'SER');
     boditi = await api.unit('SER', 'WOL-BODITI');
     as.bureau = { sub: SUB.bureau, unit: region };

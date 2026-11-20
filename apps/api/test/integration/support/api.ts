@@ -81,6 +81,8 @@ export async function startApi(
         slices?: ApiSlice[];
         /** the installation's own setting values (`INSTALLATION_SETTINGS`) */
         installationSettings?: Record<string, unknown>;
+        /** roles a suite adds to a seeded unit type before its users are given them (a sibling office that reads a register) */
+        unitTypeRoles?: { unitType: string; role: string }[];
     } = {}
 ): Promise<TestApi> {
     const installer = createDatabase(pg.url('owner'), { contextKey: TEST_CONTEXT_KEY });
@@ -109,6 +111,13 @@ export async function startApi(
     await owner.query(`insert into kernel.unit_type_roles (id, region_id, unit_type_id, role_key, delegable)
         select gen_random_uuid(), t.region_id, t.id, 'records_officer', false from kernel.unit_types t
          where t.key = 'district_office'`);
+    for (const { unitType, role } of options.unitTypeRoles ?? [])
+        await owner.query(
+            `insert into kernel.unit_type_roles (id, region_id, unit_type_id, role_key, delegable)
+             select gen_random_uuid(), t.region_id, t.id, $2, false from kernel.unit_types t where t.key = $1
+             on conflict do nothing`,
+            [unitType, role]
+        );
     for (const region of ['SER', 'TRX'] as const) {
         const mine = users.filter((u) => u.region === region);
         if (mine.length)
