@@ -2172,11 +2172,12 @@
         {
           "id": "1.6",
           "title": "Driver licence family, part 1: numbers, card serial and blood group",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.6-licence-numbers",
           "commits": [
             "b11b083",
-            "15a0f63"
+            "15a0f63",
+            "7e92884"
           ],
           "evidence": [
             "PR #94 GitHub Actions run 44670871399 on 15a0f63: all 12 jobs green",
@@ -2192,7 +2193,8 @@
             "Isolation: licence_health RLS class registry via kernel.apply_rls (policies TO itrms_app), matrix own/child/parent/sibling/other region/no context/no delete in licence-numbers.int.spec.ts",
             "task-verifier → ready with caveats (all Done when met; caveat on apply_rls closed: policies TO itrms_app)",
             "reviewer (Fable) → 0 high, 3 medium, 2 low; fixed in 15a0f63: Ethiopic card serials, seed skips an unset range, per-office root counter, demo installation setting; open for the owner: national number inside the regional range (follow-up)",
-            "CI attempt 1 of run 44613666524 failed in remittances.int.spec.ts across midnight Addis Ababa, passed unchanged on re-run (follow-up recorded)"
+            "CI attempt 1 of run 44613666524 failed in remittances.int.spec.ts across midnight Addis Ababa, passed unchanged on re-run (follow-up recorded)",
+            "squash-merged as 7e92884 (PR #94) under the owner's standing approval; tree identical to the reviewed branch head 04a9a4f; the national number inside the regional range: option 1 (skip a taken value and flag it), decided for 1.6f"
           ],
           "blockers": [],
           "notes": "Product owner decisions 2026-11-19 (ADR-0064): one licence per person (enforced from 1.6f, with the upgrade); the blood group as an encrypted register record, revealed only by the competency lead of the handling subtree with reason + second factor, never on the ITRMS card document; a cancellation revokes the card document, a suspension does not (live status on the QR page is a follow-up). Split into 1.6 and 1.6a-1.6i from the architect's design."
@@ -2200,7 +2202,7 @@
         {
           "id": "1.6a",
           "title": "Driver licence family, part 2: renewal with the medical referral and report",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
