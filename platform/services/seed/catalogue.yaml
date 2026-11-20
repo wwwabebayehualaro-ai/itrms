@@ -195,6 +195,13 @@ services:
     name:
       am: የወረቀት ተሽከርካሪ ፋይል ምዝገባ
       en: Back-capture of a paper vehicle file
+  # and of its paper driver licences (ADR-0054, task 1.6b)
+  - code: MIG-02
+    process: 1
+    module: competency
+    name:
+      am: የወረቀት መንጃ ፈቃድ ምዝገባ
+      en: Back-capture of a paper driver licence
   - code: FR-01
     process: 3
     module: freight

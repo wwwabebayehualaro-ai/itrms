@@ -687,6 +687,13 @@
       "when": 1795166912618,
       "tag": "0097_renewal_medical",
       "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1795176288338,
+      "tag": "0098_licence_back_capture",
+      "breakpoints": true
     }
   ]
 }

@@ -29,6 +29,7 @@ export * from './back-capture';
 export * from './bolo';
 export * from './campaign';
 export * from './exchange';
+export * from './licence-capture';
 export * from './licence-family';
 export * from './licence-medical';
 export * from './migration-report';
@@ -146,6 +147,17 @@ export const licenceSchema = z.object({
     /** whether the region collects the blood group (`competency.card_shows_blood_group`) */
     bloodGroupCollected: z.boolean(),
     caseId: z.uuid().nullable(),
+    /** a licence captured from its paper file (MIG-02, task 1.6b): the paper's reference, who issued it, who verified it */
+    migration: z
+        .object({
+            source: z.literal('back_capture'),
+            paperReference: z.string(),
+            issuedBy: z.string().nullable(),
+            caseId: z.uuid().nullable(),
+            verifiedBy: z.uuid().nullable(),
+            verifiedAt: z.string().nullable()
+        })
+        .nullable(),
     version: z.number().int()
 });
 export type Licence = z.infer<typeof licenceSchema>;

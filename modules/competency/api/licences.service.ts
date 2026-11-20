@@ -713,6 +713,16 @@ export class LicencesService {
                 bloodGroupOnRecord: health.has(r.id),
                 bloodGroupCollected: collected === true,
                 caseId: r.caseId,
+                migration: r.migrationSource
+                    ? {
+                          source: r.migrationSource,
+                          paperReference: r.paperReference ?? '',
+                          issuedBy: r.issuedBy,
+                          caseId: r.migrationCaseId,
+                          verifiedBy: r.migrationVerifiedBy,
+                          verifiedAt: r.migrationVerifiedAt?.toISOString() ?? null
+                      }
+                    : null,
                 version: r.rowVersion
             });
         });

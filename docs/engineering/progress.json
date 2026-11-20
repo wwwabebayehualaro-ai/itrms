@@ -2225,8 +2225,8 @@
         {
           "id": "1.6b",
           "title": "Driver licence family, part 3: paper licence back-capture (MIG-02)",
-          "status": "ready",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/1.6b-paper-licence-back-capture",
           "commits": [],
           "evidence": [],
           "blockers": [],

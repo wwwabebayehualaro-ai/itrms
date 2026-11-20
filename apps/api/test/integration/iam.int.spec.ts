@@ -247,6 +247,8 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
             'competency.backCaptures',
             // campaign counters (task 1.13i)
             'competency.campaigns',
+            // the back-capture of paper driver licences (task 1.6b)
+            'competency.licenceCaptures',
             // the reconciliation report (task 1.13h) and sampling QA of migrated records (task 1.13g)
             'competency.migrationReport',
             'competency.migrationSamples',
@@ -296,6 +298,8 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
                 'competency.backCaptures',
                 // campaign counters (task 1.13i)
                 'competency.campaigns',
+                // the back-capture of paper driver licences (task 1.6b): not a licensing service
+                'competency.licenceCaptures',
                 // the reconciliation report (task 1.13h) and sampling QA of migrated records (task 1.13g)
                 'competency.migrationReport',
                 'competency.migrationSamples',

@@ -40,6 +40,7 @@ import {
 } from '@itrms/competency/contracts';
 
 import { getApiErrorMessage } from '@/lib/api/errors';
+import { useAuthStore } from '@/lib/auth/authStore';
 import { useCan } from '@/lib/auth/authHooks';
 import {
     LIST_LIMIT,
@@ -282,6 +283,9 @@ function LicenceRow({ licence }: { licence: Licence }) {
                         />
                     )}
                     {expired && <StatusBadge value="expired" tone="danger" label={t('competency.licence.expired')} />}
+                    {licence.migration && (
+                        <StatusBadge value="migrated" tone="neutral" label={t('competency.licence.migrated')} />
+                    )}
                 </div>
             </TableCell>
             <TableCell data-valid-until={licence.validUntil ?? ''}>
@@ -319,6 +323,8 @@ export function LicenceRegister() {
         ...(status === ALL ? {} : { status })
     });
     const items = licences.data?.items ?? [];
+    const offersCapture = useAuthStore((s) => s.workspace?.activeUnit.services.includes('MIG-02') ?? false);
+    const mayCapture = useCan('case:create') && offersCapture;
     return (
         <div className="flex flex-col gap-6" data-screen="licences">
             <PageHeader title={t('competency.licences.title')} description={t('competency.licences.intro')} />
@@ -377,7 +383,22 @@ export function LicenceRegister() {
                     description={getApiErrorMessage(licences.error)}
                 />
             ) : items.length === 0 ? (
-                <EmptyState title={t('competency.licences.empty')} description={t('competency.licences.emptyHint')} />
+                <EmptyState
+                    title={t('competency.licences.empty')}
+                    description={
+                        mayCapture ? t('competency.licence.notOnRegister') : t('competency.licences.emptyHint')
+                    }
+                    action={
+                        // a search that found nothing offers the paper licence's back-capture (task 1.6b, ADR-0054)
+                        mayCapture ? (
+                            <Button asChild variant="outline" data-licence-back-capture>
+                                <Link href="/competency/licence-captures/new">
+                                    {t('competency.licence.backCapture')}
+                                </Link>
+                            </Button>
+                        ) : undefined
+                    }
+                />
             ) : (
                 <>
                     <Table data-licences>

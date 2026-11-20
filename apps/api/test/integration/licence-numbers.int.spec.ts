@@ -555,6 +555,61 @@ describe('the blood group (ADR-0052)', () => {
     });
 });
 
+describe('the isolation matrix of licence_number_flags (class T at the capturing office, task 1.6b)', () => {
+    const CASE_UNITS = () => ({
+        own: zone,
+        child: boditi,
+        parent: region,
+        sibling: tzb,
+        otherZone: tzbW1,
+        otherRegion: trx
+    });
+    const rows: Record<string, string> = {};
+
+    beforeAll(async () => {
+        for (const c of ISOLATION_CASES) {
+            const unit = CASE_UNITS()[c];
+            const { rows: made } = await api.owner.query<{ id: string }>(
+                `insert into competency.licence_number_flags
+                   (id, region_id, handling_unit_id, case_id, number, reason, paper_reference)
+                 values (gen_random_uuid(), $1, $2, gen_random_uuid(), $3, 'in_regional_range', 'PAPER/1') returning id`,
+                [unit.regionId, unit.id, `06-9${String(ISOLATION_CASES.indexOf(c)).padStart(4, '0')}`]
+            );
+            rows[made[0]?.id ?? ''] = c;
+        }
+    }, 120_000);
+
+    it('shows the acting unit exactly the rows its class allows: the bureau reads its offices’ flags', async () => {
+        const seen = await asUnit(app, zone, async (tx) =>
+            (await tx.execute<{ id: string }>(sql`select id from competency.licence_number_flags`)).rows
+                .map((r) => rows[r.id])
+                .filter((c): c is string => c !== undefined)
+        );
+        expect([...new Set(seen)].sort()).toEqual([...VISIBLE.transaction].sort());
+    });
+
+    it('lets the API neither change nor delete a flag', async () => {
+        const id = Object.keys(rows).find((k) => rows[k] === 'own') ?? '';
+        for (const statement of [
+            sql`update competency.licence_number_flags set reason = 'number_taken' where id = ${id}`,
+            sql`delete from competency.licence_number_flags where id = ${id}`
+        ]) {
+            const refused = await asUnit(app, zone, (tx) => tx.execute(statement)).then(
+                () => 'changed',
+                (error: { cause?: { message?: string }; message: string }) => error.cause?.message ?? error.message
+            );
+            expect(refused).toMatch(/permission denied/);
+        }
+    });
+
+    it('shows nothing without a context', async () => {
+        const seen = await app.scoped({}, (tx) =>
+            tx.execute<{ n: string }>(sql`select count(*) as n from competency.licence_number_flags`)
+        );
+        expect(seen.rows[0]?.n).toBe('0');
+    });
+});
+
 describe('the isolation matrix of medical_certificates (class T at the handling office, task 1.6a)', () => {
     const CASE_UNITS = () => ({
         own: zone,

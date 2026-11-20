@@ -93,6 +93,13 @@ request is filed at, with the owners, plate and libre changed only where the doc
 migration's own service, in the catalogue beside the 54 and offered wherever DVC-01 is: a vehicle with no electronic record is
 captured from its paper file and verified by a second person before any service acts on it. It is not counted in the totals.
 
+**Not in the source: MIG-02, the back-capture of a paper driver licence** (የወረቀት መንጃ ፈቃድ ምዝገባ; ADR-0054, ADR-0064, task 1.6b).
+Offered beside MIG-01 at the offices that issue licences: a licence with no electronic record is captured from its paper file with the
+number and the card serial printed on it, verified against the scan by a second person (never the one who captured it), and joins the
+register marked as migrated, active with no national reference until task 1.14 reconciles it. A printed number inside the region's
+reserved range, or one another licence of the region carries, is never renumbered: the second person flags it to the bureau. No fee.
+It is not counted in the totals.
+
 **Stakeholders [D]**
 | Stakeholder | Their role | ITRMS consequence |
 |---|---|---|
