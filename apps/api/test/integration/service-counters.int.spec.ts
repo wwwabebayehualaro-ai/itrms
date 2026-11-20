@@ -87,9 +87,10 @@ describe('an office created with a type', () => {
         expect(created.statusCode, created.body).toBe(201);
         const id = created.json<{ id: string }>().id;
         // DVC-01 and DVC-13 the certificate, DVC-13 the letters, DVC-14 the transfer document, DVC-02 the temporary bolo, DVC-03
-        // the licence; it collects cash
+        // the licence, DVC-04 the medical referral (task 1.6a); it collects cash
         expect(await countersOf(id)).toEqual([
             { key: 'competency.licence', pattern: '{unit}/DL/{seq:06}', last_value: '0', period: '' },
+            { key: 'competency.medical-referral', pattern: '{unit}/MR/{seq:05}/{efy}', last_value: '0', period: '' },
             { key: 'competency.temporary-bolo', pattern: '{unit}/TB/{seq:05}', last_value: '0', period: '' },
             { key: 'competency.transfer-document', pattern: '{unit}/VT/{seq:05}/{efy}', last_value: '0', period: '' },
             { key: 'competency.transfer-letter', pattern: '{unit}/OT/{seq:05}/{efy}', last_value: '0', period: '' },
@@ -98,7 +99,7 @@ describe('an office created with a type', () => {
             { key: 'vehicles.registration-certificate', pattern: '{unit}/RC/{seq:06}', last_value: '0', period: '' }
         ]);
         const events = await setUpEvents(id);
-        expect(events).toHaveLength(7);
+        expect(events).toHaveLength(8);
         for (const e of events) {
             expect(e.because).toBe('unit_created');
             expect(e.actor_id).not.toBeNull();

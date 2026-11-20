@@ -369,7 +369,7 @@ describe('the renewal’s version 2 (task 1.6a)', () => {
             api.owner.query(
                 `update forms.form_definitions set document_hash = ${hash} where key = 'driver-licence-renewal'`
             );
-        await draft(`'a-draft-of-the-bureau'`);
+        await draft(`repeat('a', 64)`);
         expect(await seed()).toBe(0);
         await draft(
             `(select v.content_hash from forms.form_versions v where v.id = form_definitions.published_version_id)`
