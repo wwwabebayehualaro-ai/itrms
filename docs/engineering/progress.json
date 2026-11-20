@@ -2245,6 +2245,16 @@
           "notes": ""
         },
         {
+          "id": "1.6b2",
+          "title": "Configurable role grants (ADR-0065): the intake desk reads the licence register",
+          "status": "in progress",
+          "branch": "task/1.6b2-configurable-role-grants",
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
           "id": "1.6c",
           "title": "Driver licence family, part 4: suspension and cancellation record (DVC-21)",
           "status": "planned",

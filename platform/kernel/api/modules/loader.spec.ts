@@ -306,6 +306,47 @@ describe('loadSlices', () => {
         ]);
     });
 
+    it('needs a role grant to name a role some module defines, behind a setting that is true or false (ADR-0065)', () => {
+        const granting = (role: string, schema: z.ZodType) =>
+            slice(
+                {
+                    key: 'freight',
+                    layer: 'work-process',
+                    version: '1.0.0',
+                    title,
+                    workProcess: 3,
+                    dependsOn: ['kernel'],
+                    permissions: { permit: ['read'] },
+                    settings: [
+                        {
+                            key: 'freight.desk_reads_permits',
+                            default: true,
+                            overridableAt: ['region', 'unitType'],
+                            sensitive: true
+                        }
+                    ],
+                    roleGrants: [{ role, permissions: ['permit:read'], setting: 'freight.desk_reads_permits' }]
+                },
+                {
+                    settings: { 'freight.desk_reads_permits': schema },
+                    messages: {
+                        am: { 'freight.setting.desk_reads_permits': 'x' },
+                        en: { 'freight.setting.desk_reads_permits': 'x' }
+                    }
+                }
+            );
+        expect(problems([kernel, workflow, drivers, competency, granting('competency.officer', z.boolean())])).toEqual(
+            []
+        );
+        expect(problems([kernel, granting('competency.clerk', z.boolean())])).toEqual([
+            'freight: grants to role "competency.clerk", which no installed module defines'
+        ]);
+        for (const schema of [z.number(), z.unknown(), z.union([z.boolean(), z.string()])])
+            expect(problems([kernel, workflow, drivers, competency, granting('competency.officer', schema)])).toContain(
+                'freight: the setting "freight.desk_reads_permits" of a role grant must be true or false'
+            );
+    });
+
     it('says every problem in one message', () => {
         expect(() => loadSlices([kernel, competency])).toThrow(
             /The installed modules cannot start:\n- competency: depends on "drivers", which is not installed\n- competency: depends on "workflow"/

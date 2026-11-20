@@ -27,7 +27,7 @@ import { AccessGuard, AUTHENTICATOR, RouteInventory, type Authenticator } from '
 import { IamController } from './iam/iam.controller';
 import { NotificationsController } from './notifications/notifications.controller';
 import { OidcAuthenticator, type OidcOptions } from './iam/oidc-authenticator';
-import type { RolePermissions } from './iam/roles';
+import type { RoleGrant, RolePermissions } from './iam/roles';
 import { IdempotencyInterceptor } from './idempotency/idempotency';
 import { JobsController } from './outbox/jobs.controller';
 import { SettingsController } from './settings/settings.controller';
@@ -73,6 +73,8 @@ export interface KernelOptions {
     identity?: OidcOptions;
     /** What each role grants, from the installed manifests. */
     roles?: RolePermissions;
+    /** What modules add to other modules' roles behind a setting (ADR-0065), from the installed manifests. */
+    grants?: readonly RoleGrant[];
     /** The object store's adapter (files, task 0.15); without one, a file route fails clearly. */
     objectStore?: ObjectStore;
     /** The enabled manifests and their catalogues: the menu `/me/workspace` computes (ADR-0028). */
@@ -91,14 +93,25 @@ const NO_DATABASE: Database = {
 };
 
 function authenticatorOf(options: KernelOptions, limiter: RateLimiter, logger: Logger): Provider[] {
-    const authenticator =
-        options.authenticator ??
-        (options.identity && options.database
-            ? new OidcAuthenticator(options.database, options.roles ?? new Map(), options.identity, limiter, (err) =>
-                  logger.warn({ err }, 'the rate limiter could not count a refusal: it is recorded')
-              )
-            : undefined);
-    return authenticator ? [{ provide: AUTHENTICATOR, useValue: authenticator }] : [];
+    if (options.authenticator) return [{ provide: AUTHENTICATOR, useValue: options.authenticator }];
+    const { identity, database } = options;
+    if (!identity || !database) return [];
+    return [
+        {
+            provide: AUTHENTICATOR,
+            // the settings resolver switches the role grants on per unit (ADR-0065)
+            useFactory: (settings: SettingsService) =>
+                new OidcAuthenticator(
+                    database,
+                    options.roles ?? new Map(),
+                    identity,
+                    limiter,
+                    (err) => logger.warn({ err }, 'the rate limiter could not count a refusal: it is recorded'),
+                    { grants: options.grants ?? [], settings }
+                ),
+            inject: [SettingsService]
+        }
+    ];
 }
 
 @Module({})

@@ -5,7 +5,7 @@
  */
 import { Module, type DynamicModule } from '@nestjs/common';
 import { KernelModule, loadSlices, type Logger } from '@itrms/kernel/api';
-import { rolePermissions } from '@itrms/kernel/iam';
+import { roleGrantsOf, rolePermissions } from '@itrms/kernel/iam';
 import type { KernelConfig } from '@itrms/kernel/config';
 import type { Database } from '@itrms/kernel/db';
 import type { ObjectStore } from '@itrms/kernel/files';
@@ -42,6 +42,7 @@ export class AppModule {
                     rateLimiter,
                     identity,
                     roles: rolePermissions(manifests),
+                    grants: roleGrantsOf(manifests),
                     shell: { manifests, messages, settings }
                 }),
                 ...modules

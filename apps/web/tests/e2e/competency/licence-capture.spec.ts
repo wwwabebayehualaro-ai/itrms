@@ -2,8 +2,9 @@
  * The back-capture of a paper driver licence in a browser, end to end, as it is seeded (MIG-02, ADR-0054, task 1.6b). Only the
  * requests list is service-specific: the request form, the case page and the register's screens are the platform's.
  *
- * At Boditi, the licence register finds nothing for a printed number and tells the officer the records officer captures it; the
- * records officer captures the paper licence (its holder, the printed number and card serial, its days in the Ethiopian calendar, its
+ * At Boditi, the licence register finds nothing for a printed number: it tells the officer the records officer captures it, and offers
+ * the records officer (who reads the register through a role grant, ADR-0065) the capture itself. The records officer captures the paper
+ * licence (its holder, the printed number and card serial, its days in the Ethiopian calendar, its
  * grade, the scan) and the competency officer checks it against the paper and verifies it. Only then does the register find the licence, with the number printed
  * on it, marked as captured from paper.
  */
@@ -79,9 +80,11 @@ test.describe('the back-capture of a paper driver licence', () => {
         await expect(officer.getByText(WORD.notOnRegister)).toBeVisible();
         await expect(officer.locator('[data-licence-back-capture]')).toHaveCount(0);
 
-        // the records officer captures it from the back-capture list
-        await records.goto('/competency/licence-captures');
-        await records.locator('[data-licence-captures] a').click();
+        // the intake desk reads the register too (a role grant, ADR-0065, on by default): its empty search offers the capture
+        await records.goto('/competency/licences');
+        await records.locator('#licence-number').fill(number);
+        await records.locator('form[role="search"] button[type="submit"]').click();
+        await records.locator('[data-licence-back-capture]').click();
         await expect(records).toHaveURL(/\/competency\/licence-captures\/new$/);
 
         const form = records.locator('[data-request-form="MIG-02"]');

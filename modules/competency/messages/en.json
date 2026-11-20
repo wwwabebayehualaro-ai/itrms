@@ -648,6 +648,7 @@
   "competency.licenceCaptures.office": "Office",
   "competency.licenceCaptures.case": "Case",
   "competency.licenceCaptures.paperReference": "Paper file",
+  "competency.setting.intake_reads_licences": "The records officer (intake desk) reads the driver licence register",
   "competency.setting.licence_capture_expired": "Which expired paper driver licences a back-capture takes",
   "competency.settingOption.licence_capture_expired.accept": "Every one (Proclamation 1074/2018 Art. 19 keeps an expired licence renewable)",
   "competency.settingOption.licence_capture_expired.refuse_late": "Not one more than a year past expiry (whose renewal needs a practical exam)",

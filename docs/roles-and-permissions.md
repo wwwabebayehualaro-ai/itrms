@@ -110,6 +110,7 @@ In code a permission is `resource:action` with the resource in kebab-case, as th
 | `audit_log` | R | R (subtree users only) | R | — | — | — | — | — | — | R |
 | `job` (dead-letter list, retry) | R, retry | — | — | — | — | — | — | — | — | — |
 | `pii:reveal` (Fayda id, phone, medical data) | — | — | ✓ | ✓ (at intake) | — | — | ✓ | ✓ | — | — |
+| `licence` (the driver licence register, class R: `read` the register and its lookup; `issue` and `print` the lead's; the records officer reads it through a role grant, ADR-0065, task 1.6b2: `competency.intake_reads_licences`, on by default, a region or a unit type may turn it off, never one office for itself; the competency inspector reads it too) | — | — | — | R (grant) | — | — | R | R issue print | — | — |
 | `licence-health` (a licence's blood group, ADR-0052, task 1.6: `record` while the region collects it, `competency.card_shows_blood_group`; `reveal` reads it in clear through the audited reveal, with a reason and a second factor in the last five minutes, only for licences handled in the caller's subtree; everywhere else only "on record") | — | — | — | — | — | — | record | record reveal | — | — |
 | `person:lookup` (find by an exact FIN or phone; each one audited) | — | — | ✓ | ✓ | — | — | ✓ | ✓ | — | — |
 | `person:merge` / `person:approve-merge` (maker-checker) | — | — | approve | ask | — | — | — | — | — | — |

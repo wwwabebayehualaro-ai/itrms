@@ -34,7 +34,10 @@ another licence of the region, voided ones too. Such a number is never renumbere
 paper licences are taken: `accept` (default: Proclamation 1074/2018 Art. 19 keeps an expired licence renewable, with a practical exam
 once over a year late), `refuse_late` (refuse those over a year late) or `refuse`. A taken expired licence carries the case notices
 `competency.licenceCapture.expired` and, over a year late, `competency.licenceCapture.renewalNeedsExam`. The licence register's empty
-search offers the back-capture where MIG-02 is offered.
+search offers the back-capture where MIG-02 is offered, to who files (`case:create`); a reader who does not file is told the records
+officer captures it. The records officer reads the register through the module's role grant (task 1.6b2, ADR-0065):
+`competency.intake_reads_licences` (installation, region or unit type, sensitive; on by default) gives `records_officer`
+`licence:read`, so the desk looks a licence up, and finds a paper one missing, before it files.
 
 **New vehicle registration (DVC-01, task 1.2b).** Seeded as configuration (`seed/vehicle-services.ts`): the request form
 `vehicle-registration` (owners, the vehicle's facts, documents, the fee), the step form `vehicle-national-entry` (the federal
