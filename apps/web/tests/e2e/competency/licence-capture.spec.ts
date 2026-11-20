@@ -2,9 +2,9 @@
  * The back-capture of a paper driver licence in a browser, end to end, as it is seeded (MIG-02, ADR-0054, task 1.6b). Only the
  * requests list is service-specific: the request form, the case page and the register's screens are the platform's.
  *
- * At Boditi, the licence register finds nothing for a printed number and offers the back-capture; the records officer captures the
- * paper licence (its holder, the printed number and card serial, its days in the Ethiopian calendar, its grade, the scan) and the
- * competency officer checks it against the paper and verifies it. Only then does the register find the licence, with the number printed
+ * At Boditi, the licence register finds nothing for a printed number and tells the officer the records officer captures it; the
+ * records officer captures the paper licence (its holder, the printed number and card serial, its days in the Ethiopian calendar, its
+ * grade, the scan) and the competency officer checks it against the paper and verifies it. Only then does the register find the licence, with the number printed
  * on it, marked as captured from paper.
  */
 import { randomInt } from 'node:crypto';
@@ -31,7 +31,8 @@ const WORD = {
     addGrade: 'ደረጃ ጨምር',
     automobile: 'አውቶሞቢል',
     file: 'ጥያቄውን ጀምር',
-    verify: 'ከወረቀቱ ጋር ይመሳሰላል፤ መዝግብ'
+    verify: 'ከወረቀቱ ጋር ይመሳሰላል፤ መዝግብ',
+    notOnRegister: 'ፈቃዱ በወረቀት ብቻ ካለ፣ የሪከርድ ባለሙያው ከወረቀቱ ይመዘግበዋል፤ ከዚያ እርስዎ ከወረቀቱ ጋር ያረጋግጡታል።'
 } as const;
 
 interface People {
@@ -70,11 +71,17 @@ test.describe('the back-capture of a paper driver licence', () => {
         const serial = `ሀ-${randomInt(100000, 999999)}`;
         const reference = `BOD/DL/${randomInt(100000, 999999)}`;
 
-        // the register has no licence with this number: it offers the paper licence's back-capture
-        await records.goto('/competency/licences');
-        await records.locator('#licence-number').fill(number);
-        await records.locator('form[role="search"] button[type="submit"]').click();
-        await records.locator('[data-licence-back-capture]').click();
+        // the register has no licence with this number: the officer, who reads it but does not file, is told the records officer
+        // captures it from paper (who files is offered the capture itself: the integration suite's clerk)
+        await officer.goto('/competency/licences');
+        await officer.locator('#licence-number').fill(number);
+        await officer.locator('form[role="search"] button[type="submit"]').click();
+        await expect(officer.getByText(WORD.notOnRegister)).toBeVisible();
+        await expect(officer.locator('[data-licence-back-capture]')).toHaveCount(0);
+
+        // the records officer captures it from the back-capture list
+        await records.goto('/competency/licence-captures');
+        await records.locator('[data-licence-captures] a').click();
         await expect(records).toHaveURL(/\/competency\/licence-captures\/new$/);
 
         const form = records.locator('[data-request-form="MIG-02"]');

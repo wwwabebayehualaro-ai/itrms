@@ -660,5 +660,6 @@
   "competency.licenceCaptures.flaggedAt": "Flagged on",
   "competency.licence.migrated": "Captured from paper",
   "competency.licence.notOnRegister": "If the licence exists only on paper, capture it first.",
+  "competency.licence.notOnRegisterIntake": "If the licence exists only on paper, the records officer captures it from the paper; you then check it against the paper.",
   "competency.licence.backCapture": "Capture a paper licence"
 }

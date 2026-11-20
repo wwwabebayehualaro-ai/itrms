@@ -386,7 +386,12 @@ export function LicenceRegister() {
                 <EmptyState
                     title={t('competency.licences.empty')}
                     description={
-                        mayCapture ? t('competency.licence.notOnRegister') : t('competency.licences.emptyHint')
+                        // who files captures it; who only reads the register is told who does (task 1.6b, ADR-0054)
+                        mayCapture
+                            ? t('competency.licence.notOnRegister')
+                            : offersCapture
+                              ? t('competency.licence.notOnRegisterIntake')
+                              : t('competency.licences.emptyHint')
                     }
                     action={
                         // a search that found nothing offers the paper licence's back-capture (task 1.6b, ADR-0054)

@@ -660,5 +660,6 @@
   "competency.licenceCaptures.flaggedAt": "የተጠቆመበት",
   "competency.licence.migrated": "ከወረቀት የተመዘገበ",
   "competency.licence.notOnRegister": "ፈቃዱ በወረቀት ብቻ ካለ፣ መጀመሪያ ይመዝግቡት።",
+  "competency.licence.notOnRegisterIntake": "ፈቃዱ በወረቀት ብቻ ካለ፣ የሪከርድ ባለሙያው ከወረቀቱ ይመዘግበዋል፤ ከዚያ እርስዎ ከወረቀቱ ጋር ያረጋግጡታል።",
   "competency.licence.backCapture": "የወረቀት ፈቃድ መዝግብ"
 }

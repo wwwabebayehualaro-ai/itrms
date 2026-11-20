@@ -4405,6 +4405,11 @@
       "item": "A captured paper licence whose validUntil has passed joins as active; confirm every list, bolo and renewal path derives expiry from valid_until",
       "movedTo": "1.14",
       "closedIn": "1.6b: competency.licence_capture_expired (accept by default, Art. 19); expired notices on the case; renewal already derives expiry from valid_until (renewalTerms)"
+    },
+    {
+      "foundIn": "1.6b",
+      "item": "Decide: should the intake desk (records_officer) read the licence register (licence:read), as it reads vehicles? Today it cannot, so the 'found nothing, capture from paper' button shows only to someone holding both roles; the officer is told the records officer captures it. Granting it needs either a kernel 'licence' read in REGISTER or the module loader letting a module extend a kernel role (ADR). Also add the missing 'licence' row to roles-and-permissions.md",
+      "movedTo": "product owner"
     }
   ]
 }
