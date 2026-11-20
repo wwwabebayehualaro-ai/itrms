@@ -25,6 +25,8 @@ Two simpler options were rejected:
 1. **A module may declare a role grant** in its manifest: a role another installed module defines, the permissions of its own it
    adds, and a boolean setting of its own that turns the grant on:
    `roleGrants: [{ role: 'records_officer', permissions: ['licence:read'], setting: 'competency.intake_reads_licences' }]`.
+   **A grant only reads** (`<resource>:read`): it never lets a role act, so the worker's and the workflow's role checks, which
+   see the roles' own permissions, never need it. A write given to another role is a role of the module's own, or a new ADR.
 2. **The loader checks every grant:** the role is defined by an installed module (and has its name there), each permission is
    defined by the granting module, and the setting is the granting module's own, boolean, sensitive, and never overridable at a
    single unit (an office does not widen its own access). A grant that fails any check stops the start.
@@ -39,5 +41,12 @@ Two simpler options were rejected:
 ## Consequences
 
 * The permission matrix (roles-and-permissions.md) marks a granted permission with the setting that controls it.
-* A grant is read-only by convention: a write permission given this way needs its own ADR.
-* One more settings read per request, and only for a person holding a role with a grant.
+* The first grant is on by default, an exception to deny-by-default (security.md) taken knowingly: the licence register shows
+  the holder's name, number, grades and dates, which the desk already reads as the person's record; the blood group stays the
+  lead's audited reveal, the birth date is never shown, medical reports and the health record need other permissions. A bureau
+  that keeps the register to licensing turns it off for the region or a unit type.
+* It fails closed: a setting that cannot be read refuses the request (500) rather than granting; a value that is not exactly
+  `true` grants nothing. The setting is read for the active unit the person holds the role in, which their context always
+  sees.
+* One more settings read per request, and only for a person holding a role with a grant; nothing is cached, so a change
+  applies at the next request.

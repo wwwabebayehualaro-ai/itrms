@@ -267,11 +267,18 @@ export function manifestProblems(input: unknown): string[] {
     const defined = new Set(permissionsOf(m));
     for (const grant of m.roleGrants) {
         const what = `role grant to "${grant.role}"`;
-        if (grant.role.startsWith(`${m.key}.`) || (m.layer === 'kernel' && !grant.role.includes('.')))
+        if (
+            grant.role.startsWith(`${m.key}.`) ||
+            grant.role in m.roles ||
+            (m.layer === 'kernel' && !grant.role.includes('.'))
+        )
             problems.push(`${what}: the role is the module's own; list the permissions under roles`);
-        for (const permission of grant.permissions)
+        for (const permission of grant.permissions) {
             if (!defined.has(permission))
                 problems.push(`${what}: "${permission}" is not a permission the module defines`);
+            // reads only: a grant never lets a role act, and the worker's and the workflow's role checks need no grant
+            if (!permission.endsWith(':read')) problems.push(`${what}: "${permission}" is not a read`);
+        }
         const setting = m.settings.find((s) => s.key === grant.setting);
         if (!setting) problems.push(`${what}: its setting "${grant.setting}" is not one the module declares`);
         else {

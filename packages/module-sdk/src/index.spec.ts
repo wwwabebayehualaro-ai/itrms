@@ -57,6 +57,10 @@ describe('defineModule', () => {
         expect(problems({ permissions: ['person:read'] })).toEqual([
             'role grant to "records_officer": "person:read" is not a permission the module defines'
         ]);
+        // reads only, even of the module's own
+        expect(problems({ permissions: ['licence:issue'] })).toEqual([
+            'role grant to "records_officer": "licence:issue" is not a read'
+        ]);
         expect(problems({ setting: 'competency.other' })).toEqual([
             'role grant to "records_officer": its setting "competency.other" is not one the module declares'
         ]);
