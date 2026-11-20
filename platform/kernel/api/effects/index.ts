@@ -35,6 +35,8 @@ export interface EffectRun<Input = unknown> {
      */
     input: Input;
     facts: Readonly<Record<string, unknown>>;
+    /** the comment the transition was taken with (a flag's or a return's reason), when it was given one */
+    comment?: string;
 }
 
 /** What an effect hands back: facts the case keeps (a payment order's id) for later guards and effects. */

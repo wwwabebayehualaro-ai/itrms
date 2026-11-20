@@ -7,6 +7,7 @@
  *   licence_health         a licence's blood group (task 1.6, ADR-0052), class R, field-encrypted; read only through reveal.
  *   medical_certificates   the medical examination a case relied on, class T; a renewal's reports (task 1.6a) with their
  *                          recommendation and the conditions, field-encrypted.
+ *   licence_number_flags   a printed number a paper licence's capture could not keep (task 1.6b), class T, for the bureau.
  *   training_enrolments    a school's list of who finished training, entered by the handling unit, class T.
  *   exam_sessions, exam_results   what an examiner recorded, class T.
  *   licence_print_batches  what goes to the region's printer, class T, with its licences.
@@ -148,7 +149,17 @@ export const driverLicences = withRls(
                 cardSerial: text('card_serial'),
                 /** the case that made it */
                 caseId: uuid('case_id'),
-                voidReason: text('void_reason')
+                voidReason: text('void_reason'),
+                /**
+                 * A licence captured from its paper file (MIG-02, ADR-0054, task 1.6b): how it came, the paper file's reference,
+                 * who issued it on paper, the capture's case and the second person who verified it.
+                 */
+                migrationSource: text('migration_source', { enum: ['back_capture'] }),
+                paperReference: text('paper_reference'),
+                issuedBy: text('issued_by'),
+                migrationCaseId: uuid('migration_case_id'),
+                migrationVerifiedBy: uuid('migration_verified_by'),
+                migrationVerifiedAt: timestamp('migration_verified_at', { withTimezone: true })
             },
             (t) => [
                 uniqueIndex('driver_licences_number_uq')
@@ -169,6 +180,14 @@ export const driverLicences = withRls(
                 check(
                     'driver_licences_active_check',
                     sql`status <> 'active' OR (number IS NOT NULL AND issued_on IS NOT NULL AND valid_until IS NOT NULL)`
+                ),
+                // one capture makes one licence, and a migrated licence says where it came from and who verified it
+                uniqueIndex('driver_licences_migration_case_uq')
+                    .on(t.migrationCaseId)
+                    .where(sql`migration_case_id IS NOT NULL`),
+                check(
+                    'driver_licences_migration_check',
+                    sql`migration_source IS NULL OR (paper_reference IS NOT NULL AND migration_case_id IS NOT NULL AND migration_verified_by IS NOT NULL AND migration_verified_at IS NOT NULL)`
                 )
             ]
         )
@@ -265,6 +284,34 @@ export const medicalCertificates = withRls(
         // what a person's health was checked for, and what the facility found, are theirs: the log says that they changed, not
         // to what (SEC-PD-2)
         { omit: ['facility', 'recommendation', 'conditionsCt'] }
+    ),
+    'transaction'
+);
+
+/**
+ * A printed number a paper licence's capture could not keep (MIG-02, ADR-0051 §4, task 1.6b): inside the range the region reserved
+ * for ITRMS, or carried by another licence of the region. Flagged to the bureau, never renumbered; class T at the capturing office,
+ * so the offices above it read it.
+ */
+export const licenceNumberFlags = withRls(
+    audited(
+        competencySchema.table(
+            'licence_number_flags',
+            {
+                ...baseColumns(),
+                ...handled(),
+                caseId: uuid('case_id').notNull(),
+                number: text('number').notNull(),
+                reason: text('reason', { enum: ['in_regional_range', 'number_taken'] }).notNull(),
+                paperReference: text('paper_reference').notNull(),
+                note: text('note')
+            },
+            (t) => [
+                uniqueIndex('licence_number_flags_case_uq').on(t.caseId),
+                index('licence_number_flags_org_path_gist').using('gist', t.orgPath),
+                index('licence_number_flags_number_idx').on(t.regionId, t.number)
+            ]
+        )
     ),
     'transaction'
 );

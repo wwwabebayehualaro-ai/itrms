@@ -714,7 +714,8 @@ export class CasesService implements FeeCasePort {
                 config: row.config,
                 argument,
                 input: contract ? await this.contractedInput(tx, row, key, contract) : by.input,
-                facts
+                facts,
+                ...(by.comment !== undefined ? { comment: by.comment } : {})
             });
             if (result?.facts) Object.assign(facts, result.facts);
         }

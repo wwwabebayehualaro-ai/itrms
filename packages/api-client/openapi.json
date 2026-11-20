@@ -7161,6 +7161,32 @@
         ]
       }
     },
+    "/api/v1/competency/licence-number-flags": {
+      "get": {
+        "operationId": "CompetencyController_numberFlags",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Competency"
+        ]
+      }
+    },
     "/api/v1/competency/licences": {
       "get": {
         "operationId": "CompetencyController_list",

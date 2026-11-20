@@ -20,6 +20,22 @@ and read in clear only by `POST /competency/licences/:id/health/reveal` (`licenc
 factor in the last five minutes, rate-limited, never replayed; the `licence.health_revealed` event is recorded before the read; a
 licence outside the lead's subtree is 404). Views, lists, the lookup and the card document carry only `bloodGroupOnRecord`.
 
+**The back-capture of a paper driver licence (MIG-02, task 1.6b, ADR-0054, ADR-0064 §6).** Seeded as configuration
+(`seed/licence-capture-service.ts`): a clerk files the paper licence's facts and its scan; a second person (`separationOfDuties:
+['draft']`) verifies against the paper (`competency.captureLicence`) or flags the number (`competency.flagLicenceNumber`). A verified
+capture joins `driver_licences` with its printed number and card serial, `migration_source = 'back_capture'`, the verifier and the
+case (insert only: the columns take no UPDATE grant), active with no national reference until task 1.14 reconciles it. Under the
+number's lock and then the holder's (the same per-grade key a first licence's issuance takes) it is checked again: one licence per
+person, and a number neither in the region's reserved range (`competency.licence_number`, or an office's `{unit}/DL/{seq:06}`) nor on
+another licence of the region, voided ones too. Such a number is never renumbered: the second person flags it, with a reason, to
+`competency.licence_number_flags` (class T at the capturing office, insert only), which the offices above read at `GET
+/competency/licence-number-flags` (`licence:read`) with that reason (the flag transition's comment, which effects receive as
+`EffectRun.comment`). The region setting `competency.licence_capture_expired` (installation or region, sensitive) decides which expired
+paper licences are taken: `accept` (default: Proclamation 1074/2018 Art. 19 keeps an expired licence renewable, with a practical exam
+once over a year late), `refuse_late` (refuse those over a year late) or `refuse`. A taken expired licence carries the case notices
+`competency.licenceCapture.expired` and, over a year late, `competency.licenceCapture.renewalNeedsExam`. The licence register's empty
+search offers the back-capture where MIG-02 is offered.
+
 **New vehicle registration (DVC-01, task 1.2b).** Seeded as configuration (`seed/vehicle-services.ts`): the request form
 `vehicle-registration` (owners, the vehicle's facts, documents, the fee), the step form `vehicle-national-entry` (the federal
 vehicle id, keyed in by staff until a national interface exists), the workflow draft → review → payment → approval →

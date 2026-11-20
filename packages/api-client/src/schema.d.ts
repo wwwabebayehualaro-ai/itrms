@@ -369,6 +369,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/competency/licence-number-flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CompetencyController_numberFlags"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/competency/licences": {
         parameters: {
             query?: never;
@@ -5057,6 +5073,25 @@ export interface operations {
     CompetencyController_grades: {
         parameters: {
             query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CompetencyController_numberFlags: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;

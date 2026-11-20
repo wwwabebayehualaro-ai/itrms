@@ -18,11 +18,13 @@ import {
     enrolmentQuerySchema,
     licenceHealthRecordSchema,
     licenceHealthRevealSchema,
+    licenceNumberFlagQuerySchema,
     licenceQuerySchema,
     medicalConditionsRecordSchema,
     medicalConditionsRevealSchema,
     printBatchPrintedSchema
 } from '../contracts';
+import { LicenceCaptureService } from './licence-capture.service';
 import { LicenceHealthService } from './licence-health.service';
 import { MedicalReportService } from './medical-report.service';
 import { LicencesService } from './licences.service';
@@ -38,6 +40,7 @@ class EnrolmentQueryDto extends createZodDto(enrolmentQuerySchema) {}
 class PrintedDto extends createZodDto(printBatchPrintedSchema) {}
 class HealthRecordDto extends createZodDto(licenceHealthRecordSchema) {}
 class HealthRevealDto extends createZodDto(licenceHealthRevealSchema) {}
+class NumberFlagQueryDto extends createZodDto(licenceNumberFlagQuerySchema) {}
 class ConditionsRecordDto extends createZodDto(medicalConditionsRecordSchema) {}
 class ConditionsRevealDto extends createZodDto(medicalConditionsRevealSchema) {}
 
@@ -48,7 +51,8 @@ export class CompetencyController {
         @Inject(LicencesService) private readonly licences: LicencesService,
         @Inject(RegisterService) private readonly register: RegisterService,
         @Inject(LicenceHealthService) private readonly health: LicenceHealthService,
-        @Inject(MedicalReportService) private readonly medical: MedicalReportService
+        @Inject(MedicalReportService) private readonly medical: MedicalReportService,
+        @Inject(LicenceCaptureService) private readonly capture: LicenceCaptureService
     ) {}
 
     @Get('grades')
@@ -61,6 +65,16 @@ export class CompetencyController {
     @Require('licence:read')
     list(@Query() query: LicenceQueryDto) {
         return this.db.scoped(requestDbContext(), (tx) => this.licences.list(tx, query));
+    }
+
+    /**
+     * The printed numbers a paper licence's capture could not keep (task 1.6b, ADR-0051 §4): flagged to the bureau, which reads every
+     * office's below it (class T), never renumbered.
+     */
+    @Get('licence-number-flags')
+    @Require('licence:read')
+    numberFlags(@Query() query: NumberFlagQueryDto) {
+        return this.db.scoped(requestDbContext(), (tx) => this.capture.flags(tx, query));
     }
 
     @Get('licences/:id')

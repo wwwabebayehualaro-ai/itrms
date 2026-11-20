@@ -13,6 +13,7 @@ import {
     LICENCE_NUMBER_SETTING,
     licenceNumberingSchema
 } from './licence-family';
+import { LICENCE_CAPTURE_EXPIRED_SETTING, licenceCaptureExpiredSchema } from './licence-capture';
 import { LIBRE_NOTICE_DAYS_SETTING } from './replacement';
 import { MEDICAL_MONTHS_SETTING, RENEWAL_WINDOW_SETTING } from './rules';
 import { TRANSFER_LETTER_ENFORCED_SETTING, TRANSFER_LETTER_VALID_DAYS_SETTING } from './transfer';
@@ -29,6 +30,7 @@ export * from './back-capture';
 export * from './bolo';
 export * from './campaign';
 export * from './exchange';
+export * from './licence-capture';
 export * from './licence-family';
 export * from './licence-medical';
 export * from './migration-report';
@@ -68,7 +70,8 @@ export const COMPETENCY_SETTINGS = {
     [VEHICLE_TRANSFER_PLATE_EXCHANGE_SETTING]: z.boolean(),
     [LIBRE_NOTICE_DAYS_SETTING]: z.number().int().min(1).max(365),
     [LICENCE_NUMBER_SETTING]: licenceNumberingSchema,
-    [CARD_SHOWS_BLOOD_GROUP_SETTING]: z.boolean()
+    [CARD_SHOWS_BLOOD_GROUP_SETTING]: z.boolean(),
+    [LICENCE_CAPTURE_EXPIRED_SETTING]: licenceCaptureExpiredSchema
 } as const;
 
 /** The document a licence prints as. */
@@ -146,6 +149,17 @@ export const licenceSchema = z.object({
     /** whether the region collects the blood group (`competency.card_shows_blood_group`) */
     bloodGroupCollected: z.boolean(),
     caseId: z.uuid().nullable(),
+    /** a licence captured from its paper file (MIG-02, task 1.6b): the paper's reference, who issued it, who verified it */
+    migration: z
+        .object({
+            source: z.literal('back_capture'),
+            paperReference: z.string(),
+            issuedBy: z.string().nullable(),
+            caseId: z.uuid().nullable(),
+            verifiedBy: z.uuid().nullable(),
+            verifiedAt: z.string().nullable()
+        })
+        .nullable(),
     version: z.number().int()
 });
 export type Licence = z.infer<typeof licenceSchema>;

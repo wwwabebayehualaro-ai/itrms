@@ -131,6 +131,14 @@ export default defineModule({
             default: false,
             overridableAt: ['installation', 'region'],
             sensitive: true
+        },
+        // which expired paper licences a back-capture takes (task 1.6b): every one by default, as Proclamation 1074/2018 Art. 19 keeps
+        // them renewable; a region may refuse those over a year late, or every expired one. A change moves a control: a fresh second factor
+        {
+            key: 'competency.licence_capture_expired',
+            default: 'accept',
+            overridableAt: ['installation', 'region'],
+            sensitive: true
         }
     ],
     effects: [
@@ -147,6 +155,10 @@ export default defineModule({
         // a renewal's medical referral letter and the health bureau's report (task 1.6a)
         'competency.issueMedicalReferral',
         'competency.recordMedicalReport',
+        // the back-capture of a paper driver licence (task 1.6b)
+        'competency.checkLicenceCapture',
+        'competency.captureLicence',
+        'competency.flagLicenceNumber',
         'competency.checkVehicleRegistration',
         'competency.reserveRegistrationPlate',
         'competency.recordFederalVehicleId',
@@ -323,7 +335,9 @@ export default defineModule({
         // a vehicle that arrives from another region, on its transfer document (task 1.4c3, ADR-0060)
         'DVC-17',
         // the back-capture of paper vehicle files (ADR-0054): the migration's own service, beside the bureau's
-        'MIG-01'
+        'MIG-01',
+        // and of paper driver licences (task 1.6b)
+        'MIG-02'
     ],
     // a registration takes its plate from the office's own stock (task 1.2b): an office without one doesn't offer it
     // the transfer issues a libre, from the office's stationery (booklets)
@@ -387,6 +401,23 @@ export default defineModule({
                     label: 'competency.action.newBackCapture',
                     route: '/competency/back-captures/new',
                     requires: { permission: 'case:create', services: ['MIG-01'] }
+                }
+            ]
+        },
+        {
+            key: 'competency.licenceCaptures',
+            group: 'work-process',
+            order: 13,
+            label: 'competency.nav.licenceCaptures',
+            icon: 'archive',
+            route: '/competency/licence-captures',
+            requires: { permission: 'licence:read', services: ['MIG-02'] },
+            quickActions: [
+                {
+                    key: 'competency.newLicenceCapture',
+                    label: 'competency.action.newLicenceCapture',
+                    route: '/competency/licence-captures/new',
+                    requires: { permission: 'case:create', services: ['MIG-02'] }
                 }
             ]
         },

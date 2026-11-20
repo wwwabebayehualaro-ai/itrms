@@ -12,6 +12,7 @@ import type {
     Licence,
     LicenceHealthRevealed,
     LicenceGrade,
+    LicenceNumberFlag,
     LicenceStatus,
     MedicalConditionsRevealed,
     MedicalReport,
@@ -26,6 +27,7 @@ export type {
     Licence,
     LicenceGrade,
     LicenceHealthRevealed,
+    LicenceNumberFlag,
     LicenceStatus,
     MedicalConditionsRevealed,
     MedicalReport,
@@ -82,6 +84,21 @@ export function useRecordBloodGroup() {
 /** The blood group in clear, with a reason (the audited reveal, ADR-0052). Never cached: it is gone when the screen is left. */
 export async function revealBloodGroup(id: string, reason: string): Promise<LicenceHealthRevealed> {
     return (await client.post<LicenceHealthRevealed>(`v1/competency/licences/${id}/health/reveal`, { reason })).data;
+}
+
+/** The printed numbers a paper licence's capture could not keep (task 1.6b): flagged to the bureau. */
+export function useLicenceNumberFlags(enabled = true) {
+    return useQuery({
+        queryKey: ['competency', 'licence-number-flags'],
+        enabled,
+        queryFn: async ({ signal }) =>
+            (
+                await client.get<{ items: LicenceNumberFlag[] }>('v1/competency/licence-number-flags', {
+                    params: { limit: LIST_LIMIT },
+                    signal
+                })
+            ).data
+    });
 }
 
 /** A renewal's medical reports (task 1.6a): whether conditions are on record, never what they are. */

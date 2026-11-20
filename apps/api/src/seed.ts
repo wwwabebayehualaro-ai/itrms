@@ -28,6 +28,7 @@ import { loadSlices } from '@itrms/kernel/api';
 import { importOrg, orgUnits, parseOrgCsv, parseOrgWorkbook, parseOrgYaml, type OrgImport } from '@itrms/kernel/org';
 import {
     importBackCaptureService,
+    importLicenceCaptureService,
     importBoloService,
     importPlateExchangeService,
     importReplacementService,
@@ -208,8 +209,9 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
                 // a renewal's referral letters (task 1.6a): their counter at each office that offers DVC-04
                 medicalReferralCounters: await setUpMedicalReferralCounters(tx, root.regionId),
                 vehicleServices: await importVehicleServices(tx, where),
-                // the back-capture of paper vehicle files (task 1.13)
+                // the back-capture of paper vehicle files (task 1.13) and of paper driver licences (task 1.6b)
                 backCapture: await importBackCaptureService(tx, where),
+                licenceCapture: await importLicenceCaptureService(tx, where),
                 // the plate exchange (task 1.2c), after the fee rules
                 plateExchange: await importPlateExchangeService(tx, where),
                 // the replacement of a lost, stolen or damaged libre (task 1.5), after the fee rules

@@ -16,6 +16,8 @@ import { EXCHANGE_EFFECTS } from './exchange.effects';
 import { PlateExchangeService } from './exchange.service';
 import { LICENCE_EFFECTS } from './licence.effects';
 import { LicenceHealthService } from './licence-health.service';
+import { LICENCE_CAPTURE_EFFECTS_LIST } from './licence-capture.effects';
+import { LicenceCaptureService } from './licence-capture.service';
 import { MEDICAL_EFFECTS_LIST } from './medical.effects';
 import { MedicalReportService } from './medical-report.service';
 import { LicencesService } from './licences.service';
@@ -55,6 +57,7 @@ import { VehicleTransferService } from './vehicle-transfer.service';
         LicencesService,
         LicenceHealthService,
         MedicalReportService,
+        LicenceCaptureService,
         RegisterService,
         VehicleRegistrationService,
         BackCaptureService,
@@ -75,6 +78,7 @@ import { VehicleTransferService } from './vehicle-transfer.service';
         ReleasedVehicleLookup,
         ...LICENCE_EFFECTS,
         ...MEDICAL_EFFECTS_LIST,
+        ...LICENCE_CAPTURE_EFFECTS_LIST,
         ...REGISTRATION_EFFECTS,
         ...BACK_CAPTURE_EFFECTS,
         ...EXCHANGE_EFFECTS,
