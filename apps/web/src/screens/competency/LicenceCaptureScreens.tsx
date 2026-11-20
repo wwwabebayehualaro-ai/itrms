@@ -42,6 +42,7 @@ function NumberFlags() {
                         <TableRow>
                             <TableHead>{t('competency.licenceCaptures.number')}</TableHead>
                             <TableHead>{t('competency.licenceCaptures.reasonLabel')}</TableHead>
+                            <TableHead>{t('competency.licenceCaptures.note')}</TableHead>
                             <TableHead>{t('competency.licenceCaptures.paperReference')}</TableHead>
                             <TableHead>{t('competency.licenceCaptures.office')}</TableHead>
                             <TableHead>{t('competency.licenceCaptures.flaggedAt')}</TableHead>
@@ -58,6 +59,9 @@ function NumberFlags() {
                                         tone="warning"
                                         label={t(`competency.licenceCaptures.reason.${f.reason}`)}
                                     />
+                                </TableCell>
+                                <TableCell className="max-w-xs whitespace-pre-wrap" data-flag-note>
+                                    {f.note ?? '—'}
                                 </TableCell>
                                 <TableCell>{f.paperReference}</TableCell>
                                 <TableCell>{text(f.handlingUnit.name)}</TableCell>

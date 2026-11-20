@@ -4,7 +4,15 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { foldLicenceNumber, inLicenceRange, isPaperLicenceNumber } from '../contracts';
+import {
+    COMPETENCY_SETTINGS,
+    foldLicenceNumber,
+    inLicenceRange,
+    isPaperLicenceNumber,
+    lapseOf,
+    LICENCE_CAPTURE_EXPIRED_DEFAULT,
+    LICENCE_CAPTURE_EXPIRED_SETTING
+} from '../contracts';
 
 const REGIONAL = { scope: 'region', regionCode: '06', firstNumber: 50_000 } as const;
 
@@ -34,5 +42,21 @@ describe('a printed licence number', () => {
         expect(inLicenceRange('WOL-BODITI/DL/12', { scope: 'unit' })).toBe(false);
         expect(inLicenceRange('06-73215', { scope: 'unit' })).toBe(false);
         expect(inLicenceRange('06-73215', { scope: 'region' })).toBe(false);
+    });
+});
+
+describe('an expired paper licence (Proclamation 1074/2018 Art. 19(5))', () => {
+    it('is expired after its last day, and more than a year late only after the year’s last day', () => {
+        expect(lapseOf('2026-11-20', '2026-11-20')).toEqual({ expired: false, lateOverYear: false });
+        expect(lapseOf('2026-11-19', '2026-11-20')).toEqual({ expired: true, lateOverYear: false });
+        expect(lapseOf('2025-11-20', '2026-11-20')).toEqual({ expired: true, lateOverYear: false });
+        expect(lapseOf('2025-11-19', '2026-11-20')).toEqual({ expired: true, lateOverYear: true });
+    });
+
+    it('is taken by default, and the region may refuse the late ones or every one', () => {
+        const schema = COMPETENCY_SETTINGS[LICENCE_CAPTURE_EXPIRED_SETTING];
+        expect(LICENCE_CAPTURE_EXPIRED_DEFAULT).toBe('accept');
+        for (const ok of ['accept', 'refuse_late', 'refuse']) expect(schema.safeParse(ok).success, ok).toBe(true);
+        for (const bad of ['', 'never', true, 1]) expect(schema.safeParse(bad).success, String(bad)).toBe(false);
     });
 });

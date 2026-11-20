@@ -24,7 +24,13 @@ import {
     inLicenceRange,
     isCardSerial,
     isPaperLicenceNumber,
+    lapseOf,
+    LICENCE_CAPTURE_EXAM_NOTICE,
+    LICENCE_CAPTURE_EXPIRED_DEFAULT,
+    LICENCE_CAPTURE_EXPIRED_NOTICE,
+    LICENCE_CAPTURE_EXPIRED_SETTING,
     LICENCE_NUMBER_CONFLICT_NOTICE,
+    licenceCaptureExpiredSchema,
     licenceKindSchema,
     type LicenceCaptureInput,
     type LicenceNumberConflict,
@@ -73,12 +79,18 @@ export class LicenceCaptureService {
     async check(tx: Tx, place: CasePlace, input: LicenceCaptureInput) {
         const captured = await this.captured(tx, place, input);
         const conflict = await this.conflictOf(tx, place, captured.number);
+        // a licence past its expiry joins as expired; over a year late its renewal will need a practical exam (Art. 19(5))
+        const lapse = lapseOf(captured.validUntil, addisDay());
         return {
             personId: captured.personId,
             licenceCapture: {
                 number: captured.number,
                 conflict,
-                notices: conflict ? [LICENCE_NUMBER_CONFLICT_NOTICE] : []
+                notices: [
+                    ...(conflict ? [LICENCE_NUMBER_CONFLICT_NOTICE] : []),
+                    ...(lapse.expired ? [LICENCE_CAPTURE_EXPIRED_NOTICE] : []),
+                    ...(lapse.lateOverYear ? [LICENCE_CAPTURE_EXAM_NOTICE] : [])
+                ]
             }
         };
     }
@@ -142,7 +154,7 @@ export class LicenceCaptureService {
      * The second person's other step: the printed number cannot be kept, so it is flagged to the bureau and the licence does not
      * join the register. Refused (409) for a number that can be kept: that capture is verified, never flagged.
      */
-    async flag(tx: Tx, at: CasePlace, input: LicenceCaptureInput, facts: Facts) {
+    async flag(tx: Tx, at: CasePlace, input: LicenceCaptureInput, facts: Facts, comment?: string) {
         const place = await actForHandlingOffice(tx, at);
         const number = foldLicenceNumber(String(input.number ?? ''));
         const conflict = await this.conflictOf(tx, place, number);
@@ -162,7 +174,9 @@ export class LicenceCaptureService {
                 caseId: place.caseId,
                 number,
                 reason: conflict,
-                paperReference: input.paperReference.trim()
+                paperReference: input.paperReference.trim(),
+                // the second person's reason, as they gave it with the flag: what the bureau reads beside the number
+                note: comment?.trim() || null
             }));
         const known = (facts.licenceCapture ?? {}) as Record<string, unknown>;
         return { licenceCapture: { ...known, number, conflict, flagId: flag.id } };
@@ -265,6 +279,22 @@ export class LicenceCaptureService {
             errors.push({ path: 'issuedOn', code: 'in_future', message: say('competency.rule.notInFuture') });
         if (input.validUntil <= input.issuedOn)
             errors.push({ path: 'validUntil', code: 'before_issue', message: say('competency.rule.validBeforeIssue') });
+        // which expired licences the region captures (a setting; by default every one, as Art. 19 keeps them renewable)
+        const lapse = lapseOf(input.validUntil, today);
+        if (lapse.expired) {
+            const parsed = licenceCaptureExpiredSchema.safeParse(
+                await this.settings.value(tx, place.handlingUnitId, LICENCE_CAPTURE_EXPIRED_SETTING)
+            );
+            const policy = parsed.success ? parsed.data : LICENCE_CAPTURE_EXPIRED_DEFAULT;
+            if (policy === 'refuse' || (policy === 'refuse_late' && lapse.lateOverYear))
+                errors.push({
+                    path: 'validUntil',
+                    code: 'expired',
+                    message: say(
+                        policy === 'refuse' ? 'competency.rule.capturedExpired' : 'competency.rule.capturedExpiredLate'
+                    )
+                });
+        }
 
         const [holder] = await tx.select({ id: persons.id }).from(persons).where(eq(persons.id, input.person));
         if (!holder) errors.push({ path: 'person', code: 'not_found', message: say('competency.rule.personNotFound') });

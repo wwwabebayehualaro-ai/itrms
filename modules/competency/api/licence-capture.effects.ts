@@ -59,7 +59,7 @@ export class FlagLicenceNumberEffect implements WorkflowEffect<LicenceCaptureInp
     constructor(@Inject(LicenceCaptureService) private readonly capture: LicenceCaptureService) {}
 
     async run(run: EffectRun<LicenceCaptureInput>) {
-        return { facts: await this.capture.flag(run.tx, placeOf(run), run.input, run.facts) };
+        return { facts: await this.capture.flag(run.tx, placeOf(run), run.input, run.facts, run.comment) };
     }
 }
 

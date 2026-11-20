@@ -8,6 +8,7 @@
 import { z } from 'zod';
 
 import type { LicenceNumbering } from './licence-family';
+import { addYears, LATE_RENEWAL_YEARS } from './rules';
 
 export const LICENCE_CAPTURE_EFFECTS = {
     checkLicenceCapture: 'competency.checkLicenceCapture',
@@ -24,6 +25,27 @@ export type LicenceNumberConflict = (typeof LICENCE_NUMBER_CONFLICTS)[number];
 
 /** The notice the case page shows on a capture whose number cannot join the register (facts.licenceCapture.notices). */
 export const LICENCE_NUMBER_CONFLICT_NOTICE = 'competency.licenceCapture.numberConflict';
+/** The notices on a capture of a licence past its expiry: it joins as expired, and over a year late its renewal needs a practical exam. */
+export const LICENCE_CAPTURE_EXPIRED_NOTICE = 'competency.licenceCapture.expired';
+export const LICENCE_CAPTURE_EXAM_NOTICE = 'competency.licenceCapture.renewalNeedsExam';
+
+/**
+ * Which expired paper licences a region captures (`competency.licence_capture_expired`). Proclamation 1074/2018 keeps an expired
+ * licence renewable, with a practical exam once it is more than a year late (Art. 19(5)), so the default captures every one: refusing
+ * it would send its holder to a new application the law does not ask for. A region may capture only those still renewable without
+ * the exam (`refuse_late`), or none past expiry (`refuse`).
+ */
+export const LICENCE_CAPTURE_EXPIRED_SETTING = 'competency.licence_capture_expired';
+export const LICENCE_CAPTURE_EXPIRED_POLICIES = ['accept', 'refuse_late', 'refuse'] as const;
+export type LicenceCaptureExpiredPolicy = (typeof LICENCE_CAPTURE_EXPIRED_POLICIES)[number];
+export const licenceCaptureExpiredSchema = z.enum(LICENCE_CAPTURE_EXPIRED_POLICIES);
+export const LICENCE_CAPTURE_EXPIRED_DEFAULT: LicenceCaptureExpiredPolicy = 'accept';
+
+/** How far past its expiry a licence is on a day, as a renewal counts it (renewalTerms: Art. 19(5)). */
+export const lapseOf = (validUntil: string, today: string) => ({
+    expired: validUntil < today,
+    lateOverYear: addYears(validUntil, LATE_RENEWAL_YEARS) < today
+});
 
 export const PAPER_LICENCE_NUMBER_MAX = 30;
 

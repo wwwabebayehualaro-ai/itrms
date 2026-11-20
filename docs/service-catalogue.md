@@ -97,8 +97,10 @@ captured from its paper file and verified by a second person before any service 
 Offered beside MIG-01 at the offices that issue licences: a licence with no electronic record is captured from its paper file with the
 number and the card serial printed on it, verified against the scan by a second person (never the one who captured it), and joins the
 register marked as migrated, active with no national reference until task 1.14 reconciles it. A printed number inside the region's
-reserved range, or one another licence of the region carries, is never renumbered: the second person flags it to the bureau. No fee.
-It is not counted in the totals.
+reserved range, or one another licence of the region carries, is never renumbered: the second person flags it to the bureau, with
+the reason. An expired paper licence is taken by default, as Proclamation 1074/2018 Art. 19 keeps it renewable (a practical exam
+once more than a year late); the region setting `competency.licence_capture_expired` may refuse those over a year late, or every
+expired one. No fee. It is not counted in the totals.
 
 **Stakeholders [D]**
 | Stakeholder | Their role | ITRMS consequence |

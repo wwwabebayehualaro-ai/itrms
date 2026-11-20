@@ -131,6 +131,14 @@ export default defineModule({
             default: false,
             overridableAt: ['installation', 'region'],
             sensitive: true
+        },
+        // which expired paper licences a back-capture takes (task 1.6b): every one by default, as Proclamation 1074/2018 Art. 19 keeps
+        // them renewable; a region may refuse those over a year late, or every expired one. A change moves a control: a fresh second factor
+        {
+            key: 'competency.licence_capture_expired',
+            default: 'accept',
+            overridableAt: ['installation', 'region'],
+            sensitive: true
         }
     ],
     effects: [

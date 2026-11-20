@@ -14,13 +14,13 @@ import {
     licenceCaptureFlow,
     setUpLicenceCounters
 } from '@itrms/competency/seed';
-import type { Licence } from '@itrms/competency/contracts';
+import { addisDay, addMonths, addYears, type Licence } from '@itrms/competency/contracts';
 import type { OrgUnit } from '@itrms/kernel/org';
 import type { CaseOut } from '@itrms/workflow/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { startApi, type As, type TestApi } from './support/api';
-import { setLicenceNumbering } from './support/licences';
+import { setLicenceNumbering, setRegionSetting } from './support/licences';
 import { startPostgres, type TestPostgres } from './support/postgres';
 
 const SUB = {
@@ -33,6 +33,10 @@ const SUB = {
 const SERVICE = 'MIG-02';
 /** The region reserves 06-50000 onwards for the numbers ITRMS gives (a placeholder range, Z). */
 const FIRST_NUMBER = 50_000;
+/** A current paper licence: issued two years ago, valid for two more (an expired one is captured with notices, below). */
+const TODAY = addisDay();
+const ISSUED_ON = addYears(TODAY, -2);
+const VALID_UNTIL = addYears(TODAY, 2);
 
 let pg: TestPostgres;
 let api: TestApi;
@@ -77,7 +81,7 @@ async function scan(): Promise<string> {
     return id;
 }
 
-/** A paper licence as the clerk types it: a permanent automobile licence issued in 2021, valid to 2025. */
+/** A paper licence as the clerk types it: a permanent automobile licence issued two years ago, valid for two more. */
 const capture = async (over: Record<string, unknown> = {}): Promise<Record<string, unknown>> => ({
     paperReference: paperReference(),
     paperFileScan: [{ file_id: await scan() }],
@@ -85,8 +89,8 @@ const capture = async (over: Record<string, unknown> = {}): Promise<Record<strin
     number: paperNumber(),
     cardSerial: cardSerial(),
     kind: 'permanent',
-    issuedOn: '2021-07-15',
-    validUntil: '2025-07-14',
+    issuedOn: ISSUED_ON,
+    validUntil: VALID_UNTIL,
     issuedBy: 'Wolaita Zone',
     grades: [{ grade: 'automobile', permanentSince: '2019-03-01' }],
     ...over
@@ -124,11 +128,16 @@ const byNumber = async (number: string, who: As = as.clerk): Promise<Licence[]> 
 const flagsSeenBy = async (who: As) => {
     const res = await api.call('GET', '/api/v1/competency/licence-number-flags', who);
     expect(res.statusCode, res.body).toBe(200);
-    return res.json<{ items: { number: string; reason: string; caseId: string; paperReference: string }[] }>().items;
+    return res.json<{
+        items: { number: string; reason: string; caseId: string; paperReference: string; note: string | null }[];
+    }>().items;
 };
 
 const refusedAt = async (answers: Record<string, unknown>) => {
     const started = await file(answers);
+    // what the form itself cannot take (a choice it does not offer) is refused as it is filed, before the capture's own check
+    if (started.statusCode === 422)
+        return { status: started.statusCode, body: started.json<{ errors?: { path: string; code: string }[] }>() };
     expect(started.statusCode, started.body).toBe(201);
     const res = await step(started.json<CaseOut>(), as.clerk, { action: 'submit' });
     return { status: res.statusCode, body: res.json<{ errors?: { path: string; code: string }[] }>() };
@@ -246,8 +255,8 @@ describe('a paper licence’s capture', () => {
             cardSerial: String(answers.cardSerial).toUpperCase(),
             status: 'active',
             kind: 'permanent',
-            issuedOn: '2021-07-15',
-            validUntil: '2025-07-14',
+            issuedOn: ISSUED_ON,
+            validUntil: VALID_UNTIL,
             nationalReference: null,
             personId: answers.person,
             grades: [expect.objectContaining({ key: 'automobile', permanentSince: '2019-03-01' })],
@@ -333,7 +342,13 @@ describe('a paper licence’s capture', () => {
         // the bureau reads it from above; another office of the zone does not
         for (const who of [as.zoneLead, as.verifier])
             expect(await flagsSeenBy(who)).toContainEqual(
-                expect.objectContaining({ number, reason: 'in_regional_range', caseId: c.id })
+                // with the second person's reason beside the number
+                expect.objectContaining({
+                    number,
+                    reason: 'in_regional_range',
+                    caseId: c.id,
+                    note: 'Inside the reserved range.'
+                })
             );
         expect((await flagsSeenBy(as.damot)).map((f) => f.number)).not.toContain(number);
     }, 120_000);
@@ -380,5 +395,42 @@ describe('a paper licence’s capture', () => {
             [first.person]
         );
         expect(held.rows[0]?.n).toBe('1');
+    }, 120_000);
+
+    it('takes an expired paper licence as the region’s setting says: every one by default (Art. 19), with notices; or not', async () => {
+        const root = await api.unit('SER', 'SER');
+        // past expiry by two months: renewable without the exam
+        const lately = { issuedOn: addYears(TODAY, -4), validUntil: addMonths(TODAY, -2) };
+        // past expiry by more than a year: renewable with a practical exam (Art. 19(5))
+        const long = { issuedOn: addYears(TODAY, -7), validUntil: addYears(TODAY, -3) };
+        try {
+            // the default: captured, and the case says it joins as expired and its renewal will need the exam
+            const accepted = await submitted(await capture(long));
+            expect(accepted.notices).toEqual([
+                'competency.licenceCapture.expired',
+                'competency.licenceCapture.renewalNeedsExam'
+            ]);
+            await moved(accepted, as.verifier, 'verify');
+
+            // refuse_late: one over a year late is refused at filing, one less late is taken
+            await setRegionSetting(api, root, 'competency.licence_capture_expired', 'refuse_late');
+            const late = await refusedAt(await capture(long));
+            expect(late.status).toBe(422);
+            expect(late.body.errors).toContainEqual(expect.objectContaining({ path: 'validUntil', code: 'expired' }));
+            const recent = await submitted(await capture(lately));
+            expect(recent.notices).toEqual(['competency.licenceCapture.expired']);
+
+            // refuse: no expired licence, and a capture filed before the change is refused at its verification too
+            await setRegionSetting(api, root, 'competency.licence_capture_expired', 'refuse');
+            const any = await refusedAt(await capture(lately));
+            expect(any.status).toBe(422);
+            const verify = await step(recent, as.verifier, { action: 'verify' });
+            expect(verify.statusCode, verify.body).toBe(422);
+        } finally {
+            await api.owner.query(
+                `delete from kernel.settings_values where unit_id = $1 and key = 'competency.licence_capture_expired'`,
+                [root.id]
+            );
+        }
     }, 120_000);
 });
