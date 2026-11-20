@@ -2225,10 +2225,11 @@
         {
           "id": "1.6b",
           "title": "Driver licence family, part 3: paper licence back-capture (MIG-02)",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.6b-paper-licence-back-capture",
           "commits": [
-            "01a6973"
+            "01a6973",
+            "f761263"
           ],
           "evidence": [
             "PR #96 CI run 44774166950 (https://github.com/wwwabebayehualaro-ai/itrms/actions/runs/44774166950): all 12 jobs green; integration 1119 passed; e2e shards 38 + 20 + 5 passed",
