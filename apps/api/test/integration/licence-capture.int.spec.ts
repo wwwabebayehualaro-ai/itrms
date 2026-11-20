@@ -355,4 +355,23 @@ describe('a paper licence’s capture', () => {
         expect((await step(c, as.verifier, { action: 'verify' })).statusCode).toBeGreaterThanOrEqual(400);
         expect(await byNumber(String(answers.number))).toHaveLength(1);
     }, 120_000);
+
+    it('gives one person one licence when two captures of them, with different numbers, are verified at the same moment', async () => {
+        const first = await capture();
+        const second = await capture({ person: first.person });
+        // both filed before either joins the register, so both pass the filing's check
+        const [a, b] = [await submitted(first), await submitted(second)];
+        const results = await Promise.all([
+            step(a, as.verifier, { action: 'verify' }),
+            step(b, as.verifier, { action: 'verify' })
+        ]);
+        const codes = results.map((r) => r.statusCode).sort();
+        expect(codes[0], results.map((r) => r.body).join('\n')).toBe(200);
+        expect([409, 422]).toContain(codes[1]);
+        const held = await api.owner.query<{ n: string }>(
+            `select count(*) as n from competency.driver_licences where person_id = $1 and status <> 'voided'`,
+            [first.person]
+        );
+        expect(held.rows[0]?.n).toBe('1');
+    }, 120_000);
 });

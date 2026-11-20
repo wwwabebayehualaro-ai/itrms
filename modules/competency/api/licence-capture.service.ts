@@ -98,6 +98,17 @@ export class LicenceCaptureService {
         );
         if (await this.conflictOf(tx, place, captured.number))
             throw new ConflictError('invalid_transition', { detailKey: 'competency.errors.licence_number_conflict' });
+        // one licence per person (ADR-0064 §1), checked again under the holder's locks: two captures of one person queue on the
+        // first, and a first licence's issuance of the same grade on the second (LicencesService.createPending), in grade order
+        await tx.execute(
+            sql`select pg_advisory_xact_lock(hashtextextended(${`competency.licence-holder:${place.regionId}:${captured.personId}`}, 0))`
+        );
+        for (const gradeTypeId of captured.grades.map((g) => g.gradeTypeId).sort())
+            await tx.execute(
+                sql`select pg_advisory_xact_lock(hashtextextended(${`competency.licence:${captured.personId}:${gradeTypeId}`}, 0))`
+            );
+        if (await this.holds(tx, place.regionId, captured.personId))
+            throw new ConflictError('invalid_transition', { detailKey: 'competency.errors.licence_already_held' });
         const licence = await insertAudited(tx, driverLicences, {
             regionId: place.regionId,
             handlingUnitId: place.handlingUnitId,
@@ -206,9 +217,25 @@ export class LicenceCaptureService {
 
     // ---- helpers ----
 
+    /** Whether the person holds a licence in the region that is not voided. */
+    private async holds(tx: Tx, regionId: string, personId: string): Promise<boolean> {
+        const [held] = await tx
+            .select({ id: driverLicences.id })
+            .from(driverLicences)
+            .where(
+                and(
+                    eq(driverLicences.regionId, regionId),
+                    eq(driverLicences.personId, personId),
+                    ne(driverLicences.status, 'voided')
+                )
+            )
+            .limit(1);
+        return held !== undefined;
+    }
+
     /**
      * Why a printed number cannot join the register, or null: inside the range ITRMS numbers from (ADR-0051 §4), or on another licence
-     * of the region (the register is class R: the region reads every licence).
+     * of the region, a voided one too, as the unique number index counts it (the register is class R: the region reads every licence).
      */
     private async conflictOf(tx: Tx, place: CasePlace, number: string): Promise<LicenceNumberConflict | null> {
         if (inLicenceRange(number, await licenceNumbering(this.settings, tx, place.handlingUnitId)))
@@ -216,13 +243,7 @@ export class LicenceCaptureService {
         const [taken] = await tx
             .select({ id: driverLicences.id })
             .from(driverLicences)
-            .where(
-                and(
-                    eq(driverLicences.regionId, place.regionId),
-                    eq(driverLicences.number, number),
-                    ne(driverLicences.status, 'voided')
-                )
-            )
+            .where(and(eq(driverLicences.regionId, place.regionId), eq(driverLicences.number, number)))
             .limit(1);
         return taken ? 'number_taken' : null;
     }
@@ -248,18 +269,7 @@ export class LicenceCaptureService {
         const [holder] = await tx.select({ id: persons.id }).from(persons).where(eq(persons.id, input.person));
         if (!holder) errors.push({ path: 'person', code: 'not_found', message: say('competency.rule.personNotFound') });
         // one licence per person (ADR-0064 §1): a holder with a licence in the region renews or upgrades that one
-        const [held] = await tx
-            .select({ id: driverLicences.id })
-            .from(driverLicences)
-            .where(
-                and(
-                    eq(driverLicences.regionId, place.regionId),
-                    eq(driverLicences.personId, input.person),
-                    ne(driverLicences.status, 'voided')
-                )
-            )
-            .limit(1);
-        if (held)
+        if (await this.holds(tx, place.regionId, input.person))
             errors.push({ path: 'person', code: 'already_held', message: say('competency.rule.licenceAlreadyHeld') });
         if (cardSerial) {
             const [serialTaken] = await tx

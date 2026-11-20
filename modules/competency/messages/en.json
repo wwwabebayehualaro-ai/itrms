@@ -629,6 +629,7 @@
   "competency.rule.licenceAlreadyHeld": "This person already holds a licence in the region: renew or upgrade that one.",
   "competency.rule.cardSerialTaken": "Another licence carries this card serial.",
   "competency.rule.capturedGrades": "Choose the grades the licence carries: each once, from those the region offers.",
+  "competency.errors.licence_already_held": "This person already holds a licence in the region: renew or upgrade that one.",
   "competency.errors.licence_number_conflict": "This number cannot join the register as printed: flag it to the bureau, never renumber it.",
   "competency.errors.licence_number_no_conflict": "This number can be kept as printed: verify the capture, do not flag it.",
   "competency.licenceCapture.numberConflict": "The printed number is inside the range the region reserved for ITRMS, or another licence carries it: it cannot join the register. Flag it to the bureau.",

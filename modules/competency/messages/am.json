@@ -629,6 +629,7 @@
   "competency.rule.licenceAlreadyHeld": "ይህ ሰው በክልሉ መንጃ ፈቃድ አለው፤ ያንን ፈቃድ ያድሱ ወይም ደረጃ ያሳድጉ።",
   "competency.rule.cardSerialTaken": "ይህ የካርድ ሴሪ ቁጥር በሌላ ፈቃድ ላይ አለ።",
   "competency.rule.capturedGrades": "ፈቃዱ የያዛቸውን ደረጃዎች ይምረጡ፤ እያንዳንዱን አንድ ጊዜ፣ ክልሉ ከሚሰጣቸው ውስጥ።",
+  "competency.errors.licence_already_held": "ይህ ሰው በክልሉ መንጃ ፈቃድ አለው፤ ያለውን ፈቃድ ያድሱ ወይም ደረጃውን ያሳድጉ።",
   "competency.errors.licence_number_conflict": "ይህ ቁጥር እንደታተመ በመዝገቡ ሊገባ አይችልም፤ ለቢሮው ይጠቁሙት እንጂ በአዲስ ቁጥር አይተኩት።",
   "competency.errors.licence_number_no_conflict": "ይህ ቁጥር እንደታተመ መመዝገብ ይችላል፤ ያረጋግጡት እንጂ አይጠቁሙት።",
   "competency.licenceCapture.numberConflict": "የታተመው ቁጥር በክልሉ የተጠበቀው ክልል ውስጥ ነው ወይም በሌላ ፈቃድ ላይ አለ፤ በመዝገቡ ሊገባ አይችልም። ለቢሮው ይጠቁሙት።",
