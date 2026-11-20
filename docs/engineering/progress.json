@@ -2202,11 +2202,12 @@
         {
           "id": "1.6a",
           "title": "Driver licence family, part 2: renewal with the medical referral and report",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.6a-renewal-medical-referral",
           "commits": [
             "c92c893",
-            "d6e8d47"
+            "d6e8d47",
+            "2b7bd7b"
           ],
           "evidence": [
             "PR #95 CI run 44725194929 (https://github.com/wwwabebayehualaro-ai/itrms/actions/runs/44725194929): all 12 jobs green",
@@ -2224,7 +2225,7 @@
         {
           "id": "1.6b",
           "title": "Driver licence family, part 3: paper licence back-capture (MIG-02)",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
