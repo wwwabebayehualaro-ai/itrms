@@ -5,7 +5,8 @@
  *      say who the person is and nothing more: roles in the token are never read.
  *   3. `kernel.resolve_principal(unit)` (for the subject in the signed context) returns their roles in that unit from `role_assignments`, on every request,
  *      so a revoked assignment stops working at the next request.
- *   4. The permissions are those the installed modules' manifests give those roles.
+ *   4. The permissions are those the installed modules' manifests give those roles, and those a module's role grant adds
+ *      where its setting is on for the active unit (ADR-0065).
  */
 import { createHash } from 'node:crypto';
 
@@ -18,7 +19,8 @@ import type { Database } from '../db/database';
 import { ForbiddenError, InvalidRequestError, RateLimitedError } from '../errors';
 import type { RateLimiter } from '../limits/rate-limit';
 import type { Authenticator } from './access';
-import { permissionsOf, type RolePermissions } from './roles';
+import type { SettingsService } from '../settings/settings';
+import { grantedPermissions, permissionsOf, type RoleGrant, type RolePermissions } from './roles';
 
 export interface OidcOptions {
     /** The realm's issuer (`https://app.example/auth/realms/itrms`): tokens from any other are refused. */
@@ -56,7 +58,9 @@ export class OidcAuthenticator implements Authenticator {
         /** counts refusals of realm accounts with no role here (follow-up 69); none: every refusal is recorded */
         private readonly limiter?: RateLimiter,
         /** told when the limiter fails (the refusal is then recorded as always) */
-        private readonly onLimiterError: (error: unknown) => void = () => undefined
+        private readonly onLimiterError: (error: unknown) => void = () => undefined,
+        /** the installed role grants and the settings they are switched by (ADR-0065); none: the roles' own permissions */
+        private readonly grants?: { grants: readonly RoleGrant[]; settings: Pick<SettingsService, 'value'> }
     ) {
         this.keys =
             options.keys ??
@@ -111,15 +115,37 @@ export class OidcAuthenticator implements Authenticator {
         );
         // signed in, but no role in that unit (or none at all): the refusal records the account and the unit asked for
         if (!row) throw await this.refusal(sub, request.ip, unitHeader);
+        const permissions = new Set(permissionsOf(this.roles, row.roles));
+        for (const permission of await this.granted(request, row)) permissions.add(permission);
         return {
             userId: row.user_id,
             unitId: row.unit_id,
             regionId: row.region_id,
             scopePath: row.scope_path,
             roles: row.roles,
-            permissions: permissionsOf(this.roles, row.roles),
+            permissions,
             authAge
         };
+    }
+
+    /**
+     * What role grants add in the active unit (ADR-0065), read as the person in that unit: the setting's value for the unit,
+     * its type and its region. Only a person holding a role with a grant costs a read.
+     */
+    private async granted(request: FastifyRequest, row: PrincipalRow): Promise<ReadonlySet<string>> {
+        const source = this.grants;
+        if (!source || !source.grants.some((g) => row.roles.includes(g.role))) return new Set();
+        return this.database.scoped(
+            {
+                requestId: request.id,
+                ip: request.ip,
+                userId: row.user_id,
+                regionId: row.region_id,
+                unitId: row.unit_id,
+                scopePath: row.scope_path
+            },
+            (tx) => grantedPermissions(source.grants, row.roles, (key) => source.settings.value(tx, row.unit_id, key))
+        );
     }
 
     /**

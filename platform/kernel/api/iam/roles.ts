@@ -17,6 +17,33 @@ export function rolePermissions(manifests: readonly ModuleManifest[]): RolePermi
     return roles;
 }
 
+/** A permission a module adds to another module's role, on where its setting is (ADR-0065). */
+export interface RoleGrant {
+    role: string;
+    permissions: readonly string[];
+    setting: string;
+}
+
+/** The installed modules' role grants. */
+export const roleGrantsOf = (manifests: readonly ModuleManifest[]): RoleGrant[] =>
+    manifests.flatMap((m) => m.roleGrants);
+
+/**
+ * What the grants add for a person holding `held` in a unit: each grant of a held role whose setting is true there. Nothing is
+ * read when no held role has a grant. A value that is not `true` (a missing or broken one too) grants nothing.
+ */
+export async function grantedPermissions(
+    grants: readonly RoleGrant[],
+    held: readonly string[],
+    enabled: (setting: string) => Promise<unknown>
+): Promise<ReadonlySet<string>> {
+    const granted = new Set<string>();
+    for (const grant of grants)
+        if (held.includes(grant.role) && (await enabled(grant.setting)) === true)
+            for (const permission of grant.permissions) granted.add(permission);
+    return granted;
+}
+
 /** The permissions a set of roles grants together. */
 export function permissionsOf(roles: RolePermissions, held: readonly string[]): ReadonlySet<string> {
     const permissions = new Set<string>();

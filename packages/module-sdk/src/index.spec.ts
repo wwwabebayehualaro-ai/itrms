@@ -39,6 +39,40 @@ describe('defineModule', () => {
         expect(problems([{ ...setting, label: 'x' }])[0]).toMatch(/label/);
     });
 
+    it('adds its own permissions to another module’s role behind a sensitive setting no office sets for itself (ADR-0065)', () => {
+        const setting = {
+            key: 'competency.intake_reads_licences',
+            default: true,
+            overridableAt: ['region' as const, 'unitType' as const],
+            sensitive: true
+        };
+        const grant = { role: 'records_officer', permissions: ['licence:read'], setting: setting.key };
+        const m = defineModule({ ...valid, settings: [setting], roleGrants: [grant] });
+        expect(m.roleGrants).toEqual([grant]);
+        const problems = (over: object, settings: unknown[] = [setting]) =>
+            manifestProblems({ ...valid, settings, roleGrants: [{ ...grant, ...over }] });
+        expect(problems({ role: 'competency.officer' })).toEqual([
+            'role grant to "competency.officer": the role is the module\'s own; list the permissions under roles'
+        ]);
+        expect(problems({ permissions: ['person:read'] })).toEqual([
+            'role grant to "records_officer": "person:read" is not a permission the module defines'
+        ]);
+        // reads only, even of the module's own
+        expect(problems({ permissions: ['licence:issue'] })).toEqual([
+            'role grant to "records_officer": "licence:issue" is not a read'
+        ]);
+        expect(problems({ setting: 'competency.other' })).toEqual([
+            'role grant to "records_officer": its setting "competency.other" is not one the module declares'
+        ]);
+        expect(problems({}, [{ ...setting, sensitive: false }])).toEqual([
+            'role grant to "records_officer": its setting "competency.intake_reads_licences" must be sensitive'
+        ]);
+        expect(problems({}, [{ ...setting, overridableAt: ['region', 'unit'] }])).toEqual([
+            'role grant to "records_officer": its setting "competency.intake_reads_licences" must not be set by one office for itself'
+        ]);
+        expect(problems({ permissions: [] })[0]).toMatch(/^roleGrants\.0\.permissions/);
+    });
+
     it('rejects a key that is not kebab-case', () => {
         expect(() => defineModule({ ...valid, key: 'Competency_1' })).toThrow(/kebab-case/);
     });

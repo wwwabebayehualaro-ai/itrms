@@ -67,6 +67,8 @@ export default defineModule({
   entitlement: 'itrms.licensing',            // the licensable product it belongs to (§6)
   permissions: { licence: ['read', 'review', 'examine', 'approve', 'print'], inspection: ['read', 'perform', 'approve'] },
   roles: { 'competency.officer': [...], 'competency.lead': [...], 'competency.examiner': [...] },
+  // its own permission on another module's role, on where its boolean setting is (ADR-0065; sensitive, never one office's own)
+  roleGrants: [{ role: 'records_officer', permissions: ['licence:read'], setting: 'competency.intake_reads_licences' }],
   services: ['DVC-01', …, 'DVC-11'],         // service definitions seeded from ./seed
   effects: ['competency.issueLicence', 'competency.renewLicence', 'competency.addToPrintBatch', …],
   events: { emits: ['licence.issued', 'licence.renewed'], consumes: ['payment.settled', 'vehicle.transferred'] },
@@ -86,7 +88,9 @@ At startup the API checks every manifest:
 * dependencies are present and enabled;
 * permission and role keys are unique;
 * the effects named by seeded service versions exist;
-* events have schemas.
+* events have schemas;
+* a role grant names a role some module defines, the module's own permissions, and a boolean, sensitive setting of its own
+  that no single office may set (ADR-0065).
 
 A failing check stops the start, with a clear message.
 

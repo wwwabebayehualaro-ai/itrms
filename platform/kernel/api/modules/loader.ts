@@ -116,6 +116,21 @@ export function loadSlices<Module>(
             for (const permission of grants)
                 if (!permissions.has(permission))
                     problems.push(`${m.key}: role "${role}" grants "${permission}", which no installed module defines`);
+    // role grants (ADR-0065): to a role an installed module names, behind a setting whose value is true or false
+    const namedRoles = new Set(all.flatMap((m) => Object.keys(m.roles)));
+    for (const { manifest: m, settings: schemas = {} } of installed.values())
+        for (const grant of m.roleGrants) {
+            if (!namedRoles.has(grant.role))
+                problems.push(`${m.key}: grants to role "${grant.role}", which no installed module defines`);
+            const schema = schemas[grant.setting];
+            const boolean =
+                schema !== undefined &&
+                schema.safeParse(true).success &&
+                schema.safeParse(false).success &&
+                !schema.safeParse('true').success;
+            if (!boolean)
+                problems.push(`${m.key}: the setting "${grant.setting}" of a role grant must be true or false`);
+        }
 
     // effects and events: one emitter per event, with its schema (code-structure.md §5.6)
     const emitter = new Map<string, string>();

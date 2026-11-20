@@ -69,5 +69,6 @@ one, write a new ADR that supersedes it. Format: context, decision, consequences
 | [0062](0062-replacements.md) | Replacing a lost, stolen or damaged libre, bolo sticker or plate: one service (DVC-06), the police letter, the newspaper notice period for a libre, the old item read lost and its document superseded | accepted (2026-11-18) |
 | [0063](0063-cashier-sessions-and-remittance.md) | Cashier sessions per cashier, office and day; a closing count whose difference needs a note and another person's approval; the remittance by the finance bureau's account codes; pad receipts from stationery stock | accepted (2026-11-19) |
 | [0064](0064-driver-licence-family.md) | The driver licence family: one licence per person, regional numbers taken in the worker, the card serial beside the number, the blood group encrypted and revealed only by the lead, new service codes DVC-18–22 and MIG-02, suspensions recorded from the authority, the temporary permit | accepted (2026-11-19) |
+| [0065](0065-configurable-role-grants.md) | Configurable role grants: a module adds its own permissions to another module's role behind a boolean setting of its own (sensitive, never an office's own); the first lets the intake desk read the licence register | accepted (2026-11-20) |
 
 All tool choices and the answers to the technical open questions: [`../tech-stack.md`](../tech-stack.md).

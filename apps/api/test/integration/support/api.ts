@@ -17,7 +17,7 @@ import { loadConfig } from '@itrms/kernel/config';
 import { createDatabase, type Database } from '@itrms/kernel/db';
 import { TEST_CONTEXT_KEY } from '@itrms/kernel/testing';
 import type { ObjectStore } from '@itrms/kernel/files';
-import { rolePermissions } from '@itrms/kernel/iam';
+import { roleGrantsOf, rolePermissions } from '@itrms/kernel/iam';
 import { findUnitByCode, importOrg, orgUnits, parseOrgYaml, type OrgUnit } from '@itrms/kernel/org';
 import { importUsers, userImportSchema } from '@itrms/kernel/seed';
 import { importCatalogue } from '@itrms/services/api';
@@ -178,6 +178,7 @@ export async function startApi(
                         objectStore: options.objectStore,
                         identity: { issuer: ISSUER, audience: AUDIENCE, keys: createLocalJWKSet({ keys: [jwk] }) },
                         roles: rolePermissions(installed.manifests),
+                        grants: roleGrantsOf(installed.manifests),
                         shell: {
                             manifests: installed.manifests,
                             messages: installed.messages,

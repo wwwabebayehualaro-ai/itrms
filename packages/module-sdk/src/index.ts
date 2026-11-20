@@ -123,6 +123,26 @@ export const manifestSchema = z
                 z.array(z.string().regex(PERMISSION, 'must be resource:action'))
             )
             .default({}),
+        /**
+         * Permissions of the module's own it adds to another module's role, each behind a boolean setting of its own that turns
+         * it on for a unit (ADR-0065): `{ role: 'records_officer', permissions: ['licence:read'], setting: 'competency.…' }`.
+         */
+        roleGrants: z
+            .array(
+                z
+                    .object({
+                        role: z
+                            .string()
+                            .refine(
+                                (k) => QUALIFIED.test(k) || PLAIN_ROLE.test(k),
+                                'must be <module>.<role> or a plain name'
+                            ),
+                        permissions: z.array(z.string().regex(PERMISSION, 'must be resource:action')).min(1),
+                        setting: qualified
+                    })
+                    .strict()
+            )
+            .default([]),
         services: z.array(service).default([]),
         effects: z.array(qualified).default([]),
         events: z
@@ -242,6 +262,31 @@ export function manifestProblems(input: unknown): string[] {
     for (const setting of m.settings)
         if (new Set(setting.overridableAt).size !== setting.overridableAt.length)
             problems.push(`setting "${setting.key}" lists a level twice`);
+    // a role grant (ADR-0065): another module's role, the module's own permissions, behind its own sensitive setting that an
+    // office cannot set for itself (the loader checks the role exists and the setting is a boolean)
+    const defined = new Set(permissionsOf(m));
+    for (const grant of m.roleGrants) {
+        const what = `role grant to "${grant.role}"`;
+        if (
+            grant.role.startsWith(`${m.key}.`) ||
+            grant.role in m.roles ||
+            (m.layer === 'kernel' && !grant.role.includes('.'))
+        )
+            problems.push(`${what}: the role is the module's own; list the permissions under roles`);
+        for (const permission of grant.permissions) {
+            if (!defined.has(permission))
+                problems.push(`${what}: "${permission}" is not a permission the module defines`);
+            // reads only: a grant never lets a role act, and the worker's and the workflow's role checks need no grant
+            if (!permission.endsWith(':read')) problems.push(`${what}: "${permission}" is not a read`);
+        }
+        const setting = m.settings.find((s) => s.key === grant.setting);
+        if (!setting) problems.push(`${what}: its setting "${grant.setting}" is not one the module declares`);
+        else {
+            if (!setting.sensitive) problems.push(`${what}: its setting "${grant.setting}" must be sensitive`);
+            if (setting.overridableAt.includes('unit'))
+                problems.push(`${what}: its setting "${grant.setting}" must not be set by one office for itself`);
+        }
+    }
     return problems;
 }
 

@@ -16,7 +16,14 @@ export {
     type Principal
 } from './access';
 export { OidcAuthenticator, type OidcOptions } from './oidc-authenticator';
-export { permissionsOf, rolePermissions, type RolePermissions } from './roles';
+export {
+    grantedPermissions,
+    permissionsOf,
+    roleGrantsOf,
+    rolePermissions,
+    type RoleGrant,
+    type RolePermissions
+} from './roles';
 // granting and revoking are the IamController's alone (they hold the delegation rules); seeds use @itrms/kernel/seed
 export {
     assignmentsOf,

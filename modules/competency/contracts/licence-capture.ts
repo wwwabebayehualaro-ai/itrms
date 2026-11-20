@@ -41,6 +41,9 @@ export type LicenceCaptureExpiredPolicy = (typeof LICENCE_CAPTURE_EXPIRED_POLICI
 export const licenceCaptureExpiredSchema = z.enum(LICENCE_CAPTURE_EXPIRED_POLICIES);
 export const LICENCE_CAPTURE_EXPIRED_DEFAULT: LicenceCaptureExpiredPolicy = 'accept';
 
+/** Whether the intake desk (`records_officer`) reads the licence register (ADR-0065: a role grant; on by default). */
+export const INTAKE_READS_LICENCES_SETTING = 'competency.intake_reads_licences';
+
 /** How far past its expiry a licence is on a day, as a renewal counts it (renewalTerms: Art. 19(5)). */
 export const lapseOf = (validUntil: string, today: string) => ({
     expired: validUntil < today,

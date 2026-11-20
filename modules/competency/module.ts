@@ -139,7 +139,20 @@ export default defineModule({
             default: 'accept',
             overridableAt: ['installation', 'region'],
             sensitive: true
+        },
+        // whether the intake desk reads the licence register (task 1.6b2, ADR-0065): on, so the desk looks a licence up before it
+        // files a renewal, a replacement or a paper back-capture; a region or a unit type may keep the register to licensing.
+        // Never one office's own (an office does not widen its own access); a change needs a fresh second factor
+        {
+            key: 'competency.intake_reads_licences',
+            default: true,
+            overridableAt: ['installation', 'region', 'unitType'],
+            sensitive: true
         }
+    ],
+    // the intake desk reads the licence register where the setting above is on (ADR-0065)
+    roleGrants: [
+        { role: 'records_officer', permissions: ['licence:read'], setting: 'competency.intake_reads_licences' }
     ],
     effects: [
         'competency.checkApplication',

@@ -648,6 +648,7 @@
   "competency.licenceCaptures.office": "ጽ/ቤት",
   "competency.licenceCaptures.case": "ጉዳይ",
   "competency.licenceCaptures.paperReference": "የወረቀት ፋይል",
+  "competency.setting.intake_reads_licences": "የሪከርድ ባለሙያው (መቀበያው) የመንጃ ፈቃድ መዝገቡን ያያል",
   "competency.setting.licence_capture_expired": "ከቀኑ ያለፈ የወረቀት መንጃ ፈቃድ ሲመዘገብ",
   "competency.settingOption.licence_capture_expired.accept": "ሁሉንም መዝግብ (አዋጅ 1074/2018 አንቀጽ 19 ያለፈ ፈቃድ ይታደሳል)",
   "competency.settingOption.licence_capture_expired.refuse_late": "ከአንድ ዓመት በላይ ያለፈውን አትመዝግብ (ተግባራዊ ፈተና የሚጠይቀውን)",

@@ -1027,7 +1027,9 @@ describe('who sees what', () => {
     }, 120_000);
 
     it('asks permission for the register, and a sibling office sees no training list', async () => {
-        expect((await api.call('GET', '/api/v1/competency/licences', as.damotRecords)).statusCode).toBe(403);
+        // a role without licence:read is refused; the intake desk reads it through the module's role grant (ADR-0065, on by default)
+        expect((await api.call('GET', '/api/v1/competency/licences', as.examiner)).statusCode).toBe(403);
+        expect((await api.call('GET', '/api/v1/competency/licences', as.damotRecords)).statusCode).toBe(200);
         expect((await api.call('GET', '/api/v1/competency/print-batches', as.officer)).statusCode).toBe(403);
 
         const person = await registered(yearsAgo(30));
