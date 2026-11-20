@@ -129,6 +129,26 @@ export const DOCUMENT_DATA_SCHEMAS = {
         validUntil: dayText,
         photo: inlineImage.nullable()
     }),
+    /**
+     * A renewal's referral letter (task 1.6a): the office asks a health facility to examine the holder of a licence for the health
+     * bureau's drivers' physical examination report. The second and the third follow a refused report (Art. 13 of Proclamation
+     * 1074/2018); the letter says only which referral it is, never why (no health fact is on it).
+     */
+    'licence-medical-referral.v1': z.object({
+        number: z.string().min(1),
+        issuedOn: dayText,
+        caseNumber: z.number().int(),
+        institution: z.string().min(1),
+        attempt: z.number().int().min(1).max(3),
+        of: z.number().int().min(1).max(3),
+        holderName: z.string().min(1),
+        licence: z.object({
+            number: z.string().min(1),
+            cardSerial: z.string().min(1).nullable(),
+            validUntil: dayText.nullable(),
+            grades: z.array(z.object({ name: i18nTextSchema })).min(1)
+        })
+    }),
     /** The libre as ITRMS issued it under ADR-0049 (superseded by ADR-0050): kept so the documents issued then still verify. */
     'vehicle-libre.v1': z.object({
         number: z.string().min(1),

@@ -14,9 +14,14 @@ import type { Licence } from '@itrms/competency/contracts';
 import {
     importLicenceGrades,
     importLicenceServices,
+    MEDICAL_REFERRAL_FORM,
+    MEDICAL_REPORT_FORM,
     NEW_LICENCE_FORM,
     newLicenceFlow,
-    setUpLicenceCounters
+    renewalFlowV2,
+    RENEWAL_FORM_V2,
+    setUpLicenceCounters,
+    setUpMedicalReferralCounters
 } from '@itrms/competency/seed';
 import { importDocumentTemplates } from '@itrms/documents/seed';
 import { importFeeRules, parseFeeRules } from '@itrms/fees/seed';
@@ -194,14 +199,58 @@ async function licensed(birthDate: string): Promise<{ person: string; licence: L
     return { person, licence };
 }
 
+/** A renewal request on version 2 (task 1.6a): the medical examination is a step of its own. */
 const renewalOf = (licence: Licence, expiry: string, over: Record<string, unknown> = {}) => ({
     licence: licence.id,
     grade: 'automobile',
     expiry,
-    medicalFacility: 'Sample Health Centre',
-    medicalExaminedOn: today(),
     ...over
 });
+
+/** A renewal request on version 1: the certificate typed with the request. */
+const renewalV1Of = (licence: Licence, expiry: string) => ({
+    ...renewalOf(licence, expiry),
+    medicalFacility: 'Sample Health Centre',
+    medicalExaminedOn: today()
+});
+
+/** The health bureau's report as it came back. */
+const REPORT = (over: Record<string, unknown> = {}) => ({
+    facility: 'Sample Health Centre',
+    examinedOn: today(),
+    reportNumber: 'HB-0042',
+    recommendation: 'grant',
+    ...over
+});
+
+/** Filed, submitted and reviewed: the holder brought a report, recorded as granting. */
+async function cleared(c: CaseOut, report: Record<string, unknown> = REPORT()): Promise<CaseOut> {
+    c = await moved(c, as.officer, 'submit');
+    c = await moved(c, as.officer, 'approve');
+    expect(c.state).toBe('medical');
+    return moved(c, as.officer, 'fit', { answers: report });
+}
+
+const reportsOf = (caseId: string) =>
+    api.owner.query<{
+        sequence: number;
+        facility: string;
+        recommendation: string | null;
+        report_number: string | null;
+        conditions_ct: Buffer | null;
+    }>(
+        `select sequence, facility, recommendation, report_number, conditions_ct from competency.medical_certificates
+          where case_id = $1 order by sequence`,
+        [caseId]
+    );
+
+const referralsOf = (caseId: string) =>
+    api.owner.query<{ number: string; superseded_by: string | null; data: { institution: string; attempt: number } }>(
+        `select d.number, d.superseded_by, d.data from documents.issued_documents d
+           join documents.document_templates t on t.id = d.template_id
+          where d.case_id = $1 and t.key = 'licence-medical-referral' order by d.created_at`,
+        [caseId]
+    );
 
 const expire = async (id: string, day: string, kind?: 'permanent') => {
     await api.owner.query('update competency.driver_licences set valid_until = $2 where id = $1', [id, day]);
@@ -277,7 +326,9 @@ beforeAll(async () => {
         await importLicenceGrades(tx, root);
         await importDocumentTemplates(tx, root);
         await setUpLicenceCounters(tx, root.regionId);
-        expect(await importLicenceServices(tx, root)).toBe(2);
+        // DVC-04 at version 1 first, as an installation seeded before task 1.6a is: the first test moves it to version 2
+        expect(await importLicenceServices(tx, root, { renewalV1: true })).toBe(2);
+        expect(await setUpMedicalReferralCounters(tx, root.regionId)).toBeGreaterThan(0);
     });
     deps = {
         platform: new FakeNationalDriverPlatform(),
@@ -296,6 +347,56 @@ afterAll(async () => {
     await system?.close();
     await api?.close();
     await pg?.stop();
+});
+
+describe('the renewal’s version 2 (task 1.6a)', () => {
+    it('is seeded over version 1, whose cases finish on the version they froze', async () => {
+        const { person, licence } = await licensed(yearsAgo(30));
+        const expiry = yearsAgo(0);
+        await expire(licence.id, expiry, 'permanent');
+        let old = await filed(RENEW, renewalV1Of(licence, expiry));
+        old = await moved(old, as.officer, 'submit');
+        old = await moved(old, as.officer, 'approve');
+        expect(old.state).toBe('payment');
+        expect(Object.keys(old.stateLabels)).not.toContain('medical');
+
+        const region = as.bureau.unit;
+        const seed = () =>
+            api.installer.scoped({}, (tx) => importLicenceServices(tx, { id: region.id, regionId: region.regionId }));
+        // while a bureau has a draft of the renewal's form open, its form cannot move: neither does the service, as
+        // version 2's flow must never run on version 1's request
+        const draft = (hash: string) =>
+            api.owner.query(
+                `update forms.form_definitions set document_hash = ${hash} where key = 'driver-licence-renewal'`
+            );
+        await draft(`repeat('a', 64)`);
+        expect(await seed()).toBe(0);
+        await draft(
+            `(select v.content_hash from forms.form_versions v where v.id = form_definitions.published_version_id)`
+        );
+        expect(await seed()).toBe(1);
+        // a request filed now is on version 2: its examination is a step
+        const other = await licensed(yearsAgo(30));
+        await expire(other.licence.id, expiry, 'permanent');
+        const fresh = await filed(RENEW, renewalOf(other.licence, expiry));
+        expect(Object.keys(fresh.stateLabels)).toEqual(
+            expect.arrayContaining(['referral', 'medical', 'medical_refused'])
+        );
+        expect(fresh.workflow.versionId).not.toBe(old.workflow.versionId);
+
+        // the old case goes on as version 1 would
+        await paid(old);
+        old = await moved(await caseOf(old.id), as.lead, 'approve');
+        expect(
+            await askNationalPlatform(system, deps, { caseId: old.id, licenceId: licence.id, kind: 'renewal' })
+        ).toBe('accepted');
+        expect((await caseOf(old.id)).state).toBe('issued');
+        expect((await licencesOf(person))[0]).toMatchObject({ validUntil: yearsOn(4), kind: 'permanent' });
+        // its certificate was typed with the request: no recommendation
+        expect((await reportsOf(old.id)).rows).toEqual([
+            expect.objectContaining({ sequence: 1, recommendation: null })
+        ]);
+    }, 300_000);
 });
 
 describe('what is seeded', () => {
@@ -336,6 +437,25 @@ describe('what is seeded', () => {
             document: NEW_LICENCE_FORM
         });
         expect(form.statusCode, form.body).toBe(201);
+        // the renewal's version 2 and its two step forms (task 1.6a), as a bureau's own would be checked
+        const renewal = await api.call('POST', '/api/v1/workflow-definitions', as.bureau, {
+            key: 'checked-renewal',
+            name: { am: 'ማረጋገጫ', en: 'Checked' },
+            definition: renewalFlowV2('licence-exam-result@1', 'licence-medical-referral@1', 'licence-medical-report@1')
+        });
+        expect(renewal.statusCode, renewal.body).toBe(201);
+        for (const [key, document] of [
+            ['checked-renewal', RENEWAL_FORM_V2],
+            ['checked-referral', MEDICAL_REFERRAL_FORM],
+            ['checked-report', MEDICAL_REPORT_FORM]
+        ] as const) {
+            const made = await api.call('POST', '/api/v1/forms', as.bureau, {
+                key,
+                name: { am: 'ማረጋገጫ', en: 'Checked' },
+                document
+            });
+            expect(made.statusCode, made.body).toBe(201);
+        }
 
         // what the bureau has now published is its own: seeding again leaves it alone
         const current = () =>
@@ -669,9 +789,7 @@ describe('a renewal', () => {
         const { person, licence } = await licensed(yearsAgo(30));
         const expiry = yearsAgo(0);
         await expire(licence.id, expiry, 'permanent');
-        let c = await filed(RENEW, renewalOf(licence, expiry));
-        c = await moved(c, as.officer, 'submit');
-        c = await moved(c, as.officer, 'approve');
+        let c = await cleared(await filed(RENEW, renewalOf(licence, expiry)));
         expect(c.state).toBe('payment');
         const { total } = await paid(c);
         // renewal 200 Birr, nothing late
@@ -692,9 +810,7 @@ describe('a renewal', () => {
         const shown = await preview(RENEW, answers, as.officer);
         expect(shown.lines.map((l) => l.key)).toEqual(expect.arrayContaining(['base', 'penalty', 'overAYear']));
 
-        let c = await filed(RENEW, answers);
-        c = await moved(c, as.officer, 'submit');
-        c = await moved(c, as.officer, 'approve');
+        let c = await cleared(await filed(RENEW, answers));
         expect(c.state).toBe('field_exam');
         c = await moved(c, as.examiner, 'pass', { answers: { heldOn: today(), practical: 70, passed: true } });
         expect(c.state).toBe('payment');
@@ -708,9 +824,7 @@ describe('a renewal', () => {
         const { licence } = await licensed(yearsAgo(30));
         const expiry = yearsAgo(0);
         await expire(licence.id, expiry);
-        let c = await filed(RENEW, renewalOf(licence, expiry));
-        c = await moved(c, as.officer, 'submit');
-        c = await moved(c, as.officer, 'approve');
+        let c = await cleared(await filed(RENEW, renewalOf(licence, expiry)));
         expect(c.state).toBe('offence_check');
         c = await moved(c, as.officer, 'clear');
         expect(c.state).toBe('payment');
@@ -720,9 +834,7 @@ describe('a renewal', () => {
         const { person, licence } = await licensed(yearsAgo(60));
         const expiry = yearsAgo(0);
         await expire(licence.id, expiry, 'permanent');
-        let c = await filed(RENEW, renewalOf(licence, expiry));
-        c = await moved(c, as.officer, 'submit');
-        c = await moved(c, as.officer, 'approve');
+        let c = await cleared(await filed(RENEW, renewalOf(licence, expiry)));
         await paid(c);
         c = await moved(await caseOf(c.id), as.lead, 'approve');
         await askNationalPlatform(system, deps, { caseId: c.id, licenceId: licence.id, kind: 'renewal' });
@@ -754,4 +866,244 @@ describe('a renewal', () => {
             expect(res.statusCode, res.body).toBe(422);
         }
     }, 240_000);
+});
+
+describe('a renewal’s medical examination (task 1.6a)', () => {
+    /** A permanent licence due now, its renewal filed and reviewed. */
+    async function reviewed(): Promise<{ person: string; licence: Licence; c: CaseOut }> {
+        const { person, licence } = await licensed(yearsAgo(30));
+        const expiry = yearsAgo(0);
+        await expire(licence.id, expiry, 'permanent');
+        let c = await filed(RENEW, renewalOf(licence, expiry));
+        c = await moved(c, as.officer, 'submit');
+        expect(c.state).toBe('review');
+        return { person, licence, c };
+    }
+    const refer = async (c: CaseOut, institution: string) => {
+        c = await moved(c, as.officer, 'refer');
+        expect(c.state).toBe('referral');
+        return moved(c, as.officer, 'issue_referral', { answers: { institution } });
+    };
+
+    it('writes a referral letter from the office’s counter, with its QR, and a granting report goes on', async () => {
+        const { person, licence, c: filedCase } = await reviewed();
+        let c = await refer(filedCase, 'Sample Health Centre');
+        expect(c.state).toBe('medical');
+        const [letter] = (await referralsOf(c.id)).rows;
+        expect(letter?.number).toMatch(/\/MR\/\d{5}\/\d{4}$/);
+        expect(letter?.data).toMatchObject({ institution: 'Sample Health Centre', attempt: 1 });
+        // a letter carries no health fact
+        expect(JSON.stringify(letter?.data)).not.toMatch(/recommendation|condition/i);
+        const docs = await api.call('GET', `/api/v1/issued-documents?caseId=${c.id}`, as.officer);
+        expect(docs.statusCode, docs.body).toBe(200);
+        expect(docs.body).toContain('licence-medical-referral');
+
+        c = await moved(c, as.officer, 'fit', { answers: REPORT() });
+        expect(c.state).toBe('payment');
+        expect((await reportsOf(c.id)).rows).toEqual([
+            expect.objectContaining({
+                sequence: 1,
+                recommendation: 'grant',
+                report_number: 'HB-0042',
+                conditions_ct: null
+            })
+        ]);
+        // the recommendation is a health outcome: never in the audit log
+        const logged = await api.owner.query<{ diff: unknown }>(
+            `select a.diff from kernel.audit_log a join competency.medical_certificates m on m.id = a.row_id
+              where a.table_name = 'competency.medical_certificates' and m.case_id = $1`,
+            [c.id]
+        );
+        expect(logged.rows).toHaveLength(1);
+        expect(JSON.stringify(logged.rows)).not.toMatch(/grant|recommendation/);
+        // and the reports are listed to those who record health facts only
+        const listed = await api.call('GET', `/api/v1/competency/cases/${c.id}/medical-reports`, as.examiner);
+        expect(listed.statusCode).toBe(403);
+        await paid(c);
+        c = await moved(await caseOf(c.id), as.lead, 'approve');
+        await askNationalPlatform(system, deps, { caseId: c.id, licenceId: licence.id, kind: 'renewal' });
+        expect((await caseOf(c.id)).state).toBe('issued');
+        expect((await licencesOf(person))[0]?.validUntil).toBe(yearsOn(4));
+    }, 300_000);
+
+    it('refuses an action that disagrees with the report, and a report dated before its referral or too long ago', async () => {
+        const { c: filedCase } = await reviewed();
+        const c = await refer(filedCase, 'Sample Health Centre');
+        expect(
+            (await step(c, as.officer, { action: 'fit', answers: REPORT({ recommendation: 'refuse' }) })).statusCode
+        ).toBe(422);
+        expect((await step(c, as.officer, { action: 'unfit', answers: REPORT() })).statusCode).toBe(422);
+        expect(
+            (await step(c, as.officer, { action: 'fit', answers: REPORT({ examinedOn: yearsAgo(2) }) })).statusCode
+        ).toBe(422);
+        expect((await reportsOf(c.id)).rows).toEqual([]);
+    }, 300_000);
+
+    it('stops on a refused report: referred again to another institution, up to the third, then only rejected', async () => {
+        const { person, licence, c: filedCase } = await reviewed();
+        let c = await refer(filedCase, 'Sample Health Centre');
+        c = await moved(c, as.officer, 'unfit', { answers: REPORT({ recommendation: 'refuse' }) });
+        expect(c.state).toBe('medical_refused');
+        // a refusal goes nowhere on: neither on to payment nor to a report of its own
+        for (const action of ['fit', 'approve'])
+            expect((await step(c, as.officer, { action })).statusCode).toBeGreaterThanOrEqual(400);
+
+        // the same institution is not a second opinion
+        c = await moved(c, as.officer, 'refer');
+        const same = await step(c, as.officer, {
+            action: 'issue_referral',
+            answers: { institution: ' sample  HEALTH centre ' }
+        });
+        expect(same.statusCode, same.body).toBe(422);
+        c = await moved(c, as.officer, 'issue_referral', { answers: { institution: 'Sample Hospital' } });
+        const letters = (await referralsOf(c.id)).rows;
+        expect(letters).toHaveLength(2);
+        // the second letter supersedes the first, with its own number
+        expect(letters[0]?.superseded_by).not.toBeNull();
+        expect(letters[1]).toMatchObject({ superseded_by: null, data: { institution: 'Sample Hospital', attempt: 2 } });
+        expect(letters[1]?.number).not.toBe(letters[0]?.number);
+        c = await moved(c, as.officer, 'unfit', {
+            answers: REPORT({ facility: 'Sample Hospital', recommendation: 'refuse' })
+        });
+        c = await refer(c, 'Sample Referral Hospital');
+        c = await moved(c, as.officer, 'unfit', {
+            answers: REPORT({ facility: 'Sample Referral Hospital', recommendation: 'refuse' })
+        });
+        expect(c.state).toBe('medical_refused');
+        // three institutions have refused (Art. 13): no fourth
+        const fourth = await step(c, as.officer, { action: 'refer' });
+        expect(fourth.statusCode, fourth.body).toBe(409);
+        expect((await reportsOf(c.id)).rows.map((r) => [r.sequence, r.recommendation])).toEqual([
+            [1, 'refuse'],
+            [2, 'refuse'],
+            [3, 'refuse']
+        ]);
+        c = await moved(c, as.lead, 'reject', { comment: 'Three institutions refused the medical examination.' });
+        expect(c.state).toBe('rejected');
+        expect((await licencesOf(person))[0]).toMatchObject({ id: licence.id, validUntil: yearsAgo(0) });
+    }, 300_000);
+
+    it('a refused report followed by another institution’s grant goes on', async () => {
+        const { c: filedCase } = await reviewed();
+        let c = await moved(filedCase, as.officer, 'approve');
+        c = await moved(c, as.officer, 'unfit', { answers: REPORT({ recommendation: 'refuse' }) });
+        c = await refer(c, 'Sample Hospital');
+        c = await moved(c, as.officer, 'fit', { answers: REPORT({ facility: 'Sample Hospital' }) });
+        expect(c.state).toBe('payment');
+        // a granted report needs no other
+        const res = await api.owner.query(
+            `select count(*)::int as n from competency.medical_certificates where case_id = $1`,
+            [c.id]
+        );
+        expect(res.rows[0]).toEqual({ n: 2 });
+    }, 300_000);
+
+    it('keeps the conditions a report grants with encrypted, out of every form, list and log, and wants them before approval', async () => {
+        const { licence, c: filedCase } = await reviewed();
+        let c = await moved(filedCase, as.officer, 'approve');
+        c = await moved(c, as.officer, 'fit', { answers: REPORT({ recommendation: 'grant_with_conditions' }) });
+        await paid(c);
+        c = await caseOf(c.id);
+        expect(c.state).toBe('approval');
+        // no conditions yet: the lead cannot send it on
+        const early = await step(c, as.lead, { action: 'approve' });
+        expect(early.statusCode, early.body).toBe(409);
+
+        const listed = await api.call('GET', `/api/v1/competency/cases/${c.id}/medical-reports`, as.officer);
+        expect(listed.statusCode, listed.body).toBe(200);
+        const [report] = listed.json<{ items: { id: string; conditionsOnRecord: boolean }[] }>().items;
+        expect(report).toMatchObject({ conditionsOnRecord: false });
+        const id = report?.id ?? '';
+        const CONDITIONS = 'Drives only with corrective glasses';
+        // only a report that grants with conditions takes them, and only from those who record health facts
+        expect(
+            (
+                await api.call('POST', `/api/v1/competency/medical-reports/${id}/conditions`, as.examiner, {
+                    conditions: CONDITIONS
+                })
+            ).statusCode
+        ).toBe(403);
+        const recorded = await api.call('POST', `/api/v1/competency/medical-reports/${id}/conditions`, as.officer, {
+            conditions: CONDITIONS
+        });
+        expect(recorded.statusCode, recorded.body).toBe(200);
+        expect(recorded.json()).toMatchObject({ conditionsOnRecord: true });
+        expect(recorded.body).not.toContain('glasses');
+
+        // at rest a ciphertext only, audited in the same transaction without the value
+        const { rows } = await api.owner.query<{ ct: Buffer; same_tx: boolean; diff: unknown }>(
+            `select m.conditions_ct as ct, m.xmin::text = a.xmin::text as same_tx, a.diff
+               from competency.medical_certificates m
+               join kernel.audit_log a on a.table_name = 'competency.medical_certificates' and a.row_id = m.id
+              where m.id = $1 and a.action = 'update'`,
+            [id]
+        );
+        expect(rows).toHaveLength(1);
+        expect(rows[0]?.ct.toString('utf8')).not.toContain('glasses');
+        expect(rows[0]?.same_tx).toBe(true);
+        expect(JSON.stringify(rows[0]?.diff)).not.toMatch(/glasses|conditionsCt|conditions_ct/);
+        const anywhere = await api.owner.query<{ n: number }>(
+            `select (select count(*) from kernel.audit_log where diff::text like '%glasses%')
+                  + (select count(*) from workflow.case_events where data::text like '%glasses%')
+                  + (select count(*) from workflow.cases where facts::text like '%glasses%')
+                  + (select count(*) from forms.submissions where answers::text like '%glasses%') as n`
+        );
+        expect(Number(anywhere.rows[0]?.n)).toBe(0);
+        // the case page says only that they are on record
+        const page = await api.call('GET', `/api/v1/cases/${c.id}`, as.lead);
+        expect(page.body).not.toContain('glasses');
+
+        // read in clear by the lead only, with a reason and a recent second factor, on record first
+        const reveal = (who: As, reason = 'checking the conditions before the approval') =>
+            api.call('POST', `/api/v1/competency/medical-reports/${id}/conditions/reveal`, who, { reason });
+        expect((await reveal(as.officer)).statusCode).toBe(403);
+        expect((await reveal({ ...as.lead, authAge: 900 })).statusCode).toBe(401);
+        const shown = await reveal(as.lead);
+        expect(shown.statusCode, shown.body).toBe(200);
+        expect(shown.json()).toEqual({ conditions: CONDITIONS });
+        const events = await api.owner.query<{ actor_id: string; diff: { fields: string[]; reason: string } }>(
+            `select actor_id, diff from kernel.audit_log where event_type = 'licence.medical_conditions_revealed' and row_id = $1`,
+            [id]
+        );
+        expect(events.rows).toEqual([
+            expect.objectContaining({
+                diff: { fields: ['conditions'], reason: 'checking the conditions before the approval' }
+            })
+        ]);
+        // another office's people do not find the report at all
+        expect((await reveal(as.damotHead)).statusCode).toBeGreaterThanOrEqual(403);
+
+        c = await moved(await caseOf(c.id), as.lead, 'approve');
+        expect(c.state).toBe('national');
+        // what the lead checked is what goes: no change once the renewal is sent on
+        const sent = await api.call('POST', `/api/v1/competency/medical-reports/${id}/conditions`, as.officer, {
+            conditions: 'No conditions after all'
+        });
+        expect(sent.statusCode, sent.body).toBe(409);
+        await askNationalPlatform(system, deps, { caseId: c.id, licenceId: licence.id, kind: 'renewal' });
+        expect((await caseOf(c.id)).state).toBe('issued');
+        // closed: the conditions no longer change
+        const late = await api.call('POST', `/api/v1/competency/medical-reports/${id}/conditions`, as.officer, {
+            conditions: 'Something else'
+        });
+        expect(late.statusCode, late.body).toBe(409);
+    }, 300_000);
+
+    it('takes no conditions for a report that grants none', async () => {
+        const { c: filedCase } = await reviewed();
+        let c = await moved(filedCase, as.officer, 'approve');
+        c = await moved(c, as.officer, 'fit', { answers: REPORT() });
+        const [report] = (await api.call('GET', `/api/v1/competency/cases/${c.id}/medical-reports`, as.officer)).json<{
+            items: { id: string }[];
+        }>().items;
+        const res = await api.call(
+            'POST',
+            `/api/v1/competency/medical-reports/${report?.id ?? ''}/conditions`,
+            as.officer,
+            {
+                conditions: 'None needed'
+            }
+        );
+        expect(res.statusCode, res.body).toBe(409);
+    }, 300_000);
 });

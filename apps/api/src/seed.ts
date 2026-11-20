@@ -42,6 +42,7 @@ import {
     importVehicleServices,
     setUpBoloCounters,
     setUpLicenceCounters,
+    setUpMedicalReferralCounters,
     setUpTransferLetterCounters,
     setUpVehicleTransferDocumentCounters
 } from '@itrms/competency/seed';
@@ -204,6 +205,8 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
                 }),
                 // after the catalogue and the fee rules (task 0.24b)
                 services: await importLicenceServices(tx, where),
+                // a renewal's referral letters (task 1.6a): their counter at each office that offers DVC-04
+                medicalReferralCounters: await setUpMedicalReferralCounters(tx, root.regionId),
                 vehicleServices: await importVehicleServices(tx, where),
                 // the back-capture of paper vehicle files (task 1.13)
                 backCapture: await importBackCaptureService(tx, where),

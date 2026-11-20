@@ -33,6 +33,7 @@ import {
     ethiopianDay,
     filing,
     generated,
+    grantingReport,
     inState,
     latin,
     payAtTheTill,
@@ -100,14 +101,15 @@ async function renewalToPayment(zone: Zone, lang: Lang, licence: LicenceRow): Pr
     await desk.getByLabel(W.year).fill(String(expiry.year));
     await desk.getByLabel(W.month, { exact: true }).selectOption(String(expiry.month));
     await desk.locator(`[role="grid"] [data-day="${expiry.day}"]`).click();
-    await form.getByLabel(W.facility).fill('Sample Health Centre');
-    await today(desk, form, W.examined);
     await filing(desk, form, lang);
     const renewal = /\/cases\/([0-9a-f-]{36})$/.exec(desk.url())?.[1] ?? '';
     await act(desk, renewal, 'submit', 'submit');
 
+    // the holder brought the health bureau's report (task 1.6a): it grants
+    await act(reviewer, renewal, 'approve', W.bringsReport);
+    await inState(reviewer, renewal, 'medical');
+    await grantingReport(reviewer, renewal, lang);
     // more than a year late: the practical exam comes first (Art. 19(5))
-    await act(reviewer, renewal, 'approve', W.approve);
     await inState(reviewer, renewal, 'field_exam');
     await act(examiner, renewal, 'pass', W.passed, async (dialog) => {
         await today(examiner, dialog, W.heldOn);

@@ -68,7 +68,17 @@ export const WORDS = {
         save: 'አስቀምጥ',
         ruleParent: 'ከበላዩ ያለው ጽ/ቤት',
         overrideReason: 'የመጨረሻ ማጽደቂያ በዞኑ',
-        auditTab: 'የኦዲት መዝገብ'
+        auditTab: 'የኦዲት መዝገብ',
+        // a renewal's medical steps (task 1.6a)
+        bringsReport: 'ሪፖርቱ ቀርቧል',
+        refer: 'ወደ ጤና ተቋም ሪፈር አድርግ',
+        issueReferral: 'የሪፈራል ደብዳቤውን ስጥ',
+        referredTo: 'ሪፈር የሚደረግበት የጤና ተቋም',
+        reportFacility: 'የመረመረው የጤና ተቋም',
+        reportExamined: 'የምርመራ ቀን',
+        recommendation: 'የሐኪሙ ውሳኔ',
+        grant: 'ይሰጠው',
+        fit: 'ለማሽከርከር ብቁ ነው'
     },
     en: {
         applicant: 'Applicant',
@@ -116,7 +126,16 @@ export const WORDS = {
         save: 'Save',
         ruleParent: 'The office above it',
         overrideReason: 'Final approval at the zone',
-        auditTab: 'Audit trail'
+        auditTab: 'Audit trail',
+        bringsReport: 'The holder brings a report',
+        refer: 'Refer to a health facility',
+        issueReferral: 'Issue the referral letter',
+        referredTo: 'Health facility referred to',
+        reportFacility: 'Examining health facility',
+        reportExamined: 'Date of the examination',
+        recommendation: 'Recommendation',
+        grant: 'Grant',
+        fit: 'Fit to drive'
     }
 } as const satisfies Record<Lang, Record<string, string>>;
 
@@ -203,6 +222,17 @@ export async function act(
     if (fill) await fill(dialog);
     await dialog.getByRole('button', { name: button, exact: true }).click();
     await expect(dialog).toBeHidden();
+}
+
+/** A renewal's medical report as it came back from the facility, granting (task 1.6a). */
+export async function grantingReport(page: Page, caseId: string, lang: Lang = 'am') {
+    const W = WORDS[lang];
+    await act(page, caseId, 'fit', W.fit, async (dialog) => {
+        await dialog.getByLabel(W.reportFacility).fill('Sample Health Centre');
+        await today(page, dialog, W.reportExamined);
+        await dialog.getByRole('combobox', { name: W.recommendation }).click();
+        await page.getByRole('option', { name: W.grant, exact: true }).click();
+    });
 }
 
 export const inState = async (page: Page, caseId: string, state: string) => {

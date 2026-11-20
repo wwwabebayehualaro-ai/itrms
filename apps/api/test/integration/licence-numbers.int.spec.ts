@@ -555,6 +555,72 @@ describe('the blood group (ADR-0052)', () => {
     });
 });
 
+describe('the isolation matrix of medical_certificates (class T at the handling office, task 1.6a)', () => {
+    const CASE_UNITS = () => ({
+        own: zone,
+        child: boditi,
+        parent: region,
+        sibling: tzb,
+        otherZone: tzbW1,
+        otherRegion: trx
+    });
+    const rows: Record<string, string> = {};
+
+    beforeAll(async () => {
+        for (const c of ISOLATION_CASES) {
+            const unit = CASE_UNITS()[c];
+            const { rows: made } = await api.owner.query<{ id: string }>(
+                `insert into competency.medical_certificates
+                   (id, region_id, handling_unit_id, person_id, case_id, facility, examined_on, sequence, recommendation)
+                 values (gen_random_uuid(), $1, $2, $3, gen_random_uuid(), 'Sample Health Centre', current_date, 1,
+                         'grant_with_conditions') returning id`,
+                [unit.regionId, unit.id, unit.regionId === trx.regionId ? trxHolder : holder]
+            );
+            rows[made[0]?.id ?? ''] = c;
+        }
+    }, 120_000);
+
+    it('shows the acting unit exactly the rows its class allows', async () => {
+        const seen = await asUnit(app, zone, async (tx) =>
+            (await tx.execute<{ id: string }>(sql`select id from competency.medical_certificates`)).rows
+                .map((r) => rows[r.id])
+                .filter((c): c is string => c !== undefined)
+        );
+        expect([...new Set(seen)].sort()).toEqual([...VISIBLE.transaction].sort());
+    });
+
+    it.each(ISOLATION_CASES)(
+        'lets the acting unit record conditions on the %s row only where class T allows it',
+        async (c) => {
+            const id = Object.keys(rows).find((k) => rows[k] === c) ?? '';
+            const changed = await asUnit(app, zone, (tx) =>
+                tx.execute(
+                    sql`update competency.medical_certificates set conditions_ct = ${randomBytes(48)} where id = ${id}`
+                )
+            );
+            expect(changed.rowCount).toBe(WRITABLE.transaction.includes(c) ? 1 : 0);
+        }
+    );
+
+    it('lets the API change a report only by its conditions: never its recommendation', async () => {
+        const id = Object.keys(rows).find((k) => rows[k] === 'own') ?? '';
+        const refused = await asUnit(app, zone, (tx) =>
+            tx.execute(sql`update competency.medical_certificates set recommendation = 'grant' where id = ${id}`)
+        ).then(
+            () => 'changed',
+            (error: { cause?: { message?: string }; message: string }) => error.cause?.message ?? error.message
+        );
+        expect(refused).toMatch(/permission denied/);
+    });
+
+    it('shows nothing without a context', async () => {
+        const seen = await app.scoped({}, (tx) =>
+            tx.execute<{ n: string }>(sql`select count(*) as n from competency.medical_certificates`)
+        );
+        expect(seen.rows[0]?.n).toBe('0');
+    });
+});
+
 describe('the isolation matrix of licence_health (class R at the handling office)', () => {
     const CASE_UNITS = () => ({
         own: zone,

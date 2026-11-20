@@ -680,6 +680,13 @@
       "when": 1795120249328,
       "tag": "0096_licence_numbers",
       "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1795166912618,
+      "tag": "0097_renewal_medical",
+      "breakpoints": true
     }
   ]
 }

@@ -5,7 +5,8 @@
  *   driver_licences        a person's licence, class R: the region reads it, the handling unit's subtree writes it.
  *   licence_grades         the grades a licence carries, class R, with the licence's handling unit.
  *   licence_health         a licence's blood group (task 1.6, ADR-0052), class R, field-encrypted; read only through reveal.
- *   medical_certificates   the medical examination a case relied on, class T.
+ *   medical_certificates   the medical examination a case relied on, class T; a renewal's reports (task 1.6a) with their
+ *                          recommendation and the conditions, field-encrypted.
  *   training_enrolments    a school's list of who finished training, entered by the handling unit, class T.
  *   exam_sessions, exam_results   what an examiner recorded, class T.
  *   licence_print_batches  what goes to the region's printer, class T, with its licences.
@@ -236,16 +237,34 @@ export const medicalCertificates = withRls(
                 personId: uuid('person_id').notNull(),
                 caseId: uuid('case_id').notNull(),
                 facility: text('facility').notNull(),
-                examinedOn: date('examined_on').notNull()
+                examinedOn: date('examined_on').notNull(),
+                // a renewal's report from the health bureau's form (task 1.6a): the first, second or third institution (Art. 13)
+                sequence: integer('sequence').notNull().default(1),
+                reportNumber: text('report_number'),
+                // null on a certificate filed with the request (DVC-03, DVC-04 v1): no recommendation was typed
+                recommendation: text('recommendation'),
+                // a health fact (ADR-0064 §4): field-encrypted, recorded by a command, read only through the audited reveal
+                conditionsCt: bytea('conditions_ct')
             },
             (t) => [
-                // a corrected request changes the certificate it relied on
-                uniqueIndex('medical_certificates_case_uq').on(t.caseId),
-                index('medical_certificates_org_path_gist').using('gist', t.orgPath)
+                // a corrected request changes the certificate it relied on; a refused report is followed by the next institution's
+                uniqueIndex('medical_certificates_case_sequence_uq').on(t.caseId, t.sequence),
+                index('medical_certificates_org_path_gist').using('gist', t.orgPath),
+                // three reports (Art. 13), after the certificate a request may have carried (a version 1 form under version 2)
+                check('medical_certificates_sequence_check', sql`sequence between 1 and 4`),
+                check(
+                    'medical_certificates_recommendation_check',
+                    sql`recommendation is null or recommendation in ('grant', 'grant_with_conditions', 'refuse')`
+                ),
+                check(
+                    'medical_certificates_conditions_check',
+                    sql`conditions_ct is null or (recommendation = 'grant_with_conditions' and octet_length(conditions_ct) > 16)`
+                )
             ]
         ),
-        // what a person's health was checked for is theirs: the log says that it changed, not to what
-        { omit: ['facility'] }
+        // what a person's health was checked for, and what the facility found, are theirs: the log says that they changed, not
+        // to what (SEC-PD-2)
+        { omit: ['facility', 'recommendation', 'conditionsCt'] }
     ),
     'transaction'
 );

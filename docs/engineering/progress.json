@@ -2202,12 +2202,24 @@
         {
           "id": "1.6a",
           "title": "Driver licence family, part 2: renewal with the medical referral and report",
-          "status": "ready",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/1.6a-renewal-medical-referral",
+          "commits": [
+            "c92c893",
+            "d6e8d47"
+          ],
+          "evidence": [
+            "PR #95 CI run 44725194929 (https://github.com/wwwabebayehualaro-ai/itrms/actions/runs/44725194929): all 12 jobs green",
+            "integration (dev stack + S3 contract suite): 57 files, 1107 tests passed, incl. licence-services.int.spec.ts 'a renewal's medical examination (task 1.6a)' (referral letter + granting report goes on; action vs report refused; refused report referred to another institution up to the third, then only rejected; refusal then grant goes on; conditions encrypted, out of audit/facts/answers, lead-only reveal with 2FA, required before approval, frozen after) and 'the renewal's version 2' (v1 case finishes on v1; seed does not move DVC-04 while a bureau draft of its form is open)",
+            "isolation: licence-numbers.int.spec.ts 'the isolation matrix of medical_certificates (class T)': read own/child only, conditions writable own/child only, recommendation not updatable, nothing without context",
+            "referral golden: platform/documents/test/render.spec.ts 'medical referral: the facility, the holder and the licence, and no health fact' (Chrome, am+en, number WOL-BODITI/MR/00003/2019, no refusal wording)",
+            "e2e: 3 shards passed (37 + 5 + 20 tests, 4 setup); licences.spec.ts 'its renewal: the referral letter, the medical report, the offence check, the fee, and a new card'; demo journey step 9 renews with a report the holder brings",
+            "lint/typecheck/test/build/boundaries: 69/69 turbo tasks; i18n:check complete in am and en; check:slices 11 slices; test:tools 91 pass; Semgrep, Trivy, gitleaks pass",
+            "migration 0097_renewal_medical.sql applied from zero in CI; OpenAPI regenerated (packages/api-client/openapi.json)",
+            "review: reviewer agent (Fable 5.2) 0 critical/high, 4 findings fixed; task-verifier: ready with caveats, all of which are now covered by the CI run"
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "DVC-04 v2: review -> approve (the holder brings a report) or refer -> referral step (letter, counter competency.medical-referral {unit}/MR/{seq:05}/{efy}, QR, reissued against the case so a later referral supersedes the earlier) -> medical step (report form: facility, date, number, recommendation; actions fit/unfit checked against the recommendation) -> medical_refused (refer again while reports < 3, to another institution, else reject). Conditions are never a form answer: recorded by POST /competency/medical-reports/:id/conditions (licence-health:record), field-encrypted in medical_certificates.conditions_ct, revealed by the lead (licence-health:reveal, recent 2FA, audited); requestRenewal refuses a refused or condition-less report. The seed supersedes its own v1 (bureau versions untouched); v1 cases finish on v1. The case page shows the reports panel when the workflow has a 'medical' state (the case API carries no service code). Reviewer (Fable 5.2): no critical/high. Fixed all four findings: (1) the recommendation is omitted from the audit diff, its step field is classified sensitive, and GET medical-reports needs licence-health:record (test asserts no recommendation in the audit log, 403 for the examiner); (2) the seed moves DVC-04 to v2 only with its form (supersedeSeededVersion withForm; test with a bureau draft open), and certificates without a recommendation are not counted as reports (sequence check 1..4); (3) conditions cannot change once the lead sent the renewal on (case row locked; 409 at national, test); (4) the referral letter prints which referral it is, never why."
         },
         {
           "id": "1.6b",
@@ -4365,6 +4377,16 @@
       "foundIn": "1.6",
       "item": "Flaky e2e: demo journey step 7 (journey.spec.ts:402) got 'socket hang up' on the API GET right after its up-to-120s wait for the licence card to render (PR #94 run 44670871399, passed on retry); likely an idle keep-alive socket — give the e2e api() helper a fresh connection or a retry on ECONNRESET",
       "movedTo": "a test-kit hardening task"
+    },
+    {
+      "foundIn": "1.6a",
+      "item": "A report's conditions printed on the licence card / print list (only the region's print list may carry health facts, ADR-0064 §4)",
+      "movedTo": "1.8"
+    },
+    {
+      "foundIn": "1.6a",
+      "item": "The case API could carry the service code, so module panels on the case page need not key on a state name",
+      "movedTo": "Phase 1 backlog"
     }
   ]
 }

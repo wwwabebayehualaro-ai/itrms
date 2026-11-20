@@ -144,6 +144,9 @@ export default defineModule({
         'competency.renewLicence',
         'competency.issueLicenceCard',
         'competency.addToPrintBatch',
+        // a renewal's medical referral letter and the health bureau's report (task 1.6a)
+        'competency.issueMedicalReferral',
+        'competency.recordMedicalReport',
         'competency.checkVehicleRegistration',
         'competency.reserveRegistrationPlate',
         'competency.recordFederalVehicleId',
@@ -279,6 +282,8 @@ export default defineModule({
         { key: 'licence', pattern: '{unit}/DL/{seq:06}' },
         { key: 'temporary-bolo', pattern: '{unit}/TB/{seq:05}' },
         { key: 'transfer-letter', pattern: '{unit}/OT/{seq:05}/{efy}' },
+        // a renewal's referral letter to a health facility (task 1.6a)
+        { key: 'medical-referral', pattern: '{unit}/MR/{seq:05}/{efy}' },
         // the vehicle data transfer document of a vehicle leaving the region, and its covering letter (task 1.4c2)
         { key: 'transfer-document', pattern: '{unit}/VT/{seq:05}/{efy}' }
     ],
@@ -286,6 +291,7 @@ export default defineModule({
         'DVC-01': ['vehicles.registration-certificate'],
         'DVC-02': ['competency.temporary-bolo'],
         'DVC-03': ['competency.licence'],
+        'DVC-04': ['competency.medical-referral'],
         // the new libre's registration certificate (task 1.5)
         'DVC-06': ['vehicles.registration-certificate'],
         'DVC-13': ['vehicles.registration-certificate', 'competency.transfer-letter'],

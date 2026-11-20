@@ -43,6 +43,7 @@ import { formatMoment } from '@/lib/format';
 import { usePreferences, useText } from '@/lib/preferences';
 import { amendable, lookupIds } from '@/lib/caseAnswers';
 import { useCase, useClaim, useTransition, type CaseOut, type SlaState } from '@/lib/workflow';
+import { CaseMedicalReports } from '../competency/CaseMedicalReports';
 import { CaseDocuments } from '../documents/CaseDocuments';
 import { CasePaymentPanel } from '../fees/CasePaymentPanel';
 import { useCan } from '@/lib/auth/authHooks';
@@ -107,6 +108,8 @@ export function CasePage({ id }: { id: string }) {
                 </Alert>
             )}
             <CasePaymentPanel caseId={c.id} />
+            {/* a renewal's medical reports (task 1.6a): its workflow has the medical step */}
+            <CaseMedicalReports caseId={c.id} open={!c.closed} enabled={'medical' in c.stateLabels} />
             <CaseDocuments caseId={c.id} />
             <OpenStep c={c} stateName={stateName} />
             <Tabs defaultValue="timeline">
