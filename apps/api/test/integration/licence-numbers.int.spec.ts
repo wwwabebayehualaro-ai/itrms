@@ -288,6 +288,13 @@ describe('the regional licence number (ADR-0051)', () => {
         await expect(api.installer.scoped({}, (tx) => setUpLicenceCounters(tx, trxRoot.regionId))).rejects.toThrow(
             /regionCode and firstNumber/
         );
+        // as `seed competency` runs it: told, the counter left unmade, the transaction (and the rest of the seed) goes on
+        const told: string[] = [];
+        await api.installer.scoped({}, (tx) =>
+            setUpLicenceCounters(tx, trxRoot.regionId, { onUnset: (problem) => told.push(problem) })
+        );
+        expect(told).toEqual([expect.stringMatching(/regionCode and firstNumber/)]);
+        expect(await counter(trxRoot)).toBeUndefined();
     });
 
     it('numbers licences across two offices from one sequence, and the offices’ own counters stay', async () => {

@@ -20,9 +20,10 @@ CREATE INDEX "licence_health_handling_org_path_gist" ON "competency"."licence_he
 CREATE UNIQUE INDEX "driver_licences_card_serial_uq" ON "competency"."driver_licences" USING btree ("region_id","card_serial") WHERE card_serial IS NOT NULL;
 --> statement-breakpoint
 -- Hand-written (task 1.6, ADR-0051, ADR-0052, ADR-0064). The card serial beside the number: as the stationery keeps a blank's key
--- (capitals, digits, '-'), set when a printed batch comes back, by the office that handles the licence.
+-- (capitals or the Ethiopic series letters the stationery allows, digits, '-'), set when a printed batch comes back, by the office
+-- that handles the licence.
 ALTER TABLE "competency"."driver_licences" ADD CONSTRAINT "driver_licences_card_serial_check"
-    CHECK ("card_serial" IS NULL OR "card_serial" ~ '^[A-Z0-9-]{1,20}$');
+    CHECK ("card_serial" IS NULL OR "card_serial" ~ '^[A-Zሀ-ፚ0-9-]{1,20}$');
 --> statement-breakpoint
 GRANT UPDATE ("card_serial") ON "competency"."driver_licences" TO itrms_app;
 --> statement-breakpoint

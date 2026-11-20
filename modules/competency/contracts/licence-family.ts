@@ -56,13 +56,14 @@ export function regionalCounterSetup(
 export const CARD_SERIAL_MAX = 20;
 
 /**
- * A card serial as printed: 1–20 letters, digits or '-'. Checked character by character (no pattern over what a person typed,
- * SEC regex_dos).
+ * A card serial as printed: 1–20 letters, digits or '-'. The letters are the stationery's series letters (Latin or Ethiopic,
+ * `SERIES_LETTERS`), since a serial is the key of the blank it was printed on. Checked character by character (no pattern over
+ * what a person typed, SEC regex_dos).
  */
 export function isCardSerial(text: string): boolean {
     if (text.length < 1 || text.length > CARD_SERIAL_MAX) return false;
     for (const c of text) {
-        const letter = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+        const letter = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= 'ሀ' && c <= 'ፚ');
         const digit = c >= '0' && c <= '9';
         if (!letter && !digit && c !== '-') return false;
     }

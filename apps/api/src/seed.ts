@@ -196,8 +196,11 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
             return {
                 grades: await importLicenceGrades(tx, where),
                 // the region's licence counter from its code and first number (task 1.6), and the offices' own
+                // a region that has not set its range yet is warned and its counter left unmade: the rest of its seed (the
+                // vehicle services first) goes ahead, and a licence filing is refused until the range is set and this runs again
                 counters: await setUpLicenceCounters(tx, root.regionId, {
-                    installation: config.INSTALLATION_SETTINGS[LICENCE_NUMBER_SETTING]
+                    installation: config.INSTALLATION_SETTINGS[LICENCE_NUMBER_SETTING],
+                    onUnset: (problem) => logger.warn({ region: code }, problem)
                 }),
                 // after the catalogue and the fee rules (task 0.24b)
                 services: await importLicenceServices(tx, where),
@@ -280,7 +283,8 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
         );
         const made = await importDemoData(db, code, {
             persons,
-            organisations: new OrganisationsService(persons)
+            organisations: new OrganisationsService(persons),
+            licenceNumbering: config.INSTALLATION_SETTINGS[LICENCE_NUMBER_SETTING]
         });
         logger.info({ region: code, ...made }, made ? 'demo data applied' : 'the demo data was already there');
     } else if (kind === 'demo-vehicles') {

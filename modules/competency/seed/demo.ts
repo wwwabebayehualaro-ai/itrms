@@ -33,6 +33,8 @@ import { licenceNumberingOf } from './licence-numbers';
 export interface DemoDeps {
     persons: Pick<PersonsService, 'create'>;
     organisations: Pick<OrganisationsService, 'create'>;
+    /** the installation's `competency.licence_number`, read where the region has none (as `seed competency` reads it) */
+    licenceNumbering?: unknown;
 }
 
 export interface DemoCounts {
@@ -286,7 +288,7 @@ export async function importDemoData(
             ).map((g) => [g.key, g.id])
         );
         // numbered as the region numbers them (ADR-0051): its one sequence, or each office's own
-        const numbering = await licenceNumberingOf(tx, regionId);
+        const numbering = await licenceNumberingOf(tx, regionId, deps.licenceNumbering);
         const taken = new Set<string>();
         const takeFrom = (fits: (person: Person) => boolean): Person => {
             const person = random.of(people.filter((p) => p.unit !== 'damot' && !taken.has(p.id) && fits(p)));

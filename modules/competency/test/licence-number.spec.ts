@@ -61,8 +61,10 @@ describe('the regional licence number (task 1.6, ADR-0051)', () => {
 
 describe('the card serial (task 1.6, ADR-0064 §3)', () => {
     it('is 1–20 letters, digits or dashes, checked without a pattern', () => {
-        for (const good of ['A', 'PC01', 'DL-2019-000123', 'x'.repeat(20)]) expect(isCardSerial(good), good).toBe(true);
-        for (const bad of ['', 'x'.repeat(21), 'PC 01', 'PC%', 'PC_1', 'ሀ1', 'PC/1', "PC'1"])
+        // an Ethiopic series is a stationery series too (SERIES_LETTERS), so a blank in series ለ gives a serial
+        for (const good of ['A', 'PC01', 'DL-2019-000123', 'x'.repeat(20), 'ሀ1', 'ለ0000001'])
+            expect(isCardSerial(good), good).toBe(true);
+        for (const bad of ['', 'x'.repeat(21), 'PC 01', 'PC%', 'PC_1', '፩1', 'PC/1', "PC'1"])
             expect(isCardSerial(bad), bad).toBe(false);
     });
 
