@@ -6,9 +6,11 @@
  */
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+    BloodGroup,
     Enrolment,
     ENROLMENT_STATUSES,
     Licence,
+    LicenceHealthRevealed,
     LicenceGrade,
     LicenceStatus,
     PrintBatch
@@ -16,13 +18,14 @@ import type {
 
 import client from './api/client';
 
-export type { Enrolment, Licence, LicenceGrade, LicenceStatus, PrintBatch };
+export type { BloodGroup, Enrolment, Licence, LicenceGrade, LicenceHealthRevealed, LicenceStatus, PrintBatch };
 
 /** What the lists ask for at once. The screens say when there may be more, and how to narrow them. */
 export const LIST_LIMIT = 50;
 
 export interface LicenceFilters {
     number?: string;
+    cardSerial?: string;
     personId?: string;
     status?: LicenceStatus;
 }
@@ -51,6 +54,22 @@ export function useLicences(filters: LicenceFilters) {
                 })
             ).data
     });
+}
+
+/** The holder's blood group for the card (task 1.6): the answer is the licence, which says only that one is on record. */
+export function useRecordBloodGroup() {
+    const queries = useQueryClient();
+    return useMutation({
+        mutationFn: async (input: { id: string; bloodGroup: BloodGroup }) =>
+            (await client.post<Licence>(`v1/competency/licences/${input.id}/health`, { bloodGroup: input.bloodGroup }))
+                .data,
+        onSuccess: () => queries.invalidateQueries({ queryKey: ['competency', 'licences'] })
+    });
+}
+
+/** The blood group in clear, with a reason (the audited reveal, ADR-0052). Never cached: it is gone when the screen is left. */
+export async function revealBloodGroup(id: string, reason: string): Promise<LicenceHealthRevealed> {
+    return (await client.post<LicenceHealthRevealed>(`v1/competency/licences/${id}/health/reveal`, { reason })).data;
 }
 
 /** The catalogue, for whoever enters a training list: reading it asks for `licence:read`, which they have. */

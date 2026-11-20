@@ -2681,6 +2681,42 @@
         ],
         "type": "object"
       },
+      "HealthRecordDto": {
+        "additionalProperties": false,
+        "properties": {
+          "bloodGroup": {
+            "enum": [
+              "A+",
+              "A-",
+              "B+",
+              "B-",
+              "AB+",
+              "AB-",
+              "O+",
+              "O-"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "bloodGroup"
+        ],
+        "type": "object"
+      },
+      "HealthRevealDto": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 10,
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "type": "object"
+      },
       "LookupItemsOut_Output": {
         "additionalProperties": false,
         "properties": {
@@ -7113,6 +7149,16 @@
           },
           {
             "in": "query",
+            "name": "cardSerial",
+            "required": false,
+            "schema": {
+              "maxLength": 20,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
@@ -7146,6 +7192,72 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Competency"
+        ]
+      }
+    },
+    "/api/v1/competency/licences/{id}/health": {
+      "post": {
+        "operationId": "CompetencyController_recordHealth",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HealthRecordDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Competency"
+        ]
+      }
+    },
+    "/api/v1/competency/licences/{id}/health/reveal": {
+      "post": {
+        "operationId": "CompetencyController_revealHealth",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HealthRevealDto"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": ""

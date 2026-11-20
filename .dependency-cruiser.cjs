@@ -184,8 +184,8 @@ module.exports = {
             comment:
                 'The itrms_system pool (BYPASSRLS) is imported only by jobs, event handlers and the worker entries (architecture §5).',
             severity: 'error',
-            // and the integration tests that prove what it may and may not do
-            from: { pathNot: [...WORKER_CODE, '^apps/api/test/integration/'] },
+            // and the integration and performance tests that prove what it may and may not do, and how fast (task 1.6)
+            from: { pathNot: [...WORKER_CODE, '^apps/api/test/integration/', '^apps/api/test/perf/'] },
             to: { path: SYSTEM_POOL }
         },
         {

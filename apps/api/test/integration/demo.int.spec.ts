@@ -56,13 +56,14 @@ beforeAll(async () => {
     api = await startApi(pg);
     const region = await api.unit('SER', 'SER');
     const root = { id: region.id, regionId: region.regionId };
+    // before the licence counters, as demo:reset does: the region's numbering is set up from them (task 1.6)
+    await applySettings('sample-region.demo.yaml');
     await api.installer.scoped({}, async (tx) => {
         await importFeeRules(tx, root, parseFeeRules(readFileSync(FEE_RULES, 'utf8')));
         await importLicenceGrades(tx, root);
         await setUpLicenceCounters(tx, root.regionId);
     });
     seeded = await importDemoData(api.installer, 'SER', deps(), TODAY);
-    await applySettings('sample-region.demo.yaml');
 }, 240_000);
 
 afterAll(async () => {
@@ -111,13 +112,15 @@ describe('the demo’s data', () => {
         expect(await between('2000-01-01', addMonths(TODAY, -12))).toBe(8);
         // every licence has its grade
         expect(await count('select count(distinct licence_id)::int as n from competency.licence_grades')).toBe(60);
-        const { rows } = await api.owner.query<{ unit: string; numbers: string[] }>(
-            `select u.code as unit, array_agg(l.number order by l.number) as numbers
-               from competency.driver_licences l join kernel.org_units u on u.id = l.handling_unit_id group by u.code`
+        // one regional sequence across the offices, from the region's first number (task 1.6, ADR-0051): none twice or skipped
+        const { rows } = await api.owner.query<{ number: string }>(
+            `select number from competency.driver_licences order by number`
         );
-        expect(rows.length).toBeGreaterThan(0);
-        for (const { unit, numbers } of rows)
-            expect(numbers, unit).toEqual(numbers.map((_, i) => `${unit}/DL/${String(i + 1).padStart(6, '0')}`));
+        expect(rows.map((r) => r.number)).toEqual(rows.map((_, i) => `06-${String(i + 1).padStart(5, '0')}`));
+        const { rows: offices } = await api.owner.query<{ n: number }>(
+            `select count(distinct handling_unit_id)::int as n from competency.driver_licences`
+        );
+        expect(offices[0]?.n).toBeGreaterThan(1);
     });
 
     it('gives each licence the term its rules give, and a holder old enough on the day it was issued', async () => {
@@ -226,7 +229,7 @@ describe('the second demo region', () => {
             await importOrg(tx, org);
             await importUsers(tx, users);
         });
-        expect(await applySettings('sample-city.demo.yaml')).toBe(2);
+        expect(await applySettings('sample-city.demo.yaml')).toBe(3);
     });
 
     it('has its own levels, its sub-cities, and a language of its own', async () => {

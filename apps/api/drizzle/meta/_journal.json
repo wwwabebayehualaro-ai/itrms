@@ -673,6 +673,13 @@
       "when": 1795095693474,
       "tag": "0095_remittances",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1795120249328,
+      "tag": "0096_licence_numbers",
+      "breakpoints": true
     }
   ]
 }

@@ -3,7 +3,7 @@
  * training is entered by the office that handles them, from the school's list; a batch goes to the printer once, through the worker.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, ne, sql, type SQL } from 'drizzle-orm';
 import { StationeryStock } from '@itrms/fees/api';
 import { parseStationeryKey } from '@itrms/fees/contracts';
 import { insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
@@ -13,14 +13,38 @@ import { organisations, persons } from '@itrms/parties/api';
 
 import {
     enrolmentSchema,
+    foldCardSerial,
+    isCardSerial,
     printBatchPrintedSchema,
     printBatchSchema,
     type ENROLMENT_STATUSES,
     type Enrolment,
     type PrintBatchPrinted
 } from '../contracts';
-import { licenceGradeTypes, licencePrintBatches, licencePrintBatchItems, trainingEnrolments } from './competency.table';
+import {
+    driverLicences,
+    licenceGradeTypes,
+    licencePrintBatches,
+    licencePrintBatchItems,
+    trainingEnrolments
+} from './competency.table';
 import type { EnrolmentCreate } from './licences.service';
+
+const serialTaken = (serial: string, cause?: unknown) =>
+    new ConflictError('duplicate_reference', {
+        detailKey: 'competency.errors.card_serial_taken',
+        params: { serial },
+        ...(cause ? { cause } : {})
+    });
+
+/** Two batches naming one serial at the same moment: the region's unique index refuses the second. */
+const isSerialClash = (error: unknown) => {
+    for (let e: unknown = error; e; e = (e as { cause?: unknown }).cause) {
+        const { code, constraint } = e as { code?: string; constraint?: string };
+        if (code === '23505' && constraint === 'driver_licences_card_serial_uq') return true;
+    }
+    return false;
+};
 
 /** A person acting always has a region and a unit: the guards saw to that. */
 function required(value: string | undefined): string {
@@ -252,6 +276,7 @@ export class RegisterService {
                 cardKey: blank.itemKey,
                 stationeryItemId: blank.id
             });
+            await this.keepCardSerial(tx, item.licenceId, blank.itemKey);
         }
         for (const spoiled of input.spoiled ?? [])
             await this.stationery.spoil(tx, ctx, {
@@ -261,6 +286,39 @@ export class RegisterService {
             });
         const updated = await updateAudited(tx, licencePrintBatches, id, version, { status: 'returned' });
         return this.batchView(updated, items.length);
+    }
+
+    /**
+     * The card's serial beside the licence's number (task 1.6, ADR-0064 §3), in the transaction that records the blank: unique in
+     * the region, so a serial another licence carries refuses the whole record (409 `card_serial_taken`).
+     */
+    private async keepCardSerial(tx: Tx, licenceId: string, key: string): Promise<void> {
+        const serial = foldCardSerial(key);
+        if (!isCardSerial(serial))
+            throw new ValidationError('validation_failed', {
+                errors: [{ path: 'cards', code: 'invalid_serial', message: 'is not a card serial' }]
+            });
+        const [licence] = await tx.select().from(driverLicences).where(eq(driverLicences.id, licenceId)).for('update');
+        if (!licence) throw new NotFoundError();
+        // the register is read region-wide (class R): another office's licence on this serial is seen here
+        const [other] = await tx
+            .select({ id: driverLicences.id })
+            .from(driverLicences)
+            .where(
+                and(
+                    eq(driverLicences.regionId, licence.regionId),
+                    eq(driverLicences.cardSerial, serial),
+                    ne(driverLicences.id, licenceId)
+                )
+            );
+        if (other) throw serialTaken(serial);
+        if (licence.cardSerial === serial) return;
+        try {
+            await updateAudited(tx, driverLicences, licence.id, licence.rowVersion, { cardSerial: serial });
+        } catch (error) {
+            if (isSerialClash(error)) throw serialTaken(serial, error);
+            throw error;
+        }
     }
 
     /** The batch's licences, in the order they joined it, on consecutive blanks from the first one, the spoiled skipped. */

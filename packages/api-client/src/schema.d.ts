@@ -385,6 +385,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/competency/licences/{id}/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["CompetencyController_recordHealth"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/competency/licences/{id}/health/reveal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["CompetencyController_revealHealth"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/competency/print-batches": {
         parameters: {
             query?: never;
@@ -3652,6 +3684,13 @@ export interface components {
             /** Format: date-time */
             validTo?: string;
         };
+        HealthRecordDto: {
+            /** @enum {string} */
+            bloodGroup: "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-";
+        };
+        HealthRevealDto: {
+            reason: string;
+        };
         LookupItemsOut_Output: {
             items: {
                 active: boolean;
@@ -4965,6 +5004,7 @@ export interface operations {
                 personId?: string;
                 status?: "pending_national" | "active" | "voided";
                 number?: string;
+                cardSerial?: string;
                 limit?: number;
             };
             header?: never;
@@ -4991,6 +5031,52 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CompetencyController_recordHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HealthRecordDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CompetencyController_revealHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HealthRevealDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {

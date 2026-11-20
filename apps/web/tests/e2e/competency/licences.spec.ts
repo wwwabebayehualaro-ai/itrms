@@ -30,6 +30,7 @@ test.describe('the driver licence services', () => {
     let holder: string;
     let number: string;
     let licenceId: string;
+    let batchId: string;
 
     test.beforeAll(async ({ browser }) => {
         test.setTimeout(300_000);
@@ -128,7 +129,8 @@ test.describe('the driver licence services', () => {
         );
         licenceId = items[0]?.id ?? '';
         number = items[0]?.number ?? '';
-        expect(number).toMatch(/^WOL-BODITI\/DL\/\d{6}$/);
+        // the region's one sequence (task 1.6, ADR-0051): its code and five digits
+        expect(number).toMatch(/^06-\d{5}$/);
         await officer.getByLabel('የፈቃድ ቁጥር').fill(number);
         await officer.locator('[data-screen="licences"]').getByRole('button', { name: 'ፈልግ' }).click();
         const row = officer.locator(`[data-licence="${licenceId}"]`);
@@ -140,6 +142,7 @@ test.describe('the driver licence services', () => {
         await lead.goto('/competency/print-batches');
         const open = lead.locator('[data-batch][data-status="open"]');
         await expect(open.locator('[data-batch-licences]')).not.toHaveText('0');
+        batchId = (await open.getAttribute('data-batch')) ?? '';
         await open.locator('[data-action="send"]').click();
         await expect(lead.locator('[data-batch][data-status="open"]')).toHaveCount(0);
     });
@@ -205,5 +208,68 @@ test.describe('the driver licence services', () => {
         } finally {
             await bureau.delete(setting, 1);
         }
+    });
+
+    test('its card serial back from the printer, and its blood group recorded and revealed (task 1.6)', async ({
+        browser
+    }) => {
+        test.setTimeout(300_000);
+        const { cashier, officer } = people;
+
+        // the batch reaches the printer through the worker; it comes back on the office's card blanks
+        const lead = await person(browser, BODITI.lead);
+        await expect
+            .poll(
+                async () =>
+                    (
+                        await api(lead).get<{ items: { id: string; status: string }[] }>('v1/competency/print-batches')
+                    ).items.find((b) => b.id === batchId)?.status,
+                { timeout: 120_000 }
+            )
+            .toBe('sent');
+        const { activeUnit } = await api(cashier).get<{ activeUnit: { id: string } }>('v1/me/workspace');
+        const { items: blanks } = await api(cashier).get<{ items: { key: string }[] }>(
+            `v1/stationery/items?kind=licence_blank&status=in_stock&holderUnitId=${activeUnit.id}&limit=1`
+        );
+        const first = blanks[0]?.key ?? '';
+        expect(first).not.toBe('');
+        await lead.goto('/competency/print-batches');
+        const sent = lead.locator(`[data-record-printed="${batchId}"]`);
+        await sent.getByRole('textbox').fill(first);
+        await sent.locator('[data-action="printed"]').click();
+        await expect(lead.locator(`[data-batch="${batchId}"]`)).toHaveAttribute('data-status', 'returned');
+
+        // the serial beside the number, and found by it
+        const { cardSerial } = await api(officer).get<{ cardSerial: string | null }>(
+            `v1/competency/licences/${licenceId}`
+        );
+        expect(cardSerial).toMatch(/^[A-Z0-9-]{1,20}$/);
+        await officer.goto('/competency/licences');
+        await officer.getByLabel('የካርድ መለያ ቁጥር').fill(cardSerial ?? '');
+        await officer.locator('[data-screen="licences"]').getByRole('button', { name: 'ፈልግ' }).click();
+        const found = officer.locator(`[data-licence="${licenceId}"]`);
+        await expect(found.locator('[data-card-serial]')).toHaveText(cardSerial ?? '');
+        await expect(found.locator('[data-blood-group]')).toHaveAttribute('data-blood-group', 'none');
+
+        // the team leader records the blood group (the demo region collects it), then reads it with a reason: just signed in,
+        // so the second factor is recent
+        await lead.goto('/competency/licences');
+        await lead.getByLabel('የፈቃድ ቁጥር').fill(number);
+        await lead.locator('[data-screen="licences"]').getByRole('button', { name: 'ፈልግ' }).click();
+        const row = lead.locator(`[data-licence="${licenceId}"]`);
+        await row.locator('[data-action="record-blood-group"]').click();
+        const ask = lead.locator('[data-blood-group-dialog]');
+        await ask.getByRole('combobox', { name: 'የደም ዓይነት' }).click();
+        await lead.getByRole('option', { name: 'O+', exact: true }).click();
+        await ask.getByRole('button', { name: 'አስቀምጥ' }).click();
+        await expect(row.locator('[data-blood-group]')).toHaveAttribute('data-blood-group', 'on-record');
+        // the register says only that one is on record
+        await expect(row).not.toContainText('O+');
+
+        await row.locator('[data-action="reveal-blood-group"]').click();
+        const why = lead.locator('[data-reveal-dialog]');
+        await why.getByLabel('ምክንያት').fill('Checking the card before it is handed over');
+        await why.getByRole('button', { name: 'አሳይ', exact: true }).click();
+        await expect(row.locator('[data-revealed]')).toHaveText('O+');
     });
 });

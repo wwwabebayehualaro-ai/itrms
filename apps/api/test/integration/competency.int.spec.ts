@@ -25,6 +25,7 @@ import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { startApi, type As, type TestApi } from './support/api';
+import { setLicenceNumbering } from './support/licences';
 import { startPostgres, type TestPostgres } from './support/postgres';
 
 const SUB = {
@@ -342,6 +343,8 @@ beforeAll(async () => {
     as.lead = { sub: SUB.lead, unit: boditi };
     as.damotRecords = { sub: SUB.damotRecords, unit: await api.unit('SER', 'WOL-DAMOT-GALE') };
 
+    // the region numbers its licences (task 1.6): its code and range, then its counter
+    await setLicenceNumbering(api, { id: region.id, regionId: region.regionId });
     await api.installer.scoped({}, async (tx) => {
         const root = { id: region.id, regionId: region.regionId };
         await importLicenceGrades(tx, root);
@@ -581,7 +584,8 @@ describe('a licence', () => {
             issuedOn: today(),
             validUntil: `${Number(today().slice(0, 4)) + 2}${today().slice(4)}`
         });
-        expect(licence?.number).toMatch(/^WOL-BODITI\/DL\/\d{6}$/);
+        // the region's one sequence (task 1.6, ADR-0051)
+        expect(licence?.number).toMatch(/^06-\d{5}$/);
         expect(licence?.nationalReference).toMatch(/^FAKE-DL-/);
 
         const { rows: docs } = await api.owner.query<{

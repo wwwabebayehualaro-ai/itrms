@@ -49,6 +49,7 @@ import { FieldCrypto } from '@itrms/kernel/crypto';
 import { OrganisationsService, PersonsService } from '@itrms/parties/api';
 import { PlateStock, VehicleRegistry } from '@itrms/vehicles/api';
 import { StationeryStock } from '@itrms/fees/api';
+import { LICENCE_NUMBER_SETTING } from '@itrms/competency/contracts';
 import { DEFAULT_LEGACY_PLATE_REGIONS } from '@itrms/vehicles/contracts';
 import {
     importPlateStockDemo,
@@ -194,7 +195,13 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
             const where = { id: root.id, regionId: root.regionId };
             return {
                 grades: await importLicenceGrades(tx, where),
-                counters: await setUpLicenceCounters(tx, root.regionId),
+                // the region's licence counter from its code and first number (task 1.6), and the offices' own
+                // a region that has not set its range yet is warned and its counter left unmade: the rest of its seed (the
+                // vehicle services first) goes ahead, and a licence filing is refused until the range is set and this runs again
+                counters: await setUpLicenceCounters(tx, root.regionId, {
+                    installation: config.INSTALLATION_SETTINGS[LICENCE_NUMBER_SETTING],
+                    onUnset: (problem) => logger.warn({ region: code }, problem)
+                }),
                 // after the catalogue and the fee rules (task 0.24b)
                 services: await importLicenceServices(tx, where),
                 vehicleServices: await importVehicleServices(tx, where),
@@ -276,7 +283,8 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
         );
         const made = await importDemoData(db, code, {
             persons,
-            organisations: new OrganisationsService(persons)
+            organisations: new OrganisationsService(persons),
+            licenceNumbering: config.INSTALLATION_SETTINGS[LICENCE_NUMBER_SETTING]
         });
         logger.info({ region: code, ...made }, made ? 'demo data applied' : 'the demo data was already there');
     } else if (kind === 'demo-vehicles') {

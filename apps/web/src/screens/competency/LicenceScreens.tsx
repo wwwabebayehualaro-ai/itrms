@@ -59,6 +59,8 @@ import { usePreferences, useText } from '@/lib/preferences';
 import { useServices } from '@/lib/services';
 import { Requests } from '@/screens/workflow/Requests';
 
+import { LicenceHealthCell } from './LicenceHealth';
+
 const nameOf = (name: { given: string; father: string; grandfather: string | null } | null | undefined): string =>
     name ? [name.given, name.father, name.grandfather].filter(Boolean).join(' ') : '';
 
@@ -258,6 +260,7 @@ function LicenceRow({ licence }: { licence: Licence }) {
             <TableCell className="font-medium" data-licence-number>
                 {licence.number ?? '—'}
             </TableCell>
+            <TableCell data-card-serial>{licence.cardSerial ?? '—'}</TableCell>
             <TableCell>
                 <Link className="underline" href={`/registry/persons/${licence.personId}`}>
                     {nameOf(holder)}
@@ -286,6 +289,9 @@ function LicenceRow({ licence }: { licence: Licence }) {
             </TableCell>
             <TableCell>{text(licence.handlingUnit.name)}</TableCell>
             <TableCell>
+                <LicenceHealthCell licence={licence} />
+            </TableCell>
+            <TableCell>
                 {licence.caseId && (
                     <Link className="underline" href={`/cases/${licence.caseId}`}>
                         {t('competency.licence.case')}
@@ -302,10 +308,13 @@ export function LicenceRegister() {
     const { t } = useText();
     const [typed, setTyped] = useState('');
     const [number, setNumber] = useState<string | undefined>();
+    const [typedSerial, setTypedSerial] = useState('');
+    const [cardSerial, setCardSerial] = useState<string | undefined>();
     const [holder, setHolder] = useState<string | null>(null);
     const [status, setStatus] = useState<LicenceStatus | typeof ALL>(ALL);
     const licences = useLicences({
         ...(number ? { number } : {}),
+        ...(cardSerial ? { cardSerial } : {}),
         ...(holder ? { personId: holder } : {}),
         ...(status === ALL ? {} : { status })
     });
@@ -319,6 +328,7 @@ export function LicenceRegister() {
                 onSubmit={(e) => {
                     e.preventDefault();
                     setNumber(typed.trim() || undefined);
+                    setCardSerial(typedSerial.trim() || undefined);
                 }}
             >
                 <div className="flex flex-col gap-1.5">
@@ -328,6 +338,16 @@ export function LicenceRegister() {
                         className="w-56"
                         value={typed}
                         onChange={(e) => setTyped(e.target.value)}
+                    />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="licence-card-serial">{t('competency.licences.cardSerial')}</Label>
+                    <Input
+                        id="licence-card-serial"
+                        className="w-40"
+                        maxLength={20}
+                        value={typedSerial}
+                        onChange={(e) => setTypedSerial(e.target.value)}
                     />
                 </div>
                 <Picker provider="person" label={t('competency.licences.holder')} value={holder} onChange={setHolder} />
@@ -364,11 +384,13 @@ export function LicenceRegister() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>{t('competency.licences.number')}</TableHead>
+                                <TableHead>{t('competency.licences.cardSerial')}</TableHead>
                                 <TableHead>{t('competency.licences.holder')}</TableHead>
                                 <TableHead>{t('competency.licences.grades')}</TableHead>
                                 <TableHead>{t('competency.licences.status')}</TableHead>
                                 <TableHead>{t('competency.licences.validUntil')}</TableHead>
                                 <TableHead>{t('competency.licences.office')}</TableHead>
+                                <TableHead>{t('competency.licences.health')}</TableHead>
                                 <TableHead />
                             </TableRow>
                         </TableHeader>

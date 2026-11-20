@@ -398,12 +398,12 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
                 { timeout: 120_000 }
             );
 
-            // temporary, for two years, numbered by Boditi
+            // temporary, for two years, numbered from the region's one sequence (task 1.6)
             const { items } = await api(officer).get<{
                 items: { id: string; number: string; issuedOn: string | null; validUntil: string | null }[];
             }>(`v1/competency/licences?personId=${personId}`);
             const licence = items[0];
-            expect(licence?.number).toMatch(/^WOL-BODITI\/DL\/\d{6}$/);
+            expect(licence?.number).toMatch(/^06-\d{5}$/);
             // valid for two years from its issue (Proclamation 1074/2018: a temporary licence)
             const [year = '', rest = ''] = (licence?.issuedOn ?? '').split(/-(.*)/s);
             expect(licence?.validUntil).toBe(`${Number(year) + 2}-${rest}`);
@@ -442,7 +442,7 @@ for (const lang of ['am', 'en'] as const satisfies readonly Lang[]) {
                 number: string | null;
             };
             expect(shownToAnyone.status).toBe('valid');
-            expect(shownToAnyone.number).toMatch(/^WOL-BODITI\/DL\/\d{6}$/);
+            expect(shownToAnyone.number).toMatch(/^06-\d{5}$/);
             expect(shownToAnyone.holder).toBeTruthy();
             expect(shownToAnyone.holder).not.toContain(fullName);
             expect(shownToAnyone.holder).not.toContain(applicant.fatherAm);

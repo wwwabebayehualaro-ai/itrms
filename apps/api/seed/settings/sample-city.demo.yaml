@@ -5,3 +5,8 @@ settings:
     am: ናሙና የከተማ ትራንስፖርት ባለሥልጣን
     en: Sample City Transport Authority
   i18n.languages: [am, en]
+  # the city's licence numbers (task 1.6, ADR-0051): a made-up code and range (Z)
+  competency.licence_number:
+    scope: region
+    regionCode: '14'
+    firstNumber: 1

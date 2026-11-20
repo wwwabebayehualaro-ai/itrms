@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-11-19",
+  "updated": "2026-11-20",
   "statuses": [
     "planned",
     "ready",
@@ -2171,7 +2171,115 @@
         },
         {
           "id": "1.6",
-          "title": "Driver licence family",
+          "title": "Driver licence family, part 1: numbers, card serial and blood group",
+          "status": "in review",
+          "branch": "task/1.6-licence-numbers",
+          "commits": [
+            "b11b083",
+            "15a0f63"
+          ],
+          "evidence": [
+            "PR #94 GitHub Actions run 44670871399 on 15a0f63: all 12 jobs green",
+            "lint · typecheck · test · build · boundaries → turbo 69/69 tasks; unit suites all passed (competency 151, api 20; 2 skipped in ui contrast)",
+            "integration (real PostgreSQL 16) → 57 files, 1091 tests passed; S3 contract 20 passed",
+            "e2e → 61 passed in 3 shards (36+5+20, 1 flaky passed on retry: demo journey step 7 socket hang up, follow-up recorded)",
+            "performance (10^6 rows, EXPLAIN under RLS) → 15 passed, incl. apps/api/test/perf/licence-number.perf.spec.ts",
+            "stories · axe · visual → 237 tests, 474 visual baselines passed",
+            "gitleaks, Trivy, Semgrep → clean; pnpm i18n:check → catalogues complete in am and en",
+            "Done when 1: licence-numbers.int.spec.ts 'gives twenty licences accepted at once across offices twenty consecutive numbers, none twice or skipped' (+ rollback gives the number back)",
+            "Done when 2: stationery.int.spec.ts 'keeps each card's serial beside its licence' and 'refuses a serial another licence of the region carries'; e2e licences.spec.ts finds the licence by its serial",
+            "Done when 3: licence-numbers.int.spec.ts reveal tests (officer 403 on record; lead sees it, event has actor + reason; sibling lead 404 on record); lists/get never carry the value; logger redacts blood_group",
+            "Isolation: licence_health RLS class registry via kernel.apply_rls (policies TO itrms_app), matrix own/child/parent/sibling/other region/no context/no delete in licence-numbers.int.spec.ts",
+            "task-verifier → ready with caveats (all Done when met; caveat on apply_rls closed: policies TO itrms_app)",
+            "reviewer (Fable) → 0 high, 3 medium, 2 low; fixed in 15a0f63: Ethiopic card serials, seed skips an unset range, per-office root counter, demo installation setting; open for the owner: national number inside the regional range (follow-up)",
+            "CI attempt 1 of run 44613666524 failed in remittances.int.spec.ts across midnight Addis Ababa, passed unchanged on re-run (follow-up recorded)"
+          ],
+          "blockers": [],
+          "notes": "Product owner decisions 2026-11-19 (ADR-0064): one licence per person (enforced from 1.6f, with the upgrade); the blood group as an encrypted register record, revealed only by the competency lead of the handling subtree with reason + second factor, never on the ITRMS card document; a cancellation revokes the card document, a suspension does not (live status on the QR page is a follow-up). Split into 1.6 and 1.6a-1.6i from the architect's design."
+        },
+        {
+          "id": "1.6a",
+          "title": "Driver licence family, part 2: renewal with the medical referral and report",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.6b",
+          "title": "Driver licence family, part 3: paper licence back-capture (MIG-02)",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.6c",
+          "title": "Driver licence family, part 4: suspension and cancellation record (DVC-21)",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.6d",
+          "title": "Driver licence family, part 5: the temporary driving permit",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.6e",
+          "title": "Driver licence family, part 6: licence replacement (DVC-19)",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.6f",
+          "title": "Driver licence family, part 7: grade upgrade (DVC-18) and one licence per person",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.6g",
+          "title": "Driver licence family, part 8: the verification letter (DVC-20)",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.6h",
+          "title": "Driver licence family, part 9: the international licence (DVC-08)",
+          "status": "planned",
+          "branch": null,
+          "commits": [],
+          "evidence": [],
+          "blockers": [],
+          "notes": ""
+        },
+        {
+          "id": "1.6i",
+          "title": "Driver licence family, part 10: a licence file from another region (DVC-22)",
           "status": "planned",
           "branch": null,
           "commits": [],
@@ -4234,6 +4342,26 @@
     {
       "foundIn": "1.12e",
       "item": "Flaky integration tests: 9 vehicle specs make legacy plates as 'SN 2-' + randomInt(10000,99999) (and 'CD ' + 4 digits) on the shared CI database, so two specs can collide (vehicle-replacement 'who sees what' failed with duplicate_plate on PR #93, run 44588484289); give the specs a collision-free plate helper in the test kit",
+      "movedTo": "a test-kit hardening task"
+    },
+    {
+      "foundIn": "1.6",
+      "item": "Show a licence suspension on the public verification page (needs a live subject status in the documents slice)",
+      "movedTo": "documents follow-up after 1.6c"
+    },
+    {
+      "foundIn": "1.6",
+      "item": "Flaky integration tests at midnight Addis Ababa: remittances.int.spec.ts (whole suite) and one vehicle spec failed on PR #94 run 44613666524 attempt 1 (20:58–21:08 UTC = 23:58–00:08 EAT; first failure a shortage note 422 that cascades) and passed unchanged on attempt 2; the cashier/remittance specs read the wall clock for the business day — give them a fixed clock",
+      "movedTo": "a test-kit hardening task"
+    },
+    {
+      "foundIn": "1.6",
+      "item": "Review finding (medium, product owner's decision): a national-platform licence number inside the regional counter's range (e.g. '06-00042') is stored as is under the same unique (region_id, number); when the regional counter reaches it, every regional activation in the region fails on 23505 and retries forever (licences.service.ts activate). Options: skip a taken value in the same transaction and flag it, or refuse/flag such national numbers for reconciliation (1.14)",
+      "movedTo": "1.6f or the product owner's decision"
+    },
+    {
+      "foundIn": "1.6",
+      "item": "Flaky e2e: demo journey step 7 (journey.spec.ts:402) got 'socket hang up' on the API GET right after its up-to-120s wait for the licence card to render (PR #94 run 44670871399, passed on retry); likely an idle keep-alive socket — give the e2e api() helper a fresh connection or a retry on ECONNRESET",
       "movedTo": "a test-kit hardening task"
     }
   ]

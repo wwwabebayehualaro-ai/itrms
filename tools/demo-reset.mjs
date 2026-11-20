@@ -29,8 +29,10 @@ export function demoSteps(run) {
     const seed = (...args) => run('migrate', 'seed.cjs', args);
 
     /** What every region is built from, in order. */
-    const regionSteps = (code, org, users) => [
+    const regionSteps = (code, org, users, settings, look) => [
         [`${code}: the org tree`, () => seed('org', `seed/org/${org}.yaml`)],
+        // before the licence services: the region's licence numbering is set up from them (task 1.6)
+        [`${code}: ${look}`, () => seed('settings', `seed/settings/${settings}.yaml`)],
         [
             `${code}: the service catalogue`,
             () => seed('services', '../../platform/services/seed/catalogue.yaml', '--region', code)
@@ -48,11 +50,21 @@ export function demoSteps(run) {
 
     return [
         ['migrate', () => run('migrate', 'migrate.cjs', [])],
-        ...regionSteps(REGION, 'south-ethiopia.wolaita', 'wolaita.demo'),
-        [`${REGION}: its branding`, () => seed('settings', 'seed/settings/sample-region.demo.yaml')],
+        ...regionSteps(
+            REGION,
+            'south-ethiopia.wolaita',
+            'wolaita.demo',
+            'sample-region.demo',
+            'its branding and numbering'
+        ),
         // the second region: a city administration with sub-cities (task 0.25b), with the same services and rules
-        ...regionSteps(CITY, 'sample-city', 'sample-city.demo'),
-        [`${CITY}: its branding and languages`, () => seed('settings', 'seed/settings/sample-city.demo.yaml')],
+        ...regionSteps(
+            CITY,
+            'sample-city',
+            'sample-city.demo',
+            'sample-city.demo',
+            'its branding, languages and numbering'
+        ),
         // the generated records, with the personal data keys, after both regions are built (one process for the three)
         ['the demo’s people and licences', () => run('demo', 'seed.cjs', ['demo', '--region', REGION])],
         [`${REGION}: the demo’s vehicles`, () => run('demo', 'seed.cjs', ['demo-vehicles', '--region', REGION])],
