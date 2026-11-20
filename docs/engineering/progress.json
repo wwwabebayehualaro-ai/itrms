@@ -2247,10 +2247,21 @@
         {
           "id": "1.6b2",
           "title": "Configurable role grants (ADR-0065): the intake desk reads the licence register",
-          "status": "in progress",
+          "status": "in review",
           "branch": "task/1.6b2-configurable-role-grants",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "c29f715"
+          ],
+          "evidence": [
+            "PR #97 CI run 44783575585 (https://github.com/wwwabebayehualaro-ai/itrms/actions/runs/44783575585): all 12 jobs green; integration 1122 passed; e2e shards 38 + 5 + 20 passed",
+            "Done when 1 (desk reads by default; region or unit type turns it off/on): apps/api/test/integration/role-grants.int.spec.ts 'reads it by default, with the menu entry; the cashier never does' and 'loses it where the region turns the setting off, and gets it back where a unit type turns it on' (403 then 200; workspace permissions and menu follow)",
+            "Never one office for itself; step-up: role-grants.int.spec 'is never set by one office for itself, and a change needs a fresh second factor' (422 setting_level_not_allowed; 401 with a stale second factor)",
+            "Done when 2 (a bad grant stops the start): packages/module-sdk/src/index.spec.ts (own role, foreign permission, not a read, undeclared, not sensitive, unit-overridable: 12/12); platform/kernel/api/modules/loader.spec.ts (unknown role, non-boolean setting: 13/13); platform/kernel/api/iam/roles.spec.ts (only exactly true grants; no read for a role not held)",
+            "e2e apps/web/tests/e2e/competency/licence-capture.spec.ts: the officer's empty search tells who captures; the records officer's empty search offers the capture, files it; the officer verifies",
+            "competency.int.spec 'asks permission for the register': the examiner is refused, the Damot records officer reads through the grant",
+            "Docs: ADR-0065 accepted; roles-and-permissions.md licence row; modularization.md manifest example and start checks; competency README; local lint + typecheck module-sdk/kernel/competency/api/web 10/10, api unit 20/20, i18n am+en complete",
+            "Review: reviewer (Fable 5.2) 0 critical/high/medium; lows fixed: grants read-only enforced, own plain role refused; default-on, fail-closed and unit visibility recorded in ADR-0065"
+          ],
           "blockers": [],
           "notes": ""
         },
