@@ -13,12 +13,24 @@ import type {
     LicenceHealthRevealed,
     LicenceGrade,
     LicenceStatus,
+    MedicalConditionsRevealed,
+    MedicalReport,
     PrintBatch
 } from '@itrms/competency/contracts';
 
 import client from './api/client';
 
-export type { BloodGroup, Enrolment, Licence, LicenceGrade, LicenceHealthRevealed, LicenceStatus, PrintBatch };
+export type {
+    BloodGroup,
+    Enrolment,
+    Licence,
+    LicenceGrade,
+    LicenceHealthRevealed,
+    LicenceStatus,
+    MedicalConditionsRevealed,
+    MedicalReport,
+    PrintBatch
+};
 
 /** What the lists ask for at once. The screens say when there may be more, and how to narrow them. */
 export const LIST_LIMIT = 50;
@@ -70,6 +82,39 @@ export function useRecordBloodGroup() {
 /** The blood group in clear, with a reason (the audited reveal, ADR-0052). Never cached: it is gone when the screen is left. */
 export async function revealBloodGroup(id: string, reason: string): Promise<LicenceHealthRevealed> {
     return (await client.post<LicenceHealthRevealed>(`v1/competency/licences/${id}/health/reveal`, { reason })).data;
+}
+
+/** A renewal's medical reports (task 1.6a): whether conditions are on record, never what they are. */
+export function useMedicalReports(caseId: string, enabled = true) {
+    return useQuery({
+        queryKey: ['competency', 'medical-reports', caseId],
+        enabled,
+        queryFn: async ({ signal }) =>
+            (await client.get<{ items: MedicalReport[] }>(`v1/competency/cases/${caseId}/medical-reports`, { signal }))
+                .data
+    });
+}
+
+export function useRecordMedicalConditions(caseId: string) {
+    const queries = useQueryClient();
+    return useMutation({
+        mutationFn: async (input: { id: string; conditions: string }) =>
+            (
+                await client.post<MedicalReport>(`v1/competency/medical-reports/${input.id}/conditions`, {
+                    conditions: input.conditions
+                })
+            ).data,
+        onSuccess: () => queries.invalidateQueries({ queryKey: ['competency', 'medical-reports', caseId] })
+    });
+}
+
+/** The conditions in clear, with a reason (the audited reveal, ADR-0064 §4). Never cached: gone when the screen is left. */
+export async function revealMedicalConditions(id: string, reason: string): Promise<MedicalConditionsRevealed> {
+    return (
+        await client.post<MedicalConditionsRevealed>(`v1/competency/medical-reports/${id}/conditions/reveal`, {
+            reason
+        })
+    ).data;
 }
 
 /** The catalogue, for whoever enters a training list: reading it asks for `licence:read`, which they have. */

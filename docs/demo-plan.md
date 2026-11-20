@@ -68,7 +68,8 @@ The presenter's words, step by step: [demo-script.md](demo-script.md).
      it to the fake national platform;
    - a licence certificate PDF (Amharic + English) is produced.
 8. **Verification:** scan the QR code on a phone; the public page shows "valid" with a masked name.
-9. **Renewal at the zone department:** an applicant whose licence expired 14 months ago. The workflow adds the field-exam
+9. **Renewal at the zone department:** an applicant whose licence expired 14 months ago. The holder brings the health
+   bureau's report, recorded as granting (the office could instead write a referral letter, task 1.6a). The workflow adds the field-exam
    step, the fee includes the late component, and the fee was paid at the revenue office. The receipt reference is entered,
    stays *pending verification*, and is verified by the zone finance officer. Trying the same reference on another case
    is refused.

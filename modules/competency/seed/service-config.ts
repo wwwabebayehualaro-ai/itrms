@@ -259,7 +259,14 @@ export async function supersedeSeededVersion(
     service: typeof serviceDefinitions.$inferSelect,
     workflowKey: string,
     definition: unknown,
-    form?: { key: string; document: object }
+    form?: { key: string; document: object },
+    options: {
+        /**
+         * The flow needs this form (DVC-04 version 2, task 1.6a): when the form cannot move with it (a bureau's own version or its
+         * unpublished draft), the service stays where it is rather than run the new flow on the old form.
+         */
+        withForm?: boolean;
+    } = {}
 ): Promise<boolean> {
     if (!service.currentVersionId) return false;
     const [current] = await tx.select().from(serviceVersions).where(eq(serviceVersions.id, service.currentVersionId));
@@ -278,6 +285,16 @@ export async function supersedeSeededVersion(
     const sameFlow = running.version.contentHash === hash;
     const formVersionId =
         form && current.formVersionId ? await supersedeSeededForm(tx, root, current.formVersionId, form) : undefined;
+    if (form && options.withForm && !formVersionId) {
+        const [used] = current.formVersionId
+            ? await tx
+                  .select({ hash: formVersions.contentHash })
+                  .from(formVersions)
+                  .where(eq(formVersions.id, current.formVersionId))
+            : [];
+        // nosemgrep: ajinabraham.njsscan.crypto.timing_attack_node.node_timing_attack -- a content hash of a seeded form, not a secret
+        if (used?.hash !== contentHash(form.document)) return false;
+    }
     if (sameFlow && !formVersionId) return false;
     // today's flow may already be a version of the workflow: it is used again, never stored twice (as the designer does)
     const [stored] = await tx

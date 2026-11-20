@@ -2,6 +2,8 @@
 // register's service.
 export { CompetencyModule } from './competency.module';
 export { LICENCE_EFFECTS } from './licence.effects';
+export { MEDICAL_EFFECTS_LIST } from './medical.effects';
+export { MedicalReportService } from './medical-report.service';
 export { BACK_CAPTURE_EFFECTS } from './back-capture.effects';
 export { BackCaptureService, type BackCaptureInput } from './back-capture.service';
 export { VehicleImportService, type ImportDeps, type LoadedImport } from './vehicle-import.service';

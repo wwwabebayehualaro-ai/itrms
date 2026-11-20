@@ -1,5 +1,5 @@
 /**
- * The Phase 0 templates: application copy, receipt, driver-licence card, exam result sheet, the vehicle registration certificate (the temporary libre, ADR-0050), the three letters of an ownership transfer (task 1.4b), and the vehicle data transfer document with its covering letter (task 1.4c2), and the office's remittance (task 1.12d). Their layouts stand in until a
+ * The Phase 0 templates: application copy, receipt, driver-licence card, a renewal's medical referral letter (task 1.6a), exam result sheet, the vehicle registration certificate (the temporary libre, ADR-0050), the three letters of an ownership transfer (task 1.4b), and the vehicle data transfer document with its covering letter (task 1.4c2), and the office's remittance (task 1.12d). Their layouts stand in until a
  * bureau's forms and permission to copy them are known (docs/demo-plan.md); every word is the template's own, in Amharic and
  * English. Nothing here names a real office: that comes from the unit's header.
  */
@@ -143,6 +143,57 @@ body{font-size:6.5pt;line-height:1.25}
 <div><span class="term">{{ t.valid }}:</span> {{ validUntil | ethdate }}</div>
 <div><span class="term">{{ t.grades }}:</span> {% for g in grades %}{{ g.grade }} ({{ g.name | text }}){% unless forloop.last %}, {% endunless %}{% endfor %}</div>
 </div>${QR}</div>`
+        }
+    },
+    {
+        key: 'licence-medical-referral',
+        name: t('የህክምና ምርመራ ሪፈራል ደብዳቤ', 'Medical examination referral letter'),
+        version: {
+            paper: 'A4',
+            dataSchema: 'licence-medical-referral.v1',
+            strings: {
+                title: t('የአሽከርካሪ የአካል ብቃት ምርመራ ሪፈራል', "Referral for a driver's physical examination"),
+                to: t('ለ', 'To'),
+                number: t('ቁጥር', 'No.'),
+                issuedOn: t('ቀን', 'Date'),
+                caseNumber: t('የጉዳይ ቁጥር', 'Case number'),
+                subject: t('ጉዳዩ', 'Subject'),
+                subjectText: t(
+                    'የመንጃ ፈቃድ እድሳት የአካል ብቃት ምርመራ እንዲደረግ ስለመጠየቅ',
+                    'Request for the physical examination of a driver licence renewal'
+                ),
+                holder: t('የፈቃዱ ባለቤት', 'Licence holder'),
+                licenceNumber: t('የመንጃ ፈቃድ ቁጥር', 'Licence number'),
+                cardSerial: t('የካርድ ሴሪ ቁጥር', 'Card serial'),
+                grades: t('ደረጃ', 'Grades'),
+                validUntil: t('ፈቃዱ የሚያበቃበት ቀን', 'Licence expiry'),
+                ask: t(
+                    'ከላይ የተጠቀሱት የመንጃ ፈቃድ ባለቤት የፈቃድ እድሳት ጊዜያቸው ስለደረሰ በጤና ቢሮው "የአሽከርካሪዎች የአካል ብቃት ምርመራ ሪፖርት" ቅጽ መሠረት (ዓይን፣ የመስማት ችሎታና ሌሎች) ተመርምረው ውጤቱን እንድትልኩልን እንጠይቃለን።',
+                    'The licence holder above is due to renew their licence. We ask you to examine them on the health bureau’s "Drivers physical examination report" (eyes, hearing and the other items) and send us the report.'
+                ),
+                attempt: t('ሪፈራል', 'Referral'),
+                attemptOf: t('ከ', 'of'),
+                signature: t('የሰጪው ባለሥልጣን ፊርማ', "Issuing officer's signature")
+            },
+            body: `${STYLE}${HEAD}<p class="title">{{ t.title }}</p>
+<div class="facts">
+<div><span class="term">{{ t.number }}:</span> <span data-number>{{ number }}</span></div>
+<div><span class="term">{{ t.issuedOn }}:</span> {{ issuedOn | ethdate }}</div>
+<div><span class="term">{{ t.caseNumber }}:</span> {{ caseNumber }}</div>
+<div><span class="term">{{ t.attempt }}:</span> <span data-attempt>{{ attempt }}</span> {{ t.attemptOf }} {{ of }}</div>
+</div>
+<p><span class="term">{{ t.to }}:</span> <span data-institution>{{ institution }}</span></p>
+<p><span class="term">{{ t.subject }}:</span> {{ t.subjectText }}</p>
+<div class="facts">
+<div><span class="term">{{ t.holder }}:</span> <span data-holder>{{ holderName }}</span></div>
+<div><span class="term">{{ t.licenceNumber }}:</span> {{ licence.number }}</div>
+<div><span class="term">{{ t.cardSerial }}:</span> {% if licence.cardSerial %}{{ licence.cardSerial }}{% else %}${DASH}{% endif %}</div>
+<div><span class="term">{{ t.validUntil }}:</span> {% if licence.validUntil %}{{ licence.validUntil | ethdate }}{% else %}${DASH}{% endif %}</div>
+<div><span class="term">{{ t.grades }}:</span> {% for g in licence.grades %}{{ g.name | text }}{% unless forloop.last %}, {% endunless %}{% endfor %}</div>
+</div>
+<p>{{ t.ask }}</p>
+<p class="foot">{{ t.signature }}: ______________________</p>
+{% if header.stamp %}<img class="stamp" src="{{ header.stamp }}" alt="">{% endif %}${QR}`
         }
     },
     {

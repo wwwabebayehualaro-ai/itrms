@@ -19,9 +19,12 @@ import {
     licenceHealthRecordSchema,
     licenceHealthRevealSchema,
     licenceQuerySchema,
+    medicalConditionsRecordSchema,
+    medicalConditionsRevealSchema,
     printBatchPrintedSchema
 } from '../contracts';
 import { LicenceHealthService } from './licence-health.service';
+import { MedicalReportService } from './medical-report.service';
 import { LicencesService } from './licences.service';
 import { RegisterService } from './register.service';
 
@@ -35,6 +38,8 @@ class EnrolmentQueryDto extends createZodDto(enrolmentQuerySchema) {}
 class PrintedDto extends createZodDto(printBatchPrintedSchema) {}
 class HealthRecordDto extends createZodDto(licenceHealthRecordSchema) {}
 class HealthRevealDto extends createZodDto(licenceHealthRevealSchema) {}
+class ConditionsRecordDto extends createZodDto(medicalConditionsRecordSchema) {}
+class ConditionsRevealDto extends createZodDto(medicalConditionsRevealSchema) {}
 
 @Controller('api/v1/competency')
 export class CompetencyController {
@@ -42,7 +47,8 @@ export class CompetencyController {
         @Inject(DATABASE) private readonly db: Database,
         @Inject(LicencesService) private readonly licences: LicencesService,
         @Inject(RegisterService) private readonly register: RegisterService,
-        @Inject(LicenceHealthService) private readonly health: LicenceHealthService
+        @Inject(LicenceHealthService) private readonly health: LicenceHealthService,
+        @Inject(MedicalReportService) private readonly medical: MedicalReportService
     ) {}
 
     @Get('grades')
@@ -82,6 +88,34 @@ export class CompetencyController {
     @Require('licence-health:reveal', { recentAuth: REVEAL_RECENT_AUTH })
     revealHealth(@Param('id', ParseUUIDPipe) id: string, @Body() body: HealthRevealDto) {
         return this.health.revealed(requestDbContext(), id, body.reason);
+    }
+
+    /**
+     * A renewal's medical reports (task 1.6a), first institution first: whether conditions are on record, never what they are. For
+     * those who record health facts (the officer and the lead): a recommendation is a health outcome.
+     */
+    @Get('cases/:caseId/medical-reports')
+    @Require('licence-health:record')
+    medicalReports(@Param('caseId', ParseUUIDPipe) caseId: string) {
+        return this.db.scoped(requestDbContext(), (tx) => this.medical.list(tx, caseId));
+    }
+
+    /** The conditions a report grants with (ADR-0064 §4): a health fact, recorded here and never in a form; the answer omits them. */
+    @Post('medical-reports/:id/conditions')
+    @HttpCode(200)
+    @Require('licence-health:record')
+    recordConditions(@Param('id', ParseUUIDPipe) id: string, @Body() body: ConditionsRecordDto) {
+        const ctx = requestDbContext();
+        return this.db.scoped(ctx, (tx) => this.medical.recordConditions(tx, ctx, id, body.conditions));
+    }
+
+    @Post('medical-reports/:id/conditions/reveal')
+    @RateLimit('reveal')
+    @HttpCode(200)
+    @NotReplayable()
+    @Require('licence-health:reveal', { recentAuth: REVEAL_RECENT_AUTH })
+    revealConditions(@Param('id', ParseUUIDPipe) id: string, @Body() body: ConditionsRevealDto) {
+        return this.medical.revealedConditions(requestDbContext(), id, body.reason);
     }
 
     @Get('training-enrolments')

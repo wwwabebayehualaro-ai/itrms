@@ -130,6 +130,21 @@ const SAMPLES: Record<DocumentDataSchema, Record<string, unknown>> = {
         validUntil: '2030-11-03',
         photo: null
     },
+    'licence-medical-referral.v1': {
+        number: 'WOL-BODITI/MR/00003/2019',
+        issuedOn: '2026-11-04',
+        caseNumber: 41,
+        institution: 'Sample Health Centre',
+        attempt: 1,
+        of: 3,
+        holderName: 'ሰላም ታደሰ',
+        licence: {
+            number: '06-00012',
+            cardSerial: 'ሀ-004512',
+            validUntil: '2026-11-20',
+            grades: [{ name: { am: 'አውቶሞቢል', en: 'Automobile' } }]
+        }
+    },
     'vehicle-libre.v1': {
         number: 'WOL-BODITI/LB/000012',
         issuedOn: '2026-11-04',
@@ -283,6 +298,7 @@ const SCHEMA_OF: Record<string, DocumentDataSchema> = {
     remittance: 'remittance.v1',
     'application-copy': 'application-copy.v1',
     'licence-card': 'licence-card.v1',
+    'licence-medical-referral': 'licence-medical-referral.v1',
     'vehicle-registration-certificate': 'vehicle-registration-certificate.v1',
     'vehicle-bolo': 'vehicle-bolo.v1',
     'vehicle-temporary-bolo': 'vehicle-bolo.v1',
@@ -503,6 +519,28 @@ describe.skipIf(!chrome)('a PDF from Chrome', () => {
         expect(text).toContain('የአሽከርካሪ ብቃት ማረጋገጫ ፈቃድ');
         expect(text).toContain('SER-000456');
         expect(text).toContain('አውቶሞቢል');
+    }, 180_000);
+
+    it('medical referral: the facility, the holder and the licence, and no health fact', async () => {
+        const data = SAMPLES['licence-medical-referral.v1'];
+        const am = await pdfOf('licence-medical-referral', data);
+        expect(am.pages).toBe(1);
+        expect(am.text).toContain('የአካል ብቃት ምርመራ');
+        expect(am.text.replace(/\s/g, '')).toContain('WOL-BODITI/MR/00003/2019');
+        expect(am.text).toContain('Sample Health Centre');
+        expect(am.text).toContain('ሰላም ታደሰ');
+        // the PDF's text may part an Ethiopic letter from what follows it
+        expect(am.text.replace(/\s/g, '')).toContain('06-00012');
+        expect(am.text.replace(/\s/g, '')).toContain('ሀ-004512');
+        // 4 November 2026 is Tikimt 25, 2019 E.C.
+        expect(am.text).toContain('ጥቅምት');
+        // a second referral says which it is, never why: no earlier outcome is printed
+        const en = await pdfOf('licence-medical-referral', { ...data, attempt: 2 }, 'en');
+        expect(en.pages).toBe(1);
+        expect(en.text).toContain('Drivers physical examination report');
+        expect(en.text.replace(/\s+/g, ' ')).toContain('Referral: 2 of 3');
+        expect(en.text).not.toMatch(/refus|did not recommend/i);
+        expect(en.text).toContain('Automobile');
     }, 180_000);
 
     it('registration certificate: the temporary libre until the booklet, then the booklet\x27s serial', async () => {

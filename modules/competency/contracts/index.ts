@@ -30,6 +30,7 @@ export * from './bolo';
 export * from './campaign';
 export * from './exchange';
 export * from './licence-family';
+export * from './licence-medical';
 export * from './migration-report';
 export * from './migration-sample';
 export * from './registration';

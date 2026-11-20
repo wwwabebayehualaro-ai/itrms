@@ -10,7 +10,19 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { api } from '../forms/support';
 import { PEOPLE, signedIn } from '../workflow/support';
-import { act, BODITI, filing, generated, inState, payAtTheTill, person, pick, today, WORDS } from './support';
+import {
+    act,
+    BODITI,
+    filing,
+    generated,
+    grantingReport,
+    inState,
+    payAtTheTill,
+    person,
+    pick,
+    today,
+    WORDS
+} from './support';
 
 const FIELD = WORDS.am;
 const AUTOMOBILE = WORDS.am.automobile;
@@ -147,7 +159,9 @@ test.describe('the driver licence services', () => {
         await expect(lead.locator('[data-batch][data-status="open"]')).toHaveCount(0);
     });
 
-    test('its renewal: the offence check, the fee, and a new card', async ({ browser }) => {
+    test('its renewal: the referral letter, the medical report, the offence check, the fee, and a new card', async ({
+        browser
+    }) => {
         test.setTimeout(420_000);
         const { records, cashier, lead, officer } = people;
 
@@ -177,14 +191,30 @@ test.describe('the driver licence services', () => {
             await records.getByLabel('ዓመት').fill(String(expiry.year));
             await records.getByLabel('ወር', { exact: true }).selectOption(String(expiry.month));
             await records.locator(`[role="grid"] [data-day="${expiry.day}"]`).click();
-            await form.getByLabel(FIELD.facility).fill('Sample Health Centre');
-            await today(records, form, FIELD.examined);
             await filing(records, form);
             const caseId = records.url().split('/').pop() ?? '';
             await act(records, caseId, 'submit', 'submit');
 
+            // the office refers the holder to a health facility: a letter from its counter, with a QR (task 1.6a)
+            await act(officer, caseId, 'refer', FIELD.refer);
+            await inState(officer, caseId, 'referral');
+            await act(officer, caseId, 'issue_referral', FIELD.issueReferral, async (dialog) => {
+                await dialog.getByLabel(FIELD.referredTo).fill('Sample Health Centre');
+            });
+            await inState(officer, caseId, 'medical');
+            await officer.goto(`/cases/${caseId}`);
+            await expect(
+                officer.locator('[data-case-documents] [data-document="licence-medical-referral"]')
+            ).toBeVisible();
+            // the report comes back granting; the case page lists it, institution 1 of 3
+            await grantingReport(officer, caseId);
+            await officer.goto(`/cases/${caseId}`);
+            await expect(officer.locator('[data-case-medical] [data-medical-report="1"]')).toHaveAttribute(
+                'data-recommendation',
+                'grant'
+            );
+
             // a temporary licence: its record is checked first
-            await act(officer, caseId, 'approve', 'አጽድቅ');
             await inState(officer, caseId, 'offence_check');
             await act(officer, caseId, 'clear', 'መዝገቡ ንጹህ ነው');
             await inState(officer, caseId, 'payment');

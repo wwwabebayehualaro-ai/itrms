@@ -90,8 +90,9 @@ export class VoidPendingLicenceEffect implements WorkflowEffect {
 
 interface RenewalInput {
     licence: string;
-    medicalFacility: string;
-    medicalExaminedOn: string;
+    /** a version 1 request's certificate; version 2 records the report on its own step (task 1.6a) */
+    medicalFacility?: string;
+    medicalExaminedOn?: string;
     /** what the request's fee was worked out from, where its form asks: checked against the register */
     grade?: string;
     expiry?: string;
@@ -101,8 +102,8 @@ interface RenewalInput {
 @Effect(COMPETENCY_EFFECTS.checkRenewal, {
     input: {
         licence: { kind: 'ref' },
-        medicalFacility: { kind: 'text' },
-        medicalExaminedOn: { kind: 'ethdate' },
+        medicalFacility: { kind: 'text', required: false },
+        medicalExaminedOn: { kind: 'ethdate', required: false },
         grade: { kind: 'choice', required: false },
         expiry: { kind: 'ethdate', required: false }
     }

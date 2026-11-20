@@ -337,6 +337,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/competency/cases/{caseId}/medical-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CompetencyController_medicalReports"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/competency/grades": {
         parameters: {
             query?: never;
@@ -411,6 +427,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["CompetencyController_revealHealth"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/competency/medical-reports/{id}/conditions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["CompetencyController_recordConditions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/competency/medical-reports/{id}/conditions/reveal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["CompetencyController_revealConditions"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3130,6 +3178,12 @@ export interface components {
             mentions: string[];
             text: string;
         };
+        ConditionsRecordDto: {
+            conditions: string;
+        };
+        ConditionsRevealDto: {
+            reason: string;
+        };
         CountDecisionDto: {
             /** @enum {string} */
             decision: "approve" | "reject";
@@ -4981,6 +5035,25 @@ export interface operations {
             };
         };
     };
+    CompetencyController_medicalReports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                caseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     CompetencyController_grades: {
         parameters: {
             query?: never;
@@ -5075,6 +5148,52 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["HealthRevealDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CompetencyController_recordConditions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConditionsRecordDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CompetencyController_revealConditions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConditionsRevealDto"];
             };
         };
         responses: {

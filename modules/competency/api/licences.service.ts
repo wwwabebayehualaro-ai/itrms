@@ -243,7 +243,7 @@ export class LicencesService {
         const [existing] = await tx
             .select()
             .from(medicalCertificates)
-            .where(eq(medicalCertificates.caseId, place.caseId));
+            .where(and(eq(medicalCertificates.caseId, place.caseId), eq(medicalCertificates.sequence, 1)));
         if (existing) {
             await updateAudited(tx, medicalCertificates, existing.id, existing.rowVersion, {
                 personId,
@@ -430,7 +430,13 @@ export class LicencesService {
     async checkRenewal(
         tx: Tx,
         place: CasePlace,
-        input: { licence: string; medicalFacility: string; medicalExaminedOn: string; grade?: string; expiry?: string }
+        input: {
+            licence: string;
+            medicalFacility?: string;
+            medicalExaminedOn?: string;
+            grade?: string;
+            expiry?: string;
+        }
     ) {
         const today = addisDay();
         const licence = await this.row(tx, input.licence);
@@ -458,15 +464,22 @@ export class LicencesService {
         const window = await this.settings.value<number>(tx, place.handlingUnitId, RENEWAL_WINDOW_SETTING);
         if (!renewalIsOpen(licence.validUntil, window, today))
             throw notEligible(say('competency.rule.tooEarly', { months: window }));
-        const months = await this.settings.value<number>(tx, place.handlingUnitId, MEDICAL_MONTHS_SETTING);
-        if (!medicalIsCurrent(input.medicalExaminedOn, months, today))
-            throw notEligible(say('competency.rule.medical', { months }));
+        // version 1 takes the certificate with the request; version 2 records the health bureau's report on its own step (task 1.6a)
+        const medical =
+            input.medicalFacility !== undefined && input.medicalExaminedOn !== undefined
+                ? { facility: input.medicalFacility, examinedOn: input.medicalExaminedOn }
+                : undefined;
+        if (medical) {
+            const months = await this.settings.value<number>(tx, place.handlingUnitId, MEDICAL_MONTHS_SETTING);
+            if (!medicalIsCurrent(medical.examinedOn, months, today))
+                throw notEligible(say('competency.rule.medical', { months }));
+        }
         const terms = renewalTerms(
             { validUntil: licence.validUntil },
             await this.birthDate(tx, place, licence.personId, 'licence renewal term'),
             today
         );
-        await this.recordMedical(tx, place, licence.personId, input.medicalFacility, input.medicalExaminedOn);
+        if (medical) await this.recordMedical(tx, place, licence.personId, medical.facility, medical.examinedOn);
         return {
             personId: licence.personId,
             renewal: {
@@ -480,12 +493,37 @@ export class LicencesService {
     }
 
     async requestRenewal(tx: Tx, place: CasePlace, facts: Readonly<Record<string, unknown>>) {
+        await this.medicallyCleared(tx, place.caseId);
         await emit(tx, 'licence.national-requested.v1', {
             caseId: place.caseId,
             licenceId: this.licenceIdOf(facts, 'renewal'),
             kind: 'renewal',
             attempt: (facts.renewal as { attempt?: number }).attempt ?? 0
         });
+    }
+
+    /**
+     * A renewal that recorded the health bureau's report (task 1.6a) goes to the national platform only on a granting one, and one
+     * that grants with conditions only once they are on record. A certificate filed with the request (version 1) carries no
+     * recommendation, and passes as before.
+     */
+    private async medicallyCleared(tx: Tx, caseId: string): Promise<void> {
+        const reports = await tx
+            .select({
+                recommendation: medicalCertificates.recommendation,
+                conditionsCt: medicalCertificates.conditionsCt
+            })
+            .from(medicalCertificates)
+            .where(eq(medicalCertificates.caseId, caseId))
+            .orderBy(asc(medicalCertificates.sequence));
+        const last = reports.at(-1);
+        if (!last || last.recommendation === null) return;
+        if (last.recommendation === 'refuse')
+            throw new ConflictError('invalid_transition', { detailKey: 'competency.errors.medical_refused' });
+        if (last.recommendation === 'grant_with_conditions' && last.conditionsCt === null)
+            throw new ConflictError('invalid_transition', {
+                detailKey: 'competency.errors.medical_conditions_missing'
+            });
     }
 
     /** Accepted nationally: the new term. A temporary licence becomes permanent here (Art. 15(3)). */
