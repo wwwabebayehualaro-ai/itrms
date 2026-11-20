@@ -309,10 +309,19 @@ describe('a paper licence’s capture', () => {
         expect((await step(c, as.clerk, { action: 'flag', comment: 'Inside the reserved range.' })).statusCode).toBe(
             403
         );
-        const flagged = await moved(c, as.verifier, 'flag', { comment: 'Inside the reserved range.' });
-        expect(flagged.state).toBe('flagged');
+        const flagging = await step(c, as.verifier, { action: 'flag', comment: 'Inside the reserved range.' });
+        expect(flagging.statusCode, flagging.body).toBe(200);
+        expect(flagging.json<CaseOut>().state).toBe('flagged');
         expect(await byNumber(number)).toEqual([]);
         expect(await counter()).toBe(before);
+        // the flag on record, in the flagging request's transaction; no licence written
+        const audited = await api.owner.query<{ line: string }>(
+            `select table_name || ':' || action as line from kernel.audit_log
+              where request_id = $1 and table_name like 'competency.%'
+              order by 1`,
+            [flagging.headers['x-request-id']]
+        );
+        expect(audited.rows.map((r) => r.line)).toEqual(['competency.licence_number_flags:insert']);
 
         // the bureau reads it from above; another office of the zone does not
         for (const who of [as.zoneLead, as.verifier])
