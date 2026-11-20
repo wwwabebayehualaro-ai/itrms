@@ -5110,7 +5110,7 @@ export interface operations {
         parameters: {
             query?: {
                 personId?: string;
-                status?: "pending_national" | "active" | "voided";
+                status?: "pending_national" | "active" | "voided" | "cancelled";
                 number?: string;
                 cardSerial?: string;
                 limit?: number;

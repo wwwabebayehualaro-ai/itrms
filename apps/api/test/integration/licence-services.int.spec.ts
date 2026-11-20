@@ -13,6 +13,7 @@ import { askNationalPlatform, type NationalDeps } from '@itrms/competency/api/wo
 import type { Licence } from '@itrms/competency/contracts';
 import {
     importLicenceGrades,
+    importLicenceRestrictionService,
     importLicenceServices,
     MEDICAL_REFERRAL_FORM,
     MEDICAL_REPORT_FORM,
@@ -329,6 +330,8 @@ beforeAll(async () => {
         // DVC-04 at version 1 first, as an installation seeded before task 1.6a is: the first test moves it to version 2
         expect(await importLicenceServices(tx, root, { renewalV1: true })).toBe(2);
         expect(await setUpMedicalReferralCounters(tx, root.regionId)).toBeGreaterThan(0);
+        // the suspension and cancellation record (task 1.6c)
+        expect(await importLicenceRestrictionService(tx, root)).toBe(1);
     });
     deps = {
         platform: new FakeNationalDriverPlatform(),
@@ -1106,4 +1109,153 @@ describe('a renewal’s medical examination (task 1.6a)', () => {
         );
         expect(res.statusCode, res.body).toBe(409);
     }, 300_000);
+});
+
+describe('the suspension and cancellation record (DVC-21, task 1.6c)', () => {
+    const RECORD = 'DVC-21';
+    const SUSPENDED = ['ይህ ፈቃድ በአሁኑ ጊዜ ታግዷል', 'This licence is suspended'];
+    const daysOn = (days: number) => {
+        const d = new Date(`${today()}T00:00:00Z`);
+        d.setUTCDate(d.getUTCDate() + days);
+        return d.toISOString().slice(0, 10);
+    };
+
+    /** The decision's scan the officer uploaded: stored, at Boditi. */
+    async function scan(): Promise<string> {
+        const id = randomUUID();
+        const unit = as.officer.unit;
+        await api.owner.query(
+            `insert into kernel.files (id, region_id, unit_id, status, filename, content_type, size, sha256, object_key,
+                 confirmed_at, origin, created_by)
+             values ($1, $2, $3, 'stored', 'decision.pdf', 'application/pdf', 10, repeat('a', 64), $4, now(), 'upload', $5)`,
+            [id, unit.regionId, unit.id, `files/${unit.regionId}/${id}`, await api.userId(SUB.officer)]
+        );
+        return id;
+    }
+
+    const decision = async (licence: Licence, over: Record<string, unknown> = {}) => ({
+        licence: licence.id,
+        kind: 'suspension',
+        authority: 'court',
+        authorityReference: `CR/${randomInt(1000, 9999)}/2019`,
+        decidedOn: today(),
+        startsOn: today(),
+        endsOn: daysOn(90),
+        decisionScan: [{ file_id: await scan() }],
+        ...over
+    });
+
+    async function submittedRecord(answers: Record<string, unknown>): Promise<CaseOut> {
+        const started = await api.call('POST', '/api/v1/service-requests', as.officer, {
+            serviceCode: RECORD,
+            answers
+        });
+        expect(started.statusCode, started.body).toBe(201);
+        const c = await moved(started.json<CaseOut>(), as.officer, 'submit');
+        expect(c.state).toBe('approval');
+        return c;
+    }
+
+    const refusedAt = async (answers: Record<string, unknown>) => {
+        const started = await api.call('POST', '/api/v1/service-requests', as.officer, {
+            serviceCode: RECORD,
+            answers
+        });
+        if (started.statusCode === 422) return started;
+        expect(started.statusCode, started.body).toBe(201);
+        return step(started.json<CaseOut>(), as.officer, { action: 'submit' });
+    };
+
+    const licenceNow = async (id: string): Promise<Licence> =>
+        (await api.call('GET', `/api/v1/competency/licences/${id}`, as.officer)).json<Licence>();
+
+    it('records a suspension only once the lead approves it, never the officer who filed it; while it holds, no renewal', async () => {
+        const { licence } = await licensed(yearsAgo(30));
+        const expiry = daysOn(30);
+        await expire(licence.id, expiry, 'permanent');
+        const c = await submittedRecord(await decision(licence));
+        // nothing on the register yet, and the filer cannot approve their own record
+        expect((await licenceNow(licence.id)).restriction).toBeNull();
+        expect((await step(c, as.officer, { action: 'approve' })).statusCode).toBe(403);
+        const approving = await step(c, as.lead, { action: 'approve' });
+        expect(approving.statusCode, approving.body).toBe(200);
+        expect(approving.json<CaseOut>().state).toBe('recorded');
+
+        const now = await licenceNow(licence.id);
+        expect(now).toMatchObject({
+            status: 'active',
+            restricted: true,
+            restriction: { kind: 'suspension', authority: 'court', startsOn: today(), endsOn: daysOn(90), caseId: c.id }
+        });
+        // the record on file, in the approving request's transaction
+        const audited = await api.owner.query<{ line: string }>(
+            `select table_name || ':' || action as line from kernel.audit_log
+              where request_id = $1 and table_name like 'competency.%' order by 1`,
+            [approving.headers['x-request-id']]
+        );
+        expect(audited.rows.map((r) => r.line)).toEqual(['competency.licence_restrictions:insert']);
+
+        // a renewal is refused while it holds, for the suspension's reason
+        const renewal = await filed(RENEW, renewalOf(now, expiry));
+        const refused = await step(renewal, as.officer, { action: 'submit' });
+        expect(refused.statusCode, refused.body).toBe(422);
+        expect(
+            SUSPENDED.some((words) => refused.body.includes(words)),
+            refused.body
+        ).toBe(true);
+    }, 240_000);
+
+    it('shows a suspension that starts later, without blocking anything yet', async () => {
+        const { licence } = await licensed(yearsAgo(30));
+        const c = await submittedRecord(await decision(licence, { startsOn: daysOn(10), endsOn: daysOn(40) }));
+        await moved(c, as.lead, 'approve');
+        expect(await licenceNow(licence.id)).toMatchObject({
+            restricted: false,
+            restriction: { kind: 'suspension', startsOn: daysOn(10) }
+        });
+    }, 240_000);
+
+    it('cancels a licence: it ends, its card says revoked, and nothing more is recorded on it', async () => {
+        const { licence } = await licensed(yearsAgo(30));
+        const cards = async () =>
+            (await api.call('GET', `/api/v1/issued-documents?subjectId=${licence.id}`, as.officer)).json<
+                { templateKey: string; revoked: boolean }[]
+            >();
+        expect((await cards()).filter((d) => d.templateKey === 'licence-card' && !d.revoked)).toHaveLength(1);
+
+        const c = await submittedRecord(await decision(licence, { kind: 'cancellation', endsOn: undefined }));
+        await moved(c, as.lead, 'approve');
+        expect(await licenceNow(licence.id)).toMatchObject({
+            status: 'cancelled',
+            restricted: true,
+            restriction: { kind: 'cancellation', endsOn: null }
+        });
+        // its QR reports revoked: the verification page reads this flag
+        const after = (await cards()).filter((d) => d.templateKey === 'licence-card');
+        expect(after.length).toBeGreaterThan(0);
+        expect(after.every((d) => d.revoked)).toBe(true);
+
+        const again = await refusedAt(await decision(licence));
+        expect(again.statusCode).toBe(422);
+        expect(again.json<{ errors?: { path: string; code: string }[] }>().errors).toContainEqual(
+            expect.objectContaining({ path: 'licence', code: 'cancelled' })
+        );
+    }, 240_000);
+
+    it('is refused at filing for what the decision cannot say', async () => {
+        const { licence } = await licensed(yearsAgo(30));
+        const cases: [Record<string, unknown>, string][] = [
+            [{ endsOn: undefined }, 'endsOn'],
+            [{ kind: 'cancellation' }, 'endsOn'],
+            [{ decidedOn: daysOn(2), startsOn: daysOn(2), endsOn: daysOn(9) }, 'decidedOn'],
+            [{ decidedOn: today(), startsOn: daysOn(-3) }, 'startsOn'],
+            [{ startsOn: daysOn(20), endsOn: daysOn(5) }, 'endsOn'],
+            [{ authorityReference: '   ' }, 'authorityReference']
+        ];
+        for (const [over, path] of cases) {
+            const res = await refusedAt(await decision(licence, over));
+            expect(res.statusCode, `${JSON.stringify(over)} ${res.body}`).toBe(422);
+            expect(res.json<{ errors?: { path: string }[] }>().errors?.map((e) => e.path)).toContain(path);
+        }
+    }, 240_000);
 });

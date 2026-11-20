@@ -188,6 +188,13 @@ services:
     name:
       am: ከሌላ ክልል የመጣ ተሽከርካሪ ምዝገባ
       en: Register a vehicle transferred from another region
+  # the suspension and cancellation record of a driver licence, from the deciding authority (ADR-0064, task 1.6c)
+  - code: DVC-21
+    process: 1
+    module: competency
+    name:
+      am: የመንጃ ፈቃድ እገዳና ስረዛ መዝገብ
+      en: Driver licence suspension and cancellation record
   # not one of the bureau's 54: the migration of its paper vehicle files (ADR-0054, task 1.13)
   - code: MIG-01
     process: 1

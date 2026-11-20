@@ -32,6 +32,7 @@ import {
     renewalIsOpen,
     renewalTerms,
     RENEWAL_WINDOW_SETTING,
+    restrictionHolds,
     temporaryValidUntil,
     type EligibilityProblem,
     type Licence,
@@ -52,6 +53,7 @@ import {
     trainingEnrolments
 } from './competency.table';
 import { licenceNumbering, requireLicenceSeries, takeLicenceNumber } from './licence-numbers';
+import { restrictedOn, restrictionsShown } from './licence-restrictions';
 
 /** A case's place, as an effect is given it, and who is acting (nobody, for the worker's system transactions). */
 export interface CasePlace {
@@ -441,6 +443,8 @@ export class LicencesService {
         const today = addisDay();
         const licence = await this.row(tx, input.licence);
         if (licence.status !== 'active' || !licence.validUntil) throw notEligible(say('competency.rule.notRenewable'));
+        // a suspension recorded from its authority blocks the licence's other services while it holds (DVC-21, task 1.6c)
+        if (await restrictedOn(tx, licence.id, today)) throw notEligible(say('competency.rule.licenceSuspended'));
         // class R: the region reads a licence, its office's subtree writes it. The worker, which applies an accepted renewal, can't
         // check that, so it is checked here. Another office needs a transfer first.
         const [office] = await tx
@@ -494,6 +498,10 @@ export class LicencesService {
 
     async requestRenewal(tx: Tx, place: CasePlace, facts: Readonly<Record<string, unknown>>) {
         await this.medicallyCleared(tx, place.caseId);
+        // suspended or cancelled since the renewal was filed: it does not go to the national platform (task 1.6c)
+        const licence = await this.row(tx, this.licenceIdOf(facts, 'renewal'));
+        if (licence.status !== 'active') throw notEligible(say('competency.rule.notRenewable'));
+        if (await restrictedOn(tx, licence.id, addisDay())) throw notEligible(say('competency.rule.licenceSuspended'));
         await emit(tx, 'licence.national-requested.v1', {
             caseId: place.caseId,
             licenceId: this.licenceIdOf(facts, 'renewal'),
@@ -660,6 +668,9 @@ export class LicencesService {
                     .where(inArray(licenceHealth.licenceId, ids))
             ).map((h) => h.licenceId)
         );
+        // a suspension or cancellation recorded on it (DVC-21, task 1.6c): the one that holds today, else the next to come
+        const today = addisDay();
+        const restrictions = await restrictionsShown(tx, ids, today);
         const first = rows[0];
         const collected = first
             ? await this.settings.value<boolean>(tx, first.handlingUnitId, CARD_SHOWS_BLOOD_GROUP_SETTING)
@@ -675,6 +686,7 @@ export class LicencesService {
             );
         return rows.map((r) => {
             const holder = holders.find((p) => p.id === r.personId);
+            const restriction = restrictions.get(r.id);
             return licenceSchema.parse({
                 id: r.id,
                 number: r.number,
@@ -723,6 +735,9 @@ export class LicencesService {
                           verifiedAt: r.migrationVerifiedAt?.toISOString() ?? null
                       }
                     : null,
+                restriction: restriction ?? null,
+                restricted:
+                    r.status === 'cancelled' || (restriction !== undefined && restrictionHolds(restriction, today)),
                 version: r.rowVersion
             });
         });

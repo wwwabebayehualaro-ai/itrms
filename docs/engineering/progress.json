@@ -2269,8 +2269,8 @@
         {
           "id": "1.6c",
           "title": "Driver licence family, part 4: suspension and cancellation record (DVC-21)",
-          "status": "ready",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/1.6c-licence-suspension-cancellation",
           "commits": [],
           "evidence": [],
           "blockers": [],
@@ -4444,6 +4444,26 @@
       "foundIn": "1.6b",
       "item": "Decide: should the intake desk (records_officer) read the licence register (licence:read), as it reads vehicles? Today it cannot, so the 'found nothing, capture from paper' button shows only to someone holding both roles; the officer is told the records officer captures it. Granting it needs either a kernel 'licence' read in REGISTER or the module loader letting a module extend a kernel role (ADR). Also add the missing 'licence' row to roles-and-permissions.md",
       "movedTo": "product owner"
+    },
+    {
+      "foundIn": "1.6c",
+      "item": "Lift a suspension early (a court reverses it, the authority shortens it): a DVC-21 'lift' that ends a standing suspension on a day, approved like the record",
+      "movedTo": "1.6c follow-on"
+    },
+    {
+      "foundIn": "1.6c",
+      "item": "A live licence status on the public verification page: a suspended licence's card still verifies (ADR-0064 §6); show 'suspended' there",
+      "movedTo": "1.6c follow-on"
+    },
+    {
+      "foundIn": "1.6c",
+      "item": "The worker's application of an accepted renewal (askNationalPlatform) does not re-check a suspension recorded after the lead sent it; requestRenewal does. Check again when the platform's answer is applied",
+      "movedTo": "1.14"
+    },
+    {
+      "foundIn": "1.6c",
+      "item": "Re-application after a cancellation: Proclamation 1074/2018's waiting period (if any) before a cancelled holder may apply anew is not modelled; a new application is allowed at once",
+      "movedTo": "1.6f"
     }
   ]
 }

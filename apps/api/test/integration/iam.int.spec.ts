@@ -263,6 +263,8 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
             'competency.replacements',
             // the transfer of a vehicle between offices (task 1.4c)
             'competency.vehicleTransfers',
+            // the suspension and cancellation record (task 1.6c)
+            'competency.licenceRestrictions',
             'competency.licences',
             // the bolo inspection (task 1.3a)
             'competency.bolos',
@@ -313,6 +315,8 @@ describe('the menu (task 0.10b, ADR-0028)', () => {
                 'competency.replacements',
                 // the transfer of a vehicle between offices (task 1.4c)
                 'competency.vehicleTransfers',
+                // the suspension and cancellation record (task 1.6c): not one of the licensing services switched off here
+                'competency.licenceRestrictions',
                 // the bolo inspection (task 1.3a): not a licensing service
                 'competency.bolos',
                 ...REGISTER_AND_STOCK

@@ -7209,7 +7209,8 @@
               "enum": [
                 "pending_national",
                 "active",
-                "voided"
+                "voided",
+                "cancelled"
               ],
               "type": "string"
             }
