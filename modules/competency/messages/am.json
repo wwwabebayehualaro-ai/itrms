@@ -679,5 +679,7 @@
   "competency.rule.startsBeforeDecision": "የሚጀምርበት ቀን ከውሳኔው ቀን በፊት ሊሆን አይችልም።",
   "competency.rule.suspensionEnds": "እገዳው የሚያበቃበትን ቀን ያስገቡ፤ ከሚጀምርበት ቀን በፊት ሊሆን አይችልም።",
   "competency.rule.cancellationEnds": "ስረዛ የሚያበቃበት ቀን የለውም።",
+  "competency.licenceRestriction.renewalWithheld": "ብሔራዊ ሥርዓቱ እድሳቱን ከመቀበሉ በፊት ፈቃዱ ታግዷል ወይም ተሰርዟል፤ አዲስ የአገልግሎት ዘመንም ሆነ ካርድ አልተሰጠም።",
+  "competency.rule.cancellationStarts": "ስረዛ ሲመዘገብ ወዲያውኑ ተፈጻሚ ይሆናል፤ የሚጀምርበት ቀን ከዛሬ በኋላ ሊሆን አይችልም።",
   "competency.licence.backCapture": "የወረቀት ፈቃድ መዝግብ"
 }

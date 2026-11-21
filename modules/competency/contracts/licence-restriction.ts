@@ -23,6 +23,12 @@ export type RestrictionAuthority = (typeof RESTRICTION_AUTHORITIES)[number];
 
 export const AUTHORITY_REFERENCE_MAX = 80;
 
+/**
+ * The notice on a renewal the national platform accepted after its licence was cancelled or suspended (facts.renewal.notices): no new
+ * term was given and no card issued.
+ */
+export const RENEWAL_WITHHELD_NOTICE = 'competency.licenceRestriction.renewalWithheld';
+
 /** The request's facts an effect reads, by contract path (see licence-restriction.effects.ts). */
 export type LicenceRestrictionInput = {
     licence: string;

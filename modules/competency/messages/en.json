@@ -679,5 +679,7 @@
   "competency.rule.startsBeforeDecision": "It cannot start before the day it was decided.",
   "competency.rule.suspensionEnds": "Enter the suspension's last day, on or after its first.",
   "competency.rule.cancellationEnds": "A cancellation has no last day.",
+  "competency.licenceRestriction.renewalWithheld": "The licence was suspended or cancelled before the national platform accepted the renewal: no new term and no card were given.",
+  "competency.rule.cancellationStarts": "A cancellation takes effect when it is recorded: it cannot start after today.",
   "competency.licence.backCapture": "Capture a paper licence"
 }

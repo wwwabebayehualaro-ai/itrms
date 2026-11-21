@@ -12,6 +12,7 @@ import { insertAudited, updateAudited, type Tx } from '@itrms/kernel/db';
 import { ForbiddenError, NotFoundError } from '@itrms/kernel/errors';
 import { orgUnits } from '@itrms/kernel/tables';
 import { documentTemplates, issuedDocuments, revokeDocument } from '@itrms/documents/api';
+import { z } from 'zod';
 
 import {
     addisDay,
@@ -117,6 +118,8 @@ export class LicenceRestrictionService {
     private async recorded(tx: Tx, place: CasePlace, input: LicenceRestrictionInput): Promise<Recorded> {
         const errors: Refusal[] = [];
         const today = addisDay();
+        if (!z.uuid().safeParse(input.licence).success)
+            return refuse([{ path: 'licence', code: 'invalid', message: say('competency.rule.notRestrictable') }]);
         const [licence] = await tx.select().from(driverLicences).where(eq(driverLicences.id, input.licence));
         if (!licence) throw new NotFoundError();
         // an active licence only: a cancelled one has ended, one the national platform has not accepted is nobody's yet
@@ -158,6 +161,9 @@ export class LicenceRestrictionService {
             errors.push({ path: 'endsOn', code: 'invalid', message: say('competency.rule.suspensionEnds') });
         if (kind === 'cancellation' && endsOn)
             errors.push({ path: 'endsOn', code: 'invalid', message: say('competency.rule.cancellationEnds') });
+        // a cancellation ends the licence and revokes its card when it is recorded: it cannot start on a later day
+        if (kind === 'cancellation' && input.startsOn > today)
+            errors.push({ path: 'startsOn', code: 'in_future', message: say('competency.rule.cancellationStarts') });
 
         if (errors.length > 0 || !kind || !authority) return refuse(errors);
         return {

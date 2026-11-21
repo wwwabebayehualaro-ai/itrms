@@ -1218,9 +1218,9 @@ describe('the suspension and cancellation record (DVC-21, task 1.6c)', () => {
     it('cancels a licence: it ends, its card says revoked, and nothing more is recorded on it', async () => {
         const { licence } = await licensed(yearsAgo(30));
         const cards = async () =>
-            (await api.call('GET', `/api/v1/issued-documents?subjectId=${licence.id}`, as.officer)).json<
-                { templateKey: string; revoked: boolean }[]
-            >();
+            (await api.call('GET', `/api/v1/issued-documents?subjectId=${licence.id}`, as.lead)).json<{
+                items: { templateKey: string; revoked: boolean }[];
+            }>().items;
         expect((await cards()).filter((d) => d.templateKey === 'licence-card' && !d.revoked)).toHaveLength(1);
 
         const c = await submittedRecord(await decision(licence, { kind: 'cancellation', endsOn: undefined }));
@@ -1239,6 +1239,43 @@ describe('the suspension and cancellation record (DVC-21, task 1.6c)', () => {
         expect(again.statusCode).toBe(422);
         expect(again.json<{ errors?: { path: string; code: string }[] }>().errors).toContainEqual(
             expect.objectContaining({ path: 'licence', code: 'cancelled' })
+        );
+    }, 240_000);
+
+    it('keeps a licence cancelled while its renewal waited on the national platform: no new term, no card', async () => {
+        const { person, licence } = await licensed(yearsAgo(30));
+        const expiry = yearsAgo(0);
+        await expire(licence.id, expiry, 'permanent');
+        let renewal = await cleared(await filed(RENEW, renewalOf(licence, expiry)));
+        await paid(renewal);
+        renewal = await moved(await caseOf(renewal.id), as.lead, 'approve');
+        expect(renewal.state).toBe('national');
+
+        // the court cancels it while the platform has the request
+        const c = await submittedRecord(await decision(licence, { kind: 'cancellation', endsOn: undefined }));
+        await moved(c, as.lead, 'approve');
+
+        // the platform accepts: the case ends, saying why nothing was given
+        expect(
+            await askNationalPlatform(system, deps, { caseId: renewal.id, licenceId: licence.id, kind: 'renewal' })
+        ).toBe('accepted');
+        const ended = await caseOf(renewal.id);
+        expect(ended.notices).toContain('competency.licenceRestriction.renewalWithheld');
+        expect((await licencesOf(person))[0]).toMatchObject({ status: 'cancelled', validUntil: expiry });
+        const cards = (await api.call('GET', `/api/v1/issued-documents?subjectId=${licence.id}`, as.lead)).json<{
+            items: { templateKey: string; revoked: boolean; superseded: boolean }[];
+        }>().items;
+        expect(cards.filter((d) => d.templateKey === 'licence-card' && !d.revoked && !d.superseded)).toEqual([]);
+    }, 300_000);
+
+    it('refuses a cancellation dated after today: it takes effect when it is recorded', async () => {
+        const { licence } = await licensed(yearsAgo(30));
+        const res = await refusedAt(
+            await decision(licence, { kind: 'cancellation', endsOn: undefined, startsOn: daysOn(5) })
+        );
+        expect(res.statusCode).toBe(422);
+        expect(res.json<{ errors?: { path: string; code: string }[] }>().errors).toContainEqual(
+            expect.objectContaining({ path: 'startsOn', code: 'in_future' })
         );
     }, 240_000);
 

@@ -4464,6 +4464,21 @@
       "foundIn": "1.6c",
       "item": "Re-application after a cancellation: Proclamation 1074/2018's waiting period (if any) before a cancelled holder may apply anew is not modelled; a new application is allowed at once",
       "movedTo": "1.6f"
+    },
+    {
+      "foundIn": "1.6c",
+      "item": "A cancelled licence already on an open print batch is still printed (its QR is revoked, so it never verifies): leave it out of the batch sent to the printer and let recordPrinted accept the batch without it",
+      "movedTo": "1.6c follow-on"
+    },
+    {
+      "foundIn": "1.6c",
+      "item": "Revoking a cancelled licence's cards reads them under the recording office's RLS; once a licence can move office (a transfer), revoke through a reviewed definer or the system role so a card issued elsewhere is never skipped",
+      "movedTo": "1.6i"
+    },
+    {
+      "foundIn": "1.6c",
+      "item": "The coming licence services (upgrade 1.6f, replacement 1.6e, verification letter 1.6g, international 1.6h) must refuse a restricted licence with restrictedOn, as renewal does; the lookup keeps offering it so DVC-21 can record a cancellation on a suspended licence",
+      "movedTo": "1.6d-1.6i"
     }
   ]
 }
