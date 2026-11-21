@@ -2269,10 +2269,11 @@
         {
           "id": "1.6c",
           "title": "Driver licence family, part 4: suspension and cancellation record (DVC-21)",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.6c-licence-suspension-cancellation",
           "commits": [
-            "7e9b7b2"
+            "7e9b7b2",
+            "f83f225"
           ],
           "evidence": [
             "PR #98 CI run 44866464958 (https://github.com/wwwabebayehualaro-ai/itrms/actions/runs/44866464958): all 12 jobs green; integration 1131 passed; e2e shards 38 + 5 + 20 passed",
@@ -2290,7 +2291,7 @@
         {
           "id": "1.6d",
           "title": "Driver licence family, part 5: the temporary driving permit",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
