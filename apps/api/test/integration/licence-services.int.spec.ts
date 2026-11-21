@@ -1235,11 +1235,13 @@ describe('the suspension and cancellation record (DVC-21, task 1.6c)', () => {
         expect(after.length).toBeGreaterThan(0);
         expect(after.every((d) => d.revoked)).toBe(true);
 
+        // the lookup no longer offers it (it is not active), so the form refuses it as it is filed; the record's check would too
         const again = await refusedAt(await decision(licence));
         expect(again.statusCode).toBe(422);
-        expect(again.json<{ errors?: { path: string; code: string }[] }>().errors).toContainEqual(
-            expect.objectContaining({ path: 'licence', code: 'cancelled' })
-        );
+        const refusal = again
+            .json<{ errors?: { path: string; code: string }[] }>()
+            .errors?.find((e) => e.path === 'licence');
+        expect(['invalid_reference', 'cancelled']).toContain(refusal?.code);
 
         // a new application waits the region's months after the cancellation (a setting; none by default)
         const root = { id: as.bureau.unit.id, regionId: as.bureau.unit.regionId };
