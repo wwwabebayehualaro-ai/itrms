@@ -197,6 +197,48 @@ body{font-size:6.5pt;line-height:1.25}
         }
     },
     {
+        key: 'licence-driving-permit',
+        name: t('ጊዜያዊ የማሽከርከሪያ ፈቃድ', 'Temporary driving permit'),
+        version: {
+            paper: 'A5',
+            dataSchema: 'licence-driving-permit.v1',
+            strings: {
+                title: t('ጊዜያዊ የማሽከርከሪያ ፈቃድ', 'Temporary driving permit'),
+                number: t('ቁጥር', 'No.'),
+                issuedOn: t('የተሰጠበት ቀን', 'Issued on'),
+                validUntil: t('እስከ', 'Valid until'),
+                caseNumber: t('የጉዳይ ቁጥር', 'Case number'),
+                holder: t('የፈቃዱ ባለቤት', 'Licence holder'),
+                licenceNumber: t('የመንጃ ፈቃድ ቁጥር', 'Licence number'),
+                licenceValidUntil: t('ፈቃዱ የሚያበቃበት ቀን', 'Licence expiry'),
+                grades: t('ደረጃ', 'Grades'),
+                body: t(
+                    'የመንጃ ፈቃድ ካርዱ እስኪታተም ድረስ ከላይ የተጠቀሱት ባለፈቃድ በዚህ ደብዳቤ ከላይ በተገለጹት ደረጃዎች ማሽከርከር ይችላሉ። ካርዱ ሲሰጥ ይህ ደብዳቤ ይሰረዛል።',
+                    'Until the licence card is printed, the holder above may drive on this letter in the grades shown. It is cancelled when the card is handed over.'
+                ),
+                carry: t('ይህ ደብዳቤ ከመታወቂያ ጋር ሲቀርብ ብቻ የሚሰራ ነው።', 'It is valid only shown with an identity document.'),
+                signature: t('የሰጪው ባለሥልጣን ፊርማ', "Issuing officer's signature")
+            },
+            body: `${STYLE}${HEAD}<p class="title">{{ t.title }}</p>
+<div class="facts">
+<div><span class="term">{{ t.number }}:</span> <span data-number>{{ number }}</span></div>
+<div><span class="term">{{ t.caseNumber }}:</span> {{ caseNumber }}</div>
+<div><span class="term">{{ t.issuedOn }}:</span> {{ issuedOn | ethdate }}</div>
+<div><span class="term">{{ t.validUntil }}:</span> <span data-valid-until>{{ validUntil | ethdate }}</span></div>
+</div>
+<div class="facts">
+<div><span class="term">{{ t.holder }}:</span> <span data-holder>{{ holderName }}</span></div>
+<div><span class="term">{{ t.licenceNumber }}:</span> {{ licence.number }}</div>
+<div><span class="term">{{ t.licenceValidUntil }}:</span> {% if licence.validUntil %}{{ licence.validUntil | ethdate }}{% else %}${DASH}{% endif %}</div>
+<div><span class="term">{{ t.grades }}:</span> {% for g in licence.grades %}{{ g.grade }} ({{ g.name | text }}){% unless forloop.last %}, {% endunless %}{% endfor %}</div>
+</div>
+<p>{{ t.body }}</p>
+<p>{{ t.carry }}</p>
+<p class="foot">{{ t.signature }}: ______________________</p>
+{% if header.stamp %}<img class="stamp" src="{{ header.stamp }}" alt="">{% endif %}${QR}`
+        }
+    },
+    {
         key: 'vehicle-registration-certificate',
         name: t('ጊዜያዊ የባለቤትነት ሊብሬ', 'Temporary ownership libre'),
         version: {

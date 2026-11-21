@@ -4,7 +4,7 @@
  * nothing until then, so ITRMS never holds a value that competes with the national record.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, gte, inArray, isNull, like, ne, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNotNull, isNull, like, ne, or, sql, type SQL } from 'drizzle-orm';
 import { currentContext } from '@itrms/kernel/context';
 import { insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { ConflictError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
@@ -22,6 +22,7 @@ import {
     addMonths,
     CARD_SHOWS_BLOOD_GROUP_SETTING,
     eligibilityProblems,
+    foldCardSerial,
     enrolmentCreateSchema,
     examAnswersSchema,
     LICENCE_CARD_TEMPLATE,
@@ -46,6 +47,7 @@ import en from '../messages/en.json';
 import {
     driverLicences,
     examResults,
+    licenceCardHandovers,
     examSessions,
     licenceGrades,
     licenceGradeTypes,
@@ -716,6 +718,26 @@ export class LicencesService {
         // a suspension or cancellation recorded on it (DVC-21, task 1.6c): the one that holds today, else the next to come
         const today = addisDay();
         const restrictions = await restrictionsShown(tx, ids, today);
+        // the cards handed over (task 1.6d): class T at the licence's office, so another office sees none
+        const handedOver = new Set(
+            (
+                await tx
+                    .select({ licenceId: licenceCardHandovers.licenceId, cardSerial: licenceCardHandovers.cardSerial })
+                    .from(licenceCardHandovers)
+                    .where(inArray(licenceCardHandovers.licenceId, ids))
+            ).map((h) => `${h.licenceId}:${h.cardSerial}`)
+        );
+        // the cards the region printed for them, by serial (a card from before ITRMS, or captured from paper, was never printed here)
+        const printed = new Set(
+            (
+                await tx
+                    .select({ licenceId: licencePrintBatchItems.licenceId, cardKey: licencePrintBatchItems.cardKey })
+                    .from(licencePrintBatchItems)
+                    .where(
+                        and(inArray(licencePrintBatchItems.licenceId, ids), isNotNull(licencePrintBatchItems.cardKey))
+                    )
+            ).map((p) => `${p.licenceId}:${foldCardSerial(p.cardKey ?? '')}`)
+        );
         const first = rows[0];
         const collected = first
             ? await this.settings.value<boolean>(tx, first.handlingUnitId, CARD_SHOWS_BLOOD_GROUP_SETTING)
@@ -783,6 +805,11 @@ export class LicencesService {
                 restriction: restriction ?? null,
                 restricted:
                     r.status === 'cancelled' || (restriction !== undefined && restrictionHolds(restriction, today)),
+                cardHandedOver: r.cardSerial !== null && handedOver.has(`${r.id}:${r.cardSerial}`),
+                cardAwaitingHandover:
+                    r.cardSerial !== null &&
+                    printed.has(`${r.id}:${r.cardSerial}`) &&
+                    !handedOver.has(`${r.id}:${r.cardSerial}`),
                 version: r.rowVersion
             });
         });

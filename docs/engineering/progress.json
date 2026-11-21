@@ -2291,12 +2291,22 @@
         {
           "id": "1.6d",
           "title": "Driver licence family, part 5: the temporary driving permit",
-          "status": "ready",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/1.6d-temporary-driving-permit",
+          "commits": [
+            "ee685c9"
+          ],
+          "evidence": [
+            "PR #99 CI run 44899798514 (https://github.com/wwwabebayehualaro-ai/itrms/actions/runs/44899798514): all 12 jobs green (integration, e2e 3 shards, stories, perf, production profile, gitleaks, Semgrep, Trivy)",
+            "Done when (a permit verifies until the card is handed over, then reports revoked): apps/api/test/integration/licence-services.int.spec.ts 'is given with the renewal while the region prints: numbered, standing its days' (WOL-BODITI/TP/nnnnn/efy, validUntil today+89, not revoked) and 'closes when the printed card is handed over: the permit is revoked, the ID kept encrypted' (permitsClosed 1, every permit revoked; the QR's status reads revoked_at, documents.int.spec)",
+            "Permit tests: 'stands the region's days, as set' (competency.driving_permit_days 30 -> today+29); 'never closes the permit with a card printed before it: only the new card does'; 'closes with the licence when it is cancelled (DVC-21)'; unit modules/competency/test/driving-permit.spec.ts",
+            "Golden: platform/documents/test/render.spec.ts 'temporary driving permit: the holder, the licence, its grades and its last day, in either language' (am + en, Ethiopian date)",
+            "Handover tests: not printed 409, wrong serial 422, representative unnamed 422, once only 409, cashier 403; audit licence_card_handovers:insert + issued_documents:update in the request, no ID number in the audit log or in clear; isolation matrix of licence_card_handovers (licence-numbers.int.spec.ts); service-counters and counters specs (the permit counter at DVC-04 offices)",
+            "Local: lint + typecheck competency/documents/api/web 8/8; api unit 20/20; i18n am+en complete; check:slices; boundaries 1586 modules clean; OpenAPI regenerated; migration 0100 applied from zero in CI",
+            "Review: reviewer (Fable 5.2) 2 high fixed (a cancellation closes the permit; only a card printed after the permit closes it), 2 medium fixed (permit at the licence's own office; a missing counter gives a notice, not a failed renewal), lows fixed (one permit stands, never past the licence term, no ID left in the browser cache)"
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "National context first, config where unclear: competency.driving_permit_days (90 per ADR-0064 §7, Z; installation, region or unit type, since cards may take longer to reach remote offices). Only renewal v2 names the permit now (ADR: renewal, replacement, upgrade; the new licence does not, as ADR-0064 §7 says). The handover needs the card's printed serial (recordPrinted) and records the recipient's ID encrypted."
         },
         {
           "id": "1.6e",

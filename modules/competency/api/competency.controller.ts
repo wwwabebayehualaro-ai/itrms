@@ -13,6 +13,7 @@ import { Require, requestDbContext } from '@itrms/kernel/iam';
 import { RateLimit } from '@itrms/kernel/limits';
 
 import {
+    cardHandoverSchema,
     enrolmentCompleteSchema,
     enrolmentCreateSchema,
     enrolmentQuerySchema,
@@ -24,6 +25,7 @@ import {
     medicalConditionsRevealSchema,
     printBatchPrintedSchema
 } from '../contracts';
+import { DrivingPermitService } from './driving-permit.service';
 import { LicenceCaptureService } from './licence-capture.service';
 import { LicenceHealthService } from './licence-health.service';
 import { MedicalReportService } from './medical-report.service';
@@ -41,6 +43,7 @@ class PrintedDto extends createZodDto(printBatchPrintedSchema) {}
 class HealthRecordDto extends createZodDto(licenceHealthRecordSchema) {}
 class HealthRevealDto extends createZodDto(licenceHealthRevealSchema) {}
 class NumberFlagQueryDto extends createZodDto(licenceNumberFlagQuerySchema) {}
+class CardHandoverDto extends createZodDto(cardHandoverSchema) {}
 class ConditionsRecordDto extends createZodDto(medicalConditionsRecordSchema) {}
 class ConditionsRevealDto extends createZodDto(medicalConditionsRevealSchema) {}
 
@@ -52,7 +55,8 @@ export class CompetencyController {
         @Inject(RegisterService) private readonly register: RegisterService,
         @Inject(LicenceHealthService) private readonly health: LicenceHealthService,
         @Inject(MedicalReportService) private readonly medical: MedicalReportService,
-        @Inject(LicenceCaptureService) private readonly capture: LicenceCaptureService
+        @Inject(LicenceCaptureService) private readonly capture: LicenceCaptureService,
+        @Inject(DrivingPermitService) private readonly permits: DrivingPermitService
     ) {}
 
     @Get('grades')
@@ -81,6 +85,22 @@ export class CompetencyController {
     @Require('licence:read')
     get(@Param('id', ParseUUIDPipe) id: string) {
         return this.db.scoped(requestDbContext(), (tx) => this.licences.get(tx, id));
+    }
+
+    /**
+     * The card handed over at the desk (task 1.6d, ADR-0064 §7): its serial, the recipient and their ID (encrypted). It closes the
+     * licence's temporary driving permits; their QR reports revoked.
+     */
+    @Post('licences/:id/card-handover')
+    @HttpCode(201)
+    @Require('licence:hand-over')
+    handOverCard(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Headers('if-match') ifMatch: string | undefined,
+        @Body() body: CardHandoverDto
+    ) {
+        const ctx = requestDbContext();
+        return this.db.scoped(ctx, (tx) => this.permits.handOver(tx, ctx, id, versionFrom(ifMatch), body));
     }
 
     /** The holder's blood group, for the card (task 1.6): only while the region collects it. The answer says only that it is on record. */

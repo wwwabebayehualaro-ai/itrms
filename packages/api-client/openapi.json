@@ -158,6 +158,47 @@
         ],
         "type": "object"
       },
+      "CardHandoverDto": {
+        "additionalProperties": false,
+        "properties": {
+          "cardSerial": {
+            "maxLength": 20,
+            "minLength": 1,
+            "type": "string"
+          },
+          "idKind": {
+            "enum": [
+              "fayda",
+              "kebele_id",
+              "passport",
+              "driver_licence"
+            ],
+            "type": "string"
+          },
+          "idNumber": {
+            "type": "string"
+          },
+          "recipient": {
+            "enum": [
+              "holder",
+              "representative"
+            ],
+            "type": "string"
+          },
+          "representativeName": {
+            "maxLength": 120,
+            "minLength": 2,
+            "type": "string"
+          }
+        },
+        "required": [
+          "cardSerial",
+          "recipient",
+          "idKind",
+          "idNumber"
+        ],
+        "type": "object"
+      },
       "CaseAuditOut_Output": {
         "additionalProperties": false,
         "properties": {
@@ -7272,6 +7313,39 @@
         ],
         "responses": {
           "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Competency"
+        ]
+      }
+    },
+    "/api/v1/competency/licences/{id}/card-handover": {
+      "post": {
+        "operationId": "CompetencyController_handOverCard",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardHandoverDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
             "description": ""
           }
         },

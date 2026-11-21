@@ -7,6 +7,8 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
     BloodGroup,
+    CardHandover,
+    CardHandoverOut,
     Enrolment,
     ENROLMENT_STATUSES,
     Licence,
@@ -77,6 +79,22 @@ export function useRecordBloodGroup() {
         mutationFn: async (input: { id: string; bloodGroup: BloodGroup }) =>
             (await client.post<Licence>(`v1/competency/licences/${input.id}/health`, { bloodGroup: input.bloodGroup }))
                 .data,
+        onSuccess: () => queries.invalidateQueries({ queryKey: ['competency', 'licences'] })
+    });
+}
+
+/** The card handed over at the desk (task 1.6d): it closes the licence's temporary driving permits. */
+export function useHandOverCard() {
+    const queries = useQueryClient();
+    return useMutation({
+        // the ID number is in what was sent: never kept once the dialog is done with it
+        gcTime: 0,
+        mutationFn: async (input: { id: string; version: number; handover: CardHandover }) =>
+            (
+                await client.post<CardHandoverOut>(`v1/competency/licences/${input.id}/card-handover`, input.handover, {
+                    headers: { 'If-Match': `"${input.version}"` }
+                })
+            ).data,
         onSuccess: () => queries.invalidateQueries({ queryKey: ['competency', 'licences'] })
     });
 }

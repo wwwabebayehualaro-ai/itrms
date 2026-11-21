@@ -5,6 +5,8 @@ export { LICENCE_EFFECTS } from './licence.effects';
 export { MEDICAL_EFFECTS_LIST } from './medical.effects';
 export { LICENCE_CAPTURE_EFFECTS_LIST } from './licence-capture.effects';
 export { LICENCE_RESTRICTION_EFFECTS_LIST } from './licence-restriction.effects';
+export { DRIVING_PERMIT_EFFECTS_LIST } from './driving-permit.effects';
+export { DrivingPermitService } from './driving-permit.service';
 export { LicenceCaptureService } from './licence-capture.service';
 export { LicenceRestrictionService } from './licence-restriction.service';
 export { MedicalReportService } from './medical-report.service';

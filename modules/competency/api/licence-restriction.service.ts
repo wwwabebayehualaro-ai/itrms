@@ -27,6 +27,7 @@ import {
 import am from '../messages/am.json';
 import en from '../messages/en.json';
 import { driverLicences, licenceRestrictions } from './competency.table';
+import { closePermits } from './driving-permit.service';
 import { actForHandlingOffice } from './handling-office';
 import type { CasePlace } from './licences.service';
 import { refuse, type Refusal } from './paper-records';
@@ -92,6 +93,8 @@ export class LicenceRestrictionService {
         if (recorded.kind === 'cancellation') {
             await updateAudited(tx, driverLicences, licence.id, licence.rowVersion, { status: 'cancelled' });
             await this.revokeCards(tx, licence.id);
+            // and its temporary driving permit (task 1.6d): nothing of it verifies once it is cancelled
+            await closePermits(tx, licence.id, 'licence_cancelled');
         }
         const known = (facts.licenceRestriction ?? {}) as Record<string, unknown>;
         return { licenceRestriction: { ...known, id: restriction.id, licenceId: licence.id, kind: recorded.kind } };

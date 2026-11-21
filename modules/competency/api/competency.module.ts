@@ -12,6 +12,8 @@ import { BoloService } from './bolo.service';
 import { CampaignController } from './campaign.controller';
 import { CampaignService } from './campaign.service';
 import { CompetencyController } from './competency.controller';
+import { DRIVING_PERMIT_EFFECTS_LIST } from './driving-permit.effects';
+import { DrivingPermitService } from './driving-permit.service';
 import { EXCHANGE_EFFECTS } from './exchange.effects';
 import { PlateExchangeService } from './exchange.service';
 import { LICENCE_EFFECTS } from './licence.effects';
@@ -61,6 +63,7 @@ import { VehicleTransferService } from './vehicle-transfer.service';
         MedicalReportService,
         LicenceCaptureService,
         LicenceRestrictionService,
+        DrivingPermitService,
         RegisterService,
         VehicleRegistrationService,
         BackCaptureService,
@@ -83,6 +86,7 @@ import { VehicleTransferService } from './vehicle-transfer.service';
         ...MEDICAL_EFFECTS_LIST,
         ...LICENCE_CAPTURE_EFFECTS_LIST,
         ...LICENCE_RESTRICTION_EFFECTS_LIST,
+        ...DRIVING_PERMIT_EFFECTS_LIST,
         ...REGISTRATION_EFFECTS,
         ...BACK_CAPTURE_EFFECTS,
         ...EXCHANGE_EFFECTS,
