@@ -248,7 +248,8 @@ function Picker({
 const STATUS_TONE: Record<LicenceStatus, Tone> = {
     active: 'success',
     pending_national: 'warning',
-    voided: 'neutral'
+    voided: 'neutral',
+    cancelled: 'danger'
 };
 
 function LicenceRow({ licence }: { licence: Licence }) {
@@ -285,6 +286,24 @@ function LicenceRow({ licence }: { licence: Licence }) {
                     {expired && <StatusBadge value="expired" tone="danger" label={t('competency.licence.expired')} />}
                     {licence.migration && (
                         <StatusBadge value="migrated" tone="neutral" label={t('competency.licence.migrated')} />
+                    )}
+                    {/* a suspension recorded from its authority (DVC-21, task 1.6c): holding now, or still to come */}
+                    {licence.restriction?.kind === 'suspension' && (
+                        <span data-licence-suspension={licence.restricted ? 'holds' : 'upcoming'}>
+                            <StatusBadge
+                                value="suspended"
+                                tone={licence.restricted ? 'danger' : 'warning'}
+                                label={t(
+                                    licence.restricted
+                                        ? 'competency.licence.suspended'
+                                        : 'competency.licence.suspendedFrom',
+                                    {
+                                        from: formatDay(licence.restriction.startsOn, { language, calendar }),
+                                        to: formatDay(licence.restriction.endsOn, { language, calendar })
+                                    }
+                                )}
+                            />
+                        </span>
                     )}
                 </div>
             </TableCell>

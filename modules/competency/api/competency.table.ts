@@ -5,6 +5,7 @@
  *   driver_licences        a person's licence, class R: the region reads it, the handling unit's subtree writes it.
  *   licence_grades         the grades a licence carries, class R, with the licence's handling unit.
  *   licence_health         a licence's blood group (task 1.6, ADR-0052), class R, field-encrypted; read only through reveal.
+ *   licence_restrictions   a suspension or cancellation recorded from the deciding authority (DVC-21, task 1.6c), class R.
  *   medical_certificates   the medical examination a case relied on, class T; a renewal's reports (task 1.6a) with their
  *                          recommendation and the conditions, field-encrypted.
  *   licence_number_flags   a printed number a paper licence's capture could not keep (task 1.6b), class T, for the bureau.
@@ -66,6 +67,8 @@ import {
     PAPER_PLATE_CODES,
     REPLACEMENT_ITEMS,
     REPLACEMENT_REASONS,
+    RESTRICTION_AUTHORITIES,
+    RESTRICTION_KINDS,
     SAMPLE_FIELDS,
     SAMPLE_OUTCOMES,
     SAMPLE_SOURCES,
@@ -217,6 +220,54 @@ export const licenceHealth = withRls(
             ]
         ),
         { omit: ['bloodGroupCt'] }
+    ),
+    'registry'
+);
+
+/**
+ * A suspension or cancellation recorded on a licence from the deciding authority's decision (DVC-21, task 1.6c, ADR-0064 §6), class R
+ * like its licence and with its handling unit: the region reads it (it blocks the licence's services anywhere), the licence office's
+ * subtree records it. Inserted once, by the step a second person takes; never changed or deleted by the API.
+ */
+export const licenceRestrictions = withRls(
+    audited(
+        competencySchema.table(
+            'licence_restrictions',
+            {
+                ...baseColumns(),
+                ...registry(),
+                licenceId: uuid('licence_id')
+                    .notNull()
+                    .references(() => driverLicences.id),
+                /** the DVC-21 case that recorded it */
+                caseId: uuid('case_id').notNull(),
+                kind: text('kind', { enum: RESTRICTION_KINDS }).notNull(),
+                authority: text('authority', { enum: RESTRICTION_AUTHORITIES }).notNull(),
+                authorityReference: text('authority_reference').notNull(),
+                decidedOn: date('decided_on').notNull(),
+                startsOn: date('starts_on').notNull(),
+                /** a suspension's last day; a cancellation has none */
+                endsOn: date('ends_on'),
+                /** the second person, who approved the record against the decision */
+                approvedBy: uuid('approved_by').notNull(),
+                approvedAt: timestamp('approved_at', { withTimezone: true }).notNull()
+            },
+            (t) => [
+                uniqueIndex('licence_restrictions_case_uq').on(t.caseId),
+                index('licence_restrictions_licence_idx').on(t.licenceId, t.startsOn),
+                index('licence_restrictions_handling_org_path_gist').using('gist', t.handlingOrgPath),
+                check('licence_restrictions_kind_check', sql`kind in ('suspension', 'cancellation')`),
+                check(
+                    'licence_restrictions_authority_check',
+                    sql`authority in ('court', 'traffic_police', 'penalty_system', 'licensing_body')`
+                ),
+                // a suspension runs to a last day on or after its first; a cancellation does not end
+                check(
+                    'licence_restrictions_period_check',
+                    sql`(kind = 'suspension') = (ends_on IS NOT NULL) AND (ends_on IS NULL OR ends_on >= starts_on) AND starts_on >= decided_on`
+                )
+            ]
+        )
     ),
     'registry'
 );

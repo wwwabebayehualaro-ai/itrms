@@ -55,6 +55,7 @@ export class LicenceLookup implements RegistryLookupProvider {
     private item(licence: Licence, language: string): LookupItem {
         return {
             id: licence.id,
+            // a suspended licence stays offered: a cancellation is recorded on it (task 1.6c); its services refuse it themselves
             active: licence.status === 'active',
             label: licence.number ?? holderText(licence, language),
             facts: [

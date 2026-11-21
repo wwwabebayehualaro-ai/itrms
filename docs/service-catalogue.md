@@ -89,6 +89,13 @@ certificate). A vehicle on an old regional plate is given a national plate from 
 register knows is refused, except the vehicle of this region that left (its release outside lapsed): it comes back on its own record, to the office the
 request is filed at, with the owners, plate and libre changed only where the document differs (task 1.4c3b). Offered wherever DVC-01 is; not counted in the totals.
 
+**Not in the source: DVC-21, the suspension and cancellation record of a driver licence** (የመንጃ ፈቃድ እገዳና ስረዛ መዝገብ; ADR-0064 §6,
+task 1.6c). ITRMS never decides one: an officer at the licence's office (or one above it) files the deciding authority's decision (a
+court, the traffic police, the penalty system or a licensing body) by its reference, with its scan; the team leader, never the filer,
+approves it against the decision. A suspension holds from its first to its last day, shows in the register and blocks the licence's
+other services (a renewal is refused while it holds); a cancellation ends the licence (status `cancelled`) and revokes its card
+document, whose QR then reports it revoked. No fee. Offered wherever licences are issued; not counted in the totals.
+
 **Not in the source: MIG-01, the back-capture of a paper vehicle file** (የወረቀት ተሽከርካሪ ፋይል ምዝገባ; ADR-0054, task 1.13). The
 migration's own service, in the catalogue beside the 54 and offered wherever DVC-01 is: a vehicle with no electronic record is
 captured from its paper file and verified by a second person before any service acts on it. It is not counted in the totals.

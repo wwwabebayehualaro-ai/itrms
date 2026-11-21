@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-11-20",
+  "updated": "2026-11-21",
   "statuses": [
     "planned",
     "ready",
@@ -2269,12 +2269,23 @@
         {
           "id": "1.6c",
           "title": "Driver licence family, part 4: suspension and cancellation record (DVC-21)",
-          "status": "ready",
-          "branch": null,
-          "commits": [],
-          "evidence": [],
+          "status": "in review",
+          "branch": "task/1.6c-licence-suspension-cancellation",
+          "commits": [
+            "7e9b7b2"
+          ],
+          "evidence": [
+            "PR #98 CI run 44866464958 (https://github.com/wwwabebayehualaro-ai/itrms/actions/runs/44866464958): all 12 jobs green; integration 1131 passed; e2e shards 38 + 5 + 20 passed",
+            "Done when 1 (a suspended licence cannot be renewed): apps/api/test/integration/licence-services.int.spec.ts 'records a suspension only once the lead approves it, never the officer who filed it; while it holds, no renewal' (filer's approve 403; restriction on the register; audit licence_restrictions:insert in the approving request; renewal submit 422 with the suspension's reason); requestRenewal and the nationally accepted renewal re-check it",
+            "Done when 2 (a cancelled card's QR reports revoked): int 'cancels a licence: it ends, its card says revoked, and nothing more is recorded on it' (status cancelled; every licence-card document revoked, which the public verification reads; a new record refused); 'keeps a licence cancelled while its renewal waited on the national platform: no new term, no card' (notice renewalWithheld, no standing card)",
+            "Workflow-run tests: a suspension still to come blocks nothing; a cancellation dated later refused; refusals at filing (endsOn, decidedOn, startsOn, reference); unit modules/competency/test/licence-restriction.spec.ts 3/3",
+            "RLS of the restrictions table: apps/api/test/integration/licence-numbers.int.spec.ts 'the isolation matrix of licence_restrictions' (class R: own, child, parent, sibling, other zone, other region, no context; update and delete permission denied); migration 0099 applied from zero in CI",
+            "Config (national context): competency.reapply_after_cancellation_months (installation or region, sensitive, default 0, Z) tested at 12 and at the default; a suspended licence counts for no grade's prerequisite",
+            "Local: lint + typecheck competency/api/web; api unit 20/20; i18n am+en complete; check:slices 11; boundaries 1581 modules clean; OpenAPI regenerated; menu icons regenerated",
+            "Review: reviewer (Fable 5.2) 1 high fixed (a renewal accepted after a cancellation: renew locks the licence and gives nothing, issueCard and addToPrintBatch refuse a withheld licence), mediums fixed (future cancellation refused, suspended licence no prerequisite), M3 and L1 as follow-ups (print batch, cross-office revocation), L3 fixed (uuid guard), L2 kept so DVC-21 can cancel a suspended licence"
+          ],
           "blockers": [],
-          "notes": ""
+          "notes": "Configured where the law is unclear (national context first): competency.reapply_after_cancellation_months (installation or region, sensitive, default 0: docs/ethiopia-context.md gives no waiting period after a cancellation; a decision may set its own, Z). A cancellation takes effect when recorded (no future start); a suspension holds both its days included; a renewal accepted nationally after a cancellation or suspension gives no term and no card."
         },
         {
           "id": "1.6d",
@@ -4444,6 +4455,41 @@
       "foundIn": "1.6b",
       "item": "Decide: should the intake desk (records_officer) read the licence register (licence:read), as it reads vehicles? Today it cannot, so the 'found nothing, capture from paper' button shows only to someone holding both roles; the officer is told the records officer captures it. Granting it needs either a kernel 'licence' read in REGISTER or the module loader letting a module extend a kernel role (ADR). Also add the missing 'licence' row to roles-and-permissions.md",
       "movedTo": "product owner"
+    },
+    {
+      "foundIn": "1.6c",
+      "item": "Lift a suspension early (a court reverses it, the authority shortens it): a DVC-21 'lift' that ends a standing suspension on a day, approved like the record",
+      "movedTo": "1.6c follow-on"
+    },
+    {
+      "foundIn": "1.6c",
+      "item": "A live licence status on the public verification page: a suspended licence's card still verifies (ADR-0064 §6); show 'suspended' there",
+      "movedTo": "1.6c follow-on"
+    },
+    {
+      "foundIn": "1.6c",
+      "item": "The worker's application of an accepted renewal (askNationalPlatform) does not re-check a suspension recorded after the lead sent it; requestRenewal does. Check again when the platform's answer is applied",
+      "movedTo": "1.14"
+    },
+    {
+      "foundIn": "1.6c",
+      "item": "Re-application after a cancellation: Proclamation 1074/2018's waiting period (if any) before a cancelled holder may apply anew is not modelled; a new application is allowed at once",
+      "movedTo": "1.6f"
+    },
+    {
+      "foundIn": "1.6c",
+      "item": "A cancelled licence already on an open print batch is still printed (its QR is revoked, so it never verifies): leave it out of the batch sent to the printer and let recordPrinted accept the batch without it",
+      "movedTo": "1.6c follow-on"
+    },
+    {
+      "foundIn": "1.6c",
+      "item": "Revoking a cancelled licence's cards reads them under the recording office's RLS; once a licence can move office (a transfer), revoke through a reviewed definer or the system role so a card issued elsewhere is never skipped",
+      "movedTo": "1.6i"
+    },
+    {
+      "foundIn": "1.6c",
+      "item": "The coming licence services (upgrade 1.6f, replacement 1.6e, verification letter 1.6g, international 1.6h) must refuse a restricted licence with restrictedOn, as renewal does; the lookup keeps offering it so DVC-21 can record a cancellation on a suspended licence",
+      "movedTo": "1.6d-1.6i"
     }
   ]
 }

@@ -29,6 +29,7 @@ import { importOrg, orgUnits, parseOrgCsv, parseOrgWorkbook, parseOrgYaml, type 
 import {
     importBackCaptureService,
     importLicenceCaptureService,
+    importLicenceRestrictionService,
     importBoloService,
     importPlateExchangeService,
     importReplacementService,
@@ -212,6 +213,8 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
                 // the back-capture of paper vehicle files (task 1.13) and of paper driver licences (task 1.6b)
                 backCapture: await importBackCaptureService(tx, where),
                 licenceCapture: await importLicenceCaptureService(tx, where),
+                // the suspension and cancellation record of a licence (task 1.6c)
+                licenceRestriction: await importLicenceRestrictionService(tx, where),
                 // the plate exchange (task 1.2c), after the fee rules
                 plateExchange: await importPlateExchangeService(tx, where),
                 // the replacement of a lost, stolen or damaged libre (task 1.5), after the fee rules

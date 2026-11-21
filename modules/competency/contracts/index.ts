@@ -18,6 +18,11 @@ import {
     LICENCE_CAPTURE_EXPIRED_SETTING,
     licenceCaptureExpiredSchema
 } from './licence-capture';
+import {
+    licenceRestrictionSchema,
+    REAPPLY_AFTER_CANCELLATION_SETTING,
+    reapplyAfterCancellationSchema
+} from './licence-restriction';
 import { LIBRE_NOTICE_DAYS_SETTING } from './replacement';
 import { MEDICAL_MONTHS_SETTING, RENEWAL_WINDOW_SETTING } from './rules';
 import { TRANSFER_LETTER_ENFORCED_SETTING, TRANSFER_LETTER_VALID_DAYS_SETTING } from './transfer';
@@ -37,6 +42,7 @@ export * from './exchange';
 export * from './licence-capture';
 export * from './licence-family';
 export * from './licence-medical';
+export * from './licence-restriction';
 export * from './migration-report';
 export * from './migration-sample';
 export * from './registration';
@@ -47,7 +53,8 @@ export * from './vehicle-arrival';
 export * from './vehicle-import';
 export * from './vehicle-transfer';
 
-export const LICENCE_STATUSES = ['pending_national', 'active', 'voided'] as const;
+/** `cancelled`: ended by a recorded cancellation (DVC-21, task 1.6c), never active again. */
+export const LICENCE_STATUSES = ['pending_national', 'active', 'voided', 'cancelled'] as const;
 export type LicenceStatus = (typeof LICENCE_STATUSES)[number];
 export const LICENCE_KINDS = ['temporary', 'permanent'] as const;
 export const ENROLMENT_STATUSES = ['enrolled', 'completed'] as const;
@@ -76,7 +83,8 @@ export const COMPETENCY_SETTINGS = {
     [LICENCE_NUMBER_SETTING]: licenceNumberingSchema,
     [CARD_SHOWS_BLOOD_GROUP_SETTING]: z.boolean(),
     [LICENCE_CAPTURE_EXPIRED_SETTING]: licenceCaptureExpiredSchema,
-    [INTAKE_READS_LICENCES_SETTING]: z.boolean()
+    [INTAKE_READS_LICENCES_SETTING]: z.boolean(),
+    [REAPPLY_AFTER_CANCELLATION_SETTING]: reapplyAfterCancellationSchema
 } as const;
 
 /** The document a licence prints as. */
@@ -165,6 +173,13 @@ export const licenceSchema = z.object({
             verifiedAt: z.string().nullable()
         })
         .nullable(),
+    /**
+     * The suspension or cancellation recorded on it that holds today, else the next one to come (DVC-21, task 1.6c); a
+     * suspension that has run out is history, not shown here.
+     */
+    restriction: licenceRestrictionSchema.nullable(),
+    /** whether a restriction holds today: the other licence services refuse it */
+    restricted: z.boolean(),
     version: z.number().int()
 });
 export type Licence = z.infer<typeof licenceSchema>;

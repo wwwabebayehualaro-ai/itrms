@@ -148,6 +148,14 @@ export default defineModule({
             default: true,
             overridableAt: ['installation', 'region', 'unitType'],
             sensitive: true
+        },
+        // the months a holder whose licence was cancelled waits before a new application (task 1.6c): the proclamation sets no
+        // figure here, so none (0) until the region says (Z); a change moves a control, so a fresh second factor
+        {
+            key: 'competency.reapply_after_cancellation_months',
+            default: 0,
+            overridableAt: ['installation', 'region'],
+            sensitive: true
         }
     ],
     // the intake desk reads the licence register where the setting above is on (ADR-0065)
@@ -172,6 +180,8 @@ export default defineModule({
         'competency.checkLicenceCapture',
         'competency.captureLicence',
         'competency.flagLicenceNumber',
+        'competency.checkLicenceRestriction',
+        'competency.recordLicenceRestriction',
         'competency.checkVehicleRegistration',
         'competency.reserveRegistrationPlate',
         'competency.recordFederalVehicleId',
@@ -347,6 +357,8 @@ export default defineModule({
         'DVC-16',
         // a vehicle that arrives from another region, on its transfer document (task 1.4c3, ADR-0060)
         'DVC-17',
+        // the suspension and cancellation record of a licence, from the deciding authority (task 1.6c, ADR-0064 §6)
+        'DVC-21',
         // the back-capture of paper vehicle files (ADR-0054): the migration's own service, beside the bureau's
         'MIG-01',
         // and of paper driver licences (task 1.6b)
@@ -431,6 +443,23 @@ export default defineModule({
                     label: 'competency.action.newLicenceCapture',
                     route: '/competency/licence-captures/new',
                     requires: { permission: 'case:create', services: ['MIG-02'] }
+                }
+            ]
+        },
+        {
+            key: 'competency.licenceRestrictions',
+            group: 'work-process',
+            order: 15,
+            label: 'competency.nav.licenceRestrictions',
+            icon: 'ban',
+            route: '/competency/licence-restrictions',
+            requires: { permission: 'licence:read', services: ['DVC-21'] },
+            quickActions: [
+                {
+                    key: 'competency.newLicenceRestriction',
+                    label: 'competency.action.newLicenceRestriction',
+                    route: '/competency/licence-restrictions/new',
+                    requires: { permission: 'case:create', services: ['DVC-21'] }
                 }
             ]
         },

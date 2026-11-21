@@ -13,6 +13,7 @@ import { LICENCE_GRADES, type GradeSeed } from './grades';
 export { LICENCE_GRADES, type GradeSeed } from './grades';
 export * from './licence-services';
 export * from './licence-capture-service';
+export * from './licence-restriction-service';
 export { licenceNumberingOf, setUpLicenceCounters } from './licence-numbers';
 export * from './vehicle-services';
 export * from './back-capture-service';

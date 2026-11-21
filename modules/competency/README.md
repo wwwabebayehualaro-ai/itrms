@@ -20,6 +20,16 @@ and read in clear only by `POST /competency/licences/:id/health/reveal` (`licenc
 factor in the last five minutes, rate-limited, never replayed; the `licence.health_revealed` event is recorded before the read; a
 licence outside the lead's subtree is 404). Views, lists, the lookup and the card document carry only `bloodGroupOnRecord`.
 
+**The suspension and cancellation record (DVC-21, task 1.6c, ADR-0064 §6).** Seeded as configuration
+(`seed/licence-restriction-service.ts`): an officer files the deciding authority's decision against a licence (`competency.checkLicenceRestriction`:
+an active licence of the office's subtree, a kind, an authority, its reference, the days, the scan); the team leader approves it
+(`separationOfDuties: ['draft']`, `competency.recordLicenceRestriction`) under the licence's row lock. The restriction joins
+`competency.licence_restrictions` (class R with the licence's handling unit, insert only). A suspension holds from `starts_on` to `ends_on`
+(both included): the register shows it (`restriction`, `restricted`), a later one as still to come; `checkRenewal` and `requestRenewal`
+refuse a licence it holds on (`restrictedOn`, `api/licence-restrictions.ts`, for the other licence services too). A cancellation sets
+the licence's status to `cancelled` and revokes its standing card documents (their QR says revoked); nothing more is recorded on it.
+Lifting a suspension early is a follow-up.
+
 **The back-capture of a paper driver licence (MIG-02, task 1.6b, ADR-0054, ADR-0064 §6).** Seeded as configuration
 (`seed/licence-capture-service.ts`): a clerk files the paper licence's facts and its scan; a second person (`separationOfDuties:
 ['draft']`) verifies against the paper (`competency.captureLicence`) or flags the number (`competency.flagLicenceNumber`). A verified
