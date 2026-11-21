@@ -2291,10 +2291,11 @@
         {
           "id": "1.6d",
           "title": "Driver licence family, part 5: the temporary driving permit",
-          "status": "in review",
+          "status": "done",
           "branch": "task/1.6d-temporary-driving-permit",
           "commits": [
-            "ee685c9"
+            "ee685c9",
+            "113c8f5"
           ],
           "evidence": [
             "PR #99 CI run 44899798514 (https://github.com/wwwabebayehualaro-ai/itrms/actions/runs/44899798514): all 12 jobs green (integration, e2e 3 shards, stories, perf, production profile, gitleaks, Semgrep, Trivy)",
@@ -2311,7 +2312,7 @@
         {
           "id": "1.6e",
           "title": "Driver licence family, part 6: licence replacement (DVC-19)",
-          "status": "planned",
+          "status": "ready",
           "branch": null,
           "commits": [],
           "evidence": [],
