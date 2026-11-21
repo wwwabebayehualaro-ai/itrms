@@ -1597,6 +1597,12 @@ describe('the licence replacement (DVC-19, task 1.6e)', () => {
         expect(kept.json<{ errors?: { path: string }[] }>().errors?.map((e) => e.path)).toContain('oldCardHandedIn');
         const handedIn = await submittedReplacement({ licence: licence.id, reason: 'damaged', oldCardHandedIn: true });
         expect(handedIn.statusCode, handedIn.body).toBe(200);
+        // one replacement at a time: a second open one would print the card twice
+        const twice = await submittedReplacement({ licence: licence.id, reason: 'outdated', oldCardHandedIn: true });
+        expect(twice.statusCode, twice.body).toBe(422);
+        expect(twice.json<{ errors?: { path: string; code: string }[] }>().errors).toContainEqual(
+            expect.objectContaining({ path: 'licence', code: 'open_replacement' })
+        );
 
         const other = await licensed(yearsAgo(30));
         await expire(other.licence.id, yearsAgo(1));

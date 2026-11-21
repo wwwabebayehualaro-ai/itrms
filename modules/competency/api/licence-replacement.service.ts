@@ -5,12 +5,13 @@
  * office's subtree). A lost or stolen card needs the police letter; a damaged or outdated one is handed in at the desk.
  */
 import { Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull, ne, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { currentContext } from '@itrms/kernel/context';
 import type { Tx } from '@itrms/kernel/db';
 import { NotFoundError } from '@itrms/kernel/errors';
 import { orgUnits } from '@itrms/kernel/tables';
+import { cases } from '@itrms/workflow/api';
 
 import {
     addisDay,
@@ -68,7 +69,27 @@ export class LicenceReplacementService {
         } else if (input.oldCardHandedIn !== true)
             errors.push({ path: 'oldCardHandedIn', code: 'required', message: say('competency.rule.oldCardHandedIn') });
 
+        // one replacement at a time: another open one would print the card twice
+        const [other] = await tx
+            .select({ id: cases.id })
+            .from(cases)
+            .where(
+                and(
+                    isNull(cases.closedAt),
+                    ne(cases.id, place.caseId),
+                    sql`${cases.facts} ? 'replacement'`,
+                    sql`${cases.facts} -> 'licence' ->> 'id' = ${licence.id}`
+                )
+            )
+            .limit(1);
+        if (other)
+            errors.push({ path: 'licence', code: 'open_replacement', message: say('competency.rule.openReplacement') });
+
         if (errors.length > 0 || !reason) return refuse(errors);
-        return { licence: { id: licence.id, number: licence.number }, replacement: { reason } };
+        return {
+            licence: { id: licence.id, number: licence.number },
+            // the old card's serial, kept with the case: a lost or stolen card is what the police may meet
+            replacement: { reason, oldCardSerial: licence.cardSerial }
+        };
     }
 }

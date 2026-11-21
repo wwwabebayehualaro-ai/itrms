@@ -705,7 +705,7 @@
   "competency.handover.failed": "The card could not be handed over.",
   "competency.handover.done": "Card handed over",
   "competency.errors.card_before_permit": "This card was printed before the temporary permit: hand over the new card printed after it.",
-  "competency.drivingPermit.noCounter": "This office has no counter for temporary permits: the renewal went on without one.",
+  "competency.drivingPermit.noCounter": "This office has no counter for temporary permits: the case went on without one.",
   "competency.nav.licenceReplacements": "Licence replacements",
   "competency.action.newLicenceReplacement": "Request a licence replacement",
   "competency.licenceReplacements.title": "Driver licence replacement",
@@ -716,5 +716,6 @@
   "competency.rule.replacementReason": "Choose why the card is replaced.",
   "competency.rule.policeLetter": "A lost or stolen card needs the police letter.",
   "competency.rule.oldCardHandedIn": "The damaged or outdated card is handed in (Art. 18).",
+  "competency.rule.openReplacement": "This licence has another open replacement request: finish or withdraw it first.",
   "competency.licence.backCapture": "Capture a paper licence"
 }

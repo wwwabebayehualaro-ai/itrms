@@ -615,7 +615,15 @@ export class LicencesService {
         /** a replacement (DVC-19, task 1.6e): a new card even when it says what the old one said; the old one's QR says superseded */
         options: { replace?: boolean } = {}
     ) {
-        const licence = await this.row(tx, this.licenceIdOf(facts, 'licence'));
+        const licenceId = this.licenceIdOf(facts, 'licence');
+        // a replacement takes the licence's row first, as a renewal and a cancellation do: the three take turns (task 1.6e)
+        if (options.replace)
+            await tx
+                .select({ id: driverLicences.id })
+                .from(driverLicences)
+                .where(eq(driverLicences.id, licenceId))
+                .for('update');
+        const licence = await this.row(tx, licenceId);
         // never a card that verifies for a cancelled or suspended licence (task 1.6c)
         if (await this.withheld(tx, licence)) return { documents: (facts.documents ?? {}) as Record<string, string> };
         const language = currentContext()?.language ?? 'am';
@@ -640,9 +648,15 @@ export class LicencesService {
         };
         const subject = { table: 'competency.driver_licences', id: licence.id };
         const known = (facts.documents ?? {}) as Record<string, string>;
-        // the same step taken again keeps the card it gave (a replacement's case has made one already)
+        // the same step taken again keeps the card it gave: this case's own card, never one named in facts from elsewhere
         const mine = known[LICENCE_CARD_TEMPLATE];
-        if (options.replace && mine) return { documents: known };
+        if (options.replace && mine) {
+            const [own] = await tx
+                .select({ id: issuedDocuments.id })
+                .from(issuedDocuments)
+                .where(and(eq(issuedDocuments.id, mine), eq(issuedDocuments.caseId, place.caseId)));
+            if (own) return { documents: known };
+        }
         const standing = options.replace ? await this.standingCard(tx, licence.id) : undefined;
         const issued = standing
             ? await this.documents.supersede(tx, standing.id, {
@@ -650,6 +664,8 @@ export class LicencesService {
                   language,
                   number: licence.number,
                   caseId: place.caseId,
+                  // the office that replaces it gives the new card, as a renewal's does
+                  handlingUnitId: place.handlingUnitId,
                   subject
               })
             : await this.documents.reissue(tx, {

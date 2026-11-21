@@ -705,7 +705,7 @@
   "competency.handover.failed": "ካርዱን ማስረከብ አልተቻለም።",
   "competency.handover.done": "ካርዱ ተሰጥቷል",
   "competency.errors.card_before_permit": "ይህ ካርድ ከጊዜያዊ ፈቃዱ በፊት የታተመ ነው፤ የሚሰጠው ከፈቃዱ በኋላ የታተመው አዲሱ ካርድ ነው።",
-  "competency.drivingPermit.noCounter": "የዚህ ቢሮ የጊዜያዊ ፈቃድ ቁጥር መስጫ አልተዘጋጀም፤ እድሳቱ ያለ ጊዜያዊ ፈቃድ ተጠናቋል።",
+  "competency.drivingPermit.noCounter": "የዚህ ቢሮ የጊዜያዊ ፈቃድ ቁጥር መስጫ አልተዘጋጀም፤ ጉዳዩ ያለ ጊዜያዊ ፈቃድ ተጠናቋል።",
   "competency.nav.licenceReplacements": "የመንጃ ፈቃድ ምትክ",
   "competency.action.newLicenceReplacement": "የፈቃድ ምትክ ጠይቅ",
   "competency.licenceReplacements.title": "የመንጃ ፈቃድ ምትክ",
@@ -716,5 +716,6 @@
   "competency.rule.replacementReason": "የምትኩን ምክንያት ይምረጡ።",
   "competency.rule.policeLetter": "የጠፋ ወይም የተሰረቀ ካርድ የፖሊስ ደብዳቤ ያስፈልገዋል።",
   "competency.rule.oldCardHandedIn": "የተበላሸው ወይም ጊዜ ያለፈበት ካርድ መመለስ አለበት (አንቀጽ 18)።",
+  "competency.rule.openReplacement": "ይህ ፈቃድ ሌላ ያልተጠናቀቀ የምትክ ጥያቄ አለው፤ እሱ ሲጠናቀቅ ወይም ሲሰረዝ ይቻላል።",
   "competency.licence.backCapture": "የወረቀት ፈቃድ መዝግብ"
 }
