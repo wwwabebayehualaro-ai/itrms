@@ -421,7 +421,8 @@ describe('the demo fee rules', () => {
         const root = as.bureau.unit;
         const seed = () =>
             api.installer.scoped({}, (tx) => importFeeRules(tx, { id: root.id, regionId: root.regionId }, rules));
-        expect(await seed()).toBe(9);
+        // the licence replacement's (task 1.6e) is the tenth
+        expect(await seed()).toBe(10);
         expect(await seed()).toBe(0);
         // a real schedule waits for a person's decision
         const real = rules.map((r) =>
@@ -451,7 +452,8 @@ describe('the demo fee rules', () => {
             { key: 'dvc-12-plate-exchange', decision: 'approved', decided_by: null },
             { key: 'dvc-13-ownership-transfer', decision: 'approved', decided_by: null },
             { key: 'dvc-14-transfer-out', decision: 'approved', decided_by: null },
-            { key: 'dvc-17-arrival', decision: 'approved', decided_by: null }
+            { key: 'dvc-17-arrival', decision: 'approved', decided_by: null },
+            { key: 'dvc-19-licence-replacement', decision: 'approved', decided_by: null }
         ]);
     });
 });
