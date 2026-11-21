@@ -681,5 +681,7 @@
   "competency.rule.cancellationEnds": "A cancellation has no last day.",
   "competency.licenceRestriction.renewalWithheld": "The licence was suspended or cancelled before the national platform accepted the renewal: no new term and no card were given.",
   "competency.rule.cancellationStarts": "A cancellation takes effect when it is recorded: it cannot start after today.",
+  "competency.setting.reapply_after_cancellation_months": "Months a holder whose licence was cancelled waits before applying again",
+  "competency.rule.reapplyAfterCancellation": "This person's licence was cancelled: the region takes a new application {months} months after the cancellation.",
   "competency.licence.backCapture": "Capture a paper licence"
 }

@@ -18,7 +18,11 @@ import {
     LICENCE_CAPTURE_EXPIRED_SETTING,
     licenceCaptureExpiredSchema
 } from './licence-capture';
-import { licenceRestrictionSchema } from './licence-restriction';
+import {
+    licenceRestrictionSchema,
+    REAPPLY_AFTER_CANCELLATION_SETTING,
+    reapplyAfterCancellationSchema
+} from './licence-restriction';
 import { LIBRE_NOTICE_DAYS_SETTING } from './replacement';
 import { MEDICAL_MONTHS_SETTING, RENEWAL_WINDOW_SETTING } from './rules';
 import { TRANSFER_LETTER_ENFORCED_SETTING, TRANSFER_LETTER_VALID_DAYS_SETTING } from './transfer';
@@ -79,7 +83,8 @@ export const COMPETENCY_SETTINGS = {
     [LICENCE_NUMBER_SETTING]: licenceNumberingSchema,
     [CARD_SHOWS_BLOOD_GROUP_SETTING]: z.boolean(),
     [LICENCE_CAPTURE_EXPIRED_SETTING]: licenceCaptureExpiredSchema,
-    [INTAKE_READS_LICENCES_SETTING]: z.boolean()
+    [INTAKE_READS_LICENCES_SETTING]: z.boolean(),
+    [REAPPLY_AFTER_CANCELLATION_SETTING]: reapplyAfterCancellationSchema
 } as const;
 
 /** The document a licence prints as. */

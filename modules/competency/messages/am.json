@@ -681,5 +681,7 @@
   "competency.rule.cancellationEnds": "ስረዛ የሚያበቃበት ቀን የለውም።",
   "competency.licenceRestriction.renewalWithheld": "ብሔራዊ ሥርዓቱ እድሳቱን ከመቀበሉ በፊት ፈቃዱ ታግዷል ወይም ተሰርዟል፤ አዲስ የአገልግሎት ዘመንም ሆነ ካርድ አልተሰጠም።",
   "competency.rule.cancellationStarts": "ስረዛ ሲመዘገብ ወዲያውኑ ተፈጻሚ ይሆናል፤ የሚጀምርበት ቀን ከዛሬ በኋላ ሊሆን አይችልም።",
+  "competency.setting.reapply_after_cancellation_months": "መንጃ ፈቃዱ የተሰረዘበት ሰው እንደገና ለማመልከት የሚጠብቃቸው ወራት",
+  "competency.rule.reapplyAfterCancellation": "የዚህ ሰው መንጃ ፈቃድ ተሰርዟል፤ ክልሉ እንደገና ማመልከት የሚፈቅደው ስረዛው ከተጀመረ ከ{months} ወር በኋላ ነው።",
   "competency.licence.backCapture": "የወረቀት ፈቃድ መዝግብ"
 }

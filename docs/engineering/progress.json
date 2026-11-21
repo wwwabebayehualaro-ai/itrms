@@ -1,7 +1,7 @@
 {
   "project": "ITRMS",
   "vendor": "ABA Nexus Technologies",
-  "updated": "2026-11-20",
+  "updated": "2026-11-21",
   "statuses": [
     "planned",
     "ready",
@@ -2274,7 +2274,7 @@
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "Configured where the law is unclear (national context first): competency.reapply_after_cancellation_months (installation or region, sensitive, default 0: docs/ethiopia-context.md gives no waiting period after a cancellation; a decision may set its own, Z). A cancellation takes effect when recorded (no future start); a suspension holds both its days included; a renewal accepted nationally after a cancellation or suspension gives no term and no card."
         },
         {
           "id": "1.6d",

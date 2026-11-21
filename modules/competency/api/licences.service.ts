@@ -19,6 +19,7 @@ import type { z } from 'zod';
 
 import {
     addisDay,
+    addMonths,
     CARD_SHOWS_BLOOD_GROUP_SETTING,
     eligibilityProblems,
     enrolmentCreateSchema,
@@ -31,6 +32,7 @@ import {
     MEDICAL_MONTHS_SETTING,
     renewalIsOpen,
     renewalTerms,
+    REAPPLY_AFTER_CANCELLATION_SETTING,
     RENEWAL_WINDOW_SETTING,
     RENEWAL_WITHHELD_NOTICE,
     restrictionHolds,
@@ -54,7 +56,7 @@ import {
     trainingEnrolments
 } from './competency.table';
 import { licenceNumbering, requireLicenceSeries, takeLicenceNumber } from './licence-numbers';
-import { restrictedOn, restrictionsShown } from './licence-restrictions';
+import { lastCancellationOf, restrictedOn, restrictionsShown } from './licence-restrictions';
 
 /** A case's place, as an effect is given it, and who is acting (nobody, for the worker's system transactions). */
 export interface CasePlace {
@@ -231,6 +233,11 @@ export class LicencesService {
         const months = await this.settings.value<number>(tx, place.handlingUnitId, MEDICAL_MONTHS_SETTING);
         if (!medicalIsCurrent(input.medicalExaminedOn, months, today))
             problems.push(say('competency.rule.medical', { months }));
+        // a holder whose licence was cancelled waits the region's months before applying anew (task 1.6c)
+        const wait = await this.settings.value<number>(tx, place.handlingUnitId, REAPPLY_AFTER_CANCELLATION_SETTING);
+        const cancelledOn = wait > 0 ? await lastCancellationOf(tx, input.person) : null;
+        if (cancelledOn && addMonths(cancelledOn, wait) > today)
+            problems.push(say('competency.rule.reapplyAfterCancellation', { months: wait }));
         const [school] = await tx
             .select({ kind: organisations.kind })
             .from(organisations)

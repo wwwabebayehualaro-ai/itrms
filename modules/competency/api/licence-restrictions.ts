@@ -6,7 +6,7 @@ import { and, desc, eq, gte, inArray, isNull, lte, or } from 'drizzle-orm';
 import type { Tx } from '@itrms/kernel/db';
 
 import { restrictionHolds, type LicenceRestriction } from '../contracts';
-import { licenceRestrictions } from './competency.table';
+import { driverLicences, licenceRestrictions } from './competency.table';
 
 type Row = typeof licenceRestrictions.$inferSelect;
 
@@ -47,6 +47,18 @@ export async function restrictionsShown(
     for (const r of [...rows].sort((a, b) => rank(a) - rank(b) || a.startsOn.localeCompare(b.startsOn)))
         if (!shown.has(r.licenceId)) shown.set(r.licenceId, out(r));
     return shown;
+}
+
+/** The first day of the person's latest recorded cancellation in the region, if any (a new application waits after it). */
+export async function lastCancellationOf(tx: Tx, personId: string): Promise<string | null> {
+    const [last] = await tx
+        .select({ startsOn: licenceRestrictions.startsOn })
+        .from(licenceRestrictions)
+        .innerJoin(driverLicences, eq(driverLicences.id, licenceRestrictions.licenceId))
+        .where(and(eq(driverLicences.personId, personId), eq(licenceRestrictions.kind, 'cancellation')))
+        .orderBy(desc(licenceRestrictions.startsOn))
+        .limit(1);
+    return last?.startsOn ?? null;
 }
 
 /** Whether a restriction holds on the licence on a day: the other licence services refuse it then. */

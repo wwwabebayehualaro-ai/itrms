@@ -148,6 +148,14 @@ export default defineModule({
             default: true,
             overridableAt: ['installation', 'region', 'unitType'],
             sensitive: true
+        },
+        // the months a holder whose licence was cancelled waits before a new application (task 1.6c): the proclamation sets no
+        // figure here, so none (0) until the region says (Z); a change moves a control, so a fresh second factor
+        {
+            key: 'competency.reapply_after_cancellation_months',
+            default: 0,
+            overridableAt: ['installation', 'region'],
+            sensitive: true
         }
     ],
     // the intake desk reads the licence register where the setting above is on (ADR-0065)

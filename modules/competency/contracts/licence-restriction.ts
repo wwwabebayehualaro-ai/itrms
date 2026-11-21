@@ -24,6 +24,14 @@ export type RestrictionAuthority = (typeof RESTRICTION_AUTHORITIES)[number];
 export const AUTHORITY_REFERENCE_MAX = 80;
 
 /**
+ * How many months a holder whose licence was cancelled waits before a new application (`competency.reapply_after_cancellation_months`).
+ * Proclamation 1074/2018 as summarised in docs/ethiopia-context.md sets no figure, and a court's or authority's decision may set its
+ * own: 0 (no wait beyond the decision) until the region says otherwise (Z). Raising it tightens a control, lowering it loosens one.
+ */
+export const REAPPLY_AFTER_CANCELLATION_SETTING = 'competency.reapply_after_cancellation_months';
+export const reapplyAfterCancellationSchema = z.number().int().min(0).max(120);
+
+/**
  * The notice on a renewal the national platform accepted after its licence was cancelled or suspended (facts.renewal.notices): no new
  * term was given and no card issued.
  */

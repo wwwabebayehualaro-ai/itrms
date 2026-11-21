@@ -33,7 +33,7 @@ import type { CaseOut } from '@itrms/workflow/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { startApi, type As, type TestApi } from './support/api';
-import { setLicenceNumbering } from './support/licences';
+import { setLicenceNumbering, setRegionSetting } from './support/licences';
 import { startPostgres, type TestPostgres } from './support/postgres';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -1216,7 +1216,7 @@ describe('the suspension and cancellation record (DVC-21, task 1.6c)', () => {
     }, 240_000);
 
     it('cancels a licence: it ends, its card says revoked, and nothing more is recorded on it', async () => {
-        const { licence } = await licensed(yearsAgo(30));
+        const { person, licence } = await licensed(yearsAgo(30));
         const cards = async () =>
             (await api.call('GET', `/api/v1/issued-documents?subjectId=${licence.id}`, as.lead)).json<{
                 items: { templateKey: string; revoked: boolean }[];
@@ -1240,7 +1240,23 @@ describe('the suspension and cancellation record (DVC-21, task 1.6c)', () => {
         expect(again.json<{ errors?: { path: string; code: string }[] }>().errors).toContainEqual(
             expect.objectContaining({ path: 'licence', code: 'cancelled' })
         );
-    }, 240_000);
+
+        // a new application waits the region's months after the cancellation (a setting; none by default)
+        const root = { id: as.bureau.unit.id, regionId: as.bureau.unit.regionId };
+        const newApplication = await filed(NEW, application(person));
+        try {
+            await setRegionSetting(api, root, 'competency.reapply_after_cancellation_months', 12);
+            const waiting = await step(newApplication, as.officer, { action: 'submit' });
+            expect(waiting.statusCode, waiting.body).toBe(422);
+            expect(waiting.body).toMatch(/12/);
+        } finally {
+            await api.owner.query(
+                `delete from kernel.settings_values where key = 'competency.reapply_after_cancellation_months'`
+            );
+        }
+        const anew = await step(newApplication, as.officer, { action: 'submit' });
+        expect(anew.statusCode, anew.body).toBe(200);
+    }, 300_000);
 
     it('keeps a licence cancelled while its renewal waited on the national platform: no new term, no card', async () => {
         const { person, licence } = await licensed(yearsAgo(30));
