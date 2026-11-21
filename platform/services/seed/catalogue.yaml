@@ -188,6 +188,13 @@ services:
     name:
       am: ከሌላ ክልል የመጣ ተሽከርካሪ ምዝገባ
       en: Register a vehicle transferred from another region
+  # the replacement of a driver licence's card (ADR-0064, Proclamation 1074/2018 Art. 18, task 1.6e)
+  - code: DVC-19
+    process: 1
+    module: competency
+    name:
+      am: የመንጃ ፈቃድ ምትክ
+      en: Driver licence replacement
   # the suspension and cancellation record of a driver licence, from the deciding authority (ADR-0064, task 1.6c)
   - code: DVC-21
     process: 1

@@ -2312,12 +2312,12 @@
         {
           "id": "1.6e",
           "title": "Driver licence family, part 6: licence replacement (DVC-19)",
-          "status": "ready",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/1.6e-licence-replacement",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "National context, config where unclear: Art. 18 (replacement on the fee; a found old licence returned) gives the reasons and the old card handed in for damaged or outdated; the zone's list gives the police letter for lost ones (written answers p. A–E). The fee has no figure anywhere (R2): dvc-19-licence-replacement by reason plus the card, placeholders a bureau changes in its fee rule, not code. An expired licence is refused (the renewal gives the card), a suspended one too (1.6c). No national platform call (ADR-0064 §6)."
         },
         {
           "id": "1.6f",
@@ -4502,6 +4502,21 @@
       "foundIn": "1.6c",
       "item": "The coming licence services (upgrade 1.6f, replacement 1.6e, verification letter 1.6g, international 1.6h) must refuse a restricted licence with restrictedOn, as renewal does; the lookup keeps offering it so DVC-21 can record a cancellation on a suspended licence",
       "movedTo": "1.6d-1.6i"
+    },
+    {
+      "foundIn": "1.6e",
+      "item": "A replacement where the licence's standing card was issued by an office outside the acting office's subtree (latent until a licence moves office, 1.6i): the card lookup misses it under RLS and the insert hits the subject unique index after payment; refuse at the check through a reviewed definer, or map the violation to a stable error",
+      "movedTo": "1.6i"
+    },
+    {
+      "foundIn": "1.6e",
+      "item": "A paid case refused at approval (the licence cancelled, suspended or expired meanwhile) has no refund or credit path; the lead can only reject. Shared by every paid service",
+      "movedTo": "1.12 follow-on"
+    },
+    {
+      "foundIn": "1.6e",
+      "item": "Test gaps for DVC-19: correct after return re-prices lost→damaged (30000 → 25000), a zone-run replacement of a woreda licence (the new card's office), the stolen branch, refusal at approval after a cancellation recorded meanwhile; and check the police letter's files are stored, scanned and the office's own",
+      "movedTo": "1.6e follow-on"
     }
   ]
 }

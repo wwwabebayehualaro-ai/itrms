@@ -705,6 +705,17 @@
   "competency.handover.failed": "The card could not be handed over.",
   "competency.handover.done": "Card handed over",
   "competency.errors.card_before_permit": "This card was printed before the temporary permit: hand over the new card printed after it.",
-  "competency.drivingPermit.noCounter": "This office has no counter for temporary permits: the renewal went on without one.",
+  "competency.drivingPermit.noCounter": "This office has no counter for temporary permits: the case went on without one.",
+  "competency.nav.licenceReplacements": "Licence replacements",
+  "competency.action.newLicenceReplacement": "Request a licence replacement",
+  "competency.licenceReplacements.title": "Driver licence replacement",
+  "competency.licenceReplacements.intro": "A lost, stolen, damaged or outdated card is replaced; the licence keeps its number. A lost or stolen card needs the police letter; a damaged one is handed in (Proclamation 1074/2018 Art. 18).",
+  "competency.licenceReplacements.fileNew": "Request a licence replacement",
+  "competency.rule.notReplaceable": "A card is replaced for an active licence only.",
+  "competency.rule.replaceExpired": "This licence has expired: renew it instead; the renewal gives a new card.",
+  "competency.rule.replacementReason": "Choose why the card is replaced.",
+  "competency.rule.policeLetter": "A lost or stolen card needs the police letter.",
+  "competency.rule.oldCardHandedIn": "The damaged or outdated card is handed in (Art. 18).",
+  "competency.rule.openReplacement": "This licence has another open replacement request: finish or withdraw it first.",
   "competency.licence.backCapture": "Capture a paper licence"
 }

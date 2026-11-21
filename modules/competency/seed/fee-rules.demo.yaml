@@ -258,3 +258,25 @@ rules:
             - { value: commercial, amount: '607000' }
           otherwise: '516100'
           when: input.takesNationalPlate
+  - key: dvc-19-licence-replacement
+    name: { am: የመንጃ ፈቃድ ምትክ, en: Driver licence replacement }
+    document:
+      schemaVersion: 1
+      demo: true
+      basis: 'placeholder until the regional schedule (Proclamation 1074/2018 Art. 18: a replacement on the fee; the zone lists it without an amount, R2): a fee by reason, and the new card'
+      inputs:
+        reason: { kind: choice }
+      lines:
+        - key: replacement
+          label: { am: የምትክ ክፍያ, en: Replacement }
+          kind: table
+          input: reason
+          rows:
+            - { value: lost, amount: '20000' }
+            - { value: stolen, amount: '20000' }
+            - { value: damaged, amount: '15000' }
+            - { value: outdated, amount: '15000' }
+        - key: card
+          label: { am: አዲስ ካርድ, en: New card }
+          kind: fixed
+          amount: '10000'

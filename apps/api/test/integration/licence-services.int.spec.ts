@@ -13,6 +13,7 @@ import { askNationalPlatform, type NationalDeps } from '@itrms/competency/api/wo
 import type { Licence } from '@itrms/competency/contracts';
 import {
     importLicenceGrades,
+    importLicenceReplacementService,
     importLicenceRestrictionService,
     importLicenceServices,
     MEDICAL_REFERRAL_FORM,
@@ -333,6 +334,8 @@ beforeAll(async () => {
         expect(await setUpMedicalReferralCounters(tx, root.regionId)).toBeGreaterThan(0);
         // the suspension and cancellation record (task 1.6c)
         expect(await importLicenceRestrictionService(tx, root)).toBe(1);
+        // the licence replacement (task 1.6e), after the fee rules
+        expect(await importLicenceReplacementService(tx, root)).toBe(1);
         // the temporary driving permit's counter (task 1.6d)
         expect(await setUpDrivingPermitCounters(tx, root.regionId)).toBeGreaterThan(0);
     });
@@ -1512,5 +1515,105 @@ describe('the temporary driving permit and the card handover (task 1.6d)', () =>
     it('is handed over by licensing at its office only: the cashier is refused', async () => {
         const { licence } = await renewed();
         expect((await handOver(licence, { ...HOLDER, cardSerial: 'PC-1' }, as.cashier)).statusCode).toBe(403);
+    }, 300_000);
+});
+
+describe('the licence replacement (DVC-19, task 1.6e)', () => {
+    const REPLACE = 'DVC-19';
+
+    /** The police letter's scan the officer uploaded: stored, at Boditi. */
+    async function letter(): Promise<{ file_id: string }[]> {
+        const id = randomUUID();
+        const unit = as.officer.unit;
+        await api.owner.query(
+            `insert into kernel.files (id, region_id, unit_id, status, filename, content_type, size, sha256, object_key,
+                 confirmed_at, origin, created_by)
+             values ($1, $2, $3, 'stored', 'police-letter.pdf', 'application/pdf', 10, repeat('a', 64), $4, now(), 'upload', $5)`,
+            [id, unit.regionId, unit.id, `files/${unit.regionId}/${id}`, await api.userId(SUB.officer)]
+        );
+        return [{ file_id: id }];
+    }
+
+    const cardsOf = async (licenceId: string) =>
+        (await api.call('GET', `/api/v1/issued-documents?subjectId=${licenceId}`, as.lead))
+            .json<{ items: { id: string; templateKey: string; revoked: boolean; superseded: boolean }[] }>()
+            .items.filter((d) => d.templateKey === 'licence-card');
+
+    const submittedReplacement = async (answers: Record<string, unknown>) => {
+        const c = await filed(REPLACE, answers);
+        return step(c, as.officer, { action: 'submit' });
+    };
+
+    it('replaces a lost card on the police letter: the number kept, the old card superseded, a new print and a permit', async () => {
+        const { person, licence } = await licensed(yearsAgo(30));
+        const before = await cardsOf(licence.id);
+        expect(before.filter((d) => !d.superseded && !d.revoked)).toHaveLength(1);
+
+        // lost without the police letter: refused
+        const bare = await submittedReplacement({ licence: licence.id, reason: 'lost' });
+        expect(bare.statusCode, bare.body).toBe(422);
+        expect(bare.json<{ errors?: { path: string }[] }>().errors?.map((e) => e.path)).toContain('policeReport');
+
+        let c = await filed(REPLACE, { licence: licence.id, reason: 'lost', policeReport: await letter() });
+        c = await moved(c, as.officer, 'submit');
+        c = await moved(c, as.officer, 'approve');
+        expect(c.state).toBe('payment');
+        const { total } = await paid(c);
+        // lost: 200 Birr and the 100 Birr card (placeholders)
+        expect(total).toBe('30000');
+        c = await caseOf(c.id);
+        expect(c.state).toBe('approval');
+        // the officer who reviewed it never approves it
+        expect((await step(c, as.officer, { action: 'approve' })).statusCode).toBe(403);
+        c = await moved(c, as.lead, 'approve');
+        expect(c.state).toBe('issued');
+
+        const [now] = await licencesOf(person);
+        expect(now).toMatchObject({ number: licence.number, validUntil: licence.validUntil, status: 'active' });
+        const after = await cardsOf(licence.id);
+        // the old card's QR says superseded; one card stands, the new one
+        expect(after.find((d) => d.id === before[0]?.id)).toMatchObject({ superseded: true });
+        expect(after.filter((d) => !d.superseded && !d.revoked)).toHaveLength(1);
+        // to print, and a permit while it prints
+        const queued = await api.owner.query<{ n: number }>(
+            `select count(*)::int as n from competency.licence_print_batch_items i
+               join competency.licence_print_batches b on b.id = i.batch_id
+              where i.licence_id = $1 and b.status = 'open'`,
+            [licence.id]
+        );
+        expect(queued.rows[0]?.n).toBeGreaterThan(0);
+        const permits = await api.owner.query<{ n: number }>(
+            `select count(*)::int as n from documents.issued_documents d join documents.document_templates t on t.id = d.template_id
+              where t.key = 'licence-driving-permit' and d.case_id = $1 and d.revoked_at is null`,
+            [c.id]
+        );
+        expect(permits.rows[0]?.n).toBe(1);
+    }, 300_000);
+
+    it('takes a damaged card only handed in, and refuses an expired licence (renewed instead)', async () => {
+        const { licence } = await licensed(yearsAgo(30));
+        const kept = await submittedReplacement({ licence: licence.id, reason: 'damaged' });
+        expect(kept.statusCode, kept.body).toBe(422);
+        expect(kept.json<{ errors?: { path: string }[] }>().errors?.map((e) => e.path)).toContain('oldCardHandedIn');
+        const handedIn = await submittedReplacement({ licence: licence.id, reason: 'damaged', oldCardHandedIn: true });
+        expect(handedIn.statusCode, handedIn.body).toBe(200);
+        // one replacement at a time: a second open one would print the card twice
+        const twice = await submittedReplacement({ licence: licence.id, reason: 'outdated', oldCardHandedIn: true });
+        expect(twice.statusCode, twice.body).toBe(422);
+        expect(twice.json<{ errors?: { path: string; code: string }[] }>().errors).toContainEqual(
+            expect.objectContaining({ path: 'licence', code: 'open_replacement' })
+        );
+
+        const other = await licensed(yearsAgo(30));
+        await expire(other.licence.id, yearsAgo(1));
+        const expired = await submittedReplacement({
+            licence: other.licence.id,
+            reason: 'outdated',
+            oldCardHandedIn: true
+        });
+        expect(expired.statusCode, expired.body).toBe(422);
+        expect(expired.json<{ errors?: { path: string; code: string }[] }>().errors).toContainEqual(
+            expect.objectContaining({ path: 'licence', code: 'expired' })
+        );
     }, 300_000);
 });

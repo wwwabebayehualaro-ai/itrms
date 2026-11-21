@@ -190,6 +190,8 @@ export default defineModule({
         'competency.checkLicenceRestriction',
         'competency.recordLicenceRestriction',
         'competency.issueDrivingPermit',
+        'competency.checkLicenceReplacement',
+        'competency.replaceLicenceCard',
         'competency.checkVehicleRegistration',
         'competency.reserveRegistrationPlate',
         'competency.recordFederalVehicleId',
@@ -340,6 +342,8 @@ export default defineModule({
         'DVC-02': ['competency.temporary-bolo'],
         'DVC-03': ['competency.licence'],
         'DVC-04': ['competency.medical-referral', 'competency.driving-permit'],
+        // a replacement's temporary driving permit while the new card prints (task 1.6e)
+        'DVC-19': ['competency.driving-permit'],
         // the new libre's registration certificate (task 1.5)
         'DVC-06': ['vehicles.registration-certificate'],
         'DVC-13': ['vehicles.registration-certificate', 'competency.transfer-letter'],
@@ -370,6 +374,8 @@ export default defineModule({
         'DVC-16',
         // a vehicle that arrives from another region, on its transfer document (task 1.4c3, ADR-0060)
         'DVC-17',
+        // the replacement of a licence's card (task 1.6e, Art. 18)
+        'DVC-19',
         // the suspension and cancellation record of a licence, from the deciding authority (task 1.6c, ADR-0064 §6)
         'DVC-21',
         // the back-capture of paper vehicle files (ADR-0054): the migration's own service, beside the bureau's
@@ -456,6 +462,23 @@ export default defineModule({
                     label: 'competency.action.newLicenceCapture',
                     route: '/competency/licence-captures/new',
                     requires: { permission: 'case:create', services: ['MIG-02'] }
+                }
+            ]
+        },
+        {
+            key: 'competency.licenceReplacements',
+            group: 'work-process',
+            order: 15,
+            label: 'competency.nav.licenceReplacements',
+            icon: 'copy',
+            route: '/competency/licence-replacements',
+            requires: { permission: 'licence:read', services: ['DVC-19'] },
+            quickActions: [
+                {
+                    key: 'competency.newLicenceReplacement',
+                    label: 'competency.action.newLicenceReplacement',
+                    route: '/competency/licence-replacements/new',
+                    requires: { permission: 'case:create', services: ['DVC-19'] }
                 }
             ]
         },

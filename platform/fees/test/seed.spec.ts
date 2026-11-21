@@ -39,7 +39,8 @@ describe('the demo fee rules', () => {
             'dvc-14-transfer-out',
             'dvc-01-registration',
             'dvc-02-bolo',
-            'dvc-17-arrival'
+            'dvc-17-arrival',
+            'dvc-19-licence-replacement'
         ]);
         for (const r of rules) {
             expect(checkFeeRule(r.document), r.key).toEqual([]);
@@ -89,6 +90,16 @@ describe('the demo fee rules', () => {
         expect(replacement('plate', 'private')).toMatchObject({ status: 'complete', total: 616100n });
         expect(replacement('plate', 'commercial')).toMatchObject({ status: 'complete', total: 707000n });
         expect(replacement('plate', 'government')).toMatchObject({ status: 'complete', total: 616100n });
+    });
+
+    it('charge a licence replacement by its reason, with the new card (task 1.6e, Art. 18)', () => {
+        const replaced = (reason: string) =>
+            evaluateFee(rule('dvc-19-licence-replacement'), { answers: { reason }, asOf: '2026-11-21' });
+        // lost or stolen 200 Birr, damaged or outdated 150, each with the 100 Birr card (placeholders, R2)
+        expect(replaced('lost')).toMatchObject({ status: 'complete', total: 20000n + 10000n });
+        expect(replaced('stolen')).toMatchObject({ status: 'complete', total: 20000n + 10000n });
+        expect(replaced('damaged')).toMatchObject({ status: 'complete', total: 15000n + 10000n });
+        expect(replaced('outdated')).toMatchObject({ status: 'complete', total: 15000n + 10000n });
     });
 
     it('charge a new registration by the vehicle category, with the plate and the libre', () => {

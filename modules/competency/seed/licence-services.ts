@@ -442,16 +442,19 @@ export const renewalFlowV2 = (examForm: string, referralForm: string, reportForm
     };
 };
 
-/** The temporary driving permits' counter at every office that offers DVC-04 (task 1.6d). Returns how many offices have it. */
+/**
+ * The temporary driving permits' counter at every office that offers DVC-04 (task 1.6d) or DVC-19 (task 1.6e). Returns how many offices
+ * have it.
+ */
 export async function setUpDrivingPermitCounters(
     tx: Tx,
     regionId: string,
     pattern = DRIVING_PERMIT_PATTERN
 ): Promise<number> {
     const offices = await tx.execute<{ id: string }>(sql`
-        select u.id from kernel.org_units u
+        select distinct u.id from kernel.org_units u
           join kernel.unit_type_services s on s.unit_type_id = u.unit_type_id
-         where u.region_id = ${regionId} and u.active and s.service_code = 'DVC-04'`);
+         where u.region_id = ${regionId} and u.active and s.service_code in ('DVC-04', 'DVC-19')`);
     for (const office of offices.rows)
         await setUpCounter(tx, { key: DRIVING_PERMIT_COUNTER, unitId: office.id, regionId, pattern });
     return offices.rows.length;

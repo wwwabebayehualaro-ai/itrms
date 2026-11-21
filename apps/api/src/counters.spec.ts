@@ -61,6 +61,8 @@ describe('the counters an office needs', () => {
         expect(needs.of(['DVC-14'], []).map((n) => n.key)).toEqual([VEHICLE_TRANSFER_DOCUMENT_COUNTER]);
         // a renewal's referral letter to a health facility (task 1.6a) and its temporary driving permit (task 1.6d)
         expect(needs.of(['DVC-04'], []).map((n) => n.key)).toEqual([DRIVING_PERMIT_COUNTER, MEDICAL_REFERRAL_COUNTER]);
+        // a licence replacement's temporary driving permit (task 1.6e)
+        expect(needs.of(['DVC-19'], []).map((n) => n.key)).toEqual([DRIVING_PERMIT_COUNTER]);
         expect(needs.of(['RS-01', 'LG-01'], ['prints_documents'])).toEqual([]);
     });
 });

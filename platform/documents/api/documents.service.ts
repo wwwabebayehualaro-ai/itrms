@@ -74,7 +74,8 @@ export class DocumentsService {
     supersede(
         tx: Tx,
         oldId: string,
-        correction: Pick<IssueInput, 'data' | 'language' | 'number'> & Partial<Pick<IssueInput, 'subject' | 'caseId'>>
+        correction: Pick<IssueInput, 'data' | 'language' | 'number'> &
+            Partial<Pick<IssueInput, 'subject' | 'caseId' | 'handlingUnitId'>>
     ): Promise<IssuedRow> {
         return supersedeDocument(tx, this.settings, oldId, correction);
     }
