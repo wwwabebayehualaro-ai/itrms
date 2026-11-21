@@ -152,6 +152,7 @@ const SAMPLES: Record<DocumentDataSchema, Record<string, unknown>> = {
         caseNumber: 52,
         holderName: 'ሰላም ታደሰ',
         licence: {
+            id: '0199f0a0-d000-7000-8000-0000000000aa',
             number: '06-00012',
             validUntil: '2030-11-03',
             grades: [{ grade: 'automobile', name: { am: 'አውቶሞቢል', en: 'Automobile' } }]

@@ -704,5 +704,7 @@
   "competency.handover.save": "Hand over",
   "competency.handover.failed": "The card could not be handed over.",
   "competency.handover.done": "Card handed over",
+  "competency.errors.card_before_permit": "This card was printed before the temporary permit: hand over the new card printed after it.",
+  "competency.drivingPermit.noCounter": "This office has no counter for temporary permits: the renewal went on without one.",
   "competency.licence.backCapture": "Capture a paper licence"
 }

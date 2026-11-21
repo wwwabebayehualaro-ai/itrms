@@ -87,6 +87,8 @@ export function useRecordBloodGroup() {
 export function useHandOverCard() {
     const queries = useQueryClient();
     return useMutation({
+        // the ID number is in what was sent: never kept once the dialog is done with it
+        gcTime: 0,
         mutationFn: async (input: { id: string; version: number; handover: CardHandover }) =>
             (
                 await client.post<CardHandoverOut>(`v1/competency/licences/${input.id}/card-handover`, input.handover, {

@@ -160,6 +160,8 @@ export const DOCUMENT_DATA_SCHEMAS = {
         caseNumber: z.number().int(),
         holderName: z.string().min(1),
         licence: z.object({
+            /** not printed: how the licence finds its permits (a permit is its renewal case's document) */
+            id: z.uuid(),
             number: z.string().min(1),
             validUntil: dayText.nullable(),
             grades: z.array(z.object({ grade: z.string().min(1), name: i18nTextSchema })).min(1)

@@ -164,7 +164,8 @@ export function LicenceCardCell({ licence }: { licence: Licence }) {
                 {t('competency.handover.done')}
             </span>
         );
-    const ready = licence.status === 'active' && !licence.restricted && licence.cardSerial !== null;
+    // a card the region printed for it, waiting at the desk: an older card does not close the permit (the server checks it too)
+    const ready = licence.status === 'active' && !licence.restricted && licence.cardAwaitingHandover;
     if (!ready || !mayHandOver) return null;
     return (
         <>

@@ -185,6 +185,8 @@ export const licenceSchema = z.object({
     restricted: z.boolean(),
     /** whether the card printed with its current serial has been handed over (task 1.6d), as its office sees it */
     cardHandedOver: z.boolean(),
+    /** whether its current serial is a card the region printed for it, not handed over yet: the desk's to hand over (task 1.6d) */
+    cardAwaitingHandover: z.boolean(),
     version: z.number().int()
 });
 export type Licence = z.infer<typeof licenceSchema>;

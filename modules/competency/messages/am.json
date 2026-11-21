@@ -704,5 +704,7 @@
   "competency.handover.save": "አስረክብ",
   "competency.handover.failed": "ካርዱን ማስረከብ አልተቻለም።",
   "competency.handover.done": "ካርዱ ተሰጥቷል",
+  "competency.errors.card_before_permit": "ይህ ካርድ ከጊዜያዊ ፈቃዱ በፊት የታተመ ነው፤ የሚሰጠው ከፈቃዱ በኋላ የታተመው አዲሱ ካርድ ነው።",
+  "competency.drivingPermit.noCounter": "የዚህ ቢሮ የጊዜያዊ ፈቃድ ቁጥር መስጫ አልተዘጋጀም፤ እድሳቱ ያለ ጊዜያዊ ፈቃድ ተጠናቋል።",
   "competency.licence.backCapture": "የወረቀት ፈቃድ መዝግብ"
 }

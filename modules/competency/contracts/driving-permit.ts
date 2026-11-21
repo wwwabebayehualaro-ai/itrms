@@ -17,6 +17,8 @@ export const drivingPermitDaysSchema = z.number().int().min(1).max(365);
 export const DRIVING_PERMIT_COUNTER = 'competency.driving-permit';
 export const DRIVING_PERMIT_PATTERN = '{unit}/TP/{seq:05}/{efy}';
 export const DRIVING_PERMIT_TEMPLATE = 'licence-driving-permit';
+/** The notice on a case whose office has no permit counter: the renewal goes on, without a permit (facts.drivingPermit.notices). */
+export const DRIVING_PERMIT_NO_COUNTER_NOTICE = 'competency.drivingPermit.noCounter';
 
 /** Who took the card: the holder, or someone they sent with a letter. */
 export const HANDOVER_RECIPIENTS = ['holder', 'representative'] as const;

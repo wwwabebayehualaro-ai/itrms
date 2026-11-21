@@ -4,7 +4,7 @@
  * nothing until then, so ITRMS never holds a value that competes with the national record.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, gte, inArray, isNull, like, ne, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNotNull, isNull, like, ne, or, sql, type SQL } from 'drizzle-orm';
 import { currentContext } from '@itrms/kernel/context';
 import { insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/kernel/db';
 import { ConflictError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
@@ -22,6 +22,7 @@ import {
     addMonths,
     CARD_SHOWS_BLOOD_GROUP_SETTING,
     eligibilityProblems,
+    foldCardSerial,
     enrolmentCreateSchema,
     examAnswersSchema,
     LICENCE_CARD_TEMPLATE,
@@ -726,6 +727,17 @@ export class LicencesService {
                     .where(inArray(licenceCardHandovers.licenceId, ids))
             ).map((h) => `${h.licenceId}:${h.cardSerial}`)
         );
+        // the cards the region printed for them, by serial (a card from before ITRMS, or captured from paper, was never printed here)
+        const printed = new Set(
+            (
+                await tx
+                    .select({ licenceId: licencePrintBatchItems.licenceId, cardKey: licencePrintBatchItems.cardKey })
+                    .from(licencePrintBatchItems)
+                    .where(
+                        and(inArray(licencePrintBatchItems.licenceId, ids), isNotNull(licencePrintBatchItems.cardKey))
+                    )
+            ).map((p) => `${p.licenceId}:${foldCardSerial(p.cardKey ?? '')}`)
+        );
         const first = rows[0];
         const collected = first
             ? await this.settings.value<boolean>(tx, first.handlingUnitId, CARD_SHOWS_BLOOD_GROUP_SETTING)
@@ -794,6 +806,10 @@ export class LicencesService {
                 restricted:
                     r.status === 'cancelled' || (restriction !== undefined && restrictionHolds(restriction, today)),
                 cardHandedOver: r.cardSerial !== null && handedOver.has(`${r.id}:${r.cardSerial}`),
+                cardAwaitingHandover:
+                    r.cardSerial !== null &&
+                    printed.has(`${r.id}:${r.cardSerial}`) &&
+                    !handedOver.has(`${r.id}:${r.cardSerial}`),
                 version: r.rowVersion
             });
         });

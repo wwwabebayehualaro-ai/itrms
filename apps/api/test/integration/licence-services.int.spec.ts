@@ -1333,9 +1333,21 @@ describe('the temporary driving permit and the card handover (task 1.6d)', () =>
         }>(
             `select d.id, d.number, d.revoked_at is not null as revoked, d.data from documents.issued_documents d
                join documents.document_templates t on t.id = d.template_id
-              where t.key = 'licence-driving-permit' and d.subject_id = $1 order by d.created_at`,
+              where t.key = 'licence-driving-permit' and d.data -> 'licence' ->> 'id' = $1 order by d.created_at`,
             [licenceId]
         );
+
+    /** The card back from the printer: its serial on the licence, and on the batch item the renewal put it on. */
+    const printedAs = async (licenceId: string, serial: string) => {
+        await api.owner.query(
+            `update competency.licence_print_batch_items set card_key = $2, updated_at = now() where licence_id = $1 and card_key is null`,
+            [licenceId, serial]
+        );
+        await api.owner.query(`update competency.driver_licences set card_serial = $2 where id = $1`, [
+            licenceId,
+            serial
+        ]);
+    };
 
     /** A licence renewed through version 2 and accepted nationally: its new card goes to print. */
     async function renewed(): Promise<{ person: string; licence: Licence }> {
@@ -1383,11 +1395,10 @@ describe('the temporary driving permit and the card handover (task 1.6d)', () =>
         const { licence } = await renewed();
         // the card is not back from the printer: nothing to hand over yet
         expect((await handOver(licence, { ...HOLDER, cardSerial: 'PC-77001' })).statusCode).toBe(409);
-        await api.owner.query(`update competency.driver_licences set card_serial = 'PC-77001' where id = $1`, [
-            licence.id
-        ]);
+        await printedAs(licence.id, 'PC-77001');
         const [printed] = await licencesOf(licence.personId);
         if (!printed) throw new Error('no licence');
+        expect(printed).toMatchObject({ cardAwaitingHandover: true, cardHandedOver: false });
 
         // not this card's serial
         const wrong = await handOver(printed, { ...HOLDER, cardSerial: 'PC-77002' });
@@ -1428,7 +1439,74 @@ describe('the temporary driving permit and the card handover (task 1.6d)', () =>
         // once only
         const [after] = await licencesOf(printed.personId);
         if (!after) throw new Error('no licence');
+        expect(after).toMatchObject({ cardHandedOver: true, cardAwaitingHandover: false });
         expect((await handOver(after, { ...HOLDER, cardSerial: 'PC-77001' })).statusCode).toBe(409);
+    }, 300_000);
+
+    it('never closes the permit with a card printed before it: only the new card does', async () => {
+        const { licence } = await renewed();
+        // the card printed before the renewal, on an earlier batch: its serial is still the licence's
+        const unit = as.officer.unit;
+        const batch = await api.owner.query<{ id: string }>(
+            `insert into competency.licence_print_batches (id, region_id, handling_unit_id, status, created_at)
+             values (gen_random_uuid(), $1, $2, 'returned', now() - interval '400 days') returning id`,
+            [unit.regionId, unit.id]
+        );
+        await api.owner.query(
+            `insert into competency.licence_print_batch_items (id, region_id, handling_unit_id, batch_id, licence_id, card_key, created_at, updated_at)
+             values (gen_random_uuid(), $1, $2, $3, $4, 'PC-OLD01', now() - interval '400 days', now() - interval '400 days')`,
+            [unit.regionId, unit.id, batch.rows[0]?.id, licence.id]
+        );
+        await api.owner.query(`update competency.driver_licences set card_serial = 'PC-OLD01' where id = $1`, [
+            licence.id
+        ]);
+        const [old] = await licencesOf(licence.personId);
+        if (!old) throw new Error('no licence');
+        const refused = await handOver(old, { ...HOLDER, cardSerial: 'PC-OLD01' });
+        expect(refused.statusCode, refused.body).toBe(409);
+        expect((await permitsOf(licence.id)).rows.map((p) => p.revoked)).toEqual([false]);
+
+        // the new card closes it
+        await api.owner.query(
+            `update competency.licence_print_batch_items set card_key = 'PC-NEW01', updated_at = now() where licence_id = $1 and card_key is null`,
+            [licence.id]
+        );
+        await api.owner.query(`update competency.driver_licences set card_serial = 'PC-NEW01' where id = $1`, [
+            licence.id
+        ]);
+        const [fresh] = await licencesOf(licence.personId);
+        if (!fresh) throw new Error('no licence');
+        const given = await handOver(fresh, { ...HOLDER, cardSerial: 'PC-NEW01' });
+        expect(given.statusCode, given.body).toBe(201);
+        expect((await permitsOf(licence.id)).rows.map((p) => p.revoked)).toEqual([true]);
+    }, 300_000);
+
+    it('closes with the licence when it is cancelled (DVC-21): nothing of it verifies', async () => {
+        const { licence } = await renewed();
+        const scanId = randomUUID();
+        const unit = as.officer.unit;
+        await api.owner.query(
+            `insert into kernel.files (id, region_id, unit_id, status, filename, content_type, size, sha256, object_key,
+                 confirmed_at, origin, created_by)
+             values ($1, $2, $3, 'stored', 'decision.pdf', 'application/pdf', 10, repeat('a', 64), $4, now(), 'upload', $5)`,
+            [scanId, unit.regionId, unit.id, `files/${unit.regionId}/${scanId}`, await api.userId(SUB.officer)]
+        );
+        const started = await api.call('POST', '/api/v1/service-requests', as.officer, {
+            serviceCode: 'DVC-21',
+            answers: {
+                licence: licence.id,
+                kind: 'cancellation',
+                authority: 'court',
+                authorityReference: `CR/${randomInt(1000, 9999)}/2019`,
+                decidedOn: today(),
+                startsOn: today(),
+                decisionScan: [{ file_id: scanId }]
+            }
+        });
+        expect(started.statusCode, started.body).toBe(201);
+        const record = await moved(started.json<CaseOut>(), as.officer, 'submit');
+        await moved(record, as.lead, 'approve');
+        expect((await permitsOf(licence.id)).rows.map((p) => p.revoked)).toEqual([true]);
     }, 300_000);
 
     it('is handed over by licensing at its office only: the cashier is refused', async () => {
