@@ -2269,10 +2269,21 @@
         {
           "id": "1.6c",
           "title": "Driver licence family, part 4: suspension and cancellation record (DVC-21)",
-          "status": "in progress",
+          "status": "in review",
           "branch": "task/1.6c-licence-suspension-cancellation",
-          "commits": [],
-          "evidence": [],
+          "commits": [
+            "7e9b7b2"
+          ],
+          "evidence": [
+            "PR #98 CI run 44866464958 (https://github.com/wwwabebayehualaro-ai/itrms/actions/runs/44866464958): all 12 jobs green; integration 1131 passed; e2e shards 38 + 5 + 20 passed",
+            "Done when 1 (a suspended licence cannot be renewed): apps/api/test/integration/licence-services.int.spec.ts 'records a suspension only once the lead approves it, never the officer who filed it; while it holds, no renewal' (filer's approve 403; restriction on the register; audit licence_restrictions:insert in the approving request; renewal submit 422 with the suspension's reason); requestRenewal and the nationally accepted renewal re-check it",
+            "Done when 2 (a cancelled card's QR reports revoked): int 'cancels a licence: it ends, its card says revoked, and nothing more is recorded on it' (status cancelled; every licence-card document revoked, which the public verification reads; a new record refused); 'keeps a licence cancelled while its renewal waited on the national platform: no new term, no card' (notice renewalWithheld, no standing card)",
+            "Workflow-run tests: a suspension still to come blocks nothing; a cancellation dated later refused; refusals at filing (endsOn, decidedOn, startsOn, reference); unit modules/competency/test/licence-restriction.spec.ts 3/3",
+            "RLS of the restrictions table: apps/api/test/integration/licence-numbers.int.spec.ts 'the isolation matrix of licence_restrictions' (class R: own, child, parent, sibling, other zone, other region, no context; update and delete permission denied); migration 0099 applied from zero in CI",
+            "Config (national context): competency.reapply_after_cancellation_months (installation or region, sensitive, default 0, Z) tested at 12 and at the default; a suspended licence counts for no grade's prerequisite",
+            "Local: lint + typecheck competency/api/web; api unit 20/20; i18n am+en complete; check:slices 11; boundaries 1581 modules clean; OpenAPI regenerated; menu icons regenerated",
+            "Review: reviewer (Fable 5.2) 1 high fixed (a renewal accepted after a cancellation: renew locks the licence and gives nothing, issueCard and addToPrintBatch refuse a withheld licence), mediums fixed (future cancellation refused, suspended licence no prerequisite), M3 and L1 as follow-ups (print batch, cross-office revocation), L3 fixed (uuid guard), L2 kept so DVC-21 can cancel a suspended licence"
+          ],
           "blockers": [],
           "notes": "Configured where the law is unclear (national context first): competency.reapply_after_cancellation_months (installation or region, sensitive, default 0: docs/ethiopia-context.md gives no waiting period after a cancellation; a decision may set its own, Z). A cancellation takes effect when recorded (no future start); a suspension holds both its days included; a renewal accepted nationally after a cancellation or suspension gives no term and no card."
         },
