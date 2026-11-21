@@ -6,6 +6,7 @@ import { i18nTextSchema } from '@itrms/schemas';
 import { z } from 'zod';
 
 import { BOLO_EVENTS, BOLO_REMINDER_DAYS_SETTING, TEMPORARY_BOLO_DAYS_SETTING } from './bolo';
+import { DRIVING_PERMIT_DAYS_SETTING, drivingPermitDaysSchema } from './driving-permit';
 import { MIGRATION_SAMPLE_SETTING, sampleShareSchema } from './migration-sample';
 import {
     CARD_SHOWS_BLOOD_GROUP_SETTING,
@@ -37,6 +38,7 @@ import { VEHICLE_IMPORT_EVENTS } from './vehicle-import';
 
 export * from './back-capture';
 export * from './bolo';
+export * from './driving-permit';
 export * from './campaign';
 export * from './exchange';
 export * from './licence-capture';
@@ -84,7 +86,8 @@ export const COMPETENCY_SETTINGS = {
     [CARD_SHOWS_BLOOD_GROUP_SETTING]: z.boolean(),
     [LICENCE_CAPTURE_EXPIRED_SETTING]: licenceCaptureExpiredSchema,
     [INTAKE_READS_LICENCES_SETTING]: z.boolean(),
-    [REAPPLY_AFTER_CANCELLATION_SETTING]: reapplyAfterCancellationSchema
+    [REAPPLY_AFTER_CANCELLATION_SETTING]: reapplyAfterCancellationSchema,
+    [DRIVING_PERMIT_DAYS_SETTING]: drivingPermitDaysSchema
 } as const;
 
 /** The document a licence prints as. */
@@ -180,6 +183,8 @@ export const licenceSchema = z.object({
     restriction: licenceRestrictionSchema.nullable(),
     /** whether a restriction holds today: the other licence services refuse it */
     restricted: z.boolean(),
+    /** whether the card printed with its current serial has been handed over (task 1.6d), as its office sees it */
+    cardHandedOver: z.boolean(),
     version: z.number().int()
 });
 export type Licence = z.infer<typeof licenceSchema>;

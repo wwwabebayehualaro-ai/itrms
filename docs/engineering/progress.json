@@ -2291,12 +2291,12 @@
         {
           "id": "1.6d",
           "title": "Driver licence family, part 5: the temporary driving permit",
-          "status": "ready",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/1.6d-temporary-driving-permit",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "National context first, config where unclear: competency.driving_permit_days (90 per ADR-0064 §7, Z; installation, region or unit type, since cards may take longer to reach remote offices). Only renewal v2 names the permit now (ADR: renewal, replacement, upgrade; the new licence does not, as ADR-0064 §7 says). The handover needs the card's printed serial (recordPrinted) and records the recipient's ID encrypted."
         },
         {
           "id": "1.6e",

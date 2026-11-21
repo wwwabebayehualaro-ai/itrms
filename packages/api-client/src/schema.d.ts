@@ -417,6 +417,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/competency/licences/{id}/card-handover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["CompetencyController_handOverCard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/competency/licences/{id}/health": {
         parameters: {
             query?: never;
@@ -3160,6 +3176,15 @@ export interface components {
             /** Format: uuid */
             unitId: string;
         };
+        CardHandoverDto: {
+            cardSerial: string;
+            /** @enum {string} */
+            idKind: "fayda" | "kebele_id" | "passport" | "driver_licence";
+            idNumber: string;
+            /** @enum {string} */
+            recipient: "holder" | "representative";
+            representativeName?: string;
+        };
         CaseAuditOut_Output: {
             items: {
                 /** @enum {string} */
@@ -5141,6 +5166,29 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CompetencyController_handOverCard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardHandoverDto"];
+            };
+        };
+        responses: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

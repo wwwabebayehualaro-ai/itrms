@@ -12,6 +12,9 @@ import type { Tx } from '@itrms/kernel/db';
 
 import {
     COMPETENCY_EFFECTS as E,
+    DRIVING_PERMIT_COUNTER,
+    DRIVING_PERMIT_EFFECTS,
+    DRIVING_PERMIT_PATTERN,
     MAX_MEDICAL_INSTITUTIONS,
     MEDICAL_EFFECTS as M,
     MEDICAL_FACILITY_MAX,
@@ -428,12 +431,31 @@ export const renewalFlowV2 = (examForm: string, referralForm: string, reportForm
                 label: ACTIONS.fail,
                 effects: [`${E.recordExam}:failed`]
             },
-            ...finish([E.requestRenewal], [E.renewLicence, ...CARD_AND_PRINT]),
+            // the temporary driving permit while the region prints (task 1.6d, ADR-0064 §7)
+            ...finish(
+                [E.requestRenewal],
+                [E.renewLicence, ...CARD_AND_PRINT, DRIVING_PERMIT_EFFECTS.issueDrivingPermit]
+            ),
             WITHDRAW,
             REJECT(['review', 'referral', 'medical', 'medical_refused', 'offence_check', 'field_exam', 'approval'])
         ]
     };
 };
+
+/** The temporary driving permits' counter at every office that offers DVC-04 (task 1.6d). Returns how many offices have it. */
+export async function setUpDrivingPermitCounters(
+    tx: Tx,
+    regionId: string,
+    pattern = DRIVING_PERMIT_PATTERN
+): Promise<number> {
+    const offices = await tx.execute<{ id: string }>(sql`
+        select u.id from kernel.org_units u
+          join kernel.unit_type_services s on s.unit_type_id = u.unit_type_id
+         where u.region_id = ${regionId} and u.active and s.service_code = 'DVC-04'`);
+    for (const office of offices.rows)
+        await setUpCounter(tx, { key: DRIVING_PERMIT_COUNTER, unitId: office.id, regionId, pattern });
+    return offices.rows.length;
+}
 
 /** The referral letters' counter at every office that offers DVC-04. Returns how many offices have it. */
 export async function setUpMedicalReferralCounters(

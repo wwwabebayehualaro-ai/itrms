@@ -4,6 +4,8 @@
  * would give an office set up later other numbers than one seeded.
  */
 import {
+    DRIVING_PERMIT_COUNTER,
+    DRIVING_PERMIT_PATTERN,
     LICENCE_COUNTER,
     LICENCE_PATTERN,
     MEDICAL_REFERRAL_COUNTER,
@@ -32,6 +34,7 @@ describe('the counters an office needs', () => {
         expect(Object.fromEntries(declared)).toMatchObject({
             [LICENCE_COUNTER]: LICENCE_PATTERN,
             [MEDICAL_REFERRAL_COUNTER]: MEDICAL_REFERRAL_PATTERN,
+            [DRIVING_PERMIT_COUNTER]: DRIVING_PERMIT_PATTERN,
             [TEMPORARY_BOLO_COUNTER]: TEMPORARY_BOLO_PATTERN,
             [TRANSFER_LETTER_COUNTER]: TRANSFER_LETTER_PATTERN,
             [VEHICLE_TRANSFER_DOCUMENT_COUNTER]: VEHICLE_TRANSFER_DOCUMENT_PATTERN,
@@ -56,8 +59,8 @@ describe('the counters an office needs', () => {
         ]);
         // the transfer of a vehicle out of the region numbers its document (task 1.4c2)
         expect(needs.of(['DVC-14'], []).map((n) => n.key)).toEqual([VEHICLE_TRANSFER_DOCUMENT_COUNTER]);
-        // a renewal's referral letter to a health facility (task 1.6a)
-        expect(needs.of(['DVC-04'], []).map((n) => n.key)).toEqual([MEDICAL_REFERRAL_COUNTER]);
+        // a renewal's referral letter to a health facility (task 1.6a) and its temporary driving permit (task 1.6d)
+        expect(needs.of(['DVC-04'], []).map((n) => n.key)).toEqual([DRIVING_PERMIT_COUNTER, MEDICAL_REFERRAL_COUNTER]);
         expect(needs.of(['RS-01', 'LG-01'], ['prints_documents'])).toEqual([]);
     });
 });

@@ -46,6 +46,7 @@ import en from '../messages/en.json';
 import {
     driverLicences,
     examResults,
+    licenceCardHandovers,
     examSessions,
     licenceGrades,
     licenceGradeTypes,
@@ -716,6 +717,15 @@ export class LicencesService {
         // a suspension or cancellation recorded on it (DVC-21, task 1.6c): the one that holds today, else the next to come
         const today = addisDay();
         const restrictions = await restrictionsShown(tx, ids, today);
+        // the cards handed over (task 1.6d): class T at the licence's office, so another office sees none
+        const handedOver = new Set(
+            (
+                await tx
+                    .select({ licenceId: licenceCardHandovers.licenceId, cardSerial: licenceCardHandovers.cardSerial })
+                    .from(licenceCardHandovers)
+                    .where(inArray(licenceCardHandovers.licenceId, ids))
+            ).map((h) => `${h.licenceId}:${h.cardSerial}`)
+        );
         const first = rows[0];
         const collected = first
             ? await this.settings.value<boolean>(tx, first.handlingUnitId, CARD_SHOWS_BLOOD_GROUP_SETTING)
@@ -783,6 +793,7 @@ export class LicencesService {
                 restriction: restriction ?? null,
                 restricted:
                     r.status === 'cancelled' || (restriction !== undefined && restrictionHolds(restriction, today)),
+                cardHandedOver: r.cardSerial !== null && handedOver.has(`${r.id}:${r.cardSerial}`),
                 version: r.rowVersion
             });
         });

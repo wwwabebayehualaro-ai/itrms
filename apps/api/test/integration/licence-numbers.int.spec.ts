@@ -799,3 +799,60 @@ describe('the isolation matrix of licence_restrictions (class R at the licence o
         expect(seen.rows[0]?.n).toBe('0');
     });
 });
+
+describe('the isolation matrix of licence_card_handovers (class T at the licence office, task 1.6d)', () => {
+    const CASE_UNITS = () => ({
+        own: zone,
+        child: boditi,
+        parent: region,
+        sibling: tzb,
+        otherZone: tzbW1,
+        otherRegion: trx
+    });
+    const rows: Record<string, string> = {};
+
+    beforeAll(async () => {
+        for (const c of ISOLATION_CASES) {
+            const unit = CASE_UNITS()[c];
+            const licence = await pendingAt(unit, unit.regionId === trx.regionId ? trxHolder : holder);
+            const { rows: made } = await api.owner.query<{ id: string }>(
+                `insert into competency.licence_card_handovers
+                   (id, region_id, handling_unit_id, licence_id, card_serial, recipient, id_kind, id_number_ct, handed_over_by,
+                    handed_over_at)
+                 values (gen_random_uuid(), $1, $2, $3, $4, 'holder', 'fayda', $5, gen_random_uuid(), now()) returning id`,
+                [unit.regionId, unit.id, licence, `HO-${ISOLATION_CASES.indexOf(c)}`, randomBytes(48)]
+            );
+            rows[made[0]?.id ?? ''] = c;
+        }
+    }, 120_000);
+
+    it('shows the acting unit exactly the rows its class allows: the offices above read their offices’ handovers', async () => {
+        const seen = await asUnit(app, zone, async (tx) =>
+            (await tx.execute<{ id: string }>(sql`select id from competency.licence_card_handovers`)).rows
+                .map((r) => rows[r.id])
+                .filter((c): c is string => c !== undefined)
+        );
+        expect([...new Set(seen)].sort()).toEqual([...VISIBLE.transaction].sort());
+    });
+
+    it('lets the API neither change nor delete a handover', async () => {
+        const id = Object.keys(rows).find((k) => rows[k] === 'own') ?? '';
+        for (const statement of [
+            sql`update competency.licence_card_handovers set card_serial = 'X' where id = ${id}`,
+            sql`delete from competency.licence_card_handovers where id = ${id}`
+        ]) {
+            const refused = await asUnit(app, zone, (tx) => tx.execute(statement)).then(
+                () => 'changed',
+                (error: { cause?: { message?: string }; message: string }) => error.cause?.message ?? error.message
+            );
+            expect(refused).toMatch(/permission denied/);
+        }
+    });
+
+    it('shows nothing without a context', async () => {
+        const seen = await app.scoped({}, (tx) =>
+            tx.execute<{ n: string }>(sql`select count(*) as n from competency.licence_card_handovers`)
+        );
+        expect(seen.rows[0]?.n).toBe('0');
+    });
+});

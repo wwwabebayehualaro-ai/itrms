@@ -145,6 +145,18 @@ const SAMPLES: Record<DocumentDataSchema, Record<string, unknown>> = {
             grades: [{ name: { am: 'አውቶሞቢል', en: 'Automobile' } }]
         }
     },
+    'licence-driving-permit.v1': {
+        number: 'WOL-BODITI/TP/00007/2019',
+        issuedOn: '2026-11-04',
+        validUntil: '2027-02-01',
+        caseNumber: 52,
+        holderName: 'ሰላም ታደሰ',
+        licence: {
+            number: '06-00012',
+            validUntil: '2030-11-03',
+            grades: [{ grade: 'automobile', name: { am: 'አውቶሞቢል', en: 'Automobile' } }]
+        }
+    },
     'vehicle-libre.v1': {
         number: 'WOL-BODITI/LB/000012',
         issuedOn: '2026-11-04',
@@ -299,6 +311,7 @@ const SCHEMA_OF: Record<string, DocumentDataSchema> = {
     'application-copy': 'application-copy.v1',
     'licence-card': 'licence-card.v1',
     'licence-medical-referral': 'licence-medical-referral.v1',
+    'licence-driving-permit': 'licence-driving-permit.v1',
     'vehicle-registration-certificate': 'vehicle-registration-certificate.v1',
     'vehicle-bolo': 'vehicle-bolo.v1',
     'vehicle-temporary-bolo': 'vehicle-bolo.v1',
@@ -541,6 +554,23 @@ describe.skipIf(!chrome)('a PDF from Chrome', () => {
         expect(en.text.replace(/\s+/g, ' ')).toContain('Referral: 2 of 3');
         expect(en.text).not.toMatch(/refus|did not recommend/i);
         expect(en.text).toContain('Automobile');
+    }, 180_000);
+
+    it('temporary driving permit: the holder, the licence, its grades and its last day, in either language', async () => {
+        const data = SAMPLES['licence-driving-permit.v1'];
+        const am = await pdfOf('licence-driving-permit', data);
+        expect(am.pages).toBe(1);
+        expect(am.text).toContain('ጊዜያዊ የማሽከርከሪያ ፈቃድ');
+        expect(am.text.replace(/\s/g, '')).toContain('WOL-BODITI/TP/00007/2019');
+        expect(am.text).toContain('ሰላም ታደሰ');
+        expect(am.text.replace(/\s/g, '')).toContain('06-00012');
+        // 1 February 2027 is Tir 24, 2019 E.C.: its last day is printed in the Ethiopian calendar
+        expect(am.text).toContain('ጥር');
+        const en = await pdfOf('licence-driving-permit', data, 'en');
+        expect(en.pages).toBe(1);
+        expect(en.text).toContain('Temporary driving permit');
+        expect(en.text).toContain('Automobile');
+        expect(en.text.replace(/\s+/g, ' ')).toContain('It is cancelled when the card is handed over');
     }, 180_000);
 
     it('registration certificate: the temporary libre until the booklet, then the booklet\x27s serial', async () => {

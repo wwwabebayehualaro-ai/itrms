@@ -21,6 +21,7 @@ import {
     newLicenceFlow,
     renewalFlowV2,
     RENEWAL_FORM_V2,
+    setUpDrivingPermitCounters,
     setUpLicenceCounters,
     setUpMedicalReferralCounters
 } from '@itrms/competency/seed';
@@ -332,6 +333,8 @@ beforeAll(async () => {
         expect(await setUpMedicalReferralCounters(tx, root.regionId)).toBeGreaterThan(0);
         // the suspension and cancellation record (task 1.6c)
         expect(await importLicenceRestrictionService(tx, root)).toBe(1);
+        // the temporary driving permit's counter (task 1.6d)
+        expect(await setUpDrivingPermitCounters(tx, root.regionId)).toBeGreaterThan(0);
     });
     deps = {
         platform: new FakeNationalDriverPlatform(),
@@ -1313,4 +1316,123 @@ describe('the suspension and cancellation record (DVC-21, task 1.6c)', () => {
             expect(res.json<{ errors?: { path: string }[] }>().errors?.map((e) => e.path)).toContain(path);
         }
     }, 240_000);
+});
+
+describe('the temporary driving permit and the card handover (task 1.6d)', () => {
+    const daysOn = (days: number) => {
+        const d = new Date(`${today()}T00:00:00Z`);
+        d.setUTCDate(d.getUTCDate() + days);
+        return d.toISOString().slice(0, 10);
+    };
+    const permitsOf = (licenceId: string) =>
+        api.owner.query<{
+            id: string;
+            number: string;
+            revoked: boolean;
+            data: { validUntil: string; issuedOn: string };
+        }>(
+            `select d.id, d.number, d.revoked_at is not null as revoked, d.data from documents.issued_documents d
+               join documents.document_templates t on t.id = d.template_id
+              where t.key = 'licence-driving-permit' and d.subject_id = $1 order by d.created_at`,
+            [licenceId]
+        );
+
+    /** A licence renewed through version 2 and accepted nationally: its new card goes to print. */
+    async function renewed(): Promise<{ person: string; licence: Licence }> {
+        const { person, licence } = await licensed(yearsAgo(30));
+        const expiry = yearsAgo(0);
+        await expire(licence.id, expiry, 'permanent');
+        let c = await cleared(await filed(RENEW, renewalOf(licence, expiry)));
+        await paid(c);
+        c = await moved(await caseOf(c.id), as.lead, 'approve');
+        expect(await askNationalPlatform(system, deps, { caseId: c.id, licenceId: licence.id, kind: 'renewal' })).toBe(
+            'accepted'
+        );
+        const [now] = await licencesOf(person);
+        if (!now) throw new Error('no licence');
+        return { person, licence: now };
+    }
+
+    const handOver = (licence: Licence, body: Record<string, unknown>, who: As = as.officer) =>
+        api.call('POST', `/api/v1/competency/licences/${licence.id}/card-handover`, who, body, {
+            ...ifMatch(licence.version),
+            'idempotency-key': randomUUID()
+        });
+    const HOLDER = { recipient: 'holder', idKind: 'fayda', idNumber: '1234-5678-9012' };
+
+    it('is given with the renewal while the region prints: numbered, standing its days', async () => {
+        const { licence } = await renewed();
+        const [permit, ...more] = (await permitsOf(licence.id)).rows;
+        expect(more).toEqual([]);
+        expect(permit?.number).toMatch(/^WOL-BODITI\/TP\/\d{5}\/\d{4}$/);
+        expect(permit).toMatchObject({ revoked: false, data: { issuedOn: today(), validUntil: daysOn(89) } });
+    }, 300_000);
+
+    it('stands the region’s days, as set', async () => {
+        const root = { id: as.bureau.unit.id, regionId: as.bureau.unit.regionId };
+        await setRegionSetting(api, root, 'competency.driving_permit_days', 30);
+        try {
+            const { licence } = await renewed();
+            expect((await permitsOf(licence.id)).rows[0]?.data.validUntil).toBe(daysOn(29));
+        } finally {
+            await api.owner.query(`delete from kernel.settings_values where key = 'competency.driving_permit_days'`);
+        }
+    }, 300_000);
+
+    it('closes when the printed card is handed over: the permit is revoked, the ID kept encrypted', async () => {
+        const { licence } = await renewed();
+        // the card is not back from the printer: nothing to hand over yet
+        expect((await handOver(licence, { ...HOLDER, cardSerial: 'PC-77001' })).statusCode).toBe(409);
+        await api.owner.query(`update competency.driver_licences set card_serial = 'PC-77001' where id = $1`, [
+            licence.id
+        ]);
+        const [printed] = await licencesOf(licence.personId);
+        if (!printed) throw new Error('no licence');
+
+        // not this card's serial
+        const wrong = await handOver(printed, { ...HOLDER, cardSerial: 'PC-77002' });
+        expect(wrong.statusCode, wrong.body).toBe(422);
+        // a representative is named, the holder is not
+        expect(
+            (await handOver(printed, { ...HOLDER, recipient: 'representative', cardSerial: 'PC-77001' })).statusCode
+        ).toBe(422);
+
+        const given = await handOver(printed, { ...HOLDER, cardSerial: 'pc-77001' });
+        expect(given.statusCode, given.body).toBe(201);
+        expect(given.json()).toMatchObject({
+            cardSerial: 'PC-77001',
+            recipient: 'holder',
+            idKind: 'fayda',
+            permitsClosed: 1
+        });
+        expect((await permitsOf(licence.id)).rows.every((p) => p.revoked)).toBe(true);
+
+        // on record in the same transaction, with no ID number in the audit log or in clear in the table
+        const audited = await api.owner.query<{ line: string; diff: unknown }>(
+            `select table_name || ':' || action as line, diff from kernel.audit_log
+              where request_id = $1 and table_name in ('competency.licence_card_handovers', 'documents.issued_documents')
+              order by 1`,
+            [given.headers['x-request-id']]
+        );
+        expect(audited.rows.map((r) => r.line)).toEqual([
+            'competency.licence_card_handovers:insert',
+            'documents.issued_documents:update'
+        ]);
+        expect(JSON.stringify(audited.rows)).not.toContain('1234-5678-9012');
+        const stored = await api.owner.query<{ ct: Buffer }>(
+            `select id_number_ct as ct from competency.licence_card_handovers where licence_id = $1`,
+            [licence.id]
+        );
+        expect(stored.rows[0]?.ct.toString('utf8')).not.toContain('1234-5678-9012');
+
+        // once only
+        const [after] = await licencesOf(printed.personId);
+        if (!after) throw new Error('no licence');
+        expect((await handOver(after, { ...HOLDER, cardSerial: 'PC-77001' })).statusCode).toBe(409);
+    }, 300_000);
+
+    it('is handed over by licensing at its office only: the cashier is refused', async () => {
+        const { licence } = await renewed();
+        expect((await handOver(licence, { ...HOLDER, cardSerial: 'PC-1' }, as.cashier)).statusCode).toBe(403);
+    }, 300_000);
 });

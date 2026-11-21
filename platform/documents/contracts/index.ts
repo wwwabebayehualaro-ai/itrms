@@ -149,6 +149,22 @@ export const DOCUMENT_DATA_SCHEMAS = {
             grades: z.array(z.object({ name: i18nTextSchema })).min(1)
         })
     }),
+    /**
+     * The temporary driving permit (task 1.6d, ADR-0064 §7): while the region prints the card, the holder drives on this letter until
+     * its last day; the card's handover revokes it, and its QR reports so.
+     */
+    'licence-driving-permit.v1': z.object({
+        number: z.string().min(1),
+        issuedOn: dayText,
+        validUntil: dayText,
+        caseNumber: z.number().int(),
+        holderName: z.string().min(1),
+        licence: z.object({
+            number: z.string().min(1),
+            validUntil: dayText.nullable(),
+            grades: z.array(z.object({ grade: z.string().min(1), name: i18nTextSchema })).min(1)
+        })
+    }),
     /** The libre as ITRMS issued it under ADR-0049 (superseded by ADR-0050): kept so the documents issued then still verify. */
     'vehicle-libre.v1': z.object({
         number: z.string().min(1),

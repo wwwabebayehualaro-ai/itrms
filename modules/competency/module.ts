@@ -156,6 +156,13 @@ export default defineModule({
             default: 0,
             overridableAt: ['installation', 'region'],
             sensitive: true
+        },
+        // the days a temporary driving permit stands while the region prints (task 1.6d, ADR-0064 §7: 90, a placeholder, Z); a
+        // unit type may need longer where cards take longer to come
+        {
+            key: 'competency.driving_permit_days',
+            default: 90,
+            overridableAt: ['installation', 'region', 'unitType']
         }
     ],
     // the intake desk reads the licence register where the setting above is on (ADR-0065)
@@ -182,6 +189,7 @@ export default defineModule({
         'competency.flagLicenceNumber',
         'competency.checkLicenceRestriction',
         'competency.recordLicenceRestriction',
+        'competency.issueDrivingPermit',
         'competency.checkVehicleRegistration',
         'competency.reserveRegistrationPlate',
         'competency.recordFederalVehicleId',
@@ -228,7 +236,8 @@ export default defineModule({
     workProcess: 1,
     entitlement: 'itrms.licensing',
     permissions: {
-        licence: ['read', 'issue', 'print'],
+        // hand-over: the card given to its holder at the desk, which closes the temporary permit (task 1.6d)
+        licence: ['read', 'issue', 'print', 'hand-over'],
         // a licence's health facts (task 1.6, ADR-0052): the blood group recorded, and read in clear only through the audited reveal
         'licence-health': ['record', 'reveal'],
         exam: ['read', 'record'],
@@ -245,6 +254,7 @@ export default defineModule({
     roles: {
         'competency.officer': [
             'licence:read',
+            'licence:hand-over',
             'licence-health:record',
             'exam:read',
             'training:read',
@@ -278,6 +288,7 @@ export default defineModule({
             'licence:read',
             'licence:issue',
             'licence:print',
+            'licence:hand-over',
             // the lead alone reads a blood group in clear, for licences its subtree handles (ADR-0064 §4)
             'licence-health:record',
             'licence-health:reveal',
@@ -319,6 +330,8 @@ export default defineModule({
         { key: 'transfer-letter', pattern: '{unit}/OT/{seq:05}/{efy}' },
         // a renewal's referral letter to a health facility (task 1.6a)
         { key: 'medical-referral', pattern: '{unit}/MR/{seq:05}/{efy}' },
+        // the temporary driving permit a renewal gives while the region prints (task 1.6d)
+        { key: 'driving-permit', pattern: '{unit}/TP/{seq:05}/{efy}' },
         // the vehicle data transfer document of a vehicle leaving the region, and its covering letter (task 1.4c2)
         { key: 'transfer-document', pattern: '{unit}/VT/{seq:05}/{efy}' }
     ],
@@ -326,7 +339,7 @@ export default defineModule({
         'DVC-01': ['vehicles.registration-certificate'],
         'DVC-02': ['competency.temporary-bolo'],
         'DVC-03': ['competency.licence'],
-        'DVC-04': ['competency.medical-referral'],
+        'DVC-04': ['competency.medical-referral', 'competency.driving-permit'],
         // the new libre's registration certificate (task 1.5)
         'DVC-06': ['vehicles.registration-certificate'],
         'DVC-13': ['vehicles.registration-certificate', 'competency.transfer-letter'],

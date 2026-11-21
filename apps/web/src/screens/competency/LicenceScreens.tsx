@@ -60,6 +60,7 @@ import { usePreferences, useText } from '@/lib/preferences';
 import { useServices } from '@/lib/services';
 import { Requests } from '@/screens/workflow/Requests';
 
+import { LicenceCardCell } from './LicenceCardHandover';
 import { LicenceHealthCell } from './LicenceHealth';
 
 const nameOf = (name: { given: string; father: string; grandfather: string | null } | null | undefined): string =>
@@ -262,7 +263,13 @@ function LicenceRow({ licence }: { licence: Licence }) {
             <TableCell className="font-medium" data-licence-number>
                 {licence.number ?? '—'}
             </TableCell>
-            <TableCell data-card-serial>{licence.cardSerial ?? '—'}</TableCell>
+            <TableCell>
+                <div className="flex flex-wrap items-center gap-2">
+                    <span data-card-serial>{licence.cardSerial ?? '—'}</span>
+                    {/* the printed card handed over at the desk closes the temporary permit (task 1.6d) */}
+                    <LicenceCardCell licence={licence} />
+                </div>
+            </TableCell>
             <TableCell>
                 <Link className="underline" href={`/registry/persons/${licence.personId}`}>
                     {nameOf(holder)}

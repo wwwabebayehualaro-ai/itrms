@@ -6,6 +6,7 @@
  *   licence_grades         the grades a licence carries, class R, with the licence's handling unit.
  *   licence_health         a licence's blood group (task 1.6, ADR-0052), class R, field-encrypted; read only through reveal.
  *   licence_restrictions   a suspension or cancellation recorded from the deciding authority (DVC-21, task 1.6c), class R.
+ *   licence_card_handovers a licence's card handed over (task 1.6d): its serial, the recipient and their ID (encrypted), class T.
  *   medical_certificates   the medical examination a case relied on, class T; a renewal's reports (task 1.6a) with their
  *                          recommendation and the conditions, field-encrypted.
  *   licence_number_flags   a printed number a paper licence's capture could not keep (task 1.6b), class T, for the bureau.
@@ -58,6 +59,7 @@ import {
     CAMPAIGN_KINDS,
     ENROLMENT_STATUSES,
     GRADE_FAMILIES,
+    HANDOVER_RECIPIENTS,
     IMPORT_FAILURES,
     IMPORT_FORMATS,
     IMPORT_ROW_STATES,
@@ -65,6 +67,7 @@ import {
     LICENCE_KINDS,
     LICENCE_STATUSES,
     PAPER_PLATE_CODES,
+    RECIPIENT_ID_KINDS,
     REPLACEMENT_ITEMS,
     REPLACEMENT_REASONS,
     RESTRICTION_AUTHORITIES,
@@ -270,6 +273,48 @@ export const licenceRestrictions = withRls(
         )
     ),
     'registry'
+);
+
+/**
+ * A licence's card handed over (task 1.6d, ADR-0064 §7), class T at the licence's office: the serial printed on it, who took it and
+ * the ID they showed. The ID number and a representative's name are personal data, encrypted with the region's data key and bound to
+ * their row; the audit log never holds them. Inserted once per card; never changed or deleted by the API.
+ */
+export const licenceCardHandovers = withRls(
+    audited(
+        competencySchema.table(
+            'licence_card_handovers',
+            {
+                ...baseColumns(),
+                ...handled(),
+                licenceId: uuid('licence_id')
+                    .notNull()
+                    .references(() => driverLicences.id),
+                cardSerial: text('card_serial').notNull(),
+                recipient: text('recipient', { enum: HANDOVER_RECIPIENTS }).notNull(),
+                idKind: text('id_kind', { enum: RECIPIENT_ID_KINDS }).notNull(),
+                idNumberCt: bytea('id_number_ct').notNull(),
+                representativeNameCt: bytea('representative_name_ct'),
+                handedOverBy: uuid('handed_over_by').notNull(),
+                handedOverAt: timestamp('handed_over_at', { withTimezone: true }).notNull()
+            },
+            (t) => [
+                uniqueIndex('licence_card_handovers_card_uq').on(t.licenceId, t.cardSerial),
+                index('licence_card_handovers_org_path_gist').using('gist', t.orgPath),
+                check('licence_card_handovers_recipient_check', sql`recipient in ('holder', 'representative')`),
+                check(
+                    'licence_card_handovers_id_kind_check',
+                    sql`id_kind in ('fayda', 'kebele_id', 'passport', 'driver_licence')`
+                ),
+                check(
+                    'licence_card_handovers_representative_check',
+                    sql`(recipient = 'representative') = (representative_name_ct IS NOT NULL)`
+                )
+            ]
+        ),
+        { omit: ['idNumberCt', 'representativeNameCt'] }
+    ),
+    'transaction'
 );
 
 export const licenceGrades = withRls(
