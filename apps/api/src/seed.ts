@@ -30,6 +30,7 @@ import {
     importBackCaptureService,
     importLicenceCaptureService,
     importLicenceRestrictionService,
+    importLicenceReplacementService,
     importBoloService,
     importPlateExchangeService,
     importReplacementService,
@@ -218,6 +219,8 @@ async function seedOne(db: Database, config: Started['config'], logger: Started[
                 licenceCapture: await importLicenceCaptureService(tx, where),
                 // the suspension and cancellation record of a licence (task 1.6c)
                 licenceRestriction: await importLicenceRestrictionService(tx, where),
+                // the replacement of a licence's card (task 1.6e), after the fee rules
+                licenceReplacement: await importLicenceReplacementService(tx, where),
                 // the plate exchange (task 1.2c), after the fee rules
                 plateExchange: await importPlateExchangeService(tx, where),
                 // the replacement of a lost, stolen or damaged libre (task 1.5), after the fee rules

@@ -18,9 +18,9 @@ const catalogue = parseCatalogue(readFileSync(join(ROOT, 'platform', 'services',
 const codes = new Set(catalogue.map((s) => s.code));
 
 describe('the service catalogue', () => {
-    it('has the 54 services of the reference design, the plate exchange, the ownership transfer, the transfer out and in, the cancellation of a release, the back-captures and the licence suspension record, each code once, in Amharic and English', () => {
-        expect(catalogue).toHaveLength(63);
-        expect(codes.size).toBe(63);
+    it('has the 54 services of the reference design, the plate exchange, the ownership transfer, the transfer out and in, the cancellation of a release, the back-captures, the licence replacement and the licence suspension record, each code once, in Amharic and English', () => {
+        expect(catalogue).toHaveLength(64);
+        expect(codes.size).toBe(64);
         // the migration's own: paper vehicle files (task 1.13) and paper driver licences (task 1.6b)
         expect(catalogue.filter((s) => s.code.startsWith('MIG-')).map((s) => s.code)).toEqual(['MIG-01', 'MIG-02']);
         for (const s of catalogue) expect(s.name.am && s.name.en).toBeTruthy();

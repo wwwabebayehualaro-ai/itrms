@@ -44,6 +44,7 @@ export * from './exchange';
 export * from './licence-capture';
 export * from './licence-family';
 export * from './licence-medical';
+export * from './licence-replacement';
 export * from './licence-restriction';
 export * from './migration-report';
 export * from './migration-sample';

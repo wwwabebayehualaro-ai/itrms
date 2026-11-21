@@ -89,6 +89,14 @@ certificate). A vehicle on an old regional plate is given a national plate from 
 register knows is refused, except the vehicle of this region that left (its release outside lapsed): it comes back on its own record, to the office the
 request is filed at, with the owners, plate and libre changed only where the document differs (task 1.4c3b). Offered wherever DVC-01 is; not counted in the totals.
 
+**Not in the source list as a code: DVC-19, the replacement of a driver licence's card** (የመንጃ ፈቃድ ምትክ; Proclamation
+1074/2018 Art. 18, ADR-0064 §5, task 1.6e; the zone lists "replacement of a lost licence" with a police letter, the licence number,
+Fayda ID, photo and fee). Lost, stolen, damaged or outdated: a lost or stolen card needs the police letter, a damaged or outdated one
+is handed in. Review (officer), payment, approval (team leader); then the card is issued again with the licence's number and term
+kept: the old card document is superseded (its QR says so), the new card goes to print and a temporary permit stands meanwhile (task
+1.6d). An expired licence is renewed instead. The fee (`dvc-19-licence-replacement`, by reason plus the new card) is a placeholder
+until the regional schedule (R2). Offered wherever licences are issued; not counted in the totals.
+
 **Not in the source: DVC-21, the suspension and cancellation record of a driver licence** (የመንጃ ፈቃድ እገዳና ስረዛ መዝገብ; ADR-0064 §6,
 task 1.6c). ITRMS never decides one: an officer at the licence's office (or one above it) files the deciding authority's decision (a
 court, the traffic police, the penalty system or a licensing body) by its reference, with its scan; the team leader, never the filer,

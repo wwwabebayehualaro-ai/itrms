@@ -2312,12 +2312,12 @@
         {
           "id": "1.6e",
           "title": "Driver licence family, part 6: licence replacement (DVC-19)",
-          "status": "ready",
-          "branch": null,
+          "status": "in progress",
+          "branch": "task/1.6e-licence-replacement",
           "commits": [],
           "evidence": [],
           "blockers": [],
-          "notes": ""
+          "notes": "National context, config where unclear: Art. 18 (replacement on the fee; a found old licence returned) gives the reasons and the old card handed in for damaged or outdated; the zone's list gives the police letter for lost ones (written answers p. A–E). The fee has no figure anywhere (R2): dvc-19-licence-replacement by reason plus the card, placeholders a bureau changes in its fee rule, not code. An expired licence is refused (the renewal gives the card), a suspended one too (1.6c). No national platform call (ADR-0064 §6)."
         },
         {
           "id": "1.6f",

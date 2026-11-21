@@ -10,7 +10,7 @@ import { insertAudited, updateAudited, type DbContext, type Tx } from '@itrms/ke
 import { ConflictError, NotFoundError, ValidationError } from '@itrms/kernel/errors';
 import { emit } from '@itrms/kernel/outbox';
 import { orgUnits } from '@itrms/kernel/tables';
-import { DocumentsService } from '@itrms/documents/api';
+import { DocumentsService, documentTemplates, issuedDocuments } from '@itrms/documents/api';
 import { organisations, persons, PersonsService } from '@itrms/parties/api';
 import { SettingsService } from '@itrms/kernel/settings';
 import { cases } from '@itrms/workflow/api';
@@ -608,7 +608,13 @@ export class LicencesService {
     // ---- the card and the printer ----
 
     /** The licence's card, signed like any document. A renewal's replaces the last one: its QR says superseded. */
-    async issueCard(tx: Tx, place: CasePlace, facts: Readonly<Record<string, unknown>>) {
+    async issueCard(
+        tx: Tx,
+        place: CasePlace,
+        facts: Readonly<Record<string, unknown>>,
+        /** a replacement (DVC-19, task 1.6e): a new card even when it says what the old one said; the old one's QR says superseded */
+        options: { replace?: boolean } = {}
+    ) {
         const licence = await this.row(tx, this.licenceIdOf(facts, 'licence'));
         // never a card that verifies for a cancelled or suspended licence (task 1.6c)
         if (await this.withheld(tx, licence)) return { documents: (facts.documents ?? {}) as Record<string, string> };
@@ -622,27 +628,58 @@ export class LicencesService {
             .from(licenceGrades)
             .innerJoin(licenceGradeTypes, eq(licenceGradeTypes.id, licenceGrades.gradeTypeId))
             .where(eq(licenceGrades.licenceId, licence.id));
-        const issued = await this.documents.reissue(tx, {
-            regionId: place.regionId,
-            handlingUnitId: place.handlingUnitId,
-            templateKey: LICENCE_CARD_TEMPLATE,
-            language,
+        const data = {
             number: licence.number,
-            caseId: place.caseId,
-            subject: { table: 'competency.driver_licences', id: licence.id },
-            data: {
-                number: licence.number,
-                holderName: fullName(holder.givenNameAm, holder.fatherNameAm, holder.grandfatherNameAm),
-                // not printed yet: what a document says is stored in clear, and a birth date is kept encrypted (ADR-0047)
-                birthDate: null,
-                grades: grades.map((g) => ({ grade: g.key, name: g.name })),
-                issuedOn: licence.issuedOn,
-                validUntil: licence.validUntil,
-                photo: null
-            }
-        });
+            holderName: fullName(holder.givenNameAm, holder.fatherNameAm, holder.grandfatherNameAm),
+            // not printed yet: what a document says is stored in clear, and a birth date is kept encrypted (ADR-0047)
+            birthDate: null,
+            grades: grades.map((g) => ({ grade: g.key, name: g.name })),
+            issuedOn: licence.issuedOn,
+            validUntil: licence.validUntil,
+            photo: null
+        };
+        const subject = { table: 'competency.driver_licences', id: licence.id };
         const known = (facts.documents ?? {}) as Record<string, string>;
+        // the same step taken again keeps the card it gave (a replacement's case has made one already)
+        const mine = known[LICENCE_CARD_TEMPLATE];
+        if (options.replace && mine) return { documents: known };
+        const standing = options.replace ? await this.standingCard(tx, licence.id) : undefined;
+        const issued = standing
+            ? await this.documents.supersede(tx, standing.id, {
+                  data,
+                  language,
+                  number: licence.number,
+                  caseId: place.caseId,
+                  subject
+              })
+            : await this.documents.reissue(tx, {
+                  regionId: place.regionId,
+                  handlingUnitId: place.handlingUnitId,
+                  templateKey: LICENCE_CARD_TEMPLATE,
+                  language,
+                  number: licence.number,
+                  caseId: place.caseId,
+                  subject,
+                  data
+              });
         return { documents: { ...known, [LICENCE_CARD_TEMPLATE]: issued.id } };
+    }
+
+    /** The licence's card document that stands (not superseded, not revoked), if any. */
+    private async standingCard(tx: Tx, licenceId: string) {
+        const [row] = await tx
+            .select({ id: issuedDocuments.id })
+            .from(issuedDocuments)
+            .innerJoin(documentTemplates, eq(documentTemplates.id, issuedDocuments.templateId))
+            .where(
+                and(
+                    eq(documentTemplates.key, LICENCE_CARD_TEMPLATE),
+                    eq(issuedDocuments.subjectId, licenceId),
+                    isNull(issuedDocuments.supersededBy),
+                    isNull(issuedDocuments.revokedAt)
+                )
+            );
+        return row;
     }
 
     /** On the office's open batch: the region prints in batches. */

@@ -706,5 +706,15 @@
   "competency.handover.done": "ካርዱ ተሰጥቷል",
   "competency.errors.card_before_permit": "ይህ ካርድ ከጊዜያዊ ፈቃዱ በፊት የታተመ ነው፤ የሚሰጠው ከፈቃዱ በኋላ የታተመው አዲሱ ካርድ ነው።",
   "competency.drivingPermit.noCounter": "የዚህ ቢሮ የጊዜያዊ ፈቃድ ቁጥር መስጫ አልተዘጋጀም፤ እድሳቱ ያለ ጊዜያዊ ፈቃድ ተጠናቋል።",
+  "competency.nav.licenceReplacements": "የመንጃ ፈቃድ ምትክ",
+  "competency.action.newLicenceReplacement": "የፈቃድ ምትክ ጠይቅ",
+  "competency.licenceReplacements.title": "የመንጃ ፈቃድ ምትክ",
+  "competency.licenceReplacements.intro": "የጠፋ፣ የተሰረቀ፣ የተበላሸ ወይም ጊዜ ያለፈበት ካርድ ይተካል፤ ፈቃዱ ቁጥሩን ይይዛል። የጠፋ ወይም የተሰረቀ ካርድ የፖሊስ ደብዳቤ ያስፈልገዋል፤ የተበላሸው ይመለሳል (አዋጅ 1074/2018 አንቀጽ 18)።",
+  "competency.licenceReplacements.fileNew": "የፈቃድ ምትክ ጠይቅ",
+  "competency.rule.notReplaceable": "ካርዱ የሚተካው በሥራ ላይ ላለ ፈቃድ ብቻ ነው።",
+  "competency.rule.replaceExpired": "የዚህ ፈቃድ ጊዜ አልፏል፤ በምትክ ፋንታ ያሳድሱት፤ እድሳቱ አዲስ ካርድ ይሰጣል።",
+  "competency.rule.replacementReason": "የምትኩን ምክንያት ይምረጡ።",
+  "competency.rule.policeLetter": "የጠፋ ወይም የተሰረቀ ካርድ የፖሊስ ደብዳቤ ያስፈልገዋል።",
+  "competency.rule.oldCardHandedIn": "የተበላሸው ወይም ጊዜ ያለፈበት ካርድ መመለስ አለበት (አንቀጽ 18)።",
   "competency.licence.backCapture": "የወረቀት ፈቃድ መዝግብ"
 }

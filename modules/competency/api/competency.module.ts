@@ -20,6 +20,8 @@ import { LICENCE_EFFECTS } from './licence.effects';
 import { LicenceHealthService } from './licence-health.service';
 import { LICENCE_CAPTURE_EFFECTS_LIST } from './licence-capture.effects';
 import { LicenceCaptureService } from './licence-capture.service';
+import { LICENCE_REPLACEMENT_EFFECTS_LIST } from './licence-replacement.effects';
+import { LicenceReplacementService } from './licence-replacement.service';
 import { LICENCE_RESTRICTION_EFFECTS_LIST } from './licence-restriction.effects';
 import { LicenceRestrictionService } from './licence-restriction.service';
 import { MEDICAL_EFFECTS_LIST } from './medical.effects';
@@ -64,6 +66,7 @@ import { VehicleTransferService } from './vehicle-transfer.service';
         LicenceCaptureService,
         LicenceRestrictionService,
         DrivingPermitService,
+        LicenceReplacementService,
         RegisterService,
         VehicleRegistrationService,
         BackCaptureService,
@@ -87,6 +90,7 @@ import { VehicleTransferService } from './vehicle-transfer.service';
         ...LICENCE_CAPTURE_EFFECTS_LIST,
         ...LICENCE_RESTRICTION_EFFECTS_LIST,
         ...DRIVING_PERMIT_EFFECTS_LIST,
+        ...LICENCE_REPLACEMENT_EFFECTS_LIST,
         ...REGISTRATION_EFFECTS,
         ...BACK_CAPTURE_EFFECTS,
         ...EXCHANGE_EFFECTS,
