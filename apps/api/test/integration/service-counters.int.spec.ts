@@ -100,7 +100,8 @@ describe('an office created with a type', () => {
             { key: 'vehicles.registration-certificate', pattern: '{unit}/RC/{seq:06}', last_value: '0', period: '' }
         ]);
         const events = await setUpEvents(id);
-        expect(events).toHaveLength(8);
+        // one set-up event per counter: the temporary driving permit's is the ninth (task 1.6d)
+        expect(events).toHaveLength(9);
         for (const e of events) {
             expect(e.because).toBe('unit_created');
             expect(e.actor_id).not.toBeNull();
